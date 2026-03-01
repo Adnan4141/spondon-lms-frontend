@@ -17,6 +17,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   X,
+  HelpCircle,
 } from 'lucide-react';
 
 const menuItems = [
@@ -34,6 +35,11 @@ const menuItems = [
     title: 'Programs',
     href: '/admin/programs',
     icon: GraduationCap,
+  },
+  {
+    title: 'Questions',
+    href: '/admin/questions',
+    icon: HelpCircle,
   },
   {
     title: 'Students',
