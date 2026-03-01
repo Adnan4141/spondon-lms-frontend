@@ -4,6 +4,11 @@ import { useEffect, useState } from 'react';
 import { getPrograms } from '@/lib/api/programs';
 import { getCourseById, getCourses, updateCourse, createCourse } from '@/lib/api/courses';
 import {
+  getCourseContents,
+  createCourseContent,
+  deleteCourseContent,
+} from '@/lib/api/course-contents';
+import {
   AdmissionStatus,
   BillingType,
   Course,
@@ -15,6 +20,12 @@ import {
   Program,
   UpdateCourseDto,
 } from '@/types/course';
+import {
+  CourseContent,
+  ContentType,
+  CreateCourseContentDto,
+  CourseOutline,
+} from '@/types/course-content';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -41,7 +52,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { BookOpenCheck, CalendarClock, Plus, RefreshCw, Search, Sparkles, Users } from 'lucide-react';
+import {
+  BookOpenCheck,
+  CalendarClock,
+  FileText,
+  FileVideo,
+  Plus,
+  RefreshCw,
+  Search,
+  Sparkles,
+  Trash2,
+  Users,
+  X,
+} from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { Toaster } from '@/components/ui/toast';
 
 const statusOptions: (CourseStatus | 'all')[] = ['all', 'ACTIVE', 'DISABLED', 'ARCHIVED'];
 const typeOptions: (CourseType | 'all')[] = ['all', 'ONLINE', 'OFFLINE', 'HYBRID'];
@@ -101,6 +126,7 @@ function mapCourseToEditForm(course: CourseDetails): EditFormState {
 }
 
 export default function CoursesPage() {
+  const { toast, toasts, removeToast } = useToast();
   const [courses, setCourses] = useState<Course[]>([]);
   const [programs, setPrograms] = useState<Program[]>([]);
   const [loading, setLoading] = useState(true);
@@ -127,6 +153,27 @@ export default function CoursesPage() {
   const [createSubmitting, setCreateSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [createForm, setCreateForm] = useState<EditFormState>(defaultEditForm);
+  const [courseContents, setCourseContents] = useState<CourseContent[]>([]);
+  const [contentsLoading, setContentsLoading] = useState(false);
+  const [courseOutline, setCourseOutline] = useState<CourseOutline>({
+    totalClasses: undefined,
+    duration: '',
+    instructor: '',
+    schedule: '',
+    prerequisites: [],
+  });
+  const [newPrerequisite, setNewPrerequisite] = useState('');
+  
+  // Dialog states for adding content
+  const [syllabusDialogOpen, setSyllabusDialogOpen] = useState(false);
+  const [leafletDialogOpen, setLeafletDialogOpen] = useState(false);
+  const [sampleDialogOpen, setSampleDialogOpen] = useState(false);
+  const [contentForm, setContentForm] = useState({
+    title: '',
+    fileUrl: '',
+    textBody: '',
+    type: 'SAMPLE' as ContentType,
+  });
 
   const loadCourses = async () => {
     try {
@@ -186,6 +233,21 @@ export default function CoursesPage() {
     }
   };
 
+  const loadCourseContents = async (courseId: string) => {
+    try {
+      setContentsLoading(true);
+      const response = await getCourseContents(courseId);
+      if (response.success && response.data) {
+        setCourseContents(response.data);
+      }
+    } catch (err) {
+      console.error('Failed to load course contents:', err);
+      setCourseContents([]);
+    } finally {
+      setContentsLoading(false);
+    }
+  };
+
   const fetchCourseDetails = async (courseId: string) => {
     try {
       setDetailsLoading(true);
@@ -193,8 +255,24 @@ export default function CoursesPage() {
       const response = await getCourseById(courseId);
 
       if (response.success && response.data) {
-        setCourseDetails(response.data as CourseDetails);
-        return response.data as CourseDetails;
+        const details = response.data as CourseDetails;
+        setCourseDetails(details);
+
+        // Parse course outline from JSON
+        if (details.outline && typeof details.outline === 'object') {
+          const outline = details.outline as any;
+          setCourseOutline({
+            totalClasses: outline.totalClasses,
+            duration: outline.duration || '',
+            instructor: outline.instructor || '',
+            schedule: outline.schedule || '',
+            prerequisites: Array.isArray(outline.prerequisites) ? outline.prerequisites : [],
+          });
+        }
+
+        // Fetch course contents
+        await loadCourseContents(courseId);
+        return details;
       }
 
       throw new Error(response.message || 'Failed to load course details');
@@ -216,6 +294,7 @@ export default function CoursesPage() {
   const handleEditCourse = async (courseId: string) => {
     setEditDialogOpen(true);
     setEditError(null);
+    setNewPrerequisite('');
     const details = await fetchCourseDetails(courseId);
     if (details) {
       setEditForm(mapCourseToEditForm(details));
@@ -256,10 +335,99 @@ export default function CoursesPage() {
       setCreateDialogOpen(false);
       setCreateForm(defaultEditForm);
       await loadCourses();
+      
+      toast({
+        title: 'Success',
+        description: 'Course created successfully',
+        variant: 'success',
+      });
     } catch (err: unknown) {
-      setCreateError(getErrorMessage(err) || 'Failed to create course');
+      const errorMsg = getErrorMessage(err) || 'Failed to create course';
+      setCreateError(errorMsg);
+      toast({
+        title: 'Error',
+        description: errorMsg,
+        variant: 'destructive',
+      });
     } finally {
       setCreateSubmitting(false);
+    }
+  };
+
+  const handleAddContent = async (type: ContentType, title: string, fileUrl?: string, textBody?: string) => {
+    if (!courseDetails) return;
+
+    if (!title.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Title is required',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      const payload: CreateCourseContentDto = {
+        courseId: courseDetails.id,
+        type,
+        title: title.trim(),
+        fileUrl: fileUrl?.trim() || undefined,
+        textBody: textBody?.trim() || undefined,
+        isFree: type === 'SAMPLE',
+        sortOrder: courseContents.length,
+      };
+
+      await createCourseContent(payload);
+      await loadCourseContents(courseDetails.id);
+      
+      toast({
+        title: 'Success',
+        description: 'Content added successfully',
+        variant: 'success',
+      });
+      
+      // Reset form
+      setContentForm({ title: '', fileUrl: '', textBody: '', type: 'SAMPLE' });
+      setSyllabusDialogOpen(false);
+      setLeafletDialogOpen(false);
+      setSampleDialogOpen(false);
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: getErrorMessage(err) || 'Failed to add content',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDeleteContent = async (contentId: string) => {
+    if (!courseDetails) return;
+
+    try {
+      await deleteCourseContent(contentId);
+      await loadCourseContents(courseDetails.id);
+      
+      toast({
+        title: 'Success',
+        description: 'Content deleted successfully',
+        variant: 'success',
+      });
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: getErrorMessage(err) || 'Failed to delete content',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleSubmitContent = () => {
+    if (syllabusDialogOpen) {
+      handleAddContent('SYLLABUS', contentForm.title, contentForm.fileUrl);
+    } else if (leafletDialogOpen) {
+      handleAddContent('LEAFLET', contentForm.title, contentForm.fileUrl);
+    } else if (sampleDialogOpen) {
+      handleAddContent(contentForm.type, contentForm.title, contentForm.fileUrl, contentForm.textBody);
     }
   };
 
@@ -271,6 +439,17 @@ export default function CoursesPage() {
       setEditError('Fee must be a valid positive number.');
       return;
     }
+
+    // Build course outline JSON
+    const outline: CourseOutline = {
+      totalClasses: courseOutline.totalClasses,
+      duration: courseOutline.duration?.trim() || undefined,
+      instructor: courseOutline.instructor?.trim() || undefined,
+      schedule: courseOutline.schedule?.trim() || undefined,
+      prerequisites: courseOutline.prerequisites && courseOutline.prerequisites.filter((p) => p.trim()).length > 0
+        ? courseOutline.prerequisites.filter((p) => p.trim())
+        : undefined,
+    };
 
     const payload: UpdateCourseDto = {
       programId: editForm.programId,
@@ -285,6 +464,7 @@ export default function CoursesPage() {
       featured: editForm.featured,
       websiteVisible: editForm.websiteVisible,
       settledOptionEnabled: editForm.settledOptionEnabled,
+      outline: Object.keys(outline).length > 0 ? (outline as any) : undefined,
     };
 
     try {
@@ -293,8 +473,20 @@ export default function CoursesPage() {
       await updateCourse(courseDetails.id, payload);
       setEditDialogOpen(false);
       await loadCourses();
+      
+      toast({
+        title: 'Success',
+        description: 'Course updated successfully',
+        variant: 'success',
+      });
     } catch (err: unknown) {
-      setEditError(getErrorMessage(err) || 'Failed to update course');
+      const errorMsg = getErrorMessage(err) || 'Failed to update course';
+      setEditError(errorMsg);
+      toast({
+        title: 'Error',
+        description: errorMsg,
+        variant: 'destructive',
+      });
     } finally {
       setEditSubmitting(false);
     }
@@ -792,6 +984,160 @@ export default function CoursesPage() {
                   )}
                 </div>
               </div>
+
+              {/* Course Outline */}
+              {(courseOutline.totalClasses || courseOutline.duration || courseOutline.instructor || courseOutline.schedule) && (
+                <div className="rounded-lg border p-3">
+                  <p className="mb-3 text-xs uppercase text-muted-foreground">Course Outline</p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {courseOutline.totalClasses && (
+                      <div>
+                        <p className="text-xs text-muted-foreground">Total Classes</p>
+                        <p className="font-medium">{courseOutline.totalClasses}</p>
+                      </div>
+                    )}
+                    {courseOutline.duration && (
+                      <div>
+                        <p className="text-xs text-muted-foreground">Duration</p>
+                        <p className="font-medium">{courseOutline.duration}</p>
+                      </div>
+                    )}
+                    {courseOutline.instructor && (
+                      <div>
+                        <p className="text-xs text-muted-foreground">Instructor</p>
+                        <p className="font-medium">{courseOutline.instructor}</p>
+                      </div>
+                    )}
+                    {courseOutline.schedule && (
+                      <div>
+                        <p className="text-xs text-muted-foreground">Schedule</p>
+                        <p className="font-medium">{courseOutline.schedule}</p>
+                      </div>
+                    )}
+                  </div>
+                  {courseOutline.prerequisites && courseOutline.prerequisites.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs text-muted-foreground">Prerequisites</p>
+                      <ul className="mt-1 list-inside list-disc text-sm">
+                        {courseOutline.prerequisites.map((prereq, idx) => (
+                          <li key={idx}>{prereq}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Syllabus */}
+              {contentsLoading ? (
+                <p className="text-sm text-muted-foreground">Loading contents...</p>
+              ) : (
+                <>
+                  {courseContents.filter((c) => c.type === 'SYLLABUS').length > 0 && (
+                    <div>
+                      <p className="mb-2 text-xs uppercase text-muted-foreground">Syllabus (Module/Chapter based)</p>
+                      <div className="space-y-2">
+                        {courseContents
+                          .filter((c) => c.type === 'SYLLABUS')
+                          .map((content) => (
+                            <div key={content.id} className="flex items-center justify-between rounded-lg border p-3">
+                              <div className="flex items-center gap-2">
+                                <FileText className="h-4 w-4 text-muted-foreground" />
+                                <div>
+                                  <p className="font-medium">{content.title}</p>
+                                  {content.fileUrl && (
+                                    <a
+                                      href={content.fileUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs text-primary hover:underline"
+                                    >
+                                      View PDF
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Leaflet/Schedule */}
+                  {courseContents.filter((c) => c.type === 'LEAFLET').length > 0 && (
+                    <div>
+                      <p className="mb-2 text-xs uppercase text-muted-foreground">Leaflet / Schedule</p>
+                      <div className="space-y-2">
+                        {courseContents
+                          .filter((c) => c.type === 'LEAFLET')
+                          .map((content) => (
+                            <div key={content.id} className="flex items-center justify-between rounded-lg border p-3">
+                              <div className="flex items-center gap-2">
+                                <FileText className="h-4 w-4 text-muted-foreground" />
+                                <div>
+                                  <p className="font-medium">{content.title}</p>
+                                  {content.fileUrl && (
+                                    <a
+                                      href={content.fileUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs text-primary hover:underline"
+                                    >
+                                      View PDF
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Sample/Free Content */}
+                  {courseContents.filter((c) => ['SAMPLE', 'VIDEO', 'NOTE'].includes(c.type)).length > 0 && (
+                    <div>
+                      <p className="mb-2 text-xs uppercase text-muted-foreground">Sample / Free Content</p>
+                      <div className="space-y-2">
+                        {courseContents
+                          .filter((c) => ['SAMPLE', 'VIDEO', 'NOTE'].includes(c.type))
+                          .map((content) => (
+                            <div key={content.id} className="rounded-lg border p-3">
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-start gap-2">
+                                  {content.type === 'VIDEO' ? (
+                                    <FileVideo className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                                  ) : (
+                                    <FileText className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                                  )}
+                                  <div>
+                                    <p className="font-medium">{content.title}</p>
+                                    <Badge variant="outline" className="mt-1 text-xs">
+                                      {content.type}
+                                    </Badge>
+                                    {content.fileUrl && (
+                                      <a
+                                        href={content.fileUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="mt-1 block text-xs text-primary hover:underline"
+                                      >
+                                        {content.type === 'VIDEO' ? 'Watch Video' : 'View Content'}
+                                      </a>
+                                    )}
+                                    {content.textBody && (
+                                      <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{content.textBody}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
         </DialogContent>
@@ -984,6 +1330,255 @@ export default function CoursesPage() {
                   Settled Option Enabled
                 </label>
               </div>
+
+              {/* Course Outline Section */}
+              <div className="space-y-3 border-t pt-4 sm:col-span-2">
+                <h3 className="text-sm font-semibold">Course Outline</h3>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Total Classes</label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={courseOutline.totalClasses || ''}
+                      onChange={(e) =>
+                        setCourseOutline((prev) => ({
+                          ...prev,
+                          totalClasses: e.target.value ? Number(e.target.value) : undefined,
+                        }))
+                      }
+                      placeholder="e.g., 30"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Duration</label>
+                    <Input
+                      value={courseOutline.duration}
+                      onChange={(e) => setCourseOutline((prev) => ({ ...prev, duration: e.target.value }))}
+                      placeholder="e.g., 3 months"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Instructor</label>
+                    <Input
+                      value={courseOutline.instructor}
+                      onChange={(e) => setCourseOutline((prev) => ({ ...prev, instructor: e.target.value }))}
+                      placeholder="Instructor name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Schedule</label>
+                    <Input
+                      value={courseOutline.schedule}
+                      onChange={(e) => setCourseOutline((prev) => ({ ...prev, schedule: e.target.value }))}
+                      placeholder="e.g., Mon-Wed-Fri, 6-8 PM"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Prerequisites</label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={newPrerequisite}
+                      onChange={(e) => setNewPrerequisite(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && newPrerequisite.trim()) {
+                          e.preventDefault();
+                          setCourseOutline((prev) => ({
+                            ...prev,
+                            prerequisites: [...(prev.prerequisites || []), newPrerequisite.trim()],
+                          }));
+                          setNewPrerequisite('');
+                        }
+                      }}
+                      placeholder="Add prerequisite and press Enter"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (newPrerequisite.trim()) {
+                          setCourseOutline((prev) => ({
+                            ...prev,
+                            prerequisites: [...(prev.prerequisites || []), newPrerequisite.trim()],
+                          }));
+                          setNewPrerequisite('');
+                        }
+                      }}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {courseOutline.prerequisites && courseOutline.prerequisites.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {courseOutline.prerequisites.map((prereq, idx) => (
+                        <Badge key={idx} variant="secondary" className="gap-1">
+                          {prereq}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCourseOutline((prev) => ({
+                                ...prev,
+                                prerequisites: (prev.prerequisites || []).filter((_, i) => i !== idx),
+                              }));
+                            }}
+                            className="ml-1 rounded-full hover:bg-destructive/20"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Course Contents Management */}
+              <div className="space-y-4 border-t pt-4 sm:col-span-2">
+                <h3 className="text-sm font-semibold">Course Contents</h3>
+
+                {/* Syllabus Section */}
+                <div className="space-y-2 rounded-lg border p-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">Syllabus (Module/Chapter based - PDF)</label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setContentForm({ title: '', fileUrl: '', textBody: '', type: 'SYLLABUS' });
+                        setSyllabusDialogOpen(true);
+                      }}
+                    >
+                      <Plus className="mr-1 h-3 w-3" /> Add
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {contentsLoading ? (
+                      <p className="text-xs text-muted-foreground">Loading...</p>
+                    ) : courseContents.filter((c) => c.type === 'SYLLABUS').length === 0 ? (
+                      <p className="text-xs text-muted-foreground">No syllabus uploaded</p>
+                    ) : (
+                      courseContents
+                        .filter((c) => c.type === 'SYLLABUS')
+                        .map((content) => (
+                          <div key={content.id} className="flex items-center justify-between rounded border bg-muted/20 p-2">
+                            <div className="flex items-center gap-2">
+                              <FileText className="h-4 w-4" />
+                              <span className="text-sm">{content.title}</span>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteContent(content.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Leaflet Section */}
+                <div className="space-y-2 rounded-lg border p-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">Leaflet / Schedule (PDF)</label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setContentForm({ title: '', fileUrl: '', textBody: '', type: 'LEAFLET' });
+                        setLeafletDialogOpen(true);
+                      }}
+                    >
+                      <Plus className="mr-1 h-3 w-3" /> Add
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {contentsLoading ? (
+                      <p className="text-xs text-muted-foreground">Loading...</p>
+                    ) : courseContents.filter((c) => c.type === 'LEAFLET').length === 0 ? (
+                      <p className="text-xs text-muted-foreground">No leaflet uploaded</p>
+                    ) : (
+                      courseContents
+                        .filter((c) => c.type === 'LEAFLET')
+                        .map((content) => (
+                          <div key={content.id} className="flex items-center justify-between rounded border bg-muted/20 p-2">
+                            <div className="flex items-center gap-2">
+                              <FileText className="h-4 w-4" />
+                              <span className="text-sm">{content.title}</span>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteContent(content.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Sample/Free Content Section */}
+                <div className="space-y-2 rounded-lg border p-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">Sample / Free Content (Video / Notes)</label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setContentForm({ title: '', fileUrl: '', textBody: '', type: 'SAMPLE' });
+                        setSampleDialogOpen(true);
+                      }}
+                    >
+                      <Plus className="mr-1 h-3 w-3" /> Add
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {contentsLoading ? (
+                      <p className="text-xs text-muted-foreground">Loading...</p>
+                    ) : courseContents.filter((c) => ['SAMPLE', 'VIDEO', 'NOTE'].includes(c.type)).length === 0 ? (
+                      <p className="text-xs text-muted-foreground">No sample content added</p>
+                    ) : (
+                      courseContents
+                        .filter((c) => ['SAMPLE', 'VIDEO', 'NOTE'].includes(c.type))
+                        .map((content) => (
+                          <div key={content.id} className="flex items-center justify-between rounded border bg-muted/20 p-2">
+                            <div className="flex items-center gap-2">
+                              {content.type === 'VIDEO' ? (
+                                <FileVideo className="h-4 w-4" />
+                              ) : (
+                                <FileText className="h-4 w-4" />
+                              )}
+                              <div>
+                                <span className="text-sm font-medium">{content.title}</span>
+                                <Badge variant="outline" className="ml-2 text-xs">
+                                  {content.type}
+                                </Badge>
+                              </div>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteContent(content.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -1003,6 +1598,154 @@ export default function CoursesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Add Syllabus Dialog */}
+      <Dialog
+        open={syllabusDialogOpen}
+        onOpenChange={(open) => {
+          setSyllabusDialogOpen(open);
+          if (!open) setContentForm({ title: '', fileUrl: '', textBody: '', type: 'SYLLABUS' });
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Syllabus</DialogTitle>
+            <DialogDescription>Add a new syllabus PDF for this course</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Title (e.g., "Module 1: Introduction")</label>
+              <Input
+                value={contentForm.title}
+                onChange={(e) => setContentForm((prev) => ({ ...prev, title: e.target.value }))}
+                placeholder="Module 1: Introduction"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">PDF File URL</label>
+              <Input
+                value={contentForm.fileUrl}
+                onChange={(e) => setContentForm((prev) => ({ ...prev, fileUrl: e.target.value }))}
+                placeholder="https://example.com/syllabus.pdf"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSyllabusDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmitContent}>Add Syllabus</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Leaflet Dialog */}
+      <Dialog
+        open={leafletDialogOpen}
+        onOpenChange={(open) => {
+          setLeafletDialogOpen(open);
+          if (!open) setContentForm({ title: '', fileUrl: '', textBody: '', type: 'LEAFLET' });
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Leaflet / Schedule</DialogTitle>
+            <DialogDescription>Add a new leaflet or schedule PDF for this course</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Title</label>
+              <Input
+                value={contentForm.title}
+                onChange={(e) => setContentForm((prev) => ({ ...prev, title: e.target.value }))}
+                placeholder="Course Schedule"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">PDF File URL</label>
+              <Input
+                value={contentForm.fileUrl}
+                onChange={(e) => setContentForm((prev) => ({ ...prev, fileUrl: e.target.value }))}
+                placeholder="https://example.com/leaflet.pdf"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLeafletDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmitContent}>Add Leaflet</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Sample Content Dialog */}
+      <Dialog
+        open={sampleDialogOpen}
+        onOpenChange={(open) => {
+          setSampleDialogOpen(open);
+          if (!open) setContentForm({ title: '', fileUrl: '', textBody: '', type: 'SAMPLE' });
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Sample / Free Content</DialogTitle>
+            <DialogDescription>Add video, notes, or sample content for this course</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Content Type</label>
+              <Select
+                value={contentForm.type}
+                onValueChange={(value) => setContentForm((prev) => ({ ...prev, type: value as ContentType }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="VIDEO">Video</SelectItem>
+                  <SelectItem value="NOTE">Note</SelectItem>
+                  <SelectItem value="SAMPLE">Sample</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Title</label>
+              <Input
+                value={contentForm.title}
+                onChange={(e) => setContentForm((prev) => ({ ...prev, title: e.target.value }))}
+                placeholder="Content title"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">File/Video URL (optional)</label>
+              <Input
+                value={contentForm.fileUrl}
+                onChange={(e) => setContentForm((prev) => ({ ...prev, fileUrl: e.target.value }))}
+                placeholder="https://example.com/video.mp4"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Text Content (optional)</label>
+              <textarea
+                value={contentForm.textBody}
+                onChange={(e) => setContentForm((prev) => ({ ...prev, textBody: e.target.value }))}
+                rows={4}
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none ring-offset-background focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+                placeholder="Enter text content..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSampleDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmitContent}>Add Content</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Toaster toasts={toasts} removeToast={removeToast} />
     </div>
   );
 }
