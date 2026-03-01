@@ -4,6 +4,13 @@ export type BillingType = 'ONE_TIME' | 'MONTHLY';
 export type CourseCategory = 'SSC' | 'HSC' | 'ADMISSION' | 'JUNIOR_CADET_JOB';
 export type AdmissionStatus = 'OPEN' | 'CLOSED';
 export type CourseStatus = 'ACTIVE' | 'DISABLED' | 'ARCHIVED';
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: JsonValue }
+  | JsonValue[];
 
 export interface Program {
   id: string;
@@ -23,7 +30,7 @@ export interface Course {
   category?: CourseCategory;
   fee: number | string;
   description?: string;
-  outline?: any;
+  outline?: JsonValue;
   featured: boolean;
   websiteVisible: boolean;
   enrollmentVisible: boolean;
@@ -48,7 +55,7 @@ export interface CreateCourseDto {
   billingType: BillingType;
   fee: number;
   description?: string;
-  outline?: any;
+  outline?: JsonValue;
   featured?: boolean;
   websiteVisible?: boolean;
   admissionStatus?: AdmissionStatus;
@@ -64,12 +71,44 @@ export interface UpdateCourseDto {
   billingType?: BillingType;
   fee?: number;
   description?: string;
-  outline?: any;
+  outline?: JsonValue;
   featured?: boolean;
   websiteVisible?: boolean;
   admissionStatus?: AdmissionStatus;
   status?: CourseStatus;
   settledOptionEnabled?: boolean;
+}
+
+export interface CourseDetailBatch {
+  id: string;
+  name: string;
+  status: string;
+  startDate?: string | null;
+  endDate?: string | null;
+}
+
+export interface CourseDetailTeacher {
+  id: string;
+  teacher?: {
+    id: string;
+    fullName: string;
+    email?: string | null;
+  } | null;
+}
+
+export interface CourseDetailEnrollment {
+  id: string;
+  student?: {
+    id: string;
+    fullName: string;
+    email?: string | null;
+  } | null;
+}
+
+export interface CourseDetails extends Course {
+  batches?: CourseDetailBatch[];
+  teachers?: CourseDetailTeacher[];
+  enrollments?: CourseDetailEnrollment[];
 }
 
 export interface GetCoursesParams {
