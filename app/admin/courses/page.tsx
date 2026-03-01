@@ -55,6 +55,8 @@ import {
 import {
   BookOpenCheck,
   CalendarClock,
+  Download,
+  ExternalLink,
   FileText,
   FileVideo,
   Plus,
@@ -987,41 +989,59 @@ export default function CoursesPage() {
               </div>
 
               {/* Course Outline */}
-              {(courseOutline.totalClasses || courseOutline.duration || courseOutline.instructor || courseOutline.schedule) && (
-                <div className="rounded-lg border p-3">
-                  <p className="mb-3 text-xs uppercase text-muted-foreground">Course Outline</p>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {courseOutline.totalClasses && (
-                      <div>
-                        <p className="text-xs text-muted-foreground">Total Classes</p>
-                        <p className="font-medium">{courseOutline.totalClasses}</p>
+              {courseDetails.outline && (
+                <div className="rounded-lg border p-4">
+                  <p className="mb-3 text-sm font-semibold uppercase text-muted-foreground">Course Outline</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {(courseOutline.totalClasses || (courseDetails.outline as any)?.totalClasses) && (
+                      <div className="rounded-md bg-muted/30 p-2">
+                        <p className="text-xs font-medium text-muted-foreground">Total Classes</p>
+                        <p className="mt-1 text-base font-semibold">
+                          {courseOutline.totalClasses || (courseDetails.outline as any)?.totalClasses || '-'}
+                        </p>
                       </div>
                     )}
-                    {courseOutline.duration && (
-                      <div>
-                        <p className="text-xs text-muted-foreground">Duration</p>
-                        <p className="font-medium">{courseOutline.duration}</p>
+                    {(courseOutline.duration || (courseDetails.outline as any)?.duration) && (
+                      <div className="rounded-md bg-muted/30 p-2">
+                        <p className="text-xs font-medium text-muted-foreground">Duration</p>
+                        <p className="mt-1 text-base font-semibold">
+                          {courseOutline.duration || (courseDetails.outline as any)?.duration || '-'}
+                        </p>
                       </div>
                     )}
-                    {courseOutline.instructor && (
-                      <div>
-                        <p className="text-xs text-muted-foreground">Instructor</p>
-                        <p className="font-medium">{courseOutline.instructor}</p>
+                    {(courseOutline.instructor || (courseDetails.outline as any)?.instructor) && (
+                      <div className="rounded-md bg-muted/30 p-2">
+                        <p className="text-xs font-medium text-muted-foreground">Instructor</p>
+                        <p className="mt-1 text-base font-semibold">
+                          {courseOutline.instructor || (courseDetails.outline as any)?.instructor || '-'}
+                        </p>
                       </div>
                     )}
-                    {courseOutline.schedule && (
-                      <div>
-                        <p className="text-xs text-muted-foreground">Schedule</p>
-                        <p className="font-medium">{courseOutline.schedule}</p>
+                    {(courseOutline.schedule || (courseDetails.outline as any)?.schedule) && (
+                      <div className="rounded-md bg-muted/30 p-2">
+                        <p className="text-xs font-medium text-muted-foreground">Schedule</p>
+                        <p className="mt-1 text-base font-semibold">
+                          {courseOutline.schedule || (courseDetails.outline as any)?.schedule || '-'}
+                        </p>
                       </div>
                     )}
                   </div>
-                  {courseOutline.prerequisites && courseOutline.prerequisites.length > 0 && (
-                    <div className="mt-2">
-                      <p className="text-xs text-muted-foreground">Prerequisites</p>
-                      <ul className="mt-1 list-inside list-disc text-sm">
-                        {courseOutline.prerequisites.map((prereq, idx) => (
-                          <li key={idx}>{prereq}</li>
+                  {((courseOutline.prerequisites && courseOutline.prerequisites.length > 0) ||
+                    ((courseDetails.outline as any)?.prerequisites &&
+                      Array.isArray((courseDetails.outline as any).prerequisites) &&
+                      (courseDetails.outline as any).prerequisites.length > 0)) && (
+                    <div className="mt-3 rounded-md bg-muted/30 p-2">
+                      <p className="text-xs font-medium text-muted-foreground">Prerequisites</p>
+                      <ul className="mt-2 space-y-1">
+                        {(
+                          courseOutline.prerequisites ||
+                          (courseDetails.outline as any)?.prerequisites ||
+                          []
+                        ).map((prereq: string, idx: number) => (
+                          <li key={idx} className="flex items-center gap-2 text-sm">
+                            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                            {prereq}
+                          </li>
                         ))}
                       </ul>
                     </div>
@@ -1036,30 +1056,58 @@ export default function CoursesPage() {
                 <>
                   {courseContents.filter((c) => c.type === 'SYLLABUS').length > 0 && (
                     <div>
-                      <p className="mb-2 text-xs uppercase text-muted-foreground">Syllabus (Module/Chapter based)</p>
-                      <div className="space-y-2">
+                      <p className="mb-3 text-sm font-semibold uppercase text-muted-foreground">
+                        Syllabus (Module/Chapter based)
+                      </p>
+                      <div className="space-y-3">
                         {courseContents
                           .filter((c) => c.type === 'SYLLABUS')
-                          .map((content) => (
-                            <div key={content.id} className="flex items-center justify-between rounded-lg border p-3">
-                              <div className="flex items-center gap-2">
-                                <FileText className="h-4 w-4 text-muted-foreground" />
-                                <div>
-                                  <p className="font-medium">{content.title}</p>
-                                  {content.fileUrl && (
-                                    <a
-                                      href={content.fileUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-xs text-primary hover:underline"
-                                    >
-                                      View PDF
-                                    </a>
-                                  )}
+                          .map((content) => {
+                            const fileUrl = content.fileUrl?.startsWith('http')
+                              ? content.fileUrl
+                              : content.fileUrl?.startsWith('/uploads')
+                              ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${content.fileUrl}`
+                              : content.fileUrl;
+                            return (
+                              <div key={content.id} className="rounded-lg border p-4">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex items-start gap-3">
+                                    <FileText className="h-5 w-5 mt-0.5 text-primary" />
+                                    <div className="flex-1">
+                                      <p className="font-medium">{content.title}</p>
+                                      {fileUrl && (
+                                        <div className="mt-2 flex flex-wrap gap-2">
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => window.open(fileUrl, '_blank')}
+                                            className="h-7 text-xs"
+                                          >
+                                            <ExternalLink className="mr-1 h-3 w-3" />
+                                            View PDF
+                                          </Button>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                              const link = document.createElement('a');
+                                              link.href = fileUrl;
+                                              link.download = content.title + '.pdf';
+                                              link.click();
+                                            }}
+                                            className="h-7 text-xs"
+                                          >
+                                            <Download className="mr-1 h-3 w-3" />
+                                            Download
+                                          </Button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                       </div>
                     </div>
                   )}
@@ -1067,30 +1115,56 @@ export default function CoursesPage() {
                   {/* Leaflet/Schedule */}
                   {courseContents.filter((c) => c.type === 'LEAFLET').length > 0 && (
                     <div>
-                      <p className="mb-2 text-xs uppercase text-muted-foreground">Leaflet / Schedule</p>
-                      <div className="space-y-2">
+                      <p className="mb-3 text-sm font-semibold uppercase text-muted-foreground">Leaflet / Schedule</p>
+                      <div className="space-y-3">
                         {courseContents
                           .filter((c) => c.type === 'LEAFLET')
-                          .map((content) => (
-                            <div key={content.id} className="flex items-center justify-between rounded-lg border p-3">
-                              <div className="flex items-center gap-2">
-                                <FileText className="h-4 w-4 text-muted-foreground" />
-                                <div>
-                                  <p className="font-medium">{content.title}</p>
-                                  {content.fileUrl && (
-                                    <a
-                                      href={content.fileUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-xs text-primary hover:underline"
-                                    >
-                                      View PDF
-                                    </a>
-                                  )}
+                          .map((content) => {
+                            const fileUrl = content.fileUrl?.startsWith('http')
+                              ? content.fileUrl
+                              : content.fileUrl?.startsWith('/uploads')
+                              ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${content.fileUrl}`
+                              : content.fileUrl;
+                            return (
+                              <div key={content.id} className="rounded-lg border p-4">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex items-start gap-3">
+                                    <FileText className="h-5 w-5 mt-0.5 text-primary" />
+                                    <div className="flex-1">
+                                      <p className="font-medium">{content.title}</p>
+                                      {fileUrl && (
+                                        <div className="mt-2 flex flex-wrap gap-2">
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => window.open(fileUrl, '_blank')}
+                                            className="h-7 text-xs"
+                                          >
+                                            <ExternalLink className="mr-1 h-3 w-3" />
+                                            View PDF
+                                          </Button>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                              const link = document.createElement('a');
+                                              link.href = fileUrl;
+                                              link.download = content.title + '.pdf';
+                                              link.click();
+                                            }}
+                                            className="h-7 text-xs"
+                                          >
+                                            <Download className="mr-1 h-3 w-3" />
+                                            Download
+                                          </Button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                       </div>
                     </div>
                   )}
@@ -1098,42 +1172,68 @@ export default function CoursesPage() {
                   {/* Sample/Free Content */}
                   {courseContents.filter((c) => ['SAMPLE', 'VIDEO', 'NOTE'].includes(c.type)).length > 0 && (
                     <div>
-                      <p className="mb-2 text-xs uppercase text-muted-foreground">Sample / Free Content</p>
-                      <div className="space-y-2">
+                      <p className="mb-3 text-sm font-semibold uppercase text-muted-foreground">Sample / Free Content</p>
+                      <div className="space-y-3">
                         {courseContents
                           .filter((c) => ['SAMPLE', 'VIDEO', 'NOTE'].includes(c.type))
-                          .map((content) => (
-                            <div key={content.id} className="rounded-lg border p-3">
-                              <div className="flex items-start justify-between">
-                                <div className="flex items-start gap-2">
-                                  {content.type === 'VIDEO' ? (
-                                    <FileVideo className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                                  ) : (
-                                    <FileText className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                                  )}
-                                  <div>
-                                    <p className="font-medium">{content.title}</p>
-                                    <Badge variant="outline" className="mt-1 text-xs">
-                                      {content.type}
-                                    </Badge>
-                                    {content.fileUrl && (
-                                      <a
-                                        href={content.fileUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="mt-1 block text-xs text-primary hover:underline"
-                                      >
-                                        {content.type === 'VIDEO' ? 'Watch Video' : 'View Content'}
-                                      </a>
+                          .map((content) => {
+                            const fileUrl = content.fileUrl?.startsWith('http')
+                              ? content.fileUrl
+                              : content.fileUrl?.startsWith('/uploads')
+                              ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${content.fileUrl}`
+                              : content.fileUrl;
+                            return (
+                              <div key={content.id} className="rounded-lg border p-4">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex items-start gap-3">
+                                    {content.type === 'VIDEO' ? (
+                                      <FileVideo className="h-5 w-5 mt-0.5 text-primary" />
+                                    ) : (
+                                      <FileText className="h-5 w-5 mt-0.5 text-primary" />
                                     )}
-                                    {content.textBody && (
-                                      <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{content.textBody}</p>
-                                    )}
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2">
+                                        <p className="font-medium">{content.title}</p>
+                                        <Badge variant="outline" className="text-xs">
+                                          {content.type}
+                                        </Badge>
+                                      </div>
+                                      {fileUrl && (
+                                        <div className="mt-2 flex flex-wrap gap-2">
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => window.open(fileUrl, '_blank')}
+                                            className="h-7 text-xs"
+                                          >
+                                            <ExternalLink className="mr-1 h-3 w-3" />
+                                            {content.type === 'VIDEO' ? 'Watch Video' : 'View Content'}
+                                          </Button>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                              const link = document.createElement('a');
+                                              link.href = fileUrl;
+                                              link.download = content.title;
+                                              link.click();
+                                            }}
+                                            className="h-7 text-xs"
+                                          >
+                                            <Download className="mr-1 h-3 w-3" />
+                                            Download
+                                          </Button>
+                                        </div>
+                                      )}
+                                      {content.textBody && (
+                                        <p className="mt-2 text-sm text-muted-foreground">{content.textBody}</p>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                       </div>
                     </div>
                   )}
