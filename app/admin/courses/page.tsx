@@ -283,19 +283,16 @@ export default function CoursesPage() {
   const featuredCount = courses.filter((course) => course.featured).length;
 
   return (
-    <div className="space-y-6">
-      <section className="glass-panel relative overflow-hidden p-6 sm:p-8">
-        <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[radial-gradient(circle_at_center,_color-mix(in_oklab,var(--primary)_26%,transparent),_transparent_70%)]" />
-        <div className="absolute -bottom-20 left-1/3 h-40 w-40 rounded-full bg-[radial-gradient(circle_at_center,_color-mix(in_oklab,var(--accent)_40%,transparent),_transparent_70%)]" />
-        <div className="relative z-10 flex flex-wrap items-start justify-between gap-4">
+    <div className="space-y-4">
+      <section className="glass-panel p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">Academics</p>
-            <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Course Management</h1>
-            <p className="mt-3 max-w-2xl text-sm text-muted-foreground sm:text-base">
+            <h1 className="text-3xl font-semibold tracking-tight">Course Management</h1>
+            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
               Manage structure, visibility, billing, and lifecycle of all courses from one unified workspace.
             </p>
           </div>
-          <Button className="mt-1">
+          <Button className="mt-1 bg-primary hover:bg-primary/90">
             <Plus className="mr-2 h-4 w-4" />
             Create Course
           </Button>
@@ -303,21 +300,21 @@ export default function CoursesPage() {
       </section>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <article className="glass-panel p-4">
+        <article className="glass-panel p-3.5">
           <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Visible Rows</p>
-          <p className="mt-2 text-2xl font-bold">{totalVisible}</p>
+          <p className="mt-2 text-2xl font-semibold">{totalVisible}</p>
         </article>
-        <article className="glass-panel p-4">
+        <article className="glass-panel p-3.5">
           <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Active Courses</p>
-          <p className="mt-2 text-2xl font-bold">{activeCount}</p>
+          <p className="mt-2 text-2xl font-semibold">{activeCount}</p>
         </article>
-        <article className="glass-panel p-4">
+        <article className="glass-panel p-3.5">
           <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Enrollments</p>
-          <p className="mt-2 text-2xl font-bold">{totalEnrollments}</p>
+          <p className="mt-2 text-2xl font-semibold">{totalEnrollments}</p>
         </article>
-        <article className="glass-panel p-4">
+        <article className="glass-panel p-3.5">
           <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Featured</p>
-          <p className="mt-2 text-2xl font-bold">{featuredCount}</p>
+          <p className="mt-2 text-2xl font-semibold">{featuredCount}</p>
         </article>
       </section>
 
@@ -330,12 +327,12 @@ export default function CoursesPage() {
                 placeholder="Search courses by name, code, or program..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-10 border-border/70 bg-background/85 pl-10"
+                className="h-10 border-border bg-background pl-10"
               />
             </div>
           </div>
           <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as CourseStatus | 'all')}>
-            <SelectTrigger className="h-10 w-[180px] border-border/70 bg-background/85">
+            <SelectTrigger className="h-10 w-[180px] border-border bg-background">
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
             <SelectContent>
@@ -347,7 +344,7 @@ export default function CoursesPage() {
             </SelectContent>
           </Select>
           <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as CourseType | 'all')}>
-            <SelectTrigger className="h-10 w-[180px] border-border/70 bg-background/85">
+            <SelectTrigger className="h-10 w-[180px] border-border bg-background">
               <SelectValue placeholder="All Types" />
             </SelectTrigger>
             <SelectContent>
@@ -389,7 +386,7 @@ export default function CoursesPage() {
         ) : (
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/30">
+              <TableRow className="bg-muted/50">
                 <TableHead>Code</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Program</TableHead>
@@ -404,7 +401,7 @@ export default function CoursesPage() {
             </TableHeader>
             <TableBody>
               {courses.map((course) => (
-                <TableRow key={course.id} className="hover:bg-muted/25">
+                <TableRow key={course.id} className="hover:bg-muted/45">
                   <TableCell className="font-mono text-sm">{course.code}</TableCell>
                   <TableCell className="font-medium">{course.name}</TableCell>
                   <TableCell>{course.program?.name || '-'}</TableCell>

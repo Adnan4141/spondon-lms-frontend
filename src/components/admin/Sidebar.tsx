@@ -13,6 +13,11 @@ import {
   Calendar,
   CreditCard,
   BarChart3,
+  CircleUserRound,
+  ShoppingCart,
+  SquareStack,
+  Map,
+  CircleDollarSign,
   X,
 } from 'lucide-react';
 
@@ -64,6 +69,18 @@ const menuItems = [
   },
 ];
 
+const railItems = [
+  CircleUserRound,
+  LayoutDashboard,
+  ShoppingCart,
+  SquareStack,
+  Map,
+  Users,
+  BookOpen,
+  CircleDollarSign,
+  Settings,
+];
+
 type SidebarProps = {
   mobileOpen: boolean;
   onCloseMobile: () => void;
@@ -85,69 +102,77 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 w-72 border-r border-sidebar-border/60 bg-sidebar/90 text-sidebar-foreground backdrop-blur-xl',
+          'fixed inset-y-0 left-0 z-50 w-[19rem] border-r border-sidebar-border bg-sidebar text-sidebar-foreground',
           'transition-transform duration-300 ease-out lg:translate-x-0',
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
-        <div className="flex h-full flex-col">
-          <div className="absolute inset-x-0 top-0 h-24 bg-[radial-gradient(circle_at_top,_color-mix(in_oklab,var(--sidebar-primary)_22%,transparent),_transparent_70%)]" />
-          <div className="flex h-20 items-center justify-between border-b border-sidebar-border/60 px-6">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sidebar-foreground/60">Spondon</p>
-              <h1 className="text-xl font-bold tracking-tight">LMS Admin</h1>
-            </div>
-            <button
-              type="button"
-              onClick={onCloseMobile}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-sidebar-border/60 text-sidebar-foreground/70 hover:bg-sidebar-accent/40 lg:hidden"
-              aria-label="Close sidebar"
-            >
-              <X className="h-4 w-4" />
-            </button>
+        <div className="flex h-full">
+          <div className="hidden w-14 flex-col items-center border-r border-sidebar-border bg-sidebar-accent/35 py-4 lg:flex">
+            {railItems.map((Icon, index) => (
+              <button
+                key={index}
+                type="button"
+                className={cn(
+                  'mb-2 inline-flex h-8 w-8 items-center justify-center rounded-md text-sidebar-foreground/70 transition-colors',
+                  index === 1 ? 'bg-sidebar-primary text-sidebar-primary-foreground' : 'hover:bg-sidebar-accent'
+                )}
+              >
+                <Icon className="h-4 w-4" />
+              </button>
+            ))}
           </div>
 
-          <nav className="flex-1 space-y-1 px-4 py-5">
-            <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/45">
-              Main Navigation
-            </p>
-            {menuItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
-
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
+          <div className="flex min-w-0 flex-1 flex-col">
+            <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
+              <div className="flex items-center gap-2">
+                <CircleUserRound className="h-4 w-4 text-primary" />
+                <h1 className="text-lg font-semibold tracking-tight">Flup</h1>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">‹</span>
+                <button
+                  type="button"
                   onClick={onCloseMobile}
-                  className={cn(
-                    'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
-                    isActive
-                      ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-sm shadow-black/10'
-                      : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'
-                  )}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-sidebar-border text-sidebar-foreground/70 hover:bg-sidebar-accent/40 lg:hidden"
+                  aria-label="Close sidebar"
                 >
-                  {isActive && <span className="absolute left-0 top-2.5 h-5 w-1 rounded-r-full bg-sidebar-primary-foreground/80" />}
-                  <span
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+            <nav className="flex-1 space-y-1 px-3 py-4">
+              <p className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-sidebar-foreground/45">
+                Marketing
+              </p>
+              {menuItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
+
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={onCloseMobile}
                     className={cn(
-                      'flex h-8 w-8 items-center justify-center rounded-lg border text-current transition-colors',
+                      'group relative flex items-center gap-2 rounded-md px-2 py-2 text-sm transition-colors',
                       isActive
-                        ? 'border-sidebar-primary-foreground/20 bg-sidebar-primary-foreground/10'
-                        : 'border-sidebar-border/70 bg-sidebar-accent/30 group-hover:border-sidebar-border'
+                        ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                        : 'text-sidebar-foreground/85 hover:bg-sidebar-accent'
                     )}
                   >
                     <Icon className="h-4 w-4" />
-                  </span>
-                  <span>{item.title}</span>
-                </Link>
-              );
-            })}
-          </nav>
+                    <span>{item.title}</span>
+                  </Link>
+                );
+              })}
+            </nav>
 
-          <div className="border-t border-sidebar-border/60 p-4">
-            <div className="rounded-xl border border-sidebar-border/70 bg-sidebar-accent/30 p-3 text-xs text-sidebar-foreground/75">
-              <p className="font-medium">Admin Panel</p>
-              <p className="mt-1">Version 1.0.0</p>
+            <div className="border-t border-sidebar-border p-3">
+              <div className="rounded-md border border-sidebar-border bg-sidebar-accent px-3 py-2 text-xs text-sidebar-foreground/75">
+                <p className="font-medium">Harper Nelson</p>
+                <p className="mt-0.5">Admin Manager</p>
+              </div>
             </div>
           </div>
         </div>
