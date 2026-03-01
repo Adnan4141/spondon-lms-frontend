@@ -714,7 +714,7 @@ export default function CoursesPage() {
           if (!open) setCreateError(null);
         }}
       >
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>Create Course</DialogTitle>
             <DialogDescription>Add a new course to the system.</DialogDescription>
@@ -912,7 +912,7 @@ export default function CoursesPage() {
       </Dialog>
 
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>Course Details</DialogTitle>
             <DialogDescription>View full course information and related activity.</DialogDescription>
@@ -927,22 +927,145 @@ export default function CoursesPage() {
 
           {isDetailsReady && courseDetails && (
             <div className="space-y-5 text-sm">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-lg border bg-muted/20 p-3">
-                  <p className="text-xs uppercase text-muted-foreground">Name</p>
-                  <p className="mt-1 font-medium">{courseDetails.name}</p>
+              {/* Basic Information */}
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">Basic Information</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg border bg-muted/20 p-3">
+                    <p className="text-xs uppercase text-muted-foreground">Name</p>
+                    <p className="mt-1 font-medium">{courseDetails.name}</p>
+                  </div>
+                  <div className="rounded-lg border bg-muted/20 p-3">
+                    <p className="text-xs uppercase text-muted-foreground">Code</p>
+                    <p className="mt-1 font-medium">{courseDetails.code}</p>
+                  </div>
+                  <div className="rounded-lg border bg-muted/20 p-3">
+                    <p className="text-xs uppercase text-muted-foreground">Program</p>
+                    <p className="mt-1 font-medium">{courseDetails.program?.name || '-'}</p>
+                  </div>
+                  <div className="rounded-lg border bg-muted/20 p-3">
+                    <p className="text-xs uppercase text-muted-foreground">Fee</p>
+                    <p className="mt-1 font-medium">৳{Number(courseDetails.fee).toLocaleString()}</p>
+                  </div>
+                  <div className="rounded-lg border bg-muted/20 p-3">
+                    <p className="text-xs uppercase text-muted-foreground">Type</p>
+                    <Badge variant="outline" className="mt-1">
+                      {courseDetails.type}
+                    </Badge>
+                  </div>
+                  <div className="rounded-lg border bg-muted/20 p-3">
+                    <p className="text-xs uppercase text-muted-foreground">Billing Type</p>
+                    <Badge variant="outline" className="mt-1">
+                      {courseDetails.billingType}
+                    </Badge>
+                  </div>
+                  {courseDetails.category && (
+                    <div className="rounded-lg border bg-muted/20 p-3">
+                      <p className="text-xs uppercase text-muted-foreground">Category</p>
+                      <Badge variant="outline" className="mt-1">
+                        {courseDetails.category}
+                      </Badge>
+                    </div>
+                  )}
                 </div>
-                <div className="rounded-lg border bg-muted/20 p-3">
-                  <p className="text-xs uppercase text-muted-foreground">Code</p>
-                  <p className="mt-1 font-medium">{courseDetails.code}</p>
+              </div>
+
+              {/* Status Information */}
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">Status & Visibility</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg border bg-muted/20 p-3">
+                    <p className="text-xs uppercase text-muted-foreground">Status</p>
+                    <div className="mt-1">
+                      <Badge
+                        variant={
+                          courseDetails.status === 'ACTIVE'
+                            ? 'default'
+                            : courseDetails.status === 'DISABLED'
+                            ? 'destructive'
+                            : 'secondary'
+                        }
+                      >
+                        {courseDetails.status}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border bg-muted/20 p-3">
+                    <p className="text-xs uppercase text-muted-foreground">Admission Status</p>
+                    <div className="mt-1">
+                      <Badge
+                        variant={courseDetails.admissionStatus === 'OPEN' ? 'default' : 'destructive'}
+                      >
+                        {courseDetails.admissionStatus}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border bg-muted/20 p-3">
+                    <p className="text-xs uppercase text-muted-foreground">Branch Access</p>
+                    <Badge variant="outline" className="mt-1">
+                      {courseDetails.branchAccessMode || 'ALL_BRANCH'}
+                    </Badge>
+                  </div>
+                  <div className="rounded-lg border bg-muted/20 p-3">
+                    <p className="text-xs uppercase text-muted-foreground">Features</p>
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      {courseDetails.featured && (
+                        <Badge variant="default" className="text-xs">
+                          Featured
+                        </Badge>
+                      )}
+                      {courseDetails.websiteVisible && (
+                        <Badge variant="outline" className="text-xs">
+                          Website Visible
+                        </Badge>
+                      )}
+                      {courseDetails.enrollmentVisible && (
+                        <Badge variant="outline" className="text-xs">
+                          Enrollment Visible
+                        </Badge>
+                      )}
+                      {courseDetails.settledOptionEnabled && (
+                        <Badge variant="outline" className="text-xs">
+                          Settled Option
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div className="rounded-lg border bg-muted/20 p-3">
-                  <p className="text-xs uppercase text-muted-foreground">Program</p>
-                  <p className="mt-1 font-medium">{courseDetails.program?.name || '-'}</p>
-                </div>
-                <div className="rounded-lg border bg-muted/20 p-3">
-                  <p className="text-xs uppercase text-muted-foreground">Fee</p>
-                  <p className="mt-1 font-medium">৳{Number(courseDetails.fee).toLocaleString()}</p>
+              </div>
+
+              {/* Timestamps */}
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">Timestamps</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg border bg-muted/20 p-3">
+                    <p className="text-xs uppercase text-muted-foreground">Created At</p>
+                    <p className="mt-1 text-sm">
+                      {courseDetails.createdAt
+                        ? new Date(courseDetails.createdAt).toLocaleString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })
+                        : '-'}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border bg-muted/20 p-3">
+                    <p className="text-xs uppercase text-muted-foreground">Last Updated</p>
+                    <p className="mt-1 text-sm">
+                      {courseDetails.updatedAt
+                        ? new Date(courseDetails.updatedAt).toLocaleString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })
+                        : '-'}
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -1251,7 +1374,7 @@ export default function CoursesPage() {
           if (!open) setEditError(null);
         }}
       >
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>Edit Course</DialogTitle>
             <DialogDescription>Update course information and save the changes.</DialogDescription>
