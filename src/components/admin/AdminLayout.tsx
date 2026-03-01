@@ -8,16 +8,16 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background soft-grid">
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute left-0 top-0 h-[32rem] w-[32rem] -translate-x-24 -translate-y-16 rounded-full bg-[radial-gradient(circle_at_center,_hsl(205_85%_92%),_transparent_65%)]" />
-        <div className="absolute bottom-0 right-0 h-[30rem] w-[30rem] translate-x-20 translate-y-20 rounded-full bg-[radial-gradient(circle_at_center,_hsl(150_45%_90%),_transparent_65%)]" />
+        <div className="absolute left-0 top-0 h-[32rem] w-[32rem] -translate-x-24 -translate-y-16 rounded-full bg-[radial-gradient(circle_at_center,_hsl(205_85%_92%),_transparent_65%)] [animation:float-slow_9s_ease-in-out_infinite]" />
+        <div className="absolute bottom-0 right-0 h-[30rem] w-[30rem] translate-x-20 translate-y-20 rounded-full bg-[radial-gradient(circle_at_center,_hsl(150_45%_90%),_transparent_65%)] [animation:float-slow_11s_ease-in-out_infinite]" />
       </div>
 
       <Sidebar mobileOpen={mobileOpen} onCloseMobile={() => setMobileOpen(false)} />
 
       <div className="lg:pl-72">
-        <header className="sticky top-0 z-30 border-b border-border/70 bg-background/75 backdrop-blur-xl">
+        <header className="sticky top-0 z-30 border-b border-border/70 bg-background/70 backdrop-blur-xl">
           <div className="mx-auto flex h-20 max-w-[1500px] items-center justify-between px-4 sm:px-6 lg:px-10">
             <div className="flex items-center gap-3">
               <button
@@ -37,7 +37,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             <div className="flex items-center gap-3">
               <button
                 type="button"
-                className="hidden h-10 items-center gap-2 rounded-xl border border-border/70 bg-card px-3 text-sm text-muted-foreground hover:bg-accent md:inline-flex"
+                className="hidden h-10 items-center gap-2 rounded-xl border border-border/70 bg-card/80 px-3 text-sm text-muted-foreground hover:bg-accent md:inline-flex"
               >
                 <Search className="h-4 w-4" />
                 Search
@@ -54,7 +54,9 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         </header>
 
         <main>
-          <div className="mx-auto max-w-[1500px] px-4 py-6 sm:px-6 lg:px-10 lg:py-8">{children}</div>
+          <div className="mx-auto max-w-[1500px] px-4 py-6 sm:px-6 lg:px-10 lg:py-8 [animation:fade-up_.45s_ease-out]">
+            {children}
+          </div>
         </main>
       </div>
     </div>

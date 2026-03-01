@@ -13,7 +13,6 @@ import {
   Calendar,
   CreditCard,
   BarChart3,
-  Sparkles,
   X,
 } from 'lucide-react';
 
@@ -92,6 +91,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
         )}
       >
         <div className="flex h-full flex-col">
+          <div className="absolute inset-x-0 top-0 h-24 bg-[radial-gradient(circle_at_top,_color-mix(in_oklab,var(--sidebar-primary)_22%,transparent),_transparent_70%)]" />
           <div className="flex h-20 items-center justify-between border-b border-sidebar-border/60 px-6">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sidebar-foreground/60">Spondon</p>
@@ -107,19 +107,10 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
             </button>
           </div>
 
-          <div className="px-4 pt-5">
-            <div className="rounded-2xl border border-sidebar-border/70 bg-sidebar-accent/30 p-4">
-              <div className="flex items-center gap-2 text-sm font-semibold">
-                <Sparkles className="h-4 w-4" />
-                Operations Center
-              </div>
-              <p className="mt-1 text-xs text-sidebar-foreground/70">
-                Centralized view of your branches, courses, and performance.
-              </p>
-            </div>
-          </div>
-
           <nav className="flex-1 space-y-1 px-4 py-5">
+            <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/45">
+              Main Navigation
+            </p>
             {menuItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
@@ -130,12 +121,13 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
                   href={item.href}
                   onClick={onCloseMobile}
                   className={cn(
-                    'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
+                    'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
                     isActive
                       ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-sm shadow-black/10'
                       : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'
                   )}
                 >
+                  {isActive && <span className="absolute left-0 top-2.5 h-5 w-1 rounded-r-full bg-sidebar-primary-foreground/80" />}
                   <span
                     className={cn(
                       'flex h-8 w-8 items-center justify-center rounded-lg border text-current transition-colors',

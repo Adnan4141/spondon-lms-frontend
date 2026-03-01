@@ -40,7 +40,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { CalendarClock, Plus, RefreshCw, Search, Users } from 'lucide-react';
+import { BookOpenCheck, CalendarClock, Plus, RefreshCw, Search, Sparkles, Users } from 'lucide-react';
 
 const statusOptions: (CourseStatus | 'all')[] = ['all', 'ACTIVE', 'DISABLED', 'ARCHIVED'];
 const typeOptions: (CourseType | 'all')[] = ['all', 'ONLINE', 'OFFLINE', 'HYBRID'];
@@ -277,60 +277,92 @@ export default function CoursesPage() {
   }, [searchQuery, typeFilter]);
 
   const isDetailsReady = !!courseDetails && !detailsLoading;
+  const totalVisible = courses.length;
+  const activeCount = courses.filter((course) => course.status === 'ACTIVE').length;
+  const totalEnrollments = courses.reduce((sum, course) => sum + (course._count?.enrollments || 0), 0);
+  const featuredCount = courses.filter((course) => course.featured).length;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Course Management</h1>
-          <p className="text-muted-foreground">Manage all courses in the system</p>
-        </div>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Create Course
-        </Button>
-      </div>
-
-      <div className="flex flex-wrap gap-4">
-        <div className="min-w-[260px] flex-1">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search courses by name, code, or program..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
+      <section className="glass-panel relative overflow-hidden p-6 sm:p-8">
+        <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[radial-gradient(circle_at_center,_color-mix(in_oklab,var(--primary)_26%,transparent),_transparent_70%)]" />
+        <div className="absolute -bottom-20 left-1/3 h-40 w-40 rounded-full bg-[radial-gradient(circle_at_center,_color-mix(in_oklab,var(--accent)_40%,transparent),_transparent_70%)]" />
+        <div className="relative z-10 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">Academics</p>
+            <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Course Management</h1>
+            <p className="mt-3 max-w-2xl text-sm text-muted-foreground sm:text-base">
+              Manage structure, visibility, billing, and lifecycle of all courses from one unified workspace.
+            </p>
           </div>
+          <Button className="mt-1">
+            <Plus className="mr-2 h-4 w-4" />
+            Create Course
+          </Button>
         </div>
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as CourseStatus | 'all')}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="All Status" />
-          </SelectTrigger>
-          <SelectContent>
-            {statusOptions.map((opt) => (
-              <SelectItem key={opt} value={opt}>
-                {opt === 'all' ? 'All Status' : opt}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as CourseType | 'all')}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="All Types" />
-          </SelectTrigger>
-          <SelectContent>
-            {typeOptions.map((opt) => (
-              <SelectItem key={opt} value={opt}>
-                {opt === 'all' ? 'All Types' : opt}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button variant="outline" onClick={loadCourses}>
-          <RefreshCw className="h-4 w-4" />
-        </Button>
-      </div>
+      </section>
+
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <article className="glass-panel p-4">
+          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Visible Rows</p>
+          <p className="mt-2 text-2xl font-bold">{totalVisible}</p>
+        </article>
+        <article className="glass-panel p-4">
+          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Active Courses</p>
+          <p className="mt-2 text-2xl font-bold">{activeCount}</p>
+        </article>
+        <article className="glass-panel p-4">
+          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Enrollments</p>
+          <p className="mt-2 text-2xl font-bold">{totalEnrollments}</p>
+        </article>
+        <article className="glass-panel p-4">
+          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Featured</p>
+          <p className="mt-2 text-2xl font-bold">{featuredCount}</p>
+        </article>
+      </section>
+
+      <section className="glass-panel p-4 sm:p-5">
+        <div className="flex flex-wrap gap-4">
+          <div className="min-w-[260px] flex-1">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search courses by name, code, or program..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-10 border-border/70 bg-background/85 pl-10"
+              />
+            </div>
+          </div>
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as CourseStatus | 'all')}>
+            <SelectTrigger className="h-10 w-[180px] border-border/70 bg-background/85">
+              <SelectValue placeholder="All Status" />
+            </SelectTrigger>
+            <SelectContent>
+              {statusOptions.map((opt) => (
+                <SelectItem key={opt} value={opt}>
+                  {opt === 'all' ? 'All Status' : opt}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as CourseType | 'all')}>
+            <SelectTrigger className="h-10 w-[180px] border-border/70 bg-background/85">
+              <SelectValue placeholder="All Types" />
+            </SelectTrigger>
+            <SelectContent>
+              {typeOptions.map((opt) => (
+                <SelectItem key={opt} value={opt}>
+                  {opt === 'all' ? 'All Types' : opt}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button variant="outline" className="h-10" onClick={loadCourses}>
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </div>
+      </section>
 
       {error && (
         <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive">
@@ -338,7 +370,18 @@ export default function CoursesPage() {
         </div>
       )}
 
-      <div className="rounded-lg border bg-card/90">
+      <section className="glass-panel overflow-hidden p-0">
+        <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
+          <div>
+            <h2 className="text-base font-semibold tracking-tight">Course Catalog</h2>
+            <p className="text-xs text-muted-foreground">Browse and maintain all registered courses</p>
+          </div>
+          <div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
+            <BookOpenCheck className="h-4 w-4" />
+            <span>{pagination.total} Total Records</span>
+          </div>
+        </div>
+
         {loading ? (
           <div className="p-8 text-center text-muted-foreground">Loading courses...</div>
         ) : courses.length === 0 ? (
@@ -346,7 +389,7 @@ export default function CoursesPage() {
         ) : (
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="bg-muted/30">
                 <TableHead>Code</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Program</TableHead>
@@ -361,7 +404,7 @@ export default function CoursesPage() {
             </TableHeader>
             <TableBody>
               {courses.map((course) => (
-                <TableRow key={course.id}>
+                <TableRow key={course.id} className="hover:bg-muted/25">
                   <TableCell className="font-mono text-sm">{course.code}</TableCell>
                   <TableCell className="font-medium">{course.name}</TableCell>
                   <TableCell>{course.program?.name || '-'}</TableCell>
@@ -398,10 +441,10 @@ export default function CoursesPage() {
             </TableBody>
           </Table>
         )}
-      </div>
+      </section>
 
       {pagination.pages > 1 && (
-        <div className="flex items-center justify-between">
+        <div className="glass-panel flex flex-wrap items-center justify-between gap-3 p-4">
           <div className="text-sm text-muted-foreground">
             Page {pagination.page} of {pagination.pages} ({pagination.total} total)
           </div>
@@ -440,7 +483,7 @@ export default function CoursesPage() {
             </div>
           )}
 
-          {isDetailsReady && (
+          {isDetailsReady && courseDetails && (
             <div className="space-y-5 text-sm">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="rounded-lg border bg-muted/20 p-3">
@@ -475,7 +518,9 @@ export default function CoursesPage() {
                   <p className="mt-1 text-lg font-semibold">{courseDetails.batches?.length || 0}</p>
                 </div>
                 <div className="rounded-lg border p-3">
-                  <p className="text-muted-foreground">Teachers</p>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Sparkles className="h-4 w-4" /> Teachers
+                  </div>
                   <p className="mt-1 text-lg font-semibold">{courseDetails.teachers?.length || 0}</p>
                 </div>
               </div>

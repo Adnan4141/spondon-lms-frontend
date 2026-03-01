@@ -37,9 +37,9 @@ const recentActivities = [
 export default function AdminDashboard() {
   return (
     <div className="space-y-8">
-      <section className="relative overflow-hidden rounded-3xl border border-border/70 bg-card/90 p-6 shadow-sm sm:p-8">
-        <div className="absolute -right-20 -top-24 h-56 w-56 rounded-full bg-[radial-gradient(circle_at_center,_hsl(205_90%_92%),_transparent_70%)]" />
-        <div className="absolute -bottom-16 -left-14 h-44 w-44 rounded-full bg-[radial-gradient(circle_at_center,_hsl(150_40%_89%),_transparent_70%)]" />
+      <section className="glass-panel relative overflow-hidden p-6 sm:p-8">
+        <div className="absolute -right-20 -top-24 h-56 w-56 rounded-full bg-[radial-gradient(circle_at_center,_hsl(205_90%_92%),_transparent_70%)] [animation:float-slow_9s_ease-in-out_infinite]" />
+        <div className="absolute -bottom-16 -left-14 h-44 w-44 rounded-full bg-[radial-gradient(circle_at_center,_hsl(150_40%_89%),_transparent_70%)] [animation:float-slow_10s_ease-in-out_infinite]" />
 
         <div className="relative z-10 max-w-2xl">
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">Overview</p>
@@ -54,7 +54,7 @@ export default function AdminDashboard() {
         {kpis.map((kpi) => {
           const Icon = kpi.icon;
           return (
-            <article key={kpi.label} className="rounded-2xl border border-border/70 bg-card/85 p-5 shadow-sm">
+            <article key={kpi.label} className="glass-panel p-5">
               <div className="flex items-start justify-between">
                 <div className="rounded-xl border border-border/70 bg-accent/30 p-2.5 text-foreground/80">
                   <Icon className="h-5 w-5" />
@@ -71,7 +71,7 @@ export default function AdminDashboard() {
       </section>
 
       <section className="grid gap-4 xl:grid-cols-5">
-        <article className="rounded-2xl border border-border/70 bg-card/85 p-6 shadow-sm xl:col-span-3">
+        <article className="glass-panel p-6 xl:col-span-3">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold tracking-tight">Operational Performance</h2>
             <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
@@ -82,10 +82,10 @@ export default function AdminDashboard() {
           <p className="mt-2 text-sm text-muted-foreground">
             Enrollment and fee collection have both improved this month. Keep focus on payment follow-ups in branch-level reports.
           </p>
-          <div className="mt-6 h-44 rounded-xl border border-dashed border-border/80 bg-accent/20" />
+          <div className="mt-6 h-44 rounded-xl border border-dashed border-border/80 bg-[linear-gradient(135deg,_color-mix(in_oklab,var(--accent)_38%,transparent),_transparent)]" />
         </article>
 
-        <article className="rounded-2xl border border-border/70 bg-card/85 p-6 shadow-sm xl:col-span-2">
+        <article className="glass-panel p-6 xl:col-span-2">
           <h2 className="text-lg font-semibold tracking-tight">Recent Activity</h2>
           <ul className="mt-4 space-y-3">
             {recentActivities.map((item) => (
