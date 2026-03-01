@@ -18,6 +18,7 @@ import {
   PanelLeftOpen,
   X,
   HelpCircle,
+  ClipboardList,
 } from 'lucide-react';
 
 const menuItems = [
@@ -40,6 +41,11 @@ const menuItems = [
     title: 'Questions',
     href: '/admin/questions',
     icon: HelpCircle,
+  },
+  {
+    title: 'Exams',
+    href: '/admin/exams',
+    icon: ClipboardList,
   },
   {
     title: 'Students',
@@ -106,7 +112,7 @@ export function Sidebar({ mobileOpen, onCloseMobile, collapsed, onToggleCollapse
           <div className="flex min-w-0 flex-1 flex-col">
             <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
               <div className="flex items-center gap-2">
-                <CircleUserRound className="h-4 w-4 text-primary" />
+         
                 {!collapsed && <h1 className="text-lg font-semibold tracking-tight">Codezyne</h1>}
               </div>
               <div className="flex items-center gap-2">
@@ -131,7 +137,7 @@ export function Sidebar({ mobileOpen, onCloseMobile, collapsed, onToggleCollapse
             <nav className="flex-1 space-y-1 px-3 py-4">
               {!collapsed && (
                 <p className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-sidebar-foreground/45">
-                  Marketing
+                  Business
                 </p>
               )}
               {menuItems.map((item) => {

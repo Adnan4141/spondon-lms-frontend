@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/dialog';
 import {
   BookOpenCheck,
+  CalendarIcon,
   Edit,
   Eye,
   Plus,
@@ -42,12 +43,29 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 const statusOptions: (UserStatus | 'all')[] = ['all', 'ACTIVE', 'BLOCKED'];
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   return 'Something went wrong';
+}
+
+function parseDateInput(value?: string): Date | undefined {
+  if (!value) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return date;
+}
+
+function formatDateInput(date?: Date): string {
+  if (!date) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 export default function StudentsPage() {
@@ -631,11 +649,27 @@ export default function StudentsPage() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Date of Birth</label>
-                    <Input
-                      type="date"
-                      value={createForm.dob}
-                      onChange={(e) => setCreateForm((prev) => ({ ...prev, dob: e.target.value }))}
-                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {createForm.dob
+                            ? parseDateInput(createForm.dob)?.toLocaleDateString()
+                            : 'Pick date of birth'}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          selected={parseDateInput(createForm.dob)}
+                          onSelect={(date) =>
+                            setCreateForm((prev) => ({ ...prev, dob: formatDateInput(date) }))
+                          }
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Gender</label>
@@ -1000,11 +1034,27 @@ export default function StudentsPage() {
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Date of Birth</label>
-                      <Input
-                        type="date"
-                        value={editForm.dob}
-                        onChange={(e) => setEditForm((prev) => ({ ...prev, dob: e.target.value }))}
-                      />
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start text-left font-normal"
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {editForm.dob
+                              ? parseDateInput(editForm.dob)?.toLocaleDateString()
+                              : 'Pick date of birth'}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            selected={parseDateInput(editForm.dob)}
+                            onSelect={(date) =>
+                              setEditForm((prev) => ({ ...prev, dob: formatDateInput(date) }))
+                            }
+                          />
+                        </PopoverContent>
+                      </Popover>
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Gender</label>

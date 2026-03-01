@@ -29,14 +29,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               >
                 <Menu className="h-4 w-4" />
               </button>
-              <button
-                type="button"
-                onClick={() => setSidebarCollapsed((prev) => !prev)}
-                className="hidden h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-foreground/80 hover:bg-accent lg:inline-flex"
-                aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              >
-                {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-              </button>
+          
               <div>
                 <h2 className="text-xl font-semibold tracking-tight">Dashboard</h2>
               </div>
