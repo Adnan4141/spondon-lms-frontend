@@ -14,11 +14,42 @@ export async function getCourseContentById(id: string): Promise<ApiResponse<Cour
   return apiRequest<ApiResponse<CourseContent>>(`/course-contents/${id}`);
 }
 
-export async function createCourseContent(data: CreateCourseContentDto): Promise<ApiResponse<CourseContent>> {
-  return apiRequest<ApiResponse<CourseContent>>('/course-contents', {
-    method: 'POST',
-    body: JSON.stringify(data),
+export async function createCourseContent(
+  data: CreateCourseContentDto,
+  file?: File
+): Promise<ApiResponse<CourseContent>> {
+  const formData = new FormData();
+  
+  // Add all data fields to FormData
+  Object.entries(data).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      if (typeof value === 'boolean' || typeof value === 'number') {
+        formData.append(key, String(value));
+      } else {
+        formData.append(key, value);
+      }
+    }
   });
+  
+  // Add file if provided
+  if (file) {
+    formData.append('file', file);
+  }
+
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+  
+  const response = await fetch(`${API_BASE_URL}/course-contents`, {
+    method: 'POST',
+    body: formData,
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Failed to create course content' }));
+    throw new Error(error.message || 'Failed to create course content');
+  }
+
+  return response.json();
 }
 
 export async function updateCourseContent(id: string, data: UpdateCourseContentDto): Promise<ApiResponse<CourseContent>> {

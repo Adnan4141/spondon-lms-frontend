@@ -174,6 +174,7 @@ export default function CoursesPage() {
     textBody: '',
     type: 'SAMPLE' as ContentType,
   });
+  const [contentFile, setContentFile] = useState<File | null>(null);
 
   const loadCourses = async () => {
     try {
@@ -354,7 +355,7 @@ export default function CoursesPage() {
     }
   };
 
-  const handleAddContent = async (type: ContentType, title: string, fileUrl?: string, textBody?: string) => {
+  const handleAddContent = async (type: ContentType, title: string, file?: File, textBody?: string) => {
     if (!courseDetails) return;
 
     if (!title.trim()) {
@@ -371,13 +372,13 @@ export default function CoursesPage() {
         courseId: courseDetails.id,
         type,
         title: title.trim(),
-        fileUrl: fileUrl?.trim() || undefined,
+        fileUrl: undefined, // Will be set by backend if file is uploaded
         textBody: textBody?.trim() || undefined,
         isFree: type === 'SAMPLE',
         sortOrder: courseContents.length,
       };
 
-      await createCourseContent(payload);
+      await createCourseContent(payload, file || undefined);
       await loadCourseContents(courseDetails.id);
       
       toast({
@@ -423,11 +424,11 @@ export default function CoursesPage() {
 
   const handleSubmitContent = () => {
     if (syllabusDialogOpen) {
-      handleAddContent('SYLLABUS', contentForm.title, contentForm.fileUrl);
+      handleAddContent('SYLLABUS', contentForm.title, contentFile || undefined);
     } else if (leafletDialogOpen) {
-      handleAddContent('LEAFLET', contentForm.title, contentForm.fileUrl);
+      handleAddContent('LEAFLET', contentForm.title, contentFile || undefined);
     } else if (sampleDialogOpen) {
-      handleAddContent(contentForm.type, contentForm.title, contentForm.fileUrl, contentForm.textBody);
+      handleAddContent(contentForm.type, contentForm.title, contentFile || undefined, contentForm.textBody);
     }
   };
 
@@ -1448,6 +1449,7 @@ export default function CoursesPage() {
                       size="sm"
                       onClick={() => {
                         setContentForm({ title: '', fileUrl: '', textBody: '', type: 'SYLLABUS' });
+                        setContentFile(null);
                         setSyllabusDialogOpen(true);
                       }}
                     >
@@ -1492,6 +1494,7 @@ export default function CoursesPage() {
                       size="sm"
                       onClick={() => {
                         setContentForm({ title: '', fileUrl: '', textBody: '', type: 'LEAFLET' });
+                        setContentFile(null);
                         setLeafletDialogOpen(true);
                       }}
                     >
@@ -1536,6 +1539,7 @@ export default function CoursesPage() {
                       size="sm"
                       onClick={() => {
                         setContentForm({ title: '', fileUrl: '', textBody: '', type: 'SAMPLE' });
+                        setContentFile(null);
                         setSampleDialogOpen(true);
                       }}
                     >
@@ -1622,12 +1626,20 @@ export default function CoursesPage() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">PDF File URL</label>
+              <label className="text-sm font-medium">PDF File</label>
               <Input
-                value={contentForm.fileUrl}
-                onChange={(e) => setContentForm((prev) => ({ ...prev, fileUrl: e.target.value }))}
-                placeholder="https://example.com/syllabus.pdf"
+                type="file"
+                accept=".pdf,application/pdf"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setContentFile(file);
+                  }
+                }}
               />
+              {contentFile && (
+                <p className="text-xs text-muted-foreground">Selected: {contentFile.name}</p>
+              )}
             </div>
           </div>
           <DialogFooter>
@@ -1644,7 +1656,10 @@ export default function CoursesPage() {
         open={leafletDialogOpen}
         onOpenChange={(open) => {
           setLeafletDialogOpen(open);
-          if (!open) setContentForm({ title: '', fileUrl: '', textBody: '', type: 'LEAFLET' });
+          if (!open) {
+            setContentForm({ title: '', fileUrl: '', textBody: '', type: 'LEAFLET' });
+            setContentFile(null);
+          }
         }}
       >
         <DialogContent>
@@ -1662,12 +1677,20 @@ export default function CoursesPage() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">PDF File URL</label>
+              <label className="text-sm font-medium">PDF File</label>
               <Input
-                value={contentForm.fileUrl}
-                onChange={(e) => setContentForm((prev) => ({ ...prev, fileUrl: e.target.value }))}
-                placeholder="https://example.com/leaflet.pdf"
+                type="file"
+                accept=".pdf,application/pdf"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setContentFile(file);
+                  }
+                }}
               />
+              {contentFile && (
+                <p className="text-xs text-muted-foreground">Selected: {contentFile.name}</p>
+              )}
             </div>
           </div>
           <DialogFooter>
@@ -1684,7 +1707,10 @@ export default function CoursesPage() {
         open={sampleDialogOpen}
         onOpenChange={(open) => {
           setSampleDialogOpen(open);
-          if (!open) setContentForm({ title: '', fileUrl: '', textBody: '', type: 'SAMPLE' });
+          if (!open) {
+            setContentForm({ title: '', fileUrl: '', textBody: '', type: 'SAMPLE' });
+            setContentFile(null);
+          }
         }}
       >
         <DialogContent>
@@ -1718,12 +1744,20 @@ export default function CoursesPage() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">File/Video URL (optional)</label>
+              <label className="text-sm font-medium">File/Video (optional)</label>
               <Input
-                value={contentForm.fileUrl}
-                onChange={(e) => setContentForm((prev) => ({ ...prev, fileUrl: e.target.value }))}
-                placeholder="https://example.com/video.mp4"
+                type="file"
+                accept=".mp4,.mpeg,.mov,.avi,.pdf,.doc,.docx,.txt,.xls,.xlsx,image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setContentFile(file);
+                  }
+                }}
               />
+              {contentFile && (
+                <p className="text-xs text-muted-foreground">Selected: {contentFile.name}</p>
+              )}
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Text Content (optional)</label>
