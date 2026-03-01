@@ -108,26 +108,12 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
         )}
       >
         <div className="flex h-full">
-          <div className="hidden w-14 flex-col items-center border-r border-sidebar-border bg-sidebar-accent/35 py-4 lg:flex">
-            {railItems.map((Icon, index) => (
-              <button
-                key={index}
-                type="button"
-                className={cn(
-                  'mb-2 inline-flex h-8 w-8 items-center justify-center rounded-md text-sidebar-foreground/70 transition-colors',
-                  index === 1 ? 'bg-sidebar-primary text-sidebar-primary-foreground' : 'hover:bg-sidebar-accent'
-                )}
-              >
-                <Icon className="h-4 w-4" />
-              </button>
-            ))}
-          </div>
-
+        
           <div className="flex min-w-0 flex-1 flex-col">
             <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
               <div className="flex items-center gap-2">
                 <CircleUserRound className="h-4 w-4 text-primary" />
-                <h1 className="text-lg font-semibold tracking-tight">Flup</h1>
+                <h1 className="text-lg font-semibold tracking-tight">Codezyne</h1>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground">‹</span>
