@@ -59,10 +59,10 @@ import {
   ExternalLink,
   FileText,
   FileVideo,
+  GraduationCap,
   Plus,
   RefreshCw,
   Search,
-  Sparkles,
   Trash2,
   Users,
   X,
@@ -714,13 +714,14 @@ export default function CoursesPage() {
           if (!open) setCreateError(null);
         }}
       >
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
-          <DialogHeader>
+        <DialogContent className="max-h-[90vh] sm:max-w-4xl flex flex-col p-0 gap-0" showCloseButton={true}>
+          <DialogHeader className="px-6 pt-6 pb-4 shrink-0 sticky top-0 bg-background z-10 border-b shadow-sm">
             <DialogTitle>Create Course</DialogTitle>
             <DialogDescription>Add a new course to the system.</DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            <div className="grid gap-4 sm:grid-cols-2 py-6">
             <div className="space-y-2">
               <label className="text-sm font-medium">Program</label>
               <Select
@@ -894,13 +895,14 @@ export default function CoursesPage() {
             </div>
           </div>
 
-          {createError && (
-            <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
-              {createError}
-            </div>
-          )}
+            {createError && (
+              <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive mb-4">
+                {createError}
+              </div>
+            )}
+          </div>
 
-          <DialogFooter>
+          <DialogFooter className="px-6 pb-6 pt-4 shrink-0 bg-background border-t shadow-lg mt-auto">
             <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
               Cancel
             </Button>
@@ -912,21 +914,22 @@ export default function CoursesPage() {
       </Dialog>
 
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
-          <DialogHeader>
+        <DialogContent className="max-h-[90vh] sm:max-w-4xl flex flex-col p-0 gap-0" showCloseButton={true}>
+          <DialogHeader className="px-6 pt-6 pb-4 shrink-0 sticky top-0 bg-background z-10 border-b shadow-sm">
             <DialogTitle>Course Details</DialogTitle>
             <DialogDescription>View full course information and related activity.</DialogDescription>
           </DialogHeader>
 
-          {detailsLoading && <p className="text-sm text-muted-foreground">Loading details...</p>}
-          {!detailsLoading && detailsError && (
-            <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
-              {detailsError}
-            </div>
-          )}
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            {detailsLoading && <p className="text-sm text-muted-foreground py-6">Loading details...</p>}
+            {!detailsLoading && detailsError && (
+              <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive my-6">
+                {detailsError}
+              </div>
+            )}
 
-          {isDetailsReady && courseDetails && (
-            <div className="space-y-5 text-sm">
+            {isDetailsReady && courseDetails && (
+              <div className="space-y-5 text-sm py-6">
               {/* Basic Information */}
               <div>
                 <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">Basic Information</p>
@@ -1084,7 +1087,7 @@ export default function CoursesPage() {
                 </div>
                 <div className="rounded-lg border p-3">
                   <div className="flex items-center gap-2 text-muted-foreground">
-                    <Sparkles className="h-4 w-4" /> Teachers
+                    <GraduationCap className="h-4 w-4" /> Teachers
                   </div>
                   <p className="mt-1 text-lg font-semibold">{courseDetails.teachers?.length || 0}</p>
                 </div>
@@ -1362,8 +1365,9 @@ export default function CoursesPage() {
                   )}
                 </>
               )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -1374,21 +1378,22 @@ export default function CoursesPage() {
           if (!open) setEditError(null);
         }}
       >
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
-          <DialogHeader>
+        <DialogContent className="max-h-[90vh] sm:max-w-4xl flex flex-col p-0 gap-0" showCloseButton={true}>
+          <DialogHeader className="px-6 pt-6 pb-4 shrink-0 sticky top-0 bg-background z-10 border-b shadow-sm">
             <DialogTitle>Edit Course</DialogTitle>
             <DialogDescription>Update course information and save the changes.</DialogDescription>
           </DialogHeader>
 
-          {detailsLoading && <p className="text-sm text-muted-foreground">Loading form...</p>}
-          {!detailsLoading && detailsError && (
-            <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
-              {detailsError}
-            </div>
-          )}
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            {detailsLoading && <p className="text-sm text-muted-foreground py-6">Loading form...</p>}
+            {!detailsLoading && detailsError && (
+              <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive my-6">
+                {detailsError}
+              </div>
+            )}
 
-          {isDetailsReady && (
-            <div className="grid gap-4 sm:grid-cols-2">
+            {isDetailsReady && (
+              <div className="grid gap-4 sm:grid-cols-2 py-6">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Program</label>
                 <Select
@@ -1806,16 +1811,17 @@ export default function CoursesPage() {
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+              </div>
+            )}
 
-          {editError && (
-            <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
-              {editError}
-            </div>
-          )}
+            {editError && (
+              <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive my-6 mb-4">
+                {editError}
+              </div>
+            )}
+          </div>
 
-          <DialogFooter>
+          <DialogFooter className="px-6 pb-6 pt-4 shrink-0 bg-background border-t shadow-lg mt-auto">
             <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
               Cancel
             </Button>
@@ -1885,7 +1891,7 @@ export default function CoursesPage() {
           }
         }}
       >
-        <DialogContent>
+        <DialogContent showCloseButton={true}>
           <DialogHeader>
             <DialogTitle>Add Leaflet / Schedule</DialogTitle>
             <DialogDescription>Add a new leaflet or schedule PDF for this course</DialogDescription>
@@ -1936,7 +1942,7 @@ export default function CoursesPage() {
           }
         }}
       >
-        <DialogContent>
+        <DialogContent showCloseButton={true}>
           <DialogHeader>
             <DialogTitle>Add Sample / Free Content</DialogTitle>
             <DialogDescription>Add video, notes, or sample content for this course</DialogDescription>
