@@ -578,14 +578,13 @@ export default function StudentsPage() {
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Branch</label>
                   <Select
-                    value={createForm.branchId}
-                    onValueChange={(v) => setCreateForm((prev) => ({ ...prev, branchId: v }))}
+                    value={createForm.branchId || undefined}
+                    onValueChange={(v) => setCreateForm((prev) => ({ ...prev, branchId: v || '' }))}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select branch" />
+                      <SelectValue placeholder="Select branch (optional)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No Branch</SelectItem>
                       {branches.map((branch) => (
                         <SelectItem key={branch.id} value={branch.id}>
                           {branch.name}
@@ -680,7 +679,6 @@ export default function StudentsPage() {
                         <SelectValue placeholder="Select institute" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">No Institute</SelectItem>
                         {institutes.map((institute) => (
                           <SelectItem key={institute.id} value={institute.id}>
                             {institute.name}
@@ -949,14 +947,13 @@ export default function StudentsPage() {
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Branch</label>
                     <Select
-                      value={editForm.branchId}
-                      onValueChange={(v) => setEditForm((prev) => ({ ...prev, branchId: v }))}
+                      value={editForm.branchId || undefined}
+                      onValueChange={(v) => setEditForm((prev) => ({ ...prev, branchId: v || '' }))}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select branch" />
+                        <SelectValue placeholder="Select branch (optional)" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">No Branch</SelectItem>
                         {branches.map((branch) => (
                           <SelectItem key={branch.id} value={branch.id}>
                             {branch.name}
@@ -1044,14 +1041,13 @@ export default function StudentsPage() {
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Institute</label>
                       <Select
-                        value={editForm.instituteId}
-                        onValueChange={(v) => setEditForm((prev) => ({ ...prev, instituteId: v }))}
+                        value={editForm.instituteId || undefined}
+                        onValueChange={(v) => setEditForm((prev) => ({ ...prev, instituteId: v || '' }))}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Select institute" />
+                          <SelectValue placeholder="Select institute (optional)" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">No Institute</SelectItem>
                           {institutes.map((institute) => (
                             <SelectItem key={institute.id} value={institute.id}>
                               {institute.name}
