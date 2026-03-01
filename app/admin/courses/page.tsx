@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getPrograms } from '@/lib/api/programs';
-import { getCourseById, getCourses, updateCourse } from '@/lib/api/courses';
+import { getCourseById, getCourses, updateCourse, createCourse } from '@/lib/api/courses';
 import {
   AdmissionStatus,
   BillingType,
@@ -10,6 +10,7 @@ import {
   CourseDetails,
   CourseStatus,
   CourseType,
+  CreateCourseDto,
   GetCoursesParams,
   Program,
   UpdateCourseDto,
@@ -116,12 +117,16 @@ export default function CoursesPage() {
 
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [courseDetails, setCourseDetails] = useState<CourseDetails | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [detailsError, setDetailsError] = useState<string | null>(null);
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditFormState>(defaultEditForm);
+  const [createSubmitting, setCreateSubmitting] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [createForm, setCreateForm] = useState<EditFormState>(defaultEditForm);
 
   const loadCourses = async () => {
     try {
@@ -217,6 +222,47 @@ export default function CoursesPage() {
     }
   };
 
+  const handleCreateSubmit = async () => {
+    const parsedFee = Number(createForm.fee);
+    if (Number.isNaN(parsedFee) || parsedFee < 0) {
+      setCreateError('Fee must be a valid positive number.');
+      return;
+    }
+
+    if (!createForm.programId || !createForm.name.trim() || !createForm.code.trim()) {
+      setCreateError('Program, name, and code are required.');
+      return;
+    }
+
+    const payload: CreateCourseDto = {
+      programId: createForm.programId,
+      name: createForm.name.trim(),
+      code: createForm.code.trim(),
+      type: createForm.type,
+      billingType: createForm.billingType,
+      fee: parsedFee,
+      description: createForm.description.trim() || undefined,
+      status: createForm.status,
+      admissionStatus: createForm.admissionStatus,
+      featured: createForm.featured,
+      websiteVisible: createForm.websiteVisible,
+      settledOptionEnabled: createForm.settledOptionEnabled,
+    };
+
+    try {
+      setCreateSubmitting(true);
+      setCreateError(null);
+      await createCourse(payload);
+      setCreateDialogOpen(false);
+      setCreateForm(defaultEditForm);
+      await loadCourses();
+    } catch (err: unknown) {
+      setCreateError(getErrorMessage(err) || 'Failed to create course');
+    } finally {
+      setCreateSubmitting(false);
+    }
+  };
+
   const handleEditSubmit = async () => {
     if (!courseDetails) return;
 
@@ -292,7 +338,7 @@ export default function CoursesPage() {
               Manage structure, visibility, billing, and lifecycle of all courses from one unified workspace.
             </p>
           </div>
-          <Button className="mt-1 bg-primary hover:bg-primary/90">
+          <Button className="mt-1 bg-primary hover:bg-primary/90" onClick={() => setCreateDialogOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             Create Course
           </Button>
@@ -465,6 +511,210 @@ export default function CoursesPage() {
           </div>
         </div>
       )}
+
+      <Dialog
+        open={createDialogOpen}
+        onOpenChange={(open) => {
+          setCreateDialogOpen(open);
+          if (!open) setCreateError(null);
+        }}
+      >
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Create Course</DialogTitle>
+            <DialogDescription>Add a new course to the system.</DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Program</label>
+              <Select
+                value={createForm.programId}
+                onValueChange={(value) => setCreateForm((prev) => ({ ...prev, programId: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Program" />
+                </SelectTrigger>
+                <SelectContent>
+                  {programs.map((program) => (
+                    <SelectItem key={program.id} value={program.id}>
+                      {program.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Code</label>
+              <Input
+                value={createForm.code}
+                onChange={(e) => setCreateForm((prev) => ({ ...prev, code: e.target.value.toUpperCase() }))}
+                placeholder="e.g., HSC-PHY-01"
+              />
+            </div>
+
+            <div className="space-y-2 sm:col-span-2">
+              <label className="text-sm font-medium">Course Name</label>
+              <Input
+                value={createForm.name}
+                onChange={(e) => setCreateForm((prev) => ({ ...prev, name: e.target.value }))}
+                placeholder="Course name"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Type</label>
+              <Select
+                value={createForm.type}
+                onValueChange={(value) => setCreateForm((prev) => ({ ...prev, type: value as CourseType }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {typeOptions
+                    .filter((item): item is CourseType => item !== 'all')
+                    .map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Billing Type</label>
+              <Select
+                value={createForm.billingType}
+                onValueChange={(value) => setCreateForm((prev) => ({ ...prev, billingType: value as BillingType }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {billingOptions.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Status</label>
+              <Select
+                value={createForm.status}
+                onValueChange={(value) => setCreateForm((prev) => ({ ...prev, status: value as CourseStatus }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {statusOptions
+                    .filter((item): item is CourseStatus => item !== 'all')
+                    .map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Admission</label>
+              <Select
+                value={createForm.admissionStatus}
+                onValueChange={(value) =>
+                  setCreateForm((prev) => ({ ...prev, admissionStatus: value as AdmissionStatus }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {admissionOptions.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2 sm:col-span-2">
+              <label className="text-sm font-medium">Fee</label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={createForm.fee}
+                onChange={(e) => setCreateForm((prev) => ({ ...prev, fee: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-2 sm:col-span-2">
+              <label className="text-sm font-medium">Description</label>
+              <textarea
+                value={createForm.description}
+                onChange={(e) => setCreateForm((prev) => ({ ...prev, description: e.target.value }))}
+                rows={4}
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none ring-offset-background focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+              />
+            </div>
+
+            <div className="flex flex-wrap gap-4 sm:col-span-2">
+              <label className="inline-flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={createForm.featured}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, featured: e.target.checked }))}
+                  className="h-4 w-4"
+                />
+                Featured
+              </label>
+              <label className="inline-flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={createForm.websiteVisible}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, websiteVisible: e.target.checked }))}
+                  className="h-4 w-4"
+                />
+                Website Visible
+              </label>
+              <label className="inline-flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={createForm.settledOptionEnabled}
+                  onChange={(e) =>
+                    setCreateForm((prev) => ({ ...prev, settledOptionEnabled: e.target.checked }))
+                  }
+                  className="h-4 w-4"
+                />
+                Settled Option Enabled
+              </label>
+            </div>
+          </div>
+
+          {createError && (
+            <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
+              {createError}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateSubmit} disabled={createSubmitting}>
+              {createSubmitting ? 'Creating...' : 'Create Course'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
