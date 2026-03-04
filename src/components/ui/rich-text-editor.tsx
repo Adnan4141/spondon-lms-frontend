@@ -11,9 +11,19 @@ import {
   Bold,
   Italic,
   Underline as UnderlineIcon,
+  Strikethrough,
+  Heading2,
+  Heading3,
+  Heading4,
   List,
   ListOrdered,
   Quote,
+  Code2,
+  Minus,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
   Undo,
   Redo,
   Image as ImageIcon,
@@ -60,7 +70,7 @@ export function RichTextEditor({ value, onChange, onImageUpload, placeholder, cl
     editorProps: {
       attributes: {
         class:
-          'min-h-[140px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-offset-background focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] prose prose-sm max-w-none',
+          'min-h-[140px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-offset-background focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
         'data-slot': 'textarea',
       },
     },
@@ -171,6 +181,39 @@ export function RichTextEditor({ value, onChange, onImageUpload, placeholder, cl
         >
           <UnderlineIcon className="h-3 w-3" />
         </Button>
+        <Button
+          type="button"
+          variant={editor.isActive('strike') ? 'default' : 'ghost'}
+          size="icon-xs"
+          onClick={() => editor.chain().focus().toggleStrike().run()}
+        >
+          <Strikethrough className="h-3 w-3" />
+        </Button>
+        <span className="mx-1 h-4 w-px bg-border" />
+        <Button
+          type="button"
+          variant={editor.isActive('heading', { level: 2 }) ? 'default' : 'ghost'}
+          size="icon-xs"
+          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+        >
+          <Heading2 className="h-3 w-3" />
+        </Button>
+        <Button
+          type="button"
+          variant={editor.isActive('heading', { level: 3 }) ? 'default' : 'ghost'}
+          size="icon-xs"
+          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+        >
+          <Heading3 className="h-3 w-3" />
+        </Button>
+        <Button
+          type="button"
+          variant={editor.isActive('heading', { level: 4 }) ? 'default' : 'ghost'}
+          size="icon-xs"
+          onClick={() => editor.chain().focus().toggleHeading({ level: 4 }).run()}
+        >
+          <Heading4 className="h-3 w-3" />
+        </Button>
         <span className="mx-1 h-4 w-px bg-border" />
         <Button
           type="button"
@@ -195,6 +238,64 @@ export function RichTextEditor({ value, onChange, onImageUpload, placeholder, cl
           onClick={() => editor.chain().focus().toggleBlockquote().run()}
         >
           <Quote className="h-3 w-3" />
+        </Button>
+        <span className="mx-1 h-4 w-px bg-border" />
+        <Button
+          type="button"
+          variant={editor.isActive('code') ? 'default' : 'ghost'}
+          size="icon-xs"
+          onClick={() => editor.chain().focus().toggleCode().run()}
+        >
+          <Code2 className="h-3 w-3" />
+        </Button>
+        <Button
+          type="button"
+          variant={editor.isActive('codeBlock') ? 'default' : 'ghost'}
+          size="icon-xs"
+          onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+        >
+          <Code2 className="h-3 w-3" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          onClick={() => editor.chain().focus().setHorizontalRule().run()}
+        >
+          <Minus className="h-3 w-3" />
+        </Button>
+        <span className="mx-1 h-4 w-px bg-border" />
+        <Button
+          type="button"
+          variant={editor.isActive({ textAlign: 'left' }) ? 'default' : 'ghost'}
+          size="icon-xs"
+          onClick={() => editor.chain().focus().setTextAlign('left').run()}
+        >
+          <AlignLeft className="h-3 w-3" />
+        </Button>
+        <Button
+          type="button"
+          variant={editor.isActive({ textAlign: 'center' }) ? 'default' : 'ghost'}
+          size="icon-xs"
+          onClick={() => editor.chain().focus().setTextAlign('center').run()}
+        >
+          <AlignCenter className="h-3 w-3" />
+        </Button>
+        <Button
+          type="button"
+          variant={editor.isActive({ textAlign: 'right' }) ? 'default' : 'ghost'}
+          size="icon-xs"
+          onClick={() => editor.chain().focus().setTextAlign('right').run()}
+        >
+          <AlignRight className="h-3 w-3" />
+        </Button>
+        <Button
+          type="button"
+          variant={editor.isActive({ textAlign: 'justify' }) ? 'default' : 'ghost'}
+          size="icon-xs"
+          onClick={() => editor.chain().focus().setTextAlign('justify').run()}
+        >
+          <AlignJustify className="h-3 w-3" />
         </Button>
         <span className="mx-1 h-4 w-px bg-border" />
         <Button

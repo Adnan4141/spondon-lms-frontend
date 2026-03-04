@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   getQuestionFolders,
   getQuestionFolderById,
@@ -111,6 +111,10 @@ export default function QuestionsPage() {
     options: [],
   });
   const [mcqOptions, setMcqOptions] = useState<CreateMcqOptionDto[]>([]);
+
+  // Refs to scroll MCQ options into view when adding new ones
+  const createOptionsEndRef = useRef<HTMLDivElement | null>(null);
+  const editOptionsEndRef = useRef<HTMLDivElement | null>(null);
 
   const loadFolders = async () => {
     try {
@@ -471,7 +475,20 @@ export default function QuestionsPage() {
   };
 
   const addMcqOption = () => {
-    setMcqOptions([...mcqOptions, { label: '', text: '', isCorrect: false }]);
+    setMcqOptions((prev) => {
+      const next = [...prev, { label: '', text: '', isCorrect: false }];
+
+      // Allow DOM to update, then scroll the last option into view in whichever dialog is open
+      setTimeout(() => {
+        if (questionCreateDialogOpen && createOptionsEndRef.current) {
+          createOptionsEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        } else if (questionEditDialogOpen && editOptionsEndRef.current) {
+          editOptionsEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }
+      }, 0);
+
+      return next;
+    });
   };
 
   const removeMcqOption = (index: number) => {
@@ -1145,6 +1162,7 @@ export default function QuestionsPage() {
                       </Button>
                     </div>
                   ))}
+                  <div ref={createOptionsEndRef} />
                 </div>
               )}
             </div>
@@ -1299,6 +1317,7 @@ export default function QuestionsPage() {
                       </Button>
                     </div>
                   ))}
+                  <div ref={editOptionsEndRef} />
                 </div>
               )}
             </div>
