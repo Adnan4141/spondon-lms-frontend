@@ -19,6 +19,7 @@ import {
   X,
   HelpCircle,
   ClipboardList,
+  Building2,
 } from 'lucide-react';
 
 const menuItems = [
@@ -51,6 +52,16 @@ const menuItems = [
     title: 'Students',
     href: '/admin/students',
     icon: Users,
+  },
+  {
+    title: 'Academic',
+    href: '/admin/academic-records',
+    icon: BarChart3,
+  },
+  {
+    title: 'Branches',
+    href: '/admin/branches',
+    icon: Building2,
   },
   {
     title: 'Batches',

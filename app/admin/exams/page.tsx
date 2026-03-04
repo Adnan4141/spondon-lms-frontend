@@ -90,7 +90,7 @@ export default function ExamsPage() {
   const [editForm, setEditForm] = useState<CreateExamDto>({
     courseId: '',
     branchId: '',
-    batchId: '',
+    batchId: undefined,
     title: '',
     type: 'PRACTICE',
     mode: 'ONLINE',
@@ -104,7 +104,7 @@ export default function ExamsPage() {
   const [createForm, setCreateForm] = useState<CreateExamDto>({
     courseId: '',
     branchId: '',
-    batchId: '',
+    batchId: undefined,
     title: '',
     type: 'PRACTICE',
     mode: 'ONLINE',
@@ -119,6 +119,17 @@ export default function ExamsPage() {
   const [editError, setEditError] = useState<string | null>(null);
   const [createSubmitting, setCreateSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+
+  const isValidCourse = (value: unknown): value is Course => {
+    if (!value || typeof value !== 'object') return false;
+    const item = value as Partial<Course>;
+    return (
+      typeof item.id === 'string' &&
+      typeof item.name === 'string' &&
+      typeof item.programId === 'string' &&
+      typeof item.code === 'string'
+    );
+  };
 
   const loadExams = async () => {
     try {
@@ -147,9 +158,12 @@ export default function ExamsPage() {
 
   const loadCourses = async () => {
     try {
-      const response = await getCourses({});
+      const response = await getCourses({ status: 'ACTIVE', limit: 500 });
       if (response.success && response.data) {
-        setCourses(response.data || []);
+        const validCourses = (response.data || [])
+          .filter(isValidCourse)
+          .sort((a, b) => a.name.localeCompare(b.name));
+        setCourses(validCourses);
       }
     } catch (err: unknown) {
       console.error('Failed to load courses:', err);
@@ -211,7 +225,7 @@ export default function ExamsPage() {
         setEditForm({
           courseId: exam.courseId,
           branchId: exam.branchId,
-          batchId: exam.batchId || '',
+          batchId: exam.batchId || undefined,
           title: exam.title,
           type: exam.type,
           mode: exam.mode,
@@ -337,7 +351,7 @@ export default function ExamsPage() {
       setCreateForm({
         courseId: '',
         branchId: '',
-        batchId: '',
+        batchId: undefined,
         title: '',
         type: 'PRACTICE',
         mode: 'ONLINE',
@@ -486,7 +500,7 @@ export default function ExamsPage() {
               <SelectItem value="all">All Courses</SelectItem>
               {courses.map((course) => (
                 <SelectItem key={course.id} value={course.id}>
-                  {course.name}
+                  {course.name} ({course.code})
                 </SelectItem>
               ))}
             </SelectContent>
@@ -635,7 +649,7 @@ export default function ExamsPage() {
                   <Select
                     value={createForm.courseId}
                     onValueChange={(v) => {
-                      setCreateForm((prev) => ({ ...prev, courseId: v, batchId: '' }));
+                      setCreateForm((prev) => ({ ...prev, courseId: v, batchId: undefined }));
                       if (createForm.branchId) {
                         loadBatches(v, createForm.branchId);
                       }
@@ -647,7 +661,7 @@ export default function ExamsPage() {
                     <SelectContent>
                       {courses.map((course) => (
                         <SelectItem key={course.id} value={course.id}>
-                          {course.name}
+                          {course.name} ({course.code})
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -658,7 +672,7 @@ export default function ExamsPage() {
                   <Select
                     value={createForm.branchId}
                     onValueChange={(v) => {
-                      setCreateForm((prev) => ({ ...prev, branchId: v, batchId: '' }));
+                      setCreateForm((prev) => ({ ...prev, branchId: v, batchId: undefined }));
                       if (createForm.courseId) {
                         loadBatches(createForm.courseId, v);
                       }
@@ -682,18 +696,22 @@ export default function ExamsPage() {
                 <label className="text-sm font-medium">Batch (Optional)</label>
                 <Select
                   value={createForm.batchId || undefined}
-                  onValueChange={(v) => setCreateForm((prev) => ({ ...prev, batchId: v || '' }))}
+                  onValueChange={(v) => setCreateForm((prev) => ({ ...prev, batchId: v }))}
                   disabled={!createForm.courseId || !createForm.branchId}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={!createForm.courseId || !createForm.branchId ? 'Select course and branch first' : 'Select batch'} />
                   </SelectTrigger>
                   <SelectContent>
-                    {batches.map((batch) => (
-                      <SelectItem key={batch.id} value={batch.id}>
-                        {batch.name}
-                      </SelectItem>
-                    ))}
+                    {batches.length === 0 ? (
+                      <div className="px-2 py-1.5 text-sm text-muted-foreground">No batches available</div>
+                    ) : (
+                      batches.map((batch) => (
+                        <SelectItem key={batch.id} value={batch.id}>
+                          {batch.name}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -1060,7 +1078,7 @@ export default function ExamsPage() {
                     <Select
                       value={editForm.courseId}
                       onValueChange={(v) => {
-                        setEditForm((prev) => ({ ...prev, courseId: v, batchId: '' }));
+                        setEditForm((prev) => ({ ...prev, courseId: v, batchId: undefined }));
                         if (editForm.branchId) {
                           loadBatches(v, editForm.branchId);
                         }
@@ -1072,7 +1090,7 @@ export default function ExamsPage() {
                       <SelectContent>
                         {courses.map((course) => (
                           <SelectItem key={course.id} value={course.id}>
-                            {course.name}
+                            {course.name} ({course.code})
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1083,7 +1101,7 @@ export default function ExamsPage() {
                     <Select
                       value={editForm.branchId}
                       onValueChange={(v) => {
-                        setEditForm((prev) => ({ ...prev, branchId: v, batchId: '' }));
+                        setEditForm((prev) => ({ ...prev, branchId: v, batchId: undefined }));
                         if (editForm.courseId) {
                           loadBatches(editForm.courseId, v);
                         }
@@ -1107,18 +1125,22 @@ export default function ExamsPage() {
                   <label className="text-sm font-medium">Batch (Optional)</label>
                   <Select
                     value={editForm.batchId || undefined}
-                    onValueChange={(v) => setEditForm((prev) => ({ ...prev, batchId: v || '' }))}
+                    onValueChange={(v) => setEditForm((prev) => ({ ...prev, batchId: v }))}
                     disabled={!editForm.courseId || !editForm.branchId}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder={!editForm.courseId || !editForm.branchId ? 'Select course and branch first' : 'Select batch'} />
                     </SelectTrigger>
                     <SelectContent>
-                      {batches.map((batch) => (
-                        <SelectItem key={batch.id} value={batch.id}>
-                          {batch.name}
-                        </SelectItem>
-                      ))}
+                      {batches.length === 0 ? (
+                        <div className="px-2 py-1.5 text-sm text-muted-foreground">No batches available</div>
+                      ) : (
+                        batches.map((batch) => (
+                          <SelectItem key={batch.id} value={batch.id}>
+                            {batch.name}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
