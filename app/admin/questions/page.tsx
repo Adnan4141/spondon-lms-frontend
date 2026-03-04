@@ -66,6 +66,8 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
+import { uploadQuestionImage } from '@/lib/api/question-bank';
 
 const questionTypeOptions: QuestionType[] = ['MCQ', 'CQ'];
 const difficultyOptions: (Difficulty | 'all')[] = ['all', 'EASY', 'MEDIUM', 'HARD'];
@@ -492,6 +494,28 @@ export default function QuestionsPage() {
   const cqCount = questions.filter((q) => q.type === 'CQ').length;
   const totalFolders = folders.length;
 
+  const stripHtml = (html: string) => {
+    if (!html) return '';
+    return html.replace(/<[^>]+>/g, '');
+  };
+
+  const handleEditorImageUpload = async (file: File): Promise<string> => {
+    try {
+      const response = await uploadQuestionImage(file);
+      if (response.success && response.data?.url) {
+        return response.data.url;
+      }
+      throw new Error(response.message || 'Failed to upload image');
+    } catch (err: unknown) {
+      toast({
+        title: 'Image upload failed',
+        description: getErrorMessage(err),
+        variant: 'destructive',
+      });
+      throw err;
+    }
+  };
+
   return (
     <div className="space-y-4">
       <section className="glass-panel p-5">
@@ -633,7 +657,7 @@ export default function QuestionsPage() {
                   <TableCell>
                     <Badge variant={question.type === 'MCQ' ? 'default' : 'secondary'}>{question.type}</Badge>
                   </TableCell>
-                  <TableCell className="max-w-md truncate">{question.prompt}</TableCell>
+                  <TableCell className="max-w-md truncate">{stripHtml(question.prompt)}</TableCell>
                   <TableCell>
                     {question.difficulty ? (
                       <Badge variant="outline">{question.difficulty}</Badge>
@@ -746,12 +770,14 @@ export default function QuestionsPage() {
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">Course (Optional)</label>
-                <Select value={folderForm.courseId} onValueChange={(v) => setFolderForm((prev) => ({ ...prev, courseId: v }))}>
+                <Select
+                  value={folderForm.courseId || undefined}
+                  onValueChange={(v) => setFolderForm((prev) => ({ ...prev, courseId: v || '' }))}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a course" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No Course</SelectItem>
                     {courses.map((course) => (
                       <SelectItem key={course.id} value={course.id}>
                         {course.name}
@@ -764,14 +790,13 @@ export default function QuestionsPage() {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Parent Folder (Optional)</label>
                 <Select
-                  value={folderForm.parentFolderId}
-                  onValueChange={(v) => setFolderForm((prev) => ({ ...prev, parentFolderId: v }))}
+                  value={folderForm.parentFolderId || undefined}
+                  onValueChange={(v) => setFolderForm((prev) => ({ ...prev, parentFolderId: v || '' }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a parent folder" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No Parent</SelectItem>
                     {folders.map((folder) => (
                       <SelectItem key={folder.id} value={folder.id}>
                         {folder.name}
@@ -813,12 +838,14 @@ export default function QuestionsPage() {
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">Course (Optional)</label>
-                <Select value={folderForm.courseId} onValueChange={(v) => setFolderForm((prev) => ({ ...prev, courseId: v }))}>
+                <Select
+                  value={folderForm.courseId || undefined}
+                  onValueChange={(v) => setFolderForm((prev) => ({ ...prev, courseId: v || '' }))}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a course" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No Course</SelectItem>
                     {courses.map((course) => (
                       <SelectItem key={course.id} value={course.id}>
                         {course.name}
@@ -831,14 +858,13 @@ export default function QuestionsPage() {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Parent Folder (Optional)</label>
                 <Select
-                  value={folderForm.parentFolderId}
-                  onValueChange={(v) => setFolderForm((prev) => ({ ...prev, parentFolderId: v }))}
+                  value={folderForm.parentFolderId || undefined}
+                  onValueChange={(v) => setFolderForm((prev) => ({ ...prev, parentFolderId: v || '' }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a parent folder" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No Parent</SelectItem>
                     {folders.filter((f) => f.id !== folderDetails?.id).map((folder) => (
                       <SelectItem key={folder.id} value={folder.id}>
                         {folder.name}
@@ -904,13 +930,19 @@ export default function QuestionsPage() {
 
                 <div className="rounded-lg border p-3">
                   <p className="text-xs uppercase text-muted-foreground">Prompt</p>
-                  <p className="mt-1 text-sm whitespace-pre-wrap">{questionDetails.prompt}</p>
+                  <div
+                    className="mt-1 text-sm prose prose-sm max-w-none"
+                    dangerouslySetInnerHTML={{ __html: questionDetails.prompt }}
+                  />
                 </div>
 
                 {questionDetails.explanation && (
                   <div className="rounded-lg border p-3">
                     <p className="text-xs uppercase text-muted-foreground">Explanation</p>
-                    <p className="mt-1 text-sm whitespace-pre-wrap">{questionDetails.explanation}</p>
+                    <div
+                      className="mt-1 text-sm prose prose-sm max-w-none"
+                      dangerouslySetInnerHTML={{ __html: questionDetails.explanation }}
+                    />
                   </div>
                 )}
 
@@ -1028,14 +1060,13 @@ export default function QuestionsPage() {
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Difficulty</label>
                   <Select
-                    value={questionForm.difficulty || ''}
+                    value={questionForm.difficulty || undefined}
                     onValueChange={(v) => setQuestionForm((prev) => ({ ...prev, difficulty: (v || undefined) as Difficulty }))}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select difficulty" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
                       {difficultyOptions.filter((opt) => opt !== 'all').map((opt) => (
                         <SelectItem key={opt} value={opt}>
                           {opt}
@@ -1060,22 +1091,20 @@ export default function QuestionsPage() {
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">Prompt *</label>
-                <textarea
+                <RichTextEditor
                   value={questionForm.prompt}
-                  onChange={(e) => setQuestionForm((prev) => ({ ...prev, prompt: e.target.value }))}
-                  rows={4}
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none ring-offset-background focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+                  onChange={(html) => setQuestionForm((prev) => ({ ...prev, prompt: html }))}
+                  onImageUpload={handleEditorImageUpload}
                   placeholder="Enter the question prompt..."
                 />
               </div>
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">Explanation</label>
-                <textarea
-                  value={questionForm.explanation}
-                  onChange={(e) => setQuestionForm((prev) => ({ ...prev, explanation: e.target.value }))}
-                  rows={3}
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none ring-offset-background focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+                <RichTextEditor
+                  value={questionForm.explanation || ''}
+                  onChange={(html) => setQuestionForm((prev) => ({ ...prev, explanation: html }))}
+                  onImageUpload={handleEditorImageUpload}
                   placeholder="Enter explanation (optional)..."
                 />
               </div>
@@ -1185,14 +1214,13 @@ export default function QuestionsPage() {
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Difficulty</label>
                   <Select
-                    value={questionForm.difficulty || ''}
+                    value={questionForm.difficulty || undefined}
                     onValueChange={(v) => setQuestionForm((prev) => ({ ...prev, difficulty: (v || undefined) as Difficulty }))}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select difficulty" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
                       {difficultyOptions.filter((opt) => opt !== 'all').map((opt) => (
                         <SelectItem key={opt} value={opt}>
                           {opt}
@@ -1217,22 +1245,20 @@ export default function QuestionsPage() {
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">Prompt *</label>
-                <textarea
+                <RichTextEditor
                   value={questionForm.prompt}
-                  onChange={(e) => setQuestionForm((prev) => ({ ...prev, prompt: e.target.value }))}
-                  rows={4}
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none ring-offset-background focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+                  onChange={(html) => setQuestionForm((prev) => ({ ...prev, prompt: html }))}
+                  onImageUpload={handleEditorImageUpload}
                   placeholder="Enter the question prompt..."
                 />
               </div>
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">Explanation</label>
-                <textarea
-                  value={questionForm.explanation}
-                  onChange={(e) => setQuestionForm((prev) => ({ ...prev, explanation: e.target.value }))}
-                  rows={3}
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none ring-offset-background focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+                <RichTextEditor
+                  value={questionForm.explanation || ''}
+                  onChange={(html) => setQuestionForm((prev) => ({ ...prev, explanation: html }))}
+                  onImageUpload={handleEditorImageUpload}
                   placeholder="Enter explanation (optional)..."
                 />
               </div>

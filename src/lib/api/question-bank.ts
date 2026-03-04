@@ -1,4 +1,4 @@
-import { apiRequest } from '../api';
+import { apiRequest, API_ORIGIN } from '../api';
 import type {
   ApiResponse,
   Question,
@@ -10,7 +10,10 @@ import type {
   CopyQuestionDto,
 } from '@/types/question';
 
-export async function getQuestionFolders(courseId?: string, parentFolderId?: string): Promise<ApiResponse<QuestionFolder[]>> {
+export async function getQuestionFolders(
+  courseId?: string,
+  parentFolderId?: string
+): Promise<ApiResponse<QuestionFolder[]>> {
   const queryParams = new URLSearchParams();
   if (courseId) queryParams.append('courseId', courseId);
   if (parentFolderId) queryParams.append('parentFolderId', parentFolderId);
@@ -88,4 +91,32 @@ export async function copyQuestion(data: CopyQuestionDto): Promise<ApiResponse<Q
     method: 'POST',
     body: JSON.stringify(data),
   });
+}
+
+// Rich text editor image upload
+export async function uploadQuestionImage(
+  file: File
+): Promise<{ success: boolean; data?: { url: string }; message?: string; error?: string }> {
+  const formData = new FormData();
+  formData.append('image', file);
+
+  const response = await apiRequest<{
+    success: boolean;
+    data?: { url: string };
+    message?: string;
+    error?: string;
+  }>('/question-bank/questions/upload-image', {
+    method: 'POST',
+    body: formData,
+  });
+
+  // Ensure URL is absolute so images load from backend origin, not Next.js origin
+  if (response.success && response.data?.url) {
+    const url = response.data.url;
+    if (url.startsWith('/')) {
+      response.data.url = `${API_ORIGIN}${url}`;
+    }
+  }
+
+  return response;
 }

@@ -1,5 +1,6 @@
 // Base API configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+export const API_ORIGIN = API_BASE_URL.replace(/\/api$/, '');
 
 export async function apiRequest<T>(
   endpoint: string,
@@ -7,10 +8,13 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   console.log('url', url);
+  const isFormData = options.body instanceof FormData;
+
   const response = await fetch(url, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      // Only set JSON content type when not sending FormData
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...options.headers,
     },
   });
