@@ -1,6 +1,7 @@
 // Question types based on Prisma schema
 export type QuestionType = 'MCQ' | 'CQ';
 export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD';
+export type McqType = 'SINGLE' | 'PASSAGE_CHILD';
 
 export interface QuestionFolder {
   id: string;
@@ -33,15 +34,32 @@ export interface Question {
   id: string;
   folderId: string;
   type: QuestionType;
+  mcqType?: McqType;
+  passageId?: string | null;
   difficulty?: Difficulty | null;
   year?: number | null;
   prompt: string;
   explanation?: string | null;
   meta?: any;
+   tags?: string[];
   createdAt: string;
   updatedAt: string;
   folder?: QuestionFolder;
   options?: McqOption[];
+}
+
+export interface McqPassage {
+  id: string;
+  folderId: string;
+  title?: string | null;
+  content: string;
+  difficulty?: Difficulty | null;
+  year?: number | null;
+  tags?: string[];
+  createdAt: string;
+  updatedAt: string;
+  folder?: QuestionFolder;
+  questions?: Question[];
 }
 
 export interface CreateQuestionFolderDto {
@@ -59,11 +77,14 @@ export interface UpdateQuestionFolderDto {
 export interface CreateQuestionDto {
   folderId: string;
   type: QuestionType;
+  mcqType?: McqType;
+  passageId?: string;
   difficulty?: Difficulty;
   year?: number;
   prompt: string;
   explanation?: string;
   meta?: any;
+  tags?: string[];
   options?: CreateMcqOptionDto[];
 }
 
@@ -75,6 +96,7 @@ export interface UpdateQuestionDto {
   prompt?: string;
   explanation?: string;
   meta?: any;
+  tags?: string[];
   options?: CreateMcqOptionDto[];
 }
 

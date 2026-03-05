@@ -12,6 +12,11 @@ import {
   createQuestion,
   updateQuestion,
   deleteQuestion,
+  getPassages,
+  getPassageById,
+  createPassage,
+  updatePassage,
+  deletePassage,
 } from '@/lib/api/question-bank';
 import { getCourses } from '@/lib/api/courses';
 import type {
@@ -19,6 +24,8 @@ import type {
   QuestionFolder,
   QuestionType,
   Difficulty,
+  McqType,
+  McqPassage,
   CreateQuestionFolderDto,
   UpdateQuestionFolderDto,
   CreateQuestionDto,
@@ -81,6 +88,7 @@ export default function QuestionsPage() {
   const { toast, toasts, removeToast } = useToast();
   const [folders, setFolders] = useState<QuestionFolder[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [passages, setPassages] = useState<McqPassage[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -104,13 +112,37 @@ export default function QuestionsPage() {
   const [questionForm, setQuestionForm] = useState<CreateQuestionDto>({
     folderId: '',
     type: 'MCQ',
+    mcqType: 'SINGLE',
+    passageId: undefined,
     difficulty: undefined,
     year: undefined,
     prompt: '',
     explanation: '',
+    tags: [],
     options: [],
   });
   const [mcqOptions, setMcqOptions] = useState<CreateMcqOptionDto[]>([]);
+
+  // Passage dialog states
+  const [passageListDialogOpen, setPassageListDialogOpen] = useState(false);
+  const [passageEditDialogOpen, setPassageEditDialogOpen] = useState(false);
+  const [passageCreateDialogOpen, setPassageCreateDialogOpen] = useState(false);
+  const [passageDetails, setPassageDetails] = useState<McqPassage | null>(null);
+  const [passageForm, setPassageForm] = useState<{
+    folderId: string;
+    title: string;
+    content: string;
+    difficulty?: Difficulty;
+    year?: number;
+    tags: string;
+  }>({
+    folderId: '',
+    title: '',
+    content: '',
+    difficulty: undefined,
+    year: undefined,
+    tags: '',
+  });
 
   // Refs to scroll MCQ options into view when adding new ones
   const createOptionsEndRef = useRef<HTMLDivElement | null>(null);
@@ -167,6 +199,7 @@ export default function QuestionsPage() {
   useEffect(() => {
     loadFolders();
     loadCourses();
+    // Preload passages for selected folder later when opening passage list
   }, []);
 
   useEffect(() => {
@@ -331,6 +364,8 @@ export default function QuestionsPage() {
         setQuestionForm({
           folderId: response.data.folderId,
           type: response.data.type,
+          mcqType: (response.data.mcqType as McqType) || 'SINGLE',
+          passageId: response.data.passageId || undefined,
           difficulty: response.data.difficulty || undefined,
           year: response.data.year || undefined,
           prompt: response.data.prompt,
@@ -365,13 +400,23 @@ export default function QuestionsPage() {
       return;
     }
 
-    if (questionForm.type === 'MCQ' && (!mcqOptions.length || !mcqOptions.some((opt) => opt.isCorrect))) {
-      toast({
-        title: 'Error',
-        description: 'MCQ questions must have at least one option with a correct answer',
-        variant: 'destructive',
-      });
-      return;
+    if (questionForm.type === 'MCQ') {
+      if (mcqOptions.length !== 4 && mcqOptions.length !== 5) {
+        toast({
+          title: 'Error',
+          description: 'MCQ questions must have exactly 4 or 5 options',
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (!mcqOptions.some((opt) => opt.isCorrect)) {
+        toast({
+          title: 'Error',
+          description: 'MCQ questions must have at least one correct option',
+          variant: 'destructive',
+        });
+        return;
+      }
     }
 
     try {
@@ -385,6 +430,8 @@ export default function QuestionsPage() {
       setQuestionForm({
         folderId: '',
         type: 'MCQ',
+        mcqType: 'SINGLE',
+        passageId: undefined,
         difficulty: undefined,
         year: undefined,
         prompt: '',
@@ -418,13 +465,23 @@ export default function QuestionsPage() {
       return;
     }
 
-    if (questionForm.type === 'MCQ' && (!mcqOptions.length || !mcqOptions.some((opt) => opt.isCorrect))) {
-      toast({
-        title: 'Error',
-        description: 'MCQ questions must have at least one option with a correct answer',
-        variant: 'destructive',
-      });
-      return;
+    if (questionForm.type === 'MCQ') {
+      if (mcqOptions.length !== 4 && mcqOptions.length !== 5) {
+        toast({
+          title: 'Error',
+          description: 'MCQ questions must have exactly 4 or 5 options',
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (!mcqOptions.some((opt) => opt.isCorrect)) {
+        toast({
+          title: 'Error',
+          description: 'MCQ questions must have at least one correct option',
+          variant: 'destructive',
+        });
+        return;
+      }
     }
 
     try {
@@ -533,6 +590,181 @@ export default function QuestionsPage() {
     }
   };
 
+  const loadPassages = async () => {
+    try {
+      const folderId = selectedFolderId === 'all' ? undefined : selectedFolderId;
+      const response = await getPassages(folderId);
+      if (response.success && response.data) {
+        setPassages(response.data);
+      } else {
+        setPassages([]);
+      }
+    } catch (err) {
+      console.error('Failed to load passages', err);
+      setPassages([]);
+    }
+  };
+
+  const handleOpenPassageList = async () => {
+    await loadPassages();
+    setPassageListDialogOpen(true);
+  };
+
+  const handleCreatePassageSubmit = async () => {
+    if (!passageForm.folderId || !passageForm.content.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Folder and passage content are required',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      await createPassage({
+        folderId: passageForm.folderId,
+        title: passageForm.title || undefined,
+        content: passageForm.content,
+        difficulty: passageForm.difficulty,
+        year: passageForm.year,
+        tags: passageForm.tags
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean),
+      });
+      setPassageCreateDialogOpen(false);
+      setPassageForm({
+        folderId: '',
+        title: '',
+        content: '',
+        difficulty: undefined,
+        year: undefined,
+        tags: '',
+      });
+      await loadPassages();
+
+      toast({
+        title: 'Success',
+        description: 'Passage created successfully',
+        variant: 'success',
+      });
+    } catch (err: unknown) {
+      toast({
+        title: 'Error',
+        description: getErrorMessage(err) || 'Failed to create passage',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleEditPassage = async (id: string) => {
+    try {
+      const response = await getPassageById(id);
+      if (response.success && response.data) {
+        setPassageDetails(response.data);
+        setPassageForm({
+          folderId: response.data.folderId,
+          title: response.data.title || '',
+          content: response.data.content,
+          difficulty: response.data.difficulty || undefined,
+          year: response.data.year || undefined,
+          tags: (response.data.tags || []).join(', '),
+        });
+        setPassageEditDialogOpen(true);
+      }
+    } catch (err: unknown) {
+      toast({
+        title: 'Error',
+        description: getErrorMessage(err) || 'Failed to load passage',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleUpdatePassageSubmit = async () => {
+    if (!passageDetails) return;
+    if (!passageForm.folderId || !passageForm.content.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Folder and passage content are required',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      await updatePassage(passageDetails.id, {
+        folderId: passageForm.folderId,
+        title: passageForm.title || undefined,
+        content: passageForm.content,
+        difficulty: passageForm.difficulty,
+        year: passageForm.year,
+        tags: passageForm.tags
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean),
+      });
+      setPassageEditDialogOpen(false);
+      await loadPassages();
+
+      toast({
+        title: 'Success',
+        description: 'Passage updated successfully',
+        variant: 'success',
+      });
+    } catch (err: unknown) {
+      toast({
+        title: 'Error',
+        description: getErrorMessage(err) || 'Failed to update passage',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDeletePassage = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this passage and all its child questions?')) return;
+    try {
+      await deletePassage(id);
+      await loadPassages();
+      toast({
+        title: 'Success',
+        description: 'Passage deleted successfully',
+        variant: 'success',
+      });
+    } catch (err: unknown) {
+      toast({
+        title: 'Error',
+        description: getErrorMessage(err) || 'Failed to delete passage',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const startCreateChildQuestion = (passage: McqPassage) => {
+    setPassageDetails(passage);
+    setQuestionForm({
+      folderId: passage.folderId,
+      type: 'MCQ',
+      mcqType: 'PASSAGE_CHILD',
+      passageId: passage.id,
+      difficulty: passage.difficulty || undefined,
+      year: passage.year || undefined,
+      prompt: '',
+      explanation: '',
+      tags: passage.tags || [],
+      options: [],
+    });
+    setMcqOptions([
+      { label: 'A', text: '', isCorrect: false },
+      { label: 'B', text: '', isCorrect: false },
+      { label: 'C', text: '', isCorrect: false },
+      { label: 'D', text: '', isCorrect: false },
+    ]);
+    setQuestionCreateDialogOpen(true);
+  };
+
+  const isPassageChild = questionForm.mcqType === 'PASSAGE_CHILD' && questionForm.type === 'MCQ';
+
   return (
     <div className="space-y-4">
       <section className="glass-panel p-5">
@@ -547,6 +779,10 @@ export default function QuestionsPage() {
             <Button variant="outline" onClick={() => setFolderCreateDialogOpen(true)}>
               <FolderPlus className="mr-2 h-4 w-4" />
               Create Folder
+            </Button>
+            <Button variant="outline" onClick={handleOpenPassageList}>
+              <BookOpenCheck className="mr-2 h-4 w-4" />
+              Passage Sets
             </Button>
             <Button className="bg-primary hover:bg-primary/90" onClick={() => setQuestionCreateDialogOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
@@ -1328,6 +1564,326 @@ export default function QuestionsPage() {
               Cancel
             </Button>
             <Button onClick={handleUpdateQuestion}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Passage List Dialog */}
+      <Dialog open={passageListDialogOpen} onOpenChange={setPassageListDialogOpen}>
+        <DialogContent className="max-h-[90vh] sm:max-w-4xl flex flex-col p-0 gap-0" showCloseButton={true}>
+          <DialogHeader className="px-6 pt-6 pb-4 shrink-0 sticky top-0 bg-background z-10 border-b shadow-sm">
+            <DialogTitle>Passage-based MCQ Sets</DialogTitle>
+            <DialogDescription>Manage passages and their child MCQs.</DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            <div className="flex items-center justify-between py-4">
+              <p className="text-sm text-muted-foreground">
+                Folder:{' '}
+                {selectedFolderId === 'all'
+                  ? 'All folders'
+                  : folders.find((f) => f.id === selectedFolderId)?.name || 'Unknown'}
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setPassageForm((prev) => ({
+                    ...prev,
+                    folderId: selectedFolderId === 'all' ? '' : selectedFolderId,
+                  }));
+                  setPassageCreateDialogOpen(true);
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                New Passage
+              </Button>
+            </div>
+
+            {passages.length === 0 ? (
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                No passages found in the selected folder.
+              </div>
+            ) : (
+              <div className="space-y-4 pb-6">
+                {passages.map((passage) => (
+                  <div key={passage.id} className="rounded-lg border bg-muted/10 p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-xs uppercase text-muted-foreground">Passage</p>
+                        <p className="mt-1 font-semibold">
+                          {passage.title || '(Untitled Passage)'}
+                        </p>
+                        <div
+                          className="mt-2 line-clamp-3 text-sm text-muted-foreground"
+                          dangerouslySetInnerHTML={{ __html: passage.content }}
+                        />
+                      </div>
+                      <div className="flex flex-col items-end gap-2 text-xs text-muted-foreground">
+                        <span>
+                          {passage.difficulty || '-'} · {passage.year || '-'}
+                        </span>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => startCreateChildQuestion(passage)}
+                            title="Add child MCQ"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEditPassage(passage.id)}
+                            title="Edit passage"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeletePassage(passage.id)}
+                            title="Delete passage"
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {passage.questions && passage.questions.length > 0 && (
+                      <div className="mt-3 border-t pt-3">
+                        <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
+                          Child MCQs
+                        </p>
+                        <ul className="space-y-2 text-sm">
+                          {passage.questions.map((q) => (
+                            <li key={q.id} className="flex items-center justify-between gap-2">
+                              <span className="line-clamp-1">{stripHtml(q.prompt)}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {q.options?.length || 0} options
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Passage Create Dialog */}
+      <Dialog open={passageCreateDialogOpen} onOpenChange={setPassageCreateDialogOpen}>
+        <DialogContent className="max-h-[90vh] sm:max-w-4xl flex flex-col p-0 gap-0" showCloseButton={true}>
+          <DialogHeader className="px-6 pt-6 pb-4 shrink-0 sticky top-0 bg-background z-10 border-b shadow-sm">
+            <DialogTitle>Create Passage</DialogTitle>
+            <DialogDescription>Create a passage that will be shared by multiple MCQs.</DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            <div className="space-y-4 py-6">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Folder *</label>
+                <Select
+                  value={passageForm.folderId}
+                  onValueChange={(v) => setPassageForm((prev) => ({ ...prev, folderId: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a folder" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {folders.map((folder) => (
+                      <SelectItem key={folder.id} value={folder.id}>
+                        {folder.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Title (optional)</label>
+                <Input
+                  value={passageForm.title}
+                  onChange={(e) => setPassageForm((prev) => ({ ...prev, title: e.target.value }))}
+                  placeholder="e.g., Reading passage for Chapter 3"
+                />
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Difficulty</label>
+                  <Select
+                    value={passageForm.difficulty || undefined}
+                    onValueChange={(v) =>
+                      setPassageForm((prev) => ({ ...prev, difficulty: (v || undefined) as Difficulty }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select difficulty" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {difficultyOptions.filter((opt) => opt !== 'all').map((opt) => (
+                        <SelectItem key={opt} value={opt}>
+                          {opt}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Year</label>
+                  <Input
+                    type="number"
+                    value={passageForm.year || ''}
+                    onChange={(e) =>
+                      setPassageForm((prev) => ({
+                        ...prev,
+                        year: e.target.value ? Number(e.target.value) : undefined,
+                      }))
+                    }
+                    placeholder="e.g., 2024"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Tags (comma separated)</label>
+                <Input
+                  value={passageForm.tags}
+                  onChange={(e) => setPassageForm((prev) => ({ ...prev, tags: e.target.value }))}
+                  placeholder="e.g., reading, grammar, chapter-3"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Passage Content *</label>
+                <RichTextEditor
+                  value={passageForm.content}
+                  onChange={(html) => setPassageForm((prev) => ({ ...prev, content: html }))}
+                  onImageUpload={handleEditorImageUpload}
+                  placeholder="Enter the passage text, images, graphs etc..."
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="px-6 pb-6 pt-4 shrink-0 bg-background border-t shadow-lg mt-auto">
+            <Button variant="outline" onClick={() => setPassageCreateDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreatePassageSubmit}>Create Passage</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Passage Edit Dialog */}
+      <Dialog open={passageEditDialogOpen} onOpenChange={setPassageEditDialogOpen}>
+        <DialogContent className="max-h-[90vh] sm:max-w-4xl flex flex-col p-0 gap-0" showCloseButton={true}>
+          <DialogHeader className="px-6 pt-6 pb-4 shrink-0 sticky top-0 bg-background z-10 border-b shadow-sm">
+            <DialogTitle>Edit Passage</DialogTitle>
+            <DialogDescription>Update the passage content and metadata.</DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            <div className="space-y-4 py-6">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Folder *</label>
+                <Select
+                  value={passageForm.folderId}
+                  onValueChange={(v) => setPassageForm((prev) => ({ ...prev, folderId: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a folder" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {folders.map((folder) => (
+                      <SelectItem key={folder.id} value={folder.id}>
+                        {folder.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Title (optional)</label>
+                <Input
+                  value={passageForm.title}
+                  onChange={(e) => setPassageForm((prev) => ({ ...prev, title: e.target.value }))}
+                  placeholder="e.g., Reading passage for Chapter 3"
+                />
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Difficulty</label>
+                  <Select
+                    value={passageForm.difficulty || undefined}
+                    onValueChange={(v) =>
+                      setPassageForm((prev) => ({ ...prev, difficulty: (v || undefined) as Difficulty }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select difficulty" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {difficultyOptions.filter((opt) => opt !== 'all').map((opt) => (
+                        <SelectItem key={opt} value={opt}>
+                          {opt}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Year</label>
+                  <Input
+                    type="number"
+                    value={passageForm.year || ''}
+                    onChange={(e) =>
+                      setPassageForm((prev) => ({
+                        ...prev,
+                        year: e.target.value ? Number(e.target.value) : undefined,
+                      }))
+                    }
+                    placeholder="e.g., 2024"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Tags (comma separated)</label>
+                <Input
+                  value={passageForm.tags}
+                  onChange={(e) => setPassageForm((prev) => ({ ...prev, tags: e.target.value }))}
+                  placeholder="e.g., reading, grammar, chapter-3"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Passage Content *</label>
+                <RichTextEditor
+                  value={passageForm.content}
+                  onChange={(html) => setPassageForm((prev) => ({ ...prev, content: html }))}
+                  onImageUpload={handleEditorImageUpload}
+                  placeholder="Enter the passage text, images, graphs etc..."
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="px-6 pb-6 pt-4 shrink-0 bg-background border-t shadow-lg mt-auto">
+            <Button variant="outline" onClick={() => setPassageEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdatePassageSubmit}>Save Changes</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -7,6 +7,7 @@ import Underline from '@tiptap/extension-underline';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import TextAlign from '@tiptap/extension-text-align';
+import Placeholder from '@/lib/tiptap-placeholder';
 import {
   Bold,
   Italic,
@@ -64,6 +65,10 @@ export function RichTextEditor({ value, onChange, onImageUpload, placeholder, cl
       }),
       TextAlign.configure({
         types: ['heading', 'paragraph'],
+      }),
+      Placeholder.configure({
+        placeholder: placeholder || 'Start writing...',
+        showOnlyWhenEditable: true,
       }),
     ],
     content: value || '',
@@ -406,4 +411,3 @@ export function RichTextEditor({ value, onChange, onImageUpload, placeholder, cl
     </div>
   );
 }
-
