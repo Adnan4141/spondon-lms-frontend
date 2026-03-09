@@ -46,6 +46,7 @@ export interface Question {
   updatedAt: string;
   folder?: QuestionFolder;
   options?: McqOption[];
+  passage?: McqPassage | null;
 }
 
 export interface McqPassage {

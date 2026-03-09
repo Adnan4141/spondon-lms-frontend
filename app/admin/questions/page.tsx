@@ -908,9 +908,22 @@ export default function QuestionsPage() {
               {filteredQuestions.map((question) => (
                 <TableRow key={question.id} className="hover:bg-muted/45">
                   <TableCell>
-                    <Badge variant={question.type === 'MCQ' ? 'default' : 'secondary'}>{question.type}</Badge>
+                    <div className="flex flex-col gap-1 items-start">
+                      <Badge variant={question.type === 'MCQ' ? 'default' : 'secondary'}>{question.type}</Badge>
+                      {question.type === 'MCQ' && question.mcqType === 'PASSAGE_CHILD' && (
+                        <Badge variant="outline" className="text-[10px] px-1 h-4">Passage</Badge>
+                      )}
+                    </div>
                   </TableCell>
-                  <TableCell className="max-w-md truncate">{stripHtml(question.prompt)}</TableCell>
+                  <TableCell className="max-w-md">
+                    {question.mcqType === 'PASSAGE_CHILD' && question.passage && (
+                      <div className="text-xs text-muted-foreground mb-1 line-clamp-1 border-l-2 border-primary/50 pl-2">
+                        <span className="font-semibold mr-1">Passage:</span>
+                        {stripHtml(question.passage.title || question.passage.content || '')}
+                      </div>
+                    )}
+                    <span className="truncate block">{stripHtml(question.prompt)}</span>
+                  </TableCell>
                   <TableCell>
                     {question.difficulty ? (
                       <Badge variant="outline">{question.difficulty}</Badge>
