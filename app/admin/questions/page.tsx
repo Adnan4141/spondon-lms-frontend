@@ -95,7 +95,7 @@ export default function QuestionsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'questions' | 'passages'>('questions');
+  const [activeTab, setActiveTab] = useState<'mcq' | 'cq' | 'passages'>('mcq');
   const [expandedQuestionIds, setExpandedQuestionIds] = useState<Set<string>>(new Set());
   const [expandedPassageIds, setExpandedPassageIds] = useState<Set<string>>(new Set());
   const [selectedFolderId, setSelectedFolderId] = useState<string>('all');
@@ -582,9 +582,15 @@ export default function QuestionsPage() {
   };
 
   const filteredQuestions = questions.filter((q) => {
+    // Exclude passage child questions (handled in passages tab)
     if (q.type === 'MCQ' && q.mcqType === 'PASSAGE_CHILD') {
       return false;
     }
+    
+    // Filter by top-level active tab for single questions
+    if (activeTab === 'mcq' && q.type !== 'MCQ') return false;
+    if (activeTab === 'cq' && q.type !== 'CQ') return false;
+
     return (
       q.prompt.toLowerCase().includes(searchQuery.toLowerCase()) ||
       q.explanation?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -900,10 +906,10 @@ export default function QuestionsPage() {
       <div className="border-b border-border/60">
         <div className="flex h-10 items-center px-4">
           <button
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'questions' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
-            onClick={() => setActiveTab('questions')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'mcq' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
+            onClick={() => setActiveTab('mcq')}
           >
-            Single Questions
+            MCQ (Single)
           </button>
           <button
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'passages' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
@@ -912,7 +918,13 @@ export default function QuestionsPage() {
               loadPassages();
             }}
           >
-            Passage Questions
+            MCQ (Passage)
+          </button>
+          <button
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'cq' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
+            onClick={() => setActiveTab('cq')}
+          >
+            CQ (Creative)
           </button>
         </div>
       </div>
@@ -929,14 +941,15 @@ export default function QuestionsPage() {
           </div>
         </div>
 
-        {activeTab === 'questions' && (
-          loading ? (
-            <div className="p-8 text-center text-muted-foreground">Loading questions...</div>
-          ) : filteredQuestions.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground">
-              {searchQuery ? 'No questions found matching your search.' : 'No questions found. Create your first question.'}
-            </div>
-          ) : (
+        {(activeTab === 'mcq' || activeTab === 'cq') && (
+          <>
+            {loading ? (
+              <div className="p-8 text-center text-muted-foreground">Loading questions...</div>
+            ) : filteredQuestions.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground">
+                {searchQuery ? 'No questions found matching your search.' : 'No questions found. Create your first question.'}
+              </div>
+            ) : (
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
@@ -1049,8 +1062,9 @@ export default function QuestionsPage() {
                 })}
               </TableBody>
             </Table>
-          )
-        )}
+          )}
+        </>
+      )}
 
         {activeTab === 'passages' && (
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6">
