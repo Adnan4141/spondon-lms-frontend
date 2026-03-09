@@ -93,6 +93,7 @@ export default function QuestionsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<'questions' | 'passages'>('questions');
   const [selectedFolderId, setSelectedFolderId] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<QuestionType | 'all'>('all');
   const [difficultyFilter, setDifficultyFilter] = useState<Difficulty | 'all'>('all');
@@ -780,10 +781,6 @@ export default function QuestionsPage() {
               <FolderPlus className="mr-2 h-4 w-4" />
               Create Folder
             </Button>
-            <Button variant="outline" onClick={handleOpenPassageList}>
-              <BookOpenCheck className="mr-2 h-4 w-4" />
-              Passage Sets
-            </Button>
             <Button className="bg-primary hover:bg-primary/90" onClick={() => setQuestionCreateDialogOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
               Create Question
@@ -873,6 +870,26 @@ export default function QuestionsPage() {
         <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive">{error}</div>
       )}
 
+      <div className="border-b border-border/60">
+        <div className="flex h-10 items-center px-4">
+          <button
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'questions' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
+            onClick={() => setActiveTab('questions')}
+          >
+            Single Questions
+          </button>
+          <button
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'passages' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
+            onClick={() => {
+              setActiveTab('passages');
+              loadPassages();
+            }}
+          >
+            Passage Questions
+          </button>
+        </div>
+      </div>
+
       <section className="glass-panel overflow-hidden p-0">
         <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
           <div>
@@ -885,83 +902,214 @@ export default function QuestionsPage() {
           </div>
         </div>
 
-        {loading ? (
-          <div className="p-8 text-center text-muted-foreground">Loading questions...</div>
-        ) : filteredQuestions.length === 0 ? (
-          <div className="p-8 text-center text-muted-foreground">
-            {searchQuery ? 'No questions found matching your search.' : 'No questions found. Create your first question.'}
-          </div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead>Type</TableHead>
-                <TableHead>Prompt</TableHead>
-                <TableHead>Difficulty</TableHead>
-                <TableHead>Year</TableHead>
-                <TableHead>Folder</TableHead>
-                <TableHead>Options</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredQuestions.map((question) => (
-                <TableRow key={question.id} className="hover:bg-muted/45">
-                  <TableCell>
-                    <div className="flex flex-col gap-1 items-start">
-                      <Badge variant={question.type === 'MCQ' ? 'default' : 'secondary'}>{question.type}</Badge>
-                      {question.type === 'MCQ' && question.mcqType === 'PASSAGE_CHILD' && (
-                        <Badge variant="outline" className="text-[10px] px-1 h-4">Passage</Badge>
+        {activeTab === 'questions' && (
+          loading ? (
+            <div className="p-8 text-center text-muted-foreground">Loading questions...</div>
+          ) : filteredQuestions.length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground">
+              {searchQuery ? 'No questions found matching your search.' : 'No questions found. Create your first question.'}
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead>Type</TableHead>
+                  <TableHead>Prompt</TableHead>
+                  <TableHead>Difficulty</TableHead>
+                  <TableHead>Year</TableHead>
+                  <TableHead>Folder</TableHead>
+                  <TableHead>Options</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredQuestions.map((question) => (
+                  <TableRow key={question.id} className="hover:bg-muted/45">
+                    <TableCell>
+                      <div className="flex flex-col gap-1 items-start">
+                        <Badge variant={question.type === 'MCQ' ? 'default' : 'secondary'}>{question.type}</Badge>
+                        {question.type === 'MCQ' && question.mcqType === 'PASSAGE_CHILD' && (
+                          <Badge variant="outline" className="text-[10px] px-1 h-4">Passage</Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="max-w-md">
+                      {question.mcqType === 'PASSAGE_CHILD' && question.passage && (
+                        <div className="text-xs text-muted-foreground mb-1 line-clamp-1 border-l-2 border-primary/50 pl-2">
+                          <span className="font-semibold mr-1">Passage:</span>
+                          {stripHtml(question.passage.title || question.passage.content || '')}
+                        </div>
                       )}
+                      <span className="truncate block">{stripHtml(question.prompt)}</span>
+                    </TableCell>
+                    <TableCell>
+                      {question.difficulty ? (
+                        <Badge variant="outline">{question.difficulty}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>{question.year || '-'}</TableCell>
+                    <TableCell>{question.folder?.name || '-'}</TableCell>
+                    <TableCell>
+                      {question.type === 'MCQ' ? (
+                        <Badge variant="outline">{question.options?.length || 0} options</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button variant="ghost" size="icon" onClick={() => handleViewQuestion(question.id)} title="View Question">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleEditQuestion(question.id)} title="Edit Question">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteQuestion(question.id)}
+                          title="Delete Question"
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )
+        )}
+
+        {activeTab === 'passages' && (
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6">
+            <div className="flex items-center justify-between pb-4">
+              <p className="text-sm text-muted-foreground">
+                Showing passages for: {selectedFolderId === 'all'
+                  ? 'All folders'
+                  : folders.find((f) => f.id === selectedFolderId)?.name || 'Unknown'}
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setPassageForm((prev) => ({
+                    ...prev,
+                    folderId: selectedFolderId === 'all' ? '' : selectedFolderId,
+                  }));
+                  setPassageCreateDialogOpen(true);
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                New Passage
+              </Button>
+            </div>
+
+            {passages.length === 0 ? (
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                No passages found in the selected folder.
+              </div>
+            ) : (
+              <div className="space-y-4 pb-6">
+                {passages.map((passage) => (
+                  <div key={passage.id} className="rounded-lg border bg-muted/10 p-5 shadow-sm">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge variant="outline" className="bg-primary/5 uppercase tracking-widest text-[10px]">Passage</Badge>
+                          {passage.difficulty && <Badge variant="secondary" className="text-[10px]">{passage.difficulty}</Badge>}
+                          {passage.year && <span className="text-xs text-muted-foreground">{passage.year}</span>}
+                        </div>
+                        {passage.title && (
+                          <h3 className="text-lg font-semibold tracking-tight text-foreground mb-2">
+                            {passage.title}
+                          </h3>
+                        )}
+                        <div
+                          className="prose prose-sm max-w-none text-muted-foreground border-l-2 border-muted pl-4"
+                          dangerouslySetInnerHTML={{ __html: passage.content }}
+                        />
+                      </div>
+                      <div className="flex items-center gap-1 sm:self-start">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => startCreateChildQuestion(passage)}
+                          title="Add child MCQ"
+                        >
+                          <Plus className="mr-2 h-4 w-4" /> Add Question
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEditPassage(passage.id)}
+                          title="Edit passage"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeletePassage(passage.id)}
+                          title="Delete passage"
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </div>
-                  </TableCell>
-                  <TableCell className="max-w-md">
-                    {question.mcqType === 'PASSAGE_CHILD' && question.passage && (
-                      <div className="text-xs text-muted-foreground mb-1 line-clamp-1 border-l-2 border-primary/50 pl-2">
-                        <span className="font-semibold mr-1">Passage:</span>
-                        {stripHtml(question.passage.title || question.passage.content || '')}
+
+                    {passage.questions && passage.questions.length > 0 && (
+                      <div className="mt-5 border-t pt-4">
+                        <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                          <BookOpenCheck className="h-4 w-4 text-primary" /> Questions ({passage.questions.length})
+                        </h4>
+                        <div className="rounded-md border overflow-hidden">
+                          <Table>
+                            <TableHeader className="bg-muted/50">
+                              <TableRow>
+                                <TableHead className="w-[80px]">Type</TableHead>
+                                <TableHead>Prompt</TableHead>
+                                <TableHead className="w-[100px] text-right">Actions</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {passage.questions.map((q) => (
+                                <TableRow key={q.id} className="group hover:bg-muted/30">
+                                  <TableCell>
+                                    <Badge variant="secondary" className="text-[10px]">{q.type}</Badge>
+                                  </TableCell>
+                                  <TableCell>
+                                    <p className="line-clamp-2 text-sm text-foreground/90">{stripHtml(q.prompt)}</p>
+                                    <p className="text-xs text-muted-foreground mt-1">{q.options?.length || 0} options</p>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleViewQuestion(q.id)} title="View Question">
+                                        <Eye className="h-3 w-3" />
+                                      </Button>
+                                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditQuestion(q.id)} title="Edit Question">
+                                        <Edit className="h-3 w-3" />
+                                      </Button>
+                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteQuestion(q.id)} title="Delete Question">
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
                       </div>
                     )}
-                    <span className="truncate block">{stripHtml(question.prompt)}</span>
-                  </TableCell>
-                  <TableCell>
-                    {question.difficulty ? (
-                      <Badge variant="outline">{question.difficulty}</Badge>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell>{question.year || '-'}</TableCell>
-                  <TableCell>{question.folder?.name || '-'}</TableCell>
-                  <TableCell>
-                    {question.type === 'MCQ' ? (
-                      <Badge variant="outline">{question.options?.length || 0} options</Badge>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="icon" onClick={() => handleViewQuestion(question.id)} title="View Question">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleEditQuestion(question.id)} title="Edit Question">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeleteQuestion(question.id)}
-                        title="Delete Question"
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </section>
 
@@ -1581,115 +1729,7 @@ export default function QuestionsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Passage List Dialog */}
-      <Dialog open={passageListDialogOpen} onOpenChange={setPassageListDialogOpen}>
-        <DialogContent className="max-h-[90vh] sm:max-w-4xl flex flex-col p-0 gap-0" showCloseButton={true}>
-          <DialogHeader className="px-6 pt-6 pb-4 shrink-0 sticky top-0 bg-background z-10 border-b shadow-sm">
-            <DialogTitle>Passage-based MCQ Sets</DialogTitle>
-            <DialogDescription>Manage passages and their child MCQs.</DialogDescription>
-          </DialogHeader>
 
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            <div className="flex items-center justify-between py-4">
-              <p className="text-sm text-muted-foreground">
-                Folder:{' '}
-                {selectedFolderId === 'all'
-                  ? 'All folders'
-                  : folders.find((f) => f.id === selectedFolderId)?.name || 'Unknown'}
-              </p>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setPassageForm((prev) => ({
-                    ...prev,
-                    folderId: selectedFolderId === 'all' ? '' : selectedFolderId,
-                  }));
-                  setPassageCreateDialogOpen(true);
-                }}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                New Passage
-              </Button>
-            </div>
-
-            {passages.length === 0 ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">
-                No passages found in the selected folder.
-              </div>
-            ) : (
-              <div className="space-y-4 pb-6">
-                {passages.map((passage) => (
-                  <div key={passage.id} className="rounded-lg border bg-muted/10 p-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="text-xs uppercase text-muted-foreground">Passage</p>
-                        <p className="mt-1 font-semibold">
-                          {passage.title || '(Untitled Passage)'}
-                        </p>
-                        <div
-                          className="mt-2 line-clamp-3 text-sm text-muted-foreground"
-                          dangerouslySetInnerHTML={{ __html: passage.content }}
-                        />
-                      </div>
-                      <div className="flex flex-col items-end gap-2 text-xs text-muted-foreground">
-                        <span>
-                          {passage.difficulty || '-'} · {passage.year || '-'}
-                        </span>
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => startCreateChildQuestion(passage)}
-                            title="Add child MCQ"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEditPassage(passage.id)}
-                            title="Edit passage"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeletePassage(passage.id)}
-                            title="Delete passage"
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {passage.questions && passage.questions.length > 0 && (
-                      <div className="mt-3 border-t pt-3">
-                        <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
-                          Child MCQs
-                        </p>
-                        <ul className="space-y-2 text-sm">
-                          {passage.questions.map((q) => (
-                            <li key={q.id} className="flex items-center justify-between gap-2">
-                              <span className="line-clamp-1">{stripHtml(q.prompt)}</span>
-                              <span className="text-xs text-muted-foreground">
-                                {q.options?.length || 0} options
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Passage Create Dialog */}
       <Dialog open={passageCreateDialogOpen} onOpenChange={setPassageCreateDialogOpen}>
