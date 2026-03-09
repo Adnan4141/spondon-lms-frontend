@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   getQuestionFolders,
   getQuestionFolderById,
@@ -61,6 +61,8 @@ import {
 } from '@/components/ui/dialog';
 import {
   BookOpenCheck,
+  ChevronDown,
+  ChevronUp,
   Edit,
   Eye,
   Folder,
@@ -94,6 +96,8 @@ export default function QuestionsPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'questions' | 'passages'>('questions');
+  const [expandedQuestionIds, setExpandedQuestionIds] = useState<Set<string>>(new Set());
+  const [expandedPassageIds, setExpandedPassageIds] = useState<Set<string>>(new Set());
   const [selectedFolderId, setSelectedFolderId] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<QuestionType | 'all'>('all');
   const [difficultyFilter, setDifficultyFilter] = useState<Difficulty | 'all'>('all');
@@ -148,6 +152,24 @@ export default function QuestionsPage() {
   // Refs to scroll MCQ options into view when adding new ones
   const createOptionsEndRef = useRef<HTMLDivElement | null>(null);
   const editOptionsEndRef = useRef<HTMLDivElement | null>(null);
+
+  const toggleExpand = (id: string) => {
+    setExpandedQuestionIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const togglePassageExpand = (id: string) => {
+    setExpandedPassageIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const loadFolders = async () => {
     try {
@@ -559,10 +581,15 @@ export default function QuestionsPage() {
     setMcqOptions(updated);
   };
 
-  const filteredQuestions = questions.filter((q) =>
-    q.prompt.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    q.explanation?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredQuestions = questions.filter((q) => {
+    if (q.type === 'MCQ' && q.mcqType === 'PASSAGE_CHILD') {
+      return false;
+    }
+    return (
+      q.prompt.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      q.explanation?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  });
 
   const totalQuestions = questions.length;
   const mcqCount = questions.filter((q) => q.type === 'MCQ').length;
@@ -923,61 +950,103 @@ export default function QuestionsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredQuestions.map((question) => (
-                  <TableRow key={question.id} className="hover:bg-muted/45">
-                    <TableCell>
-                      <div className="flex flex-col gap-1 items-start">
-                        <Badge variant={question.type === 'MCQ' ? 'default' : 'secondary'}>{question.type}</Badge>
-                        {question.type === 'MCQ' && question.mcqType === 'PASSAGE_CHILD' && (
-                          <Badge variant="outline" className="text-[10px] px-1 h-4">Passage</Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="max-w-md">
-                      {question.mcqType === 'PASSAGE_CHILD' && question.passage && (
-                        <div className="text-xs text-muted-foreground mb-1 line-clamp-1 border-l-2 border-primary/50 pl-2">
-                          <span className="font-semibold mr-1">Passage:</span>
-                          {stripHtml(question.passage.title || question.passage.content || '')}
-                        </div>
+                {filteredQuestions.map((question) => {
+                  const isExpanded = expandedQuestionIds.has(question.id);
+                  return (
+                    <React.Fragment key={question.id}>
+                      <TableRow className={`hover:bg-muted/45 cursor-pointer ${isExpanded ? 'bg-muted/20' : ''}`} onClick={() => toggleExpand(question.id)}>
+                        <TableCell>
+                          <div className="flex flex-col gap-1 items-start">
+                            <div className="flex items-center gap-2">
+                              {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                              <Badge variant={question.type === 'MCQ' ? 'default' : 'secondary'}>{question.type}</Badge>
+                            </div>
+                            {question.type === 'MCQ' && question.mcqType === 'PASSAGE_CHILD' && (
+                              <Badge variant="outline" className="text-[10px] px-1 h-4 ml-6">Passage</Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-md">
+                          {question.mcqType === 'PASSAGE_CHILD' && question.passage && (
+                            <div className="text-xs text-muted-foreground mb-1 line-clamp-1 border-l-2 border-primary/50 pl-2">
+                              <span className="font-semibold mr-1">Passage:</span>
+                              {stripHtml(question.passage.title || question.passage.content || '')}
+                            </div>
+                          )}
+                          <span className="truncate block">{stripHtml(question.prompt)}</span>
+                        </TableCell>
+                        <TableCell>
+                          {question.difficulty ? (
+                            <Badge variant="outline">{question.difficulty}</Badge>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>{question.year || '-'}</TableCell>
+                        <TableCell>{question.folder?.name || '-'}</TableCell>
+                        <TableCell>
+                          {question.type === 'MCQ' ? (
+                            <Badge variant="outline">{question.options?.length || 0} options</Badge>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleViewQuestion(question.id); }} title="View Question">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleEditQuestion(question.id); }} title="Edit Question">
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => { e.stopPropagation(); handleDeleteQuestion(question.id); }}
+                              title="Delete Question"
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                      {isExpanded && (
+                        <TableRow className="bg-muted/10 border-b hover:bg-muted/10">
+                          <TableCell colSpan={7} className="p-0">
+                            <div className="p-4 sm:p-6 space-y-4 shadow-inner">
+                              <div className="grid sm:grid-cols-2 gap-4">
+                                <div>
+                                  <h4 className="text-sm font-semibold mb-1 text-muted-foreground">Full Prompt</h4>
+                                  <div className="prose prose-sm max-w-none bg-background p-4 rounded-md border text-foreground" dangerouslySetInnerHTML={{ __html: question.prompt }} />
+                                </div>
+                                {question.explanation && (
+                                  <div>
+                                    <h4 className="text-sm font-semibold mb-1 text-muted-foreground">Explanation</h4>
+                                    <div className="prose prose-sm max-w-none bg-background p-4 rounded-md border text-muted-foreground" dangerouslySetInnerHTML={{ __html: question.explanation }} />
+                                  </div>
+                                )}
+                              </div>
+                              {question.options && question.options.length > 0 && (
+                                <div>
+                                  <h4 className="text-sm font-semibold mb-2 text-muted-foreground">Options</h4>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                                    {question.options.map(opt => (
+                                      <div key={opt.id} className={`p-3 rounded-md border flex items-start gap-2 ${opt.isCorrect ? 'border-primary bg-primary/5' : 'bg-background'}`}>
+                                        <span className="font-semibold text-muted-foreground">{opt.label}.</span>
+                                        <span className="flex-1 text-sm">{opt.text}</span>
+                                        {opt.isCorrect && <Badge className="text-[10px] ml-auto shrink-0" variant="default">Correct</Badge>}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
                       )}
-                      <span className="truncate block">{stripHtml(question.prompt)}</span>
-                    </TableCell>
-                    <TableCell>
-                      {question.difficulty ? (
-                        <Badge variant="outline">{question.difficulty}</Badge>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>{question.year || '-'}</TableCell>
-                    <TableCell>{question.folder?.name || '-'}</TableCell>
-                    <TableCell>
-                      {question.type === 'MCQ' ? (
-                        <Badge variant="outline">{question.options?.length || 0} options</Badge>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => handleViewQuestion(question.id)} title="View Question">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleEditQuestion(question.id)} title="Edit Question">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteQuestion(question.id)}
-                          title="Delete Question"
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                    </React.Fragment>
+                  );
+                })}
               </TableBody>
             </Table>
           )
@@ -1014,55 +1083,72 @@ export default function QuestionsPage() {
               </div>
             ) : (
               <div className="space-y-4 pb-6">
-                {passages.map((passage) => (
-                  <div key={passage.id} className="rounded-lg border bg-muted/10 p-5 shadow-sm">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Badge variant="outline" className="bg-primary/5 uppercase tracking-widest text-[10px]">Passage</Badge>
-                          {passage.difficulty && <Badge variant="secondary" className="text-[10px]">{passage.difficulty}</Badge>}
-                          {passage.year && <span className="text-xs text-muted-foreground">{passage.year}</span>}
+                {passages.map((passage) => {
+                  const isPassageExpanded = expandedPassageIds.has(passage.id);
+                  return (
+                    <div key={passage.id} className="rounded-lg border bg-background p-5 shadow-sm group">
+                      <div 
+                        className="flex flex-col gap-4 sm:flex-row sm:items-start justify-between cursor-pointer select-none"
+                        onClick={() => togglePassageExpand(passage.id)}
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            {isPassageExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                            <Badge variant="outline" className="bg-primary/5 uppercase tracking-widest text-[10px]">Passage</Badge>
+                            {passage.difficulty && <Badge variant="secondary" className="text-[10px]">{passage.difficulty}</Badge>}
+                            {passage.year && <span className="text-xs text-muted-foreground">{passage.year}</span>}
+                            {!isPassageExpanded && passage.questions && (
+                              <span className="text-xs text-muted-foreground ml-2">({passage.questions.length} questions)</span>
+                            )}
+                          </div>
+                          {passage.title && (
+                            <h3 className="text-lg font-semibold tracking-tight text-foreground mb-2">
+                              {passage.title}
+                            </h3>
+                          )}
+                          {!isPassageExpanded && !passage.title && (
+                            <p className="line-clamp-2 text-sm text-muted-foreground">{stripHtml(passage.content)}</p>
+                          )}
+                          {isPassageExpanded && (
+                            <div
+                              className="prose prose-sm max-w-none text-muted-foreground border-l-2 border-muted pl-4 mt-3"
+                              dangerouslySetInnerHTML={{ __html: passage.content }}
+                            />
+                          )}
                         </div>
-                        {passage.title && (
-                          <h3 className="text-lg font-semibold tracking-tight text-foreground mb-2">
-                            {passage.title}
-                          </h3>
-                        )}
-                        <div
-                          className="prose prose-sm max-w-none text-muted-foreground border-l-2 border-muted pl-4"
-                          dangerouslySetInnerHTML={{ __html: passage.content }}
-                        />
+                        <div 
+                          className="flex items-center gap-1 sm:self-start opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => startCreateChildQuestion(passage)}
+                            title="Add child MCQ"
+                          >
+                            <Plus className="mr-2 h-4 w-4" /> Add Question
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEditPassage(passage.id)}
+                            title="Edit passage"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeletePassage(passage.id)}
+                            title="Delete passage"
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1 sm:self-start">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => startCreateChildQuestion(passage)}
-                          title="Add child MCQ"
-                        >
-                          <Plus className="mr-2 h-4 w-4" /> Add Question
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEditPassage(passage.id)}
-                          title="Edit passage"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeletePassage(passage.id)}
-                          title="Delete passage"
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </div>
 
-                    {passage.questions && passage.questions.length > 0 && (
-                      <div className="mt-5 border-t pt-4">
+                      {isPassageExpanded && passage.questions && passage.questions.length > 0 && (
+                        <div className="mt-5 border-t pt-4">
                         <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
                           <BookOpenCheck className="h-4 w-4 text-primary" /> Questions ({passage.questions.length})
                         </h4>
@@ -1076,37 +1162,80 @@ export default function QuestionsPage() {
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {passage.questions.map((q) => (
-                                <TableRow key={q.id} className="group hover:bg-muted/30">
-                                  <TableCell>
-                                    <Badge variant="secondary" className="text-[10px]">{q.type}</Badge>
-                                  </TableCell>
-                                  <TableCell>
-                                    <p className="line-clamp-2 text-sm text-foreground/90">{stripHtml(q.prompt)}</p>
-                                    <p className="text-xs text-muted-foreground mt-1">{q.options?.length || 0} options</p>
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleViewQuestion(q.id)} title="View Question">
-                                        <Eye className="h-3 w-3" />
-                                      </Button>
-                                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditQuestion(q.id)} title="Edit Question">
-                                        <Edit className="h-3 w-3" />
-                                      </Button>
-                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteQuestion(q.id)} title="Delete Question">
-                                        <Trash2 className="h-3 w-3" />
-                                      </Button>
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
+                              {passage.questions.map((q) => {
+                                const isExpanded = expandedQuestionIds.has(q.id);
+                                return (
+                                  <React.Fragment key={q.id}>
+                                    <TableRow className={`group cursor-pointer hover:bg-muted/30 ${isExpanded ? 'bg-muted/20' : ''}`} onClick={() => toggleExpand(q.id)}>
+                                      <TableCell>
+                                        <div className="flex items-center gap-2">
+                                          {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                                          <Badge variant="secondary" className="text-[10px]">{q.type}</Badge>
+                                        </div>
+                                      </TableCell>
+                                      <TableCell>
+                                        <p className="line-clamp-2 text-sm text-foreground/90">{stripHtml(q.prompt)}</p>
+                                        <p className="text-xs text-muted-foreground mt-1">{q.options?.length || 0} options</p>
+                                      </TableCell>
+                                      <TableCell className="text-right">
+                                        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); handleViewQuestion(q.id); }} title="View Question">
+                                            <Eye className="h-3 w-3" />
+                                          </Button>
+                                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); handleEditQuestion(q.id); }} title="Edit Question">
+                                            <Edit className="h-3 w-3" />
+                                          </Button>
+                                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteQuestion(q.id); }} title="Delete Question">
+                                            <Trash2 className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                      </TableCell>
+                                    </TableRow>
+                                    {isExpanded && (
+                                      <TableRow className="bg-muted/10 border-b hover:bg-muted/10">
+                                        <TableCell colSpan={3} className="p-0">
+                                          <div className="p-4 space-y-4 shadow-inner">
+                                            <div className="grid sm:grid-cols-2 gap-4">
+                                              <div>
+                                                <h4 className="text-sm font-semibold mb-1 text-muted-foreground">Full Prompt</h4>
+                                                <div className="prose prose-sm max-w-none bg-background p-3 rounded-md border" dangerouslySetInnerHTML={{ __html: q.prompt }} />
+                                              </div>
+                                              {q.explanation && (
+                                                <div>
+                                                  <h4 className="text-sm font-semibold mb-1 text-muted-foreground">Explanation</h4>
+                                                  <div className="prose prose-sm max-w-none bg-background p-3 rounded-md border" dangerouslySetInnerHTML={{ __html: q.explanation }} />
+                                                </div>
+                                              )}
+                                            </div>
+                                            {q.options && q.options.length > 0 && (
+                                              <div>
+                                                <h4 className="text-sm font-semibold mb-2 text-muted-foreground">Options</h4>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                  {q.options.map(opt => (
+                                                    <div key={opt.id} className={`p-2 rounded-md border flex items-start gap-2 ${opt.isCorrect ? 'border-primary bg-primary/5' : 'bg-background'}`}>
+                                                      <span className="font-semibold text-muted-foreground">{opt.label}.</span>
+                                                      <span className="flex-1 text-sm">{opt.text}</span>
+                                                      {opt.isCorrect && <Badge className="text-[10px] ml-auto shrink-0" variant="default">Correct</Badge>}
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </TableCell>
+                                      </TableRow>
+                                    )}
+                                  </React.Fragment>
+                                );
+                              })}
                             </TableBody>
                           </Table>
                         </div>
                       </div>
                     )}
                   </div>
-                ))}
+                );
+              })}
               </div>
             )}
           </div>
