@@ -352,25 +352,25 @@ export default function CoursesPage() {
               <TableBody>
                 {courses.map((course) => (
                   <TableRow key={course.id} className="group border-slate-100 transition-colors hover:bg-slate-50/80">
-                    <TableCell className="px-8 font-mono text-[11px] font-black text-indigo-600 uppercase tracking-tighter">{course.code}</TableCell>
+                    <TableCell className="px-8 font-mono text-xs font-black text-indigo-600 uppercase tracking-tighter">{course.code}</TableCell>
                     <TableCell>
-                       <div className="flex flex-col">
-                          <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{course.name}</span>
-                          <span className="text-[10px] font-medium text-slate-400">ID: {course.id.slice(0, 8)}...</span>
+                       <div className="flex flex-col gap-0.5">
+                          <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors text-sm">{course.name}</span>
+                          <span className="text-xs font-medium text-slate-400 uppercase tracking-tighter">ID: {course.id.slice(0, 8)}...</span>
                        </div>
                     </TableCell>
-                    <TableCell className="text-xs font-bold text-slate-500">{course.program?.name || '-'}</TableCell>
+                    <TableCell className="text-sm font-bold text-slate-500">{course.program?.name || '-'}</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={cn("rounded-lg px-2.5 py-1 text-[9px] font-black uppercase tracking-widest shadow-sm", getTypeBadgeClass(course.type))}>
+                      <Badge variant="outline" className={cn("rounded-lg px-2.5 py-1 text-[10px] font-black uppercase tracking-widest shadow-sm", getTypeBadgeClass(course.type))}>
                         {course.type}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <p className="font-black text-slate-900">৳{Number(course.fee).toLocaleString()}</p>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{course.billingType}</p>
+                      <p className="font-black text-slate-900 text-sm">৳{Number(course.fee).toLocaleString()}</p>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{course.billingType}</p>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={cn("rounded-lg px-2.5 py-1 text-[9px] font-black uppercase tracking-widest shadow-sm", getStatusBadgeClass(course.status))}>
+                      <Badge variant="outline" className={cn("rounded-lg px-2.5 py-1 text-[10px] font-black uppercase tracking-widest shadow-sm", getStatusBadgeClass(course.status))}>
                         {course.status}
                       </Badge>
                     </TableCell>

@@ -328,33 +328,33 @@ export default function StudentsPage() {
                              {student.fullName.charAt(0)}
                           </div>
                           <div className="flex flex-col">
-                             <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{student.fullName}</span>
-                             <span className="text-[10px] font-medium text-slate-400">UID: {student.id.slice(0, 8)}...</span>
+                             <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors text-base">{student.fullName}</span>
+                             <span className="text-xs font-medium text-slate-400">UID: {student.id.slice(0, 8)}...</span>
                           </div>
                        </div>
                     </TableCell>
                     <TableCell className="py-5">
-                       <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
-                             <Phone className="h-3 w-3 text-emerald-500" />
+                       <div className="flex flex-col gap-1.5">
+                          <div className="flex items-center gap-1.5 text-sm font-bold text-slate-600">
+                             <Phone className="h-3.5 w-3.5 text-emerald-500" />
                              {student.mobile}
                           </div>
                           {student.email && (
-                            <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400">
-                               <Mail className="h-3 w-3 text-blue-400" />
+                            <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400">
+                               <Mail className="h-3.5 w-3.5 text-blue-400" />
                                {student.email}
                             </div>
                           )}
                        </div>
                     </TableCell>
                     <TableCell className="py-5">
-                       <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
-                             <Building2 className="h-3 w-3 text-rose-500" />
+                       <div className="flex flex-col gap-1.5">
+                          <div className="flex items-center gap-1.5 text-sm font-bold text-slate-600">
+                             <Building2 className="h-3.5 w-3.5 text-rose-500" />
                              {student.branch?.name || 'Central'}
                           </div>
-                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
-                             <GraduationCap className="h-3 w-3 text-indigo-400" />
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
+                             <GraduationCap className="h-3.5 w-3.5 text-indigo-400" />
                              {student._count?.enrollments || 0} active plans
                           </div>
                        </div>

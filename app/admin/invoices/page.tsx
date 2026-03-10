@@ -358,25 +358,25 @@ export default function InvoicesPage() {
                              {i.student?.fullName.charAt(0)}
                           </div>
                           <div className="flex flex-col">
-                             <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{i.student?.fullName}</span>
-                             <span className="text-[9px] font-mono font-black text-slate-400 uppercase tracking-tighter">SID: {i.id.slice(0, 12)}</span>
+                             <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors text-sm">{i.student?.fullName}</span>
+                             <span className="text-xs font-mono font-black text-slate-400 uppercase tracking-tighter">SID: {i.id.slice(0, 12)}</span>
                           </div>
                        </div>
                     </TableCell>
                     <TableCell className="py-5">
-                       <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
-                             <Building2 className="h-3 w-3 text-rose-500" />
+                       <div className="flex flex-col gap-1.5">
+                          <div className="flex items-center gap-1.5 text-sm font-bold text-slate-600">
+                             <Building2 className="h-3.5 w-3.5 text-rose-500" />
                              {i.branch?.name}
                           </div>
-                          <div className="flex items-center gap-1.5 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                             <Calendar className="h-3 w-3 text-emerald-500" />
+                          <div className="flex items-center gap-1.5 text-xs font-black text-slate-400 uppercase tracking-widest">
+                             <Calendar className="h-3.5 w-3.5 text-emerald-500" />
                              {i.month || 'GLOBAL'}
                           </div>
                        </div>
                     </TableCell>
-                    <TableCell className="py-5 text-right font-black text-slate-900">{formatCurrency(i.payableAmount)}</TableCell>
-                    <TableCell className="py-5 text-right font-black text-rose-600">
+                    <TableCell className="py-5 text-right font-black text-slate-900 text-sm">{formatCurrency(i.payableAmount)}</TableCell>
+                    <TableCell className="py-5 text-right font-black text-rose-600 text-sm">
                        {Number(i.dueAmount) > 0 ? formatCurrency(i.dueAmount) : '—'}
                     </TableCell>
                     <TableCell className="py-5">

@@ -300,19 +300,19 @@ export default function BranchesPage() {
                              {branch.name.charAt(0)}
                           </div>
                           <div className="flex flex-col">
-                             <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{branch.name}</span>
-                             <span className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">Code: {branch.code || 'N/A'}</span>
+                             <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors text-sm">{branch.name}</span>
+                             <span className="text-xs font-medium text-slate-400 uppercase tracking-widest">Code: {branch.code || 'N/A'}</span>
                           </div>
                        </div>
                     </TableCell>
                     <TableCell className="py-5">
-                       <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
-                             <Phone className="h-3 w-3 text-emerald-500" />
+                       <div className="flex flex-col gap-1.5">
+                          <div className="flex items-center gap-1.5 text-sm font-bold text-slate-600">
+                             <Phone className="h-3.5 w-3.5 text-emerald-500" />
                              {branch.phone || 'No Contact'}
                           </div>
-                          <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400">
-                             <MapPin className="h-3 w-3 text-rose-400" />
+                          <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400">
+                             <MapPin className="h-3.5 w-3.5 text-rose-400" />
                              <span className="truncate max-w-[200px]">{branch.address || 'No Address'}</span>
                           </div>
                        </div>
@@ -320,18 +320,18 @@ export default function BranchesPage() {
                     <TableCell className="py-5">
                        <div className="flex items-center gap-3">
                           <div className="flex flex-col items-center">
-                             <span className="text-[10px] font-black text-slate-900">{branch._count?.users || 0}</span>
-                             <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Staff</span>
+                             <span className="text-xs font-black text-slate-900">{branch._count?.users || 0}</span>
+                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Staff</span>
                           </div>
                           <div className="h-4 w-[1px] bg-slate-100" />
                           <div className="flex flex-col items-center">
-                             <span className="text-[10px] font-black text-slate-900">{branch._count?.batches || 0}</span>
-                             <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Batches</span>
+                             <span className="text-xs font-black text-slate-900">{branch._count?.batches || 0}</span>
+                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Batches</span>
                           </div>
                           <div className="h-4 w-[1px] bg-slate-100" />
                           <div className="flex flex-col items-center">
-                             <span className="text-[10px] font-black text-slate-900">{branch._count?.enrollments || 0}</span>
-                             <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Students</span>
+                             <span className="text-xs font-black text-slate-900">{branch._count?.enrollments || 0}</span>
+                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Students</span>
                           </div>
                        </div>
                     </TableCell>

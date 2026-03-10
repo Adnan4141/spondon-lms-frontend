@@ -366,25 +366,25 @@ export default function EnrollmentsPage() {
                              {e.student?.fullName.charAt(0)}
                           </div>
                           <div className="flex flex-col">
-                             <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{e.student?.fullName}</span>
-                             <span className="text-[10px] font-medium text-slate-400">{e.student?.mobile}</span>
+                             <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors text-sm">{e.student?.fullName}</span>
+                             <span className="text-xs font-medium text-slate-400">{e.student?.mobile}</span>
                           </div>
                        </div>
                     </TableCell>
                     <TableCell className="py-5">
                        <div className="flex flex-col">
-                          <span className="text-xs font-bold text-slate-700">{e.course?.name}</span>
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Code: {e.course?.code}</span>
+                          <span className="text-sm font-bold text-slate-700">{e.course?.name}</span>
+                          <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Code: {e.course?.code}</span>
                        </div>
                     </TableCell>
                     <TableCell className="py-5">
-                       <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
-                             <Building2 className="h-3 w-3 text-rose-500" />
+                       <div className="flex flex-col gap-1.5">
+                          <div className="flex items-center gap-1.5 text-sm font-bold text-slate-600">
+                             <Building2 className="h-3.5 w-3.5 text-rose-500" />
                              {e.branch?.name}
                           </div>
-                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
-                             <Users className="h-3 w-3 text-indigo-400" />
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
+                             <Users className="h-3.5 w-3.5 text-indigo-400" />
                              {e.batch?.name || 'Unassigned'}
                           </div>
                        </div>
