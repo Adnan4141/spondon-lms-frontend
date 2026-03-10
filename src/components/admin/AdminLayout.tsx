@@ -7,8 +7,10 @@ import {
   Bell,
   Sparkles,
   ChevronDown,
+  Command,
 } from 'lucide-react';
 import { Sidebar } from './Sidebar';
+import { GlobalModal } from './GlobalModal';
 import { cn } from '@/lib/utils';
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -16,11 +18,12 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-slate-950 text-white">
-      {/* Background effects */}
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(217,70,239,0.16),transparent_28%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.14),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(99,102,241,0.14),transparent_28%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:36px_36px] opacity-20" />
+    <div className="relative min-h-screen bg-[#FDFDFF] text-slate-900 font-sans selection:bg-indigo-100 selection:text-indigo-700">
+      {/* Premium Background Effects */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-50/50 blur-[120px] animate-pulse" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-rose-50/50 blur-[120px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:32px_32px] opacity-[0.15]" />
       </div>
 
       <Sidebar
@@ -32,79 +35,87 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
       <div
         className={cn(
-          'relative transition-all duration-300',
-          sidebarCollapsed ? 'lg:pl-[5.25rem]' : 'lg:pl-[19rem]'
+          'relative min-h-screen transition-all duration-500 ease-in-out',
+          sidebarCollapsed ? 'lg:pl-24' : 'lg:pl-72'
         )}
       >
-        <header className="sticky top-0 z-30 border-b border-white/10 bg-slate-950/70 backdrop-blur-xl">
-          <div className="mx-auto flex h-20 max-w-[1600px] items-center justify-between px-4 sm:px-6 lg:px-8">
-            <div className="flex min-w-0 items-center gap-3">
+        <header className="sticky top-0 z-40">
+          <div className="absolute inset-0 bg-white/60 backdrop-blur-xl border-b border-slate-200/50" />
+          
+          <div className="relative mx-auto flex h-20 max-w-[1600px] items-center justify-between px-6 lg:px-10">
+            {/* Left: Mobile Toggle & Context */}
+            <div className="flex items-center gap-4">
               <button
                 type="button"
                 onClick={() => setMobileOpen(true)}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/80 transition hover:bg-white/10 hover:text-white lg:hidden"
-                aria-label="Open sidebar"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-all hover:bg-slate-50 hover:border-slate-300 lg:hidden shadow-sm"
               >
                 <Menu className="h-5 w-5" />
               </button>
 
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <div className="hidden h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500 via-violet-500 to-cyan-500 shadow-lg shadow-fuchsia-500/20 sm:flex">
-                    <Sparkles className="h-4 w-4 text-white" />
-                  </div>
-                  <h2 className="truncate bg-gradient-to-r from-white via-fuchsia-200 to-cyan-200 bg-clip-text text-2xl font-bold tracking-tight text-transparent">
-                    Dashboard
-                  </h2>
+              <div className="hidden sm:block">
+                <div className="flex items-center gap-2 text-slate-400">
+                  <span className="text-xs font-bold uppercase tracking-widest">Workspace</span>
+                  <span className="text-slate-200">/</span>
+                  <span className="text-xs font-bold uppercase tracking-widest text-indigo-600">Analytics</span>
                 </div>
-                <p className="mt-1 text-sm text-white/45">
-                  Welcome back, manage everything from one place
-                </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 sm:gap-3">
-              <button
-                type="button"
-                className="hidden h-11 items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 text-sm text-white/70 transition hover:bg-white/10 hover:text-white md:inline-flex"
-              >
-                <Search className="h-4 w-4" />
-                <span>Search anything...</span>
+            {/* Center: Search Bar */}
+            <div className="hidden md:flex flex-1 max-w-md mx-8">
+              <div className="relative w-full group">
+                <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                <input 
+                  type="text" 
+                  placeholder="Quick search... (cmd + k)" 
+                  className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-100/30 pl-11 pr-12 text-sm font-medium outline-none ring-indigo-500/10 transition-all focus:bg-white focus:ring-4 focus:border-indigo-500/40"
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-1.5 py-0.5 shadow-sm">
+                   <Command className="h-3 w-3 text-slate-400" />
+                   <span className="text-[10px] font-bold text-slate-400">K</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Actions & Profile */}
+            <div className="flex items-center gap-3 sm:gap-5">
+              <button className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-all hover:bg-slate-50 hover:text-indigo-600 shadow-sm">
+                <Bell className="h-5 w-5" />
+                <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white animate-bounce" />
               </button>
 
-              <button
-                type="button"
-                className="relative inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/75 transition hover:bg-white/10 hover:text-white"
-                aria-label="Notifications"
-              >
-                <Bell className="h-4 w-4" />
-                <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.9)]" />
-              </button>
+              <div className="h-8 w-[1px] bg-slate-200 hidden sm:block" />
 
-              <button
-                type="button"
-                className="hidden h-11 items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 pr-2 text-left transition hover:bg-white/10 sm:inline-flex"
-              >
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500 via-violet-500 to-cyan-500 text-xs font-bold text-white shadow-lg">
-                  AH
+              <button className="flex items-center gap-3 pl-1 pr-3 py-1 rounded-2xl border border-slate-200 bg-white transition-all hover:border-indigo-200 hover:shadow-md group shadow-sm">
+                <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white text-xs font-bold shadow-sm group-hover:rotate-6 transition-transform">
+                  AD
                 </div>
-                <div className="leading-tight">
-                  <p className="text-sm font-semibold text-white">Adnan</p>
-                  <p className="text-xs text-white/50">Administrator</p>
+                <div className="hidden sm:block text-left">
+                   <p className="text-xs font-bold text-slate-800 leading-none">Adnan Hussain</p>
+                   <p className="text-[9px] font-black text-indigo-500 uppercase tracking-tight mt-1">Super Admin</p>
                 </div>
-                <ChevronDown className="h-4 w-4 text-white/50" />
+                <ChevronDown className="h-3 w-3 text-slate-400 group-hover:text-indigo-500 transition-colors" />
               </button>
             </div>
           </div>
         </header>
 
         <main className="relative">
-          <div className="mx-auto max-w-[1600px] px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
-            <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-4 shadow-2xl backdrop-blur-md sm:p-5 lg:p-6">
-              {children}
+          <div className="mx-auto max-w-[1600px] px-6 py-8 lg:px-10 lg:py-12">
+         
+
+            {/* Main Content Area - Glassmorphic Container */}
+            <div className="relative group">
+               <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-[40px] opacity-[0.03] blur-xl group-hover:opacity-[0.05] transition-opacity" />
+               <div className="relative rounded-[36px] border border-white bg-white/70 backdrop-blur-md p-8 shadow-2xl shadow-slate-200/50 min-h-[600px]">
+                 {children}
+               </div>
             </div>
           </div>
         </main>
+        
+        <GlobalModal />
       </div>
     </div>
   );

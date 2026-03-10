@@ -1,3 +1,5 @@
+'use client';
+
 import {
   ArrowUpRight,
   BookOpen,
@@ -7,244 +9,262 @@ import {
   TrendingUp,
   Wallet,
   Sparkles,
+  Plus,
+  ArrowRight,
+  MoreVertical,
+  Activity,
+  Target,
+  Zap,
+  Settings,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const kpis = [
   {
-    label: 'Active Students',
+    label: 'Total Students',
     value: '5,248',
-    change: '+12.4%',
+    change: '+12.5%',
+    trend: 'up',
     icon: Users,
-    iconBg: 'from-sky-500 to-cyan-400',
-    glow: 'from-sky-500/20 to-cyan-500/10',
+    color: 'indigo',
+    gradient: 'from-indigo-600 to-violet-600',
   },
   {
-    label: 'Live Courses',
-    value: '128',
+    label: 'Course Revenue',
+    value: '$84,200',
     change: '+8.1%',
-    icon: BookOpen,
-    iconBg: 'from-violet-500 to-fuchsia-500',
-    glow: 'from-violet-500/20 to-fuchsia-500/10',
+    trend: 'up',
+    icon: Wallet,
+    color: 'emerald',
+    gradient: 'from-emerald-500 to-teal-600',
   },
   {
-    label: 'Programs Running',
-    value: '26',
+    label: 'Avg. Attendance',
+    value: '94.2%',
+    change: '-1.4%',
+    trend: 'down',
+    icon: Activity,
+    color: 'rose',
+    gradient: 'from-rose-500 to-pink-600',
+  },
+  {
+    label: 'Active Batches',
+    value: '128',
     change: '+4.3%',
-    icon: GraduationCap,
-    iconBg: 'from-pink-500 to-rose-500',
-    glow: 'from-pink-500/20 to-rose-500/10',
-  },
-  {
-    label: 'Today Classes',
-    value: '43',
-    change: '+9.7%',
-    icon: CalendarDays,
-    iconBg: 'from-emerald-500 to-teal-500',
-    glow: 'from-emerald-500/20 to-teal-500/10',
+    trend: 'up',
+    icon: Target,
+    color: 'amber',
+    gradient: 'from-amber-500 to-orange-600',
   },
 ];
 
 const recentActivities = [
-  'New batch "HSC Physics Advance" created in Dhanmondi branch.',
-  '52 invoices issued for February monthly plans.',
-  'Model exam results published for SSC 2026 candidates.',
-  'Course "University Math Crash" reached 500 enrollments.',
-];
-
-const miniStats = [
-  {
-    label: 'Monthly Revenue',
-    value: '৳8.4L',
-    icon: Wallet,
+  { 
+    user: 'Sarah Connor',
+    action: 'enrolled in',
+    target: 'Advance Physics 101',
+    time: '2 mins ago',
+    avatar: 'SC',
+    color: 'bg-blue-100 text-blue-600'
   },
-  {
-    label: 'Growth Rate',
-    value: '18.2%',
-    icon: TrendingUp,
+  { 
+    user: 'John Doe',
+    action: 'submitted',
+    target: 'Term Exam - Math',
+    time: '45 mins ago',
+    avatar: 'JD',
+    color: 'bg-emerald-100 text-emerald-600'
+  },
+  { 
+    user: 'Admin Panel',
+    action: 'generated',
+    target: 'Monthly Revenue Report',
+    time: '2 hours ago',
+    avatar: 'AP',
+    color: 'bg-indigo-100 text-indigo-600'
+  },
+  { 
+    user: 'Batch A-2',
+    action: 'scheduled',
+    target: 'Live Session #42',
+    time: '5 hours ago',
+    avatar: 'A2',
+    color: 'bg-rose-100 text-rose-600'
   },
 ];
 
 export default function AdminDashboard() {
   return (
-    <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.05] p-6 shadow-2xl backdrop-blur-xl">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(217,70,239,0.14),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.14),transparent_30%)]" />
-        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-white/70">
-              <Sparkles className="h-3.5 w-3.5 text-fuchsia-300" />
-              Smart overview
+    <div className="space-y-10">
+      {/* Top Banner / Insight */}
+      <div className="relative overflow-hidden rounded-[32px] bg-slate-900 p-8 text-white lg:p-10 shadow-2xl shadow-indigo-200">
+        <div className="absolute right-0 top-0 h-full w-1/2 bg-gradient-to-l from-indigo-600/20 to-transparent" />
+        <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-indigo-500/20 blur-3xl" />
+        
+        <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-4">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-indigo-300 backdrop-blur-md">
+              <Zap className="h-3 w-3" />
+              Intelligence Report
             </div>
-            <h1 className="mt-3 bg-gradient-to-r from-white via-fuchsia-200 to-cyan-200 bg-clip-text text-3xl font-bold tracking-tight text-transparent sm:text-4xl">
-              Dashboard
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm text-white/55">
-              A unified premium view of admissions, academic operations, branch activities, and overall institute performance.
+            <h2 className="text-3xl font-black tracking-tight sm:text-4xl">
+              Platform Growth is <span className="text-indigo-400">accelerating.</span>
+            </h2>
+            <p className="max-w-xl text-sm font-medium text-slate-400 leading-relaxed">
+              Your conversion rate is up by <span className="text-white font-bold">8.4%</span> this week. We recommend launching the "Summer Specials" campaign to capitalize on the increased traffic.
             </p>
+            <div className="flex flex-wrap gap-4">
+               <button className="rounded-2xl bg-indigo-600 px-6 py-3 text-xs font-black uppercase tracking-widest text-white transition hover:bg-indigo-500 hover:scale-105 active:scale-95 shadow-lg shadow-indigo-500/25">
+                 View Analytics
+               </button>
+               <button className="rounded-2xl bg-white/5 border border-white/10 px-6 py-3 text-xs font-black uppercase tracking-widest text-white transition hover:bg-white/10">
+                 Dismiss
+               </button>
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm">
-              <p className="text-white/45">Time period</p>
-              <p className="font-semibold text-white">Last 30 days</p>
+          <div className="grid grid-cols-2 gap-4 lg:w-72">
+             <div className="rounded-[24px] bg-white/5 border border-white/10 p-5 backdrop-blur-sm">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Growth</p>
+                <p className="mt-2 text-2xl font-black">+24%</p>
+             </div>
+             <div className="rounded-[24px] bg-white/5 border border-white/10 p-5 backdrop-blur-sm">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active</p>
+                <p className="mt-2 text-2xl font-black">1.2k</p>
+             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* KPI Section */}
+      <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        {kpis.map((kpi) => {
+          const Icon = kpi.icon;
+          return (
+            <div
+              key={kpi.label}
+              className="group relative flex flex-col justify-between overflow-hidden rounded-[32px] border border-slate-100 bg-white p-7 shadow-xl shadow-slate-200/40 transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:border-indigo-100"
+            >
+              <div className="flex items-center justify-between">
+                <div className={cn(
+                  "flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg transition-transform group-hover:scale-110",
+                  kpi.gradient
+                )}>
+                  <Icon className="h-6 w-6" />
+                </div>
+                <div className={cn(
+                  "flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-black tracking-widest",
+                  kpi.trend === 'up' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+                )}>
+                  {kpi.change}
+                  <TrendingUp className={cn("h-3 w-3", kpi.trend === 'down' && 'rotate-180')} />
+                </div>
+              </div>
+
+              <div className="mt-8">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">{kpi.label}</p>
+                <h3 className="mt-1 text-3xl font-black text-slate-900">{kpi.value}</h3>
+              </div>
+
+              {/* Sparkline Decorative */}
+              <div className="mt-6 flex items-end gap-1 h-8 opacity-20 group-hover:opacity-40 transition-opacity">
+                 {[40, 70, 45, 90, 65, 80, 50, 100].map((h, i) => (
+                   <div key={i} className={cn("flex-1 rounded-t-sm", kpi.trend === 'up' ? 'bg-indigo-500' : 'bg-rose-500')} style={{ height: `${h}%` }} />
+                 ))}
+              </div>
             </div>
-            <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm">
-              <p className="text-emerald-200/70">Overall status</p>
-              <p className="font-semibold text-emerald-200">Excellent</p>
+          );
+        })}
+      </section>
+
+      {/* Main Insights Grid */}
+      <section className="grid gap-8 xl:grid-cols-3">
+        {/* Performance Chart Card */}
+        <div className="xl:col-span-2 rounded-[40px] border border-slate-100 bg-white p-8 lg:p-10 shadow-xl shadow-slate-200/40">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-10">
+            <div>
+              <h2 className="text-2xl font-black tracking-tight text-slate-900">Revenue Performance</h2>
+              <p className="text-sm font-medium text-slate-500 mt-1">Comparison between physical and online courses</p>
+            </div>
+            <div className="flex items-center gap-2 rounded-2xl bg-slate-50 p-1.5 border border-slate-100">
+               <button className="rounded-xl bg-white px-4 py-2 text-xs font-bold text-slate-800 shadow-sm transition hover:bg-white">Monthly</button>
+               <button className="rounded-xl px-4 py-2 text-xs font-bold text-slate-400 transition hover:text-slate-600">Weekly</button>
             </div>
           </div>
+
+          {/* Abstract Chart Representation */}
+          <div className="relative h-72 w-full mt-12 flex items-end justify-between px-4">
+             {/* Grid Lines */}
+             <div className="absolute inset-0 flex flex-col justify-between py-2">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="w-full border-t border-slate-100 border-dashed" />
+                ))}
+             </div>
+
+             {/* Bars */}
+             {[55, 75, 60, 95, 80, 110, 85, 120, 100, 130, 115, 140].map((h, i) => (
+               <div key={i} className="group relative w-full max-w-[40px] flex flex-col items-center gap-3 z-10">
+                  <div className="relative w-full overflow-hidden rounded-t-2xl bg-slate-100 transition-all duration-500 group-hover:bg-indigo-600 group-hover:shadow-2xl group-hover:shadow-indigo-200" style={{ height: `${(h / 140) * 100}%` }}>
+                     <div className="absolute inset-0 bg-gradient-to-t from-indigo-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <span className="text-[10px] font-black text-slate-400 group-hover:text-indigo-600 transition-colors">{['J','F','M','A','M','J','J','A','S','O','N','D'][i]}</span>
+               </div>
+             ))}
+          </div>
+        </div>
+
+        {/* Real-time Activity Log */}
+        <div className="rounded-[40px] border border-slate-100 bg-white p-8 lg:p-10 shadow-xl shadow-slate-200/40">
+           <div className="flex items-center justify-between mb-10">
+              <h2 className="text-xl font-black tracking-tight text-slate-900">Activity Log</h2>
+              <button className="p-2 rounded-xl hover:bg-slate-50 transition-colors">
+                 <MoreVertical className="h-5 w-5 text-slate-400" />
+              </button>
+           </div>
+
+           <div className="space-y-8">
+              {recentActivities.map((activity, idx) => (
+                <div key={idx} className="group flex items-start gap-4 cursor-pointer">
+                   <div className={cn(
+                     "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-xs font-black shadow-sm transition-transform group-hover:scale-110",
+                     activity.color
+                   )}>
+                      {activity.avatar}
+                   </div>
+                   <div className="flex-1 min-w-0 border-b border-slate-50 pb-5 group-last:border-0">
+                      <p className="text-sm font-bold text-slate-800 leading-tight">
+                        {activity.user} <span className="font-medium text-slate-400">{activity.action}</span>
+                      </p>
+                      <p className="text-sm font-black text-indigo-600 truncate mt-0.5">{activity.target}</p>
+                      <p className="mt-2 text-[10px] font-black uppercase tracking-widest text-slate-400">{activity.time}</p>
+                   </div>
+                   <ArrowRight className="h-4 w-4 text-slate-300 opacity-0 -translate-x-2 transition-all group-hover:opacity-100 group-hover:translate-x-0" />
+                </div>
+              ))}
+           </div>
+
+           <button className="mt-6 w-full rounded-2xl bg-slate-50 py-4 text-xs font-black uppercase tracking-widest text-slate-500 transition hover:bg-slate-100 hover:text-slate-900">
+             View Full Audit Log
+           </button>
         </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {kpis.map((kpi) => {
-          const Icon = kpi.icon;
-
-          return (
-            <article
-              key={kpi.label}
-              className="group relative overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.05] p-5 shadow-xl backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:bg-white/[0.08]"
-            >
-              <div className={`absolute inset-0 bg-gradient-to-br ${kpi.glow} opacity-80`} />
-              <div className="relative">
-                <div className="flex items-start justify-between gap-3">
-                  <div
-                    className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${kpi.iconBg} text-white shadow-lg`}
-                  >
-                    <Icon className="h-5 w-5" />
-                  </div>
-
-                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-xs font-semibold text-emerald-200">
-                    <ArrowUpRight className="h-3.5 w-3.5" />
-                    {kpi.change}
-                  </span>
-                </div>
-
-                <p className="mt-5 text-sm text-white/55">{kpi.label}</p>
-                <p className="mt-1 text-3xl font-bold tracking-tight text-white">{kpi.value}</p>
-
-                <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/10">
-                  <div
-                    className={`h-full w-2/3 rounded-full bg-gradient-to-r ${kpi.iconBg}`}
-                  />
-                </div>
+      {/* Quick Action Tiles */}
+      <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+         {[
+           { label: 'Create Course', icon: BookOpen, bg: 'bg-indigo-50', text: 'text-indigo-600' },
+           { label: 'Register Student', icon: Users, bg: 'bg-emerald-50', text: 'text-emerald-600' },
+           { label: 'New Exam', icon: GraduationCap, bg: 'bg-amber-50', text: 'text-amber-600' },
+           { label: 'System Config', icon: Settings, bg: 'bg-slate-50', text: 'text-slate-600' },
+         ].map((action, i) => (
+           <button key={i} className="group flex items-center gap-4 rounded-[28px] bg-white border border-slate-100 p-4 transition-all hover:border-indigo-200 hover:shadow-lg hover:shadow-indigo-100/50">
+              <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl transition-transform group-hover:scale-110", action.bg, action.text)}>
+                 <action.icon className="h-6 w-6" />
               </div>
-            </article>
-          );
-        })}
-
-        <article className="group relative overflow-hidden rounded-[24px] border border-dashed border-white/15 bg-white/[0.04] p-5 shadow-xl backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:border-fuchsia-400/30 hover:bg-white/[0.07]">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(217,70,239,0.14),transparent_45%)]" />
-          <div className="relative flex h-full min-h-[180px] flex-col items-center justify-center text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500 via-violet-500 to-cyan-500 text-white shadow-lg">
-              <Sparkles className="h-6 w-6" />
-            </div>
-            <h3 className="mt-4 text-lg font-semibold text-white">Add New Widget</h3>
-            <p className="mt-1 text-sm text-white/50">
-              Customize dashboard cards for your team.
-            </p>
-            <button
-              type="button"
-              className="mt-4 rounded-2xl border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15"
-            >
-              Add data
-            </button>
-          </div>
-        </article>
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-5">
-        <article className="relative overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.05] p-6 shadow-2xl backdrop-blur-xl xl:col-span-3">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.16),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.12),transparent_30%)]" />
-
-          <div className="relative">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h2 className="text-xl font-semibold tracking-tight text-white">
-                  Operational Performance
-                </h2>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-white/55">
-                  Enrollment and fee collection have improved this month. Branch-level operations are performing steadily, with strong momentum in admissions and payment follow-ups.
-                </p>
-              </div>
-
-              <span className="inline-flex items-center gap-1 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1.5 text-xs font-semibold text-cyan-200">
-                <ArrowUpRight className="h-3.5 w-3.5" />
-                Last 30 days
-              </span>
-            </div>
-
-            <div className="mt-6 grid gap-3 sm:grid-cols-2">
-              {miniStats.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <div
-                    key={item.label}
-                    className="rounded-2xl border border-white/10 bg-white/5 p-4"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-white">
-                        <Icon className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <p className="text-sm text-white/50">{item.label}</p>
-                        <p className="text-lg font-semibold text-white">{item.value}</p>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="mt-6 rounded-[24px] border border-white/10 bg-slate-950/40 p-4">
-              <div className="flex h-64 items-end gap-3">
-                {[38, 55, 48, 72, 66, 84, 76, 92, 88, 108, 96, 120].map((h, i) => (
-                  <div key={i} className="flex flex-1 flex-col items-center gap-2">
-                    <div
-                      className="w-full rounded-t-2xl bg-gradient-to-t from-fuchsia-500 via-violet-500 to-cyan-400 shadow-lg"
-                      style={{ height: `${h * 1.5}px` }}
-                    />
-                    <span className="text-[10px] text-white/35">
-                      {
-                        ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][i]
-                      }
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </article>
-
-        <article className="rounded-[28px] border border-white/10 bg-white/[0.05] p-6 shadow-2xl backdrop-blur-xl xl:col-span-2">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold tracking-tight text-white">Recent Activity</h2>
-            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/55">
-              Live updates
-            </span>
-          </div>
-
-          <div className="mt-5 space-y-4">
-            {recentActivities.map((item, index) => (
-              <div
-                key={item}
-                className="group flex gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:bg-white/[0.08]"
-              >
-                <div className="flex flex-col items-center">
-                  <div className="h-3 w-3 rounded-full bg-gradient-to-br from-fuchsia-400 to-cyan-400 shadow-[0_0_14px_rgba(34,211,238,0.55)]" />
-                  {index !== recentActivities.length - 1 && (
-                    <div className="mt-2 h-full w-px bg-white/10" />
-                  )}
-                </div>
-
-                <div className="flex-1">
-                  <p className="text-sm leading-6 text-white/75">{item}</p>
-                  <p className="mt-1 text-xs text-white/35">Just updated</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </article>
+              <span className="text-sm font-black tracking-tight text-slate-700">{action.label}</span>
+              <Plus className="ml-auto h-4 w-4 text-slate-300 group-hover:text-indigo-500 transition-colors" />
+           </button>
+         ))}
       </section>
     </div>
   );

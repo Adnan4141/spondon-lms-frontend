@@ -13,7 +13,6 @@ import {
   Calendar,
   CreditCard,
   BarChart3,
-  CircleUserRound,
   PanelLeftClose,
   PanelLeftOpen,
   X,
@@ -22,87 +21,45 @@ import {
   Building2,
   Sparkles,
   ChevronRight,
+  LogOut,
+  Bell,
+  Search,
 } from 'lucide-react';
 
-const menuItems = [
+const menuSections = [
   {
-    title: 'Dashboard',
-    href: '/admin',
-    icon: LayoutDashboard,
-    color: 'from-sky-500 to-cyan-400',
+    label: 'Overview',
+    items: [
+      { title: 'Dashboard', href: '/admin', icon: LayoutDashboard, color: 'text-blue-500', bg: 'bg-blue-50' },
+    ]
   },
   {
-    title: 'Courses',
-    href: '/admin/courses',
-    icon: BookOpen,
-    color: 'from-violet-500 to-fuchsia-500',
+    label: 'Academic',
+    items: [
+      { title: 'Courses', href: '/admin/courses', icon: BookOpen, color: 'text-indigo-500', bg: 'bg-indigo-50' },
+      { title: 'Programs', href: '/admin/programs', icon: GraduationCap, color: 'text-rose-500', bg: 'bg-rose-50' },
+      { title: 'Batches', href: '/admin/batches', icon: Calendar, color: 'text-sky-500', bg: 'bg-sky-50' },
+      { title: 'Academic', href: '/admin/academic-records', icon: BarChart3, color: 'text-lime-500', bg: 'bg-lime-50' },
+    ]
   },
   {
-    title: 'Programs',
-    href: '/admin/programs',
-    icon: GraduationCap,
-    color: 'from-pink-500 to-rose-500',
+    label: 'Management',
+    items: [
+      { title: 'Questions', href: '/admin/questions', icon: HelpCircle, color: 'text-amber-500', bg: 'bg-amber-50' },
+      { title: 'Exams', href: '/admin/exams', icon: ClipboardList, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+      { title: 'Students', href: '/admin/students', icon: Users, color: 'text-violet-500', bg: 'bg-violet-50' },
+      { title: 'Branches', href: '/admin/branches', icon: Building2, color: 'text-red-500', bg: 'bg-red-50' },
+    ]
   },
   {
-    title: 'Questions',
-    href: '/admin/questions',
-    icon: HelpCircle,
-    color: 'from-amber-500 to-orange-500',
-  },
-  {
-    title: 'Exams',
-    href: '/admin/exams',
-    icon: ClipboardList,
-    color: 'from-emerald-500 to-teal-500',
-  },
-  {
-    title: 'Students',
-    href: '/admin/students',
-    icon: Users,
-    color: 'from-indigo-500 to-blue-500',
-  },
-  {
-    title: 'Academic',
-    href: '/admin/academic-records',
-    icon: BarChart3,
-    color: 'from-lime-500 to-green-500',
-  },
-  {
-    title: 'Branches',
-    href: '/admin/branches',
-    icon: Building2,
-    color: 'from-red-500 to-pink-500',
-  },
-  {
-    title: 'Batches',
-    href: '/admin/batches',
-    icon: Calendar,
-    color: 'from-cyan-500 to-sky-500',
-  },
-  {
-    title: 'Enrollments',
-    href: '/admin/enrollments',
-    icon: FileText,
-    color: 'from-purple-500 to-indigo-500',
-  },
-  {
-    title: 'Invoices',
-    href: '/admin/invoices',
-    icon: CreditCard,
-    color: 'from-yellow-500 to-amber-500',
-  },
-  {
-    title: 'Reports',
-    href: '/admin/reports',
-    icon: BarChart3,
-    color: 'from-teal-500 to-emerald-500',
-  },
-  {
-    title: 'Settings',
-    href: '/admin/settings',
-    icon: Settings,
-    color: 'from-slate-500 to-gray-500',
-  },
+    label: 'Administrative',
+    items: [
+      { title: 'Enrollments', href: '/admin/enrollments', icon: FileText, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+      { title: 'Invoices', href: '/admin/invoices', icon: CreditCard, color: 'text-orange-500', bg: 'bg-orange-50' },
+      { title: 'Reports', href: '/admin/reports', icon: BarChart3, color: 'text-teal-500', bg: 'bg-teal-50' },
+      { title: 'Settings', href: '/admin/settings', icon: Settings, color: 'text-slate-500', bg: 'bg-slate-50' },
+    ]
+  }
 ];
 
 type SidebarProps = {
@@ -112,193 +69,166 @@ type SidebarProps = {
   onToggleCollapse: () => void;
 };
 
-export function Sidebar({
-  mobileOpen,
-  onCloseMobile,
-  collapsed,
-  onToggleCollapse,
-}: SidebarProps) {
+export function Sidebar({ mobileOpen, onCloseMobile, collapsed, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname();
 
   return (
     <>
+      {/* Mobile Overlay */}
       <div
         aria-hidden={!mobileOpen}
         onClick={onCloseMobile}
         className={cn(
-          'fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm transition-all duration-300 lg:hidden',
+          'fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm transition-opacity duration-300 lg:hidden',
           mobileOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
         )}
       />
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 border-r border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.98),rgba(30,41,59,0.96))] text-white shadow-2xl backdrop-blur-xl',
-          'transition-all duration-300 ease-out',
-          'w-[19rem] lg:translate-x-0',
-          collapsed ? 'lg:w-[5.25rem]' : 'lg:w-[19rem]',
-          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+          'fixed inset-y-0 left-0 z-50 flex flex-col bg-white border-r border-slate-200 shadow-2xl transition-all duration-300 ease-in-out',
+          collapsed ? 'w-24' : 'w-72',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
       >
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-16 -left-10 h-40 w-40 rounded-full bg-fuchsia-500/20 blur-3xl" />
-          <div className="absolute top-1/3 -right-12 h-44 w-44 rounded-full bg-cyan-500/20 blur-3xl" />
-          <div className="absolute bottom-0 left-10 h-36 w-36 rounded-full bg-violet-500/20 blur-3xl" />
+        {/* Decorative Background Elements */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-30">
+          <div className="absolute -top-24 -left-24 h-64 w-64 rounded-full bg-indigo-50 blur-3xl" />
+          <div className="absolute top-1/2 -right-24 h-64 w-64 rounded-full bg-rose-50 blur-3xl" />
         </div>
 
-        <div className="relative flex h-full flex-col">
-          <div className="flex h-16 items-center justify-between border-b border-white/10 px-4">
-            <div
-              className={cn(
-                'flex items-center gap-3 transition-all duration-300',
-                collapsed && 'justify-center'
-              )}
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500 via-violet-500 to-cyan-500 shadow-lg shadow-fuchsia-500/20">
-                <Sparkles className="h-5 w-5 text-white" />
-              </div>
-
-              {!collapsed && (
-                <div>
-                  <h1 className="bg-gradient-to-r from-white via-fuchsia-200 to-cyan-200 bg-clip-text text-lg font-bold tracking-tight text-transparent">
-                    Codezyne
-                  </h1>
-                  <p className="text-[11px] text-white/50">Admin Workspace</p>
-                </div>
-              )}
+        {/* Header / Logo Section */}
+        <div className="relative flex h-20 items-center px-6 border-b border-slate-100/80">
+          <Link href="/admin" className="flex items-center gap-3 group">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 shadow-lg shadow-indigo-200 transition-transform group-hover:scale-105 group-hover:rotate-3">
+              <Sparkles className="h-5 w-5 text-white" />
             </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={onToggleCollapse}
-                className="hidden h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/70 transition hover:bg-white/10 hover:text-white lg:inline-flex"
-                aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              >
-                {collapsed ? (
-                  <PanelLeftOpen className="h-4 w-4" />
-                ) : (
-                  <PanelLeftClose className="h-4 w-4" />
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={onCloseMobile}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/70 transition hover:bg-white/10 hover:text-white lg:hidden"
-                aria-label="Close sidebar"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto px-3 py-4">
             {!collapsed && (
-              <div className="mb-3 px-2">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">
-                  Business Panel
-                </p>
+              <div className="flex flex-col">
+                <span className="text-xl font-black tracking-tight text-slate-900 leading-none">Codezyne</span>
+                <span className="mt-1 text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-500/80">Enterprise AI</span>
               </div>
             )}
+          </Link>
+          
+          <button
+            onClick={onCloseMobile}
+            className="ml-auto lg:hidden h-9 w-9 flex items-center justify-center rounded-xl bg-slate-50 text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
 
-            <nav className="space-y-2">
-              {menuItems.map((item) => {
-                const Icon = item.icon;
-                const isActive =
-                  pathname === item.href || pathname?.startsWith(item.href + '/');
+        {/* Navigation Content */}
+        <div className="relative flex-1 overflow-y-auto py-6 px-4 space-y-8 no-scrollbar">
+          {menuSections.map((section, idx) => (
+            <div key={idx} className="space-y-2">
+              {!collapsed && (
+                <h3 className="px-4 text-[10px] font-bold uppercase tracking-[0.25em] text-slate-400 mb-3">
+                  {section.label}
+                </h3>
+              )}
+              
+              <nav className="space-y-1">
+                {section.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = pathname === item.href || (item.href !== '/admin' && pathname?.startsWith(item.href));
 
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={onCloseMobile}
-                    title={collapsed ? item.title : undefined}
-                    className={cn(
-                      'group relative flex items-center overflow-hidden rounded-2xl transition-all duration-300',
-                      collapsed
-                        ? 'justify-center px-2 py-3'
-                        : 'gap-3 px-3 py-3',
-                      isActive
-                        ? 'bg-white/12 shadow-lg ring-1 ring-white/10'
-                        : 'hover:bg-white/8'
-                    )}
-                  >
-                    {isActive && (
-                      <>
-                        <div className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-gradient-to-b from-fuchsia-400 to-cyan-400" />
-                        <div className="absolute inset-0 bg-gradient-to-r from-fuchsia-500/10 via-violet-500/10 to-cyan-500/10" />
-                      </>
-                    )}
-
-                    <div
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={onCloseMobile}
                       className={cn(
-                        'relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br shadow-md',
-                        item.color,
-                        isActive
-                          ? 'text-white shadow-white/10'
-                          : 'text-white/90 group-hover:scale-105'
+                        'group relative flex items-center transition-all duration-300 rounded-2xl',
+                        collapsed ? 'justify-center p-3' : 'gap-3 px-4 py-3',
+                        isActive 
+                          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 scale-[1.02]' 
+                          : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                       )}
                     >
-                      <Icon className="h-4 w-4" />
-                    </div>
+                      <div className={cn(
+                        'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all duration-300',
+                        isActive 
+                          ? 'bg-white/20' 
+                          : cn(item.bg, item.color, 'group-hover:scale-110')
+                      )}>
+                        <Icon className={cn('h-5 w-5', isActive ? 'text-white' : '')} />
+                      </div>
 
-                    {!collapsed && (
-                      <>
-                        <div className="relative z-10 min-w-0 flex-1">
-                          <p
-                            className={cn(
-                              'truncate text-sm font-medium transition-colors',
-                              isActive ? 'text-white' : 'text-white/80 group-hover:text-white'
-                            )}
-                          >
+                      {!collapsed && (
+                        <>
+                          <span className="flex-1 text-sm font-bold tracking-tight">
                             {item.title}
-                          </p>
-                        </div>
-
-                        <ChevronRight
-                          className={cn(
-                            'relative z-10 h-4 w-4 transition-all duration-300',
-                            isActive
-                              ? 'translate-x-0 text-white/80'
-                              : 'translate-x-[-4px] text-white/0 group-hover:translate-x-0 group-hover:text-white/50'
+                          </span>
+                          {isActive && (
+                            <ChevronRight className="h-4 w-4 opacity-70" />
                           )}
-                        />
-                      </>
-                    )}
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
+                        </>
+                      )}
 
-          <div className="border-t border-white/10 p-3">
-            {collapsed ? (
-              <div className="flex justify-center">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 shadow-inner">
-                  <CircleUserRound className="h-5 w-5 text-white/70" />
+                      {/* Tooltip for collapsed mode */}
+                      {collapsed && (
+                        <div className="absolute left-full ml-3 hidden group-hover:block z-50">
+                          <div className="bg-slate-900 text-white text-[10px] font-bold uppercase tracking-wider px-3 py-2 rounded-lg whitespace-nowrap shadow-xl">
+                            {item.title}
+                          </div>
+                        </div>
+                      )}
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer Section */}
+        <div className="relative p-4 border-t border-slate-100/80 bg-slate-50/50">
+          {!collapsed ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-3 rounded-2xl bg-white border border-slate-200 shadow-sm transition-all hover:border-indigo-200 hover:shadow-md group">
+                <div className="relative">
+                  <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-sm">
+                    AD
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-white bg-emerald-500 shadow-sm" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-slate-800 truncate">Adnan Hussain</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Super Admin</p>
+                </div>
+                <button className="text-slate-300 hover:text-rose-500 transition-colors">
+                  <LogOut className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between px-2">
+                <button 
+                  onClick={onToggleCollapse}
+                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm"
+                >
+                  <PanelLeftClose className="h-4 w-4" />
+                </button>
+                <div className="flex items-center gap-1">
+                   <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                   <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Live</span>
                 </div>
               </div>
-            ) : (
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-3 shadow-lg backdrop-blur-md">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500 via-violet-500 to-cyan-500 text-sm font-bold text-white shadow-lg">
-                    HN
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-white">
-                      Harper Nelson
-                    </p>
-                    <p className="truncate text-xs text-white/55">Admin Manager</p>
-                  </div>
-                </div>
-
-                <div className="mt-3 rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-200">
-                  System status: All services running
-                </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-4">
+              <button 
+                onClick={onToggleCollapse}
+                className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white border border-slate-200 text-slate-400 hover:text-indigo-600 transition-all shadow-sm"
+              >
+                <PanelLeftOpen className="h-5 w-5" />
+              </button>
+              <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-lg">
+                AD
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </aside>
     </>

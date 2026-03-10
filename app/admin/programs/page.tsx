@@ -4,13 +4,9 @@ import { useEffect, useState } from 'react';
 import {
   getPrograms,
   getProgramById,
-  createProgram,
-  updateProgram,
   deleteProgram,
-  type CreateProgramDto,
-  type UpdateProgramDto,
 } from '@/lib/api/programs';
-import type { Program, ApiResponse } from '@/types/course';
+import type { Program } from '@/types/course';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -23,14 +19,6 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
   BookOpenCheck,
   Edit,
   Eye,
@@ -38,9 +26,17 @@ import {
   RefreshCw,
   Search,
   Trash2,
+  GraduationCap,
+  Sparkles,
+  ArrowRight,
+  MoreVertical,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
+import { useModalStore } from '@/store/modalStore';
+import { ProgramForm } from '@/components/admin/programs/ProgramForm';
+import { ProgramDetailsView } from '@/components/admin/programs/ProgramDetailsView';
+import { cn } from '@/lib/utils';
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -48,27 +44,12 @@ function getErrorMessage(error: unknown): string {
 }
 
 export default function ProgramsPage() {
+  const { openModal } = useModalStore();
   const { toast, toasts, removeToast } = useToast();
   const [programs, setPrograms] = useState<Program[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-
-  // Dialog states
-  const [viewDialogOpen, setViewDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [programDetails, setProgramDetails] = useState<(Program & { courses?: any[]; _count?: { courses: number } }) | null>(null);
-  const [detailsLoading, setDetailsLoading] = useState(false);
-  const [detailsError, setDetailsError] = useState<string | null>(null);
-
-  // Form states
-  const [editForm, setEditForm] = useState({ name: '', description: '' });
-  const [createForm, setCreateForm] = useState({ name: '', description: '' });
-  const [editSubmitting, setEditSubmitting] = useState(false);
-  const [editError, setEditError] = useState<string | null>(null);
-  const [createSubmitting, setCreateSubmitting] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
 
   const loadPrograms = async () => {
     try {
@@ -93,126 +74,45 @@ export default function ProgramsPage() {
     loadPrograms();
   }, []);
 
-  const fetchProgramDetails = async (programId: string) => {
-    try {
-      setDetailsLoading(true);
-      setDetailsError(null);
-      const response = await getProgramById(programId);
-
-      if (response.success && response.data) {
-        setProgramDetails(response.data);
-        setEditForm({
-          name: response.data.name,
-          description: response.data.description || '',
-        });
-        return response.data;
-      }
-
-      throw new Error(response.message || 'Failed to load program details');
-    } catch (err: unknown) {
-      const message = getErrorMessage(err);
-      setDetailsError(message);
-      setProgramDetails(null);
-      return null;
-    } finally {
-      setDetailsLoading(false);
-    }
-  };
-
   const handleViewProgram = async (programId: string) => {
-    setViewDialogOpen(true);
-    await fetchProgramDetails(programId);
+    try {
+      const response = await getProgramById(programId);
+      if (response.success && response.data) {
+        openModal({
+          title: 'Program Intelligence',
+          description: 'Detailed view of academic program and associated courses.',
+          className: 'sm:max-w-4xl',
+          content: <ProgramDetailsView program={response.data} />,
+        });
+      }
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to load program details', variant: 'destructive' });
+    }
   };
 
   const handleEditProgram = async (programId: string) => {
-    setEditDialogOpen(true);
-    setEditError(null);
-    await fetchProgramDetails(programId);
-  };
-
-  const handleEditSubmit = async () => {
-    if (!programDetails) return;
-
-    if (!editForm.name.trim()) {
-      setEditError('Program name is required');
-      toast({
-        title: 'Error',
-        description: 'Program name is required',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     try {
-      setEditSubmitting(true);
-      setEditError(null);
-      const payload: UpdateProgramDto = {
-        name: editForm.name.trim(),
-        description: editForm.description.trim() || undefined,
-      };
-
-      await updateProgram(programDetails.id, payload);
-      setEditDialogOpen(false);
-      await loadPrograms();
-
-      toast({
-        title: 'Success',
-        description: 'Program updated successfully',
-        variant: 'success',
-      });
-    } catch (err: unknown) {
-      const errorMsg = getErrorMessage(err) || 'Failed to update program';
-      setEditError(errorMsg);
-      toast({
-        title: 'Error',
-        description: errorMsg,
-        variant: 'destructive',
-      });
-    } finally {
-      setEditSubmitting(false);
+      const response = await getProgramById(programId);
+      if (response.success && response.data) {
+        openModal({
+          title: 'Update Program',
+          description: 'Modify program identity and description.',
+          className: 'sm:max-w-2xl',
+          content: <ProgramForm program={response.data} onSuccess={loadPrograms} />,
+        });
+      }
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to load program for editing', variant: 'destructive' });
     }
   };
 
-  const handleCreateSubmit = async () => {
-    if (!createForm.name.trim()) {
-      setCreateError('Program name is required');
-      toast({
-        title: 'Error',
-        description: 'Program name is required',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    try {
-      setCreateSubmitting(true);
-      setCreateError(null);
-      const payload: CreateProgramDto = {
-        name: createForm.name.trim(),
-        description: createForm.description.trim() || undefined,
-      };
-
-      await createProgram(payload);
-      setCreateDialogOpen(false);
-      setCreateForm({ name: '', description: '' });
-      await loadPrograms();
-
-      toast({
-        title: 'Success',
-        description: 'Program created successfully',
-        variant: 'success',
-      });
-    } catch (err: unknown) {
-      const errorMsg = getErrorMessage(err) || 'Failed to create program';
-      setCreateError(errorMsg);
-      toast({
-        title: 'Error',
-        description: errorMsg,
-        variant: 'destructive',
-      });
-    } finally {
-      setCreateSubmitting(false);
-    }
+  const handleCreateProgram = () => {
+    openModal({
+      title: 'Launch New Program',
+      description: 'Create a new academic program container.',
+      className: 'sm:max-w-2xl',
+      content: <ProgramForm onSuccess={loadPrograms} />,
+    });
   };
 
   const handleDeleteProgram = async (programId: string) => {
@@ -223,18 +123,9 @@ export default function ProgramsPage() {
     try {
       await deleteProgram(programId);
       await loadPrograms();
-
-      toast({
-        title: 'Success',
-        description: 'Program deleted successfully',
-        variant: 'success',
-      });
+      toast({ title: 'Success', description: 'Program deleted successfully', variant: 'success' });
     } catch (err: unknown) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(err) || 'Failed to delete program',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: getErrorMessage(err) || 'Failed to delete program', variant: 'destructive' });
     }
   };
 
@@ -243,370 +134,176 @@ export default function ProgramsPage() {
     program.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const isDetailsReady = !detailsLoading && programDetails !== null;
-
   const totalPrograms = programs.length;
   const totalCourses = programs.reduce((sum, program) => sum + ((program as any)._count?.courses || 0), 0);
 
   return (
-    <div className="space-y-4">
-      <section className="glass-panel p-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="space-y-8 text-slate-900">
+      {/* Header Section */}
+      <section className="relative overflow-hidden rounded-[32px] border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/40">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.03),transparent_40%)]" />
+        
+        <div className="relative flex flex-wrap items-start justify-between gap-6">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight">Program Management</h1>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              Manage academic programs and organize courses by program structure.
+            <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 border border-indigo-100/50 shadow-sm">
+              <GraduationCap className="h-3.5 w-3.5" />
+              Academic Workspace
+            </div>
+            <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
+              Program <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">Architecture</span>
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-slate-500">
+              Manage core academic programs and curriculum structure from a unified institutional perspective.
             </p>
           </div>
-          <Button className="mt-1 bg-primary hover:bg-primary/90" onClick={() => setCreateDialogOpen(true)}>
+
+          <Button
+            className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95"
+            onClick={handleCreateProgram}
+          >
             <Plus className="mr-2 h-4 w-4" />
             Create Program
           </Button>
         </div>
       </section>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <article className="glass-panel p-3.5">
-          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Total Programs</p>
-          <p className="mt-2 text-2xl font-semibold">{totalPrograms}</p>
-        </article>
-        <article className="glass-panel p-3.5">
-          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Total Courses</p>
-          <p className="mt-2 text-2xl font-semibold">{totalCourses}</p>
-        </article>
-        <article className="glass-panel p-3.5">
-          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Avg Courses/Program</p>
-          <p className="mt-2 text-2xl font-semibold">
-            {totalPrograms > 0 ? Math.round((totalCourses / totalPrograms) * 10) / 10 : 0}
-          </p>
-        </article>
-        <article className="glass-panel p-3.5">
-          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Filtered Results</p>
-          <p className="mt-2 text-2xl font-semibold">{filteredPrograms.length}</p>
-        </article>
+      {/* Stats Section */}
+      <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: 'Total Programs', value: totalPrograms, color: 'from-blue-600 to-cyan-500', icon: GraduationCap },
+          { label: 'Total Courses', value: totalCourses, color: 'from-indigo-600 to-purple-600', icon: BookOpenCheck },
+          { label: 'Avg Density', value: totalPrograms > 0 ? (totalCourses / totalPrograms).toFixed(1) : 0, color: 'from-emerald-600 to-teal-500', icon: Sparkles },
+          { label: 'Active Filter', value: filteredPrograms.length, color: 'from-rose-600 to-pink-600', icon: Search },
+        ].map((stat, i) => (
+          <div key={i} className="group relative overflow-hidden rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/40 transition-all hover:-translate-y-1 hover:shadow-2xl">
+             <div className="flex items-center justify-between">
+                <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg group-hover:scale-110 transition-transform", stat.color)}>
+                   <stat.icon className="h-6 w-6" />
+                </div>
+                <div className="h-1.5 w-1.5 rounded-full bg-slate-200" />
+             </div>
+             <div className="mt-6">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
+                <p className="mt-1 text-3xl font-black text-slate-900">{stat.value}</p>
+             </div>
+          </div>
+        ))}
       </section>
 
-      <section className="glass-panel p-4 sm:p-5">
-        <div className="flex flex-wrap gap-4">
-          <div className="min-w-[260px] flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      {/* Search Section */}
+      <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="relative flex flex-wrap gap-4">
+          <div className="min-w-[300px] flex-1">
+            <div className="relative group">
+              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
               <Input
                 placeholder="Search programs by name or description..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-10 border-border bg-background pl-10"
+                className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner"
               />
             </div>
           </div>
-          <Button variant="outline" className="h-10" onClick={loadPrograms}>
+          <Button variant="outline" className="h-12 w-12 rounded-2xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-all shadow-sm" onClick={loadPrograms}>
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
       </section>
 
-      {error && (
-        <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive">
-          {error}
-        </div>
-      )}
-
-      <section className="glass-panel overflow-hidden p-0">
-        <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
+      {/* Table Section */}
+      <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/30">
+        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
           <div>
-            <h2 className="text-base font-semibold tracking-tight">Program Catalog</h2>
-            <p className="text-xs text-muted-foreground">Browse and maintain all registered programs</p>
+            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Program Registry</h2>
+            <p className="mt-0.5 text-xs font-bold text-indigo-500">Institutional baseline</p>
           </div>
-          <div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
-            <BookOpenCheck className="h-4 w-4" />
-            <span>{totalPrograms} Total Records</span>
+          <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            {totalPrograms} Programs
           </div>
         </div>
 
         {loading ? (
-          <div className="p-8 text-center text-muted-foreground">Loading programs...</div>
+          <div className="p-20 text-center flex flex-col items-center gap-4">
+             <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Synchronizing Data...</p>
+          </div>
         ) : filteredPrograms.length === 0 ? (
-          <div className="p-8 text-center text-muted-foreground">
-            {searchQuery ? 'No programs found matching your search.' : 'No programs found. Create your first program.'}
+          <div className="p-20 text-center">
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No matching programs identified.</p>
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead>Name</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Courses</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Updated</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredPrograms.map((program) => (
-                <TableRow key={program.id} className="hover:bg-muted/45">
-                  <TableCell className="font-medium">{program.name}</TableCell>
-                  <TableCell className="max-w-md truncate text-muted-foreground">
-                    {program.description || '-'}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">
-                      {(program as any)._count?.courses || 0} courses
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {new Date(program.createdAt).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {new Date(program.updatedAt).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleViewProgram(program.id)}
-                        title="View Program"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleEditProgram(program.id)}
-                        title="Edit Program"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeleteProgram(program.id)}
-                        title="Delete Program"
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-slate-50/50">
+                <TableRow className="hover:bg-transparent border-b border-slate-100">
+                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Program Name</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Curriculum Scope</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Linked Courses</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Timeline</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-center">Manage</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredPrograms.map((program) => (
+                  <TableRow key={program.id} className="group border-slate-100 transition-colors hover:bg-slate-50/80">
+                    <TableCell className="px-8 py-5">
+                       <div className="flex flex-col">
+                          <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{program.name}</span>
+                          <span className="text-[10px] font-medium text-slate-400">ID: {program.id.slice(0, 8)}...</span>
+                       </div>
+                    </TableCell>
+                    <TableCell className="max-w-xs py-5">
+                       <p className="truncate text-xs font-medium text-slate-500">
+                         {program.description || 'No description provided.'}
+                       </p>
+                    </TableCell>
+                    <TableCell className="py-5">
+                       <Badge variant="outline" className="rounded-lg bg-indigo-50 border-indigo-100 text-indigo-700 font-black text-[10px] uppercase px-2.5 py-1">
+                         {(program as any)._count?.courses || 0} Courses
+                       </Badge>
+                    </TableCell>
+                    <TableCell className="py-5">
+                       <div className="flex flex-col gap-1">
+                          <span className="text-[10px] font-bold text-slate-400">Added: {new Date(program.createdAt).toLocaleDateString()}</span>
+                          <span className="text-[10px] font-bold text-slate-500">Mod: {new Date(program.updatedAt).toLocaleDateString()}</span>
+                       </div>
+                    </TableCell>
+                    <TableCell className="px-8 py-5">
+                       <div className="flex justify-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 rounded-xl border-slate-200 bg-white px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm"
+                            onClick={() => handleViewProgram(program.id)}
+                          >
+                            View
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 rounded-xl border-slate-200 bg-white px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm"
+                            onClick={() => handleEditProgram(program.id)}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 rounded-xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all shadow-sm"
+                            onClick={() => handleDeleteProgram(program.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                       </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </section>
-
-      {/* Create Program Dialog */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="max-h-[90vh] sm:max-w-4xl flex flex-col p-0 gap-0" showCloseButton={true}>
-          <DialogHeader className="px-6 pt-6 pb-4 shrink-0 sticky top-0 bg-background z-10 border-b shadow-sm">
-            <DialogTitle>Create Program</DialogTitle>
-            <DialogDescription>Add a new program to the system.</DialogDescription>
-          </DialogHeader>
-
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            <div className="space-y-4 py-6">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Program Name *</label>
-                <Input
-                  value={createForm.name}
-                  onChange={(e) => setCreateForm((prev) => ({ ...prev, name: e.target.value }))}
-                  placeholder="e.g., Higher Secondary Certificate (HSC)"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Description</label>
-                <textarea
-                  value={createForm.description}
-                  onChange={(e) => setCreateForm((prev) => ({ ...prev, description: e.target.value }))}
-                  rows={6}
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none ring-offset-background focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
-                  placeholder="Enter program description..."
-                />
-              </div>
-
-              {createError && (
-                <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive mb-4">
-                  {createError}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <DialogFooter className="px-6 pb-6 pt-4 shrink-0 bg-background border-t shadow-lg mt-auto">
-            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateSubmit} disabled={createSubmitting}>
-              {createSubmitting ? 'Creating...' : 'Create Program'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* View Program Dialog */}
-      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="max-h-[90vh] sm:max-w-4xl flex flex-col p-0 gap-0" showCloseButton={true}>
-          <DialogHeader className="px-6 pt-6 pb-4 shrink-0 sticky top-0 bg-background z-10 border-b shadow-sm">
-            <DialogTitle>Program Details</DialogTitle>
-            <DialogDescription>View full program information and related courses.</DialogDescription>
-          </DialogHeader>
-
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            {detailsLoading && <p className="text-sm text-muted-foreground py-6">Loading details...</p>}
-            {!detailsLoading && detailsError && (
-              <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive my-6">
-                {detailsError}
-              </div>
-            )}
-
-            {isDetailsReady && programDetails && (
-              <div className="space-y-5 text-sm py-6">
-                {/* Basic Information */}
-                <div>
-                  <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">Basic Information</p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Name</p>
-                      <p className="mt-1 font-medium">{programDetails.name}</p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Total Courses</p>
-                      <p className="mt-1 font-medium">{programDetails._count?.courses || programDetails.courses?.length || 0}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Description */}
-                <div className="rounded-lg border p-3">
-                  <p className="text-xs uppercase text-muted-foreground">Description</p>
-                  <p className="mt-1 text-sm text-muted-foreground">{programDetails.description || 'No description provided.'}</p>
-                </div>
-
-                {/* Timestamps */}
-                <div>
-                  <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">Timestamps</p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Created At</p>
-                      <p className="mt-1 text-sm">
-                        {programDetails.createdAt
-                          ? new Date(programDetails.createdAt).toLocaleString('en-US', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })
-                          : '-'}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Last Updated</p>
-                      <p className="mt-1 text-sm">
-                        {programDetails.updatedAt
-                          ? new Date(programDetails.updatedAt).toLocaleString('en-US', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })
-                          : '-'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Courses List */}
-                {programDetails.courses && programDetails.courses.length > 0 && (
-                  <div>
-                    <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">Associated Courses</p>
-                    <div className="space-y-2">
-                      {programDetails.courses.map((course: any) => (
-                        <div key={course.id} className="rounded-lg border p-3">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium">{course.name}</p>
-                              <p className="text-xs text-muted-foreground">Code: {course.code}</p>
-                            </div>
-                            <Badge variant="outline">
-                              {course._count?.enrollments || 0} enrollments
-                            </Badge>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Program Dialog */}
-      <Dialog
-        open={editDialogOpen}
-        onOpenChange={(open) => {
-          setEditDialogOpen(open);
-          if (!open) setEditError(null);
-        }}
-      >
-        <DialogContent className="max-h-[90vh] sm:max-w-4xl flex flex-col p-0 gap-0" showCloseButton={true}>
-          <DialogHeader className="px-6 pt-6 pb-4 shrink-0 sticky top-0 bg-background z-10 border-b shadow-sm">
-            <DialogTitle>Edit Program</DialogTitle>
-            <DialogDescription>Update program information and save the changes.</DialogDescription>
-          </DialogHeader>
-
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            {detailsLoading && <p className="text-sm text-muted-foreground py-6">Loading form...</p>}
-            {!detailsLoading && detailsError && (
-              <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive my-6">
-                {detailsError}
-              </div>
-            )}
-
-            {isDetailsReady && (
-              <div className="space-y-4 py-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Program Name *</label>
-                  <Input
-                    value={editForm.name}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
-                    placeholder="e.g., Higher Secondary Certificate (HSC)"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Description</label>
-                  <textarea
-                    value={editForm.description}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev, description: e.target.value }))}
-                    rows={6}
-                    className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none ring-offset-background focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
-                    placeholder="Enter program description..."
-                  />
-                </div>
-
-                {editError && (
-                  <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive my-6 mb-4">
-                    {editError}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <DialogFooter className="px-6 pb-6 pt-4 shrink-0 bg-background border-t shadow-lg mt-auto">
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleEditSubmit} disabled={editSubmitting || !isDetailsReady}>
-              {editSubmitting ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Toaster toasts={toasts} removeToast={removeToast} />
     </div>
