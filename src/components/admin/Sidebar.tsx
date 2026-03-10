@@ -19,7 +19,6 @@ import {
   HelpCircle,
   ClipboardList,
   Building2,
-  Sparkles,
   ChevronRight,
   LogOut,
   Bell,
@@ -101,12 +100,12 @@ export function Sidebar({ mobileOpen, onCloseMobile, collapsed, onToggleCollapse
         <div className="relative flex h-20 items-center px-6 border-b border-slate-100/80">
           <Link href="/admin" className="flex items-center gap-3 group">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 shadow-lg shadow-indigo-200 transition-transform group-hover:scale-105 group-hover:rotate-3">
-              <Sparkles className="h-5 w-5 text-white" />
+              <GraduationCap className="h-5 w-5 text-white" />
             </div>
             {!collapsed && (
               <div className="flex flex-col">
                 <span className="text-xl font-black tracking-tight text-slate-900 leading-none">Codezyne</span>
-                <span className="mt-1 text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-500/80">Enterprise AI</span>
+                <span className="mt-1 text-[9px] font-bold uppercase tracking-[0.2em] text-indigo-500/80">Learning Management System</span>
               </div>
             )}
           </Link>

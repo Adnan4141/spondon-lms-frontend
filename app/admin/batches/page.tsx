@@ -6,13 +6,9 @@ import { getBranches } from '@/lib/api/branches';
 import {
   getBatches,
   getBatchById,
-  createBatch,
-  updateBatch,
   deleteBatch,
   type Batch,
   type BatchStatusType,
-  type CreateBatchDto,
-  type UpdateBatchDto,
 } from '@/lib/api/batches';
 import type { Course } from '@/types/course';
 import type { Branch } from '@/lib/api/branches';
@@ -35,27 +31,24 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
   Calendar,
   CalendarClock,
-  Edit,
-  Eye,
-  GraduationCap,
   Plus,
   RefreshCw,
   Search,
   Trash2,
   Users,
+  Layout,
+  Sparkles,
+  MapPin,
+  BookOpen,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
+import { useModalStore } from '@/store/modalStore';
+import { BatchForm } from '@/components/admin/batches/BatchForm';
+import { BatchDetailsView } from '@/components/admin/batches/BatchDetailsView';
+import { cn } from '@/lib/utils';
 
 const statusOptions: (BatchStatusType | 'all')[] = ['all', 'ACTIVE', 'INACTIVE', 'COMPLETED', 'ARCHIVED'];
 
@@ -64,7 +57,15 @@ function getErrorMessage(error: unknown): string {
   return 'Something went wrong';
 }
 
+function getStatusBadgeClass(status: string) {
+  if (status === 'ACTIVE') return 'bg-emerald-50 text-emerald-700 border-emerald-100 font-black';
+  if (status === 'COMPLETED') return 'bg-blue-50 text-blue-700 border-blue-100 font-black';
+  if (status === 'INACTIVE') return 'bg-amber-50 text-amber-700 border-amber-100 font-black';
+  return 'bg-slate-100 text-slate-600 border-slate-200 font-black';
+}
+
 export default function BatchesPage() {
+  const { openModal } = useModalStore();
   const { toast, toasts, removeToast } = useToast();
 
   const [courses, setCourses] = useState<Course[]>([]);
@@ -78,57 +79,18 @@ export default function BatchesPage() {
   const [courseFilter, setCourseFilter] = useState<string>('all');
   const [branchFilter, setBranchFilter] = useState<string>('all');
 
-  const [viewDialogOpen, setViewDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [batchDetails, setBatchDetails] = useState<Batch | null>(null);
-  const [detailsLoading, setDetailsLoading] = useState(false);
-  const [detailsError, setDetailsError] = useState<string | null>(null);
-
-  const [createForm, setCreateForm] = useState<CreateBatchDto>({
-    courseId: '',
-    branchId: '',
-    name: '',
-    startDate: '',
-    endDate: '',
-    capacity: undefined,
-    status: 'ACTIVE',
-  });
-  const [editForm, setEditForm] = useState<CreateBatchDto>({
-    courseId: '',
-    branchId: '',
-    name: '',
-    startDate: '',
-    endDate: '',
-    capacity: undefined,
-    status: 'ACTIVE',
-  });
-
-  const [createSubmitting, setCreateSubmitting] = useState(false);
-  const [editSubmitting, setEditSubmitting] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
-  const [editError, setEditError] = useState<string | null>(null);
-
   const loadCourses = async () => {
     try {
       const response = await getCourses({});
-      if (response.success && response.data) {
-        setCourses(response.data || []);
-      }
-    } catch (err: unknown) {
-      console.error('Failed to load courses:', err);
-    }
+      if (response.success && response.data) setCourses(response.data || []);
+    } catch (err) { console.error(err); }
   };
 
   const loadBranches = async () => {
     try {
       const response = await getBranches();
-      if (response.success && response.data) {
-        setBranches(response.data || []);
-      }
-    } catch (err: unknown) {
-      console.error('Failed to load branches:', err);
-    }
+      if (response.success && response.data) setBranches(response.data || []);
+    } catch (err) { console.error(err); }
   };
 
   const loadBatches = async () => {
@@ -143,11 +105,10 @@ export default function BatchesPage() {
       if (response.success && response.data) {
         setBatches(response.data || []);
       } else {
-        setError(response.message || 'Failed to load batches');
         setBatches([]);
       }
     } catch (err: unknown) {
-      setError(getErrorMessage(err) || 'Failed to load batches');
+      setError(getErrorMessage(err));
       setBatches([]);
     } finally {
       setLoading(false);
@@ -162,779 +123,281 @@ export default function BatchesPage() {
 
   useEffect(() => {
     loadBatches();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, courseFilter, branchFilter]);
 
-  const fetchBatchDetails = async (id: string) => {
+  const handleViewBatch = async (id: string) => {
     try {
-      setDetailsLoading(true);
-      setDetailsError(null);
       const response = await getBatchById(id);
       if (response.success && response.data) {
-        const batch = response.data;
-        setBatchDetails(batch);
-        setEditForm({
-          courseId: batch.courseId,
-          branchId: batch.branchId,
-          name: batch.name,
-          startDate: batch.startDate ? batch.startDate.slice(0, 10) : '',
-          endDate: batch.endDate ? batch.endDate.slice(0, 10) : '',
-          capacity: batch.capacity ?? undefined,
-          status: (batch.status as BatchStatusType) || 'ACTIVE',
+        openModal({
+          title: 'Batch Intelligence',
+          description: 'Detailed analytics and operational overview of the batch.',
+          className: 'sm:max-w-4xl',
+          content: <BatchDetailsView batch={response.data} />,
         });
-        return batch;
       }
-      throw new Error(response.message || 'Failed to load batch details');
-    } catch (err: unknown) {
-      setBatchDetails(null);
-      setDetailsError(getErrorMessage(err));
-      return null;
-    } finally {
-      setDetailsLoading(false);
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to load batch details', variant: 'destructive' });
     }
-  };
-
-  const handleViewBatch = async (id: string) => {
-    setViewDialogOpen(true);
-    await fetchBatchDetails(id);
   };
 
   const handleEditBatch = async (id: string) => {
-    setEditDialogOpen(true);
-    setEditError(null);
-    await fetchBatchDetails(id);
-  };
-
-  const handleCreateSubmit = async () => {
-    if (!createForm.name.trim() || !createForm.courseId || !createForm.branchId) {
-      setCreateError('Name, course, and branch are required');
-      toast({
-        title: 'Error',
-        description: 'Name, course, and branch are required',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     try {
-      setCreateSubmitting(true);
-      setCreateError(null);
-      const payload: CreateBatchDto = {
-        courseId: createForm.courseId,
-        branchId: createForm.branchId,
-        name: createForm.name.trim(),
-        startDate: createForm.startDate || undefined,
-        endDate: createForm.endDate || undefined,
-        capacity: createForm.capacity,
-        status: createForm.status || 'ACTIVE',
-      };
-      await createBatch(payload);
-      setCreateDialogOpen(false);
-      setCreateForm({
-        courseId: '',
-        branchId: '',
-        name: '',
-        startDate: '',
-        endDate: '',
-        capacity: undefined,
-        status: 'ACTIVE',
-      });
-      await loadBatches();
-      toast({
-        title: 'Success',
-        description: 'Batch created successfully',
-        variant: 'success',
-      });
-    } catch (err: unknown) {
-      const msg = getErrorMessage(err) || 'Failed to create batch';
-      setCreateError(msg);
-      toast({
-        title: 'Error',
-        description: msg,
-        variant: 'destructive',
-      });
-    } finally {
-      setCreateSubmitting(false);
+      const response = await getBatchById(id);
+      if (response.success && response.data) {
+        openModal({
+          title: 'Update Operational Batch',
+          description: 'Modify batch identity, schedule, and capacity.',
+          className: 'sm:max-w-2xl',
+          content: <BatchForm courses={courses} branches={branches} batch={response.data} onSuccess={loadBatches} />,
+        });
+      }
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to load batch for editing', variant: 'destructive' });
     }
   };
 
-  const handleEditSubmit = async () => {
-    if (!batchDetails) return;
-    if (!editForm.name.trim() || !editForm.courseId || !editForm.branchId) {
-      setEditError('Name, course, and branch are required');
-      toast({
-        title: 'Error',
-        description: 'Name, course, and branch are required',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    try {
-      setEditSubmitting(true);
-      setEditError(null);
-      const payload: UpdateBatchDto = {
-        name: editForm.name.trim(),
-        startDate: editForm.startDate || undefined,
-        endDate: editForm.endDate || undefined,
-        capacity: editForm.capacity,
-        status: editForm.status,
-      };
-      await updateBatch(batchDetails.id, payload);
-      setEditDialogOpen(false);
-      await loadBatches();
-      toast({
-        title: 'Success',
-        description: 'Batch updated successfully',
-        variant: 'success',
-      });
-    } catch (err: unknown) {
-      const msg = getErrorMessage(err) || 'Failed to update batch';
-      setEditError(msg);
-      toast({
-        title: 'Error',
-        description: msg,
-        variant: 'destructive',
-      });
-    } finally {
-      setEditSubmitting(false);
-    }
+  const handleCreateBatch = () => {
+    openModal({
+      title: 'Authorize New Batch',
+      description: 'Initialize a new operational batch for a specific course and branch.',
+      className: 'sm:max-w-2xl',
+      content: <BatchForm courses={courses} branches={branches} onSuccess={loadBatches} />,
+    });
   };
 
   const handleDeleteBatch = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this batch? This action cannot be undone.')) {
-      return;
-    }
+    if (!confirm('Are you sure you want to delete this batch? This action cannot be undone.')) return;
     try {
       await deleteBatch(id);
       await loadBatches();
-      toast({
-        title: 'Success',
-        description: 'Batch deleted successfully',
-        variant: 'success',
-      });
+      toast({ title: 'Success', description: 'Batch deleted successfully', variant: 'success' });
     } catch (err: unknown) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(err) || 'Failed to delete batch',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
     }
   };
 
   const filteredBatches = batches.filter((batch) => {
     const q = searchQuery.toLowerCase();
-    const courseName = batch.course?.name.toLowerCase() || '';
-    const branchName = batch.branch?.name.toLowerCase() || '';
-    const name = batch.name.toLowerCase();
-    return !q || name.includes(q) || courseName.includes(q) || branchName.includes(q);
+    return !q || batch.name.toLowerCase().includes(q) || 
+           batch.course?.name.toLowerCase().includes(q) || 
+           batch.branch?.name.toLowerCase().includes(q);
   });
 
   const totalBatches = batches.length;
-  const activeBatches = batches.filter((b) => String(b.status) === 'ACTIVE').length;
+  const activeCount = batches.filter((b) => String(b.status) === 'ACTIVE').length;
   const totalEnrollments = batches.reduce((sum, b) => sum + (b._count?.enrollments || 0), 0);
   const totalSessions = batches.reduce((sum, b) => sum + (b._count?.classSessions || 0), 0);
 
-  const isDetailsReady = !!batchDetails && !detailsLoading;
-
   return (
-    <div className="space-y-4">
-      <section className="glass-panel p-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="space-y-8 text-slate-900">
+      {/* Header Section */}
+      <section className="relative overflow-hidden rounded-[32px] border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/40">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.03),transparent_40%)]" />
+        
+        <div className="relative flex flex-wrap items-start justify-between gap-6">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight">Batch Management</h1>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              Manage batches for each course and branch, including schedule, capacity, and lifecycle.
+            <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 border border-indigo-100/50 shadow-sm">
+              <Layout className="h-3.5 w-3.5" />
+              Operational Workspace
+            </div>
+            <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
+              Batch <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">Scheduler</span>
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-slate-500">
+              Manage operational batches, student capacity, and academic timelines across all branches.
             </p>
           </div>
-          <Button className="mt-1 bg-primary hover:bg-primary/90" onClick={() => setCreateDialogOpen(true)}>
+
+          <Button
+            className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95"
+            onClick={handleCreateBatch}
+          >
             <Plus className="mr-2 h-4 w-4" />
             Create Batch
           </Button>
         </div>
       </section>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <article className="glass-panel p-3.5">
-          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Total Batches</p>
-          <p className="mt-2 text-2xl font-semibold">{totalBatches}</p>
-        </article>
-        <article className="glass-panel p-3.5">
-          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Active Batches</p>
-          <p className="mt-2 text-2xl font-semibold">{activeBatches}</p>
-        </article>
-        <article className="glass-panel p-3.5">
-          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Enrollments</p>
-          <p className="mt-2 text-2xl font-semibold">{totalEnrollments}</p>
-        </article>
-        <article className="glass-panel p-3.5">
-          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Class Sessions</p>
-          <p className="mt-2 text-2xl font-semibold">{totalSessions}</p>
-        </article>
+      {/* Stats Section */}
+      <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: 'Total Batches', value: totalBatches, color: 'from-blue-600 to-cyan-500', icon: Layout },
+          { label: 'Active Status', value: activeCount, color: 'from-emerald-600 to-teal-500', icon: Sparkles },
+          { label: 'Enrollments', value: totalEnrollments, color: 'from-indigo-600 to-purple-600', icon: Users },
+          { label: 'Total Sessions', value: totalSessions, color: 'from-rose-600 to-pink-600', icon: CalendarClock },
+        ].map((stat, i) => (
+          <div key={i} className="group relative overflow-hidden rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/40 transition-all hover:-translate-y-1 hover:shadow-2xl">
+             <div className="flex items-center justify-between">
+                <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg group-hover:scale-110 transition-transform", stat.color)}>
+                   <stat.icon className="h-6 w-6" />
+                </div>
+                <div className="h-1.5 w-1.5 rounded-full bg-slate-200" />
+             </div>
+             <div className="mt-6">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
+                <p className="mt-1 text-3xl font-black text-slate-900">{stat.value}</p>
+             </div>
+          </div>
+        ))}
       </section>
 
-      <section className="glass-panel p-4 sm:p-5">
+      {/* Filter Section */}
+      <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap gap-4">
-          <div className="min-w-[260px] flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <div className="min-w-[300px] flex-1">
+            <div className="relative group">
+              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
               <Input
-                placeholder="Search batches by name, course, or branch..."
+                placeholder="Search batches, courses, or branches..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-10 border-border bg-background pl-10"
+                className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
               />
             </div>
           </div>
-          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as BatchStatusType | 'all')}>
-            <SelectTrigger className="h-10 w-[180px] border-border bg-background">
+          
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
+            <SelectTrigger className="h-12 w-[160px] rounded-2xl border-slate-200 bg-white font-bold text-xs uppercase tracking-widest text-slate-600 shadow-sm">
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
               {statusOptions.map((opt) => (
-                <SelectItem key={opt} value={opt}>
+                <SelectItem key={opt} value={opt} className="font-bold text-xs uppercase tracking-widest py-3">
                   {opt === 'all' ? 'All Status' : opt}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+
           <Select value={courseFilter} onValueChange={setCourseFilter}>
-            <SelectTrigger className="h-10 w-[200px] border-border bg-background">
+            <SelectTrigger className="h-12 w-[200px] rounded-2xl border-slate-200 bg-white font-bold text-xs uppercase tracking-widest text-slate-600 shadow-sm">
               <SelectValue placeholder="All Courses" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Courses</SelectItem>
+            <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
+              <SelectItem value="all" className="font-bold text-xs uppercase tracking-widest py-3">All Courses</SelectItem>
               {courses.map((course) => (
-                <SelectItem key={course.id} value={course.id}>
+                <SelectItem key={course.id} value={course.id} className="font-bold text-xs uppercase tracking-widest py-3">
                   {course.name}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Select value={branchFilter} onValueChange={setBranchFilter}>
-            <SelectTrigger className="h-10 w-[200px] border-border bg-background">
-              <SelectValue placeholder="All Branches" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Branches</SelectItem>
-              {branches.map((branch) => (
-                <SelectItem key={branch.id} value={branch.id}>
-                  {branch.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button variant="outline" className="h-10" onClick={loadBatches}>
+
+          <Button variant="outline" className="h-12 w-12 rounded-2xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-all shadow-sm" onClick={loadBatches}>
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
       </section>
 
-      {error && (
-        <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive">
-          {error}
-        </div>
-      )}
-
-      <section className="glass-panel overflow-hidden p-0">
-        <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
+      {/* Table Section */}
+      <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/30">
+        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
           <div>
-            <h2 className="text-base font-semibold tracking-tight">Batch List</h2>
-            <p className="text-xs text-muted-foreground">Browse and manage batches for all courses.</p>
+            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Batch Inventory</h2>
+            <p className="mt-0.5 text-xs font-bold text-indigo-500">Live operational data</p>
           </div>
-          <div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
-            <Calendar className="h-4 w-4" />
-            <span>{totalBatches} Total Records</span>
+          <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            {totalBatches} Operational Batches
           </div>
         </div>
 
         {loading ? (
-          <div className="p-8 text-center text-muted-foreground">Loading batches...</div>
+          <div className="p-20 text-center flex flex-col items-center gap-4">
+             <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Synchronizing Data...</p>
+          </div>
         ) : filteredBatches.length === 0 ? (
-          <div className="p-8 text-center text-muted-foreground">
-            {searchQuery ? 'No batches found matching your search.' : 'No batches found. Create your first batch.'}
+          <div className="p-20 text-center">
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No matching batches identified.</p>
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead>Name</TableHead>
-                <TableHead>Course</TableHead>
-                <TableHead>Branch</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Enrollments</TableHead>
-                <TableHead>Sessions</TableHead>
-                <TableHead>Start</TableHead>
-                <TableHead>End</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredBatches.map((batch) => (
-                <TableRow key={batch.id} className="hover:bg-muted/45">
-                  <TableCell className="font-medium">{batch.name}</TableCell>
-                  <TableCell>{batch.course?.name || '-'}</TableCell>
-                  <TableCell>{batch.branch?.name || '-'}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        String(batch.status) === 'ACTIVE'
-                          ? 'default'
-                          : String(batch.status) === 'COMPLETED'
-                          ? 'secondary'
-                          : 'outline'
-                      }
-                    >
-                      {batch.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{batch._count?.enrollments || 0}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{batch._count?.classSessions || 0}</Badge>
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {batch.startDate ? new Date(batch.startDate).toLocaleDateString() : '-'}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {batch.endDate ? new Date(batch.endDate).toLocaleDateString() : '-'}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleViewBatch(batch.id)}
-                        title="View Batch"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleEditBatch(batch.id)}
-                        title="Edit Batch"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeleteBatch(batch.id)}
-                        title="Delete Batch"
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-slate-50/50">
+                <TableRow className="hover:bg-transparent border-b border-slate-100">
+                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Batch Identity</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Course & Context</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Operational Info</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Timeline</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-center">Manage</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredBatches.map((batch) => (
+                  <TableRow key={batch.id} className="group border-slate-100 transition-colors hover:bg-slate-50/80">
+                    <TableCell className="px-8 py-5">
+                       <div className="flex flex-col">
+                          <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{batch.name}</span>
+                          <span className="text-[10px] font-medium text-slate-400">ID: {batch.id.slice(0, 8)}...</span>
+                       </div>
+                    </TableCell>
+                    <TableCell className="py-5">
+                       <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                             <BookOpen className="h-3 w-3 text-indigo-500" />
+                             {batch.course?.name}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
+                             <MapPin className="h-3 w-3 text-rose-500" />
+                             {batch.branch?.name}
+                          </div>
+                       </div>
+                    </TableCell>
+                    <TableCell className="py-5">
+                       <div className="flex flex-wrap gap-2">
+                          <Badge variant="outline" className={cn("rounded-lg text-[9px] font-black uppercase tracking-widest px-2.5 py-1", getStatusBadgeClass(String(batch.status)))}>
+                            {batch.status}
+                          </Badge>
+                          <Badge variant="outline" className="rounded-lg bg-slate-50 border-slate-200 text-slate-600 font-black text-[9px] uppercase tracking-widest px-2.5 py-1">
+                            {batch._count?.enrollments || 0} enrolled
+                          </Badge>
+                       </div>
+                    </TableCell>
+                    <TableCell className="py-5">
+                       <div className="flex flex-col gap-1">
+                          <span className="text-[10px] font-bold text-slate-400">Starts: {batch.startDate ? new Date(batch.startDate).toLocaleDateString() : 'TBA'}</span>
+                          <span className="text-[10px] font-bold text-slate-500">Ends: {batch.endDate ? new Date(batch.endDate).toLocaleDateString() : 'Continuous'}</span>
+                       </div>
+                    </TableCell>
+                    <TableCell className="px-8 py-5">
+                       <div className="flex justify-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 rounded-xl border-slate-200 bg-white px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm"
+                            onClick={() => handleViewBatch(batch.id)}
+                          >
+                            View
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 rounded-xl border-slate-200 bg-white px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm"
+                            onClick={() => handleEditBatch(batch.id)}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 rounded-xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all shadow-sm"
+                            onClick={() => handleDeleteBatch(batch.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                       </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </section>
-
-      {/* Create Batch Dialog */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="max-h-[90vh] sm:max-w-4xl flex flex-col p-0 gap-0" showCloseButton={true}>
-          <DialogHeader className="px-6 pt-6 pb-4 shrink-0 sticky top-0 bg-background z-10 border-b shadow-sm">
-            <DialogTitle>Create Batch</DialogTitle>
-            <DialogDescription>Add a new batch for a course and branch.</DialogDescription>
-          </DialogHeader>
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            <div className="space-y-4 py-6">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Name *</label>
-                <Input
-                  value={createForm.name}
-                  onChange={(e) => setCreateForm((prev) => ({ ...prev, name: e.target.value }))}
-                  placeholder="Batch name"
-                />
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Course *</label>
-                  <Select
-                    value={createForm.courseId}
-                    onValueChange={(v) => setCreateForm((prev) => ({ ...prev, courseId: v }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select course" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {courses.map((course) => (
-                        <SelectItem key={course.id} value={course.id}>
-                          {course.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Branch *</label>
-                  <Select
-                    value={createForm.branchId}
-                    onValueChange={(v) => setCreateForm((prev) => ({ ...prev, branchId: v }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select branch" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {branches.map((branch) => (
-                        <SelectItem key={branch.id} value={branch.id}>
-                          {branch.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Start Date</label>
-                  <Input
-                    type="date"
-                    value={createForm.startDate || ''}
-                    onChange={(e) => setCreateForm((prev) => ({ ...prev, startDate: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">End Date</label>
-                  <Input
-                    type="date"
-                    value={createForm.endDate || ''}
-                    onChange={(e) => setCreateForm((prev) => ({ ...prev, endDate: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Capacity</label>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={createForm.capacity ?? ''}
-                    onChange={(e) =>
-                      setCreateForm((prev) => ({
-                        ...prev,
-                        capacity: e.target.value ? Number(e.target.value) : undefined,
-                      }))
-                    }
-                    placeholder="Max students"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Status</label>
-                <Select
-                  value={createForm.status || 'ACTIVE'}
-                  onValueChange={(v) =>
-                    setCreateForm((prev) => ({ ...prev, status: v as BatchStatusType }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ACTIVE">ACTIVE</SelectItem>
-                    <SelectItem value="INACTIVE">INACTIVE</SelectItem>
-                    <SelectItem value="COMPLETED">COMPLETED</SelectItem>
-                    <SelectItem value="ARCHIVED">ARCHIVED</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {createError && (
-                <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
-                  {createError}
-                </div>
-              )}
-            </div>
-          </div>
-          <DialogFooter className="px-6 pb-6 pt-4 shrink-0 bg-background border-t shadow-lg mt-auto">
-            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateSubmit} disabled={createSubmitting}>
-              {createSubmitting ? 'Creating...' : 'Create Batch'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* View Batch Dialog */}
-      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="max-h-[90vh] sm:max-w-4xl flex flex-col p-0 gap-0" showCloseButton={true}>
-          <DialogHeader className="px-6 pt-6 pb-4 shrink-0 sticky top-0 bg-background z-10 border-b shadow-sm">
-            <DialogTitle>Batch Details</DialogTitle>
-            <DialogDescription>View complete batch information and statistics.</DialogDescription>
-          </DialogHeader>
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            {detailsLoading && <p className="text-sm text-muted-foreground py-6">Loading details...</p>}
-            {!detailsLoading && detailsError && (
-              <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive my-6">
-                {detailsError}
-              </div>
-            )}
-            {isDetailsReady && batchDetails && (
-              <div className="space-y-5 text-sm py-6">
-                <div>
-                  <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">Basic Information</p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Name</p>
-                      <p className="mt-1 font-medium">{batchDetails.name}</p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Status</p>
-                      <p className="mt-1">
-                        <Badge
-                          variant={
-                            String(batchDetails.status) === 'ACTIVE'
-                              ? 'default'
-                              : String(batchDetails.status) === 'COMPLETED'
-                              ? 'secondary'
-                              : 'outline'
-                          }
-                        >
-                          {batchDetails.status}
-                        </Badge>
-                      </p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Course</p>
-                      <p className="mt-1 font-medium">{batchDetails.course?.name || '-'}</p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Branch</p>
-                      <p className="mt-1 font-medium">{batchDetails.branch?.name || '-'}</p>
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">Schedule</p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Start Date</p>
-                      <p className="mt-1 text-sm">
-                        {batchDetails.startDate
-                          ? new Date(batchDetails.startDate).toLocaleDateString()
-                          : '-'}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">End Date</p>
-                      <p className="mt-1 text-sm">
-                        {batchDetails.endDate
-                          ? new Date(batchDetails.endDate).toLocaleDateString()
-                          : '-'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">Statistics</p>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Capacity</p>
-                      <p className="mt-1 text-2xl font-semibold">
-                        {batchDetails.capacity ?? '-'}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4 text-muted-foreground" />
-                        <p className="text-xs uppercase text-muted-foreground">Enrollments</p>
-                      </div>
-                      <p className="mt-1 text-2xl font-semibold">
-                        {batchDetails._count?.enrollments || 0}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <div className="flex items-center gap-2">
-                        <CalendarClock className="h-4 w-4 text-muted-foreground" />
-                        <p className="text-xs uppercase text-muted-foreground">Class Sessions</p>
-                      </div>
-                      <p className="mt-1 text-2xl font-semibold">
-                        {batchDetails._count?.classSessions || 0}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">Timestamps</p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Created At</p>
-                      <p className="mt-1 text-sm">
-                        {new Date(batchDetails.createdAt).toLocaleString('en-US', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Updated At</p>
-                      <p className="mt-1 text-sm">
-                        {new Date(batchDetails.updatedAt).toLocaleString('en-US', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Batch Dialog */}
-      <Dialog
-        open={editDialogOpen}
-        onOpenChange={(open) => {
-          setEditDialogOpen(open);
-          if (!open) setEditError(null);
-        }}
-      >
-        <DialogContent className="max-h-[90vh] sm:max-w-4xl flex flex-col p-0 gap-0" showCloseButton={true}>
-          <DialogHeader className="px-6 pt-6 pb-4 shrink-0 sticky top-0 bg-background z-10 border-b shadow-sm">
-            <DialogTitle>Edit Batch</DialogTitle>
-            <DialogDescription>Update batch information and save the changes.</DialogDescription>
-          </DialogHeader>
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            {detailsLoading && <p className="text-sm text-muted-foreground py-6">Loading form...</p>}
-            {!detailsLoading && detailsError && (
-              <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive my-6">
-                {detailsError}
-              </div>
-            )}
-            {isDetailsReady && (
-              <div className="space-y-4 py-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Name *</label>
-                  <Input
-                    value={editForm.name}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
-                    placeholder="Batch name"
-                  />
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Course *</label>
-                    <Select
-                      value={editForm.courseId}
-                      onValueChange={(v) => setEditForm((prev) => ({ ...prev, courseId: v }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select course" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {courses.map((course) => (
-                          <SelectItem key={course.id} value={course.id}>
-                            {course.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Branch *</label>
-                    <Select
-                      value={editForm.branchId}
-                      onValueChange={(v) => setEditForm((prev) => ({ ...prev, branchId: v }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select branch" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {branches.map((branch) => (
-                          <SelectItem key={branch.id} value={branch.id}>
-                            {branch.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Start Date</label>
-                    <Input
-                      type="date"
-                      value={editForm.startDate || ''}
-                      onChange={(e) => setEditForm((prev) => ({ ...prev, startDate: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">End Date</label>
-                    <Input
-                      type="date"
-                      value={editForm.endDate || ''}
-                      onChange={(e) => setEditForm((prev) => ({ ...prev, endDate: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Capacity</label>
-                    <Input
-                      type="number"
-                      min="0"
-                      value={editForm.capacity ?? ''}
-                      onChange={(e) =>
-                        setEditForm((prev) => ({
-                          ...prev,
-                          capacity: e.target.value ? Number(e.target.value) : undefined,
-                        }))
-                      }
-                      placeholder="Max students"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Status</label>
-                  <Select
-                    value={editForm.status || 'ACTIVE'}
-                    onValueChange={(v) =>
-                      setEditForm((prev) => ({ ...prev, status: v as BatchStatusType }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ACTIVE">ACTIVE</SelectItem>
-                      <SelectItem value="INACTIVE">INACTIVE</SelectItem>
-                      <SelectItem value="COMPLETED">COMPLETED</SelectItem>
-                      <SelectItem value="ARCHIVED">ARCHIVED</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                {editError && (
-                  <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
-                    {editError}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-          <DialogFooter className="px-6 pb-6 pt-4 shrink-0 bg-background border-t shadow-lg mt-auto">
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleEditSubmit} disabled={editSubmitting || !isDetailsReady}>
-              {editSubmitting ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Toaster toasts={toasts} removeToast={removeToast} />
     </div>
   );
 }
-

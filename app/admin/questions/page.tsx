@@ -1,21 +1,15 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   getQuestionFolders,
   getQuestionFolderById,
-  createQuestionFolder,
-  updateQuestionFolder,
   deleteQuestionFolder,
   getQuestions,
   getQuestionById,
-  createQuestion,
-  updateQuestion,
   deleteQuestion,
   getPassages,
   getPassageById,
-  createPassage,
-  updatePassage,
   deletePassage,
 } from '@/lib/api/question-bank';
 import { getCourses } from '@/lib/api/courses';
@@ -24,13 +18,7 @@ import type {
   QuestionFolder,
   QuestionType,
   Difficulty,
-  McqType,
   McqPassage,
-  CreateQuestionFolderDto,
-  UpdateQuestionFolderDto,
-  CreateQuestionDto,
-  UpdateQuestionDto,
-  CreateMcqOptionDto,
 } from '@/types/question';
 import type { Course } from '@/types/course';
 import { Button } from '@/components/ui/button';
@@ -52,14 +40,6 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
   BookOpenCheck,
   ChevronDown,
   ChevronUp,
@@ -71,12 +51,21 @@ import {
   RefreshCw,
   Search,
   Trash2,
-  X,
+  Sparkles,
+  HelpCircle,
+  FileText,
+  Layers,
+  ArrowRight,
+  MoreVertical,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
-import { RichTextEditor } from '@/components/ui/rich-text-editor';
-import { uploadQuestionImage } from '@/lib/api/question-bank';
+import { useModalStore } from '@/store/modalStore';
+import { FolderForm } from '@/components/admin/questions/FolderForm';
+import { PassageForm } from '@/components/admin/questions/PassageForm';
+import { QuestionForm } from '@/components/admin/questions/QuestionForm';
+import { QuestionDetailsView } from '@/components/admin/questions/QuestionDetailsView';
+import { cn } from '@/lib/utils';
 
 const questionTypeOptions: QuestionType[] = ['MCQ', 'CQ'];
 const difficultyOptions: (Difficulty | 'all')[] = ['all', 'EASY', 'MEDIUM', 'HARD'];
@@ -87,103 +76,38 @@ function getErrorMessage(error: unknown): string {
 }
 
 export default function QuestionsPage() {
+  const { openModal } = useModalStore();
   const { toast, toasts, removeToast } = useToast();
+  
   const [folders, setFolders] = useState<QuestionFolder[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [passages, setPassages] = useState<McqPassage[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'mcq' | 'cq' | 'passages'>('mcq');
-  const [expandedQuestionIds, setExpandedQuestionIds] = useState<Set<string>>(new Set());
-  const [expandedPassageIds, setExpandedPassageIds] = useState<Set<string>>(new Set());
   const [selectedFolderId, setSelectedFolderId] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<QuestionType | 'all'>('all');
   const [difficultyFilter, setDifficultyFilter] = useState<Difficulty | 'all'>('all');
-
-  // Folder dialog states
-  const [folderViewDialogOpen, setFolderViewDialogOpen] = useState(false);
-  const [folderEditDialogOpen, setFolderEditDialogOpen] = useState(false);
-  const [folderCreateDialogOpen, setFolderCreateDialogOpen] = useState(false);
-  const [folderDetails, setFolderDetails] = useState<QuestionFolder | null>(null);
-  const [folderForm, setFolderForm] = useState({ name: '', courseId: '', parentFolderId: '' });
-
-  // Question dialog states
-  const [questionViewDialogOpen, setQuestionViewDialogOpen] = useState(false);
-  const [questionEditDialogOpen, setQuestionEditDialogOpen] = useState(false);
-  const [questionCreateDialogOpen, setQuestionCreateDialogOpen] = useState(false);
-  const [questionDetails, setQuestionDetails] = useState<Question | null>(null);
-  const [questionForm, setQuestionForm] = useState<CreateQuestionDto>({
-    folderId: '',
-    type: 'MCQ',
-    mcqType: 'SINGLE',
-    passageId: undefined,
-    difficulty: undefined,
-    year: undefined,
-    prompt: '',
-    explanation: '',
-    tags: [],
-    options: [],
-  });
-  const [mcqOptions, setMcqOptions] = useState<CreateMcqOptionDto[]>([]);
-
-  // Passage dialog states
-  const [passageListDialogOpen, setPassageListDialogOpen] = useState(false);
-  const [passageEditDialogOpen, setPassageEditDialogOpen] = useState(false);
-  const [passageCreateDialogOpen, setPassageCreateDialogOpen] = useState(false);
-  const [passageDetails, setPassageDetails] = useState<McqPassage | null>(null);
-  const [passageForm, setPassageForm] = useState<{
-    folderId: string;
-    title: string;
-    content: string;
-    difficulty?: Difficulty;
-    year?: number;
-    tags: string;
-  }>({
-    folderId: '',
-    title: '',
-    content: '',
-    difficulty: undefined,
-    year: undefined,
-    tags: '',
-  });
-
-  // Refs to scroll MCQ options into view when adding new ones
-  const createOptionsEndRef = useRef<HTMLDivElement | null>(null);
-  const editOptionsEndRef = useRef<HTMLDivElement | null>(null);
-
-  const toggleExpand = (id: string) => {
-    setExpandedQuestionIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const togglePassageExpand = (id: string) => {
-    setExpandedPassageIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
+  
+  const [expandedQuestionIds, setExpandedQuestionIds] = useState<Set<string>>(new Set());
+  const [expandedPassageIds, setExpandedPassageIds] = useState<Set<string>>(new Set());
 
   const loadFolders = async () => {
     try {
-      const response = await getQuestionFolders();
-      if (response.success && response.data) {
-        setFolders(response.data);
-      } else {
-        setError(response.message || 'Failed to load folders');
-        setFolders([]);
-      }
-    } catch (err: unknown) {
-      setError(getErrorMessage(err) || 'Failed to load folders');
-      setFolders([]);
-    }
+      const res = await getQuestionFolders();
+      if (res.success && res.data) setFolders(res.data);
+    } catch (err) { console.error(err); }
+  };
+
+  const loadCourses = async () => {
+    try {
+      const res = await getCourses({});
+      if (res.success && res.data) setCourses(res.data || []);
+    } catch (err) { console.error(err); }
   };
 
   const loadQuestions = async () => {
@@ -193,1896 +117,466 @@ export default function QuestionsPage() {
       const type = typeFilter === 'all' ? undefined : typeFilter;
       const difficulty = difficultyFilter === 'all' ? undefined : difficultyFilter;
 
-      const response = await getQuestions(folderId, type, difficulty);
-      if (response.success && response.data) {
-        setQuestions(response.data);
-      } else {
-        setError(response.message || 'Failed to load questions');
-        setQuestions([]);
-      }
-    } catch (err: unknown) {
-      setError(getErrorMessage(err) || 'Failed to load questions');
-      setQuestions([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadCourses = async () => {
-    try {
-      const response = await getCourses({});
-      if (response.success && response.data) {
-        setCourses(response.data || []);
-      }
-    } catch (err: unknown) {
-      console.error('Failed to load courses:', err);
-    }
-  };
-
-  useEffect(() => {
-    loadFolders();
-    loadCourses();
-    // Preload passages for selected folder later when opening passage list
-  }, []);
-
-  useEffect(() => {
-    loadQuestions();
-  }, [selectedFolderId, typeFilter, difficultyFilter]);
-
-  const handleViewFolder = async (folderId: string) => {
-    try {
-      const response = await getQuestionFolderById(folderId);
-      if (response.success && response.data) {
-        setFolderDetails(response.data);
-        setFolderViewDialogOpen(true);
-      }
-    } catch (err: unknown) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(err) || 'Failed to load folder details',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleEditFolder = async (folderId: string) => {
-    try {
-      const response = await getQuestionFolderById(folderId);
-      if (response.success && response.data) {
-        setFolderDetails(response.data);
-        setFolderForm({
-          name: response.data.name,
-          courseId: response.data.courseId || '',
-          parentFolderId: response.data.parentFolderId || '',
-        });
-        setFolderEditDialogOpen(true);
-      }
-    } catch (err: unknown) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(err) || 'Failed to load folder details',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleCreateFolder = async () => {
-    if (!folderForm.name.trim()) {
-      toast({
-        title: 'Error',
-        description: 'Folder name is required',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    try {
-      const payload: CreateQuestionFolderDto = {
-        name: folderForm.name.trim(),
-        courseId: folderForm.courseId || undefined,
-        parentFolderId: folderForm.parentFolderId || undefined,
-      };
-
-      await createQuestionFolder(payload);
-      setFolderCreateDialogOpen(false);
-      setFolderForm({ name: '', courseId: '', parentFolderId: '' });
-      await loadFolders();
-
-      toast({
-        title: 'Success',
-        description: 'Folder created successfully',
-        variant: 'success',
-      });
-    } catch (err: unknown) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(err) || 'Failed to create folder',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleUpdateFolder = async () => {
-    if (!folderDetails || !folderForm.name.trim()) {
-      toast({
-        title: 'Error',
-        description: 'Folder name is required',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    try {
-      const payload: UpdateQuestionFolderDto = {
-        name: folderForm.name.trim(),
-        courseId: folderForm.courseId || undefined,
-        parentFolderId: folderForm.parentFolderId || undefined,
-      };
-
-      await updateQuestionFolder(folderDetails.id, payload);
-      setFolderEditDialogOpen(false);
-      await loadFolders();
-
-      toast({
-        title: 'Success',
-        description: 'Folder updated successfully',
-        variant: 'success',
-      });
-    } catch (err: unknown) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(err) || 'Failed to update folder',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleDeleteFolder = async (folderId: string) => {
-    if (!confirm('Are you sure you want to delete this folder? All questions in this folder will also be deleted.')) {
-      return;
-    }
-
-    try {
-      await deleteQuestionFolder(folderId);
-      await loadFolders();
-      if (selectedFolderId === folderId) {
-        setSelectedFolderId('all');
-      }
-
-      toast({
-        title: 'Success',
-        description: 'Folder deleted successfully',
-        variant: 'success',
-      });
-    } catch (err: unknown) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(err) || 'Failed to delete folder',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleViewQuestion = async (questionId: string) => {
-    try {
-      const response = await getQuestionById(questionId);
-      if (response.success && response.data) {
-        setQuestionDetails(response.data);
-        setQuestionViewDialogOpen(true);
-      }
-    } catch (err: unknown) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(err) || 'Failed to load question details',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleEditQuestion = async (questionId: string) => {
-    try {
-      const response = await getQuestionById(questionId);
-      if (response.success && response.data) {
-        setQuestionDetails(response.data);
-        setQuestionForm({
-          folderId: response.data.folderId,
-          type: response.data.type,
-          mcqType: (response.data.mcqType as McqType) || 'SINGLE',
-          passageId: response.data.passageId || undefined,
-          difficulty: response.data.difficulty || undefined,
-          year: response.data.year || undefined,
-          prompt: response.data.prompt,
-          explanation: response.data.explanation || '',
-          options: [],
-        });
-        setMcqOptions(
-          response.data.options?.map((opt) => ({
-            label: opt.label,
-            text: opt.text,
-            isCorrect: opt.isCorrect,
-          })) || []
-        );
-        setQuestionEditDialogOpen(true);
-      }
-    } catch (err: unknown) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(err) || 'Failed to load question details',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleCreateQuestion = async () => {
-    if (!questionForm.folderId || !questionForm.prompt.trim()) {
-      toast({
-        title: 'Error',
-        description: 'Folder and prompt are required',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (questionForm.type === 'MCQ') {
-      if (mcqOptions.length !== 4 && mcqOptions.length !== 5) {
-        toast({
-          title: 'Error',
-          description: 'MCQ questions must have exactly 4 or 5 options',
-          variant: 'destructive',
-        });
-        return;
-      }
-      if (!mcqOptions.some((opt) => opt.isCorrect)) {
-        toast({
-          title: 'Error',
-          description: 'MCQ questions must have at least one correct option',
-          variant: 'destructive',
-        });
-        return;
-      }
-    }
-
-    try {
-      const payload: CreateQuestionDto = {
-        ...questionForm,
-        options: questionForm.type === 'MCQ' ? mcqOptions : undefined,
-      };
-
-      await createQuestion(payload);
-      setQuestionCreateDialogOpen(false);
-      setQuestionForm({
-        folderId: '',
-        type: 'MCQ',
-        mcqType: 'SINGLE',
-        passageId: undefined,
-        difficulty: undefined,
-        year: undefined,
-        prompt: '',
-        explanation: '',
-        options: [],
-      });
-      setMcqOptions([]);
-      await loadQuestions();
-
-      toast({
-        title: 'Success',
-        description: 'Question created successfully',
-        variant: 'success',
-      });
-    } catch (err: unknown) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(err) || 'Failed to create question',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleUpdateQuestion = async () => {
-    if (!questionDetails || !questionForm.prompt.trim()) {
-      toast({
-        title: 'Error',
-        description: 'Prompt is required',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (questionForm.type === 'MCQ') {
-      if (mcqOptions.length !== 4 && mcqOptions.length !== 5) {
-        toast({
-          title: 'Error',
-          description: 'MCQ questions must have exactly 4 or 5 options',
-          variant: 'destructive',
-        });
-        return;
-      }
-      if (!mcqOptions.some((opt) => opt.isCorrect)) {
-        toast({
-          title: 'Error',
-          description: 'MCQ questions must have at least one correct option',
-          variant: 'destructive',
-        });
-        return;
-      }
-    }
-
-    try {
-      const payload: UpdateQuestionDto = {
-        ...questionForm,
-        options: questionForm.type === 'MCQ' ? mcqOptions : undefined,
-      };
-
-      await updateQuestion(questionDetails.id, payload);
-      setQuestionEditDialogOpen(false);
-      await loadQuestions();
-
-      toast({
-        title: 'Success',
-        description: 'Question updated successfully',
-        variant: 'success',
-      });
-    } catch (err: unknown) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(err) || 'Failed to update question',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleDeleteQuestion = async (questionId: string) => {
-    if (!confirm('Are you sure you want to delete this question?')) {
-      return;
-    }
-
-    try {
-      await deleteQuestion(questionId);
-      await loadQuestions();
-
-      toast({
-        title: 'Success',
-        description: 'Question deleted successfully',
-        variant: 'success',
-      });
-    } catch (err: unknown) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(err) || 'Failed to delete question',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const addMcqOption = () => {
-    setMcqOptions((prev) => {
-      const next = [...prev, { label: '', text: '', isCorrect: false }];
-
-      // Allow DOM to update, then scroll the last option into view in whichever dialog is open
-      setTimeout(() => {
-        if (questionCreateDialogOpen && createOptionsEndRef.current) {
-          createOptionsEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
-        } else if (questionEditDialogOpen && editOptionsEndRef.current) {
-          editOptionsEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
-        }
-      }, 0);
-
-      return next;
-    });
-  };
-
-  const removeMcqOption = (index: number) => {
-    setMcqOptions(mcqOptions.filter((_, i) => i !== index));
-  };
-
-  const updateMcqOption = (index: number, field: keyof CreateMcqOptionDto, value: string | boolean) => {
-    const updated = [...mcqOptions];
-    updated[index] = { ...updated[index], [field]: value };
-    setMcqOptions(updated);
-  };
-
-  const filteredQuestions = questions.filter((q) => {
-    // Exclude passage child questions (handled in passages tab)
-    if (q.type === 'MCQ' && q.mcqType === 'PASSAGE_CHILD') {
-      return false;
-    }
-    
-    // Filter by top-level active tab for single questions
-    if (activeTab === 'mcq' && q.type !== 'MCQ') return false;
-    if (activeTab === 'cq' && q.type !== 'CQ') return false;
-
-    return (
-      q.prompt.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      q.explanation?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  });
-
-  const totalQuestions = questions.length;
-  const mcqCount = questions.filter((q) => q.type === 'MCQ').length;
-  const cqCount = questions.filter((q) => q.type === 'CQ').length;
-  const totalFolders = folders.length;
-
-  const stripHtml = (html: string) => {
-    if (!html) return '';
-    return html.replace(/<[^>]+>/g, '');
-  };
-
-  const handleEditorImageUpload = async (file: File): Promise<string> => {
-    try {
-      const response = await uploadQuestionImage(file);
-      if (response.success && response.data?.url) {
-        return response.data.url;
-      }
-      throw new Error(response.message || 'Failed to upload image');
-    } catch (err: unknown) {
-      toast({
-        title: 'Image upload failed',
-        description: getErrorMessage(err),
-        variant: 'destructive',
-      });
-      throw err;
-    }
+      const res = await getQuestions(folderId, type, difficulty);
+      if (res.success && res.data) setQuestions(res.data);
+    } catch (err) { setError(getErrorMessage(err)); } finally { setLoading(false); }
   };
 
   const loadPassages = async () => {
     try {
       const folderId = selectedFolderId === 'all' ? undefined : selectedFolderId;
-      const response = await getPassages(folderId);
-      if (response.success && response.data) {
-        setPassages(response.data);
-      } else {
-        setPassages([]);
-      }
-    } catch (err) {
-      console.error('Failed to load passages', err);
-      setPassages([]);
+      const res = await getPassages(folderId);
+      if (res.success && res.data) setPassages(res.data);
+    } catch (err) { console.error(err); }
+  };
+
+  useEffect(() => { loadFolders(); loadCourses(); }, []);
+  useEffect(() => {
+    if (activeTab === 'passages') loadPassages();
+    else loadQuestions();
+  }, [selectedFolderId, typeFilter, difficultyFilter, activeTab]);
+
+  const toggleExpand = (id: string) => {
+    setExpandedQuestionIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const togglePassageExpand = (id: string) => {
+    setExpandedPassageIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  // Folder Actions
+  const handleCreateFolder = () => {
+    openModal({
+      title: 'Initialize Folder',
+      description: 'Create a new container for question organization.',
+      className: 'sm:max-w-2xl',
+      content: <FolderForm courses={courses} folders={folders} onSuccess={loadFolders} />,
+    });
+  };
+
+  const handleEditFolder = async (id: string) => {
+    const res = await getQuestionFolderById(id);
+    if (res.success && res.data) {
+      openModal({
+        title: 'Update Folder',
+        description: 'Modify folder identity and hierarchy.',
+        className: 'sm:max-w-2xl',
+        content: <FolderForm courses={courses} folders={folders} folder={res.data} onSuccess={loadFolders} />,
+      });
     }
   };
 
-  const handleOpenPassageList = async () => {
-    await loadPassages();
-    setPassageListDialogOpen(true);
+  // Question Actions
+  const handleCreateQuestion = () => {
+    openModal({
+      title: 'Authorize New Question',
+      description: 'Draft and configure a new inquiry for the bank.',
+      className: 'sm:max-w-6xl',
+      content: <QuestionForm folders={folders} initialFolderId={selectedFolderId !== 'all' ? selectedFolderId : undefined} onSuccess={loadQuestions} />,
+    });
   };
 
-  const handleCreatePassageSubmit = async () => {
-    if (!passageForm.folderId || !passageForm.content.trim()) {
-      toast({
-        title: 'Error',
-        description: 'Folder and passage content are required',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    try {
-      await createPassage({
-        folderId: passageForm.folderId,
-        title: passageForm.title || undefined,
-        content: passageForm.content,
-        difficulty: passageForm.difficulty,
-        year: passageForm.year,
-        tags: passageForm.tags
-          .split(',')
-          .map((t) => t.trim())
-          .filter(Boolean),
-      });
-      setPassageCreateDialogOpen(false);
-      setPassageForm({
-        folderId: '',
-        title: '',
-        content: '',
-        difficulty: undefined,
-        year: undefined,
-        tags: '',
-      });
-      await loadPassages();
-
-      toast({
-        title: 'Success',
-        description: 'Passage created successfully',
-        variant: 'success',
-      });
-    } catch (err: unknown) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(err) || 'Failed to create passage',
-        variant: 'destructive',
+  const handleEditQuestion = async (id: string) => {
+    const res = await getQuestionById(id);
+    if (res.success && res.data) {
+      openModal({
+        title: 'Update Question',
+        description: 'Refine question prompt, options, or metadata.',
+        className: 'sm:max-w-6xl',
+        content: <QuestionForm folders={folders} question={res.data} onSuccess={loadQuestions} />,
       });
     }
+  };
+
+  const handleViewQuestion = async (id: string) => {
+    const res = await getQuestionById(id);
+    if (res.success && res.data) {
+      openModal({
+        title: 'Question Intelligence',
+        description: 'Detailed audit of the question prompt and option registry.',
+        className: 'sm:max-w-4xl',
+        content: <QuestionDetailsView question={res.data} />,
+      });
+    }
+  };
+
+  // Passage Actions
+  const handleCreatePassage = () => {
+    openModal({
+      title: 'Draft New Passage',
+      description: 'Create a root passage for shared inquiry contexts.',
+      className: 'sm:max-w-4xl',
+      content: <PassageForm folders={folders} onSuccess={loadPassages} />,
+    });
   };
 
   const handleEditPassage = async (id: string) => {
-    try {
-      const response = await getPassageById(id);
-      if (response.success && response.data) {
-        setPassageDetails(response.data);
-        setPassageForm({
-          folderId: response.data.folderId,
-          title: response.data.title || '',
-          content: response.data.content,
-          difficulty: response.data.difficulty || undefined,
-          year: response.data.year || undefined,
-          tags: (response.data.tags || []).join(', '),
-        });
-        setPassageEditDialogOpen(true);
-      }
-    } catch (err: unknown) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(err) || 'Failed to load passage',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleUpdatePassageSubmit = async () => {
-    if (!passageDetails) return;
-    if (!passageForm.folderId || !passageForm.content.trim()) {
-      toast({
-        title: 'Error',
-        description: 'Folder and passage content are required',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    try {
-      await updatePassage(passageDetails.id, {
-        folderId: passageForm.folderId,
-        title: passageForm.title || undefined,
-        content: passageForm.content,
-        difficulty: passageForm.difficulty,
-        year: passageForm.year,
-        tags: passageForm.tags
-          .split(',')
-          .map((t) => t.trim())
-          .filter(Boolean),
-      });
-      setPassageEditDialogOpen(false);
-      await loadPassages();
-
-      toast({
-        title: 'Success',
-        description: 'Passage updated successfully',
-        variant: 'success',
-      });
-    } catch (err: unknown) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(err) || 'Failed to update passage',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleDeletePassage = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this passage and all its child questions?')) return;
-    try {
-      await deletePassage(id);
-      await loadPassages();
-      toast({
-        title: 'Success',
-        description: 'Passage deleted successfully',
-        variant: 'success',
-      });
-    } catch (err: unknown) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(err) || 'Failed to delete passage',
-        variant: 'destructive',
+    const res = await getPassageById(id);
+    if (res.success && res.data) {
+      openModal({
+        title: 'Update Passage',
+        description: 'Refine passage content and shared metadata.',
+        className: 'sm:max-w-4xl',
+        content: <PassageForm folders={folders} passage={res.data} onSuccess={loadPassages} />,
       });
     }
   };
 
   const startCreateChildQuestion = (passage: McqPassage) => {
-    setPassageDetails(passage);
-    setQuestionForm({
-      folderId: passage.folderId,
-      type: 'MCQ',
-      mcqType: 'PASSAGE_CHILD',
-      passageId: passage.id,
-      difficulty: passage.difficulty || undefined,
-      year: passage.year || undefined,
-      prompt: '',
-      explanation: '',
-      tags: passage.tags || [],
-      options: [],
+    openModal({
+      title: 'Add Passage Question',
+      description: `Draft a child MCQ linked to: ${passage.title || 'Selected Passage'}`,
+      className: 'sm:max-w-6xl',
+      content: <QuestionForm folders={folders} initialFolderId={passage.folderId} initialPassageId={passage.id} onSuccess={loadPassages} />,
     });
-    setMcqOptions([
-      { label: 'A', text: '', isCorrect: false },
-      { label: 'B', text: '', isCorrect: false },
-      { label: 'C', text: '', isCorrect: false },
-      { label: 'D', text: '', isCorrect: false },
-    ]);
-    setQuestionCreateDialogOpen(true);
   };
 
-  const isPassageChild = questionForm.mcqType === 'PASSAGE_CHILD' && questionForm.type === 'MCQ';
+  const stripHtml = (html: string) => html ? html.replace(/<[^>]+>/g, '') : '';
+
+  const filteredQuestions = questions.filter(q => {
+    if (q.type === 'MCQ' && q.mcqType === 'PASSAGE_CHILD') return false;
+    if (activeTab === 'mcq' && q.type !== 'MCQ') return false;
+    if (activeTab === 'cq' && q.type !== 'CQ') return false;
+    const qry = searchQuery.toLowerCase();
+    return !qry || q.prompt.toLowerCase().includes(qry) || q.explanation?.toLowerCase().includes(qry);
+  });
+
+  const mcqTotal = questions.filter(q => q.type === 'MCQ').length;
+  const cqTotal = questions.filter(q => q.type === 'CQ').length;
 
   return (
-    <div className="space-y-4">
-      <section className="glass-panel p-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="space-y-8 text-slate-900">
+      {/* Header Section */}
+      <section className="relative overflow-hidden rounded-[32px] border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/40">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.03),transparent_40%)]" />
+        
+        <div className="relative flex flex-wrap items-start justify-between gap-6">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight">Question Bank Management</h1>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              Manage question folders and questions for exams and assessments.
+            <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 border border-indigo-100/50 shadow-sm">
+              <HelpCircle className="h-3.5 w-3.5" />
+              Intelligence Asset Management
+            </div>
+            <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
+              Question <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">Bank</span>
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-slate-500">
+              Curate, categorize, and deploy multi-format questions for institutional assessment frameworks.
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setFolderCreateDialogOpen(true)}>
+
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              className="h-12 rounded-2xl border-slate-200 bg-white font-black uppercase tracking-widest text-[10px] text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
+              onClick={handleCreateFolder}
+            >
               <FolderPlus className="mr-2 h-4 w-4" />
-              Create Folder
+              New Folder
             </Button>
-            <Button className="bg-primary hover:bg-primary/90" onClick={() => setQuestionCreateDialogOpen(true)}>
+            <Button
+              className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95"
+              onClick={handleCreateQuestion}
+            >
               <Plus className="mr-2 h-4 w-4" />
-              Create Question
+              Authorize Question
             </Button>
           </div>
         </div>
       </section>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <article className="glass-panel p-3.5">
-          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Total Questions</p>
-          <p className="mt-2 text-2xl font-semibold">{totalQuestions}</p>
-        </article>
-        <article className="glass-panel p-3.5">
-          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">MCQ Questions</p>
-          <p className="mt-2 text-2xl font-semibold">{mcqCount}</p>
-        </article>
-        <article className="glass-panel p-3.5">
-          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">CQ Questions</p>
-          <p className="mt-2 text-2xl font-semibold">{cqCount}</p>
-        </article>
-        <article className="glass-panel p-3.5">
-          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Total Folders</p>
-          <p className="mt-2 text-2xl font-semibold">{totalFolders}</p>
-        </article>
+      {/* Stats Section */}
+      <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: 'Total Inquiries', value: questions.length + passages.length, color: 'from-blue-600 to-cyan-500', icon: BookOpenCheck },
+          { label: 'MCQ Repository', value: mcqTotal, color: 'from-indigo-600 to-purple-600', icon: Sparkles },
+          { label: 'Creative (CQ)', value: cqTotal, color: 'from-rose-600 to-pink-600', icon: Layers },
+          { label: 'Asset Folders', value: folders.length, color: 'from-emerald-600 to-teal-500', icon: Folder },
+        ].map((stat, i) => (
+          <div key={i} className="group relative overflow-hidden rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/40 transition-all hover:-translate-y-1 hover:shadow-2xl">
+             <div className="flex items-center justify-between">
+                <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg group-hover:scale-110 transition-transform", stat.color)}>
+                   <stat.icon className="h-6 w-6" />
+                </div>
+                <ArrowRight className="h-4 w-4 text-slate-200 group-hover:text-indigo-500 transition-colors" />
+             </div>
+             <div className="mt-6">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
+                <p className="mt-1 text-3xl font-black text-slate-900">{stat.value}</p>
+             </div>
+          </div>
+        ))}
       </section>
 
-      <section className="glass-panel p-4 sm:p-5">
+      {/* Filters Section */}
+      <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap gap-4">
-          <div className="min-w-[260px] flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <div className="min-w-[300px] flex-1">
+            <div className="relative group">
+              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
               <Input
-                placeholder="Search questions by prompt or explanation..."
+                placeholder="Search inquiries by prompt or rationale..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-10 border-border bg-background pl-10"
+                className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
               />
             </div>
           </div>
+          
           <Select value={selectedFolderId} onValueChange={setSelectedFolderId}>
-            <SelectTrigger className="h-10 w-[200px] border-border bg-background">
+            <SelectTrigger className="h-12 w-[200px] rounded-2xl border-slate-200 bg-white font-bold text-xs uppercase tracking-widest text-slate-600">
               <SelectValue placeholder="All Folders" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Folders</SelectItem>
-              {folders.map((folder) => (
-                <SelectItem key={folder.id} value={folder.id}>
-                  {folder.name}
-                </SelectItem>
-              ))}
+            <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
+              <SelectItem value="all" className="font-bold text-xs uppercase tracking-widest py-3">All Folders</SelectItem>
+              {folders.map(f => <SelectItem key={f.id} value={f.id} className="font-bold text-xs uppercase tracking-widest py-3">{f.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as QuestionType | 'all')}>
-            <SelectTrigger className="h-10 w-[150px] border-border bg-background">
-              <SelectValue placeholder="All Types" />
+
+          <Select value={difficultyFilter} onValueChange={(v) => setDifficultyFilter(v as any)}>
+            <SelectTrigger className="h-12 w-[160px] rounded-2xl border-slate-200 bg-white font-bold text-xs uppercase tracking-widest text-slate-600">
+              <SelectValue placeholder="Difficulty" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              {questionTypeOptions.map((opt) => (
-                <SelectItem key={opt} value={opt}>
-                  {opt}
-                </SelectItem>
-              ))}
+            <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
+              <SelectItem value="all" className="font-bold text-xs uppercase tracking-widest py-3">All Levels</SelectItem>
+              {difficultyOptions.filter(o => o !== 'all').map(o => <SelectItem key={o} value={o} className="font-bold text-xs uppercase tracking-widest py-3">{o}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={difficultyFilter} onValueChange={(v) => setDifficultyFilter(v as Difficulty | 'all')}>
-            <SelectTrigger className="h-10 w-[150px] border-border bg-background">
-              <SelectValue placeholder="All Difficulties" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Difficulties</SelectItem>
-              {difficultyOptions.filter((opt) => opt !== 'all').map((opt) => (
-                <SelectItem key={opt} value={opt}>
-                  {opt}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button variant="outline" className="h-10" onClick={loadQuestions}>
+
+          <Button variant="outline" className="h-12 w-12 rounded-2xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-all shadow-sm" onClick={loadQuestions}>
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
       </section>
 
-      {error && (
-        <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive">{error}</div>
-      )}
-
-      <div className="border-b border-border/60">
-        <div className="flex h-10 items-center px-4">
-          <button
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'mcq' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
-            onClick={() => setActiveTab('mcq')}
-          >
-            MCQ (Single)
-          </button>
-          <button
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'passages' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
-            onClick={() => {
-              setActiveTab('passages');
-              loadPassages();
-            }}
-          >
-            MCQ (Passage)
-          </button>
-          <button
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'cq' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
-            onClick={() => setActiveTab('cq')}
-          >
-            CQ (Creative)
-          </button>
-        </div>
-      </div>
-
-      <section className="glass-panel overflow-hidden p-0">
-        <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
-          <div>
-            <h2 className="text-base font-semibold tracking-tight">Question Bank</h2>
-            <p className="text-xs text-muted-foreground">Browse and maintain all questions</p>
-          </div>
-          <div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
-            <BookOpenCheck className="h-4 w-4" />
-            <span>{totalQuestions} Total Questions</span>
-          </div>
+      {/* Tabs Layout */}
+      <div className="flex flex-col rounded-[32px] border border-slate-200 bg-white overflow-hidden shadow-xl shadow-slate-200/30">
+        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-4">
+           <div className="flex gap-1 p-1 bg-white rounded-2xl border border-slate-200 shadow-sm">
+              {[
+                { id: 'mcq', label: 'MCQ (Single)' },
+                { id: 'passages', label: 'MCQ (Passage)' },
+                { id: 'cq', label: 'Creative (CQ)' }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={cn(
+                    "px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                    activeTab === tab.id ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+           </div>
+           <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              {activeTab === 'passages' ? passages.length : filteredQuestions.length} Assets in View
+           </div>
         </div>
 
-        {(activeTab === 'mcq' || activeTab === 'cq') && (
-          <>
-            {loading ? (
-              <div className="p-8 text-center text-muted-foreground">Loading questions...</div>
-            ) : filteredQuestions.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground">
-                {searchQuery ? 'No questions found matching your search.' : 'No questions found. Create your first question.'}
-              </div>
-            ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead>Type</TableHead>
-                  <TableHead>Prompt</TableHead>
-                  <TableHead>Difficulty</TableHead>
-                  <TableHead>Year</TableHead>
-                  <TableHead>Folder</TableHead>
-                  <TableHead>Options</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredQuestions.map((question) => {
-                  const isExpanded = expandedQuestionIds.has(question.id);
-                  return (
-                    <React.Fragment key={question.id}>
-                      <TableRow className={`hover:bg-muted/45 cursor-pointer ${isExpanded ? 'bg-muted/20' : ''}`} onClick={() => toggleExpand(question.id)}>
-                        <TableCell>
-                          <div className="flex flex-col gap-1 items-start">
-                            <div className="flex items-center gap-2">
-                              {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-                              <Badge variant={question.type === 'MCQ' ? 'default' : 'secondary'}>{question.type}</Badge>
-                            </div>
-                            {question.type === 'MCQ' && question.mcqType === 'PASSAGE_CHILD' && (
-                              <Badge variant="outline" className="text-[10px] px-1 h-4 ml-6">Passage</Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="max-w-md">
-                          {question.mcqType === 'PASSAGE_CHILD' && question.passage && (
-                            <div className="text-xs text-muted-foreground mb-1 line-clamp-1 border-l-2 border-primary/50 pl-2">
-                              <span className="font-semibold mr-1">Passage:</span>
-                              {stripHtml(question.passage.title || question.passage.content || '')}
-                            </div>
-                          )}
-                          <span className="truncate block">{stripHtml(question.prompt)}</span>
-                        </TableCell>
-                        <TableCell>
-                          {question.difficulty ? (
-                            <Badge variant="outline">{question.difficulty}</Badge>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell>{question.year || '-'}</TableCell>
-                        <TableCell>{question.folder?.name || '-'}</TableCell>
-                        <TableCell>
-                          {question.type === 'MCQ' ? (
-                            <Badge variant="outline">{question.options?.length || 0} options</Badge>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleViewQuestion(question.id); }} title="View Question">
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleEditQuestion(question.id); }} title="Edit Question">
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={(e) => { e.stopPropagation(); handleDeleteQuestion(question.id); }}
-                              title="Delete Question"
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                      {isExpanded && (
-                        <TableRow className="bg-muted/10 border-b hover:bg-muted/10">
-                          <TableCell colSpan={7} className="p-0">
-                            <div className="p-4 sm:p-6 space-y-4 shadow-inner">
-                              <div className="grid sm:grid-cols-2 gap-4">
-                                <div>
-                                  <h4 className="text-sm font-semibold mb-1 text-muted-foreground">Full Prompt</h4>
-                                  <div className="prose prose-sm max-w-none bg-background p-4 rounded-md border text-foreground" dangerouslySetInnerHTML={{ __html: question.prompt }} />
-                                </div>
-                                {question.explanation && (
-                                  <div>
-                                    <h4 className="text-sm font-semibold mb-1 text-muted-foreground">Explanation</h4>
-                                    <div className="prose prose-sm max-w-none bg-background p-4 rounded-md border text-muted-foreground" dangerouslySetInnerHTML={{ __html: question.explanation }} />
-                                  </div>
-                                )}
-                              </div>
-                              {question.options && question.options.length > 0 && (
-                                <div>
-                                  <h4 className="text-sm font-semibold mb-2 text-muted-foreground">Options</h4>
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-                                    {question.options.map(opt => (
-                                      <div key={opt.id} className={`p-3 rounded-md border flex items-start gap-2 ${opt.isCorrect ? 'border-primary bg-primary/5' : 'bg-background'}`}>
-                                        <span className="font-semibold text-muted-foreground">{opt.label}.</span>
-                                        <span className="flex-1 text-sm">{opt.text}</span>
-                                        {opt.isCorrect && <Badge className="text-[10px] ml-auto shrink-0" variant="default">Correct</Badge>}
+        <div className="flex-1">
+           {loading ? (
+             <div className="p-20 text-center flex flex-col items-center gap-4">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+                <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Synchronizing Repository...</p>
+             </div>
+           ) : (
+             <>
+               {(activeTab === 'mcq' || activeTab === 'cq') && (
+                 <div className="overflow-x-auto">
+                    <Table>
+                       <TableHeader className="bg-slate-50/50">
+                          <TableRow className="hover:bg-transparent border-b border-slate-100">
+                             <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Inquiry Data</TableHead>
+                             <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Folder context</TableHead>
+                             <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Classification</TableHead>
+                             <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Details</TableHead>
+                             <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400 text-center">Manage</TableHead>
+                          </TableRow>
+                       </TableHeader>
+                       <TableBody>
+                          {filteredQuestions.map((q) => {
+                            const isExpanded = expandedQuestionIds.has(q.id);
+                            return (
+                              <React.Fragment key={q.id}>
+                                <TableRow className="group border-slate-100 transition-colors hover:bg-slate-50/80 cursor-pointer" onClick={() => toggleExpand(q.id)}>
+                                   <TableCell className="px-8 py-5 max-w-md">
+                                      <div className="flex flex-col gap-1">
+                                         <div className="flex items-center gap-2">
+                                            {isExpanded ? <ChevronUp className="h-4 w-4 text-indigo-500" /> : <ChevronDown className="h-4 w-4 text-slate-300 group-hover:text-indigo-500" />}
+                                            <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors truncate">{stripHtml(q.prompt)}</span>
+                                         </div>
+                                         <span className="text-[10px] font-medium text-slate-400 ml-6">ID: {q.id.slice(0, 8)}...</span>
                                       </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
-        </>
-      )}
-
-        {activeTab === 'passages' && (
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6">
-            <div className="flex items-center justify-between pb-4">
-              <p className="text-sm text-muted-foreground">
-                Showing passages for: {selectedFolderId === 'all'
-                  ? 'All folders'
-                  : folders.find((f) => f.id === selectedFolderId)?.name || 'Unknown'}
-              </p>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setPassageForm((prev) => ({
-                    ...prev,
-                    folderId: selectedFolderId === 'all' ? '' : selectedFolderId,
-                  }));
-                  setPassageCreateDialogOpen(true);
-                }}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                New Passage
-              </Button>
-            </div>
-
-            {passages.length === 0 ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">
-                No passages found in the selected folder.
-              </div>
-            ) : (
-              <div className="space-y-4 pb-6">
-                {passages.map((passage) => {
-                  const isPassageExpanded = expandedPassageIds.has(passage.id);
-                  return (
-                    <div key={passage.id} className="rounded-lg border bg-background p-5 shadow-sm group">
-                      <div 
-                        className="flex flex-col gap-4 sm:flex-row sm:items-start justify-between cursor-pointer select-none"
-                        onClick={() => togglePassageExpand(passage.id)}
-                      >
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            {isPassageExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-                            <Badge variant="outline" className="bg-primary/5 uppercase tracking-widest text-[10px]">Passage</Badge>
-                            {passage.difficulty && <Badge variant="secondary" className="text-[10px]">{passage.difficulty}</Badge>}
-                            {passage.year && <span className="text-xs text-muted-foreground">{passage.year}</span>}
-                            {!isPassageExpanded && passage.questions && (
-                              <span className="text-xs text-muted-foreground ml-2">({passage.questions.length} questions)</span>
-                            )}
-                          </div>
-                          {passage.title && (
-                            <h3 className="text-lg font-semibold tracking-tight text-foreground mb-2">
-                              {passage.title}
-                            </h3>
-                          )}
-                          {!isPassageExpanded && !passage.title && (
-                            <p className="line-clamp-2 text-sm text-muted-foreground">{stripHtml(passage.content)}</p>
-                          )}
-                          {isPassageExpanded && (
-                            <div
-                              className="prose prose-sm max-w-none text-muted-foreground border-l-2 border-muted pl-4 mt-3"
-                              dangerouslySetInnerHTML={{ __html: passage.content }}
-                            />
-                          )}
-                        </div>
-                        <div 
-                          className="flex items-center gap-1 sm:self-start opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => startCreateChildQuestion(passage)}
-                            title="Add child MCQ"
-                          >
-                            <Plus className="mr-2 h-4 w-4" /> Add Question
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEditPassage(passage.id)}
-                            title="Edit passage"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeletePassage(passage.id)}
-                            title="Delete passage"
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      {isPassageExpanded && passage.questions && passage.questions.length > 0 && (
-                        <div className="mt-5 border-t pt-4">
-                        <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                          <BookOpenCheck className="h-4 w-4 text-primary" /> Questions ({passage.questions.length})
-                        </h4>
-                        <div className="rounded-md border overflow-hidden">
-                          <Table>
-                            <TableHeader className="bg-muted/50">
-                              <TableRow>
-                                <TableHead className="w-[80px]">Type</TableHead>
-                                <TableHead>Prompt</TableHead>
-                                <TableHead className="w-[100px] text-right">Actions</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {passage.questions.map((q) => {
-                                const isExpanded = expandedQuestionIds.has(q.id);
-                                return (
-                                  <React.Fragment key={q.id}>
-                                    <TableRow className={`group cursor-pointer hover:bg-muted/30 ${isExpanded ? 'bg-muted/20' : ''}`} onClick={() => toggleExpand(q.id)}>
-                                      <TableCell>
-                                        <div className="flex items-center gap-2">
-                                          {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-                                          <Badge variant="secondary" className="text-[10px]">{q.type}</Badge>
-                                        </div>
-                                      </TableCell>
-                                      <TableCell>
-                                        <p className="line-clamp-2 text-sm text-foreground/90">{stripHtml(q.prompt)}</p>
-                                        <p className="text-xs text-muted-foreground mt-1">{q.options?.length || 0} options</p>
-                                      </TableCell>
-                                      <TableCell className="text-right">
-                                        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); handleViewQuestion(q.id); }} title="View Question">
-                                            <Eye className="h-3 w-3" />
-                                          </Button>
-                                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); handleEditQuestion(q.id); }} title="Edit Question">
-                                            <Edit className="h-3 w-3" />
-                                          </Button>
-                                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteQuestion(q.id); }} title="Delete Question">
-                                            <Trash2 className="h-3 w-3" />
-                                          </Button>
-                                        </div>
-                                      </TableCell>
-                                    </TableRow>
-                                    {isExpanded && (
-                                      <TableRow className="bg-muted/10 border-b hover:bg-muted/10">
-                                        <TableCell colSpan={3} className="p-0">
-                                          <div className="p-4 space-y-4 shadow-inner">
-                                            <div className="grid sm:grid-cols-2 gap-4">
-                                              <div>
-                                                <h4 className="text-sm font-semibold mb-1 text-muted-foreground">Full Prompt</h4>
-                                                <div className="prose prose-sm max-w-none bg-background p-3 rounded-md border" dangerouslySetInnerHTML={{ __html: q.prompt }} />
+                                   </TableCell>
+                                   <TableCell className="py-5">
+                                      <Badge variant="outline" className="rounded-lg bg-slate-50 border-slate-200 text-slate-600 font-bold text-[9px] uppercase px-2 py-0.5">
+                                         {q.folder?.name || 'Unsorted'}
+                                      </Badge>
+                                   </TableCell>
+                                   <TableCell className="py-5">
+                                      <div className="flex flex-wrap gap-2">
+                                         <Badge className="bg-indigo-50 text-indigo-700 border-indigo-100 font-black text-[9px] uppercase px-2 py-0.5">{q.type}</Badge>
+                                         {q.difficulty && (
+                                           <Badge variant="outline" className={cn("font-black text-[9px] uppercase px-2 py-0.5", 
+                                             q.difficulty === 'EASY' ? 'bg-emerald-50 text-emerald-700' : 
+                                             q.difficulty === 'MEDIUM' ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700'
+                                           )}>
+                                             {q.difficulty}
+                                           </Badge>
+                                         )}
+                                      </div>
+                                   </TableCell>
+                                   <TableCell className="py-5">
+                                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                         {q.type === 'MCQ' ? `${q.options?.length || 0} Options` : 'Creative'}
+                                      </span>
+                                   </TableCell>
+                                   <TableCell className="px-8 py-5 text-center">
+                                      <div className="flex justify-center gap-2" onClick={e => e.stopPropagation()}>
+                                         <Button variant="outline" size="sm" className="h-8 w-8 rounded-xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm" onClick={() => handleViewQuestion(q.id)}>
+                                            <Eye className="h-3.5 w-3.5" />
+                                         </Button>
+                                         <Button variant="outline" size="sm" className="h-8 w-8 rounded-xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm" onClick={() => handleEditQuestion(q.id)}>
+                                            <Edit className="h-3.5 w-3.5" />
+                                         </Button>
+                                         <Button variant="outline" size="sm" className="h-8 w-8 rounded-xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all shadow-sm" onClick={() => { if(confirm('Delete?')) deleteQuestion(q.id).then(loadQuestions); }}>
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                         </Button>
+                                      </div>
+                                   </TableCell>
+                                </TableRow>
+                                {isExpanded && (
+                                  <TableRow className="bg-slate-50/30 border-b border-slate-100">
+                                     <TableCell colSpan={5} className="p-0">
+                                        <div className="p-8 space-y-6 animate-in slide-in-from-top-2 duration-300">
+                                           <div className="grid sm:grid-cols-2 gap-8">
+                                              <div className="bg-white border border-slate-100 rounded-[24px] p-6 shadow-sm">
+                                                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4">Prompt Analysis</p>
+                                                 <div className="prose prose-sm max-w-none text-slate-700" dangerouslySetInnerHTML={{ __html: q.prompt }} />
                                               </div>
                                               {q.explanation && (
-                                                <div>
-                                                  <h4 className="text-sm font-semibold mb-1 text-muted-foreground">Explanation</h4>
-                                                  <div className="prose prose-sm max-w-none bg-background p-3 rounded-md border" dangerouslySetInnerHTML={{ __html: q.explanation }} />
+                                                <div className="bg-indigo-50/20 border border-indigo-100/50 rounded-[24px] p-6 shadow-sm">
+                                                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400 mb-4">Rationale</p>
+                                                   <div className="prose prose-sm max-w-none text-slate-600 italic" dangerouslySetInnerHTML={{ __html: q.explanation }} />
                                                 </div>
                                               )}
-                                            </div>
-                                            {q.options && q.options.length > 0 && (
-                                              <div>
-                                                <h4 className="text-sm font-semibold mb-2 text-muted-foreground">Options</h4>
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                                  {q.options.map(opt => (
-                                                    <div key={opt.id} className={`p-2 rounded-md border flex items-start gap-2 ${opt.isCorrect ? 'border-primary bg-primary/5' : 'bg-background'}`}>
-                                                      <span className="font-semibold text-muted-foreground">{opt.label}.</span>
-                                                      <span className="flex-1 text-sm">{opt.text}</span>
-                                                      {opt.isCorrect && <Badge className="text-[10px] ml-auto shrink-0" variant="default">Correct</Badge>}
-                                                    </div>
-                                                  ))}
+                                           </div>
+                                           {q.type === 'MCQ' && q.options && q.options.length > 0 && (
+                                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                                {q.options.map(opt => (
+                                                  <div key={opt.id} className={cn(
+                                                    "flex items-center gap-3 p-4 rounded-2xl border transition-all",
+                                                    opt.isCorrect ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-white border-slate-100 text-slate-500"
+                                                  )}>
+                                                     <span className="font-black">{opt.label}.</span>
+                                                     <span className="text-xs font-bold flex-1">{opt.text}</span>
+                                                     {opt.isCorrect && <CheckCircle2 className="h-4 w-4 shrink-0" />}
+                                                  </div>
+                                                ))}
+                                             </div>
+                                           )}
+                                        </div>
+                                     </TableCell>
+                                  </TableRow>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                       </TableBody>
+                    </Table>
+                 </div>
+               )}
+
+               {activeTab === 'passages' && (
+                 <div className="p-8 space-y-6">
+                    <div className="flex items-center justify-between">
+                       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Contextual Passages Registry</p>
+                       <Button onClick={handleCreatePassage} className="h-10 rounded-xl bg-indigo-600 font-black uppercase tracking-widest text-[10px] shadow-lg shadow-indigo-200">
+                          <Plus className="mr-2 h-4 w-4" /> New Passage
+                       </Button>
+                    </div>
+
+                    <div className="grid gap-6">
+                       {passages.map(p => {
+                         const isExpanded = expandedPassageIds.has(p.id);
+                         return (
+                           <div key={p.id} className="rounded-[32px] border border-slate-100 bg-white p-6 shadow-md transition-all hover:shadow-xl hover:border-indigo-100 group">
+                              <div className="flex flex-col sm:flex-row gap-6 items-start justify-between cursor-pointer" onClick={() => togglePassageExpand(p.id)}>
+                                 <div className="flex-1 space-y-3">
+                                    <div className="flex items-center gap-3">
+                                       {isExpanded ? <ChevronUp className="h-4 w-4 text-indigo-500" /> : <ChevronDown className="h-4 w-4 text-slate-300 group-hover:text-indigo-500" />}
+                                       <Badge className="bg-indigo-50 text-indigo-700 font-black text-[9px] uppercase px-2 py-0.5">PASSAGE</Badge>
+                                       {p.difficulty && <Badge variant="outline" className="font-black text-[9px] uppercase px-2 py-0.5">{p.difficulty}</Badge>}
+                                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">({p.questions?.length || 0} Linked Inquiries)</span>
+                                    </div>
+                                    <h3 className="text-lg font-black tracking-tight text-slate-900 group-hover:text-indigo-600 transition-colors">
+                                       {p.title || 'Untitled Passage Asset'}
+                                    </h3>
+                                    {!isExpanded && <p className="text-sm font-medium text-slate-500 line-clamp-2 leading-relaxed">{stripHtml(p.content)}</p>}
+                                 </div>
+                                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                                    <Button variant="outline" size="sm" className="h-9 rounded-xl border-slate-200 bg-white font-black uppercase tracking-widest text-[10px] text-indigo-600 hover:bg-indigo-50" onClick={() => startCreateChildQuestion(p)}>
+                                       <Plus className="mr-1.5 h-3.5 w-3.5" /> Link MCQ
+                                    </Button>
+                                    <Button variant="outline" size="sm" className="h-9 w-9 rounded-xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 shadow-sm" onClick={() => handleEditPassage(p.id)}>
+                                       <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="outline" size="sm" className="h-9 w-9 rounded-xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-rose-600 hover:text-white hover:border-rose-600 shadow-sm" onClick={() => { if(confirm('Delete?')) deletePassage(p.id).then(loadPassages); }}>
+                                       <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                 </div>
+                              </div>
+
+                              {isExpanded && (
+                                <div className="mt-8 pt-8 border-t border-slate-100 space-y-8 animate-in fade-in duration-500">
+                                   <div className="bg-slate-50/50 p-8 rounded-[28px] border border-slate-100">
+                                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4">Passage Content</p>
+                                      <div className="prose prose-sm max-w-none text-slate-700 leading-relaxed font-medium" dangerouslySetInnerHTML={{ __html: p.content }} />
+                                   </div>
+
+                                   {p.questions && p.questions.length > 0 && (
+                                     <div className="space-y-4">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 px-2 flex items-center gap-2">
+                                           <BookOpenCheck className="h-3.5 w-3.5" /> Linked Question Assets
+                                        </p>
+                                        <div className="grid gap-3">
+                                           {p.questions.map(q => (
+                                             <div key={q.id} className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-white hover:border-indigo-200 transition-all cursor-pointer group/q" onClick={() => handleViewQuestion(q.id)}>
+                                                <div className="flex flex-col">
+                                                   <span className="text-xs font-bold text-slate-800 group-hover/q:text-indigo-600 transition-colors">{stripHtml(q.prompt)}</span>
+                                                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">{q.options?.length || 0} Options</span>
                                                 </div>
-                                              </div>
-                                            )}
-                                          </div>
-                                        </TableCell>
-                                      </TableRow>
-                                    )}
-                                  </React.Fragment>
-                                );
-                              })}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-              </div>
-            )}
-          </div>
-        )}
-      </section>
-
-      {/* Folder View Dialog */}
-      <Dialog open={folderViewDialogOpen} onOpenChange={setFolderViewDialogOpen}>
-        <DialogContent className="max-h-[90vh] sm:max-w-4xl flex flex-col p-0 gap-0" showCloseButton={true}>
-          <DialogHeader className="px-6 pt-6 pb-4 shrink-0 sticky top-0 bg-background z-10 border-b shadow-sm">
-            <DialogTitle>Folder Details</DialogTitle>
-            <DialogDescription>View folder information and statistics.</DialogDescription>
-          </DialogHeader>
-
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            {folderDetails && (
-              <div className="space-y-5 text-sm py-6">
-                <div>
-                  <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">Basic Information</p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Name</p>
-                      <p className="mt-1 font-medium">{folderDetails.name}</p>
+                                                <div className="flex gap-2">
+                                                   <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-indigo-600" onClick={e => { e.stopPropagation(); handleEditQuestion(q.id); }}><Edit className="h-3.5 w-3.5" /></Button>
+                                                   <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-rose-500" onClick={e => { e.stopPropagation(); if(confirm('Delete?')) deleteQuestion(q.id).then(loadPassages); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                                                </div>
+                                             </div>
+                                           ))}
+                                        </div>
+                                     </div>
+                                   )}
+                                </div>
+                              )}
+                           </div>
+                         );
+                       })}
                     </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Course</p>
-                      <p className="mt-1 font-medium">{folderDetails.course?.name || '-'}</p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Questions</p>
-                      <p className="mt-1 font-medium">{folderDetails._count?.questions || 0}</p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Subfolders</p>
-                      <p className="mt-1 font-medium">{folderDetails._count?.children || 0}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="rounded-lg border bg-muted/20 p-3">
-                  <p className="text-xs uppercase text-muted-foreground">Created At</p>
-                  <p className="mt-1 text-sm">
-                    {new Date(folderDetails.createdAt).toLocaleString('en-US', {
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Folder Create Dialog */}
-      <Dialog open={folderCreateDialogOpen} onOpenChange={setFolderCreateDialogOpen}>
-        <DialogContent className="max-h-[90vh] sm:max-w-4xl flex flex-col p-0 gap-0" showCloseButton={true}>
-          <DialogHeader className="px-6 pt-6 pb-4 shrink-0 sticky top-0 bg-background z-10 border-b shadow-sm">
-            <DialogTitle>Create Folder</DialogTitle>
-            <DialogDescription>Create a new question folder to organize questions.</DialogDescription>
-          </DialogHeader>
-
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            <div className="space-y-4 py-6">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Folder Name *</label>
-                <Input
-                  value={folderForm.name}
-                  onChange={(e) => setFolderForm((prev) => ({ ...prev, name: e.target.value }))}
-                  placeholder="e.g., Physics Chapter 1"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Course (Optional)</label>
-                <Select
-                  value={folderForm.courseId || undefined}
-                  onValueChange={(v) => setFolderForm((prev) => ({ ...prev, courseId: v || '' }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a course" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {courses.map((course) => (
-                      <SelectItem key={course.id} value={course.id}>
-                        {course.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Parent Folder (Optional)</label>
-                <Select
-                  value={folderForm.parentFolderId || undefined}
-                  onValueChange={(v) => setFolderForm((prev) => ({ ...prev, parentFolderId: v || '' }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a parent folder" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {folders.map((folder) => (
-                      <SelectItem key={folder.id} value={folder.id}>
-                        {folder.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter className="px-6 pb-6 pt-4 shrink-0 bg-background border-t shadow-lg mt-auto">
-            <Button variant="outline" onClick={() => setFolderCreateDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateFolder}>Create Folder</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Folder Edit Dialog */}
-      <Dialog open={folderEditDialogOpen} onOpenChange={setFolderEditDialogOpen}>
-        <DialogContent className="max-h-[90vh] sm:max-w-4xl flex flex-col p-0 gap-0" showCloseButton={true}>
-          <DialogHeader className="px-6 pt-6 pb-4 shrink-0 sticky top-0 bg-background z-10 border-b shadow-sm">
-            <DialogTitle>Edit Folder</DialogTitle>
-            <DialogDescription>Update folder information.</DialogDescription>
-          </DialogHeader>
-
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            <div className="space-y-4 py-6">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Folder Name *</label>
-                <Input
-                  value={folderForm.name}
-                  onChange={(e) => setFolderForm((prev) => ({ ...prev, name: e.target.value }))}
-                  placeholder="e.g., Physics Chapter 1"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Course (Optional)</label>
-                <Select
-                  value={folderForm.courseId || undefined}
-                  onValueChange={(v) => setFolderForm((prev) => ({ ...prev, courseId: v || '' }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a course" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {courses.map((course) => (
-                      <SelectItem key={course.id} value={course.id}>
-                        {course.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Parent Folder (Optional)</label>
-                <Select
-                  value={folderForm.parentFolderId || undefined}
-                  onValueChange={(v) => setFolderForm((prev) => ({ ...prev, parentFolderId: v || '' }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a parent folder" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {folders.filter((f) => f.id !== folderDetails?.id).map((folder) => (
-                      <SelectItem key={folder.id} value={folder.id}>
-                        {folder.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter className="px-6 pb-6 pt-4 shrink-0 bg-background border-t shadow-lg mt-auto">
-            <Button variant="outline" onClick={() => setFolderEditDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleUpdateFolder}>Save Changes</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Question View Dialog */}
-      <Dialog open={questionViewDialogOpen} onOpenChange={setQuestionViewDialogOpen}>
-        <DialogContent className="max-h-[90vh] sm:max-w-4xl flex flex-col p-0 gap-0" showCloseButton={true}>
-          <DialogHeader className="px-6 pt-6 pb-4 shrink-0 sticky top-0 bg-background z-10 border-b shadow-sm">
-            <DialogTitle>Question Details</DialogTitle>
-            <DialogDescription>View complete question information.</DialogDescription>
-          </DialogHeader>
-
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            {questionDetails && (
-              <div className="space-y-5 text-sm py-6">
-                <div>
-                  <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">Question Information</p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Type</p>
-                      <p className="mt-1 font-medium">
-                        <Badge variant={questionDetails.type === 'MCQ' ? 'default' : 'secondary'}>
-                          {questionDetails.type}
-                        </Badge>
-                      </p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Difficulty</p>
-                      <p className="mt-1 font-medium">
-                        {questionDetails.difficulty ? (
-                          <Badge variant="outline">{questionDetails.difficulty}</Badge>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Year</p>
-                      <p className="mt-1 font-medium">{questionDetails.year || '-'}</p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Folder</p>
-                      <p className="mt-1 font-medium">{questionDetails.folder?.name || '-'}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-lg border p-3">
-                  <p className="text-xs uppercase text-muted-foreground">Prompt</p>
-                  <div
-                    className="mt-1 text-sm prose prose-sm max-w-none"
-                    dangerouslySetInnerHTML={{ __html: questionDetails.prompt }}
-                  />
-                </div>
-
-                {questionDetails.explanation && (
-                  <div className="rounded-lg border p-3">
-                    <p className="text-xs uppercase text-muted-foreground">Explanation</p>
-                    <div
-                      className="mt-1 text-sm prose prose-sm max-w-none"
-                      dangerouslySetInnerHTML={{ __html: questionDetails.explanation }}
-                    />
-                  </div>
-                )}
-
-                {questionDetails.type === 'MCQ' && questionDetails.options && questionDetails.options.length > 0 && (
-                  <div>
-                    <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">Options</p>
-                    <div className="space-y-2">
-                      {questionDetails.options.map((option, idx) => (
-                        <div
-                          key={option.id}
-                          className={`rounded-lg border p-3 ${option.isCorrect ? 'bg-green-50 border-green-200' : ''}`}
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <p className="font-medium">
-                                {option.label}. {option.text}
-                              </p>
-                            </div>
-                            {option.isCorrect && (
-                              <Badge variant="default" className="ml-2">
-                                Correct
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-lg border bg-muted/20 p-3">
-                    <p className="text-xs uppercase text-muted-foreground">Created At</p>
-                    <p className="mt-1 text-sm">
-                      {new Date(questionDetails.createdAt).toLocaleString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </p>
-                  </div>
-                  <div className="rounded-lg border bg-muted/20 p-3">
-                    <p className="text-xs uppercase text-muted-foreground">Last Updated</p>
-                    <p className="mt-1 text-sm">
-                      {new Date(questionDetails.updatedAt).toLocaleString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Question Create Dialog */}
-      <Dialog open={questionCreateDialogOpen} onOpenChange={setQuestionCreateDialogOpen}>
-        <DialogContent className="max-h-[90vh] sm:max-w-4xl flex flex-col p-0 gap-0" showCloseButton={true}>
-          <DialogHeader className="px-6 pt-6 pb-4 shrink-0 sticky top-0 bg-background z-10 border-b shadow-sm">
-            <DialogTitle>Create Question</DialogTitle>
-            <DialogDescription>Add a new question to the question bank.</DialogDescription>
-          </DialogHeader>
-
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            <div className="space-y-4 py-6">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Folder *</label>
-                <Select
-                  value={questionForm.folderId}
-                  onValueChange={(v) => setQuestionForm((prev) => ({ ...prev, folderId: v }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a folder" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {folders.map((folder) => (
-                      <SelectItem key={folder.id} value={folder.id}>
-                        {folder.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Type *</label>
-                  <Select
-                    value={questionForm.type}
-                    onValueChange={(v) => {
-                      setQuestionForm((prev) => ({ ...prev, type: v as QuestionType }));
-                      if (v === 'CQ') setMcqOptions([]);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {questionTypeOptions.map((opt) => (
-                        <SelectItem key={opt} value={opt}>
-                          {opt}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Difficulty</label>
-                  <Select
-                    value={questionForm.difficulty || undefined}
-                    onValueChange={(v) => setQuestionForm((prev) => ({ ...prev, difficulty: (v || undefined) as Difficulty }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select difficulty" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {difficultyOptions.filter((opt) => opt !== 'all').map((opt) => (
-                        <SelectItem key={opt} value={opt}>
-                          {opt}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Year</label>
-                <Input
-                  type="number"
-                  value={questionForm.year || ''}
-                  onChange={(e) =>
-                    setQuestionForm((prev) => ({ ...prev, year: e.target.value ? Number(e.target.value) : undefined }))
-                  }
-                  placeholder="e.g., 2024"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Prompt *</label>
-                <RichTextEditor
-                  value={questionForm.prompt}
-                  onChange={(html) => setQuestionForm((prev) => ({ ...prev, prompt: html }))}
-                  onImageUpload={handleEditorImageUpload}
-                  placeholder="Enter the question prompt..."
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Explanation</label>
-                <RichTextEditor
-                  value={questionForm.explanation || ''}
-                  onChange={(html) => setQuestionForm((prev) => ({ ...prev, explanation: html }))}
-                  onImageUpload={handleEditorImageUpload}
-                  placeholder="Enter explanation (optional)..."
-                />
-              </div>
-
-              {questionForm.type === 'MCQ' && (
-                <div className="space-y-3 border-t pt-4">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium">MCQ Options *</label>
-                    <Button type="button" variant="outline" size="sm" onClick={addMcqOption}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Option
-                    </Button>
-                  </div>
-                  {mcqOptions.map((option, idx) => (
-                    <div key={idx} className="flex gap-2 items-start">
-                      <Input
-                        placeholder="Label (e.g., A, B, C)"
-                        value={option.label}
-                        onChange={(e) => updateMcqOption(idx, 'label', e.target.value)}
-                        className="w-20"
-                      />
-                      <Input
-                        placeholder="Option text"
-                        value={option.text}
-                        onChange={(e) => updateMcqOption(idx, 'text', e.target.value)}
-                        className="flex-1"
-                      />
-                      <Button
-                        type="button"
-                        variant={option.isCorrect ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => updateMcqOption(idx, 'isCorrect', !option.isCorrect)}
-                      >
-                        Correct
-                      </Button>
-                      <Button type="button" variant="ghost" size="icon" onClick={() => removeMcqOption(idx)}>
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                  <div ref={createOptionsEndRef} />
-                </div>
-              )}
-            </div>
-          </div>
-
-          <DialogFooter className="px-6 pb-6 pt-4 shrink-0 bg-background border-t shadow-lg mt-auto">
-            <Button variant="outline" onClick={() => setQuestionCreateDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateQuestion}>Create Question</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Question Edit Dialog */}
-      <Dialog open={questionEditDialogOpen} onOpenChange={setQuestionEditDialogOpen}>
-        <DialogContent className="max-h-[90vh] sm:max-w-4xl flex flex-col p-0 gap-0" showCloseButton={true}>
-          <DialogHeader className="px-6 pt-6 pb-4 shrink-0 sticky top-0 bg-background z-10 border-b shadow-sm">
-            <DialogTitle>Edit Question</DialogTitle>
-            <DialogDescription>Update question information.</DialogDescription>
-          </DialogHeader>
-
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            <div className="space-y-4 py-6">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Folder *</label>
-                <Select
-                  value={questionForm.folderId}
-                  onValueChange={(v) => setQuestionForm((prev) => ({ ...prev, folderId: v }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a folder" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {folders.map((folder) => (
-                      <SelectItem key={folder.id} value={folder.id}>
-                        {folder.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Type *</label>
-                  <Select
-                    value={questionForm.type}
-                    onValueChange={(v) => {
-                      setQuestionForm((prev) => ({ ...prev, type: v as QuestionType }));
-                      if (v === 'CQ') setMcqOptions([]);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {questionTypeOptions.map((opt) => (
-                        <SelectItem key={opt} value={opt}>
-                          {opt}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Difficulty</label>
-                  <Select
-                    value={questionForm.difficulty || undefined}
-                    onValueChange={(v) => setQuestionForm((prev) => ({ ...prev, difficulty: (v || undefined) as Difficulty }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select difficulty" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {difficultyOptions.filter((opt) => opt !== 'all').map((opt) => (
-                        <SelectItem key={opt} value={opt}>
-                          {opt}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Year</label>
-                <Input
-                  type="number"
-                  value={questionForm.year || ''}
-                  onChange={(e) =>
-                    setQuestionForm((prev) => ({ ...prev, year: e.target.value ? Number(e.target.value) : undefined }))
-                  }
-                  placeholder="e.g., 2024"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Prompt *</label>
-                <RichTextEditor
-                  value={questionForm.prompt}
-                  onChange={(html) => setQuestionForm((prev) => ({ ...prev, prompt: html }))}
-                  onImageUpload={handleEditorImageUpload}
-                  placeholder="Enter the question prompt..."
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Explanation</label>
-                <RichTextEditor
-                  value={questionForm.explanation || ''}
-                  onChange={(html) => setQuestionForm((prev) => ({ ...prev, explanation: html }))}
-                  onImageUpload={handleEditorImageUpload}
-                  placeholder="Enter explanation (optional)..."
-                />
-              </div>
-
-              {questionForm.type === 'MCQ' && (
-                <div className="space-y-3 border-t pt-4">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium">MCQ Options *</label>
-                    <Button type="button" variant="outline" size="sm" onClick={addMcqOption}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Option
-                    </Button>
-                  </div>
-                  {mcqOptions.map((option, idx) => (
-                    <div key={idx} className="flex gap-2 items-start">
-                      <Input
-                        placeholder="Label (e.g., A, B, C)"
-                        value={option.label}
-                        onChange={(e) => updateMcqOption(idx, 'label', e.target.value)}
-                        className="w-20"
-                      />
-                      <Input
-                        placeholder="Option text"
-                        value={option.text}
-                        onChange={(e) => updateMcqOption(idx, 'text', e.target.value)}
-                        className="flex-1"
-                      />
-                      <Button
-                        type="button"
-                        variant={option.isCorrect ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => updateMcqOption(idx, 'isCorrect', !option.isCorrect)}
-                      >
-                        Correct
-                      </Button>
-                      <Button type="button" variant="ghost" size="icon" onClick={() => removeMcqOption(idx)}>
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                  <div ref={editOptionsEndRef} />
-                </div>
-              )}
-            </div>
-          </div>
-
-          <DialogFooter className="px-6 pb-6 pt-4 shrink-0 bg-background border-t shadow-lg mt-auto">
-            <Button variant="outline" onClick={() => setQuestionEditDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleUpdateQuestion}>Save Changes</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-
-
-      {/* Passage Create Dialog */}
-      <Dialog open={passageCreateDialogOpen} onOpenChange={setPassageCreateDialogOpen}>
-        <DialogContent className="max-h-[90vh] sm:max-w-4xl flex flex-col p-0 gap-0" showCloseButton={true}>
-          <DialogHeader className="px-6 pt-6 pb-4 shrink-0 sticky top-0 bg-background z-10 border-b shadow-sm">
-            <DialogTitle>Create Passage</DialogTitle>
-            <DialogDescription>Create a passage that will be shared by multiple MCQs.</DialogDescription>
-          </DialogHeader>
-
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            <div className="space-y-4 py-6">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Folder *</label>
-                <Select
-                  value={passageForm.folderId}
-                  onValueChange={(v) => setPassageForm((prev) => ({ ...prev, folderId: v }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a folder" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {folders.map((folder) => (
-                      <SelectItem key={folder.id} value={folder.id}>
-                        {folder.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Title (optional)</label>
-                <Input
-                  value={passageForm.title}
-                  onChange={(e) => setPassageForm((prev) => ({ ...prev, title: e.target.value }))}
-                  placeholder="e.g., Reading passage for Chapter 3"
-                />
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Difficulty</label>
-                  <Select
-                    value={passageForm.difficulty || undefined}
-                    onValueChange={(v) =>
-                      setPassageForm((prev) => ({ ...prev, difficulty: (v || undefined) as Difficulty }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select difficulty" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {difficultyOptions.filter((opt) => opt !== 'all').map((opt) => (
-                        <SelectItem key={opt} value={opt}>
-                          {opt}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Year</label>
-                  <Input
-                    type="number"
-                    value={passageForm.year || ''}
-                    onChange={(e) =>
-                      setPassageForm((prev) => ({
-                        ...prev,
-                        year: e.target.value ? Number(e.target.value) : undefined,
-                      }))
-                    }
-                    placeholder="e.g., 2024"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Tags (comma separated)</label>
-                <Input
-                  value={passageForm.tags}
-                  onChange={(e) => setPassageForm((prev) => ({ ...prev, tags: e.target.value }))}
-                  placeholder="e.g., reading, grammar, chapter-3"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Passage Content *</label>
-                <RichTextEditor
-                  value={passageForm.content}
-                  onChange={(html) => setPassageForm((prev) => ({ ...prev, content: html }))}
-                  onImageUpload={handleEditorImageUpload}
-                  placeholder="Enter the passage text, images, graphs etc..."
-                />
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter className="px-6 pb-6 pt-4 shrink-0 bg-background border-t shadow-lg mt-auto">
-            <Button variant="outline" onClick={() => setPassageCreateDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreatePassageSubmit}>Create Passage</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Passage Edit Dialog */}
-      <Dialog open={passageEditDialogOpen} onOpenChange={setPassageEditDialogOpen}>
-        <DialogContent className="max-h-[90vh] sm:max-w-4xl flex flex-col p-0 gap-0" showCloseButton={true}>
-          <DialogHeader className="px-6 pt-6 pb-4 shrink-0 sticky top-0 bg-background z-10 border-b shadow-sm">
-            <DialogTitle>Edit Passage</DialogTitle>
-            <DialogDescription>Update the passage content and metadata.</DialogDescription>
-          </DialogHeader>
-
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            <div className="space-y-4 py-6">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Folder *</label>
-                <Select
-                  value={passageForm.folderId}
-                  onValueChange={(v) => setPassageForm((prev) => ({ ...prev, folderId: v }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a folder" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {folders.map((folder) => (
-                      <SelectItem key={folder.id} value={folder.id}>
-                        {folder.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Title (optional)</label>
-                <Input
-                  value={passageForm.title}
-                  onChange={(e) => setPassageForm((prev) => ({ ...prev, title: e.target.value }))}
-                  placeholder="e.g., Reading passage for Chapter 3"
-                />
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Difficulty</label>
-                  <Select
-                    value={passageForm.difficulty || undefined}
-                    onValueChange={(v) =>
-                      setPassageForm((prev) => ({ ...prev, difficulty: (v || undefined) as Difficulty }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select difficulty" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {difficultyOptions.filter((opt) => opt !== 'all').map((opt) => (
-                        <SelectItem key={opt} value={opt}>
-                          {opt}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Year</label>
-                  <Input
-                    type="number"
-                    value={passageForm.year || ''}
-                    onChange={(e) =>
-                      setPassageForm((prev) => ({
-                        ...prev,
-                        year: e.target.value ? Number(e.target.value) : undefined,
-                      }))
-                    }
-                    placeholder="e.g., 2024"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Tags (comma separated)</label>
-                <Input
-                  value={passageForm.tags}
-                  onChange={(e) => setPassageForm((prev) => ({ ...prev, tags: e.target.value }))}
-                  placeholder="e.g., reading, grammar, chapter-3"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Passage Content *</label>
-                <RichTextEditor
-                  value={passageForm.content}
-                  onChange={(html) => setPassageForm((prev) => ({ ...prev, content: html }))}
-                  onImageUpload={handleEditorImageUpload}
-                  placeholder="Enter the passage text, images, graphs etc..."
-                />
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter className="px-6 pb-6 pt-4 shrink-0 bg-background border-t shadow-lg mt-auto">
-            <Button variant="outline" onClick={() => setPassageEditDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleUpdatePassageSubmit}>Save Changes</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+                 </div>
+               )}
+             </>
+           )}
+        </div>
+      </div>
 
       <Toaster toasts={toasts} removeToast={removeToast} />
     </div>

@@ -1,21 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getExams, getExamById, createExam, updateExam, deleteExam } from '@/lib/api/exams';
+import { getExams, getExamById, deleteExam } from '@/lib/api/exams';
 import { getCourses } from '@/lib/api/courses';
 import { getBranches } from '@/lib/api/branches';
-import { getBatches } from '@/lib/api/batches';
 import type {
   Exam,
   ExamType,
   ExamMode,
   ExamStatus,
-  CreateExamDto,
-  UpdateExamDto,
 } from '@/types/exam';
 import type { Course } from '@/types/course';
 import type { Branch } from '@/lib/api/branches';
-import type { Batch } from '@/lib/api/batches';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -35,14 +31,6 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
   BookOpenCheck,
   Edit,
   Eye,
@@ -51,9 +39,20 @@ import {
   Search,
   Trash2,
   FileText,
+  Activity,
+  Sparkles,
+  Layers,
+  History,
+  Calendar,
+  MapPin,
+  BookOpen,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
+import { useModalStore } from '@/store/modalStore';
+import { ExamForm } from '@/components/admin/exams/ExamForm';
+import { ExamDetailsView } from '@/components/admin/exams/ExamDetailsView';
+import { cn } from '@/lib/utils';
 
 const examTypeOptions: ExamType[] = ['PRACTICE', 'SCHEDULED', 'MODEL', 'TALENT_HUNT', 'UNIVERSITY'];
 const examModeOptions: ExamMode[] = ['ONLINE', 'OFFLINE'];
@@ -64,72 +63,28 @@ function getErrorMessage(error: unknown): string {
   return 'Something went wrong';
 }
 
+function getStatusBadgeClass(status: string) {
+  if (status === 'PUBLISHED') return 'bg-emerald-50 text-emerald-700 border-emerald-100 font-black';
+  if (status === 'CLOSED') return 'bg-rose-50 text-rose-700 border-rose-100 font-black';
+  return 'bg-slate-100 text-slate-600 border-slate-200 font-black';
+}
+
 export default function ExamsPage() {
+  const { openModal } = useModalStore();
   const { toast, toasts, removeToast } = useToast();
+  
   const [exams, setExams] = useState<Exam[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [batches, setBatches] = useState<Batch[]>([]);
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<ExamStatus | 'all'>('all');
   const [modeFilter, setModeFilter] = useState<ExamMode | 'all'>('all');
   const [courseFilter, setCourseFilter] = useState<string>('all');
   const [branchFilter, setBranchFilter] = useState<string>('all');
-
-  // Dialog states
-  const [viewDialogOpen, setViewDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [examDetails, setExamDetails] = useState<Exam | null>(null);
-  const [detailsLoading, setDetailsLoading] = useState(false);
-  const [detailsError, setDetailsError] = useState<string | null>(null);
-
-  // Form states
-  const [editForm, setEditForm] = useState<CreateExamDto>({
-    courseId: '',
-    branchId: '',
-    batchId: undefined,
-    title: '',
-    type: 'PRACTICE',
-    mode: 'ONLINE',
-    startAt: '',
-    endAt: '',
-    durationMinutes: undefined,
-    allowedAttempts: 1,
-    status: 'DRAFT',
-    settings: undefined,
-  });
-  const [createForm, setCreateForm] = useState<CreateExamDto>({
-    courseId: '',
-    branchId: '',
-    batchId: undefined,
-    title: '',
-    type: 'PRACTICE',
-    mode: 'ONLINE',
-    startAt: '',
-    endAt: '',
-    durationMinutes: undefined,
-    allowedAttempts: 1,
-    status: 'DRAFT',
-    settings: undefined,
-  });
-  const [editSubmitting, setEditSubmitting] = useState(false);
-  const [editError, setEditError] = useState<string | null>(null);
-  const [createSubmitting, setCreateSubmitting] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
-
-  const isValidCourse = (value: unknown): value is Course => {
-    if (!value || typeof value !== 'object') return false;
-    const item = value as Partial<Course>;
-    return (
-      typeof item.id === 'string' &&
-      typeof item.name === 'string' &&
-      typeof item.programId === 'string' &&
-      typeof item.code === 'string'
-    );
-  };
 
   const loadExams = async () => {
     try {
@@ -145,11 +100,10 @@ export default function ExamsPage() {
       if (response.success && response.data) {
         setExams(response.data);
       } else {
-        setError(response.message || 'Failed to load exams');
         setExams([]);
       }
     } catch (err: unknown) {
-      setError(getErrorMessage(err) || 'Failed to load exams');
+      setError(getErrorMessage(err));
       setExams([]);
     } finally {
       setLoading(false);
@@ -158,41 +112,16 @@ export default function ExamsPage() {
 
   const loadCourses = async () => {
     try {
-      const response = await getCourses({ status: 'ACTIVE', limit: 500 });
-      if (response.success && response.data) {
-        const validCourses = (response.data || [])
-          .filter(isValidCourse)
-          .sort((a, b) => a.name.localeCompare(b.name));
-        setCourses(validCourses);
-      }
-    } catch (err: unknown) {
-      console.error('Failed to load courses:', err);
-    }
+      const res = await getCourses({ status: 'ACTIVE', limit: 500 });
+      if (res.success && res.data) setCourses(res.data || []);
+    } catch (err) { console.error(err); }
   };
 
   const loadBranches = async () => {
     try {
-      const response = await getBranches();
-      if (response.success && response.data) {
-        setBranches(response.data || []);
-      }
-    } catch (err: unknown) {
-      console.error('Failed to load branches:', err);
-    }
-  };
-
-  const loadBatches = async (courseId?: string, branchId?: string) => {
-    try {
-      const params: any = {};
-      if (courseId) params.courseId = courseId;
-      if (branchId) params.branchId = branchId;
-      const response = await getBatches(params);
-      if (response.success && response.data) {
-        setBatches(response.data || []);
-      }
-    } catch (err: unknown) {
-      console.error('Failed to load batches:', err);
-    }
+      const res = await getBranches();
+      if (res.success && res.data) setBranches(res.data || []);
+    } catch (err) { console.error(err); }
   };
 
   useEffect(() => {
@@ -205,203 +134,55 @@ export default function ExamsPage() {
     loadExams();
   }, [statusFilter, modeFilter, courseFilter, branchFilter]);
 
-  useEffect(() => {
-    if (createForm.courseId && createForm.branchId) {
-      loadBatches(createForm.courseId, createForm.branchId);
-    } else {
-      setBatches([]);
-    }
-  }, [createForm.courseId, createForm.branchId]);
-
-  const fetchExamDetails = async (examId: string) => {
-    try {
-      setDetailsLoading(true);
-      setDetailsError(null);
-      const response = await getExamById(examId);
-
-      if (response.success && response.data) {
-        setExamDetails(response.data);
-        const exam = response.data;
-        setEditForm({
-          courseId: exam.courseId,
-          branchId: exam.branchId,
-          batchId: exam.batchId || undefined,
-          title: exam.title,
-          type: exam.type,
-          mode: exam.mode,
-          startAt: exam.startAt ? new Date(exam.startAt).toISOString().slice(0, 16) : '',
-          endAt: exam.endAt ? new Date(exam.endAt).toISOString().slice(0, 16) : '',
-          durationMinutes: exam.durationMinutes || undefined,
-          allowedAttempts: exam.allowedAttempts,
-          status: exam.status,
-          settings: exam.settings,
-        });
-        if (exam.courseId && exam.branchId) {
-          await loadBatches(exam.courseId, exam.branchId);
-        }
-        return response.data;
-      }
-
-      throw new Error(response.message || 'Failed to load exam details');
-    } catch (err: unknown) {
-      const message = getErrorMessage(err);
-      setDetailsError(message);
-      setExamDetails(null);
-      return null;
-    } finally {
-      setDetailsLoading(false);
-    }
-  };
-
   const handleViewExam = async (examId: string) => {
-    setViewDialogOpen(true);
-    await fetchExamDetails(examId);
+    try {
+      const res = await getExamById(examId);
+      if (res.success && res.data) {
+        openModal({
+          title: 'Exam Intelligence',
+          description: 'Detailed configuration and attempt analytics.',
+          className: 'sm:max-w-4xl',
+          content: <ExamDetailsView exam={res.data} />,
+        });
+      }
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to load exam details', variant: 'destructive' });
+    }
   };
 
   const handleEditExam = async (examId: string) => {
-    setEditDialogOpen(true);
-    setEditError(null);
-    await fetchExamDetails(examId);
-  };
-
-  const handleEditSubmit = async () => {
-    if (!examDetails) return;
-
-    if (!editForm.title.trim() || !editForm.courseId || !editForm.branchId) {
-      setEditError('Title, course, and branch are required');
-      toast({
-        title: 'Error',
-        description: 'Title, course, and branch are required',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     try {
-      setEditSubmitting(true);
-      setEditError(null);
-      const payload: UpdateExamDto = {
-        courseId: editForm.courseId,
-        branchId: editForm.branchId,
-        batchId: editForm.batchId || undefined,
-        title: editForm.title.trim(),
-        type: editForm.type,
-        mode: editForm.mode,
-        startAt: editForm.startAt || undefined,
-        endAt: editForm.endAt || undefined,
-        durationMinutes: editForm.durationMinutes || undefined,
-        allowedAttempts: editForm.allowedAttempts,
-        status: editForm.status,
-        settings: editForm.settings,
-      };
-
-      await updateExam(examDetails.id, payload);
-      setEditDialogOpen(false);
-      await loadExams();
-
-      toast({
-        title: 'Success',
-        description: 'Exam updated successfully',
-        variant: 'success',
-      });
-    } catch (err: unknown) {
-      const errorMsg = getErrorMessage(err) || 'Failed to update exam';
-      setEditError(errorMsg);
-      toast({
-        title: 'Error',
-        description: errorMsg,
-        variant: 'destructive',
-      });
-    } finally {
-      setEditSubmitting(false);
+      const res = await getExamById(examId);
+      if (res.success && res.data) {
+        openModal({
+          title: 'Update Exam Baseline',
+          description: 'Refine exam scheduling and access rules.',
+          className: 'sm:max-w-6xl',
+          content: <ExamForm courses={courses} branches={branches} exam={res.data} onSuccess={loadExams} />,
+        });
+      }
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to load exam for editing', variant: 'destructive' });
     }
   };
 
-  const handleCreateSubmit = async () => {
-    if (!createForm.title.trim() || !createForm.courseId || !createForm.branchId) {
-      setCreateError('Title, course, and branch are required');
-      toast({
-        title: 'Error',
-        description: 'Title, course, and branch are required',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    try {
-      setCreateSubmitting(true);
-      setCreateError(null);
-      const payload: CreateExamDto = {
-        courseId: createForm.courseId,
-        branchId: createForm.branchId,
-        batchId: createForm.batchId || undefined,
-        title: createForm.title.trim(),
-        type: createForm.type,
-        mode: createForm.mode,
-        startAt: createForm.startAt || undefined,
-        endAt: createForm.endAt || undefined,
-        durationMinutes: createForm.durationMinutes || undefined,
-        allowedAttempts: createForm.allowedAttempts || 1,
-        status: createForm.status || 'DRAFT',
-        settings: createForm.settings,
-      };
-
-      await createExam(payload);
-      setCreateDialogOpen(false);
-      setCreateForm({
-        courseId: '',
-        branchId: '',
-        batchId: undefined,
-        title: '',
-        type: 'PRACTICE',
-        mode: 'ONLINE',
-        startAt: '',
-        endAt: '',
-        durationMinutes: undefined,
-        allowedAttempts: 1,
-        status: 'DRAFT',
-        settings: undefined,
-      });
-      await loadExams();
-
-      toast({
-        title: 'Success',
-        description: 'Exam created successfully',
-        variant: 'success',
-      });
-    } catch (err: unknown) {
-      const errorMsg = getErrorMessage(err) || 'Failed to create exam';
-      setCreateError(errorMsg);
-      toast({
-        title: 'Error',
-        description: errorMsg,
-        variant: 'destructive',
-      });
-    } finally {
-      setCreateSubmitting(false);
-    }
+  const handleCreateExam = () => {
+    openModal({
+      title: 'Authorize New Assessment',
+      description: 'Configure a new examination unit for the curriculum.',
+      className: 'sm:max-w-6xl',
+      content: <ExamForm courses={courses} branches={branches} onSuccess={loadExams} />,
+    });
   };
 
   const handleDeleteExam = async (examId: string) => {
-    if (!confirm('Are you sure you want to delete this exam? This action cannot be undone.')) {
-      return;
-    }
-
+    if (!confirm('Are you sure you want to delete this exam? This action cannot be undone.')) return;
     try {
       await deleteExam(examId);
       await loadExams();
-
-      toast({
-        title: 'Success',
-        description: 'Exam deleted successfully',
-        variant: 'success',
-      });
+      toast({ title: 'Success', description: 'Exam deleted successfully', variant: 'success' });
     } catch (err: unknown) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(err) || 'Failed to delete exam',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
     }
   };
 
@@ -411,869 +192,218 @@ export default function ExamsPage() {
       exam.course?.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const isDetailsReady = !detailsLoading && examDetails !== null;
   const totalExams = exams.length;
-  const draftCount = exams.filter((e) => e.status === 'DRAFT').length;
   const publishedCount = exams.filter((e) => e.status === 'PUBLISHED').length;
-  const closedCount = exams.filter((e) => e.status === 'CLOSED').length;
+  const draftCount = exams.filter((e) => e.status === 'DRAFT').length;
   const totalAttempts = exams.reduce((sum, e) => sum + (e._count?.attempts || 0), 0);
 
   return (
-    <div className="space-y-4">
-      <section className="glass-panel p-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="space-y-8 text-slate-900">
+      {/* Header Section */}
+      <section className="relative overflow-hidden rounded-[32px] border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/40">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.03),transparent_40%)]" />
+        
+        <div className="relative flex flex-wrap items-start justify-between gap-6">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight">Exam Management</h1>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              Manage exams, schedules, and exam attempts for all courses.
+            <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 border border-indigo-100/50 shadow-sm">
+              <FileText className="h-3.5 w-3.5" />
+              Assessment Workspace
+            </div>
+            <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
+              Exam <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">Maintenance</span>
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-slate-500">
+              Manage examination frameworks, scheduling windows, and evaluate student attempt participation across the platform.
             </p>
           </div>
-          <Button className="mt-1 bg-primary hover:bg-primary/90" onClick={() => setCreateDialogOpen(true)}>
+
+          <Button
+            className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95"
+            onClick={handleCreateExam}
+          >
             <Plus className="mr-2 h-4 w-4" />
-            Create Exam
+            Authorize Exam
           </Button>
         </div>
       </section>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <article className="glass-panel p-3.5">
-          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Total Exams</p>
-          <p className="mt-2 text-2xl font-semibold">{totalExams}</p>
-        </article>
-        <article className="glass-panel p-3.5">
-          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Published</p>
-          <p className="mt-2 text-2xl font-semibold">{publishedCount}</p>
-        </article>
-        <article className="glass-panel p-3.5">
-          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Draft</p>
-          <p className="mt-2 text-2xl font-semibold">{draftCount}</p>
-        </article>
-        <article className="glass-panel p-3.5">
-          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Total Attempts</p>
-          <p className="mt-2 text-2xl font-semibold">{totalAttempts}</p>
-        </article>
+      {/* Stats Section */}
+      <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: 'Exam Catalog', value: totalExams, color: 'from-blue-600 to-cyan-500', icon: Layers },
+          { label: 'Active Baseline', value: publishedCount, color: 'from-emerald-600 to-teal-500', icon: Sparkles },
+          { label: 'Draft Assets', value: draftCount, color: 'from-amber-600 to-orange-500', icon: FileText },
+          { label: 'Participation', value: totalAttempts, color: 'from-rose-600 to-pink-600', icon: History },
+        ].map((stat, i) => (
+          <div key={i} className="group relative overflow-hidden rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/40 transition-all hover:-translate-y-1 hover:shadow-2xl">
+             <div className="flex items-center justify-between">
+                <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg group-hover:scale-110 transition-transform", stat.color)}>
+                   <stat.icon className="h-6 w-6" />
+                </div>
+                <div className="h-1.5 w-1.5 rounded-full bg-slate-200" />
+             </div>
+             <div className="mt-6">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
+                <p className="mt-1 text-3xl font-black text-slate-900">{stat.value}</p>
+             </div>
+          </div>
+        ))}
       </section>
 
-      <section className="glass-panel p-4 sm:p-5">
+      {/* Filter Section */}
+      <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap gap-4">
-          <div className="min-w-[260px] flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <div className="min-w-[300px] flex-1">
+            <div className="relative group">
+              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
               <Input
-                placeholder="Search exams by title or course..."
+                placeholder="Search exams by title or course identity..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-10 border-border bg-background pl-10"
+                className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
               />
             </div>
           </div>
-          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as ExamStatus | 'all')}>
-            <SelectTrigger className="h-10 w-[180px] border-border bg-background">
+          
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
+            <SelectTrigger className="h-12 w-[160px] rounded-2xl border-slate-200 bg-white font-bold text-xs uppercase tracking-widest text-slate-600">
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
               {examStatusOptions.map((opt) => (
-                <SelectItem key={opt} value={opt}>
+                <SelectItem key={opt} value={opt} className="font-bold text-xs uppercase tracking-widest py-3">
                   {opt === 'all' ? 'All Status' : opt}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Select value={modeFilter} onValueChange={(v) => setModeFilter(v as ExamMode | 'all')}>
-            <SelectTrigger className="h-10 w-[180px] border-border bg-background">
-              <SelectValue placeholder="All Modes" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Modes</SelectItem>
-              {examModeOptions.map((opt) => (
-                <SelectItem key={opt} value={opt}>
-                  {opt}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+
           <Select value={courseFilter} onValueChange={setCourseFilter}>
-            <SelectTrigger className="h-10 w-[180px] border-border bg-background">
+            <SelectTrigger className="h-12 w-[200px] rounded-2xl border-slate-200 bg-white font-bold text-xs uppercase tracking-widest text-slate-600">
               <SelectValue placeholder="All Courses" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Courses</SelectItem>
+            <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
+              <SelectItem value="all" className="font-bold text-xs uppercase tracking-widest py-3">All Courses</SelectItem>
               {courses.map((course) => (
-                <SelectItem key={course.id} value={course.id}>
-                  {course.name} ({course.code})
+                <SelectItem key={course.id} value={course.id} className="font-bold text-xs uppercase tracking-widest py-3">
+                  {course.name}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Select value={branchFilter} onValueChange={setBranchFilter}>
-            <SelectTrigger className="h-10 w-[180px] border-border bg-background">
-              <SelectValue placeholder="All Branches" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Branches</SelectItem>
-              {branches.map((branch) => (
-                <SelectItem key={branch.id} value={branch.id}>
-                  {branch.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button variant="outline" className="h-10" onClick={loadExams}>
+
+          <Button variant="outline" className="h-12 w-12 rounded-2xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-all shadow-sm" onClick={loadExams}>
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
       </section>
 
-      {error && (
-        <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive">{error}</div>
-      )}
-
-      <section className="glass-panel overflow-hidden p-0">
-        <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
+      {/* Table Section */}
+      <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/30">
+        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
           <div>
-            <h2 className="text-base font-semibold tracking-tight">Exam Catalog</h2>
-            <p className="text-xs text-muted-foreground">Browse and maintain all registered exams</p>
+            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Exam Registry</h2>
+            <p className="mt-0.5 text-xs font-bold text-indigo-500">Institutional baseline</p>
           </div>
-          <div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
-            <BookOpenCheck className="h-4 w-4" />
-            <span>{totalExams} Total Records</span>
+          <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            {totalExams} Assessment Units
           </div>
         </div>
 
         {loading ? (
-          <div className="p-8 text-center text-muted-foreground">Loading exams...</div>
+          <div className="p-20 text-center flex flex-col items-center gap-4">
+             <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Synchronizing Data...</p>
+          </div>
         ) : filteredExams.length === 0 ? (
-          <div className="p-8 text-center text-muted-foreground">
-            {searchQuery ? 'No exams found matching your search.' : 'No exams found. Create your first exam.'}
+          <div className="p-20 text-center">
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No matching exams identified.</p>
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead>Title</TableHead>
-                <TableHead>Course</TableHead>
-                <TableHead>Branch</TableHead>
-                <TableHead>Batch</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Mode</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Attempts</TableHead>
-                <TableHead>Start Date</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredExams.map((exam) => (
-                <TableRow key={exam.id} className="hover:bg-muted/45">
-                  <TableCell className="font-medium">{exam.title}</TableCell>
-                  <TableCell>{exam.course?.name || '-'}</TableCell>
-                  <TableCell>{exam.branch?.name || '-'}</TableCell>
-                  <TableCell>{exam.batch?.name || '-'}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{exam.type}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">{exam.mode}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        exam.status === 'PUBLISHED'
-                          ? 'default'
-                          : exam.status === 'DRAFT'
-                            ? 'secondary'
-                            : 'destructive'
-                      }
-                    >
-                      {exam.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{exam._count?.attempts || 0}</Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {exam.startAt ? new Date(exam.startAt).toLocaleDateString() : '-'}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleViewExam(exam.id)}
-                        title="View Exam"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleEditExam(exam.id)} title="Edit Exam">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeleteExam(exam.id)}
-                        title="Delete Exam"
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-slate-50/50">
+                <TableRow className="hover:bg-transparent border-b border-slate-100">
+                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Assessment Identity</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Course & Context</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Classification</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Timeline</TableHead>
+                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400 text-center">Manage</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredExams.map((exam) => (
+                  <TableRow key={exam.id} className="group border-slate-100 transition-colors hover:bg-slate-50/80">
+                    <TableCell className="px-8 py-5">
+                       <div className="flex flex-col">
+                          <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{exam.title}</span>
+                          <span className="text-[10px] font-medium text-slate-400">Ref: {exam.id.slice(0, 8)}...</span>
+                       </div>
+                    </TableCell>
+                    <TableCell className="py-5">
+                       <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                             <BookOpen className="h-3 w-3 text-indigo-500" />
+                             {exam.course?.name}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
+                             <MapPin className="h-3 w-3 text-rose-500" />
+                             {exam.branch?.name}
+                          </div>
+                       </div>
+                    </TableCell>
+                    <TableCell className="py-5">
+                       <div className="flex flex-wrap gap-2">
+                          <Badge variant="outline" className={cn("rounded-lg text-[9px] font-black uppercase px-2.5 py-1", getStatusBadgeClass(exam.status))}>
+                            {exam.status}
+                          </Badge>
+                          <Badge variant="outline" className="rounded-lg bg-slate-50 border-slate-200 text-slate-600 font-black text-[9px] uppercase px-2.5 py-1">
+                            {exam.mode}
+                          </Badge>
+                       </div>
+                    </TableCell>
+                    <TableCell className="py-5">
+                       <div className="flex flex-col gap-1">
+                          <span className="text-[10px] font-bold text-slate-400">Window: {exam.startAt ? new Date(exam.startAt).toLocaleDateString() : 'Immediate'}</span>
+                          <span className="text-[10px] font-bold text-slate-500">Attempts: {exam._count?.attempts || 0} logs</span>
+                       </div>
+                    </TableCell>
+                    <TableCell className="px-8 py-5">
+                       <div className="flex justify-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 rounded-xl border-slate-200 bg-white px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm"
+                            onClick={() => handleViewExam(exam.id)}
+                          >
+                            View
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 rounded-xl border-slate-200 bg-white px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm"
+                            onClick={() => handleEditExam(exam.id)}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 rounded-xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all shadow-sm"
+                            onClick={() => handleDeleteExam(exam.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                       </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </section>
-
-      {/* Create Exam Dialog */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="max-h-[90vh] sm:max-w-4xl flex flex-col p-0 gap-0" showCloseButton={true}>
-          <DialogHeader className="px-6 pt-6 pb-4 shrink-0 sticky top-0 bg-background z-10 border-b shadow-sm">
-            <DialogTitle>Create Exam</DialogTitle>
-            <DialogDescription>Add a new exam to the system.</DialogDescription>
-          </DialogHeader>
-
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            <div className="space-y-4 py-6">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Title *</label>
-                <Input
-                  value={createForm.title}
-                  onChange={(e) => setCreateForm((prev) => ({ ...prev, title: e.target.value }))}
-                  placeholder="Exam title"
-                />
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Course *</label>
-                  <Select
-                    value={createForm.courseId}
-                    onValueChange={(v) => {
-                      setCreateForm((prev) => ({ ...prev, courseId: v, batchId: undefined }));
-                      if (createForm.branchId) {
-                        loadBatches(v, createForm.branchId);
-                      }
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select course" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {courses.map((course) => (
-                        <SelectItem key={course.id} value={course.id}>
-                          {course.name} ({course.code})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Branch *</label>
-                  <Select
-                    value={createForm.branchId}
-                    onValueChange={(v) => {
-                      setCreateForm((prev) => ({ ...prev, branchId: v, batchId: undefined }));
-                      if (createForm.courseId) {
-                        loadBatches(createForm.courseId, v);
-                      }
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select branch" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {branches.map((branch) => (
-                        <SelectItem key={branch.id} value={branch.id}>
-                          {branch.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Batch (Optional)</label>
-                <Select
-                  value={createForm.batchId || undefined}
-                  onValueChange={(v) => setCreateForm((prev) => ({ ...prev, batchId: v }))}
-                  disabled={!createForm.courseId || !createForm.branchId}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={!createForm.courseId || !createForm.branchId ? 'Select course and branch first' : 'Select batch'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {batches.length === 0 ? (
-                      <div className="px-2 py-1.5 text-sm text-muted-foreground">No batches available</div>
-                    ) : (
-                      batches.map((batch) => (
-                        <SelectItem key={batch.id} value={batch.id}>
-                          {batch.name}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Type *</label>
-                  <Select
-                    value={createForm.type}
-                    onValueChange={(v) => setCreateForm((prev) => ({ ...prev, type: v as ExamType }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {examTypeOptions.map((opt) => (
-                        <SelectItem key={opt} value={opt}>
-                          {opt}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Mode *</label>
-                  <Select
-                    value={createForm.mode}
-                    onValueChange={(v) => setCreateForm((prev) => ({ ...prev, mode: v as ExamMode }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {examModeOptions.map((opt) => (
-                        <SelectItem key={opt} value={opt}>
-                          {opt}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Start Date & Time</label>
-                  <Input
-                    type="datetime-local"
-                    value={createForm.startAt}
-                    onChange={(e) => setCreateForm((prev) => ({ ...prev, startAt: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">End Date & Time</label>
-                  <Input
-                    type="datetime-local"
-                    value={createForm.endAt}
-                    onChange={(e) => setCreateForm((prev) => ({ ...prev, endAt: e.target.value }))}
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Duration (Minutes)</label>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={createForm.durationMinutes || ''}
-                    onChange={(e) =>
-                      setCreateForm((prev) => ({
-                        ...prev,
-                        durationMinutes: e.target.value ? Number(e.target.value) : undefined,
-                      }))
-                    }
-                    placeholder="Duration in minutes"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Allowed Attempts</label>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={createForm.allowedAttempts}
-                    onChange={(e) =>
-                      setCreateForm((prev) => ({
-                        ...prev,
-                        allowedAttempts: e.target.value ? Number(e.target.value) : 1,
-                      }))
-                    }
-                    placeholder="Number of attempts"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Status</label>
-                <Select
-                  value={createForm.status}
-                  onValueChange={(v) => setCreateForm((prev) => ({ ...prev, status: v as ExamStatus }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {examStatusOptions.filter((opt) => opt !== 'all').map((opt) => (
-                      <SelectItem key={opt} value={opt}>
-                        {opt}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {createError && (
-                <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
-                  {createError}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <DialogFooter className="px-6 pb-6 pt-4 shrink-0 bg-background border-t shadow-lg mt-auto">
-            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateSubmit} disabled={createSubmitting}>
-              {createSubmitting ? 'Creating...' : 'Create Exam'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* View Exam Dialog */}
-      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="max-h-[90vh] sm:max-w-4xl flex flex-col p-0 gap-0" showCloseButton={true}>
-          <DialogHeader className="px-6 pt-6 pb-4 shrink-0 sticky top-0 bg-background z-10 border-b shadow-sm">
-            <DialogTitle>Exam Details</DialogTitle>
-            <DialogDescription>View complete exam information and statistics.</DialogDescription>
-          </DialogHeader>
-
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            {detailsLoading && <p className="text-sm text-muted-foreground py-6">Loading details...</p>}
-            {!detailsLoading && detailsError && (
-              <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive my-6">
-                {detailsError}
-              </div>
-            )}
-
-            {isDetailsReady && examDetails && (
-              <div className="space-y-5 text-sm py-6">
-                {/* Basic Information */}
-                <div>
-                  <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">Basic Information</p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Title</p>
-                      <p className="mt-1 font-medium">{examDetails.title}</p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Course</p>
-                      <p className="mt-1 font-medium">{examDetails.course?.name || '-'}</p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Branch</p>
-                      <p className="mt-1 font-medium">{examDetails.branch?.name || '-'}</p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Batch</p>
-                      <p className="mt-1 font-medium">{examDetails.batch?.name || '-'}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Exam Configuration */}
-                <div>
-                  <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">Exam Configuration</p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Type</p>
-                      <p className="mt-1">
-                        <Badge variant="outline">{examDetails.type}</Badge>
-                      </p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Mode</p>
-                      <p className="mt-1">
-                        <Badge variant="secondary">{examDetails.mode}</Badge>
-                      </p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Status</p>
-                      <p className="mt-1">
-                        <Badge
-                          variant={
-                            examDetails.status === 'PUBLISHED'
-                              ? 'default'
-                              : examDetails.status === 'DRAFT'
-                                ? 'secondary'
-                                : 'destructive'
-                          }
-                        >
-                          {examDetails.status}
-                        </Badge>
-                      </p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Allowed Attempts</p>
-                      <p className="mt-1 font-medium">{examDetails.allowedAttempts}</p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Duration</p>
-                      <p className="mt-1 font-medium">
-                        {examDetails.durationMinutes ? `${examDetails.durationMinutes} minutes` : '-'}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Total Attempts</p>
-                      <p className="mt-1 font-medium">{examDetails._count?.attempts || 0}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Schedule */}
-                {(examDetails.startAt || examDetails.endAt) && (
-                  <div>
-                    <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">Schedule</p>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {examDetails.startAt && (
-                        <div className="rounded-lg border bg-muted/20 p-3">
-                          <p className="text-xs uppercase text-muted-foreground">Start Date & Time</p>
-                          <p className="mt-1 text-sm">
-                            {new Date(examDetails.startAt).toLocaleString('en-US', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </p>
-                        </div>
-                      )}
-                      {examDetails.endAt && (
-                        <div className="rounded-lg border bg-muted/20 p-3">
-                          <p className="text-xs uppercase text-muted-foreground">End Date & Time</p>
-                          <p className="mt-1 text-sm">
-                            {new Date(examDetails.endAt).toLocaleString('en-US', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Exam Sets */}
-                {examDetails.sets && examDetails.sets.length > 0 && (
-                  <div>
-                    <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">Exam Sets</p>
-                    <div className="space-y-2">
-                      {examDetails.sets.map((set) => (
-                        <div key={set.id} className="rounded-lg border p-3">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium">{set.name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {set.questions?.length || 0} questions
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Exam Attempts */}
-                {examDetails.attempts && examDetails.attempts.length > 0 && (
-                  <div>
-                    <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">Recent Attempts</p>
-                    <div className="space-y-2">
-                      {examDetails.attempts.slice(0, 5).map((attempt) => (
-                        <div key={attempt.id} className="rounded-lg border p-3">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium">{attempt.student?.fullName || 'Unknown'}</p>
-                              <p className="text-xs text-muted-foreground">
-                                Started: {new Date(attempt.startedAt).toLocaleString()}
-                              </p>
-                            </div>
-                            <Badge variant="outline">{attempt.status}</Badge>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Timestamps */}
-                <div>
-                  <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">Timestamps</p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Created At</p>
-                      <p className="mt-1 text-sm">
-                        {new Date(examDetails.createdAt).toLocaleString('en-US', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Exam Dialog */}
-      <Dialog
-        open={editDialogOpen}
-        onOpenChange={(open) => {
-          setEditDialogOpen(open);
-          if (!open) setEditError(null);
-        }}
-      >
-        <DialogContent className="max-h-[90vh] sm:max-w-4xl flex flex-col p-0 gap-0" showCloseButton={true}>
-          <DialogHeader className="px-6 pt-6 pb-4 shrink-0 sticky top-0 bg-background z-10 border-b shadow-sm">
-            <DialogTitle>Edit Exam</DialogTitle>
-            <DialogDescription>Update exam information and save the changes.</DialogDescription>
-          </DialogHeader>
-
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            {detailsLoading && <p className="text-sm text-muted-foreground py-6">Loading form...</p>}
-            {!detailsLoading && detailsError && (
-              <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive my-6">
-                {detailsError}
-              </div>
-            )}
-
-            {isDetailsReady && (
-              <div className="space-y-4 py-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Title *</label>
-                  <Input
-                    value={editForm.title}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev, title: e.target.value }))}
-                    placeholder="Exam title"
-                  />
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Course *</label>
-                    <Select
-                      value={editForm.courseId}
-                      onValueChange={(v) => {
-                        setEditForm((prev) => ({ ...prev, courseId: v, batchId: undefined }));
-                        if (editForm.branchId) {
-                          loadBatches(v, editForm.branchId);
-                        }
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select course" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {courses.map((course) => (
-                          <SelectItem key={course.id} value={course.id}>
-                            {course.name} ({course.code})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Branch *</label>
-                    <Select
-                      value={editForm.branchId}
-                      onValueChange={(v) => {
-                        setEditForm((prev) => ({ ...prev, branchId: v, batchId: undefined }));
-                        if (editForm.courseId) {
-                          loadBatches(editForm.courseId, v);
-                        }
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select branch" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {branches.map((branch) => (
-                          <SelectItem key={branch.id} value={branch.id}>
-                            {branch.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Batch (Optional)</label>
-                  <Select
-                    value={editForm.batchId || undefined}
-                    onValueChange={(v) => setEditForm((prev) => ({ ...prev, batchId: v }))}
-                    disabled={!editForm.courseId || !editForm.branchId}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={!editForm.courseId || !editForm.branchId ? 'Select course and branch first' : 'Select batch'} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {batches.length === 0 ? (
-                        <div className="px-2 py-1.5 text-sm text-muted-foreground">No batches available</div>
-                      ) : (
-                        batches.map((batch) => (
-                          <SelectItem key={batch.id} value={batch.id}>
-                            {batch.name}
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Type *</label>
-                    <Select
-                      value={editForm.type}
-                      onValueChange={(v) => setEditForm((prev) => ({ ...prev, type: v as ExamType }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {examTypeOptions.map((opt) => (
-                          <SelectItem key={opt} value={opt}>
-                            {opt}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Mode *</label>
-                    <Select
-                      value={editForm.mode}
-                      onValueChange={(v) => setEditForm((prev) => ({ ...prev, mode: v as ExamMode }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {examModeOptions.map((opt) => (
-                          <SelectItem key={opt} value={opt}>
-                            {opt}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Start Date & Time</label>
-                    <Input
-                      type="datetime-local"
-                      value={editForm.startAt}
-                      onChange={(e) => setEditForm((prev) => ({ ...prev, startAt: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">End Date & Time</label>
-                    <Input
-                      type="datetime-local"
-                      value={editForm.endAt}
-                      onChange={(e) => setEditForm((prev) => ({ ...prev, endAt: e.target.value }))}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Duration (Minutes)</label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={editForm.durationMinutes || ''}
-                      onChange={(e) =>
-                        setEditForm((prev) => ({
-                          ...prev,
-                          durationMinutes: e.target.value ? Number(e.target.value) : undefined,
-                        }))
-                      }
-                      placeholder="Duration in minutes"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Allowed Attempts</label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={editForm.allowedAttempts}
-                      onChange={(e) =>
-                        setEditForm((prev) => ({
-                          ...prev,
-                          allowedAttempts: e.target.value ? Number(e.target.value) : 1,
-                        }))
-                      }
-                      placeholder="Number of attempts"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Status</label>
-                  <Select
-                    value={editForm.status}
-                    onValueChange={(v) => setEditForm((prev) => ({ ...prev, status: v as ExamStatus }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {examStatusOptions.filter((opt) => opt !== 'all').map((opt) => (
-                        <SelectItem key={opt} value={opt}>
-                          {opt}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {editError && (
-                  <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
-                    {editError}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <DialogFooter className="px-6 pb-6 pt-4 shrink-0 bg-background border-t shadow-lg mt-auto">
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleEditSubmit} disabled={editSubmitting || !isDetailsReady}>
-              {editSubmitting ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Toaster toasts={toasts} removeToast={removeToast} />
     </div>
