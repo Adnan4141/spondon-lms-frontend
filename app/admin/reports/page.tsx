@@ -40,9 +40,20 @@ import {
   DollarSign,
   Users,
   Calendar,
+  PieChart,
+  ArrowRight,
+  Sparkles,
+  Search,
+  Building2,
+  BookOpenCheck,
+  LayoutDashboard,
+  ShieldCheck,
+  CreditCard
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
+import { DatePicker } from '@/components/ui/date-picker';
+import { cn } from '@/lib/utils';
 
 type ReportType = 'revenue' | 'enrollment' | 'course-transactions';
 
@@ -50,6 +61,8 @@ function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   return 'Something went wrong';
 }
+
+const sectionLabel = 'text-[11px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2 block px-1';
 
 export default function ReportsPage() {
   const { toast, toasts, removeToast } = useToast();
@@ -99,42 +112,28 @@ export default function ReportsPage() {
   const loadCourses = async () => {
     try {
       const response = await getCourses({});
-      if (response.success && response.data) {
-        setCourses(response.data || []);
-      }
-    } catch (err: unknown) {
-      console.error('Failed to load courses:', err);
-    }
+      if (response.success && response.data) setCourses(response.data || []);
+    } catch (err) { console.error(err); }
   };
 
   const loadBranches = async () => {
     try {
       const response = await getBranches();
-      if (response.success && response.data) {
-        setBranches(response.data || []);
-      }
-    } catch (err: unknown) {
-      console.error('Failed to load branches:', err);
-    }
+      if (response.success && response.data) setBranches(response.data || []);
+    } catch (err) { console.error(err); }
   };
 
   const loadPrograms = async () => {
     try {
       const response = await getPrograms();
-      if (response.success && response.data) {
-        setPrograms(response.data || []);
-      }
-    } catch (err: unknown) {
-      console.error('Failed to load programs:', err);
-    }
+      if (response.success && response.data) setPrograms(response.data || []);
+    } catch (err) { console.error(err); }
   };
 
   const loadRevenueReport = async () => {
     try {
       setLoading(true);
-      const params: RevenueSummaryParams = {
-        period: revenuePeriod,
-      };
+      const params: RevenueSummaryParams = { period: revenuePeriod };
       if (revenueBranchId !== 'all') params.branchId = revenueBranchId;
       if (revenueCourseId !== 'all') params.courseId = revenueCourseId;
       if (revenueFrom) params.from = revenueFrom;
@@ -144,19 +143,9 @@ export default function ReportsPage() {
       if (response.success) {
         setRevenueData(response.data || []);
         setRevenueTotals(response.totals || { totalAmount: 0, totalTransactions: 0 });
-      } else {
-        toast({
-          title: 'Error',
-          description: 'Failed to load revenue report',
-          variant: 'destructive',
-        });
       }
-    } catch (err: unknown) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(err) || 'Failed to load revenue report',
-        variant: 'destructive',
-      });
+    } catch (err: any) {
+      toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -171,21 +160,9 @@ export default function ReportsPage() {
       if (enrollmentBranchId !== 'all') params.branchId = enrollmentBranchId;
 
       const response = await getEnrollmentReport(params);
-      if (response.success) {
-        setEnrollmentData(response.data || []);
-      } else {
-        toast({
-          title: 'Error',
-          description: 'Failed to load enrollment report',
-          variant: 'destructive',
-        });
-      }
-    } catch (err: unknown) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(err) || 'Failed to load enrollment report',
-        variant: 'destructive',
-      });
+      if (response.success) setEnrollmentData(response.data || []);
+    } catch (err: any) {
+      toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -193,32 +170,15 @@ export default function ReportsPage() {
 
   const loadCourseTransactions = async () => {
     if (!transactionCourseId) {
-      toast({
-        title: 'Error',
-        description: 'Please select a course',
-        variant: 'destructive',
-      });
+      toast({ title: 'Requirement', description: 'Please select a course for analysis', variant: 'destructive' });
       return;
     }
-
     try {
       setLoading(true);
       const response = await getCourseTransactions({ courseId: transactionCourseId });
-      if (response.success) {
-        setCourseTransactionData(response.data || []);
-      } else {
-        toast({
-          title: 'Error',
-          description: 'Failed to load course transactions',
-          variant: 'destructive',
-        });
-      }
-    } catch (err: unknown) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(err) || 'Failed to load course transactions',
-        variant: 'destructive',
-      });
+      if (response.success) setCourseTransactionData(response.data || []);
+    } catch (err: any) {
+      toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -231,139 +191,161 @@ export default function ReportsPage() {
     }).format(amount)}`;
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    if (revenuePeriod === 'yearly') {
-      return date.getFullYear().toString();
-    } else if (revenuePeriod === 'monthly') {
-      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
-    } else {
-      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-    }
-  };
-
   const renderRevenueReport = () => (
-    <div className="space-y-6">
-      <div className="glass-panel p-4">
-        <div className="flex flex-wrap gap-4">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Stats Section */}
+      <section className="grid gap-6 sm:grid-cols-2">
+        {[
+          { label: 'Total Revenue Generated', value: formatCurrency(revenueTotals.totalAmount), color: 'from-emerald-600 to-teal-500', icon: DollarSign },
+          { label: 'Authorization Volume', value: revenueTotals.totalTransactions, color: 'from-blue-600 to-cyan-500', icon: TrendingUp },
+        ].map((stat, i) => (
+          <div key={i} className="group relative overflow-hidden rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/40 transition-all hover:-translate-y-1 hover:shadow-2xl">
+             <div className="flex items-center justify-between">
+                <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg group-hover:scale-110 transition-transform", stat.color)}>
+                   <stat.icon className="h-6 w-6" />
+                </div>
+                <ArrowRight className="h-4 w-4 text-slate-200 group-hover:text-indigo-500 transition-colors" />
+             </div>
+             <div className="mt-6">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
+                <p className="mt-1 text-3xl font-black text-slate-900">{stat.value}</p>
+             </div>
+          </div>
+        ))}
+      </section>
+
+      {/* Filter Matrix */}
+      <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm space-y-6">
+        <div className="flex items-center gap-2">
+           <ShieldCheck className="h-4 w-4 text-indigo-600" />
+           <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Intelligence Filters</h3>
+        </div>
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Period</label>
-            <Select value={revenuePeriod} onValueChange={(v) => setRevenuePeriod(v as 'daily' | 'monthly' | 'yearly')}>
-              <SelectTrigger className="w-[150px]">
+            <label className={sectionLabel}>Period Type</label>
+            <Select value={revenuePeriod} onValueChange={(v) => setRevenuePeriod(v as any)}>
+              <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-xs shadow-inner">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="daily">Daily</SelectItem>
-                <SelectItem value="monthly">Monthly</SelectItem>
-                <SelectItem value="yearly">Yearly</SelectItem>
+              <SelectContent className="rounded-xl shadow-xl">
+                <SelectItem value="daily" className="font-bold py-2">Daily Resolution</SelectItem>
+                <SelectItem value="monthly" className="font-bold py-2">Monthly Resolution</SelectItem>
+                <SelectItem value="yearly" className="font-bold py-2">Yearly Resolution</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Branch</label>
+            <label className={sectionLabel}>Branch Context</label>
             <Select value={revenueBranchId} onValueChange={setRevenueBranchId}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-xs shadow-inner">
                 <SelectValue placeholder="All Branches" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Branches</SelectItem>
-                {branches.map((branch) => (
-                  <SelectItem key={branch.id} value={branch.id}>
-                    {branch.name}
-                  </SelectItem>
-                ))}
+              <SelectContent className="rounded-xl shadow-xl">
+                <SelectItem value="all" className="font-bold py-2">Universal Network</SelectItem>
+                {branches.map((b) => <SelectItem key={b.id} value={b.id} className="font-bold py-2">{b.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Course</label>
+            <label className={sectionLabel}>Academic Program</label>
             <Select value={revenueCourseId} onValueChange={setRevenueCourseId}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-xs shadow-inner">
                 <SelectValue placeholder="All Courses" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Courses</SelectItem>
-                {courses.map((course) => (
-                  <SelectItem key={course.id} value={course.id}>
-                    {course.name}
-                  </SelectItem>
-                ))}
+              <SelectContent className="rounded-xl shadow-xl">
+                <SelectItem value="all" className="font-bold py-2">All Active Courses</SelectItem>
+                {courses.map((c) => <SelectItem key={c.id} value={c.id} className="font-bold py-2">{c.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">From Date</label>
-            <Input
-              type="date"
-              value={revenueFrom}
-              onChange={(e) => setRevenueFrom(e.target.value)}
-              className="w-[150px]"
+            <label className={sectionLabel}>Temporal Start</label>
+            <DatePicker
+              date={revenueFrom ? new Date(revenueFrom) : undefined}
+              setDate={(date) => {
+                if (!date) {
+                  setRevenueFrom('');
+                  return;
+                }
+                const y = date.getFullYear();
+                const m = String(date.getMonth() + 1).padStart(2, '0');
+                const d = String(date.getDate()).padStart(2, '0');
+                setRevenueFrom(`${y}-${m}-${d}`);
+              }}
+              className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-xs shadow-inner"
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">To Date</label>
-            <Input
-              type="date"
-              value={revenueTo}
-              onChange={(e) => setRevenueTo(e.target.value)}
-              className="w-[150px]"
+            <label className={sectionLabel}>Temporal End</label>
+            <DatePicker
+              date={revenueTo ? new Date(revenueTo) : undefined}
+              setDate={(date) => {
+                if (!date) {
+                  setRevenueTo('');
+                  return;
+                }
+                const y = date.getFullYear();
+                const m = String(date.getMonth() + 1).padStart(2, '0');
+                const d = String(date.getDate()).padStart(2, '0');
+                setRevenueTo(`${y}-${m}-${d}`);
+              }}
+              className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-xs shadow-inner"
             />
           </div>
           <div className="flex items-end">
-            <Button onClick={loadRevenueReport} disabled={loading}>
-              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
+            <Button className="h-11 w-full rounded-xl bg-slate-900 font-black uppercase tracking-widest text-[11px] text-white hover:bg-indigo-600 transition-all shadow-lg" onClick={loadRevenueReport} disabled={loading}>
+              <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
+              Sync Report
             </Button>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="glass-panel p-4">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <DollarSign className="h-5 w-5" />
-            <p className="text-sm font-medium">Total Revenue</p>
+      {/* Data Visualization Placeholder / Table */}
+      <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/30">
+        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
+          <div>
+            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Statement Ledger</h2>
+            <p className="mt-0.5 text-xs font-bold text-indigo-500">Consolidated financial buckets</p>
           </div>
-          <p className="mt-2 text-2xl font-semibold">{formatCurrency(revenueTotals.totalAmount)}</p>
-        </div>
-        <div className="glass-panel p-4">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <TrendingUp className="h-5 w-5" />
-            <p className="text-sm font-medium">Total Transactions</p>
-          </div>
-          <p className="mt-2 text-2xl font-semibold">{revenueTotals.totalTransactions}</p>
-        </div>
-      </div>
-
-      <div className="glass-panel overflow-hidden p-0">
-        <div className="border-b border-border/60 px-5 py-4">
-          <h3 className="text-base font-semibold">Revenue Summary</h3>
         </div>
         {loading ? (
-          <div className="p-8 text-center text-muted-foreground">Loading revenue data...</div>
+          <div className="p-20 text-center flex flex-col items-center gap-4">
+             <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Synchronizing Data...</p>
+          </div>
         ) : revenueData.length === 0 ? (
-          <div className="p-8 text-center text-muted-foreground">No revenue data found</div>
+          <div className="p-20 text-center">
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No financial footprints identified.</p>
+          </div>
         ) : (
           <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead>
-                  {revenuePeriod === 'yearly' ? 'Year' : revenuePeriod === 'monthly' ? 'Month' : 'Date'}
-                </TableHead>
-                <TableHead className="text-right">Amount</TableHead>
+            <TableHeader className="bg-slate-50/50">
+              <TableRow className="border-b border-slate-100">
+                <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Timeline Bucket</TableHead>
+                <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Authorized Amount</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {revenueData.map((item, idx) => (
-                <TableRow key={idx}>
-                  <TableCell className="font-medium">{item.bucket}</TableCell>
-                  <TableCell className="text-right font-semibold">{formatCurrency(item.amount)}</TableCell>
+                <TableRow key={idx} className="group border-slate-100 hover:bg-slate-50/80 transition-colors">
+                  <TableCell className="px-8 py-5">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                        <Calendar className="h-4 w-4" />
+                      </div>
+                      <span className="font-bold text-slate-700">{item.bucket}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-8 py-5 text-right font-black text-slate-900 text-lg">
+                    {formatCurrency(item.amount)}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         )}
-      </div>
+      </section>
     </div>
   );
 
@@ -372,267 +354,277 @@ export default function ReportsPage() {
     const totalPayable = enrollmentData.reduce((sum, item) => sum + item.estimatedPayable, 0);
 
     return (
-      <div className="space-y-6">
-        <div className="glass-panel p-4">
-          <div className="flex flex-wrap gap-4">
+      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <section className="grid gap-6 sm:grid-cols-2">
+          {[
+            { label: 'Total Registry Volume', value: totalEnrollments, color: 'from-violet-600 to-indigo-500', icon: Users },
+            { label: 'Estimated Gross Payable', value: formatCurrency(totalPayable), color: 'from-amber-600 to-orange-500', icon: CreditCard },
+          ].map((stat, i) => (
+            <div key={i} className="group relative overflow-hidden rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/40 transition-all hover:-translate-y-1 hover:shadow-2xl">
+               <div className="flex items-center justify-between">
+                  <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg group-hover:scale-110 transition-transform", stat.color)}>
+                     <stat.icon className="h-6 w-6" />
+                  </div>
+               </div>
+               <div className="mt-6">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
+                  <p className="mt-1 text-3xl font-black text-slate-900">{stat.value}</p>
+               </div>
+            </div>
+          ))}
+        </section>
+
+        <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm space-y-6">
+          <div className="flex items-center gap-2">
+             <BookOpenCheck className="h-4 w-4 text-emerald-600" />
+             <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Academic Context Filters</h3>
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Program</label>
+              <label className={sectionLabel}>Program Faculty</label>
               <Select value={enrollmentProgramId} onValueChange={setEnrollmentProgramId}>
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-xs shadow-inner">
                   <SelectValue placeholder="All Programs" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Programs</SelectItem>
-                  {programs.map((program) => (
-                    <SelectItem key={program.id} value={program.id}>
-                      {program.name}
-                    </SelectItem>
-                  ))}
+                <SelectContent className="rounded-xl shadow-xl">
+                  <SelectItem value="all" className="font-bold py-2">Universal Program</SelectItem>
+                  {programs.map((p) => <SelectItem key={p.id} value={p.id} className="font-bold py-2">{p.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Course</label>
+              <label className={sectionLabel}>Course Module</label>
               <Select value={enrollmentCourseId} onValueChange={setEnrollmentCourseId}>
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-xs shadow-inner">
                   <SelectValue placeholder="All Courses" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Courses</SelectItem>
-                  {courses.map((course) => (
-                    <SelectItem key={course.id} value={course.id}>
-                      {course.name}
-                    </SelectItem>
-                  ))}
+                <SelectContent className="rounded-xl shadow-xl">
+                  <SelectItem value="all" className="font-bold py-2">All Active Tracks</SelectItem>
+                  {courses.map((c) => <SelectItem key={c.id} value={c.id} className="font-bold py-2">{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Branch</label>
+              <label className={sectionLabel}>Regional Branch</label>
               <Select value={enrollmentBranchId} onValueChange={setEnrollmentBranchId}>
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-xs shadow-inner">
                   <SelectValue placeholder="All Branches" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Branches</SelectItem>
-                  {branches.map((branch) => (
-                    <SelectItem key={branch.id} value={branch.id}>
-                      {branch.name}
-                    </SelectItem>
-                  ))}
+                <SelectContent className="rounded-xl shadow-xl">
+                  <SelectItem value="all" className="font-bold py-2">Full Network</SelectItem>
+                  {branches.map((b) => <SelectItem key={b.id} value={b.id} className="font-bold py-2">{b.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="flex items-end">
-              <Button onClick={loadEnrollmentReport} disabled={loading}>
-                <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                Refresh
+              <Button className="h-11 w-full rounded-xl bg-slate-900 font-black uppercase tracking-widest text-[11px] text-white hover:bg-emerald-600 transition-all shadow-lg" onClick={loadEnrollmentReport} disabled={loading}>
+                <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
+                Sync Analytics
               </Button>
             </div>
           </div>
-        </div>
+        </section>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="glass-panel p-4">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Users className="h-5 w-5" />
-              <p className="text-sm font-medium">Total Enrollments</p>
+        <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/30">
+          <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
+            <div>
+              <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Enrollment Database</h2>
+              <p className="mt-0.5 text-xs font-bold text-emerald-500">Registry mapping by program & course</p>
             </div>
-            <p className="mt-2 text-2xl font-semibold">{totalEnrollments}</p>
-          </div>
-          <div className="glass-panel p-4">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <DollarSign className="h-5 w-5" />
-              <p className="text-sm font-medium">Total Estimated Payable</p>
-            </div>
-            <p className="mt-2 text-2xl font-semibold">{formatCurrency(totalPayable)}</p>
-          </div>
-        </div>
-
-        <div className="glass-panel overflow-hidden p-0">
-          <div className="border-b border-border/60 px-5 py-4">
-            <h3 className="text-base font-semibold">Enrollment Report</h3>
           </div>
           {loading ? (
-            <div className="p-8 text-center text-muted-foreground">Loading enrollment data...</div>
+            <div className="p-20 text-center flex flex-col items-center gap-4">
+               <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
+               <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Synchronizing Data...</p>
+            </div>
           ) : enrollmentData.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground">No enrollment data found</div>
+            <div className="p-20 text-center">
+               <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No matching registry records.</p>
+            </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead>Program</TableHead>
-                  <TableHead>Course</TableHead>
-                  <TableHead className="text-right">Enrollments</TableHead>
-                  <TableHead className="text-right">Per Student Pay</TableHead>
-                  <TableHead className="text-right">Estimated Payable</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {enrollmentData.map((item, idx) => (
-                  <TableRow key={idx}>
-                    <TableCell className="font-medium">{item.programName}</TableCell>
-                    <TableCell>{item.courseName}</TableCell>
-                    <TableCell className="text-right">
-                      <Badge variant="outline">{item.enrollmentCount}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">{formatCurrency(item.perStudentPay)}</TableCell>
-                    <TableCell className="text-right font-semibold">{formatCurrency(item.estimatedPayable)}</TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-slate-50/50">
+                  <TableRow className="border-b border-slate-100">
+                    <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Institutional Mapping</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-center">Registry Size</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Standard Fee</TableHead>
+                    <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Proj. Revenue</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {enrollmentData.map((item, idx) => (
+                    <TableRow key={idx} className="group border-slate-100 hover:bg-slate-50/80 transition-colors">
+                      <TableCell className="px-8 py-5">
+                         <div className="flex flex-col gap-1">
+                            <span className="font-bold text-slate-900">{item.courseName}</span>
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.programName}</span>
+                         </div>
+                      </TableCell>
+                      <TableCell className="py-5 text-center">
+                        <Badge variant="outline" className="rounded-xl bg-white border-slate-200 px-4 py-1.5 text-[10px] font-black text-slate-600 shadow-sm">{item.enrollmentCount} STU</Badge>
+                      </TableCell>
+                      <TableCell className="py-5 text-right font-bold text-slate-500">{formatCurrency(item.perStudentPay)}</TableCell>
+                      <TableCell className="px-8 py-5 text-right font-black text-slate-900 text-lg">{formatCurrency(item.estimatedPayable)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
-        </div>
+        </section>
       </div>
     );
   };
 
   const renderCourseTransactions = () => (
-    <div className="space-y-6">
-      <div className="glass-panel p-4">
-        <div className="flex flex-wrap gap-4">
-          <div className="space-y-2 flex-1 min-w-[200px]">
-            <label className="text-sm font-medium">Course *</label>
-            <Select value={transactionCourseId} onValueChange={setTransactionCourseId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a course" />
-              </SelectTrigger>
-              <SelectContent>
-                {courses.map((course) => (
-                  <SelectItem key={course.id} value={course.id}>
-                    {course.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-end">
-            <Button onClick={loadCourseTransactions} disabled={loading || !transactionCourseId}>
-              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              Load Transactions
-            </Button>
-          </div>
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm flex flex-wrap gap-6 items-end">
+        <div className="space-y-2 flex-1 min-w-[300px]">
+          <label className={sectionLabel}>Course Selection</label>
+          <Select value={transactionCourseId} onValueChange={setTransactionCourseId}>
+            <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-6 font-bold text-sm shadow-inner transition-all focus:ring-4 focus:ring-indigo-500/10">
+              <SelectValue placeholder="Target specialized course analysis..." />
+            </SelectTrigger>
+            <SelectContent className="rounded-2xl shadow-2xl">
+              {courses.map((c) => <SelectItem key={c.id} value={c.id} className="font-bold py-3">{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
-      </div>
+        <Button className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white hover:bg-indigo-600 transition-all shadow-xl" onClick={loadCourseTransactions} disabled={loading || !transactionCourseId}>
+          <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
+          Audit Ledger
+        </Button>
+      </section>
 
-      <div className="glass-panel overflow-hidden p-0">
-        <div className="border-b border-border/60 px-5 py-4">
-          <h3 className="text-base font-semibold">Course Transactions</h3>
+      <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/30">
+        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
+          <div>
+            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Transaction Audit</h2>
+            <p className="mt-0.5 text-xs font-bold text-indigo-500">Detailed financial tracks for course modules</p>
+          </div>
         </div>
         {loading ? (
-          <div className="p-8 text-center text-muted-foreground">Loading transactions...</div>
+          <div className="p-20 text-center flex flex-col items-center gap-4">
+             <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Synchronizing Data...</p>
+          </div>
         ) : courseTransactionData.length === 0 ? (
-          <div className="p-8 text-center text-muted-foreground">
-            {transactionCourseId ? 'No transactions found for this course' : 'Please select a course to view transactions'}
+          <div className="p-20 text-center">
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No specialized transactions identified.</p>
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead>Student</TableHead>
-                <TableHead>Branch</TableHead>
-                <TableHead className="text-right">Total Amount</TableHead>
-                <TableHead className="text-right">Paid Amount</TableHead>
-                <TableHead className="text-right">Due Amount</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Date</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {courseTransactionData.map((transaction) => (
-                <TableRow key={transaction.id}>
-                  <TableCell className="font-medium">{transaction.student?.fullName || '-'}</TableCell>
-                  <TableCell>{transaction.branch?.name || '-'}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(Number(transaction.totalAmount))}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(Number(transaction.paidAmount))}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(Number(transaction.dueAmount))}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        transaction.status === 'PAID'
-                          ? 'default'
-                          : transaction.status === 'PARTIAL'
-                            ? 'secondary'
-                            : 'destructive'
-                      }
-                    >
-                      {transaction.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {new Date(transaction.createdAt).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                    })}
-                  </TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-slate-50/50">
+                <TableRow className="border-b border-slate-100">
+                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Student ID</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Origin</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Net Payable</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Authorized</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Authorization</TableHead>
+                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Temporal</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {courseTransactionData.map((t) => (
+                  <TableRow key={t.id} className="group border-slate-100 hover:bg-slate-50/80 transition-colors">
+                    <TableCell className="px-8 py-5">
+                       <div className="flex flex-col">
+                          <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{t.student?.fullName || '-'}</span>
+                          <span className="text-[9px] font-mono font-black text-slate-400 uppercase">TX-{t.id.slice(0, 8)}</span>
+                       </div>
+                    </TableCell>
+                    <TableCell className="py-5 font-bold text-slate-600">{t.branch?.name || '-'}</TableCell>
+                    <TableCell className="py-5 text-right font-black text-slate-900">{formatCurrency(Number(t.totalAmount))}</TableCell>
+                    <TableCell className="py-5 text-right font-black text-emerald-600">{formatCurrency(Number(t.paidAmount))}</TableCell>
+                    <TableCell className="py-5">
+                      <Badge variant="outline" className={cn("rounded-lg text-[9px] font-black uppercase tracking-widest px-2.5 py-1", 
+                        t.status === 'PAID' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-rose-50 text-rose-700 border-rose-100'
+                      )}>
+                        {t.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="px-8 py-5 text-xs font-bold text-slate-500">
+                      {new Date(t.createdAt).toLocaleDateString()}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
-      </div>
+      </section>
     </div>
   );
 
   return (
-    <div className="space-y-4">
-      <section className="glass-panel p-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="space-y-8 text-slate-900">
+      {/* Header Section */}
+      <section className="relative overflow-hidden rounded-[32px] border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/40">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.03),transparent_40%)]" />
+        
+        <div className="relative flex flex-wrap items-start justify-between gap-6">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight">Reports & Analytics</h1>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              View revenue summaries, enrollment reports, and course transaction details.
+            <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 border border-indigo-100/50 shadow-sm">
+              <PieChart className="h-3.5 w-3.5" />
+              Intelligence Workspace
+            </div>
+            <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
+              Reports & <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">Analytics</span>
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-slate-500">
+              Synchronized data streams for revenue management, enrollment metrics, and cross-institutional financial auditing.
             </p>
           </div>
         </div>
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-[200px_1fr]">
-        <section className="glass-panel p-4">
-          <nav className="space-y-1">
-            <button
-              onClick={() => setActiveReport('revenue')}
-              className={`w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
-                activeReport === 'revenue'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-muted/50'
-              }`}
-            >
-              <DollarSign className="h-4 w-4" />
-              <span>Revenue</span>
-            </button>
-            <button
-              onClick={() => setActiveReport('enrollment')}
-              className={`w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
-                activeReport === 'enrollment'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-muted/50'
-              }`}
-            >
-              <Users className="h-4 w-4" />
-              <span>Enrollments</span>
-            </button>
-            <button
-              onClick={() => setActiveReport('course-transactions')}
-              className={`w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
-                activeReport === 'course-transactions'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-muted/50'
-              }`}
-            >
-              <BarChart3 className="h-4 w-4" />
-              <span>Transactions</span>
-            </button>
-          </nav>
-        </section>
+      <div className="grid gap-8 lg:grid-cols-[260px_1fr]">
+        <aside className="space-y-4">
+           <div className="rounded-[32px] border border-slate-200 bg-white p-4 shadow-sm">
+             <nav className="space-y-2">
+               {[
+                 { id: 'revenue', label: 'Financial Ledger', icon: DollarSign, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+                 { id: 'enrollment', label: 'Registry Analysis', icon: Users, color: 'text-indigo-500', bg: 'bg-indigo-50' },
+                 { id: 'course-transactions', label: 'Monetary Tracks', icon: BarChart3, color: 'text-rose-500', bg: 'bg-rose-50' },
+               ].map((item) => (
+                 <button
+                   key={item.id}
+                   onClick={() => setActiveReport(item.id as ReportType)}
+                   className={cn(
+                     "group w-full flex items-center gap-4 rounded-2xl px-5 py-4 text-xs font-black uppercase tracking-widest transition-all",
+                     activeReport === item.id
+                       ? "bg-slate-900 text-white shadow-xl shadow-slate-200"
+                       : "text-slate-400 hover:bg-slate-50 hover:text-slate-900"
+                   )}
+                 >
+                   <div className={cn("flex h-8 w-8 items-center justify-center rounded-xl transition-colors", 
+                      activeReport === item.id ? "bg-white/10" : item.bg,
+                      activeReport === item.id ? "text-white" : item.color
+                   )}>
+                      <item.icon className="h-4 w-4" />
+                   </div>
+                   <span>{item.label}</span>
+                 </button>
+               ))}
+             </nav>
+           </div>
+           
+           <div className="rounded-[32px] border border-slate-200 bg-slate-900 p-6 text-white shadow-xl">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 text-emerald-400 mb-4">
+                 <Sparkles className="h-5 w-5" />
+              </div>
+              <h4 className="text-sm font-black uppercase tracking-widest">Data Synchronization</h4>
+              <p className="mt-2 text-[10px] font-bold text-slate-400 leading-relaxed uppercase tracking-tighter">Authorized analysis based on real-time institutional records.</p>
+           </div>
+        </aside>
 
-        <section className="glass-panel p-6">
+        <main className="space-y-6">
           {activeReport === 'revenue' && renderRevenueReport()}
           {activeReport === 'enrollment' && renderEnrollmentReport()}
           {activeReport === 'course-transactions' && renderCourseTransactions()}
-        </section>
+        </main>
       </div>
 
       <Toaster toasts={toasts} removeToast={removeToast} />

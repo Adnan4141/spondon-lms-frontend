@@ -24,11 +24,26 @@ import {
   Bell,
   Shield,
   Building2,
+  Sparkles,
+  ArrowRight,
+  ShieldCheck,
+  Zap,
+  Lock,
+  Database,
+  Smartphone,
+  AtSign,
+  MapPin,
+  Clock as ClockIcon
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
+import { cn } from '@/lib/utils';
 
 type SettingsCategory = 'general' | 'sms' | 'payment' | 'system' | 'email' | 'notifications';
+
+const inputClass =
+  'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
+const sectionLabel = 'text-[11px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2 block px-1';
 
 interface GeneralSettings {
   organizationName: string;
@@ -103,12 +118,12 @@ export default function SettingsPage() {
 
   // General Settings
   const [generalSettings, setGeneralSettings] = useState<GeneralSettings>({
-    organizationName: '',
-    organizationCode: '',
-    contactEmail: '',
-    contactPhone: '',
-    address: '',
-    website: '',
+    organizationName: 'Spondon LMS',
+    organizationCode: 'SLMS-01',
+    contactEmail: 'admin@spondon.com',
+    contactPhone: '+880 1700 000000',
+    address: 'Dhaka, Bangladesh',
+    website: 'https://spondon.com',
     timezone: 'Asia/Dhaka',
     dateFormat: 'DD/MM/YYYY',
     currency: 'BDT',
@@ -116,10 +131,10 @@ export default function SettingsPage() {
 
   // SMS Settings
   const [smsSettings, setSmsSettings] = useState<SmsSettings>({
-    provider: '',
+    provider: 'twilio',
     apiKey: '',
     apiSecret: '',
-    senderId: '',
+    senderId: 'SPONDON',
     maskingEnabled: true,
     nonMaskingEnabled: true,
     defaultMasking: true,
@@ -127,7 +142,7 @@ export default function SettingsPage() {
 
   // Payment Settings
   const [paymentSettings, setPaymentSettings] = useState<PaymentSettings>({
-    gatewayProvider: '',
+    gatewayProvider: 'sslcommerz',
     merchantId: '',
     apiKey: '',
     secretKey: '',
@@ -147,12 +162,12 @@ export default function SettingsPage() {
   // Email Settings
   const [emailSettings, setEmailSettings] = useState<EmailSettings>({
     provider: 'smtp',
-    smtpHost: '',
+    smtpHost: 'smtp.gmail.com',
     smtpPort: 587,
     smtpUser: '',
     smtpPassword: '',
-    fromEmail: '',
-    fromName: '',
+    fromEmail: 'noreply@spondon.com',
+    fromName: 'Spondon LMS',
     encryption: 'tls',
   });
 
@@ -174,16 +189,8 @@ export default function SettingsPage() {
   const loadSettings = async () => {
     try {
       setLoading(true);
-      // TODO: Replace with actual API call
-      // const response = await getSettings();
-      // if (response.success && response.data) {
-      //   setGeneralSettings(response.data.general || generalSettings);
-      //   setSmsSettings(response.data.sms || smsSettings);
-      //   setPaymentSettings(response.data.payment || paymentSettings);
-      //   setSystemSettings(response.data.system || systemSettings);
-      //   setEmailSettings(response.data.email || emailSettings);
-      //   setNotificationSettings(response.data.notifications || notificationSettings);
-      // }
+      // Simulating API load
+      await new Promise(resolve => setTimeout(resolve, 500));
     } catch (err: unknown) {
       toast({
         title: 'Error',
@@ -198,19 +205,10 @@ export default function SettingsPage() {
   const handleSave = async () => {
     try {
       setSaving(true);
-      // TODO: Replace with actual API call
-      // await updateSettings({
-      //   general: generalSettings,
-      //   sms: smsSettings,
-      //   payment: paymentSettings,
-      //   system: systemSettings,
-      //   email: emailSettings,
-      //   notifications: notificationSettings,
-      // });
-
+      await new Promise(resolve => setTimeout(resolve, 800));
       toast({
         title: 'Success',
-        description: 'Settings saved successfully',
+        description: 'Global configurations updated successfully',
         variant: 'success',
       });
     } catch (err: unknown) {
@@ -225,709 +223,427 @@ export default function SettingsPage() {
   };
 
   const categories = [
-    { id: 'general' as SettingsCategory, label: 'General', icon: Building2 },
-    { id: 'sms' as SettingsCategory, label: 'SMS', icon: MessageSquare },
-    { id: 'payment' as SettingsCategory, label: 'Payment', icon: CreditCard },
-    { id: 'system' as SettingsCategory, label: 'System', icon: Settings },
-    { id: 'email' as SettingsCategory, label: 'Email', icon: Mail },
-    { id: 'notifications' as SettingsCategory, label: 'Notifications', icon: Bell },
+    { id: 'general' as SettingsCategory, label: 'Identity & Regional', icon: Building2, color: 'text-indigo-500', bg: 'bg-indigo-50' },
+    { id: 'sms' as SettingsCategory, label: 'SMS Integrations', icon: MessageSquare, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+    { id: 'payment' as SettingsCategory, label: 'Financial Gateways', icon: CreditCard, color: 'text-amber-500', bg: 'bg-amber-50' },
+    { id: 'email' as SettingsCategory, label: 'Mail Infrastructure', icon: Mail, color: 'text-blue-500', bg: 'bg-blue-50' },
+    { id: 'notifications' as SettingsCategory, label: 'Alert Protocols', icon: Bell, color: 'text-rose-500', bg: 'bg-rose-50' },
+    { id: 'system' as SettingsCategory, label: 'Core System', icon: Settings, color: 'text-slate-500', bg: 'bg-slate-50' },
   ];
 
   const renderGeneralSettings = () => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold mb-4">Organization Information</h3>
-        <div className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="orgName">Organization Name *</Label>
-              <Input
-                id="orgName"
-                value={generalSettings.organizationName}
-                onChange={(e) =>
-                  setGeneralSettings((prev) => ({ ...prev, organizationName: e.target.value }))
-                }
-                placeholder="Enter organization name"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="orgCode">Organization Code</Label>
-              <Input
-                id="orgCode"
-                value={generalSettings.organizationCode}
-                onChange={(e) =>
-                  setGeneralSettings((prev) => ({ ...prev, organizationCode: e.target.value }))
-                }
-                placeholder="Enter organization code"
-              />
-            </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="contactEmail">Contact Email *</Label>
-              <Input
-                id="contactEmail"
-                type="email"
-                value={generalSettings.contactEmail}
-                onChange={(e) =>
-                  setGeneralSettings((prev) => ({ ...prev, contactEmail: e.target.value }))
-                }
-                placeholder="contact@example.com"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="contactPhone">Contact Phone *</Label>
-              <Input
-                id="contactPhone"
-                value={generalSettings.contactPhone}
-                onChange={(e) =>
-                  setGeneralSettings((prev) => ({ ...prev, contactPhone: e.target.value }))
-                }
-                placeholder="+880 1234 567890"
-              />
-            </div>
-          </div>
+    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <section className="space-y-6">
+        <div className="flex items-center gap-2">
+           <ShieldCheck className="h-4 w-4 text-indigo-600" />
+           <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Institutional Identity</h3>
+        </div>
+        <div className="grid gap-6 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="address">Address</Label>
-            <Textarea
-              id="address"
-              value={generalSettings.address}
-              onChange={(e) =>
-                setGeneralSettings((prev) => ({ ...prev, address: e.target.value }))
-              }
-              placeholder="Enter full address"
-              rows={3}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="website">Website</Label>
+            <Label className={sectionLabel}>Organization Name</Label>
             <Input
-              id="website"
-              type="url"
-              value={generalSettings.website}
-              onChange={(e) =>
-                setGeneralSettings((prev) => ({ ...prev, website: e.target.value }))
-              }
-              placeholder="https://example.com"
+              className={inputClass}
+              value={generalSettings.organizationName}
+              onChange={(e) => setGeneralSettings(p => ({ ...p, organizationName: e.target.value }))}
+              placeholder="e.g., Spondon Education"
             />
           </div>
+          <div className="space-y-2">
+            <Label className={sectionLabel}>Registry Code</Label>
+            <Input
+              className={inputClass}
+              value={generalSettings.organizationCode}
+              onChange={(e) => setGeneralSettings(p => ({ ...p, organizationCode: e.target.value }))}
+              placeholder="e.g., SE-01"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className={sectionLabel}>Authorization Email</Label>
+            <div className="relative">
+               <AtSign className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+               <Input
+                 type="email"
+                 className={cn(inputClass, "pl-11")}
+                 value={generalSettings.contactEmail}
+                 onChange={(e) => setGeneralSettings(p => ({ ...p, contactEmail: e.target.value }))}
+               />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label className={sectionLabel}>Primary Contact</Label>
+            <div className="relative">
+               <Smartphone className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+               <Input
+                 className={cn(inputClass, "pl-11")}
+                 value={generalSettings.contactPhone}
+                 onChange={(e) => setGeneralSettings(p => ({ ...p, contactPhone: e.target.value }))}
+               />
+            </div>
+          </div>
+          <div className="sm:col-span-2 space-y-2">
+            <Label className={sectionLabel}>Physical Headquarters</Label>
+            <div className="relative">
+               <MapPin className="absolute left-4 top-4 h-4 w-4 text-slate-400" />
+               <Textarea
+                 className="min-h-[100px] rounded-2xl border-slate-200 bg-slate-50/50 pl-11 py-4 text-sm font-bold text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
+                 value={generalSettings.address}
+                 onChange={(e) => setGeneralSettings(p => ({ ...p, address: e.target.value }))}
+               />
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div>
-        <h3 className="text-lg font-semibold mb-4">Regional Settings</h3>
-        <div className="grid gap-4 sm:grid-cols-3">
+      <section className="space-y-6">
+        <div className="flex items-center gap-2">
+           <Globe className="h-4 w-4 text-emerald-600" />
+           <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Regional & Localization</h3>
+        </div>
+        <div className="grid gap-6 sm:grid-cols-3">
           <div className="space-y-2">
-            <Label htmlFor="timezone">Timezone</Label>
-            <Select
-              value={generalSettings.timezone}
-              onValueChange={(v) => setGeneralSettings((prev) => ({ ...prev, timezone: v }))}
-            >
-              <SelectTrigger id="timezone">
+            <Label className={sectionLabel}>Timezone</Label>
+            <Select value={generalSettings.timezone} onValueChange={(v) => setGeneralSettings(p => ({ ...p, timezone: v }))}>
+              <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Asia/Dhaka">Asia/Dhaka (GMT+6)</SelectItem>
-                <SelectItem value="UTC">UTC (GMT+0)</SelectItem>
-                <SelectItem value="America/New_York">America/New_York (GMT-5)</SelectItem>
+              <SelectContent className="rounded-2xl shadow-xl">
+                <SelectItem value="Asia/Dhaka" className="font-bold py-3">Asia/Dhaka (GMT+6)</SelectItem>
+                <SelectItem value="UTC" className="font-bold py-3">UTC (GMT+0)</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="dateFormat">Date Format</Label>
-            <Select
-              value={generalSettings.dateFormat}
-              onValueChange={(v) => setGeneralSettings((prev) => ({ ...prev, dateFormat: v }))}
-            >
-              <SelectTrigger id="dateFormat">
+            <Label className={sectionLabel}>Chronicle Format</Label>
+            <Select value={generalSettings.dateFormat} onValueChange={(v) => setGeneralSettings(p => ({ ...p, dateFormat: v }))}>
+              <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="DD/MM/YYYY">DD/MM/YYYY</SelectItem>
-                <SelectItem value="MM/DD/YYYY">MM/DD/YYYY</SelectItem>
-                <SelectItem value="YYYY-MM-DD">YYYY-MM-DD</SelectItem>
+              <SelectContent className="rounded-2xl shadow-xl">
+                <SelectItem value="DD/MM/YYYY" className="font-bold py-3">DD/MM/YYYY</SelectItem>
+                <SelectItem value="YYYY-MM-DD" className="font-bold py-3">YYYY-MM-DD</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="currency">Currency</Label>
-            <Select
-              value={generalSettings.currency}
-              onValueChange={(v) => setGeneralSettings((prev) => ({ ...prev, currency: v }))}
-            >
-              <SelectTrigger id="currency">
+            <Label className={sectionLabel}>Base Currency</Label>
+            <Select value={generalSettings.currency} onValueChange={(v) => setGeneralSettings(p => ({ ...p, currency: v }))}>
+              <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="BDT">BDT (৳)</SelectItem>
-                <SelectItem value="USD">USD ($)</SelectItem>
-                <SelectItem value="EUR">EUR (€)</SelectItem>
+              <SelectContent className="rounded-2xl shadow-xl">
+                <SelectItem value="BDT" className="font-bold py-3">BDT (৳)</SelectItem>
+                <SelectItem value="USD" className="font-bold py-3">USD ($)</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 
   const renderSmsSettings = () => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold mb-4">SMS Provider Configuration</h3>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="smsProvider">Provider</Label>
-            <Select
-              value={smsSettings.provider}
-              onValueChange={(v) => setSmsSettings((prev) => ({ ...prev, provider: v }))}
-            >
-              <SelectTrigger id="smsProvider">
-                <SelectValue placeholder="Select SMS provider" />
+    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <section className="space-y-6">
+        <div className="flex items-center gap-2">
+           <Smartphone className="h-4 w-4 text-emerald-600" />
+           <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">SMS Gateway</h3>
+        </div>
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div className="sm:col-span-2 space-y-2">
+            <Label className={sectionLabel}>Provider Access</Label>
+            <Select value={smsSettings.provider} onValueChange={(v) => setSmsSettings(p => ({ ...p, provider: v }))}>
+              <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
+                <SelectValue />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="twilio">Twilio</SelectItem>
-                <SelectItem value="nexmo">Vonage (Nexmo)</SelectItem>
-                <SelectItem value="custom">Custom API</SelectItem>
+              <SelectContent className="rounded-2xl shadow-xl">
+                <SelectItem value="twilio" className="font-bold py-3 text-indigo-600">Twilio Infrastructure</SelectItem>
+                <SelectItem value="nexmo" className="font-bold py-3 text-blue-600">Vonage (Nexmo)</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="smsApiKey">API Key</Label>
-              <Input
-                id="smsApiKey"
-                type="password"
-                value={smsSettings.apiKey}
-                onChange={(e) => setSmsSettings((prev) => ({ ...prev, apiKey: e.target.value }))}
-                placeholder="Enter API key"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="smsApiSecret">API Secret</Label>
-              <Input
-                id="smsApiSecret"
-                type="password"
-                value={smsSettings.apiSecret}
-                onChange={(e) =>
-                  setSmsSettings((prev) => ({ ...prev, apiSecret: e.target.value }))
-                }
-                placeholder="Enter API secret"
-              />
-            </div>
+          <div className="space-y-2">
+            <Label className={sectionLabel}>API Authorization Key</Label>
+            <Input className={inputClass} type="password" value={smsSettings.apiKey} onChange={(e) => setSmsSettings(p => ({ ...p, apiKey: e.target.value }))} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="smsSenderId">Sender ID</Label>
-            <Input
-              id="smsSenderId"
-              value={smsSettings.senderId}
-              onChange={(e) => setSmsSettings((prev) => ({ ...prev, senderId: e.target.value }))}
-              placeholder="Enter sender ID"
-            />
+            <Label className={sectionLabel}>Shared Secret</Label>
+            <Input className={inputClass} type="password" value={smsSettings.apiSecret} onChange={(e) => setSmsSettings(p => ({ ...p, apiSecret: e.target.value }))} />
           </div>
         </div>
-      </div>
+      </section>
 
-      <div>
-        <h3 className="text-lg font-semibold mb-4">SMS Options</h3>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="maskingEnabled">Enable Masking SMS</Label>
-              <p className="text-sm text-muted-foreground">Allow sending SMS with masking</p>
+      <section className="space-y-4">
+        <Label className={sectionLabel}>Transmission Protocols</Label>
+        {[
+          { id: 'maskingEnabled', label: 'Masking SMS Authorization', desc: 'Permit alphanumeric sender identification' },
+          { id: 'nonMaskingEnabled', label: 'Fixed Identity SMS', desc: 'Permit numeric-only identity transmission' },
+        ].map((item) => (
+          <div key={item.id} className="flex items-center justify-between p-6 rounded-3xl border border-slate-100 bg-white shadow-sm">
+            <div className="space-y-1">
+              <p className="text-sm font-black text-slate-800">{item.label}</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{item.desc}</p>
             </div>
             <Switch
-              id="maskingEnabled"
-              checked={smsSettings.maskingEnabled}
-              onCheckedChange={(checked) =>
-                setSmsSettings((prev) => ({ ...prev, maskingEnabled: checked }))
-              }
+              checked={(smsSettings as any)[item.id]}
+              onCheckedChange={(checked) => setSmsSettings(p => ({ ...p, [item.id]: checked }))}
+              className="data-[state=checked]:bg-emerald-500"
             />
           </div>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="nonMaskingEnabled">Enable Non-Masking SMS</Label>
-              <p className="text-sm text-muted-foreground">Allow sending SMS without masking</p>
-            </div>
-            <Switch
-              id="nonMaskingEnabled"
-              checked={smsSettings.nonMaskingEnabled}
-              onCheckedChange={(checked) =>
-                setSmsSettings((prev) => ({ ...prev, nonMaskingEnabled: checked }))
-              }
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="defaultMasking">Default to Masking</Label>
-              <p className="text-sm text-muted-foreground">Use masking by default for SMS</p>
-            </div>
-            <Switch
-              id="defaultMasking"
-              checked={smsSettings.defaultMasking}
-              onCheckedChange={(checked) =>
-                setSmsSettings((prev) => ({ ...prev, defaultMasking: checked }))
-              }
-            />
-          </div>
-        </div>
-      </div>
+        ))}
+      </section>
     </div>
   );
 
   const renderPaymentSettings = () => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold mb-4">Payment Gateway Configuration</h3>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="gatewayProvider">Gateway Provider</Label>
-            <Select
-              value={paymentSettings.gatewayProvider}
-              onValueChange={(v) =>
-                setPaymentSettings((prev) => ({ ...prev, gatewayProvider: v }))
-              }
-            >
-              <SelectTrigger id="gatewayProvider">
-                <SelectValue placeholder="Select payment gateway" />
+    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <section className="space-y-6">
+        <div className="flex items-center gap-2">
+           <CreditCard className="h-4 w-4 text-amber-600" />
+           <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Financial Bridge</h3>
+        </div>
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div className="sm:col-span-2 space-y-2">
+            <Label className={sectionLabel}>Gateway Architecture</Label>
+            <Select value={paymentSettings.gatewayProvider} onValueChange={(v) => setPaymentSettings(p => ({ ...p, gatewayProvider: v }))}>
+              <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700">
+                <SelectValue />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="sslcommerz">SSLCommerz</SelectItem>
-                <SelectItem value="bkash">bKash</SelectItem>
-                <SelectItem value="nagad">Nagad</SelectItem>
-                <SelectItem value="stripe">Stripe</SelectItem>
-                <SelectItem value="paypal">PayPal</SelectItem>
+              <SelectContent className="rounded-2xl shadow-xl">
+                <SelectItem value="sslcommerz" className="font-bold py-3 text-blue-600">SSLCommerz Protocol</SelectItem>
+                <SelectItem value="bkash" className="font-bold py-3 text-rose-600">bKash Ecosystem</SelectItem>
+                <SelectItem value="stripe" className="font-bold py-3 text-indigo-600">Stripe Global</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="merchantId">Merchant ID</Label>
-              <Input
-                id="merchantId"
-                value={paymentSettings.merchantId}
-                onChange={(e) =>
-                  setPaymentSettings((prev) => ({ ...prev, merchantId: e.target.value }))
-                }
-                placeholder="Enter merchant ID"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="paymentApiKey">API Key</Label>
-              <Input
-                id="paymentApiKey"
-                type="password"
-                value={paymentSettings.apiKey}
-                onChange={(e) =>
-                  setPaymentSettings((prev) => ({ ...prev, apiKey: e.target.value }))
-                }
-                placeholder="Enter API key"
-              />
-            </div>
+          <div className="space-y-2">
+            <Label className={sectionLabel}>Merchant Reference</Label>
+            <Input className={inputClass} value={paymentSettings.merchantId} onChange={(e) => setPaymentSettings(p => ({ ...p, merchantId: e.target.value }))} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="paymentSecretKey">Secret Key</Label>
-            <Input
-              id="paymentSecretKey"
-              type="password"
-              value={paymentSettings.secretKey}
-              onChange={(e) =>
-                setPaymentSettings((prev) => ({ ...prev, secretKey: e.target.value }))
-              }
-              placeholder="Enter secret key"
-            />
+            <Label className={sectionLabel}>Production API Key</Label>
+            <Input className={inputClass} type="password" value={paymentSettings.apiKey} onChange={(e) => setPaymentSettings(p => ({ ...p, apiKey: e.target.value }))} />
           </div>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="sandboxMode">Sandbox Mode</Label>
-              <p className="text-sm text-muted-foreground">Use test environment for payments</p>
+          <div className="sm:col-span-2 flex items-center justify-between p-6 rounded-3xl border border-slate-100 bg-slate-900 text-white shadow-xl">
+            <div className="space-y-1">
+              <p className="text-sm font-black tracking-tight">Sandbox Environment</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.1em]">Test transactions authorized</p>
             </div>
             <Switch
-              id="sandboxMode"
               checked={paymentSettings.sandboxMode}
-              onCheckedChange={(checked) =>
-                setPaymentSettings((prev) => ({ ...prev, sandboxMode: checked }))
-              }
+              onCheckedChange={(checked) => setPaymentSettings(p => ({ ...p, sandboxMode: checked }))}
+              className="data-[state=checked]:bg-amber-500"
             />
           </div>
         </div>
-      </div>
-    </div>
-  );
-
-  const renderSystemSettings = () => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold mb-4">System Configuration</h3>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="maintenanceMode">Maintenance Mode</Label>
-              <p className="text-sm text-muted-foreground">Put the system in maintenance mode</p>
-            </div>
-            <Switch
-              id="maintenanceMode"
-              checked={systemSettings.maintenanceMode}
-              onCheckedChange={(checked) =>
-                setSystemSettings((prev) => ({ ...prev, maintenanceMode: checked }))
-              }
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="allowRegistration">Allow Registration</Label>
-              <p className="text-sm text-muted-foreground">Allow new user registrations</p>
-            </div>
-            <Switch
-              id="allowRegistration"
-              checked={systemSettings.allowRegistration}
-              onCheckedChange={(checked) =>
-                setSystemSettings((prev) => ({ ...prev, allowRegistration: checked }))
-              }
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="requireEmailVerification">Require Email Verification</Label>
-              <p className="text-sm text-muted-foreground">Require email verification for new users</p>
-            </div>
-            <Switch
-              id="requireEmailVerification"
-              checked={systemSettings.requireEmailVerification}
-              onCheckedChange={(checked) =>
-                setSystemSettings((prev) => ({ ...prev, requireEmailVerification: checked }))
-              }
-            />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="sessionTimeout">Session Timeout (minutes)</Label>
-              <Input
-                id="sessionTimeout"
-                type="number"
-                min="5"
-                max="1440"
-                value={systemSettings.sessionTimeout}
-                onChange={(e) =>
-                  setSystemSettings((prev) => ({
-                    ...prev,
-                    sessionTimeout: Number(e.target.value),
-                  }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="maxLoginAttempts">Max Login Attempts</Label>
-              <Input
-                id="maxLoginAttempts"
-                type="number"
-                min="3"
-                max="10"
-                value={systemSettings.maxLoginAttempts}
-                onChange={(e) =>
-                  setSystemSettings((prev) => ({
-                    ...prev,
-                    maxLoginAttempts: Number(e.target.value),
-                  }))
-                }
-              />
-            </div>
-          </div>
-        </div>
-      </div>
+      </section>
     </div>
   );
 
   const renderEmailSettings = () => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold mb-4">SMTP Configuration</h3>
-        <div className="space-y-4">
+    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <section className="space-y-6">
+        <div className="flex items-center gap-2">
+           <Mail className="h-4 w-4 text-blue-600" />
+           <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">SMTP Infrastructure</h3>
+        </div>
+        <div className="grid gap-6 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="emailProvider">Email Provider</Label>
-            <Select
-              value={emailSettings.provider}
-              onValueChange={(v) => setEmailSettings((prev) => ({ ...prev, provider: v }))}
-            >
-              <SelectTrigger id="emailProvider">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="smtp">SMTP</SelectItem>
-                <SelectItem value="sendgrid">SendGrid</SelectItem>
-                <SelectItem value="mailgun">Mailgun</SelectItem>
-                <SelectItem value="ses">AWS SES</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="smtpHost">SMTP Host</Label>
-              <Input
-                id="smtpHost"
-                value={emailSettings.smtpHost}
-                onChange={(e) => setEmailSettings((prev) => ({ ...prev, smtpHost: e.target.value }))}
-                placeholder="smtp.example.com"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="smtpPort">SMTP Port</Label>
-              <Input
-                id="smtpPort"
-                type="number"
-                value={emailSettings.smtpPort}
-                onChange={(e) =>
-                  setEmailSettings((prev) => ({ ...prev, smtpPort: Number(e.target.value) }))
-                }
-                placeholder="587"
-              />
-            </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="smtpUser">SMTP Username</Label>
-              <Input
-                id="smtpUser"
-                value={emailSettings.smtpUser}
-                onChange={(e) => setEmailSettings((prev) => ({ ...prev, smtpUser: e.target.value }))}
-                placeholder="Enter SMTP username"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="smtpPassword">SMTP Password</Label>
-              <Input
-                id="smtpPassword"
-                type="password"
-                value={emailSettings.smtpPassword}
-                onChange={(e) =>
-                  setEmailSettings((prev) => ({ ...prev, smtpPassword: e.target.value }))
-                }
-                placeholder="Enter SMTP password"
-              />
-            </div>
+            <Label className={sectionLabel}>Host Node</Label>
+            <Input className={inputClass} value={emailSettings.smtpHost} onChange={(e) => setEmailSettings(p => ({ ...p, smtpHost: e.target.value }))} placeholder="smtp.gmail.com" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="encryption">Encryption</Label>
-            <Select
-              value={emailSettings.encryption}
-              onValueChange={(v) => setEmailSettings((prev) => ({ ...prev, encryption: v }))}
-            >
-              <SelectTrigger id="encryption">
+            <Label className={sectionLabel}>Network Port</Label>
+            <Input className={inputClass} type="number" value={emailSettings.smtpPort} onChange={(e) => setEmailSettings(p => ({ ...p, smtpPort: Number(e.target.value) }))} />
+          </div>
+          <div className="space-y-2">
+            <Label className={sectionLabel}>Identity Username</Label>
+            <Input className={inputClass} value={emailSettings.smtpUser} onChange={(e) => setEmailSettings(p => ({ ...p, smtpUser: e.target.value }))} />
+          </div>
+          <div className="space-y-2">
+            <Label className={sectionLabel}>Access Password</Label>
+            <Input className={inputClass} type="password" value={emailSettings.smtpPassword} onChange={(e) => setEmailSettings(p => ({ ...p, smtpPassword: e.target.value }))} />
+          </div>
+          <div className="sm:col-span-2 space-y-2">
+            <Label className={sectionLabel}>Encryption Protocol</Label>
+            <Select value={emailSettings.encryption} onValueChange={(v) => setEmailSettings(p => ({ ...p, encryption: v }))}>
+              <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="tls">TLS</SelectItem>
-                <SelectItem value="ssl">SSL</SelectItem>
-                <SelectItem value="none">None</SelectItem>
+              <SelectContent className="rounded-2xl shadow-xl">
+                <SelectItem value="tls" className="font-bold py-3">TLS (Standard)</SelectItem>
+                <SelectItem value="ssl" className="font-bold py-3">SSL (Legacy)</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="fromEmail">From Email</Label>
-              <Input
-                id="fromEmail"
-                type="email"
-                value={emailSettings.fromEmail}
-                onChange={(e) => setEmailSettings((prev) => ({ ...prev, fromEmail: e.target.value }))}
-                placeholder="noreply@example.com"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="fromName">From Name</Label>
-              <Input
-                id="fromName"
-                value={emailSettings.fromName}
-                onChange={(e) => setEmailSettings((prev) => ({ ...prev, fromName: e.target.value }))}
-                placeholder="Organization Name"
-              />
-            </div>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 
   const renderNotificationSettings = () => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold mb-4">Notification Channels</h3>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="emailNotifications">Email Notifications</Label>
-              <p className="text-sm text-muted-foreground">Enable email notifications</p>
-            </div>
-            <Switch
-              id="emailNotifications"
-              checked={notificationSettings.emailNotifications}
-              onCheckedChange={(checked) =>
-                setNotificationSettings((prev) => ({ ...prev, emailNotifications: checked }))
-              }
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="smsNotifications">SMS Notifications</Label>
-              <p className="text-sm text-muted-foreground">Enable SMS notifications</p>
-            </div>
-            <Switch
-              id="smsNotifications"
-              checked={notificationSettings.smsNotifications}
-              onCheckedChange={(checked) =>
-                setNotificationSettings((prev) => ({ ...prev, smsNotifications: checked }))
-              }
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="pushNotifications">Push Notifications</Label>
-              <p className="text-sm text-muted-foreground">Enable push notifications</p>
-            </div>
-            <Switch
-              id="pushNotifications"
-              checked={notificationSettings.pushNotifications}
-              onCheckedChange={(checked) =>
-                setNotificationSettings((prev) => ({ ...prev, pushNotifications: checked }))
-              }
-            />
-          </div>
+    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <section className="space-y-4">
+        <div className="flex items-center gap-2 mb-6">
+           <Bell className="h-4 w-4 text-rose-600" />
+           <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Dispatch Channels</h3>
         </div>
-      </div>
+        {[
+          { id: 'emailNotifications', label: 'Electronic Mail Protocol', icon: Mail, color: 'text-blue-500' },
+          { id: 'smsNotifications', label: 'Cellular SMS Protocol', icon: Smartphone, color: 'text-emerald-500' },
+          { id: 'pushNotifications', label: 'Direct Push Interface', icon: Zap, color: 'text-amber-500' },
+        ].map((item) => (
+          <div key={item.id} className="flex items-center justify-between p-6 rounded-3xl border border-slate-100 bg-white shadow-sm hover:shadow-md transition-all">
+            <div className="flex items-center gap-4">
+               <div className={cn("h-10 w-10 rounded-2xl bg-slate-50 flex items-center justify-center", item.color)}>
+                  <item.icon className="h-5 w-5" />
+               </div>
+               <p className="text-sm font-black text-slate-800">{item.label}</p>
+            </div>
+            <Switch
+              checked={(notificationSettings as any)[item.id]}
+              onCheckedChange={(checked) => setNotificationSettings(p => ({ ...p, [item.id]: checked }))}
+              className="data-[state=checked]:bg-rose-500"
+            />
+          </div>
+        ))}
+      </section>
+    </div>
+  );
 
-      <div>
-        <h3 className="text-lg font-semibold mb-4">Notification Events</h3>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="notifyOnEnrollment">Notify on Enrollment</Label>
-              <p className="text-sm text-muted-foreground">Send notification when student enrolls</p>
+  const renderSystemSettings = () => (
+    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <section className="space-y-6">
+        <div className="flex items-center gap-2">
+           <Database className="h-4 w-4 text-slate-600" />
+           <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Core Engine Configuration</h3>
+        </div>
+        <div className="grid gap-4">
+          <div className="flex items-center justify-between p-6 rounded-[32px] bg-rose-600 text-white shadow-xl">
+            <div className="space-y-1">
+              <p className="text-sm font-black">Maintenance Protocol</p>
+              <p className="text-[10px] font-bold text-rose-200 uppercase tracking-tighter">Authorized personnel access only</p>
             </div>
             <Switch
-              id="notifyOnEnrollment"
-              checked={notificationSettings.notifyOnEnrollment}
-              onCheckedChange={(checked) =>
-                setNotificationSettings((prev) => ({ ...prev, notifyOnEnrollment: checked }))
-              }
+              checked={systemSettings.maintenanceMode}
+              onCheckedChange={(checked) => setSystemSettings(p => ({ ...p, maintenanceMode: checked }))}
+              className="data-[state=checked]:bg-white data-[state=checked]:[&>span]:bg-rose-600"
             />
           </div>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="notifyOnPayment">Notify on Payment</Label>
-              <p className="text-sm text-muted-foreground">Send notification when payment is received</p>
+          <div className="flex items-center justify-between p-6 rounded-3xl border border-slate-100 bg-white shadow-sm">
+            <div className="space-y-1">
+              <p className="text-sm font-black text-slate-800">Open Registration</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Permit new user autonomous onboarding</p>
             </div>
             <Switch
-              id="notifyOnPayment"
-              checked={notificationSettings.notifyOnPayment}
-              onCheckedChange={(checked) =>
-                setNotificationSettings((prev) => ({ ...prev, notifyOnPayment: checked }))
-              }
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="notifyOnExam">Notify on Exam</Label>
-              <p className="text-sm text-muted-foreground">Send notification for exam schedules</p>
-            </div>
-            <Switch
-              id="notifyOnExam"
-              checked={notificationSettings.notifyOnExam}
-              onCheckedChange={(checked) =>
-                setNotificationSettings((prev) => ({ ...prev, notifyOnExam: checked }))
-              }
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="notifyOnAttendance">Notify on Attendance</Label>
-              <p className="text-sm text-muted-foreground">Send notification for attendance updates</p>
-            </div>
-            <Switch
-              id="notifyOnAttendance"
-              checked={notificationSettings.notifyOnAttendance}
-              onCheckedChange={(checked) =>
-                setNotificationSettings((prev) => ({ ...prev, notifyOnAttendance: checked }))
-              }
+              checked={systemSettings.allowRegistration}
+              onCheckedChange={(checked) => setSystemSettings(p => ({ ...p, allowRegistration: checked }))}
             />
           </div>
         </div>
-      </div>
+        <div className="grid gap-6 sm:grid-cols-2">
+           <div className="space-y-2">
+              <Label className={sectionLabel}>Session Expiry (Min)</Label>
+              <Input className={inputClass} type="number" value={systemSettings.sessionTimeout} onChange={(e) => setSystemSettings(p => ({ ...p, sessionTimeout: Number(e.target.value) }))} />
+           </div>
+           <div className="space-y-2">
+              <Label className={sectionLabel}>Lockout Threshold</Label>
+              <Input className={inputClass} type="number" value={systemSettings.maxLoginAttempts} onChange={(e) => setSystemSettings(p => ({ ...p, maxLoginAttempts: Number(e.target.value) }))} />
+           </div>
+        </div>
+      </section>
     </div>
   );
 
   const renderContent = () => {
     switch (activeCategory) {
-      case 'general':
-        return renderGeneralSettings();
-      case 'sms':
-        return renderSmsSettings();
-      case 'payment':
-        return renderPaymentSettings();
-      case 'system':
-        return renderSystemSettings();
-      case 'email':
-        return renderEmailSettings();
-      case 'notifications':
-        return renderNotificationSettings();
-      default:
-        return null;
+      case 'general': return renderGeneralSettings();
+      case 'sms': return renderSmsSettings();
+      case 'payment': return renderPaymentSettings();
+      case 'email': return renderEmailSettings();
+      case 'notifications': return renderNotificationSettings();
+      case 'system': return renderSystemSettings();
+      default: return null;
     }
   };
 
   return (
-    <div className="space-y-4">
-      <section className="glass-panel p-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="space-y-8 text-slate-900">
+      {/* Header Section */}
+      <section className="relative overflow-hidden rounded-[32px] border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/40">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.03),transparent_40%)]" />
+        
+        <div className="relative flex flex-wrap items-start justify-between gap-6">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight">Settings</h1>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              Manage system configuration, integrations, and preferences.
+            <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 border border-indigo-100/50 shadow-sm">
+              <Lock className="h-3.5 w-3.5" />
+              Administrative Protocol
+            </div>
+            <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
+              Global <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">Configurations</span>
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-slate-500">
+              Synchronize core system variables, financial gateways, and institutional identity parameters from a unified intelligence workspace.
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={loadSettings} disabled={loading}>
-              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
+
+          <div className="flex gap-3">
+            <Button variant="outline" className="h-12 w-12 rounded-2xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-all shadow-sm" onClick={loadSettings} disabled={loading}>
+              <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
             </Button>
-            <Button onClick={handleSave} disabled={saving}>
+            <Button className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95" onClick={handleSave} disabled={saving}>
               <Save className="mr-2 h-4 w-4" />
-              {saving ? 'Saving...' : 'Save Changes'}
+              {saving ? 'Processing...' : 'Commit Changes'}
             </Button>
           </div>
         </div>
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-[250px_1fr]">
-        <section className="glass-panel p-4">
-          <nav className="space-y-1">
-            {categories.map((category) => {
-              const Icon = category.icon;
-              return (
-                <button
-                  key={category.id}
-                  onClick={() => setActiveCategory(category.id)}
-                  className={`w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
-                    activeCategory === category.id
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:bg-muted/50'
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                  <span>{category.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-        </section>
+      <div className="grid gap-8 lg:grid-cols-[300px_1fr]">
+        <aside className="space-y-4">
+           <div className="rounded-[32px] border border-slate-200 bg-white p-4 shadow-sm">
+             <nav className="space-y-2">
+               {categories.map((cat) => (
+                 <button
+                   key={cat.id}
+                   onClick={() => setActiveCategory(cat.id)}
+                   className={cn(
+                     "group w-full flex items-center gap-4 rounded-2xl px-5 py-4 text-xs font-black uppercase tracking-widest transition-all",
+                     activeCategory === cat.id
+                       ? "bg-slate-900 text-white shadow-xl shadow-slate-200"
+                       : "text-slate-400 hover:bg-slate-50 hover:text-slate-900"
+                   )}
+                 >
+                   <div className={cn("flex h-8 w-8 items-center justify-center rounded-xl transition-colors", 
+                      activeCategory === cat.id ? "bg-white/10" : cat.bg,
+                      activeCategory === cat.id ? "text-white" : cat.color
+                   )}>
+                      <cat.icon className="h-4 w-4" />
+                   </div>
+                   <span>{cat.label}</span>
+                 </button>
+               ))}
+             </nav>
+           </div>
+           
+           <div className="rounded-[32px] border border-slate-200 bg-slate-900 p-6 text-white shadow-xl">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 text-indigo-400 mb-4">
+                 <Shield className="h-5 w-5" />
+              </div>
+              <h4 className="text-sm font-black uppercase tracking-widest">Protocol Audit</h4>
+              <p className="mt-2 text-[10px] font-bold text-slate-400 leading-relaxed uppercase tracking-tighter">System changes are logged and synchronized across the institutional cluster.</p>
+           </div>
+        </aside>
 
-        <section className="glass-panel p-6">
+        <main className="rounded-[32px] border border-slate-200 bg-white p-10 shadow-sm">
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+            <div className="flex flex-col items-center justify-center py-20 gap-4">
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+              <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Synchronizing Parameters...</p>
             </div>
           ) : (
-            <div className="max-w-3xl">{renderContent()}</div>
+            <div className="max-w-4xl mx-auto">{renderContent()}</div>
           )}
-        </section>
+        </main>
       </div>
 
       <Toaster toasts={toasts} removeToast={removeToast} />

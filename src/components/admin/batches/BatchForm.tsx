@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { DatePicker } from '@/components/ui/date-picker';
 
 const statusOptions: BatchStatusType[] = ['ACTIVE', 'INACTIVE', 'COMPLETED', 'ARCHIVED'];
 
@@ -160,21 +161,37 @@ export function BatchForm({ courses, branches, batch, onSuccess }: BatchFormProp
 
           <div className="space-y-2">
             <label className={sectionLabel}>Commencement Date</label>
-            <Input
-              type="date"
-              className={inputClass}
-              value={form.startDate || ''}
-              onChange={(e) => setForm((prev) => ({ ...prev, startDate: e.target.value }))}
+            <DatePicker
+              date={form.startDate ? new Date(form.startDate) : undefined}
+              setDate={(date) => {
+                if (!date) {
+                  setForm(p => ({ ...p, startDate: '' }));
+                  return;
+                }
+                const y = date.getFullYear();
+                const m = String(date.getMonth() + 1).padStart(2, '0');
+                const d = String(date.getDate()).padStart(2, '0');
+                setForm(p => ({ ...p, startDate: `${y}-${m}-${d}` }));
+              }}
+              className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 font-bold text-slate-700 shadow-inner"
             />
           </div>
 
           <div className="space-y-2">
             <label className={sectionLabel}>Estimated Conclusion</label>
-            <Input
-              type="date"
-              className={inputClass}
-              value={form.endDate || ''}
-              onChange={(e) => setForm((prev) => ({ ...prev, endDate: e.target.value }))}
+            <DatePicker
+              date={form.endDate ? new Date(form.endDate) : undefined}
+              setDate={(date) => {
+                if (!date) {
+                  setForm(p => ({ ...p, endDate: '' }));
+                  return;
+                }
+                const y = date.getFullYear();
+                const m = String(date.getMonth() + 1).padStart(2, '0');
+                const d = String(date.getDate()).padStart(2, '0');
+                setForm(p => ({ ...p, endDate: `${y}-${m}-${d}` }));
+              }}
+              className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 font-bold text-slate-700 shadow-inner"
             />
           </div>
 

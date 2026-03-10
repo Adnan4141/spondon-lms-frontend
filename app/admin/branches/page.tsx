@@ -4,12 +4,8 @@ import { useEffect, useState } from 'react';
 import {
   getBranches,
   getBranchById,
-  createBranch,
-  updateBranch,
   deleteBranch,
   type Branch,
-  type CreateBranchDto,
-  type UpdateBranchDto,
 } from '@/lib/api/branches';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,14 +26,6 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
   Building2,
   Edit,
   Eye,
@@ -48,9 +36,18 @@ import {
   Users,
   Calendar,
   GraduationCap,
+  Sparkles,
+  ArrowRight,
+  Phone,
+  MapPin,
+  Hash,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
+import { useModalStore } from '@/store/modalStore';
+import { BranchForm } from '@/components/admin/branches/BranchForm';
+import { BranchDetailsView } from '@/components/admin/branches/BranchDetailsView';
+import { cn } from '@/lib/utils';
 
 const statusOptions = ['all', 'active', 'inactive'];
 
@@ -59,41 +56,20 @@ function getErrorMessage(error: unknown): string {
   return 'Something went wrong';
 }
 
+function getStatusBadgeClass(status: string) {
+  if (status.toLowerCase() === 'active') return 'bg-emerald-50 text-emerald-700 border-emerald-100 font-black';
+  if (status.toLowerCase() === 'inactive') return 'bg-rose-50 text-rose-700 border-rose-100 font-black';
+  return 'bg-slate-100 text-slate-600 border-slate-200 font-black';
+}
+
 export default function BranchesPage() {
+  const { openModal } = useModalStore();
   const { toast, toasts, removeToast } = useToast();
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-
-  // Dialog states
-  const [viewDialogOpen, setViewDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [branchDetails, setBranchDetails] = useState<Branch | null>(null);
-  const [detailsLoading, setDetailsLoading] = useState(false);
-  const [detailsError, setDetailsError] = useState<string | null>(null);
-
-  // Form states
-  const [editForm, setEditForm] = useState<CreateBranchDto>({
-    name: '',
-    code: '',
-    address: '',
-    phone: '',
-    status: 'active',
-  });
-  const [createForm, setCreateForm] = useState<CreateBranchDto>({
-    name: '',
-    code: '',
-    address: '',
-    phone: '',
-    status: 'active',
-  });
-  const [editSubmitting, setEditSubmitting] = useState(false);
-  const [editError, setEditError] = useState<string | null>(null);
-  const [createSubmitting, setCreateSubmitting] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
 
   const loadBranches = async () => {
     try {
@@ -118,142 +94,45 @@ export default function BranchesPage() {
     loadBranches();
   }, []);
 
-  const fetchBranchDetails = async (branchId: string) => {
-    try {
-      setDetailsLoading(true);
-      setDetailsError(null);
-      const response = await getBranchById(branchId);
-
-      if (response.success && response.data) {
-        setBranchDetails(response.data);
-        const branch = response.data;
-        setEditForm({
-          name: branch.name,
-          code: branch.code || '',
-          address: branch.address || '',
-          phone: branch.phone || '',
-          status: branch.status,
-        });
-        return response.data;
-      }
-
-      throw new Error(response.message || 'Failed to load branch details');
-    } catch (err: unknown) {
-      const message = getErrorMessage(err);
-      setDetailsError(message);
-      setBranchDetails(null);
-      return null;
-    } finally {
-      setDetailsLoading(false);
-    }
-  };
-
   const handleViewBranch = async (branchId: string) => {
-    setViewDialogOpen(true);
-    await fetchBranchDetails(branchId);
+    try {
+      const response = await getBranchById(branchId);
+      if (response.success && response.data) {
+        openModal({
+          title: 'Branch Intelligence',
+          description: 'Consolidated view of branch operations, personnel, and infrastructure.',
+          className: 'sm:max-w-4xl',
+          content: <BranchDetailsView branch={response.data} />,
+        });
+      }
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to load branch data', variant: 'destructive' });
+    }
   };
 
   const handleEditBranch = async (branchId: string) => {
-    setEditDialogOpen(true);
-    setEditError(null);
-    await fetchBranchDetails(branchId);
-  };
-
-  const handleEditSubmit = async () => {
-    if (!branchDetails) return;
-
-    if (!editForm.name.trim()) {
-      setEditError('Branch name is required');
-      toast({
-        title: 'Error',
-        description: 'Branch name is required',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     try {
-      setEditSubmitting(true);
-      setEditError(null);
-      const payload: UpdateBranchDto = {
-        name: editForm.name.trim(),
-        code: editForm.code?.trim() || undefined,
-        address: editForm.address?.trim() || undefined,
-        phone: editForm.phone?.trim() || undefined,
-        status: editForm.status,
-      };
-
-      await updateBranch(branchDetails.id, payload);
-      setEditDialogOpen(false);
-      await loadBranches();
-
-      toast({
-        title: 'Success',
-        description: 'Branch updated successfully',
-        variant: 'success',
-      });
-    } catch (err: unknown) {
-      const errorMsg = getErrorMessage(err) || 'Failed to update branch';
-      setEditError(errorMsg);
-      toast({
-        title: 'Error',
-        description: errorMsg,
-        variant: 'destructive',
-      });
-    } finally {
-      setEditSubmitting(false);
+      const response = await getBranchById(branchId);
+      if (response.success && response.data) {
+        openModal({
+          title: 'Update Branch Identity',
+          description: 'Modify physical location, contact references, or operational status.',
+          className: 'sm:max-w-2xl',
+          content: <BranchForm branch={response.data} onSuccess={loadBranches} />,
+        });
+      }
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to load branch for editing', variant: 'destructive' });
     }
   };
 
-  const handleCreateSubmit = async () => {
-    if (!createForm.name.trim()) {
-      setCreateError('Branch name is required');
-      toast({
-        title: 'Error',
-        description: 'Branch name is required',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    try {
-      setCreateSubmitting(true);
-      setCreateError(null);
-      const payload: CreateBranchDto = {
-        name: createForm.name.trim(),
-        code: createForm.code?.trim() || undefined,
-        address: createForm.address?.trim() || undefined,
-        phone: createForm.phone?.trim() || undefined,
-        status: createForm.status || 'active',
-      };
-
-      await createBranch(payload);
-      setCreateDialogOpen(false);
-      setCreateForm({
-        name: '',
-        code: '',
-        address: '',
-        phone: '',
-        status: 'active',
-      });
-      await loadBranches();
-
-      toast({
-        title: 'Success',
-        description: 'Branch created successfully',
-        variant: 'success',
-      });
-    } catch (err: unknown) {
-      const errorMsg = getErrorMessage(err) || 'Failed to create branch';
-      setCreateError(errorMsg);
-      toast({
-        title: 'Error',
-        description: errorMsg,
-        variant: 'destructive',
-      });
-    } finally {
-      setCreateSubmitting(false);
-    }
+  const handleCreateBranch = () => {
+    openModal({
+      title: 'Initialize New Branch',
+      description: 'Register a new institutional branch with physical and digital identity.',
+      className: 'sm:max-w-2xl',
+      content: <BranchForm onSuccess={loadBranches} />,
+    });
   };
 
   const handleDeleteBranch = async (branchId: string) => {
@@ -264,7 +143,6 @@ export default function BranchesPage() {
     try {
       await deleteBranch(branchId);
       await loadBranches();
-
       toast({
         title: 'Success',
         description: 'Branch deleted successfully',
@@ -287,490 +165,216 @@ export default function BranchesPage() {
       (statusFilter === 'all' || branch.status.toLowerCase() === statusFilter.toLowerCase())
   );
 
-  const isDetailsReady = !detailsLoading && branchDetails !== null;
   const totalBranches = branches.length;
   const activeCount = branches.filter((b) => b.status.toLowerCase() === 'active').length;
   const totalUsers = branches.reduce((sum, b) => sum + (b._count?.users || 0), 0);
   const totalBatches = branches.reduce((sum, b) => sum + (b._count?.batches || 0), 0);
-  const totalEnrollments = branches.reduce((sum, b) => sum + (b._count?.enrollments || 0), 0);
 
   return (
-    <div className="space-y-4">
-      <section className="glass-panel p-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="space-y-8 text-slate-900">
+      {/* Header Section */}
+      <section className="relative overflow-hidden rounded-[32px] border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/40">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.03),transparent_40%)]" />
+        
+        <div className="relative flex flex-wrap items-start justify-between gap-6">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight">Branch Management</h1>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              Manage all branches, their details, and access permissions.
+            <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 border border-indigo-100/50 shadow-sm">
+              <Building2 className="h-3.5 w-3.5" />
+              Infrastructure Workspace
+            </div>
+            <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
+              Branch <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">Network</span>
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-slate-500">
+              Manage the physical and operational landscape of your institution. Coordinate locations, resources, and personnel across the network.
             </p>
           </div>
-          <Button className="mt-1 bg-primary hover:bg-primary/90" onClick={() => setCreateDialogOpen(true)}>
+
+          <Button
+            className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95"
+            onClick={handleCreateBranch}
+          >
             <Plus className="mr-2 h-4 w-4" />
-            Create Branch
+            Initialize Branch
           </Button>
         </div>
       </section>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <article className="glass-panel p-3.5">
-          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Total Branches</p>
-          <p className="mt-2 text-2xl font-semibold">{totalBranches}</p>
-        </article>
-        <article className="glass-panel p-3.5">
-          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Active Branches</p>
-          <p className="mt-2 text-2xl font-semibold">{activeCount}</p>
-        </article>
-        <article className="glass-panel p-3.5">
-          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Total Users</p>
-          <p className="mt-2 text-2xl font-semibold">{totalUsers}</p>
-        </article>
-        <article className="glass-panel p-3.5">
-          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Total Batches</p>
-          <p className="mt-2 text-2xl font-semibold">{totalBatches}</p>
-        </article>
+      {/* Stats Section */}
+      <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: 'Total Nodes', value: totalBranches, color: 'from-blue-600 to-cyan-500', icon: Building2 },
+          { label: 'Active Branches', value: activeCount, color: 'from-emerald-600 to-teal-500', icon: Sparkles },
+          { label: 'Assigned Personnel', value: totalUsers, color: 'from-indigo-600 to-purple-600', icon: Users },
+          { label: 'Active Batches', value: totalBatches, color: 'from-rose-600 to-pink-600', icon: Calendar },
+        ].map((stat, i) => (
+          <div key={i} className="group relative overflow-hidden rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/40 transition-all hover:-translate-y-1 hover:shadow-2xl">
+             <div className="flex items-center justify-between">
+                <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg group-hover:scale-110 transition-transform", stat.color)}>
+                   <stat.icon className="h-6 w-6" />
+                </div>
+                <ArrowRight className="h-4 w-4 text-slate-200 group-hover:text-indigo-500 transition-colors" />
+             </div>
+             <div className="mt-6">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
+                <p className="mt-1 text-3xl font-black text-slate-900">{stat.value}</p>
+             </div>
+          </div>
+        ))}
       </section>
 
-      <section className="glass-panel p-4 sm:p-5">
+      {/* Filter Section */}
+      <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap gap-4">
-          <div className="min-w-[260px] flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <div className="min-w-[300px] flex-1">
+            <div className="relative group">
+              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
               <Input
                 placeholder="Search branches by name, code, or address..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-10 border-border bg-background pl-10"
+                className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
               />
             </div>
           </div>
+          
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="h-10 w-[180px] border-border bg-background">
+            <SelectTrigger className="h-12 w-[160px] rounded-2xl border-slate-200 bg-white font-bold text-xs uppercase tracking-widest text-slate-600 shadow-sm">
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
               {statusOptions.map((opt) => (
-                <SelectItem key={opt} value={opt}>
-                  {opt === 'all' ? 'All Status' : opt.charAt(0).toUpperCase() + opt.slice(1)}
+                <SelectItem key={opt} value={opt} className="font-bold text-xs uppercase tracking-widest py-3">
+                  {opt === 'all' ? 'All Status' : opt}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Button variant="outline" className="h-10" onClick={loadBranches}>
+
+          <Button variant="outline" className="h-12 w-12 rounded-2xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-all shadow-sm" onClick={loadBranches}>
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
       </section>
 
-      {error && (
-        <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive">
-          {error}
-        </div>
-      )}
-
-      <section className="glass-panel overflow-hidden p-0">
-        <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
+      {/* Table Section */}
+      <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/30">
+        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
           <div>
-            <h2 className="text-base font-semibold tracking-tight">Branch Catalog</h2>
-            <p className="text-xs text-muted-foreground">Browse and maintain all registered branches</p>
+            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Branch Catalog</h2>
+            <p className="mt-0.5 text-xs font-bold text-indigo-500">Infrastructure registry</p>
           </div>
-          <div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
-            <Building2 className="h-4 w-4" />
-            <span>{totalBranches} Total Records</span>
+          <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            {totalBranches} Active Nodes
           </div>
         </div>
 
         {loading ? (
-          <div className="p-8 text-center text-muted-foreground">Loading branches...</div>
+          <div className="p-20 text-center flex flex-col items-center gap-4">
+             <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Synchronizing Data...</p>
+          </div>
         ) : filteredBranches.length === 0 ? (
-          <div className="p-8 text-center text-muted-foreground">
-            {searchQuery ? 'No branches found matching your search.' : 'No branches found. Create your first branch.'}
+          <div className="p-20 text-center">
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No matching branches identified.</p>
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead>Name</TableHead>
-                <TableHead>Code</TableHead>
-                <TableHead>Address</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Users</TableHead>
-                <TableHead>Batches</TableHead>
-                <TableHead>Enrollments</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredBranches.map((branch) => (
-                <TableRow key={branch.id} className="hover:bg-muted/45">
-                  <TableCell className="font-medium">{branch.name}</TableCell>
-                  <TableCell>
-                    {branch.code ? <Badge variant="outline">{branch.code}</Badge> : '-'}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{branch.address || '-'}</TableCell>
-                  <TableCell className="text-muted-foreground">{branch.phone || '-'}</TableCell>
-                  <TableCell>
-                    <Badge variant={branch.status.toLowerCase() === 'active' ? 'default' : 'secondary'}>
-                      {branch.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{branch._count?.users || 0}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{branch._count?.batches || 0}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{branch._count?.enrollments || 0}</Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleViewBranch(branch.id)}
-                        title="View Branch"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleEditBranch(branch.id)}
-                        title="Edit Branch"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeleteBranch(branch.id)}
-                        title="Delete Branch"
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-slate-50/50">
+                <TableRow className="hover:bg-transparent border-b border-slate-100">
+                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Branch Identity</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Contact & Location</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Metrics</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Status</TableHead>
+                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400 text-center">Manage</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredBranches.map((branch) => (
+                  <TableRow key={branch.id} className="group border-slate-100 transition-colors hover:bg-slate-50/80">
+                    <TableCell className="px-8 py-5">
+                       <div className="flex items-center gap-4">
+                          <div className="h-10 w-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-black text-slate-500 text-xs">
+                             {branch.name.charAt(0)}
+                          </div>
+                          <div className="flex flex-col">
+                             <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{branch.name}</span>
+                             <span className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">Code: {branch.code || 'N/A'}</span>
+                          </div>
+                       </div>
+                    </TableCell>
+                    <TableCell className="py-5">
+                       <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                             <Phone className="h-3 w-3 text-emerald-500" />
+                             {branch.phone || 'No Contact'}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400">
+                             <MapPin className="h-3 w-3 text-rose-400" />
+                             <span className="truncate max-w-[200px]">{branch.address || 'No Address'}</span>
+                          </div>
+                       </div>
+                    </TableCell>
+                    <TableCell className="py-5">
+                       <div className="flex items-center gap-3">
+                          <div className="flex flex-col items-center">
+                             <span className="text-[10px] font-black text-slate-900">{branch._count?.users || 0}</span>
+                             <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Staff</span>
+                          </div>
+                          <div className="h-4 w-[1px] bg-slate-100" />
+                          <div className="flex flex-col items-center">
+                             <span className="text-[10px] font-black text-slate-900">{branch._count?.batches || 0}</span>
+                             <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Batches</span>
+                          </div>
+                          <div className="h-4 w-[1px] bg-slate-100" />
+                          <div className="flex flex-col items-center">
+                             <span className="text-[10px] font-black text-slate-900">{branch._count?.enrollments || 0}</span>
+                             <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Students</span>
+                          </div>
+                       </div>
+                    </TableCell>
+                    <TableCell className="py-5">
+                       <Badge variant="outline" className={cn("rounded-lg text-[9px] font-black uppercase tracking-widest px-2.5 py-1", getStatusBadgeClass(branch.status))}>
+                         {branch.status}
+                       </Badge>
+                    </TableCell>
+                    <TableCell className="px-8 py-5">
+                       <div className="flex justify-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 rounded-xl border-slate-200 bg-white px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm"
+                            onClick={() => handleViewBranch(branch.id)}
+                          >
+                            View
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 rounded-xl border-slate-200 bg-white px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm"
+                            onClick={() => handleEditBranch(branch.id)}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 rounded-xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all shadow-sm"
+                            onClick={() => handleDeleteBranch(branch.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                       </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </section>
-
-      {/* Create Branch Dialog */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="max-h-[90vh] sm:max-w-4xl flex flex-col p-0 gap-0" showCloseButton={true}>
-          <DialogHeader className="px-6 pt-6 pb-4 shrink-0 sticky top-0 bg-background z-10 border-b shadow-sm">
-            <DialogTitle>Create Branch</DialogTitle>
-            <DialogDescription>Add a new branch to the system.</DialogDescription>
-          </DialogHeader>
-
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            <div className="space-y-4 py-6">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Branch Name *</label>
-                <Input
-                  value={createForm.name}
-                  onChange={(e) => setCreateForm((prev) => ({ ...prev, name: e.target.value }))}
-                  placeholder="Enter branch name"
-                />
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Branch Code</label>
-                  <Input
-                    value={createForm.code}
-                    onChange={(e) => setCreateForm((prev) => ({ ...prev, code: e.target.value }))}
-                    placeholder="Enter branch code (optional)"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Status</label>
-                  <Select
-                    value={createForm.status}
-                    onValueChange={(v) => setCreateForm((prev) => ({ ...prev, status: v }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Address</label>
-                <Input
-                  value={createForm.address}
-                  onChange={(e) => setCreateForm((prev) => ({ ...prev, address: e.target.value }))}
-                  placeholder="Enter branch address (optional)"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Phone</label>
-                <Input
-                  value={createForm.phone}
-                  onChange={(e) => setCreateForm((prev) => ({ ...prev, phone: e.target.value }))}
-                  placeholder="Enter phone number (optional)"
-                />
-              </div>
-
-              {createError && (
-                <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
-                  {createError}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <DialogFooter className="px-6 pb-6 pt-4 shrink-0 bg-background border-t shadow-lg mt-auto">
-            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateSubmit} disabled={createSubmitting}>
-              {createSubmitting ? 'Creating...' : 'Create Branch'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* View Branch Dialog */}
-      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="max-h-[90vh] sm:max-w-4xl flex flex-col p-0 gap-0" showCloseButton={true}>
-          <DialogHeader className="px-6 pt-6 pb-4 shrink-0 sticky top-0 bg-background z-10 border-b shadow-sm">
-            <DialogTitle>Branch Details</DialogTitle>
-            <DialogDescription>View complete branch information and statistics.</DialogDescription>
-          </DialogHeader>
-
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            {detailsLoading && <p className="text-sm text-muted-foreground py-6">Loading details...</p>}
-            {!detailsLoading && detailsError && (
-              <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive my-6">
-                {detailsError}
-              </div>
-            )}
-
-            {isDetailsReady && branchDetails && (
-              <div className="space-y-5 text-sm py-6">
-                {/* Basic Information */}
-                <div>
-                  <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">Basic Information</p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Branch Name</p>
-                      <p className="mt-1 font-medium">{branchDetails.name}</p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Branch Code</p>
-                      <p className="mt-1 font-medium">{branchDetails.code || '-'}</p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Status</p>
-                      <p className="mt-1">
-                        <Badge variant={branchDetails.status.toLowerCase() === 'active' ? 'default' : 'secondary'}>
-                          {branchDetails.status}
-                        </Badge>
-                      </p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Phone</p>
-                      <p className="mt-1 font-medium">{branchDetails.phone || '-'}</p>
-                    </div>
-                  </div>
-                  {branchDetails.address && (
-                    <div className="rounded-lg border bg-muted/20 p-3 mt-3">
-                      <p className="text-xs uppercase text-muted-foreground">Address</p>
-                      <p className="mt-1 font-medium">{branchDetails.address}</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Statistics */}
-                <div>
-                  <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">Statistics</p>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4 text-muted-foreground" />
-                        <p className="text-xs uppercase text-muted-foreground">Total Users</p>
-                      </div>
-                      <p className="mt-1 text-2xl font-semibold">{branchDetails._count?.users || 0}</p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                        <p className="text-xs uppercase text-muted-foreground">Total Batches</p>
-                      </div>
-                      <p className="mt-1 text-2xl font-semibold">{branchDetails._count?.batches || 0}</p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <div className="flex items-center gap-2">
-                        <GraduationCap className="h-4 w-4 text-muted-foreground" />
-                        <p className="text-xs uppercase text-muted-foreground">Total Enrollments</p>
-                      </div>
-                      <p className="mt-1 text-2xl font-semibold">{branchDetails._count?.enrollments || 0}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Users */}
-                {branchDetails.users && branchDetails.users.length > 0 && (
-                  <div>
-                    <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">Users</p>
-                    <div className="space-y-2">
-                      {branchDetails.users.map((user) => (
-                        <div key={user.id} className="rounded-lg border p-3">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium">{user.fullName}</p>
-                              <p className="text-xs text-muted-foreground">{user.email || user.role}</p>
-                            </div>
-                            <Badge variant="outline">{user.role}</Badge>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Timestamps */}
-                <div>
-                  <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">Timestamps</p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Created At</p>
-                      <p className="mt-1 text-sm">
-                        {new Date(branchDetails.createdAt).toLocaleString('en-US', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Updated At</p>
-                      <p className="mt-1 text-sm">
-                        {new Date(branchDetails.updatedAt).toLocaleString('en-US', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Branch Dialog */}
-      <Dialog
-        open={editDialogOpen}
-        onOpenChange={(open) => {
-          setEditDialogOpen(open);
-          if (!open) setEditError(null);
-        }}
-      >
-        <DialogContent className="max-h-[90vh] sm:max-w-4xl flex flex-col p-0 gap-0" showCloseButton={true}>
-          <DialogHeader className="px-6 pt-6 pb-4 shrink-0 sticky top-0 bg-background z-10 border-b shadow-sm">
-            <DialogTitle>Edit Branch</DialogTitle>
-            <DialogDescription>Update branch information and save the changes.</DialogDescription>
-          </DialogHeader>
-
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            {detailsLoading && <p className="text-sm text-muted-foreground py-6">Loading form...</p>}
-            {!detailsLoading && detailsError && (
-              <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive my-6">
-                {detailsError}
-              </div>
-            )}
-
-            {isDetailsReady && (
-              <div className="space-y-4 py-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Branch Name *</label>
-                  <Input
-                    value={editForm.name}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
-                    placeholder="Enter branch name"
-                  />
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Branch Code</label>
-                    <Input
-                      value={editForm.code}
-                      onChange={(e) => setEditForm((prev) => ({ ...prev, code: e.target.value }))}
-                      placeholder="Enter branch code (optional)"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Status</label>
-                    <Select
-                      value={editForm.status}
-                      onValueChange={(v) => setEditForm((prev) => ({ ...prev, status: v }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Address</label>
-                  <Input
-                    value={editForm.address}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev, address: e.target.value }))}
-                    placeholder="Enter branch address (optional)"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Phone</label>
-                  <Input
-                    value={editForm.phone}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev, phone: e.target.value }))}
-                    placeholder="Enter phone number (optional)"
-                  />
-                </div>
-
-                {editError && (
-                  <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
-                    {editError}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <DialogFooter className="px-6 pb-6 pt-4 shrink-0 bg-background border-t shadow-lg mt-auto">
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleEditSubmit} disabled={editSubmitting || !isDetailsReady}>
-              {editSubmitting ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Toaster toasts={toasts} removeToast={removeToast} />
     </div>
