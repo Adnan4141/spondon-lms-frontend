@@ -48,6 +48,7 @@ import { Toaster } from '@/components/ui/toast';
 import { useModalStore } from '@/store/modalStore';
 import { BatchForm } from '@/components/admin/batches/BatchForm';
 import { BatchDetailsView } from '@/components/admin/batches/BatchDetailsView';
+import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
 import { cn } from '@/lib/utils';
 
 const statusOptions: (BatchStatusType | 'all')[] = ['all', 'ACTIVE', 'INACTIVE', 'COMPLETED', 'ARCHIVED'];
@@ -167,14 +168,27 @@ export default function BatchesPage() {
   };
 
   const handleDeleteBatch = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this batch? This action cannot be undone.')) return;
-    try {
-      await deleteBatch(id);
-      await loadBatches();
-      toast({ title: 'Success', description: 'Batch deleted successfully', variant: 'success' });
-    } catch (err: unknown) {
-      toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
-    }
+    openModal({
+      title: 'Batch Deletion',
+      description: 'Are you sure you want to permanently remove this operational batch? This will impact all linked student enrollments and schedules.',
+      className: 'sm:max-w-xl',
+      content: (
+        <ConfirmationModal
+          title="Confirm Deletion"
+          description="Permanently purging this batch from the institutional system."
+          variant="danger"
+          onConfirm={async () => {
+            try {
+              await deleteBatch(id);
+              await loadBatches();
+              toast({ title: 'Success', description: 'Batch deleted successfully', variant: 'success' });
+            } catch (err) {
+              toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
+            }
+          }}
+        />
+      ),
+    });
   };
 
   const filteredBatches = batches.filter((batch) => {
