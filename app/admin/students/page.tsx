@@ -49,6 +49,7 @@ import { Toaster } from '@/components/ui/toast';
 import { useModalStore } from '@/store/modalStore';
 import { StudentForm } from '@/components/admin/students/StudentForm';
 import { StudentDetailsView } from '@/components/admin/students/StudentDetailsView';
+import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
 import { cn } from '@/lib/utils';
 
 export default function StudentsPage() {
@@ -156,14 +157,27 @@ export default function StudentsPage() {
   };
 
   const handleDeleteStudent = async (studentId: string) => {
-    if (!confirm('Are you sure you want to delete this student? This action cannot be undone.')) return;
-    try {
-      await deleteStudent(studentId);
-      await loadStudents();
-      toast({ title: 'Success', description: 'Student account deleted successfully', variant: 'success' });
-    } catch (err: unknown) {
-      toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
-    }
+    openModal({
+      title: 'Student Deletion',
+      description: 'Are you sure you want to permanently remove this student record? This action cannot be undone.',
+      className: 'sm:max-w-xl',
+      content: (
+        <ConfirmationModal
+          title="Confirm Delete"
+          description="Are you sure you want to delete this student? This action cannot be undone."
+          variant="danger"
+          onConfirm={async () => {
+            try {
+              await deleteStudent(studentId);
+              await loadStudents();
+              toast({ title: 'Success', description: 'Student account deleted successfully', variant: 'success' });
+            } catch (err: unknown) {
+              toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
+            }
+          }}
+        />
+      ),
+    });
   };
 
   const filteredStudents = students.filter((s) => {

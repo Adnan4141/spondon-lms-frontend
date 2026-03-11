@@ -51,6 +51,7 @@ import { Toaster } from '@/components/ui/toast';
 import { useModalStore } from '@/store/modalStore';
 import { ExamForm } from '@/components/admin/exams/ExamForm';
 import { ExamDetailsView } from '@/components/admin/exams/ExamDetailsView';
+import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
 import { cn } from '@/lib/utils';
 
 const examTypeOptions: ExamType[] = ['PRACTICE', 'SCHEDULED', 'MODEL', 'TALENT_HUNT', 'UNIVERSITY'];
@@ -175,14 +176,27 @@ export default function ExamsPage() {
   };
 
   const handleDeleteExam = async (examId: string) => {
-    if (!confirm('Are you sure you want to delete this exam? This action cannot be undone.')) return;
-    try {
-      await deleteExam(examId);
-      await loadExams();
-      toast({ title: 'Success', description: 'Exam deleted successfully', variant: 'success' });
-    } catch (err: unknown) {
-      toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
-    }
+    openModal({
+      title: 'Exam Deletion',
+      description: 'Are you sure you want to permanently remove this exam? This action cannot be undone.',
+      className: 'sm:max-w-xl',
+      content: (
+        <ConfirmationModal
+          title="Confirm Delete"
+          description="Are you sure you want to delete this exam? This action cannot be undone."
+          variant="danger"
+          onConfirm={async () => {
+            try {
+              await deleteExam(examId);
+              await loadExams();
+              toast({ title: 'Success', description: 'Exam deleted successfully', variant: 'success' });
+            } catch (err: unknown) {
+              toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
+            }
+          }}
+        />
+      ),
+    });
   };
 
   const filteredExams = exams.filter(

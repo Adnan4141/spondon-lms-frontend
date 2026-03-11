@@ -56,6 +56,7 @@ import { Toaster } from '@/components/ui/toast';
 import { useModalStore } from '@/store/modalStore';
 import { EnrollmentForm } from '@/components/admin/enrollments/EnrollmentForm';
 import { EnrollmentDetailsView } from '@/components/admin/enrollments/EnrollmentDetailsView';
+import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
 import { cn } from '@/lib/utils';
 
 const statusOptions: (EnrollmentStatusType | 'all')[] = ['all', 'ACTIVE', 'PAUSED', 'CANCELLED', 'COMPLETED'];
@@ -182,32 +183,58 @@ export default function EnrollmentsPage() {
   };
 
   const handleDeleteEnrollment = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this enrollment? This action cannot be undone.')) return;
-    try {
-      await deleteEnrollment(id);
-      await loadEnrollments();
-      toast({ title: 'Success', description: 'Enrollment record deleted successfully', variant: 'success' });
-    } catch (err: unknown) {
-      toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
-    }
+    openModal({
+      title: 'Enrollment Deletion',
+      description: 'Are you sure you want to permanently remove this record? This action cannot be undone.',
+      className: 'sm:max-w-xl',
+      content: (
+        <ConfirmationModal
+          title="Confirm Delete"
+          description="Are you sure you want to delete this enrollment? This action cannot be undone."
+          variant="danger"
+          onConfirm={async () => {
+            try {
+              await deleteEnrollment(id);
+              await loadEnrollments();
+              toast({ title: 'Success', description: 'Enrollment record deleted successfully', variant: 'success' });
+            } catch (err: unknown) {
+              toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
+            }
+          }}
+        />
+      ),
+    });
   };
 
   const handleSettleEnrollment = async (id: string) => {
-    if (!confirm('Are you sure you want to settle all outstanding dues for this course? This will mark associated invoices as settled and clear remaining balances.')) return;
-    try {
-      setLoading(true);
-      const res = await settleEnrollment(id);
-      if (res.success) {
-        toast({ title: 'System Settled', description: res.message || 'All dues have been cleared successfully.', variant: 'success' });
-        await loadEnrollments();
-      } else {
-        toast({ title: 'Settlement Failed', description: res.message || 'Could not process settlement.', variant: 'destructive' });
-      }
-    } catch (err: unknown) {
-      toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
-    } finally {
-      setLoading(false);
-    }
+    openModal({
+      title: 'Settle Enrollment',
+      description: 'Clear all outstanding dues for this enrollment.',
+      className: 'sm:max-w-xl',
+      content: (
+        <ConfirmationModal
+          title="Confirm Settlement"
+          description="Are you sure you want to settle all outstanding dues for this course? This will mark associated invoices as settled and clear remaining balances."
+          variant="info"
+          onConfirm={async () => {
+            try {
+              setLoading(true);
+              const res = await settleEnrollment(id);
+              if (res.success) {
+                toast({ title: 'System Settled', description: res.message || 'All dues have been cleared successfully.', variant: 'success' });
+                await loadEnrollments();
+              } else {
+                toast({ title: 'Settlement Failed', description: res.message || 'Could not process settlement.', variant: 'destructive' });
+              }
+            } catch (err: unknown) {
+              toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
+            } finally {
+              setLoading(false);
+            }
+          }}
+        />
+      ),
+    });
   };
 
   const filteredEnrollments = enrollments.filter((e) => {
