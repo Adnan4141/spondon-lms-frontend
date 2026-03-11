@@ -51,12 +51,12 @@ export function QuestionDetailsView({ question }: QuestionDetailsViewProps) {
               </div>
               
               <div className="flex flex-wrap gap-6 pt-2">
-                 <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                 <div className="flex items-center gap-2 text-base font-bold text-slate-500">
                     <FolderOpen className="h-4 w-4 text-indigo-500" />
                     {question.folder?.name}
                  </div>
                  {question.year && (
-                   <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                   <div className="flex items-center gap-2 text-base font-bold text-slate-500">
                       <Calendar className="h-4 w-4 text-emerald-500" />
                       Academic Year {question.year}
                    </div>
@@ -93,7 +93,7 @@ export function QuestionDetailsView({ question }: QuestionDetailsViewProps) {
                         )}>
                            {opt.label}
                         </div>
-                        <span className={cn("text-sm font-bold flex-1", opt.isCorrect ? "text-emerald-900" : "text-slate-700")}>
+                        <span className={cn("text-base font-bold flex-1", opt.isCorrect ? "text-emerald-900" : "text-slate-700")}>
                           {opt.text}
                         </span>
                         {opt.isCorrect && <CheckCircle2 className="h-5 w-5 text-emerald-500" />}

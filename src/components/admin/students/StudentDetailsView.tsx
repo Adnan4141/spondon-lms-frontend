@@ -58,21 +58,21 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
               <div className="space-y-4 text-center md:text-left">
                  <div className="space-y-1">
                     <h2 className="text-3xl font-black tracking-tight text-slate-900">{student.fullName}</h2>
-                    <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-500">Student Account</p>
+                    <p className="text-base font-black uppercase tracking-[0.2em] text-indigo-500">Student Account</p>
                  </div>
                  
                  <div className="flex flex-wrap justify-center md:justify-start gap-6 pt-2">
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                    <div className="flex items-center gap-2 text-base font-bold text-slate-500">
                        <Phone className="h-4 w-4 text-emerald-500" />
                        {student.mobile}
                     </div>
                     {student.email && (
-                      <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                      <div className="flex items-center gap-2 text-base font-bold text-slate-500">
                          <Mail className="h-4 w-4 text-blue-500" />
                          {student.email}
                       </div>
                     )}
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                    <div className="flex items-center gap-2 text-base font-bold text-slate-500">
                        <Building2 className="h-4 w-4 text-rose-500" />
                        {student.branch?.name || 'Unassigned'}
                     </div>
@@ -109,22 +109,22 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                  </h3>
                  <div className="grid gap-4">
                     <div className="flex items-center justify-between p-5 rounded-2xl border border-slate-100 bg-slate-50/30">
-                       <span className="text-xs font-bold text-slate-500">Father's Name</span>
-                       <span className="text-sm font-black text-slate-900">{profile?.fatherName || '-'}</span>
+                       <span className="text-base font-bold text-slate-500">Father's Name</span>
+                       <span className="text-base font-black text-slate-900">{profile?.fatherName || '-'}</span>
                     </div>
                     <div className="flex items-center justify-between p-5 rounded-2xl border border-slate-100 bg-slate-50/30">
-                       <span className="text-xs font-bold text-slate-500">Mother's Name</span>
-                       <span className="text-sm font-black text-slate-900">{profile?.motherName || '-'}</span>
+                       <span className="text-base font-bold text-slate-500">Mother's Name</span>
+                       <span className="text-base font-black text-slate-900">{profile?.motherName || '-'}</span>
                     </div>
                     <div className="flex items-center justify-between p-5 rounded-2xl border border-slate-100 bg-slate-50/30">
-                       <span className="text-xs font-bold text-slate-500">Date of Birth</span>
-                       <span className="text-sm font-black text-slate-900">
+                       <span className="text-base font-bold text-slate-500">Date of Birth</span>
+                       <span className="text-base font-black text-slate-900">
                          {profile?.dob ? new Date(profile.dob).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '-'}
                        </span>
                     </div>
                     <div className="flex items-center justify-between p-5 rounded-2xl border border-slate-100 bg-slate-50/30">
-                       <span className="text-xs font-bold text-slate-500">Gender</span>
-                       <span className="text-sm font-black text-slate-900">{profile?.gender || '-'}</span>
+                       <span className="text-base font-bold text-slate-500">Gender</span>
+                       <span className="text-base font-black text-slate-900">{profile?.gender || '-'}</span>
                     </div>
                  </div>
               </div>
@@ -134,7 +134,7 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                     <MapPin className="h-4 w-4" />
                     Residential Data
                  </h3>
-                 <p className="text-sm font-medium leading-relaxed text-slate-600 bg-white border border-slate-100 p-6 rounded-[24px] shadow-sm">
+                 <p className="text-base font-medium leading-relaxed text-slate-600 bg-white border border-slate-100 p-6 rounded-[24px] shadow-sm">
                     {profile?.address || 'No residential address provided.'}
                  </p>
               </div>
@@ -155,7 +155,7 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                                  <BookOpenCheck className="h-4 w-4" />
                               </div>
                               <div className="flex flex-col">
-                                 <span className="text-sm font-bold text-slate-800">{enrollment.course?.name || '-'}</span>
+                                 <span className="text-base font-bold text-slate-800">{enrollment.course?.name || '-'}</span>
                                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{enrollment.batch?.name || 'No Batch'}</span>
                               </div>
                            </div>
@@ -165,7 +165,7 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                     ) : (
                       <div className="flex flex-col items-center justify-center p-10 rounded-3xl border border-dashed border-slate-200 bg-slate-50">
                          <AlertCircle className="h-8 w-8 text-slate-300 mb-3" />
-                         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">No active enrollments</p>
+                         <p className="text-base font-bold text-slate-400 uppercase tracking-widest">No active enrollments</p>
                       </div>
                     )}
                  </div>
@@ -179,7 +179,7 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                  </div>
                  <div className="mt-4 pt-4 border-t border-slate-800 flex flex-col gap-1">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">External Institute</span>
-                    <span className="text-sm font-bold text-slate-300">{profile?.institute?.name || 'N/A'}</span>
+                    <span className="text-base font-bold text-slate-300">{profile?.institute?.name || 'N/A'}</span>
                  </div>
               </div>
            </div>

@@ -158,7 +158,7 @@ export default function BookStockPage() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">Book Stock</h1>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            <p className="mt-2 max-w-2xl text-base text-muted-foreground">
               Manage book and material stock levels per branch for the offline selling system.
             </p>
           </div>
@@ -167,11 +167,11 @@ export default function BookStockPage() {
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <article className="glass-panel p-3.5">
-          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Stock Locations</p>
+          <p className="text-base uppercase tracking-[0.15em] text-muted-foreground">Stock Locations</p>
           <p className="mt-2 text-2xl font-semibold">{totalLocations}</p>
         </article>
         <article className="glass-panel p-3.5">
-          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Total Quantity</p>
+          <p className="text-base uppercase tracking-[0.15em] text-muted-foreground">Total Quantity</p>
           <p className="mt-2 text-2xl font-semibold">{totalQty}</p>
         </article>
       </section>
@@ -233,11 +233,11 @@ export default function BookStockPage() {
         <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
           <div>
             <h2 className="text-base font-semibold tracking-tight">Branch-wise Stock</h2>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-base text-muted-foreground">
               View and update stock levels for each book at each branch.
             </p>
           </div>
-          <div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
+          <div className="hidden items-center gap-2 text-base text-muted-foreground sm:flex">
             <Warehouse className="h-4 w-4" />
             <span>{totalLocations} Locations</span>
           </div>
@@ -295,7 +295,7 @@ export default function BookStockPage() {
                         <span className="tabular-nums">{stock.stockQty}</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
+                    <TableCell className="text-base text-muted-foreground">
                       {new Date(stock.updatedAt).toLocaleString('en-US', {
                         year: 'numeric',
                         month: 'short',

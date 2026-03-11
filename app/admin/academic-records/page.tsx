@@ -22,7 +22,7 @@ import {
   BarChart3, 
   User, 
   GraduationCap, 
-  Sparkles, 
+  Layers, 
   BookOpen, 
   FileText, 
   Trophy,
@@ -116,7 +116,7 @@ export default function AcademicRecordsPage() {
              {[
                { label: 'Type', value: attempt.exam?.type || '-', icon: BookOpen, color: 'text-blue-600', bg: 'bg-blue-50' },
                { label: 'Mode', value: attempt.exam?.mode || '-', icon: Activity, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-               { label: 'Status', value: attempt.status, icon: Sparkles, color: 'text-violet-600', bg: 'bg-violet-50' },
+               { label: 'Status', value: attempt.status, icon: Layers, color: 'text-violet-600', bg: 'bg-violet-50' },
                { label: 'Score', value: attempt.obtainedMarks !== null ? `${Number(attempt.obtainedMarks).toFixed(2)} / ${Number(attempt.totalMarks).toFixed(2)}` : '-', icon: Trophy, color: 'text-rose-600', bg: 'bg-rose-50' },
              ].map((stat, i) => (
                <div key={i} className="rounded-[24px] border border-slate-100 bg-white p-5 shadow-sm">
@@ -124,7 +124,7 @@ export default function AcademicRecordsPage() {
                      <stat.icon className="h-4.5 w-4.5" />
                   </div>
                   <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
-                  <p className="mt-1 text-sm font-bold text-slate-900">{stat.value}</p>
+                  <p className="mt-1 text-base font-bold text-slate-900">{stat.value}</p>
                </div>
              ))}
           </div>
@@ -133,12 +133,12 @@ export default function AcademicRecordsPage() {
              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 px-2">Timeline</h4>
              <div className="grid gap-3">
                 <div className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-slate-50/30">
-                   <span className="text-xs font-bold text-slate-500">Commencement</span>
-                   <span className="text-xs font-black text-slate-900">{new Date(attempt.startedAt).toLocaleString()}</span>
+                   <span className="text-base font-bold text-slate-500">Commencement</span>
+                   <span className="text-base font-black text-slate-900">{new Date(attempt.startedAt).toLocaleString()}</span>
                 </div>
                 <div className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-slate-50/30">
-                   <span className="text-xs font-bold text-slate-500">Submission</span>
-                   <span className="text-xs font-black text-slate-900">{attempt.submittedAt ? new Date(attempt.submittedAt).toLocaleString() : 'Pending'}</span>
+                   <span className="text-base font-bold text-slate-500">Submission</span>
+                   <span className="text-base font-black text-slate-900">{attempt.submittedAt ? new Date(attempt.submittedAt).toLocaleString() : 'Pending'}</span>
                 </div>
              </div>
           </div>
@@ -161,12 +161,12 @@ export default function AcademicRecordsPage() {
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 border border-indigo-100/50 shadow-sm">
               <BarChart3 className="h-3.5 w-3.5" />
-              Academic Workspace
+              Academic Admin
             </div>
             <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
               Academic <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">Intelligence</span>
             </h1>
-            <p className="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-slate-500">
+            <p className="mt-2 max-w-2xl text-base font-medium leading-relaxed text-slate-500">
               Audit consolidated records, examine attempts, and manage individual student performance history.
             </p>
           </div>
@@ -184,7 +184,7 @@ export default function AcademicRecordsPage() {
                 placeholder="Enter Student User ID (e.g., AH-1024)..."
                 value={studentIdInput}
                 onChange={(e) => setStudentIdInput(e.target.value)}
-                className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
+                className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
               />
             </div>
           </div>
@@ -204,7 +204,7 @@ export default function AcademicRecordsPage() {
       </section>
 
       {error && (
-        <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-xs font-bold text-rose-600 uppercase tracking-widest flex items-center gap-3">
+        <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-base font-bold text-rose-600 uppercase tracking-widest flex items-center gap-3">
            <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />
            {error}
         </div>
@@ -222,7 +222,7 @@ export default function AcademicRecordsPage() {
               </div>
               <div>
                 <h2 className="text-xl font-black text-slate-900">{student.fullName}</h2>
-                <div className="flex items-center gap-3 mt-1 text-xs font-bold text-slate-400">
+                <div className="flex items-center gap-3 mt-1 text-base font-bold text-slate-400">
                   <span>{student.mobile}</span>
                   {student.email && (
                     <>
@@ -239,14 +239,14 @@ export default function AcademicRecordsPage() {
                   <GraduationCap className="h-4 w-4 text-indigo-500" />
                   <div className="flex flex-col">
                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Enrollments</span>
-                     <span className="text-xs font-black text-slate-900">{student._count?.enrollments ?? 0}</span>
+                     <span className="text-base font-black text-slate-900">{student._count?.enrollments ?? 0}</span>
                   </div>
                </div>
                <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-2 flex items-center gap-3">
                   <Activity className="h-4 w-4 text-emerald-500" />
                   <div className="flex flex-col">
                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Exam Attempts</span>
-                     <span className="text-xs font-black text-slate-900">{student._count?.examAttempts ?? 0}</span>
+                     <span className="text-base font-black text-slate-900">{student._count?.examAttempts ?? 0}</span>
                   </div>
                </div>
             </div>
@@ -259,7 +259,7 @@ export default function AcademicRecordsPage() {
           {/* Dashboard Summary */}
           <section className="grid gap-6 sm:grid-cols-3">
             {[
-              { label: 'Online Attempts', value: onlineAttempts.length, icon: Sparkles, color: 'from-blue-600 to-cyan-500' },
+              { label: 'Online Attempts', value: onlineAttempts.length, icon: Layers, color: 'from-blue-600 to-cyan-500' },
               { label: 'Offline Results', value: offlineResults.length, icon: FileText, color: 'from-rose-600 to-pink-500' },
               { label: 'System Records', value: academicRecords.length, icon: Trophy, color: 'from-amber-600 to-orange-500' },
             ].map((stat, i) => (
@@ -283,7 +283,7 @@ export default function AcademicRecordsPage() {
             <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
               <div>
                 <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Online Exam Attempts</h2>
-                <p className="mt-0.5 text-xs font-bold text-indigo-500">Portal synchronized data</p>
+                <p className="mt-0.5 text-base font-bold text-indigo-500">Portal synchronized data</p>
               </div>
             </div>
 
@@ -331,7 +331,7 @@ export default function AcademicRecordsPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                           <p className="text-sm font-black text-slate-900">
+                           <p className="text-base font-black text-slate-900">
                              {attempt.obtainedMarks !== null ? Number(attempt.obtainedMarks).toFixed(2) : '-'}
                            </p>
                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Total: {Number(attempt.totalMarks).toFixed(2)}</p>
@@ -352,7 +352,7 @@ export default function AcademicRecordsPage() {
             <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
               <div>
                 <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Offline Exam Results</h2>
-                <p className="mt-0.5 text-xs font-bold text-rose-500">Physical evaluation data</p>
+                <p className="mt-0.5 text-base font-bold text-rose-500">Physical evaluation data</p>
               </div>
             </div>
 
@@ -374,8 +374,8 @@ export default function AcademicRecordsPage() {
                     {offlineResults.map((row) => (
                       <TableRow key={row.id} className="group border-slate-100 transition-colors hover:bg-slate-50/80">
                         <TableCell className="px-8 py-5 font-bold text-slate-900">{row.examId}</TableCell>
-                        <TableCell className="font-mono text-xs font-black text-indigo-600">{row.rollNo}</TableCell>
-                        <TableCell className="text-xs font-bold text-slate-500">{row.subject || '-'}</TableCell>
+                        <TableCell className="font-mono text-base font-black text-indigo-600">{row.rollNo}</TableCell>
+                        <TableCell className="text-base font-bold text-slate-500">{row.subject || '-'}</TableCell>
                         <TableCell>
                           {row.meritPosition !== null && row.meritPosition !== undefined ? (
                             <Badge variant="outline" className="rounded-lg bg-emerald-50 border-emerald-100 text-emerald-700 font-black text-[9px] uppercase px-2 py-0.5 shadow-sm">
@@ -386,7 +386,7 @@ export default function AcademicRecordsPage() {
                           )}
                         </TableCell>
                         <TableCell className="px-8 text-right py-5">
-                           <p className="text-sm font-black text-slate-900">
+                           <p className="text-base font-black text-slate-900">
                              {row.obtainedMarks !== null ? Number(row.obtainedMarks).toFixed(2) : '-'}
                            </p>
                            <p className="text-[9px] font-bold text-slate-400 uppercase">Max: {Number(row.totalMarks).toFixed(2)}</p>
@@ -404,7 +404,7 @@ export default function AcademicRecordsPage() {
             <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
               <div>
                 <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Consolidated Academic records</h2>
-                <p className="mt-0.5 text-xs font-bold text-amber-600">Normalized institutional records</p>
+                <p className="mt-0.5 text-base font-bold text-amber-600">Normalized institutional records</p>
               </div>
             </div>
 
@@ -435,11 +435,11 @@ export default function AcademicRecordsPage() {
                           {rec.score !== null ? Number(rec.score).toFixed(2) : '-'}
                         </TableCell>
                         <TableCell className="text-center">
-                           <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 border border-indigo-100 text-xs font-black text-indigo-600">
+                           <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 border border-indigo-100 text-base font-black text-indigo-600">
                              {rec.grade || '-'}
                            </span>
                         </TableCell>
-                        <TableCell className="px-8 text-xs font-medium text-slate-500 italic max-w-xs truncate">
+                        <TableCell className="px-8 text-base font-medium text-slate-500 italic max-w-xs truncate">
                           {rec.remarks || '-'}
                         </TableCell>
                       </TableRow>

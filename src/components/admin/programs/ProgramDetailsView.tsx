@@ -85,7 +85,7 @@ export function ProgramDetailsView({ program }: ProgramDetailsViewProps) {
                     Program Scope
                  </h3>
                  <div className="prose prose-slate max-w-none">
-                    <p className="text-sm font-medium leading-relaxed text-slate-600 bg-slate-50/50 p-6 rounded-[28px] border border-slate-100 min-h-[120px]">
+                    <p className="text-base font-medium leading-relaxed text-slate-600 bg-slate-50/50 p-6 rounded-[28px] border border-slate-100 min-h-[120px]">
                        {program.description || 'No formal description has been outlined for this academic program yet.'}
                     </p>
                  </div>
@@ -102,7 +102,7 @@ export function ProgramDetailsView({ program }: ProgramDetailsViewProps) {
                       program.courses.map((course: any) => (
                         <div key={course.id} className="group flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-white hover:border-indigo-200 hover:shadow-md transition-all cursor-pointer">
                            <div className="flex flex-col">
-                              <span className="text-sm font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{course.name}</span>
+                              <span className="text-base font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{course.name}</span>
                               <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">{course.code}</span>
                            </div>
                            <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-indigo-500 transition-all group-hover:translate-x-1" />
@@ -111,7 +111,7 @@ export function ProgramDetailsView({ program }: ProgramDetailsViewProps) {
                     ) : (
                       <div className="flex flex-col items-center justify-center p-10 rounded-3xl border border-dashed border-slate-200 bg-slate-50">
                          <BookOpen className="h-8 w-8 text-slate-300 mb-3" />
-                         <p className="text-xs font-bold text-slate-400">No courses linked yet</p>
+                         <p className="text-base font-bold text-slate-400">No courses linked yet</p>
                       </div>
                     )}
                  </div>
@@ -120,7 +120,7 @@ export function ProgramDetailsView({ program }: ProgramDetailsViewProps) {
               {/* Action Prompt */}
               <div className="rounded-[32px] bg-slate-900 p-6 text-white shadow-xl shadow-slate-200">
                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400 mb-2">Platform Context</p>
-                 <p className="text-sm font-bold leading-relaxed">
+                 <p className="text-base font-bold leading-relaxed">
                    This program acts as a root container for curriculum organization.
                  </p>
               </div>

@@ -32,7 +32,7 @@ import {
   Trash2,
   User,
   Users,
-  Sparkles,
+  Layers,
   ShieldCheck,
   Building2,
   GraduationCap,
@@ -194,12 +194,12 @@ export default function StudentsPage() {
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 border border-indigo-100/50 shadow-sm">
               <User className="h-3.5 w-3.5" />
-              Human Resource Workspace
+              Human Resource Admin
             </div>
             <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
               Student <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">Directory</span>
             </h1>
-            <p className="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-slate-500">
+            <p className="mt-2 max-w-2xl text-base font-medium leading-relaxed text-slate-500">
               Maintain consolidated student accounts, biological profiles, and institutional enrollment records across all branches.
             </p>
           </div>
@@ -218,7 +218,7 @@ export default function StudentsPage() {
       <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
         {[
           { label: 'Total Registry', value: totalStudents, color: 'from-blue-600 to-cyan-500', icon: Users },
-          { label: 'Active Learners', value: activeCount, color: 'from-emerald-600 to-teal-500', icon: Sparkles },
+          { label: 'Active Learners', value: activeCount, color: 'from-emerald-600 to-teal-500', icon: Layers },
           { label: 'Blocked Access', value: blockedCount, color: 'from-rose-600 to-pink-600', icon: ShieldCheck },
           { label: 'Enrollments', value: totalEnrollments, color: 'from-indigo-600 to-purple-600', icon: GraduationCap },
         ].map((stat, i) => (
@@ -247,18 +247,18 @@ export default function StudentsPage() {
                 placeholder="Search by full name, email, or mobile reference..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
+                className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
               />
             </div>
           </div>
           
           <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
-            <SelectTrigger className="h-12 w-[160px] rounded-2xl border-slate-200 bg-white font-bold text-xs uppercase tracking-widest text-slate-600 shadow-sm">
+            <SelectTrigger className="text-sm font-medium">
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
             <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
               {statusOptions.map((opt) => (
-                <SelectItem key={opt} value={opt} className="font-bold text-xs uppercase tracking-widest py-3">
+                <SelectItem key={opt} value={opt} className="text-sm font-medium">
                   {opt === 'all' ? 'All Status' : opt}
                 </SelectItem>
               ))}
@@ -266,13 +266,13 @@ export default function StudentsPage() {
           </Select>
 
           <Select value={branchFilter} onValueChange={setBranchFilter}>
-            <SelectTrigger className="h-12 w-[180px] rounded-2xl border-slate-200 bg-white font-bold text-xs uppercase tracking-widest text-slate-600 shadow-sm">
+            <SelectTrigger className="text-sm font-medium">
               <SelectValue placeholder="All Branches" />
             </SelectTrigger>
             <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-              <SelectItem value="all" className="font-bold text-xs uppercase tracking-widest py-3">All Branches</SelectItem>
+              <SelectItem value="all" className="text-sm font-medium">All Branches</SelectItem>
               {branches.map((branch) => (
-                <SelectItem key={branch.id} value={branch.id} className="font-bold text-xs uppercase tracking-widest py-3">
+                <SelectItem key={branch.id} value={branch.id} className="text-sm font-medium">
                   {branch.name}
                 </SelectItem>
               ))}
@@ -290,7 +290,7 @@ export default function StudentsPage() {
         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
           <div>
             <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Student Registry</h2>
-            <p className="mt-0.5 text-xs font-bold text-indigo-500">Institutional demographic data</p>
+            <p className="mt-0.5 text-base font-bold text-indigo-500">Institutional demographic data</p>
           </div>
           <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -324,23 +324,23 @@ export default function StudentsPage() {
                   <TableRow key={student.id} className="group border-slate-100 transition-colors hover:bg-slate-50/80">
                     <TableCell className="px-8 py-5">
                        <div className="flex items-center gap-4">
-                          <div className="h-10 w-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-black text-slate-500 text-xs">
+                          <div className="h-10 w-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-black text-slate-500 text-base">
                              {student.fullName.charAt(0)}
                           </div>
                           <div className="flex flex-col">
                              <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors text-base">{student.fullName}</span>
-                             <span className="text-xs font-medium text-slate-400">UID: {student.id.slice(0, 8)}...</span>
+                             <span className="text-base font-medium text-slate-400">UID: {student.id.slice(0, 8)}...</span>
                           </div>
                        </div>
                     </TableCell>
                     <TableCell className="py-5">
                        <div className="flex flex-col gap-1.5">
-                          <div className="flex items-center gap-1.5 text-sm font-bold text-slate-600">
+                          <div className="flex items-center gap-1.5 text-base font-bold text-slate-600">
                              <Phone className="h-3.5 w-3.5 text-emerald-500" />
                              {student.mobile}
                           </div>
                           {student.email && (
-                            <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400">
+                            <div className="flex items-center gap-1.5 text-base font-medium text-slate-400">
                                <Mail className="h-3.5 w-3.5 text-blue-400" />
                                {student.email}
                             </div>
@@ -349,18 +349,18 @@ export default function StudentsPage() {
                     </TableCell>
                     <TableCell className="py-5">
                        <div className="flex flex-col gap-1.5">
-                          <div className="flex items-center gap-1.5 text-sm font-bold text-slate-600">
+                          <div className="flex items-center gap-1.5 text-base font-bold text-slate-600">
                              <Building2 className="h-3.5 w-3.5 text-rose-500" />
                              {student.branch?.name || 'Central'}
                           </div>
-                          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
+                          <div className="flex items-center gap-1.5 text-base font-bold text-slate-400">
                              <GraduationCap className="h-3.5 w-3.5 text-indigo-400" />
                              {student._count?.enrollments || 0} active plans
                           </div>
                        </div>
                     </TableCell>
                     <TableCell className="py-5">
-                       <Badge variant="outline" className={cn("rounded-lg text-[9px] font-black uppercase tracking-widest px-2.5 py-1", getStatusBadgeClass(student.status))}>
+                       <Badge variant="outline" className={cn("rounded-lg text-[10px] font-black uppercase tracking-widest px-2.5 py-1", getStatusBadgeClass(student.status))}>
                          {student.status}
                        </Badge>
                     </TableCell>

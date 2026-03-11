@@ -67,20 +67,20 @@ export function InvoiceDetailsView({ invoice }: InvoiceDetailsViewProps) {
               <div className="space-y-4 text-center md:text-left">
                  <div className="space-y-1">
                     <h2 className="text-3xl font-black tracking-tight text-slate-900">Statement Intelligence</h2>
-                    <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-500">Invoice ID: {invoice.id.slice(0, 16)}...</p>
+                    <p className="text-base font-black uppercase tracking-[0.2em] text-indigo-500">Invoice ID: {invoice.id.slice(0, 16)}...</p>
                  </div>
                  
                  <div className="flex flex-wrap justify-center md:justify-start gap-6 pt-2">
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                    <div className="flex items-center gap-2 text-base font-bold text-slate-500">
                        <User className="h-4 w-4 text-indigo-500" />
                        {invoice.student?.fullName}
                     </div>
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                    <div className="flex items-center gap-2 text-base font-bold text-slate-500">
                        <Building2 className="h-4 w-4 text-rose-500" />
                        {invoice.branch?.name}
                     </div>
                     {invoice.month && (
-                      <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                      <div className="flex items-center gap-2 text-base font-bold text-slate-500">
                          <Calendar className="h-4 w-4 text-emerald-500" />
                          {invoice.month}
                       </div>
@@ -131,10 +131,10 @@ export function InvoiceDetailsView({ invoice }: InvoiceDetailsViewProps) {
                           <TableCell>
                              <Badge variant="outline" className="rounded-lg bg-slate-50 border-slate-200 text-[9px] font-black uppercase tracking-widest px-2 py-0.5">{item.type}</Badge>
                           </TableCell>
-                          <TableCell className="text-sm font-bold text-slate-700">{item.title}</TableCell>
-                          <TableCell className="text-right text-sm font-medium text-slate-500">{item.qty}</TableCell>
-                          <TableCell className="text-right text-sm font-medium text-slate-500">{formatCurrency(item.unitPrice)}</TableCell>
-                          <TableCell className="text-right text-sm font-black text-slate-900">{formatCurrency(item.lineTotal)}</TableCell>
+                          <TableCell className="text-base font-bold text-slate-700">{item.title}</TableCell>
+                          <TableCell className="text-right text-base font-medium text-slate-500">{item.qty}</TableCell>
+                          <TableCell className="text-right text-base font-medium text-slate-500">{formatCurrency(item.unitPrice)}</TableCell>
+                          <TableCell className="text-right text-base font-black text-slate-900">{formatCurrency(item.lineTotal)}</TableCell>
                        </TableRow>
                     ))}
                  </TableBody>
@@ -158,7 +158,7 @@ export function InvoiceDetailsView({ invoice }: InvoiceDetailsViewProps) {
                                 <CheckCircle2 className="h-4 w-4" />
                              </div>
                              <div className="flex flex-col">
-                                <span className="text-sm font-bold text-slate-800">{formatCurrency(p.amount)}</span>
+                                <span className="text-base font-bold text-slate-800">{formatCurrency(p.amount)}</span>
                                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{p.method} • {new Date(p.paidAt).toLocaleDateString()}</span>
                              </div>
                           </div>
@@ -181,17 +181,17 @@ export function InvoiceDetailsView({ invoice }: InvoiceDetailsViewProps) {
               </h3>
               <div className="grid gap-4">
                  <div className="flex items-center justify-between p-5 rounded-2xl border border-slate-100 bg-slate-50/30">
-                    <span className="text-xs font-bold text-slate-500">Initialized At</span>
-                    <span className="text-xs font-black text-slate-900">{new Date(invoice.createdAt).toLocaleString()}</span>
+                    <span className="text-base font-bold text-slate-500">Initialized At</span>
+                    <span className="text-base font-black text-slate-900">{new Date(invoice.createdAt).toLocaleString()}</span>
                  </div>
                  <div className="flex items-center justify-between p-5 rounded-2xl border border-slate-100 bg-slate-50/30">
-                    <span className="text-xs font-bold text-slate-500">Authorization Status</span>
-                    <span className="text-xs font-black text-indigo-600">{invoice.status}</span>
+                    <span className="text-base font-bold text-slate-500">Authorization Status</span>
+                    <span className="text-base font-black text-indigo-600">{invoice.status}</span>
                  </div>
                  {invoice.issuedAt && (
                    <div className="flex items-center justify-between p-5 rounded-2xl border border-slate-100 bg-slate-50/30">
-                      <span className="text-xs font-bold text-slate-500">Emission Date</span>
-                      <span className="text-xs font-black text-slate-900">{new Date(invoice.issuedAt).toLocaleString()}</span>
+                      <span className="text-base font-bold text-slate-500">Emission Date</span>
+                      <span className="text-base font-black text-slate-900">{new Date(invoice.issuedAt).toLocaleString()}</span>
                    </div>
                  )}
               </div>

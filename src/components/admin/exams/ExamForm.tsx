@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createExam, updateExam, type Exam, type ExamType, type ExamMode, type ExamStatus, type CreateExamDto, type UpdateExamDto } from '@/lib/api/exams';
+import { createExam, updateExam } from '@/lib/api/exams';
+import { type Exam, type ExamType, type ExamMode, type ExamStatus, type CreateExamDto, type UpdateExamDto } from '@/types/exam';
 import { getBatches, type Batch } from '@/lib/api/batches';
 import { useModalStore } from '@/store/modalStore';
 import { useToast } from '@/hooks/use-toast';
@@ -16,6 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { DateTimePicker } from '@/components/ui/datetime-picker';
+import { format } from 'date-fns';
 import { Calendar, Clock, BookOpen, MapPin, Layers, Settings2, ShieldCheck, Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -24,7 +27,7 @@ const examModeOptions: ExamMode[] = ['ONLINE', 'OFFLINE'];
 const examStatusOptions: ExamStatus[] = ['DRAFT', 'PUBLISHED', 'CLOSED'];
 
 const inputClass =
-  'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
+  'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
 const sectionLabel = 'text-[11px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2 block';
 
 interface ExamFormProps {
@@ -139,7 +142,7 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
               <Input
                 className={cn(inputClass, "h-14 text-lg")}
                 value={form.title}
-                onChange={(e) => setForm(prev => ({ ...prev, title: e.target.value }))}
+                onChange={(e) => setForm((prev: CreateExamDto) => ({ ...prev, title: e.target.value }))}
                 placeholder="e.g., Weekly Model Test - Physics"
               />
             </div>
@@ -147,20 +150,22 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
             <div className="grid gap-6 sm:grid-cols-2">
                <div className="space-y-2">
                   <label className={sectionLabel}><Calendar className="inline h-3 w-3 mr-1" /> Start Date & Time</label>
-                  <Input 
-                    type="datetime-local" 
-                    className={inputClass} 
-                    value={form.startAt} 
-                    onChange={(e) => setForm(p => ({ ...p, startAt: e.target.value }))} 
+                  <DateTimePicker
+                    date={form.startAt ? new Date(form.startAt) : undefined}
+                    setDate={(date) => {
+                      setForm((p: CreateExamDto) => ({ ...p, startAt: date ? date.toISOString() : '' }));
+                    }}
+                    placeholder="Set commencement..."
                   />
                </div>
                <div className="space-y-2">
                   <label className={sectionLabel}><Calendar className="inline h-3 w-3 mr-1" /> Conclusion Date & Time</label>
-                  <Input 
-                    type="datetime-local" 
-                    className={inputClass} 
-                    value={form.endAt} 
-                    onChange={(e) => setForm(p => ({ ...p, endAt: e.target.value }))} 
+                  <DateTimePicker
+                    date={form.endAt ? new Date(form.endAt) : undefined}
+                    setDate={(date) => {
+                      setForm((p: CreateExamDto) => ({ ...p, endAt: date ? date.toISOString() : '' }));
+                    }}
+                    placeholder="Set expiration..."
                   />
                </div>
             </div>
@@ -172,7 +177,7 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
                     type="number" 
                     className={inputClass} 
                     value={form.durationMinutes || ''} 
-                    onChange={(e) => setForm(p => ({ ...p, durationMinutes: e.target.value ? Number(e.target.value) : undefined }))}
+                    onChange={(e) => setForm((p: CreateExamDto) => ({ ...p, durationMinutes: e.target.value ? Number(e.target.value) : undefined }))}
                     placeholder="e.g., 60"
                   />
                </div>
@@ -182,7 +187,7 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
                     type="number" 
                     className={inputClass} 
                     value={form.allowedAttempts} 
-                    onChange={(e) => setForm(p => ({ ...p, allowedAttempts: Number(e.target.value) }))}
+                    onChange={(e) => setForm((p: CreateExamDto) => ({ ...p, allowedAttempts: Number(e.target.value) }))}
                   />
                </div>
             </div>
@@ -193,24 +198,24 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
              <div className="space-y-6">
                 <div className="space-y-2">
                    <label className={sectionLabel}><BookOpen className="inline h-3 w-3 mr-1" /> Course</label>
-                   <Select value={form.courseId} onValueChange={(v) => setForm(p => ({ ...p, courseId: v, batchId: undefined }))}>
+                   <Select value={form.courseId} onValueChange={(v) => setForm((p: CreateExamDto) => ({ ...p, courseId: v, batchId: undefined }))}>
                       <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700">
                          <SelectValue placeholder="Select Course" />
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                         {courses.map(c => <SelectItem key={c.id} value={c.id} className="font-bold text-xs uppercase tracking-widest py-3">{c.name}</SelectItem>)}
+                         {courses.map(c => <SelectItem key={c.id} value={c.id} className="text-sm font-medium">{c.name}</SelectItem>)}
                       </SelectContent>
                    </Select>
                 </div>
 
                 <div className="space-y-2">
                    <label className={sectionLabel}><MapPin className="inline h-3 w-3 mr-1" /> Branch</label>
-                   <Select value={form.branchId} onValueChange={(v) => setForm(p => ({ ...p, branchId: v, batchId: undefined }))}>
+                   <Select value={form.branchId} onValueChange={(v) => setForm((p: CreateExamDto) => ({ ...p, branchId: v, batchId: undefined }))}>
                       <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700">
                          <SelectValue placeholder="Select Branch" />
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                         {branches.map(b => <SelectItem key={b.id} value={b.id} className="font-bold text-xs uppercase tracking-widest py-3">{b.name}</SelectItem>)}
+                         {branches.map(b => <SelectItem key={b.id} value={b.id} className="text-sm font-medium">{b.name}</SelectItem>)}
                       </SelectContent>
                    </Select>
                 </div>
@@ -219,15 +224,15 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
                    <label className={sectionLabel}><Layers className="inline h-3 w-3 mr-1" /> Batch (Targeted)</label>
                    <Select 
                      value={form.batchId || 'all'} 
-                     onValueChange={(v) => setForm(p => ({ ...p, batchId: v === 'all' ? undefined : v }))}
+                     onValueChange={(v) => setForm((p: CreateExamDto) => ({ ...p, batchId: v === 'all' ? undefined : v }))}
                      disabled={!form.courseId || !form.branchId}
                    >
                       <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700">
                          <SelectValue placeholder="All Batches" />
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                         <SelectItem value="all" className="font-bold text-xs uppercase tracking-widest py-3">All Batches</SelectItem>
-                         {batches.map(b => <SelectItem key={b.id} value={b.id} className="font-bold text-xs uppercase tracking-widest py-3">{b.name}</SelectItem>)}
+                         <SelectItem value="all" className="text-sm font-medium">All Batches</SelectItem>
+                         {batches.map(b => <SelectItem key={b.id} value={b.id} className="text-sm font-medium">{b.name}</SelectItem>)}
                       </SelectContent>
                    </Select>
                 </div>
@@ -235,7 +240,7 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
                 <div className="grid grid-cols-2 gap-4">
                    <div className="space-y-2">
                       <label className={sectionLabel}>Type</label>
-                      <Select value={form.type} onValueChange={(v) => setForm(p => ({ ...p, type: v as ExamType }))}>
+                      <Select value={form.type} onValueChange={(v) => setForm((p: CreateExamDto) => ({ ...p, type: v as ExamType }))}>
                          <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700"><SelectValue /></SelectTrigger>
                          <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
                             {examTypeOptions.map(o => <SelectItem key={o} value={o} className="font-bold text-[10px] uppercase tracking-widest py-3">{o}</SelectItem>)}
@@ -244,7 +249,7 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
                    </div>
                    <div className="space-y-2">
                       <label className={sectionLabel}>Mode</label>
-                      <Select value={form.mode} onValueChange={(v) => setForm(p => ({ ...p, mode: v as ExamMode }))}>
+                      <Select value={form.mode} onValueChange={(v) => setForm((p: CreateExamDto) => ({ ...p, mode: v as ExamMode }))}>
                          <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700"><SelectValue /></SelectTrigger>
                          <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
                             {examModeOptions.map(o => <SelectItem key={o} value={o} className="font-bold text-[10px] uppercase tracking-widest py-3">{o}</SelectItem>)}
@@ -255,7 +260,7 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
 
                 <div className="space-y-2">
                    <label className={sectionLabel}><Activity className="inline h-3 w-3 mr-1" /> Lifecycle Status</label>
-                   <Select value={form.status} onValueChange={(v) => setForm(p => ({ ...p, status: v as ExamStatus }))}>
+                   <Select value={form.status} onValueChange={(v) => setForm((p: CreateExamDto) => ({ ...p, status: v as ExamStatus }))}>
                       <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700"><SelectValue /></SelectTrigger>
                       <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
                          {examStatusOptions.map(o => <SelectItem key={o} value={o} className="font-bold text-[10px] uppercase tracking-widest py-3">{o}</SelectItem>)}
@@ -266,7 +271,7 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
 
              <div className="rounded-[28px] bg-slate-900 p-6 text-white shadow-xl shadow-slate-200">
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400 mb-2">Scheduler Context</p>
-                <p className="text-xs font-bold leading-relaxed text-slate-300">
+                <p className="text-base font-bold leading-relaxed text-slate-300">
                   Configure exam visibility and access rules. Start and End times control when students can enter the assessment.
                 </p>
              </div>
@@ -274,7 +279,7 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
         </div>
 
         {error && (
-          <div className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs font-bold text-rose-600 uppercase tracking-widest flex items-center gap-3">
+          <div className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-base font-bold text-rose-600 uppercase tracking-widest flex items-center gap-3">
              <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />
              {error}
           </div>

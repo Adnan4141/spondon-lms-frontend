@@ -17,7 +17,7 @@ import { Building2, MapPin, Phone, Hash, ShieldCheck, Trash2 } from 'lucide-reac
 import { cn } from '@/lib/utils';
 
 const inputClass =
-  'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
+  'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
 const sectionLabel = 'text-[11px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2 block px-1';
 
 interface BranchFormProps {
@@ -102,7 +102,7 @@ export function BranchForm({ branch, onSuccess }: BranchFormProps) {
           <section className="space-y-6">
              <div className="flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-indigo-600" />
-                <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Branch Identity</h3>
+                <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Branch Identity</h3>
              </div>
              <div className="grid gap-6 sm:grid-cols-2">
                 <div className="space-y-2 sm:col-span-2">
@@ -126,8 +126,8 @@ export function BranchForm({ branch, onSuccess }: BranchFormProps) {
                          <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                         <SelectItem value="active" className="font-bold text-xs uppercase tracking-widest py-3 text-emerald-600">ACTIVE</SelectItem>
-                         <SelectItem value="inactive" className="font-bold text-xs uppercase tracking-widest py-3 text-rose-600">INACTIVE</SelectItem>
+                         <SelectItem value="active" className="text-sm font-medium">ACTIVE</SelectItem>
+                         <SelectItem value="inactive" className="text-sm font-medium">INACTIVE</SelectItem>
                       </SelectContent>
                    </Select>
                 </div>
@@ -138,7 +138,7 @@ export function BranchForm({ branch, onSuccess }: BranchFormProps) {
           <section className="space-y-6">
              <div className="flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-emerald-600" />
-                <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Location & Contact</h3>
+                <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Location & Contact</h3>
              </div>
              <div className="grid gap-6">
                 <div className="space-y-2">
@@ -151,7 +151,7 @@ export function BranchForm({ branch, onSuccess }: BranchFormProps) {
                 <div className="space-y-2">
                    <label className={sectionLabel}>Physical Address</label>
                    <textarea 
-                     className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm font-bold text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner" 
+                     className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-base font-bold text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner" 
                      rows={3} 
                      value={form.address} 
                      onChange={e => setForm(p => ({ ...p, address: e.target.value }))} 
@@ -163,7 +163,7 @@ export function BranchForm({ branch, onSuccess }: BranchFormProps) {
         </div>
 
         {error && (
-          <div className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs font-bold text-rose-600 uppercase tracking-widest flex items-center gap-3">
+          <div className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-base font-bold text-rose-600 uppercase tracking-widest flex items-center gap-3">
              <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />
              {error}
           </div>

@@ -24,7 +24,7 @@ export function GlobalModal() {
               {title}
             </DialogTitle>
             {description && (
-              <DialogDescription className="mt-1 text-sm font-medium text-slate-500">
+              <DialogDescription className="mt-1 text-base font-medium text-slate-500">
                 {description}
               </DialogDescription>
             )}

@@ -53,16 +53,16 @@ export function CourseDetailsView({ course }: CourseDetailsViewProps) {
                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white border border-slate-200 text-indigo-600 shadow-sm">
                     <BookOpen className="h-5 w-5" />
                  </div>
-                 <span className="font-mono text-sm font-black text-slate-400 tracking-tighter">{course.code}</span>
+                 <span className="font-mono text-base font-black text-slate-400 tracking-tighter">{course.code}</span>
               </div>
               <h2 className="text-3xl font-black tracking-tight text-slate-900">{course.name}</h2>
               <div className="flex flex-wrap gap-4 pt-2">
-                 <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                 <div className="flex items-center gap-2 text-base font-bold text-slate-500">
                     <GraduationCap className="h-4 w-4 text-indigo-500" />
                     {course.program?.name}
                  </div>
                  <div className="h-4 w-[1px] bg-slate-200" />
-                 <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                 <div className="flex items-center gap-2 text-base font-bold text-slate-500">
                     <Monitor className="h-4 w-4 text-emerald-500" />
                     {course.type}
                  </div>
@@ -96,7 +96,7 @@ export function CourseDetailsView({ course }: CourseDetailsViewProps) {
                     <Info className="h-4 w-4" />
                     Course Description
                  </h3>
-                 <p className="text-sm font-medium leading-relaxed text-slate-600 bg-slate-50/50 p-6 rounded-[24px] border border-slate-100">
+                 <p className="text-base font-medium leading-relaxed text-slate-600 bg-slate-50/50 p-6 rounded-[24px] border border-slate-100">
                     {course.description || 'No description provided for this course.'}
                  </p>
               </div>
@@ -109,11 +109,11 @@ export function CourseDetailsView({ course }: CourseDetailsViewProps) {
                  <div className="grid grid-cols-2 gap-4">
                     <div className="bg-white border border-slate-100 p-4 rounded-2xl">
                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Phase</p>
-                       <p className="text-sm font-bold text-slate-900 mt-1">{course.admissionStatus}</p>
+                       <p className="text-base font-bold text-slate-900 mt-1">{course.admissionStatus}</p>
                     </div>
                     <div className="bg-white border border-slate-100 p-4 rounded-2xl">
                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Billing</p>
-                       <p className="text-sm font-bold text-slate-900 mt-1">{course.billingType}</p>
+                       <p className="text-base font-bold text-slate-900 mt-1">{course.billingType}</p>
                     </div>
                  </div>
               </div>
@@ -127,12 +127,12 @@ export function CourseDetailsView({ course }: CourseDetailsViewProps) {
                  </h3>
                  <div className="space-y-3">
                     <div className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-white group hover:border-violet-200 transition-all">
-                       <span className="text-xs font-bold text-slate-500">Instructor</span>
-                       <span className="text-sm font-black text-slate-900">{outline?.instructor || 'TBA'}</span>
+                       <span className="text-base font-bold text-slate-500">Instructor</span>
+                       <span className="text-base font-black text-slate-900">{outline?.instructor || 'TBA'}</span>
                     </div>
                     <div className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-white group hover:border-violet-200 transition-all">
-                       <span className="text-xs font-bold text-slate-500">Schedule</span>
-                       <span className="text-sm font-black text-slate-900">{outline?.schedule || 'Flexible'}</span>
+                       <span className="text-base font-bold text-slate-500">Schedule</span>
+                       <span className="text-base font-black text-slate-900">{outline?.schedule || 'Flexible'}</span>
                     </div>
                     
                     <div className="pt-4">
@@ -145,7 +145,7 @@ export function CourseDetailsView({ course }: CourseDetailsViewProps) {
                               </Badge>
                             ))
                           ) : (
-                            <span className="text-xs font-medium text-slate-400 italic">No prerequisites required.</span>
+                            <span className="text-base font-medium text-slate-400 italic">No prerequisites required.</span>
                           )}
                        </div>
                     </div>
@@ -159,7 +159,7 @@ export function CourseDetailsView({ course }: CourseDetailsViewProps) {
                     </div>
                     <div>
                        <p className="text-[10px] font-black uppercase tracking-widest text-indigo-600">Active Students</p>
-                       <p className="text-xs font-medium text-indigo-400">Currently enrolled in this course</p>
+                       <p className="text-base font-medium text-indigo-400">Currently enrolled in this course</p>
                     </div>
                  </div>
               </div>

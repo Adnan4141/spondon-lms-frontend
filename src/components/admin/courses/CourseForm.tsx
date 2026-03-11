@@ -30,9 +30,9 @@ const billingOptions: BillingType[] = ['ONE_TIME', 'MONTHLY'];
 const admissionOptions: AdmissionStatus[] = ['OPEN', 'CLOSED'];
 
 const inputClass =
-  'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
+  'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
 const textareaClass =
-  'w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm font-bold text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
+  'w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-base font-bold text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
 const sectionLabel = 'text-[11px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2 block';
 
 function checkboxClass() {
@@ -177,7 +177,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
               </SelectTrigger>
               <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
                 {programs.map((program) => (
-                  <SelectItem key={program.id} value={program.id} className="font-bold text-xs uppercase tracking-widest py-3">
+                  <SelectItem key={program.id} value={program.id} className="text-sm font-medium">
                     {program.name}
                   </SelectItem>
                 ))}
@@ -216,7 +216,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
               </SelectTrigger>
               <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
                 {typeOptions.map((option) => (
-                  <SelectItem key={option} value={option} className="font-bold text-xs uppercase tracking-widest py-3">
+                  <SelectItem key={option} value={option} className="text-sm font-medium">
                     {option}
                   </SelectItem>
                 ))}
@@ -237,7 +237,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
               </SelectTrigger>
               <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
                 {billingOptions.map((option) => (
-                  <SelectItem key={option} value={option} className="font-bold text-xs uppercase tracking-widest py-3">
+                  <SelectItem key={option} value={option} className="text-sm font-medium">
                     {option}
                   </SelectItem>
                 ))}
@@ -256,7 +256,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
               </SelectTrigger>
               <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
                 {statusOptions.map((option) => (
-                  <SelectItem key={option} value={option} className="font-bold text-xs uppercase tracking-widest py-3">
+                  <SelectItem key={option} value={option} className="text-sm font-medium">
                     {option}
                   </SelectItem>
                 ))}
@@ -277,7 +277,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
               </SelectTrigger>
               <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
                 {admissionOptions.map((option) => (
-                  <SelectItem key={option} value={option} className="font-bold text-xs uppercase tracking-widest py-3">
+                  <SelectItem key={option} value={option} className="text-sm font-medium">
                     {option}
                   </SelectItem>
                 ))}
@@ -344,7 +344,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
         </div>
 
         {error && (
-          <div className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs font-bold text-rose-600 uppercase tracking-widest flex items-center gap-3">
+          <div className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-base font-bold text-rose-600 uppercase tracking-widest flex items-center gap-3">
              <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />
              {error}
           </div>

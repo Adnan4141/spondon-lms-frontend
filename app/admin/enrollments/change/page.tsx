@@ -271,7 +271,7 @@ export default function EnrollmentChangePage() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">Enrollment Batch/Branch Change</h1>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            <p className="mt-2 max-w-2xl text-base text-muted-foreground">
               Change batch or branch for student enrollments. Supports single and bulk operations.
             </p>
           </div>
@@ -281,7 +281,7 @@ export default function EnrollmentChangePage() {
       <section className="glass-panel p-4 sm:p-5">
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Course</label>
+            <label className="text-base font-medium">Course</label>
             <Select value={selectedCourse} onValueChange={setSelectedCourse}>
               <SelectTrigger>
                 <SelectValue placeholder="Select course" />
@@ -296,7 +296,7 @@ export default function EnrollmentChangePage() {
             </Select>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Branch</label>
+            <label className="text-base font-medium">Branch</label>
             <Select value={selectedBranch} onValueChange={setSelectedBranch}>
               <SelectTrigger>
                 <SelectValue placeholder="All branches" />
@@ -312,7 +312,7 @@ export default function EnrollmentChangePage() {
             </Select>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Batch</label>
+            <label className="text-base font-medium">Batch</label>
             <Select value={selectedBatch} onValueChange={setSelectedBatch}>
               <SelectTrigger>
                 <SelectValue placeholder="All batches" />
@@ -333,7 +333,7 @@ export default function EnrollmentChangePage() {
       {selectedEnrollments.length > 0 && (
         <section className="glass-panel p-4 sm:p-5">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">
+            <p className="text-base font-medium">
               {selectedEnrollments.length} enrollment(s) selected
             </p>
             <div className="flex gap-2">
@@ -367,7 +367,7 @@ export default function EnrollmentChangePage() {
           <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
             <div>
               <h2 className="text-base font-semibold tracking-tight">Enrollments</h2>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-base text-muted-foreground">
                 Select enrollments to change batch or branch
               </p>
             </div>
@@ -480,7 +480,7 @@ export default function EnrollmentChangePage() {
           <div className="space-y-4 py-4">
             {changeType === 'batch' ? (
               <div className="space-y-2">
-                <label className="text-sm font-medium">New Batch *</label>
+                <label className="text-base font-medium">New Batch *</label>
                 <Select value={newBatchId} onValueChange={setNewBatchId}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select new batch" />
@@ -496,7 +496,7 @@ export default function EnrollmentChangePage() {
               </div>
             ) : (
               <div className="space-y-2">
-                <label className="text-sm font-medium">New Branch *</label>
+                <label className="text-base font-medium">New Branch *</label>
                 <Select value={newBranchId} onValueChange={setNewBranchId}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select new branch" />
@@ -512,7 +512,7 @@ export default function EnrollmentChangePage() {
               </div>
             )}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Reason (Optional)</label>
+              <label className="text-base font-medium">Reason (Optional)</label>
               <Textarea
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}

@@ -6,8 +6,9 @@ import { useModalStore } from '@/store/modalStore';
 import { useToast } from '@/hooks/use-toast';
 import type { Invoice, CreateInvoiceDto, CreateInvoiceItemDto, UpdateInvoiceDto, InvoiceStatus, InvoiceItemType } from '@/types/invoice';
 import type { Branch } from '@/lib/api/branches';
-import type { Student } from '@/lib/api/students';
+import type { Student } from '@/types/student';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -21,7 +22,7 @@ import { cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const inputClass =
-  'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
+  'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
 const sectionLabel = 'text-[11px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2 block px-1';
 
 const itemTypeOptions: InvoiceItemType[] = ['COURSE', 'BOOK', 'FEE', 'OTHER'];
@@ -135,30 +136,30 @@ export function InvoiceForm({ branches, students, invoice, onSuccess }: InvoiceF
           <section className="space-y-6">
              <div className="flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-indigo-600" />
-                <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Billing Context</h3>
+                <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Billing Context</h3>
              </div>
              
              {!isEdit ? (
                 <div className="grid gap-6 sm:grid-cols-2">
                    <div className="space-y-2">
                       <label className={sectionLabel}>Target Student</label>
-                      <Select value={form.studentUserId} onValueChange={v => setForm(p => ({ ...p, studentUserId: v }))}>
+                      <Select value={form.studentUserId} onValueChange={v => setForm((p: CreateInvoiceDto) => ({ ...p, studentUserId: v }))}>
                          <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
                             <SelectValue placeholder="Select Student" />
                          </SelectTrigger>
                          <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                            {students.map(s => <SelectItem key={s.id} value={s.id} className="font-bold text-xs uppercase tracking-widest py-3">{s.fullName} ({s.mobile})</SelectItem>)}
+                            {students.map(s => <SelectItem key={s.id} value={s.id} className="text-sm font-medium">{s.fullName} ({s.mobile})</SelectItem>)}
                          </SelectContent>
                       </Select>
                    </div>
                    <div className="space-y-2">
                       <label className={sectionLabel}>Billing Branch</label>
-                      <Select value={form.branchId} onValueChange={v => setForm(p => ({ ...p, branchId: v }))}>
+                      <Select value={form.branchId} onValueChange={v => setForm((p: CreateInvoiceDto) => ({ ...p, branchId: v }))}>
                          <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
                             <SelectValue placeholder="Select Branch" />
                          </SelectTrigger>
                          <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                            {branches.map(b => <SelectItem key={b.id} value={b.id} className="font-bold text-xs uppercase tracking-widest py-3">{b.name}</SelectItem>)}
+                            {branches.map(b => <SelectItem key={b.id} value={b.id} className="text-sm font-medium">{b.name}</SelectItem>)}
                          </SelectContent>
                       </Select>
                    </div>
@@ -187,19 +188,19 @@ export function InvoiceForm({ branches, students, invoice, onSuccess }: InvoiceF
                         className={cn(inputClass, "pl-11")} 
                         type="month" 
                         value={form.month} 
-                        onChange={e => setForm(p => ({ ...p, month: e.target.value }))} 
+                        onChange={e => setForm((p: CreateInvoiceDto) => ({ ...p, month: e.target.value }))} 
                         disabled={isEdit}
                       />
                    </div>
                 </div>
                 <div className="space-y-2">
                    <label className={sectionLabel}>Status Control</label>
-                   <Select value={form.status} onValueChange={v => setForm(p => ({ ...p, status: v as InvoiceStatus }))}>
+                   <Select value={form.status} onValueChange={v => setForm((p: CreateInvoiceDto) => ({ ...p, status: v as InvoiceStatus }))}>
                       <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
                          <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                         {statusOptions.map(s => <SelectItem key={s} value={s} className="font-bold text-xs uppercase tracking-widest py-3">{s}</SelectItem>)}
+                         {statusOptions.map(s => <SelectItem key={s} value={s} className="text-sm font-medium">{s}</SelectItem>)}
                       </SelectContent>
                    </Select>
                 </div>
@@ -212,7 +213,7 @@ export function InvoiceForm({ branches, students, invoice, onSuccess }: InvoiceF
                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                      <Activity className="h-4 w-4 text-emerald-600" />
-                     <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Statement Items</h3>
+                     <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Statement Items</h3>
                   </div>
                   <Button variant="outline" size="sm" className="h-10 rounded-xl px-4 text-[10px] font-black uppercase tracking-widest border-slate-200 hover:bg-slate-50" onClick={addItem}>
                      <Plus className="mr-2 h-4 w-4" />
@@ -227,25 +228,25 @@ export function InvoiceForm({ branches, students, invoice, onSuccess }: InvoiceF
                            <div className="sm:col-span-3 space-y-1.5">
                               <label className="text-[9px] font-black text-slate-400 uppercase px-1">Item Type</label>
                               <Select value={item.type} onValueChange={v => updateItem(idx, 'type', v as InvoiceItemType)}>
-                                 <SelectTrigger className="h-10 rounded-xl border-slate-200 bg-white font-bold text-xs shadow-sm">
+                                 <SelectTrigger className="h-10 rounded-xl border-slate-200 bg-white font-bold text-base shadow-sm">
                                     <SelectValue />
                                  </SelectTrigger>
                                  <SelectContent className="rounded-xl border-slate-200 shadow-xl">
-                                    {itemTypeOptions.map(opt => <SelectItem key={opt} value={opt} className="text-xs font-bold uppercase py-2">{opt}</SelectItem>)}
+                                    {itemTypeOptions.map(opt => <SelectItem key={opt} value={opt} className="text-base font-bold uppercase py-2">{opt}</SelectItem>)}
                                  </SelectContent>
                               </Select>
                            </div>
                            <div className="sm:col-span-5 space-y-1.5">
                               <label className="text-[9px] font-black text-slate-400 uppercase px-1">Descriptor</label>
-                              <Input className="h-10 rounded-xl border-slate-200 bg-white font-bold text-xs shadow-sm" placeholder="e.g., Monthly Tuition" value={item.title} onChange={e => updateItem(idx, 'title', e.target.value)} />
+                              <Input className="h-10 rounded-xl border-slate-200 bg-white font-bold text-base shadow-sm" placeholder="e.g., Monthly Tuition" value={item.title} onChange={e => updateItem(idx, 'title', e.target.value)} />
                            </div>
                            <div className="sm:col-span-2 space-y-1.5">
                               <label className="text-[9px] font-black text-slate-400 uppercase px-1">Qty</label>
-                              <Input type="number" className="h-10 rounded-xl border-slate-200 bg-white font-bold text-xs shadow-sm" value={item.qty} onChange={e => updateItem(idx, 'qty', Number(e.target.value))} />
+                              <Input type="number" className="h-10 rounded-xl border-slate-200 bg-white font-bold text-base shadow-sm" value={item.qty} onChange={e => updateItem(idx, 'qty', Number(e.target.value))} />
                            </div>
                            <div className="sm:col-span-2 space-y-1.5">
                               <label className="text-[9px] font-black text-slate-400 uppercase px-1">Unit Price</label>
-                              <Input type="number" className="h-10 rounded-xl border-slate-200 bg-white font-bold text-xs shadow-sm" value={item.unitPrice} onChange={e => updateItem(idx, 'unitPrice', Number(e.target.value))} />
+                              <Input type="number" className="h-10 rounded-xl border-slate-200 bg-white font-bold text-base shadow-sm" value={item.unitPrice} onChange={e => updateItem(idx, 'unitPrice', Number(e.target.value))} />
                            </div>
                         </div>
                         <Button variant="outline" size="icon" className="absolute -right-3 -top-3 h-8 w-8 rounded-xl bg-white border-slate-100 text-slate-300 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-100 opacity-0 group-hover:opacity-100 transition-all shadow-sm" onClick={() => removeItem(idx)}>
@@ -267,16 +268,16 @@ export function InvoiceForm({ branches, students, invoice, onSuccess }: InvoiceF
           <section className="space-y-6">
              <div className="flex items-center gap-2">
                 <Hash className="h-4 w-4 text-rose-600" />
-                <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Financial Resolution</h3>
+                <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Financial Resolution</h3>
              </div>
              <div className="grid gap-6 sm:grid-cols-2">
                 <div className="space-y-2">
                    <label className={sectionLabel}>Global Discount (৳)</label>
-                   <Input type="number" className={inputClass} value={form.discountAmount} onChange={e => setForm(p => ({ ...p, discountAmount: Number(e.target.value) }))} placeholder="0.00" />
+                   <Input type="number" className={inputClass} value={form.discountAmount} onChange={e => setForm((p: CreateInvoiceDto) => ({ ...p, discountAmount: Number(e.target.value) }))} placeholder="0.00" />
                 </div>
                 <div className="space-y-2">
                    <label className={sectionLabel}>Scholarship Grant (৳)</label>
-                   <Input type="number" className={inputClass} value={form.scholarshipAmount} onChange={e => setForm(p => ({ ...p, scholarshipAmount: Number(e.target.value) }))} placeholder="0.00" />
+                   <Input type="number" className={inputClass} value={form.scholarshipAmount} onChange={e => setForm((p: CreateInvoiceDto) => ({ ...p, scholarshipAmount: Number(e.target.value) }))} placeholder="0.00" />
                 </div>
              </div>
 
@@ -284,11 +285,11 @@ export function InvoiceForm({ branches, students, invoice, onSuccess }: InvoiceF
                 <div className="space-y-4">
                    <div className="flex justify-between items-center text-slate-400">
                       <span className="text-[10px] font-black uppercase tracking-widest">Gross Subtotal</span>
-                      <span className="text-sm font-bold">৳{Number(calculateTotals().subtotal).toLocaleString()}</span>
+                      <span className="text-base font-bold">৳{Number(calculateTotals().subtotal).toLocaleString()}</span>
                    </div>
                    <div className="flex justify-between items-center text-rose-400">
                       <span className="text-[10px] font-black uppercase tracking-widest">Adjustments</span>
-                      <span className="text-sm font-bold">-৳{Number((form.discountAmount || 0) + (form.scholarshipAmount || 0)).toLocaleString()}</span>
+                      <span className="text-base font-bold">-৳{Number((form.discountAmount || 0) + (form.scholarshipAmount || 0)).toLocaleString()}</span>
                    </div>
                    <div className="pt-4 border-t border-slate-800 flex justify-between items-center">
                       <div className="flex flex-col">
@@ -303,7 +304,7 @@ export function InvoiceForm({ branches, students, invoice, onSuccess }: InvoiceF
         </div>
 
         {error && (
-          <div className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs font-bold text-rose-600 uppercase tracking-widest flex items-center gap-3">
+          <div className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-base font-bold text-rose-600 uppercase tracking-widest flex items-center gap-3">
              <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />
              {error}
           </div>

@@ -198,7 +198,7 @@ export default function CourseBranchesPage() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">Course Branch Management</h1>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            <p className="mt-2 max-w-2xl text-base text-muted-foreground">
               Manage branch access permissions for courses. Control which branches can access specific courses.
             </p>
           </div>
@@ -208,7 +208,7 @@ export default function CourseBranchesPage() {
       <section className="glass-panel p-4 sm:p-5">
         <div className="flex flex-wrap gap-4">
           <div className="min-w-[300px] flex-1">
-            <label className="text-sm font-medium mb-2 block">Select Course</label>
+            <label className="text-base font-medium mb-2 block">Select Course</label>
             <Select value={selectedCourse} onValueChange={setSelectedCourse}>
               <SelectTrigger className="h-10 border-border bg-background">
                 <SelectValue placeholder="Select a course" />
@@ -251,10 +251,10 @@ export default function CourseBranchesPage() {
         <section className="glass-panel p-4 sm:p-5">
           <div className="mb-4">
             <h2 className="text-lg font-semibold">{selectedCourseData.name}</h2>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-base text-muted-foreground">
               Branch Access Mode: <Badge variant="outline">{selectedCourseData.branchAccessMode || 'ALL_BRANCH'}</Badge>
             </p>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-base text-muted-foreground mt-1">
               {selectedCourseData.branchAccessMode === 'ALL_BRANCH'
                 ? 'This course is accessible from all branches'
                 : 'This course is only accessible from the branches listed below'}
@@ -274,7 +274,7 @@ export default function CourseBranchesPage() {
           <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
             <div>
               <h2 className="text-base font-semibold tracking-tight">Course Branches</h2>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-base text-muted-foreground">
                 Branches that have access to this course
               </p>
             </div>
@@ -350,7 +350,7 @@ export default function CourseBranchesPage() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Available Branches</label>
+              <label className="text-base font-medium">Available Branches</label>
               <Select
                 value={selectedBranches[0] || undefined}
                 onValueChange={(v) => setSelectedBranches([v])}
@@ -367,7 +367,7 @@ export default function CourseBranchesPage() {
                 </SelectContent>
               </Select>
               {availableBranches.length === 0 && (
-                <p className="text-sm text-muted-foreground">
+                <p className="text-base text-muted-foreground">
                   All branches are already added to this course
                 </p>
               )}
@@ -396,10 +396,10 @@ export default function CourseBranchesPage() {
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             <div className="space-y-4 py-6">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Available Branches</label>
+                <label className="text-base font-medium">Available Branches</label>
                 <div className="space-y-2 max-h-[400px] overflow-y-auto">
                   {availableBranches.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-base text-muted-foreground">
                       All branches are already added to this course
                     </p>
                   ) : (
@@ -422,14 +422,14 @@ export default function CourseBranchesPage() {
                         )}
                         <div className="flex-1">
                           <p className="font-medium">{branch.name}</p>
-                          {branch.code && <p className="text-sm text-muted-foreground">{branch.code}</p>}
+                          {branch.code && <p className="text-base text-muted-foreground">{branch.code}</p>}
                         </div>
                       </div>
                     ))
                   )}
                 </div>
                 {selectedBranches.length > 0 && (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-base text-muted-foreground">
                     {selectedBranches.length} branch(es) selected
                   </p>
                 )}

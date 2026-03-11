@@ -157,7 +157,7 @@ export function Sidebar({ mobileOpen, onCloseMobile, collapsed, onToggleCollapse
 
                       {!collapsed && (
                         <>
-                          <span className="flex-1 text-sm font-bold tracking-tight">
+                          <span className="flex-1 text-base font-bold tracking-tight">
                             {item.title}
                           </span>
                           {isActive && (
@@ -194,7 +194,7 @@ export function Sidebar({ mobileOpen, onCloseMobile, collapsed, onToggleCollapse
                   <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-white bg-emerald-500 shadow-sm" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-slate-800 truncate">Adnan Hussain</p>
+                  <p className="text-base font-bold text-slate-800 truncate">Adnan Hussain</p>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Super Admin</p>
                 </div>
                 <button className="text-slate-300 hover:text-rose-500 transition-colors">

@@ -262,7 +262,7 @@ export default function BookSalesPage() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">Book Sales</h1>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            <p className="mt-2 max-w-2xl text-base text-muted-foreground">
               Manage offline and online book sales, and keep invoice-friendly records of sold materials.
             </p>
           </div>
@@ -278,11 +278,11 @@ export default function BookSalesPage() {
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <article className="glass-panel p-3.5">
-          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Total Sales</p>
+          <p className="text-base uppercase tracking-[0.15em] text-muted-foreground">Total Sales</p>
           <p className="mt-2 text-2xl font-semibold">{totalSales}</p>
         </article>
         <article className="glass-panel p-3.5">
-          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Total Amount</p>
+          <p className="text-base uppercase tracking-[0.15em] text-muted-foreground">Total Amount</p>
           <p className="mt-2 text-2xl font-semibold">
             {totalAmount.toLocaleString('en-US', {
               style: 'currency',
@@ -337,11 +337,11 @@ export default function BookSalesPage() {
         <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
           <div>
             <h2 className="text-base font-semibold tracking-tight">Recent Book Sales</h2>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-base text-muted-foreground">
               Offline and online sales, ready for invoice references.
             </p>
           </div>
-          <div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
+          <div className="hidden items-center gap-2 text-base text-muted-foreground sm:flex">
             <ShoppingBag className="h-4 w-4" />
             <span>{totalSales} Total Records</span>
           </div>
@@ -368,7 +368,7 @@ export default function BookSalesPage() {
             <TableBody>
               {filteredSales.map((sale) => (
                 <TableRow key={sale.id} className="hover:bg-muted/45">
-                  <TableCell className="text-sm">
+                  <TableCell className="text-base">
                     {new Date(sale.soldAt).toLocaleString('en-US', {
                       year: 'numeric',
                       month: 'short',
@@ -380,11 +380,11 @@ export default function BookSalesPage() {
                   <TableCell>{sale.branch?.name || '-'}</TableCell>
                   <TableCell>
                     <div className="flex flex-col">
-                      <span className="text-sm font-medium">
+                      <span className="text-base font-medium">
                         {sale.student?.fullName || 'Walk-in'}
                       </span>
                       {sale.student?.mobile && (
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-base text-muted-foreground">
                           {sale.student.mobile}
                         </span>
                       )}
@@ -392,18 +392,18 @@ export default function BookSalesPage() {
                   </TableCell>
                   <TableCell>
                     {sale.invoiceId ? (
-                      <span className="inline-flex items-center gap-1 text-xs">
+                      <span className="inline-flex items-center gap-1 text-base">
                         <FileText className="h-3 w-3" />
                         {sale.invoiceId}
                       </span>
                     ) : (
-                      <span className="text-xs text-muted-foreground">N/A</span>
+                      <span className="text-base text-muted-foreground">N/A</span>
                     )}
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline">{sale.items?.length || 0} items</Badge>
                   </TableCell>
-                  <TableCell className="text-sm">
+                  <TableCell className="text-base">
                     <span className="tabular-nums">
                       {sale.totalAmount.toLocaleString('en-US', {
                         style: 'currency',
@@ -432,7 +432,7 @@ export default function BookSalesPage() {
             <div className="space-y-4 py-6">
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Branch *</label>
+                  <label className="text-base font-medium">Branch *</label>
                   <Select
                     value={saleBranchId}
                     onValueChange={setSaleBranchId}
@@ -450,7 +450,7 @@ export default function BookSalesPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Student ID (optional)</label>
+                  <label className="text-base font-medium">Student ID (optional)</label>
                   <Input
                     value={saleStudentId}
                     onChange={(e) => setSaleStudentId(e.target.value)}
@@ -458,7 +458,7 @@ export default function BookSalesPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Invoice ID (optional)</label>
+                  <label className="text-base font-medium">Invoice ID (optional)</label>
                   <Input
                     value={saleInvoiceId}
                     onChange={(e) => setSaleInvoiceId(e.target.value)}
@@ -469,7 +469,7 @@ export default function BookSalesPage() {
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium">Cart Items</p>
+                  <p className="text-base font-medium">Cart Items</p>
                   <div className="flex items-center gap-2">
                     <Select
                       value={selectedBookForCart}
@@ -500,7 +500,7 @@ export default function BookSalesPage() {
                 </div>
 
                 {cartItems.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-base text-muted-foreground">
                     No items in the cart. Select a book and quantity to add.
                   </p>
                 ) : (
@@ -520,7 +520,7 @@ export default function BookSalesPage() {
                           <TableRow key={item.book.id}>
                             <TableCell className="font-medium">
                               {item.book.name}
-                              <span className="ml-2 text-xs text-muted-foreground">
+                              <span className="ml-2 text-base text-muted-foreground">
                                 {item.book.sku}
                               </span>
                             </TableCell>
@@ -534,14 +534,14 @@ export default function BookSalesPage() {
                                 }
                               />
                             </TableCell>
-                            <TableCell className="text-sm">
+                            <TableCell className="text-base">
                               {item.unitPrice.toLocaleString('en-US', {
                                 style: 'currency',
                                 currency: 'BDT',
                                 maximumFractionDigits: 2,
                               })}
                             </TableCell>
-                            <TableCell className="text-sm tabular-nums">
+                            <TableCell className="text-base tabular-nums">
                               {(item.unitPrice * item.qty).toLocaleString('en-US', {
                                 style: 'currency',
                                 currency: 'BDT',
@@ -561,7 +561,7 @@ export default function BookSalesPage() {
                         ))}
                       </TableBody>
                     </Table>
-                    <div className="flex items-center justify-between border-t px-4 py-3 text-sm">
+                    <div className="flex items-center justify-between border-t px-4 py-3 text-base">
                       <span className="text-muted-foreground">
                         {cartItems.length} item(s) in cart
                       </span>

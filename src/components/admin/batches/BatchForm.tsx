@@ -20,7 +20,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 const statusOptions: BatchStatusType[] = ['ACTIVE', 'INACTIVE', 'COMPLETED', 'ARCHIVED'];
 
 const inputClass =
-  'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
+  'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
 const sectionLabel = 'text-[11px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2 block';
 
 interface BatchFormProps {
@@ -131,7 +131,7 @@ export function BatchForm({ courses, branches, batch, onSuccess }: BatchFormProp
               </SelectTrigger>
               <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
                 {courses.map((course) => (
-                  <SelectItem key={course.id} value={course.id} className="font-bold text-xs uppercase tracking-widest py-3">
+                  <SelectItem key={course.id} value={course.id} className="text-sm font-medium">
                     {course.name}
                   </SelectItem>
                 ))}
@@ -151,7 +151,7 @@ export function BatchForm({ courses, branches, batch, onSuccess }: BatchFormProp
               </SelectTrigger>
               <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
                 {branches.map((branch) => (
-                  <SelectItem key={branch.id} value={branch.id} className="font-bold text-xs uppercase tracking-widest py-3">
+                  <SelectItem key={branch.id} value={branch.id} className="text-sm font-medium">
                     {branch.name}
                   </SelectItem>
                 ))}
@@ -225,7 +225,7 @@ export function BatchForm({ courses, branches, batch, onSuccess }: BatchFormProp
               </SelectTrigger>
               <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
                 {statusOptions.map((opt) => (
-                  <SelectItem key={opt} value={opt} className="font-bold text-xs uppercase tracking-widest py-3">
+                  <SelectItem key={opt} value={opt} className="text-sm font-medium">
                     {opt}
                   </SelectItem>
                 ))}
@@ -235,7 +235,7 @@ export function BatchForm({ courses, branches, batch, onSuccess }: BatchFormProp
         </div>
 
         {error && (
-          <div className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs font-bold text-rose-600 uppercase tracking-widest flex items-center gap-3">
+          <div className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-base font-bold text-rose-600 uppercase tracking-widest flex items-center gap-3">
              <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />
              {error}
           </div>

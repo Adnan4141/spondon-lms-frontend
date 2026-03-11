@@ -40,7 +40,6 @@ import {
   Trash2,
   FileText,
   Activity,
-  Sparkles,
   Layers,
   History,
   Calendar,
@@ -207,12 +206,12 @@ export default function ExamsPage() {
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 border border-indigo-100/50 shadow-sm">
               <FileText className="h-3.5 w-3.5" />
-              Assessment Workspace
+              Assessment Admin
             </div>
             <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
               Exam <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">Maintenance</span>
             </h1>
-            <p className="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-slate-500">
+            <p className="mt-2 max-w-2xl text-base font-medium leading-relaxed text-slate-500">
               Manage examination frameworks, scheduling windows, and evaluate student attempt participation across the platform.
             </p>
           </div>
@@ -231,7 +230,7 @@ export default function ExamsPage() {
       <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
         {[
           { label: 'Exam Catalog', value: totalExams, color: 'from-blue-600 to-cyan-500', icon: Layers },
-          { label: 'Active Baseline', value: publishedCount, color: 'from-emerald-600 to-teal-500', icon: Sparkles },
+          { label: 'Active Baseline', value: publishedCount, color: 'from-emerald-600 to-teal-500', icon: Layers },
           { label: 'Draft Assets', value: draftCount, color: 'from-amber-600 to-orange-500', icon: FileText },
           { label: 'Participation', value: totalAttempts, color: 'from-rose-600 to-pink-600', icon: History },
         ].map((stat, i) => (
@@ -260,18 +259,18 @@ export default function ExamsPage() {
                 placeholder="Search exams by title or course identity..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
+                className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
               />
             </div>
           </div>
           
           <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
-            <SelectTrigger className="h-12 w-[160px] rounded-2xl border-slate-200 bg-white font-bold text-xs uppercase tracking-widest text-slate-600">
+            <SelectTrigger className="h-12 w-[160px] rounded-2xl border-slate-200 bg-white font-bold text-sm uppercase tracking-widest text-slate-600">
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
             <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
               {examStatusOptions.map((opt) => (
-                <SelectItem key={opt} value={opt} className="font-bold text-xs uppercase tracking-widest py-3">
+                <SelectItem key={opt} value={opt} className="font-bold text-sm uppercase tracking-widest py-3">
                   {opt === 'all' ? 'All Status' : opt}
                 </SelectItem>
               ))}
@@ -279,13 +278,13 @@ export default function ExamsPage() {
           </Select>
 
           <Select value={courseFilter} onValueChange={setCourseFilter}>
-            <SelectTrigger className="h-12 w-[200px] rounded-2xl border-slate-200 bg-white font-bold text-xs uppercase tracking-widest text-slate-600">
+            <SelectTrigger className="h-12 w-[200px] rounded-2xl border-slate-200 bg-white font-bold text-sm uppercase tracking-widest text-slate-600">
               <SelectValue placeholder="All Courses" />
             </SelectTrigger>
             <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-              <SelectItem value="all" className="font-bold text-xs uppercase tracking-widest py-3">All Courses</SelectItem>
+              <SelectItem value="all" className="font-bold text-sm uppercase tracking-widest py-3">All Courses</SelectItem>
               {courses.map((course) => (
-                <SelectItem key={course.id} value={course.id} className="font-bold text-xs uppercase tracking-widest py-3">
+                <SelectItem key={course.id} value={course.id} className="font-bold text-sm uppercase tracking-widest py-3">
                   {course.name}
                 </SelectItem>
               ))}
@@ -302,10 +301,10 @@ export default function ExamsPage() {
       <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/30">
         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
           <div>
-            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Exam Registry</h2>
-            <p className="mt-0.5 text-xs font-bold text-indigo-500">Institutional baseline</p>
+            <h2 className="text-base font-black uppercase tracking-[0.2em] text-slate-400">Exam Registry</h2>
+            <p className="mt-0.5 text-base font-bold text-indigo-500">Institutional baseline</p>
           </div>
-          <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm">
+          <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-sm font-black uppercase tracking-widest text-slate-500 shadow-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
             {totalExams} Assessment Units
           </div>
@@ -325,11 +324,11 @@ export default function ExamsPage() {
             <Table>
               <TableHeader className="bg-slate-50/50">
                 <TableRow className="hover:bg-transparent border-b border-slate-100">
-                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Assessment Identity</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Course & Context</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Classification</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Timeline</TableHead>
-                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400 text-center">Manage</TableHead>
+                  <TableHead className="px-8 font-black text-base uppercase tracking-widest text-slate-400">Assessment Identity</TableHead>
+                  <TableHead className="font-black text-base uppercase tracking-widest text-slate-400">Course & Context</TableHead>
+                  <TableHead className="font-black text-base uppercase tracking-widest text-slate-400">Classification</TableHead>
+                  <TableHead className="font-black text-base uppercase tracking-widest text-slate-400">Timeline</TableHead>
+                  <TableHead className="px-8 font-black text-base uppercase tracking-widest text-slate-400 text-center">Manage</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -337,36 +336,36 @@ export default function ExamsPage() {
                   <TableRow key={exam.id} className="group border-slate-100 transition-colors hover:bg-slate-50/80">
                     <TableCell className="px-8 py-5">
                        <div className="flex flex-col">
-                          <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{exam.title}</span>
-                          <span className="text-[10px] font-medium text-slate-400">Ref: {exam.id.slice(0, 8)}...</span>
+                          <span className="font-bold text-base text-slate-900 group-hover:text-indigo-600 transition-colors">{exam.title}</span>
+                          <span className="text-base font-medium text-slate-400">Ref: {exam.id.slice(0, 8)}...</span>
                        </div>
                     </TableCell>
                     <TableCell className="py-5">
                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
-                             <BookOpen className="h-3 w-3 text-indigo-500" />
+                          <div className="flex items-center gap-1.5 text-base font-bold text-slate-600">
+                             <BookOpen className="h-4 w-4 text-indigo-500" />
                              {exam.course?.name}
                           </div>
-                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
-                             <MapPin className="h-3 w-3 text-rose-500" />
+                          <div className="flex items-center gap-1.5 text-base font-bold text-slate-400">
+                             <MapPin className="h-4 w-4 text-rose-500" />
                              {exam.branch?.name}
                           </div>
                        </div>
                     </TableCell>
                     <TableCell className="py-5">
                        <div className="flex flex-wrap gap-2">
-                          <Badge variant="outline" className={cn("rounded-lg text-[9px] font-black uppercase px-2.5 py-1", getStatusBadgeClass(exam.status))}>
+                          <Badge variant="outline" className={cn("rounded-lg text-sm font-black uppercase px-2.5 py-1", getStatusBadgeClass(exam.status))}>
                             {exam.status}
                           </Badge>
-                          <Badge variant="outline" className="rounded-lg bg-slate-50 border-slate-200 text-slate-600 font-black text-[9px] uppercase px-2.5 py-1">
+                          <Badge variant="outline" className="rounded-lg bg-slate-50 border-slate-200 text-slate-600 font-black text-sm uppercase px-2.5 py-1">
                             {exam.mode}
                           </Badge>
                        </div>
                     </TableCell>
                     <TableCell className="py-5">
                        <div className="flex flex-col gap-1">
-                          <span className="text-[10px] font-bold text-slate-400">Window: {exam.startAt ? new Date(exam.startAt).toLocaleDateString() : 'Immediate'}</span>
-                          <span className="text-[10px] font-bold text-slate-500">Attempts: {exam._count?.attempts || 0} logs</span>
+                          <span className="text-base font-bold text-slate-400">Window: {exam.startAt ? new Date(exam.startAt).toLocaleDateString() : 'Immediate'}</span>
+                          <span className="text-base font-bold text-slate-500">Attempts: {exam._count?.attempts || 0} logs</span>
                        </div>
                     </TableCell>
                     <TableCell className="px-8 py-5">
@@ -374,7 +373,7 @@ export default function ExamsPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="h-8 rounded-xl border-slate-200 bg-white px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm"
+                            className="h-9 rounded-xl border-slate-200 bg-white px-4 text-sm font-black uppercase tracking-widest text-slate-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm"
                             onClick={() => handleViewExam(exam.id)}
                           >
                             View
@@ -382,7 +381,7 @@ export default function ExamsPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="h-8 rounded-xl border-slate-200 bg-white px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm"
+                            className="h-9 rounded-xl border-slate-200 bg-white px-4 text-sm font-black uppercase tracking-widest text-slate-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm"
                             onClick={() => handleEditExam(exam.id)}
                           >
                             Edit
@@ -390,10 +389,10 @@ export default function ExamsPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="h-8 w-8 rounded-xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all shadow-sm"
+                            className="h-9 w-9 rounded-xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all shadow-sm"
                             onClick={() => handleDeleteExam(exam.id)}
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                        </div>
                     </TableCell>

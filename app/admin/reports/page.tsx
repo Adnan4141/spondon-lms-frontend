@@ -42,7 +42,7 @@ import {
   Calendar,
   PieChart,
   ArrowRight,
-  Sparkles,
+  Layers,
   Search,
   Building2,
   BookOpenCheck,
@@ -218,13 +218,13 @@ export default function ReportsPage() {
       <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm space-y-6">
         <div className="flex items-center gap-2">
            <ShieldCheck className="h-4 w-4 text-indigo-600" />
-           <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Intelligence Filters</h3>
+           <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Intelligence Filters</h3>
         </div>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-2">
             <label className={sectionLabel}>Period Type</label>
             <Select value={revenuePeriod} onValueChange={(v) => setRevenuePeriod(v as any)}>
-              <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-xs shadow-inner">
+              <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-base shadow-inner">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="rounded-xl shadow-xl">
@@ -237,7 +237,7 @@ export default function ReportsPage() {
           <div className="space-y-2">
             <label className={sectionLabel}>Branch Context</label>
             <Select value={revenueBranchId} onValueChange={setRevenueBranchId}>
-              <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-xs shadow-inner">
+              <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-base shadow-inner">
                 <SelectValue placeholder="All Branches" />
               </SelectTrigger>
               <SelectContent className="rounded-xl shadow-xl">
@@ -249,7 +249,7 @@ export default function ReportsPage() {
           <div className="space-y-2">
             <label className={sectionLabel}>Academic Program</label>
             <Select value={revenueCourseId} onValueChange={setRevenueCourseId}>
-              <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-xs shadow-inner">
+              <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-base shadow-inner">
                 <SelectValue placeholder="All Courses" />
               </SelectTrigger>
               <SelectContent className="rounded-xl shadow-xl">
@@ -272,7 +272,7 @@ export default function ReportsPage() {
                 const d = String(date.getDate()).padStart(2, '0');
                 setRevenueFrom(`${y}-${m}-${d}`);
               }}
-              className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-xs shadow-inner"
+              className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-base shadow-inner"
             />
           </div>
           <div className="space-y-2">
@@ -289,7 +289,7 @@ export default function ReportsPage() {
                 const d = String(date.getDate()).padStart(2, '0');
                 setRevenueTo(`${y}-${m}-${d}`);
               }}
-              className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-xs shadow-inner"
+              className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-base shadow-inner"
             />
           </div>
           <div className="flex items-end">
@@ -306,7 +306,7 @@ export default function ReportsPage() {
         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
           <div>
             <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Statement Ledger</h2>
-            <p className="mt-0.5 text-xs font-bold text-indigo-500">Consolidated financial buckets</p>
+            <p className="mt-0.5 text-base font-bold text-indigo-500">Consolidated financial buckets</p>
           </div>
         </div>
         {loading ? (
@@ -377,13 +377,13 @@ export default function ReportsPage() {
         <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm space-y-6">
           <div className="flex items-center gap-2">
              <BookOpenCheck className="h-4 w-4 text-emerald-600" />
-             <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Academic Context Filters</h3>
+             <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Academic Context Filters</h3>
           </div>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-2">
               <label className={sectionLabel}>Program Faculty</label>
               <Select value={enrollmentProgramId} onValueChange={setEnrollmentProgramId}>
-                <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-xs shadow-inner">
+                <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-base shadow-inner">
                   <SelectValue placeholder="All Programs" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl shadow-xl">
@@ -395,7 +395,7 @@ export default function ReportsPage() {
             <div className="space-y-2">
               <label className={sectionLabel}>Course Module</label>
               <Select value={enrollmentCourseId} onValueChange={setEnrollmentCourseId}>
-                <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-xs shadow-inner">
+                <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-base shadow-inner">
                   <SelectValue placeholder="All Courses" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl shadow-xl">
@@ -407,7 +407,7 @@ export default function ReportsPage() {
             <div className="space-y-2">
               <label className={sectionLabel}>Regional Branch</label>
               <Select value={enrollmentBranchId} onValueChange={setEnrollmentBranchId}>
-                <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-xs shadow-inner">
+                <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-base shadow-inner">
                   <SelectValue placeholder="All Branches" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl shadow-xl">
@@ -429,7 +429,7 @@ export default function ReportsPage() {
           <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
             <div>
               <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Enrollment Database</h2>
-              <p className="mt-0.5 text-xs font-bold text-emerald-500">Registry mapping by program & course</p>
+              <p className="mt-0.5 text-base font-bold text-emerald-500">Registry mapping by program & course</p>
             </div>
           </div>
           {loading ? (
@@ -483,7 +483,7 @@ export default function ReportsPage() {
         <div className="space-y-2 flex-1 min-w-[300px]">
           <label className={sectionLabel}>Course Selection</label>
           <Select value={transactionCourseId} onValueChange={setTransactionCourseId}>
-            <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-6 font-bold text-sm shadow-inner transition-all focus:ring-4 focus:ring-indigo-500/10">
+            <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-6 font-bold text-base shadow-inner transition-all focus:ring-4 focus:ring-indigo-500/10">
               <SelectValue placeholder="Target specialized course analysis..." />
             </SelectTrigger>
             <SelectContent className="rounded-2xl shadow-2xl">
@@ -501,7 +501,7 @@ export default function ReportsPage() {
         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
           <div>
             <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Transaction Audit</h2>
-            <p className="mt-0.5 text-xs font-bold text-indigo-500">Detailed financial tracks for course modules</p>
+            <p className="mt-0.5 text-base font-bold text-indigo-500">Detailed financial tracks for course modules</p>
           </div>
         </div>
         {loading ? (
@@ -545,7 +545,7 @@ export default function ReportsPage() {
                         {t.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="px-8 py-5 text-xs font-bold text-slate-500">
+                    <TableCell className="px-8 py-5 text-base font-bold text-slate-500">
                       {new Date(t.createdAt).toLocaleDateString()}
                     </TableCell>
                   </TableRow>
@@ -568,12 +568,12 @@ export default function ReportsPage() {
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 border border-indigo-100/50 shadow-sm">
               <PieChart className="h-3.5 w-3.5" />
-              Intelligence Workspace
+              Intelligence Admin
             </div>
             <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
               Reports & <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">Analytics</span>
             </h1>
-            <p className="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-slate-500">
+            <p className="mt-2 max-w-2xl text-base font-medium leading-relaxed text-slate-500">
               Synchronized data streams for revenue management, enrollment metrics, and cross-institutional financial auditing.
             </p>
           </div>
@@ -593,7 +593,7 @@ export default function ReportsPage() {
                    key={item.id}
                    onClick={() => setActiveReport(item.id as ReportType)}
                    className={cn(
-                     "group w-full flex items-center gap-4 rounded-2xl px-5 py-4 text-xs font-black uppercase tracking-widest transition-all",
+                     "group w-full flex items-center gap-4 rounded-2xl px-5 py-4 text-base font-black uppercase tracking-widest transition-all",
                      activeReport === item.id
                        ? "bg-slate-900 text-white shadow-xl shadow-slate-200"
                        : "text-slate-400 hover:bg-slate-50 hover:text-slate-900"
@@ -613,9 +613,9 @@ export default function ReportsPage() {
            
            <div className="rounded-[32px] border border-slate-200 bg-slate-900 p-6 text-white shadow-xl">
               <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 text-emerald-400 mb-4">
-                 <Sparkles className="h-5 w-5" />
+                 <Layers className="h-5 w-5" />
               </div>
-              <h4 className="text-sm font-black uppercase tracking-widest">Data Synchronization</h4>
+              <h4 className="text-base font-black uppercase tracking-widest">Data Synchronization</h4>
               <p className="mt-2 text-[10px] font-bold text-slate-400 leading-relaxed uppercase tracking-tighter">Authorized analysis based on real-time institutional records.</p>
            </div>
         </aside>

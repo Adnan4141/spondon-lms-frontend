@@ -318,7 +318,7 @@ export default function BooksPage() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">Books &amp; Materials</h1>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            <p className="mt-2 max-w-2xl text-base text-muted-foreground">
               Manage offline books, e-books, and materials used across courses and invoices.
             </p>
           </div>
@@ -331,19 +331,19 @@ export default function BooksPage() {
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <article className="glass-panel p-3.5">
-          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Total Books</p>
+          <p className="text-base uppercase tracking-[0.15em] text-muted-foreground">Total Books</p>
           <p className="mt-2 text-2xl font-semibold">{totalBooks}</p>
         </article>
         <article className="glass-panel p-3.5">
-          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Physical Books</p>
+          <p className="text-base uppercase tracking-[0.15em] text-muted-foreground">Physical Books</p>
           <p className="mt-2 text-2xl font-semibold">{physicalCount}</p>
         </article>
         <article className="glass-panel p-3.5">
-          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">E-Books</p>
+          <p className="text-base uppercase tracking-[0.15em] text-muted-foreground">E-Books</p>
           <p className="mt-2 text-2xl font-semibold">{ebookCount}</p>
         </article>
         <article className="glass-panel p-3.5">
-          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Stock Locations</p>
+          <p className="text-base uppercase tracking-[0.15em] text-muted-foreground">Stock Locations</p>
           <p className="mt-2 text-2xl font-semibold">{totalStocks}</p>
         </article>
       </section>
@@ -387,9 +387,9 @@ export default function BooksPage() {
         <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
           <div>
             <h2 className="text-base font-semibold tracking-tight">Book Catalog</h2>
-            <p className="text-xs text-muted-foreground">Browse and maintain all books &amp; materials</p>
+            <p className="text-base text-muted-foreground">Browse and maintain all books &amp; materials</p>
           </div>
-          <div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
+          <div className="hidden items-center gap-2 text-base text-muted-foreground sm:flex">
             <BookOpen className="h-4 w-4" />
             <span>{totalBooks} Total Records</span>
           </div>
@@ -427,7 +427,7 @@ export default function BooksPage() {
                       {book.isEbook ? 'E-Book' : 'Physical'}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-sm">
+                  <TableCell className="text-base">
                     <span className="tabular-nums">
                       {book.price.toLocaleString('en-US', {
                         style: 'currency',
@@ -442,13 +442,13 @@ export default function BooksPage() {
                         href={book.fileUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                        className="inline-flex items-center gap-1 text-base text-primary hover:underline"
                       >
                         <Download className="h-3 w-3" />
                         Download
                       </a>
                     ) : (
-                      <span className="text-xs text-muted-foreground">-</span>
+                      <span className="text-base text-muted-foreground">-</span>
                     )}
                   </TableCell>
                   <TableCell>
@@ -503,7 +503,7 @@ export default function BooksPage() {
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             <div className="space-y-4 py-6">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Name *</label>
+                <label className="text-base font-medium">Name *</label>
                 <Input
                   value={createForm.name}
                   onChange={(e) => setCreateForm((prev) => ({ ...prev, name: e.target.value }))}
@@ -512,7 +512,7 @@ export default function BooksPage() {
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">SKU *</label>
+                  <label className="text-base font-medium">SKU *</label>
                   <Input
                     value={createForm.sku}
                     onChange={(e) => setCreateForm((prev) => ({ ...prev, sku: e.target.value }))}
@@ -520,7 +520,7 @@ export default function BooksPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Price</label>
+                  <label className="text-base font-medium">Price</label>
                   <Input
                     type="number"
                     min="0"
@@ -536,7 +536,7 @@ export default function BooksPage() {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Type</label>
+                  <label className="text-base font-medium">Type</label>
                   <Select
                     value={createForm.isEbook ? 'ebook' : 'physical'}
                     onValueChange={(v) => setCreateForm((prev) => ({ ...prev, isEbook: v === 'ebook' }))}
@@ -551,20 +551,20 @@ export default function BooksPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">E-Book File</label>
+                  <label className="text-base font-medium">E-Book File</label>
                   <Input
                     type="file"
                     accept=".pdf,.epub,.mobi,.azw,.txt"
                     onChange={(e) => setCreateFile(e.target.files?.[0] || null)}
                   />
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-base text-muted-foreground">
                     Optional. Upload if this is an e-book. Max 500MB.
                   </p>
                 </div>
               </div>
 
               {createError && (
-                <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
+                <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-base text-destructive">
                   {createError}
                 </div>
               )}
@@ -591,28 +591,28 @@ export default function BooksPage() {
           </DialogHeader>
 
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            {detailsLoading && <p className="text-sm text-muted-foreground py-6">Loading details...</p>}
+            {detailsLoading && <p className="text-base text-muted-foreground py-6">Loading details...</p>}
             {!detailsLoading && detailsError && (
-              <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive my-6">
+              <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-base text-destructive my-6">
                 {detailsError}
               </div>
             )}
 
             {isDetailsReady && bookDetails && (
-              <div className="space-y-5 text-sm py-6">
+              <div className="space-y-5 text-base py-6">
                 <div>
-                  <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">Basic Information</p>
+                  <p className="mb-3 text-base font-semibold uppercase text-muted-foreground">Basic Information</p>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Name</p>
+                      <p className="text-base uppercase text-muted-foreground">Name</p>
                       <p className="mt-1 font-medium">{bookDetails.name}</p>
                     </div>
                     <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">SKU</p>
+                      <p className="text-base uppercase text-muted-foreground">SKU</p>
                       <p className="mt-1 font-medium">{bookDetails.sku}</p>
                     </div>
                     <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Type</p>
+                      <p className="text-base uppercase text-muted-foreground">Type</p>
                       <p className="mt-1">
                         <Badge variant={bookDetails.isEbook ? 'secondary' : 'default'}>
                           {bookDetails.isEbook ? 'E-Book' : 'Physical'}
@@ -620,7 +620,7 @@ export default function BooksPage() {
                       </p>
                     </div>
                     <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Price</p>
+                      <p className="text-base uppercase text-muted-foreground">Price</p>
                       <p className="mt-1 font-medium">
                         {bookDetails.price.toLocaleString('en-US', {
                           style: 'currency',
@@ -634,12 +634,12 @@ export default function BooksPage() {
 
                 {bookDetails.isEbook && bookDetails.fileUrl && (
                   <div>
-                    <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">E-Book File</p>
+                    <p className="mb-3 text-base font-semibold uppercase text-muted-foreground">E-Book File</p>
                     <a
                       href={bookDetails.fileUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-2 rounded-lg border bg-muted/20 px-3 py-2 text-sm text-primary hover:bg-muted"
+                      className="inline-flex items-center gap-2 rounded-lg border bg-muted/20 px-3 py-2 text-base text-primary hover:bg-muted"
                     >
                       <Download className="h-4 w-4" />
                       <span>Download E-Book</span>
@@ -648,25 +648,25 @@ export default function BooksPage() {
                 )}
 
                 <div>
-                  <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">Statistics</p>
+                  <p className="mb-3 text-base font-semibold uppercase text-muted-foreground">Statistics</p>
                   <div className="grid gap-3 sm:grid-cols-3">
                     <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Stock Locations</p>
+                      <p className="text-base uppercase text-muted-foreground">Stock Locations</p>
                       <p className="mt-1 text-2xl font-semibold">{bookDetails._count?.stocks || 0}</p>
                     </div>
                     <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Total Sale Items</p>
+                      <p className="text-base uppercase text-muted-foreground">Total Sale Items</p>
                       <p className="mt-1 text-2xl font-semibold">{bookDetails._count?.saleItems || 0}</p>
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">Timestamps</p>
+                  <p className="mb-3 text-base font-semibold uppercase text-muted-foreground">Timestamps</p>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs uppercase text-muted-foreground">Created At</p>
-                      <p className="mt-1 text-sm">
+                      <p className="text-base uppercase text-muted-foreground">Created At</p>
+                      <p className="mt-1 text-base">
                         {new Date(bookDetails.createdAt).toLocaleString('en-US', {
                           year: 'numeric',
                           month: 'short',
@@ -699,9 +699,9 @@ export default function BooksPage() {
           </DialogHeader>
 
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            {detailsLoading && <p className="text-sm text-muted-foreground py-6">Loading form...</p>}
+            {detailsLoading && <p className="text-base text-muted-foreground py-6">Loading form...</p>}
             {!detailsLoading && detailsError && (
-              <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive my-6">
+              <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-base text-destructive my-6">
                 {detailsError}
               </div>
             )}
@@ -709,7 +709,7 @@ export default function BooksPage() {
             {isDetailsReady && (
               <div className="space-y-4 py-6">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Name *</label>
+                  <label className="text-base font-medium">Name *</label>
                   <Input
                     value={editForm.name || ''}
                     onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
@@ -719,7 +719,7 @@ export default function BooksPage() {
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">SKU *</label>
+                    <label className="text-base font-medium">SKU *</label>
                     <Input
                       value={editForm.sku || ''}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, sku: e.target.value }))}
@@ -727,7 +727,7 @@ export default function BooksPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Price</label>
+                    <label className="text-base font-medium">Price</label>
                     <Input
                       type="number"
                       min="0"
@@ -743,7 +743,7 @@ export default function BooksPage() {
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Type</label>
+                    <label className="text-base font-medium">Type</label>
                     <Select
                       value={editForm.isEbook ? 'ebook' : 'physical'}
                       onValueChange={(v) => setEditForm((prev) => ({ ...prev, isEbook: v === 'ebook' }))}
@@ -758,20 +758,20 @@ export default function BooksPage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">E-Book File</label>
+                    <label className="text-base font-medium">E-Book File</label>
                     <Input
                       type="file"
                       accept=".pdf,.epub,.mobi,.azw,.txt"
                       onChange={(e) => setEditFile(e.target.files?.[0] || null)}
                     />
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-base text-muted-foreground">
                       Upload to replace existing e-book file. Leave empty to keep current file.
                     </p>
                   </div>
                 </div>
 
                 {editError && (
-                  <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
+                  <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-base text-destructive">
                     {editError}
                   </div>
                 )}

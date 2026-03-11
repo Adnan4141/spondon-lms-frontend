@@ -53,11 +53,11 @@ export function BatchDetailsView({ batch }: BatchDetailsViewProps) {
               <h2 className="text-3xl font-black tracking-tight text-slate-900">{batch.name}</h2>
               
               <div className="flex flex-wrap gap-6 pt-2">
-                 <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                 <div className="flex items-center gap-2 text-base font-bold text-slate-500">
                     <BookOpen className="h-4 w-4 text-indigo-500" />
                     {batch.course?.name}
                  </div>
-                 <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                 <div className="flex items-center gap-2 text-base font-bold text-slate-500">
                     <MapPin className="h-4 w-4 text-rose-500" />
                     {batch.branch?.name}
                  </div>
@@ -93,14 +93,14 @@ export function BatchDetailsView({ batch }: BatchDetailsViewProps) {
                  </h3>
                  <div className="grid gap-4">
                     <div className="flex items-center justify-between p-5 rounded-2xl border border-slate-100 bg-slate-50/30">
-                       <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Commencement</span>
-                       <span className="text-sm font-black text-slate-900">
+                       <span className="text-base font-bold text-slate-500 uppercase tracking-wider">Commencement</span>
+                       <span className="text-base font-black text-slate-900">
                          {batch.startDate ? new Date(batch.startDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'TBA'}
                        </span>
                     </div>
                     <div className="flex items-center justify-between p-5 rounded-2xl border border-slate-100 bg-slate-50/30">
-                       <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Target Conclusion</span>
-                       <span className="text-sm font-black text-slate-900">
+                       <span className="text-base font-bold text-slate-500 uppercase tracking-wider">Target Conclusion</span>
+                       <span className="text-base font-black text-slate-900">
                          {batch.endDate ? new Date(batch.endDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'Continuous'}
                        </span>
                     </div>
@@ -116,8 +116,8 @@ export function BatchDetailsView({ batch }: BatchDetailsViewProps) {
                  </h3>
                  <div className="bg-white border border-slate-100 p-6 rounded-[28px] shadow-sm">
                     <div className="flex items-center justify-between mb-4">
-                       <span className="text-xs font-bold text-slate-400 uppercase">Available Slots</span>
-                       <span className="text-xs font-black text-indigo-600">
+                       <span className="text-base font-bold text-slate-400 uppercase">Available Slots</span>
+                       <span className="text-base font-black text-indigo-600">
                          {(batch.capacity || 0) - (batch._count?.enrollments || 0)} Remaining
                        </span>
                     </div>

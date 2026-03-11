@@ -27,7 +27,7 @@ import {
   Search,
   Trash2,
   GraduationCap,
-  Sparkles,
+  Layers,
   ArrowRight,
   MoreVertical,
 } from 'lucide-react';
@@ -147,12 +147,12 @@ export default function ProgramsPage() {
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 border border-indigo-100/50 shadow-sm">
               <GraduationCap className="h-3.5 w-3.5" />
-              Academic Workspace
+              Academic Admin
             </div>
             <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
               Program <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">Architecture</span>
             </h1>
-            <p className="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-slate-500">
+            <p className="mt-2 max-w-2xl text-base font-medium leading-relaxed text-slate-500">
               Manage core academic programs and curriculum structure from a unified institutional perspective.
             </p>
           </div>
@@ -172,7 +172,7 @@ export default function ProgramsPage() {
         {[
           { label: 'Total Programs', value: totalPrograms, color: 'from-blue-600 to-cyan-500', icon: GraduationCap },
           { label: 'Total Courses', value: totalCourses, color: 'from-indigo-600 to-purple-600', icon: BookOpenCheck },
-          { label: 'Avg Density', value: totalPrograms > 0 ? (totalCourses / totalPrograms).toFixed(1) : 0, color: 'from-emerald-600 to-teal-500', icon: Sparkles },
+          { label: 'Avg Density', value: totalPrograms > 0 ? (totalCourses / totalPrograms).toFixed(1) : 0, color: 'from-emerald-600 to-teal-500', icon: Layers },
           { label: 'Active Filter', value: filteredPrograms.length, color: 'from-rose-600 to-pink-600', icon: Search },
         ].map((stat, i) => (
           <div key={i} className="group relative overflow-hidden rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/40 transition-all hover:-translate-y-1 hover:shadow-2xl">
@@ -200,7 +200,7 @@ export default function ProgramsPage() {
                 placeholder="Search programs by name or description..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner"
+                className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner"
               />
             </div>
           </div>
@@ -215,7 +215,7 @@ export default function ProgramsPage() {
         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
           <div>
             <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Program Registry</h2>
-            <p className="mt-0.5 text-xs font-bold text-indigo-500">Institutional baseline</p>
+            <p className="mt-0.5 text-base font-bold text-indigo-500">Institutional baseline</p>
           </div>
           <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -249,24 +249,24 @@ export default function ProgramsPage() {
                   <TableRow key={program.id} className="group border-slate-100 transition-colors hover:bg-slate-50/80">
                     <TableCell className="px-8 py-5">
                        <div className="flex flex-col gap-0.5">
-                          <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors text-sm">{program.name}</span>
-                          <span className="text-xs font-medium text-slate-400 uppercase tracking-tighter">ID: {program.id.slice(0, 8)}...</span>
+                          <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors text-base">{program.name}</span>
+                          <span className="text-base font-medium text-slate-400 uppercase tracking-tighter">ID: {program.id.slice(0, 8)}...</span>
                        </div>
                     </TableCell>
                     <TableCell className="max-w-xs py-5">
-                       <p className="truncate text-sm font-medium text-slate-500">
+                       <p className="truncate text-base font-medium text-slate-500">
                          {program.description || 'No description provided.'}
                        </p>
                     </TableCell>
                     <TableCell className="py-5">
-                       <Badge variant="outline" className="rounded-lg bg-indigo-50 border-indigo-100 text-indigo-700 font-black text-xs uppercase px-2.5 py-1">
+                       <Badge variant="outline" className="rounded-lg bg-indigo-50 border-indigo-100 text-indigo-700 font-black text-base uppercase px-2.5 py-1">
                          {(program as any)._count?.courses || 0} Courses
                        </Badge>
                     </TableCell>
                     <TableCell className="py-5">
                        <div className="flex flex-col gap-1">
-                          <span className="text-xs font-bold text-slate-400">Added: {new Date(program.createdAt).toLocaleDateString()}</span>
-                          <span className="text-xs font-bold text-slate-500">Mod: {new Date(program.updatedAt).toLocaleDateString()}</span>
+                          <span className="text-base font-bold text-slate-400">Added: {new Date(program.createdAt).toLocaleDateString()}</span>
+                          <span className="text-base font-bold text-slate-500">Mod: {new Date(program.updatedAt).toLocaleDateString()}</span>
                        </div>
                     </TableCell>
                     <TableCell className="px-8 py-5">

@@ -1,11 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { usePathname } from 'next/navigation';
 import {
   Menu,
   Search,
   Bell,
-  Sparkles,
+  Layers,
   ChevronDown,
   Command,
 } from 'lucide-react';
@@ -16,6 +17,48 @@ import { cn } from '@/lib/utils';
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const pathname = usePathname();
+
+  const getBreadcrumbs = () => {
+    if (!pathname) return [{ label: 'Admin', active: true }];
+    
+    const segments = pathname.split('/').filter(Boolean);
+    
+    // If it's just /admin or /, show Admin / Analytics
+    if (segments.length <= 1) {
+      return [
+        { label: 'Admin', active: false },
+        { label: 'Analytics', active: true }
+      ];
+    }
+
+    const segmentMap: Record<string, string> = {
+      'admin': 'Admin',
+      'reports': 'Analytics',
+      'academic-records': 'Academic Records',
+      'enrollments': 'Enrollments',
+      'batches': 'Batches',
+      'courses': 'Courses',
+      'exams': 'Exams',
+      'students': 'Students',
+      'settings': 'Settings',
+      'branches': 'Branches',
+      'programs': 'Programs',
+      'books': 'Books',
+      'questions': 'Question Bank'
+    };
+
+    return segments.map((segment, index) => {
+      let label = segmentMap[segment] || segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, ' ');
+      
+      return {
+        label,
+        active: index === segments.length - 1
+      };
+    });
+  };
+
+  const breadcrumbs = getBreadcrumbs();
 
   return (
     <div className="relative min-h-screen bg-[#FDFDFF] text-slate-900 font-sans selection:bg-indigo-100 selection:text-indigo-700">
@@ -55,9 +98,19 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
               <div className="hidden sm:block">
                 <div className="flex items-center gap-2 text-slate-400">
-                  <span className="text-xs font-bold uppercase tracking-widest">Workspace</span>
-                  <span className="text-slate-200">/</span>
-                  <span className="text-xs font-bold uppercase tracking-widest text-indigo-600">Analytics</span>
+                  {breadcrumbs.map((crumb, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <span className={cn(
+                        "text-base font-bold uppercase tracking-widest transition-colors duration-200",
+                        crumb.active ? "text-indigo-600" : "text-slate-400"
+                      )}>
+                        {crumb.label}
+                      </span>
+                      {idx < breadcrumbs.length - 1 && (
+                        <span className="text-slate-200">/</span>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -69,7 +122,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                 <input 
                   type="text" 
                   placeholder="Quick search... (cmd + k)" 
-                  className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-100/30 pl-11 pr-12 text-sm font-medium outline-none ring-indigo-500/10 transition-all focus:bg-white focus:ring-4 focus:border-indigo-500/40"
+                  className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-100/30 pl-11 pr-12 text-base font-medium outline-none ring-indigo-500/10 transition-all focus:bg-white focus:ring-4 focus:border-indigo-500/40"
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-1.5 py-0.5 shadow-sm">
                    <Command className="h-3 w-3 text-slate-400" />
@@ -88,11 +141,11 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               <div className="h-8 w-[1px] bg-slate-200 hidden sm:block" />
 
               <button className="flex items-center gap-3 pl-1 pr-3 py-1 rounded-2xl border border-slate-200 bg-white transition-all hover:border-indigo-200 hover:shadow-md group shadow-sm">
-                <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white text-xs font-bold shadow-sm group-hover:rotate-6 transition-transform">
+                <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white text-base font-bold shadow-sm group-hover:rotate-6 transition-transform">
                   AD
                 </div>
                 <div className="hidden sm:block text-left">
-                   <p className="text-xs font-bold text-slate-800 leading-none">Adnan Hussain</p>
+                   <p className="text-base font-bold text-slate-800 leading-none">Adnan Hussain</p>
                    <p className="text-[9px] font-black text-indigo-500 uppercase tracking-tight mt-1">Super Admin</p>
                 </div>
                 <ChevronDown className="h-3 w-3 text-slate-400 group-hover:text-indigo-500 transition-colors" />

@@ -256,7 +256,7 @@ export default function CourseBooksPage() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">Course &amp; Book Mapping</h1>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            <p className="mt-2 max-w-2xl text-base text-muted-foreground">
               Link books and materials with courses, and control whether they are free or paid with the course.
             </p>
           </div>
@@ -266,7 +266,7 @@ export default function CourseBooksPage() {
       <section className="glass-panel p-4 sm:p-5">
         <div className="flex flex-wrap gap-4">
           <div className="min-w-[260px] flex-1">
-            <label className="mb-1 block text-sm font-medium">Select Course</label>
+            <label className="mb-1 block text-base font-medium">Select Course</label>
             <Select
               value={selectedCourseId}
               onValueChange={(v) => {
@@ -320,14 +320,14 @@ export default function CourseBooksPage() {
         <section className="glass-panel p-4 sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-medium">{selectedCourse.name}</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-base font-medium">{selectedCourse.name}</p>
+              <p className="text-base text-muted-foreground">
                 Code: {selectedCourse.code} • Program: {selectedCourse.program?.name ?? 'N/A'}
               </p>
             </div>
             <div className="flex items-center gap-2">
               <FileText className="h-4 w-4 text-muted-foreground" />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-base text-muted-foreground">
                 Linked Books: {courseBooks.length}
               </p>
             </div>
@@ -346,7 +346,7 @@ export default function CourseBooksPage() {
           <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
             <div>
               <h2 className="text-base font-semibold tracking-tight">Linked Books</h2>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-base text-muted-foreground">
                 Books and materials available with this course
               </p>
             </div>
@@ -403,7 +403,7 @@ export default function CourseBooksPage() {
                     </TableCell>
                     <TableCell>
                       {link.book ? (
-                        <span className="text-sm tabular-nums">
+                        <span className="text-base tabular-nums">
                           {link.book.price.toLocaleString('en-US', {
                             style: 'currency',
                             currency: 'BDT',
@@ -418,7 +418,7 @@ export default function CourseBooksPage() {
                       <Button
                         variant={link.isFree ? 'default' : 'outline'}
                         size="sm"
-                        className="h-7 px-2 text-xs"
+                        className="h-7 px-2 text-base"
                         onClick={() => handleToggleFree(link)}
                       >
                         {link.isFree ? 'Free' : 'Paid'}
@@ -454,7 +454,7 @@ export default function CourseBooksPage() {
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             <div className="space-y-4 py-6">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Book</label>
+                <label className="text-base font-medium">Book</label>
                 <Select
                   value={selectedBookIds[0] || undefined}
                   onValueChange={(v) => setSelectedBookIds(v ? [v] : [])}
@@ -471,13 +471,13 @@ export default function CourseBooksPage() {
                   </SelectContent>
                 </Select>
                 {availableBooks.length === 0 && (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-base text-muted-foreground">
                     All books are already linked to this course.
                   </p>
                 )}
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Free With Course?</label>
+                <label className="text-base font-medium">Free With Course?</label>
                 <Select
                   value={linkIsFree ? 'yes' : 'no'}
                   onValueChange={(v) => setLinkIsFree(v === 'yes')}
@@ -519,10 +519,10 @@ export default function CourseBooksPage() {
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             <div className="space-y-4 py-6">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Available Books</label>
+                <label className="text-base font-medium">Available Books</label>
                 <div className="space-y-2 max-h-[360px] overflow-y-auto">
                   {availableBooks.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-base text-muted-foreground">
                       All books are already linked to this course.
                     </p>
                   ) : (
@@ -540,8 +540,8 @@ export default function CourseBooksPage() {
                             <XCircle className="h-5 w-5 text-muted-foreground" />
                           )}
                           <div className="flex-1">
-                            <p className="font-medium text-sm">{book.name}</p>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="font-medium text-base">{book.name}</p>
+                            <p className="text-base text-muted-foreground">
                               {book.sku} •{' '}
                               {book.isEbook ? 'E-Book' : 'Physical'} •{' '}
                               {book.price.toLocaleString('en-US', {
@@ -557,14 +557,14 @@ export default function CourseBooksPage() {
                   )}
                 </div>
                 {selectedBookIds.length > 0 && (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-base text-muted-foreground">
                     {selectedBookIds.length} book(s) selected
                   </p>
                 )}
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Free With Course?</label>
+                <label className="text-base font-medium">Free With Course?</label>
                 <Select
                   value={linkIsFree ? 'yes' : 'no'}
                   onValueChange={(v) => setLinkIsFree(v === 'yes')}

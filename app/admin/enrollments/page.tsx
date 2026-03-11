@@ -41,7 +41,7 @@ import {
   Search,
   Trash2,
   Users,
-  Sparkles,
+  Layers,
   ArrowRight,
   GraduationCap,
   Activity,
@@ -204,7 +204,7 @@ export default function EnrollmentsPage() {
 
   const stats = [
     { label: 'Total Volume', value: enrollments.length, color: 'from-blue-600 to-cyan-500', icon: GraduationCap },
-    { label: 'Active Learners', value: enrollments.filter(e => String(e.status) === 'ACTIVE').length, color: 'from-emerald-600 to-teal-500', icon: Sparkles },
+    { label: 'Active Learners', value: enrollments.filter(e => String(e.status) === 'ACTIVE').length, color: 'from-emerald-600 to-teal-500', icon: Layers },
     { label: 'Paused Tracks', value: enrollments.filter(e => String(e.status) === 'PAUSED').length, color: 'from-amber-600 to-orange-500', icon: ClockIcon },
     { label: 'Cancelled', value: enrollments.filter(e => String(e.status) === 'CANCELLED').length, color: 'from-rose-600 to-pink-600', icon: Trash2 },
   ];
@@ -219,12 +219,12 @@ export default function EnrollmentsPage() {
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 border border-indigo-100/50 shadow-sm">
               <CalendarClock className="h-3.5 w-3.5" />
-              Enrollment Workspace
+              Enrollment Admin
             </div>
             <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
               Registry <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">Operations</span>
             </h1>
-            <p className="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-slate-500">
+            <p className="mt-2 max-w-2xl text-base font-medium leading-relaxed text-slate-500">
               Manage student enrollments, track lifecycle transitions, and coordinate batch/branch assignments across the institution.
             </p>
           </div>
@@ -267,18 +267,18 @@ export default function EnrollmentsPage() {
                 placeholder="Search by student, mobile, course, or branch..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
+                className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
               />
             </div>
           </div>
           
           <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
-            <SelectTrigger className="h-12 w-[160px] rounded-2xl border-slate-200 bg-white font-bold text-xs uppercase tracking-widest text-slate-600 shadow-sm">
+            <SelectTrigger className="text-sm font-medium">
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
             <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
               {statusOptions.map((opt) => (
-                <SelectItem key={opt} value={opt} className="font-bold text-xs uppercase tracking-widest py-3">
+                <SelectItem key={opt} value={opt} className="text-sm font-medium">
                   {opt === 'all' ? 'All Status' : opt}
                 </SelectItem>
               ))}
@@ -328,7 +328,7 @@ export default function EnrollmentsPage() {
         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
           <div>
             <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Enrollment Registry</h2>
-            <p className="mt-0.5 text-xs font-bold text-indigo-500">Institutional track database</p>
+            <p className="mt-0.5 text-base font-bold text-indigo-500">Institutional track database</p>
           </div>
           <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -362,28 +362,28 @@ export default function EnrollmentsPage() {
                   <TableRow key={e.id} className="group border-slate-100 transition-colors hover:bg-slate-50/80">
                     <TableCell className="px-8 py-5">
                        <div className="flex items-center gap-4">
-                          <div className="h-10 w-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-black text-slate-500 text-xs">
+                          <div className="h-10 w-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-black text-slate-500 text-base">
                              {e.student?.fullName.charAt(0)}
                           </div>
                           <div className="flex flex-col">
-                             <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors text-sm">{e.student?.fullName}</span>
-                             <span className="text-xs font-medium text-slate-400">{e.student?.mobile}</span>
+                             <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors text-base">{e.student?.fullName}</span>
+                             <span className="text-base font-medium text-slate-400">{e.student?.mobile}</span>
                           </div>
                        </div>
                     </TableCell>
                     <TableCell className="py-5">
                        <div className="flex flex-col">
-                          <span className="text-sm font-bold text-slate-700">{e.course?.name}</span>
-                          <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Code: {e.course?.code}</span>
+                          <span className="text-base font-bold text-slate-700">{e.course?.name}</span>
+                          <span className="text-base font-black text-slate-400 uppercase tracking-widest">Code: {e.course?.code}</span>
                        </div>
                     </TableCell>
                     <TableCell className="py-5">
                        <div className="flex flex-col gap-1.5">
-                          <div className="flex items-center gap-1.5 text-sm font-bold text-slate-600">
+                          <div className="flex items-center gap-1.5 text-base font-bold text-slate-600">
                              <Building2 className="h-3.5 w-3.5 text-rose-500" />
                              {e.branch?.name}
                           </div>
-                          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
+                          <div className="flex items-center gap-1.5 text-base font-bold text-slate-400">
                              <Users className="h-3.5 w-3.5 text-indigo-400" />
                              {e.batch?.name || 'Unassigned'}
                           </div>

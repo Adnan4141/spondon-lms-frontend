@@ -20,7 +20,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 const inputClass =
-  'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
+  'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
 const sectionLabel = 'text-[11px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2 block px-1';
 
 function parseDateInput(value?: string): Date | undefined {
@@ -140,7 +140,7 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
           <section className="space-y-6">
              <div className="flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-indigo-600" />
-                <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Account Credentials</h3>
+                <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Account Credentials</h3>
              </div>
              <div className="grid gap-6 sm:grid-cols-2">
                 <div className="space-y-2">
@@ -178,7 +178,7 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
           <section className="space-y-6">
              <div className="flex items-center gap-2">
                 <Building2 className="h-4 w-4 text-emerald-600" />
-                <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Institutional Context</h3>
+                <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Institutional Context</h3>
              </div>
              <div className="grid gap-6 sm:grid-cols-2">
                 <div className="space-y-2">
@@ -188,7 +188,7 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
                          <SelectValue placeholder="Select Branch" />
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                         {branches.map(b => <SelectItem key={b.id} value={b.id} className="font-bold text-xs uppercase tracking-widest py-3">{b.name}</SelectItem>)}
+                         {branches.map(b => <SelectItem key={b.id} value={b.id} className="text-sm font-medium">{b.name}</SelectItem>)}
                       </SelectContent>
                    </Select>
                 </div>
@@ -199,8 +199,8 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
                          <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                         <SelectItem value="ACTIVE" className="font-bold text-xs uppercase tracking-widest py-3">ACTIVE</SelectItem>
-                         <SelectItem value="BLOCKED" className="font-bold text-xs uppercase tracking-widest py-3 text-rose-600">BLOCKED</SelectItem>
+                         <SelectItem value="ACTIVE" className="text-sm font-medium">ACTIVE</SelectItem>
+                         <SelectItem value="BLOCKED" className="text-sm font-medium">BLOCKED</SelectItem>
                       </SelectContent>
                    </Select>
                 </div>
@@ -211,7 +211,7 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
           <section className="space-y-6 border-t border-slate-100 pt-10">
              <div className="flex items-center gap-2">
                 <Fingerprint className="h-4 w-4 text-violet-600" />
-                <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Extended Bio-Data</h3>
+                <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Extended Bio-Data</h3>
              </div>
              <div className="grid gap-6 sm:grid-cols-2">
                 <div className="space-y-2">
@@ -257,20 +257,20 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
                          <SelectValue placeholder="Select Institute" />
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                         {institutes.map(ins => <SelectItem key={ins.id} value={ins.id} className="font-bold text-xs uppercase tracking-widest py-3">{ins.name}</SelectItem>)}
+                         {institutes.map(ins => <SelectItem key={ins.id} value={ins.id} className="text-sm font-medium">{ins.name}</SelectItem>)}
                       </SelectContent>
                    </Select>
                 </div>
                 <div className="space-y-2 sm:col-span-2">
                    <label className={sectionLabel}>Residential Address</label>
-                   <textarea className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm font-bold text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner" rows={3} value={form.address} onChange={e => setForm(p => ({ ...p, address: e.target.value }))} placeholder="Complete physical address..." />
+                   <textarea className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-base font-bold text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner" rows={3} value={form.address} onChange={e => setForm(p => ({ ...p, address: e.target.value }))} placeholder="Complete physical address..." />
                 </div>
              </div>
           </section>
         </div>
 
         {error && (
-          <div className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs font-bold text-rose-600 uppercase tracking-widest flex items-center gap-3">
+          <div className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-base font-bold text-rose-600 uppercase tracking-widest flex items-center gap-3">
              <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />
              {error}
           </div>

@@ -18,7 +18,7 @@ import { ShieldCheck, Calendar, Activity, GraduationCap, Building2 } from 'lucid
 import { cn } from '@/lib/utils';
 
 const inputClass =
-  'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
+  'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
 const sectionLabel = 'text-[11px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2 block px-1';
 
 interface EnrollmentFormProps {
@@ -105,18 +105,18 @@ export function EnrollmentForm({ enrollment, onSuccess }: EnrollmentFormProps) {
                 <GraduationCap className="h-6 w-6" />
               </div>
               <div>
-                <h4 className="text-sm font-black text-slate-900">{enrollment.student?.fullName}</h4>
+                <h4 className="text-base font-black text-slate-900">{enrollment.student?.fullName}</h4>
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{enrollment.course?.name}</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
                <div className="flex flex-col">
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Current Branch</span>
-                  <span className="text-xs font-bold text-slate-700">{enrollment.branch?.name}</span>
+                  <span className="text-base font-bold text-slate-700">{enrollment.branch?.name}</span>
                </div>
                <div className="flex flex-col">
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">ID Reference</span>
-                  <span className="text-xs font-mono font-bold text-indigo-600">{enrollment.id.slice(0, 12)}</span>
+                  <span className="text-base font-mono font-bold text-indigo-600">{enrollment.id.slice(0, 12)}</span>
                </div>
             </div>
           </section>
@@ -125,7 +125,7 @@ export function EnrollmentForm({ enrollment, onSuccess }: EnrollmentFormProps) {
           <section className="space-y-6">
              <div className="flex items-center gap-2">
                 <Activity className="h-4 w-4 text-indigo-600" />
-                <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Lifecycle Control</h3>
+                <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Lifecycle Control</h3>
              </div>
              <div className="grid gap-6 sm:grid-cols-2">
                 <div className="space-y-2">
@@ -135,10 +135,10 @@ export function EnrollmentForm({ enrollment, onSuccess }: EnrollmentFormProps) {
                          <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                         <SelectItem value="ACTIVE" className="font-bold text-xs uppercase tracking-widest py-3 text-emerald-600">ACTIVE</SelectItem>
-                         <SelectItem value="PAUSED" className="font-bold text-xs uppercase tracking-widest py-3 text-amber-600">PAUSED</SelectItem>
-                         <SelectItem value="CANCELLED" className="font-bold text-xs uppercase tracking-widest py-3 text-rose-600">CANCELLED</SelectItem>
-                         <SelectItem value="COMPLETED" className="font-bold text-xs uppercase tracking-widest py-3 text-indigo-600">COMPLETED</SelectItem>
+                         <SelectItem value="ACTIVE" className="text-sm font-medium">ACTIVE</SelectItem>
+                         <SelectItem value="PAUSED" className="text-sm font-medium">PAUSED</SelectItem>
+                         <SelectItem value="CANCELLED" className="text-sm font-medium">CANCELLED</SelectItem>
+                         <SelectItem value="COMPLETED" className="text-sm font-medium">COMPLETED</SelectItem>
                       </SelectContent>
                    </Select>
                 </div>
@@ -150,7 +150,7 @@ export function EnrollmentForm({ enrollment, onSuccess }: EnrollmentFormProps) {
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
                          {batches.map(b => (
-                           <SelectItem key={b.id} value={b.id} className="font-bold text-xs uppercase tracking-widest py-3">
+                           <SelectItem key={b.id} value={b.id} className="text-sm font-medium">
                              {b.name}
                            </SelectItem>
                          ))}
@@ -164,7 +164,7 @@ export function EnrollmentForm({ enrollment, onSuccess }: EnrollmentFormProps) {
           <section className="space-y-6">
              <div className="flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Financial Identity</h3>
+                <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Financial Identity</h3>
              </div>
              <div className="space-y-2">
                 <label className={sectionLabel}>Billing Cycle Start (YYYY-MM)</label>
@@ -183,7 +183,7 @@ export function EnrollmentForm({ enrollment, onSuccess }: EnrollmentFormProps) {
         </div>
 
         {error && (
-          <div className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs font-bold text-rose-600 uppercase tracking-widest flex items-center gap-3">
+          <div className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-base font-bold text-rose-600 uppercase tracking-widest flex items-center gap-3">
              <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />
              {error}
           </div>

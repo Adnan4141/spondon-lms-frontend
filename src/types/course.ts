@@ -20,6 +20,16 @@ export interface Program {
   updatedAt: string;
 }
 
+export interface CreateProgramDto {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateProgramDto {
+  name?: string;
+  description?: string;
+}
+
 export interface Course {
   id: string;
   programId: string;

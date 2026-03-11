@@ -51,15 +51,15 @@ export function BranchDetailsView({ branch }: BranchDetailsViewProps) {
               <div className="space-y-4 text-center md:text-left">
                  <div className="space-y-1">
                     <h2 className="text-3xl font-black tracking-tight text-slate-900">{branch.name}</h2>
-                    <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-500">Branch Identity: {branch.code || 'NO-CODE'}</p>
+                    <p className="text-base font-black uppercase tracking-[0.2em] text-indigo-500">Branch Identity: {branch.code || 'NO-CODE'}</p>
                  </div>
                  
                  <div className="flex flex-wrap justify-center md:justify-start gap-6 pt-2">
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                    <div className="flex items-center gap-2 text-base font-bold text-slate-500">
                        <Phone className="h-4 w-4 text-emerald-500" />
                        {branch.phone || 'No Contact'}
                     </div>
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                    <div className="flex items-center gap-2 text-base font-bold text-slate-500">
                        <Hash className="h-4 w-4 text-blue-500" />
                        UID: {branch.id.slice(0, 12)}
                     </div>
@@ -93,7 +93,7 @@ export function BranchDetailsView({ branch }: BranchDetailsViewProps) {
                     <MapPin className="h-4 w-4" />
                     Geographic Data
                  </h3>
-                 <p className="text-sm font-medium leading-relaxed text-slate-600 bg-white border border-slate-100 p-6 rounded-[24px] shadow-sm">
+                 <p className="text-base font-medium leading-relaxed text-slate-600 bg-white border border-slate-100 p-6 rounded-[24px] shadow-sm">
                     {branch.address || 'No physical address provided for this branch.'}
                  </p>
               </div>
@@ -105,12 +105,12 @@ export function BranchDetailsView({ branch }: BranchDetailsViewProps) {
                  </h3>
                  <div className="grid gap-4">
                     <div className="flex items-center justify-between p-5 rounded-2xl border border-slate-100 bg-slate-50/30">
-                       <span className="text-xs font-bold text-slate-500">Initialized At</span>
-                       <span className="text-xs font-black text-slate-900">{new Date(branch.createdAt).toLocaleString()}</span>
+                       <span className="text-base font-bold text-slate-500">Initialized At</span>
+                       <span className="text-base font-black text-slate-900">{new Date(branch.createdAt).toLocaleString()}</span>
                     </div>
                     <div className="flex items-center justify-between p-5 rounded-2xl border border-slate-100 bg-slate-50/30">
-                       <span className="text-xs font-bold text-slate-500">Last Modification</span>
-                       <span className="text-xs font-black text-slate-900">{new Date(branch.updatedAt).toLocaleString()}</span>
+                       <span className="text-base font-bold text-slate-500">Last Modification</span>
+                       <span className="text-base font-black text-slate-900">{new Date(branch.updatedAt).toLocaleString()}</span>
                     </div>
                  </div>
               </div>
@@ -127,11 +127,11 @@ export function BranchDetailsView({ branch }: BranchDetailsViewProps) {
                       branch.users.map((user) => (
                         <div key={user.id} className="group flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-white hover:border-indigo-200 transition-all">
                            <div className="flex items-center gap-3">
-                              <div className="h-9 w-9 rounded-xl bg-slate-50 text-slate-400 flex items-center justify-center group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors font-black text-xs">
+                              <div className="h-9 w-9 rounded-xl bg-slate-50 text-slate-400 flex items-center justify-center group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors font-black text-base">
                                  {user.fullName.charAt(0)}
                               </div>
                               <div className="flex flex-col">
-                                 <span className="text-sm font-bold text-slate-800">{user.fullName}</span>
+                                 <span className="text-base font-bold text-slate-800">{user.fullName}</span>
                                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{user.role}</span>
                               </div>
                            </div>
@@ -141,7 +141,7 @@ export function BranchDetailsView({ branch }: BranchDetailsViewProps) {
                     ) : (
                       <div className="flex flex-col items-center justify-center p-10 rounded-3xl border border-dashed border-slate-200 bg-slate-50">
                          <Users className="h-8 w-8 text-slate-300 mb-3" />
-                         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">No personnel assigned</p>
+                         <p className="text-base font-bold text-slate-400 uppercase tracking-widest">No personnel assigned</p>
                       </div>
                     )}
                  </div>

@@ -10,6 +10,8 @@ type CalendarProps = {
   selected?: Date
   onSelect?: (date: Date | undefined) => void
   className?: string
+  mode?: "single" | "multiple" | "range"
+  initialFocus?: boolean
 }
 
 const DAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]

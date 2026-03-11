@@ -32,7 +32,9 @@ export const LocalPlaceholder = Extension.create<PlaceholderOptions>({
       new Plugin({
         key: placeholderKey,
         props: {
-          decorations: ({ doc, selection, editable }) => {
+          decorations: (state) => {
+            const { doc, selection } = state;
+            const editable = this.editor.isEditable;
             const active = editable || !this.options.showOnlyWhenEditable;
             if (!active) return null;
 

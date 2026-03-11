@@ -15,7 +15,8 @@ import {
   CreditCard,
   Phone,
   Mail,
-  Clock
+  Clock,
+  Users
 } from 'lucide-react';
 
 interface EnrollmentDetailsViewProps {
@@ -56,16 +57,16 @@ export function EnrollmentDetailsView({ enrollment }: EnrollmentDetailsViewProps
               <div className="space-y-4 text-center md:text-left">
                  <div className="space-y-1">
                     <h2 className="text-3xl font-black tracking-tight text-slate-900">{enrollment.student?.fullName}</h2>
-                    <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-500">Student Enrollment</p>
+                    <p className="text-base font-black uppercase tracking-[0.2em] text-indigo-500">Student Enrollment</p>
                  </div>
                  
                  <div className="flex flex-wrap justify-center md:justify-start gap-6 pt-2">
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                    <div className="flex items-center gap-2 text-base font-bold text-slate-500">
                        <Phone className="h-4 w-4 text-emerald-500" />
                        {enrollment.student?.mobile || 'N/A'}
                     </div>
                     {enrollment.student?.email && (
-                      <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                      <div className="flex items-center gap-2 text-base font-bold text-slate-500">
                          <Mail className="h-4 w-4 text-blue-500" />
                          {enrollment.student?.email}
                       </div>
@@ -104,14 +105,14 @@ export function EnrollmentDetailsView({ enrollment }: EnrollmentDetailsViewProps
                     <div className="flex items-center justify-between p-5 rounded-2xl border border-slate-100 bg-slate-50/30">
                        <div className="flex flex-col">
                           <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Course Program</span>
-                          <span className="text-sm font-black text-slate-900">{enrollment.course?.name || '-'}</span>
+                          <span className="text-base font-black text-slate-900">{enrollment.course?.name || '-'}</span>
                        </div>
                        <Badge variant="outline" className="rounded-lg bg-white font-mono text-[9px] font-black">{enrollment.course?.code}</Badge>
                     </div>
                     <div className="flex items-center justify-between p-5 rounded-2xl border border-slate-100 bg-slate-50/30">
                        <div className="flex flex-col">
                           <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Current Batch</span>
-                          <span className="text-sm font-black text-slate-900">{enrollment.batch?.name || 'Unassigned'}</span>
+                          <span className="text-base font-black text-slate-900">{enrollment.batch?.name || 'Unassigned'}</span>
                        </div>
                        <div className="h-8 w-8 rounded-xl bg-white border border-slate-100 flex items-center justify-center">
                           <Users className="h-4 w-4 text-slate-400" />
@@ -120,7 +121,7 @@ export function EnrollmentDetailsView({ enrollment }: EnrollmentDetailsViewProps
                     <div className="flex items-center justify-between p-5 rounded-2xl border border-slate-100 bg-slate-50/30">
                        <div className="flex flex-col">
                           <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Assigned Branch</span>
-                          <span className="text-sm font-black text-slate-900">{enrollment.branch?.name || '-'}</span>
+                          <span className="text-base font-black text-slate-900">{enrollment.branch?.name || '-'}</span>
                        </div>
                        <Building2 className="h-4 w-4 text-slate-400" />
                     </div>
@@ -136,16 +137,16 @@ export function EnrollmentDetailsView({ enrollment }: EnrollmentDetailsViewProps
                  </h3>
                  <div className="grid gap-4">
                     <div className="flex items-center justify-between p-5 rounded-2xl border border-slate-100 bg-slate-50/30">
-                       <span className="text-xs font-bold text-slate-500">Record ID</span>
-                       <span className="text-xs font-mono font-black text-indigo-600 uppercase">{enrollment.id.slice(0, 16)}...</span>
+                       <span className="text-base font-bold text-slate-500">Record ID</span>
+                       <span className="text-base font-mono font-black text-indigo-600 uppercase">{enrollment.id.slice(0, 16)}...</span>
                     </div>
                     <div className="flex items-center justify-between p-5 rounded-2xl border border-slate-100 bg-slate-50/30">
-                       <span className="text-xs font-bold text-slate-500">Initialized At</span>
-                       <span className="text-xs font-black text-slate-900">{new Date(enrollment.createdAt).toLocaleString()}</span>
+                       <span className="text-base font-bold text-slate-500">Initialized At</span>
+                       <span className="text-base font-black text-slate-900">{new Date(enrollment.createdAt).toLocaleString()}</span>
                     </div>
                     <div className="flex items-center justify-between p-5 rounded-2xl border border-slate-100 bg-slate-50/30">
-                       <span className="text-xs font-bold text-slate-500">Last Synced</span>
-                       <span className="text-xs font-black text-slate-900">{new Date(enrollment.updatedAt).toLocaleString()}</span>
+                       <span className="text-base font-bold text-slate-500">Last Synced</span>
+                       <span className="text-base font-black text-slate-900">{new Date(enrollment.updatedAt).toLocaleString()}</span>
                     </div>
                  </div>
               </div>

@@ -53,16 +53,16 @@ export function ExamDetailsView({ exam }: ExamDetailsViewProps) {
               <h2 className="text-3xl font-black tracking-tight text-slate-900 leading-tight max-w-2xl">{exam.title}</h2>
               
               <div className="flex flex-wrap gap-6 pt-2">
-                 <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                 <div className="flex items-center gap-2 text-base font-bold text-slate-500">
                     <BookOpen className="h-4 w-4 text-indigo-500" />
                     {exam.course?.name}
                  </div>
-                 <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                 <div className="flex items-center gap-2 text-base font-bold text-slate-500">
                     <MapPin className="h-4 w-4 text-rose-500" />
                     {exam.branch?.name}
                  </div>
                  {exam.batch && (
-                   <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                   <div className="flex items-center gap-2 text-base font-bold text-slate-500">
                       <Layers className="h-4 w-4 text-amber-500" />
                       {exam.batch.name}
                    </div>
@@ -99,14 +99,14 @@ export function ExamDetailsView({ exam }: ExamDetailsViewProps) {
                  </h3>
                  <div className="grid gap-4">
                     <div className="flex items-center justify-between p-5 rounded-2xl border border-slate-100 bg-slate-50/30">
-                       <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Window Opens</span>
-                       <span className="text-sm font-black text-slate-900">
+                       <span className="text-base font-bold text-slate-500 uppercase tracking-wider">Window Opens</span>
+                       <span className="text-base font-black text-slate-900">
                          {exam.startAt ? new Date(exam.startAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Immediate Access'}
                        </span>
                     </div>
                     <div className="flex items-center justify-between p-5 rounded-2xl border border-slate-100 bg-slate-50/30">
-                       <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Window Closes</span>
-                       <span className="text-sm font-black text-slate-900">
+                       <span className="text-base font-bold text-slate-500 uppercase tracking-wider">Window Closes</span>
+                       <span className="text-base font-black text-slate-900">
                          {exam.endAt ? new Date(exam.endAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Permanent'}
                        </span>
                     </div>
@@ -123,10 +123,10 @@ export function ExamDetailsView({ exam }: ExamDetailsViewProps) {
                       {exam.sets.map((set) => (
                         <div key={set.id} className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-white">
                            <div className="flex items-center gap-3">
-                              <div className="h-8 w-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-black text-xs">
+                              <div className="h-8 w-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-black text-base">
                                  {set.questions?.length || 0}
                               </div>
-                              <span className="text-sm font-bold text-slate-700">{set.name}</span>
+                              <span className="text-base font-bold text-slate-700">{set.name}</span>
                            </div>
                            <Badge variant="outline" className="rounded-lg text-[9px] uppercase tracking-tighter">Active Set</Badge>
                         </div>
@@ -151,7 +151,7 @@ export function ExamDetailsView({ exam }: ExamDetailsViewProps) {
                                  <User className="h-4 w-4" />
                               </div>
                               <div className="flex flex-col">
-                                 <span className="text-sm font-bold text-slate-800">{attempt.student?.fullName || 'Anonymous Candidate'}</span>
+                                 <span className="text-base font-bold text-slate-800">{attempt.student?.fullName || 'Anonymous Candidate'}</span>
                                  <span className="text-[10px] font-medium text-slate-400">{new Date(attempt.startedAt).toLocaleDateString()}</span>
                               </div>
                            </div>
@@ -163,7 +163,7 @@ export function ExamDetailsView({ exam }: ExamDetailsViewProps) {
                     ) : (
                       <div className="flex flex-col items-center justify-center p-10 rounded-3xl border border-dashed border-slate-200 bg-slate-50">
                          <AlertCircle className="h-8 w-8 text-slate-300 mb-3" />
-                         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">No candidates logged yet</p>
+                         <p className="text-base font-bold text-slate-400 uppercase tracking-widest">No candidates logged yet</p>
                       </div>
                     )}
                  </div>

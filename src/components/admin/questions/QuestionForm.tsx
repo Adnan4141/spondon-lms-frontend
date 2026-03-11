@@ -29,7 +29,7 @@ import { Plus, X, CheckCircle2, ListFilter, Type, BarChart3, Calendar, FolderOpe
 import { cn } from '@/lib/utils';
 
 const inputClass =
-  'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
+  'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
 const sectionLabel = 'text-[11px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2 block';
 
 interface QuestionFormProps {
@@ -262,7 +262,7 @@ export function QuestionForm({ folders, question, initialFolderId, initialPassag
                          <SelectValue placeholder="Select Folder" />
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                         {folders.map(f => <SelectItem key={f.id} value={f.id} className="font-bold text-xs uppercase tracking-widest py-3">{f.name}</SelectItem>)}
+                         {folders.map(f => <SelectItem key={f.id} value={f.id} className="text-sm font-medium">{f.name}</SelectItem>)}
                       </SelectContent>
                    </Select>
                 </div>
@@ -274,7 +274,7 @@ export function QuestionForm({ folders, question, initialFolderId, initialPassag
                          <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                         {questionTypeOptions.map(o => <SelectItem key={o} value={o} className="font-bold text-xs uppercase tracking-widest py-3">{o}</SelectItem>)}
+                         {questionTypeOptions.map(o => <SelectItem key={o} value={o} className="text-sm font-medium">{o}</SelectItem>)}
                       </SelectContent>
                    </Select>
                 </div>
@@ -287,7 +287,7 @@ export function QuestionForm({ folders, question, initialFolderId, initialPassag
                            <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                           {mcqTypeOptions.map(o => <SelectItem key={o} value={o} className="font-bold text-xs uppercase tracking-widest py-3">{o.replace('_', ' ')}</SelectItem>)}
+                           {mcqTypeOptions.map(o => <SelectItem key={o} value={o} className="text-sm font-medium">{o.replace('_', ' ')}</SelectItem>)}
                         </SelectContent>
                      </Select>
                   </div>
@@ -301,8 +301,8 @@ export function QuestionForm({ folders, question, initialFolderId, initialPassag
                            <SelectValue placeholder="Select Passage" />
                         </SelectTrigger>
                         <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                           <SelectItem value="none" className="font-bold text-xs uppercase tracking-widest py-3">No Passage</SelectItem>
-                           {passages.map(p => <SelectItem key={p.id} value={p.id} className="font-bold text-xs uppercase tracking-widest py-3">{p.title || p.content.slice(0, 30)}...</SelectItem>)}
+                           <SelectItem value="none" className="text-sm font-medium">No Passage</SelectItem>
+                           {passages.map(p => <SelectItem key={p.id} value={p.id} className="text-sm font-medium">{p.title || p.content.slice(0, 30)}...</SelectItem>)}
                         </SelectContent>
                      </Select>
                   </div>
@@ -315,8 +315,8 @@ export function QuestionForm({ folders, question, initialFolderId, initialPassag
                          <SelectValue placeholder="Unspecified" />
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                         <SelectItem value="none" className="font-bold text-xs uppercase tracking-widest py-3">Unspecified</SelectItem>
-                         {difficultyOptions.map(o => <SelectItem key={o} value={o} className="font-bold text-xs uppercase tracking-widest py-3">{o}</SelectItem>)}
+                         <SelectItem value="none" className="text-sm font-medium">Unspecified</SelectItem>
+                         {difficultyOptions.map(o => <SelectItem key={o} value={o} className="text-sm font-medium">{o}</SelectItem>)}
                       </SelectContent>
                    </Select>
                 </div>
@@ -335,7 +335,7 @@ export function QuestionForm({ folders, question, initialFolderId, initialPassag
 
              <div className="rounded-[28px] bg-slate-900 p-6 text-white shadow-xl shadow-slate-200">
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400 mb-2">Editor Context</p>
-                <p className="text-xs font-bold leading-relaxed text-slate-300">
+                <p className="text-base font-bold leading-relaxed text-slate-300">
                   Questions are indexed by folder and used during automated exam generation. Use clear prompts and detailed explanations.
                 </p>
              </div>
@@ -343,7 +343,7 @@ export function QuestionForm({ folders, question, initialFolderId, initialPassag
         </div>
 
         {error && (
-          <div className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs font-bold text-rose-600 uppercase tracking-widest flex items-center gap-3">
+          <div className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-base font-bold text-rose-600 uppercase tracking-widest flex items-center gap-3">
              <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />
              {error}
           </div>

@@ -24,7 +24,7 @@ import {
   Bell,
   Shield,
   Building2,
-  Sparkles,
+  Layers,
   ArrowRight,
   ShieldCheck,
   Zap,
@@ -42,7 +42,7 @@ import { cn } from '@/lib/utils';
 type SettingsCategory = 'general' | 'sms' | 'payment' | 'system' | 'email' | 'notifications';
 
 const inputClass =
-  'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
+  'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
 const sectionLabel = 'text-[11px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2 block px-1';
 
 interface GeneralSettings {
@@ -236,7 +236,7 @@ export default function SettingsPage() {
       <section className="space-y-6">
         <div className="flex items-center gap-2">
            <ShieldCheck className="h-4 w-4 text-indigo-600" />
-           <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Institutional Identity</h3>
+           <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Institutional Identity</h3>
         </div>
         <div className="grid gap-6 sm:grid-cols-2">
           <div className="space-y-2">
@@ -285,7 +285,7 @@ export default function SettingsPage() {
             <div className="relative">
                <MapPin className="absolute left-4 top-4 h-4 w-4 text-slate-400" />
                <Textarea
-                 className="min-h-[100px] rounded-2xl border-slate-200 bg-slate-50/50 pl-11 py-4 text-sm font-bold text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
+                 className="min-h-[100px] rounded-2xl border-slate-200 bg-slate-50/50 pl-11 py-4 text-base font-bold text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
                  value={generalSettings.address}
                  onChange={(e) => setGeneralSettings(p => ({ ...p, address: e.target.value }))}
                />
@@ -297,7 +297,7 @@ export default function SettingsPage() {
       <section className="space-y-6">
         <div className="flex items-center gap-2">
            <Globe className="h-4 w-4 text-emerald-600" />
-           <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Regional & Localization</h3>
+           <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Regional & Localization</h3>
         </div>
         <div className="grid gap-6 sm:grid-cols-3">
           <div className="space-y-2">
@@ -346,7 +346,7 @@ export default function SettingsPage() {
       <section className="space-y-6">
         <div className="flex items-center gap-2">
            <Smartphone className="h-4 w-4 text-emerald-600" />
-           <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">SMS Gateway</h3>
+           <h3 className="text-base font-black uppercase tracking-widest text-slate-800">SMS Gateway</h3>
         </div>
         <div className="grid gap-6 sm:grid-cols-2">
           <div className="sm:col-span-2 space-y-2">
@@ -380,7 +380,7 @@ export default function SettingsPage() {
         ].map((item) => (
           <div key={item.id} className="flex items-center justify-between p-6 rounded-3xl border border-slate-100 bg-white shadow-sm">
             <div className="space-y-1">
-              <p className="text-sm font-black text-slate-800">{item.label}</p>
+              <p className="text-base font-black text-slate-800">{item.label}</p>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{item.desc}</p>
             </div>
             <Switch
@@ -399,7 +399,7 @@ export default function SettingsPage() {
       <section className="space-y-6">
         <div className="flex items-center gap-2">
            <CreditCard className="h-4 w-4 text-amber-600" />
-           <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Financial Bridge</h3>
+           <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Financial Bridge</h3>
         </div>
         <div className="grid gap-6 sm:grid-cols-2">
           <div className="sm:col-span-2 space-y-2">
@@ -425,7 +425,7 @@ export default function SettingsPage() {
           </div>
           <div className="sm:col-span-2 flex items-center justify-between p-6 rounded-3xl border border-slate-100 bg-slate-900 text-white shadow-xl">
             <div className="space-y-1">
-              <p className="text-sm font-black tracking-tight">Sandbox Environment</p>
+              <p className="text-base font-black tracking-tight">Sandbox Environment</p>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.1em]">Test transactions authorized</p>
             </div>
             <Switch
@@ -444,7 +444,7 @@ export default function SettingsPage() {
       <section className="space-y-6">
         <div className="flex items-center gap-2">
            <Mail className="h-4 w-4 text-blue-600" />
-           <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">SMTP Infrastructure</h3>
+           <h3 className="text-base font-black uppercase tracking-widest text-slate-800">SMTP Infrastructure</h3>
         </div>
         <div className="grid gap-6 sm:grid-cols-2">
           <div className="space-y-2">
@@ -485,7 +485,7 @@ export default function SettingsPage() {
       <section className="space-y-4">
         <div className="flex items-center gap-2 mb-6">
            <Bell className="h-4 w-4 text-rose-600" />
-           <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Dispatch Channels</h3>
+           <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Dispatch Channels</h3>
         </div>
         {[
           { id: 'emailNotifications', label: 'Electronic Mail Protocol', icon: Mail, color: 'text-blue-500' },
@@ -497,7 +497,7 @@ export default function SettingsPage() {
                <div className={cn("h-10 w-10 rounded-2xl bg-slate-50 flex items-center justify-center", item.color)}>
                   <item.icon className="h-5 w-5" />
                </div>
-               <p className="text-sm font-black text-slate-800">{item.label}</p>
+               <p className="text-base font-black text-slate-800">{item.label}</p>
             </div>
             <Switch
               checked={(notificationSettings as any)[item.id]}
@@ -515,12 +515,12 @@ export default function SettingsPage() {
       <section className="space-y-6">
         <div className="flex items-center gap-2">
            <Database className="h-4 w-4 text-slate-600" />
-           <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Core Engine Configuration</h3>
+           <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Core Engine Configuration</h3>
         </div>
         <div className="grid gap-4">
           <div className="flex items-center justify-between p-6 rounded-[32px] bg-rose-600 text-white shadow-xl">
             <div className="space-y-1">
-              <p className="text-sm font-black">Maintenance Protocol</p>
+              <p className="text-base font-black">Maintenance Protocol</p>
               <p className="text-[10px] font-bold text-rose-200 uppercase tracking-tighter">Authorized personnel access only</p>
             </div>
             <Switch
@@ -531,7 +531,7 @@ export default function SettingsPage() {
           </div>
           <div className="flex items-center justify-between p-6 rounded-3xl border border-slate-100 bg-white shadow-sm">
             <div className="space-y-1">
-              <p className="text-sm font-black text-slate-800">Open Registration</p>
+              <p className="text-base font-black text-slate-800">Open Registration</p>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Permit new user autonomous onboarding</p>
             </div>
             <Switch
@@ -581,8 +581,8 @@ export default function SettingsPage() {
             <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
               Global <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">Configurations</span>
             </h1>
-            <p className="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-slate-500">
-              Synchronize core system variables, financial gateways, and institutional identity parameters from a unified intelligence workspace.
+            <p className="mt-2 max-w-2xl text-base font-medium leading-relaxed text-slate-500">
+              Synchronize core system variables, financial gateways, and institutional identity parameters from a unified intelligence admin.
             </p>
           </div>
 
@@ -607,7 +607,7 @@ export default function SettingsPage() {
                    key={cat.id}
                    onClick={() => setActiveCategory(cat.id)}
                    className={cn(
-                     "group w-full flex items-center gap-4 rounded-2xl px-5 py-4 text-xs font-black uppercase tracking-widest transition-all",
+                     "group w-full flex items-center gap-4 rounded-2xl px-5 py-4 text-base font-black uppercase tracking-widest transition-all",
                      activeCategory === cat.id
                        ? "bg-slate-900 text-white shadow-xl shadow-slate-200"
                        : "text-slate-400 hover:bg-slate-50 hover:text-slate-900"
@@ -629,7 +629,7 @@ export default function SettingsPage() {
               <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 text-indigo-400 mb-4">
                  <Shield className="h-5 w-5" />
               </div>
-              <h4 className="text-sm font-black uppercase tracking-widest">Protocol Audit</h4>
+              <h4 className="text-base font-black uppercase tracking-widest">Protocol Audit</h4>
               <p className="mt-2 text-[10px] font-bold text-slate-400 leading-relaxed uppercase tracking-tighter">System changes are logged and synchronized across the institutional cluster.</p>
            </div>
         </aside>

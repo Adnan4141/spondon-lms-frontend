@@ -45,3 +45,10 @@ export interface CourseOutline {
   schedule?: string;
   prerequisites?: string[];
 }
+
+export interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  message?: string;
+  error?: string;
+}
