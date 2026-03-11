@@ -16,11 +16,14 @@ import {
   Phone,
   Mail,
   Clock,
-  Users
+  Users,
+  ShieldCheck
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface EnrollmentDetailsViewProps {
   enrollment: Enrollment;
+  onSettle?: () => Promise<void>;
 }
 
 function getStatusBadgeClass(status: string) {
@@ -57,7 +60,19 @@ export function EnrollmentDetailsView({ enrollment }: EnrollmentDetailsViewProps
               <div className="space-y-4 text-center md:text-left">
                  <div className="space-y-1">
                     <h2 className="text-3xl font-black tracking-tight text-slate-900">{enrollment.student?.fullName}</h2>
-                    <p className="text-base font-black uppercase tracking-[0.2em] text-indigo-500">Student Enrollment</p>
+                    <div className="flex flex-col md:flex-row md:items-center gap-3">
+                      <p className="text-base font-black uppercase tracking-[0.2em] text-indigo-500 text-nowrap">Student Enrollment</p>
+                      {onSettle && (
+                        <Button 
+                          onClick={onSettle}
+                          variant="outline"
+                          className="h-9 rounded-xl border-emerald-200 bg-emerald-50 text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all shadow-sm px-4"
+                        >
+                          <CheckCircle2 className="mr-2 h-3.5 w-3.5" />
+                          Settle Outstanding Dues
+                        </Button>
+                      )}
+                    </div>
                  </div>
                  
                  <div className="flex flex-wrap justify-center md:justify-start gap-6 pt-2">

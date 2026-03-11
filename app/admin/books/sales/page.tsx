@@ -38,9 +38,18 @@ import {
   Search,
   ShoppingBag,
   Trash2,
+  ArrowRight,
+  TrendingUp,
+  DollarSign,
+  Building2,
+  CheckCircle2,
+  ShoppingCart,
+  BookOpen,
+  Warehouse,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
+import { cn } from '@/lib/utils';
 
 interface CartItem {
   book: Book;
@@ -60,7 +69,7 @@ export default function BookSalesPage() {
   const [books, setBooks] = useState<Book[]>([]);
   const [sales, setSales] = useState<BookSale[]>([]);
 
-  const [selectedBranchId, setSelectedBranchId] = useState<string>('');
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [loadingSales, setLoadingSales] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -102,7 +111,7 @@ export default function BookSalesPage() {
       setLoadingSales(true);
       setError(null);
       const params: any = {};
-      if (selectedBranchId) params.branchId = selectedBranchId;
+      if (selectedBranchId && selectedBranchId !== 'all') params.branchId = selectedBranchId;
       const response = await getBookSales(params);
       if (response.success && response.data) {
         setSales(response.data || []);
@@ -141,28 +150,19 @@ export default function BookSalesPage() {
     );
   });
 
-  const totalSales = sales.length;
-  const totalAmount = sales.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
-
-  const selectedBranch = branches.find((b) => b.id === selectedBranchId);
+  const totalSalesCount = sales.length;
+  const totalAmount = sales.reduce((sum, s) => sum + Number(s.totalAmount || 0), 0);
+  const avgOrderValue = totalSalesCount > 0 ? totalAmount / totalSalesCount : 0;
 
   const handleAddToCart = () => {
     if (!selectedBookForCart) {
-      toast({
-        title: 'Error',
-        description: 'Select a book to add to the cart',
-        variant: 'destructive',
-      });
+      toast({ title: 'Requirement', description: 'Select a material to add to cart', variant: 'destructive' });
       return;
     }
     const book = books.find((b) => b.id === selectedBookForCart);
     if (!book) return;
     if (selectedQty <= 0) {
-      toast({
-        title: 'Error',
-        description: 'Quantity must be at least 1',
-        variant: 'destructive',
-      });
+      toast({ title: 'Invalid Quantity', description: 'Minimum requirement is 1 unit', variant: 'destructive' });
       return;
     }
 
@@ -170,56 +170,32 @@ export default function BookSalesPage() {
       const existing = prev.find((item) => item.book.id === book.id);
       if (existing) {
         return prev.map((item) =>
-          item.book.id === book.id
-            ? { ...item, qty: item.qty + selectedQty }
-            : item,
+          item.book.id === book.id ? { ...item, qty: item.qty + selectedQty } : item
         );
       }
-      return [
-        ...prev,
-        { book, qty: selectedQty, unitPrice: book.price },
-      ];
+      return [...prev, { book, qty: selectedQty, unitPrice: Number(book.price) }];
     });
     setSelectedBookForCart('');
     setSelectedQty(1);
   };
 
   const handleUpdateCartQty = (bookId: string, qty: number) => {
-    setCartItems((prev) =>
-      prev.map((item) =>
-        item.book.id === bookId ? { ...item, qty: qty || 1 } : item,
-      ),
-    );
+    setCartItems((prev) => prev.map((item) => item.book.id === bookId ? { ...item, qty: qty || 1 } : item));
   };
 
   const handleRemoveCartItem = (bookId: string) => {
     setCartItems((prev) => prev.filter((item) => item.book.id !== bookId));
   };
 
-  const cartTotal = useMemo(
-    () =>
-      cartItems.reduce(
-        (sum, item) => sum + item.unitPrice * item.qty,
-        0,
-      ),
-    [cartItems],
-  );
+  const cartTotal = useMemo(() => cartItems.reduce((sum, item) => sum + item.unitPrice * item.qty, 0), [cartItems]);
 
   const handleCreateSale = async () => {
     if (!saleBranchId) {
-      toast({
-        title: 'Error',
-        description: 'Select a branch for the sale',
-        variant: 'destructive',
-      });
+      toast({ title: 'Branch Required', description: 'Please identify the originating branch', variant: 'destructive' });
       return;
     }
     if (cartItems.length === 0) {
-      toast({
-        title: 'Error',
-        description: 'Add at least one book to the cart',
-        variant: 'destructive',
-      });
+      toast({ title: 'Empty Cart', description: 'Add at least one material to the session', variant: 'destructive' });
       return;
     }
     try {
@@ -240,338 +216,308 @@ export default function BookSalesPage() {
       setSaleInvoiceId('');
       setCartItems([]);
       await loadSales();
-      toast({
-        title: 'Success',
-        description: 'Book sale recorded successfully',
-        variant: 'success',
-      });
+      toast({ title: 'Transaction Secured', description: 'The sale has been successfully registered and invoiced.', variant: 'success' });
     } catch (err: unknown) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(err) || 'Failed to create book sale',
-        variant: 'destructive',
-      });
+      toast({ title: 'Operation Failed', description: getErrorMessage(err), variant: 'destructive' });
     } finally {
       setCreateSubmitting(false);
     }
   };
 
   return (
-    <div className="space-y-4">
-      <section className="glass-panel p-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight">Book Sales</h1>
-            <p className="mt-2 max-w-2xl text-base text-muted-foreground">
-              Manage offline and online book sales, and keep invoice-friendly records of sold materials.
-            </p>
+    <div className="space-y-8 text-slate-900">
+      {/* Stats Section */}
+      <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: 'Transaction Volume', value: totalSalesCount, color: 'from-blue-600 to-cyan-500', icon: TrendingUp },
+          { label: 'Gross Revenue', value: `৳${totalAmount.toLocaleString()}`, color: 'from-emerald-600 to-teal-500', icon: DollarSign },
+          { label: 'Avg Order Intel', value: `৳${avgOrderValue.toFixed(0)}`, color: 'from-purple-600 to-indigo-600', icon: CreditCard },
+          { label: 'Network Points', value: branches.length, color: 'from-rose-600 to-pink-600', icon: Building2 },
+        ].map((stat, i) => (
+          <div key={i} className="group relative overflow-hidden rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/40 transition-all hover:-translate-y-1 hover:shadow-2xl">
+             <div className="flex items-center justify-between">
+                <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg group-hover:scale-110 transition-transform", stat.color)}>
+                   <stat.icon className="h-6 w-6" />
+                </div>
+                <ArrowRight className="h-4 w-4 text-slate-200 group-hover:text-indigo-500 transition-colors" />
+             </div>
+             <div className="mt-6">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
+                <p className="mt-1 text-3xl font-black text-slate-900">{stat.value}</p>
+             </div>
           </div>
-          <Button
-            className="mt-1 bg-primary hover:bg-primary/90"
-            onClick={() => setCreateDialogOpen(true)}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            New Sale
-          </Button>
-        </div>
+        ))}
       </section>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <article className="glass-panel p-3.5">
-          <p className="text-base uppercase tracking-[0.15em] text-muted-foreground">Total Sales</p>
-          <p className="mt-2 text-2xl font-semibold">{totalSales}</p>
-        </article>
-        <article className="glass-panel p-3.5">
-          <p className="text-base uppercase tracking-[0.15em] text-muted-foreground">Total Amount</p>
-          <p className="mt-2 text-2xl font-semibold">
-            {totalAmount.toLocaleString('en-US', {
-              style: 'currency',
-              currency: 'BDT',
-              maximumFractionDigits: 2,
-            })}
-          </p>
-        </article>
-      </section>
-
-      <section className="glass-panel p-4 sm:p-5">
-        <div className="flex flex-wrap gap-4">
-          <div className="min-w-[260px] flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search by student, mobile, branch, or invoice..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-10 border-border bg-background pl-10"
-              />
+      {/* Filter & Actions Section */}
+      <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-6">
+          <div className="flex flex-wrap flex-1 items-center gap-4">
+            <div className="min-w-[300px] flex-1">
+              <div className="relative group">
+                <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                <Input
+                  placeholder="Search by student identity, mobile, or invoice reference..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
+                />
+              </div>
             </div>
-          </div>
-          <div className="min-w-[220px]">
+            
             <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
-              <SelectTrigger className="h-10 border-border bg-background">
-                <SelectValue placeholder="All branches" />
+              <SelectTrigger className="h-12 w-[220px] rounded-2xl border-slate-200 bg-white text-sm font-medium shadow-sm">
+                <SelectValue placeholder="All Branches" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">All branches</SelectItem>
+              <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
+                <SelectItem value="all" className="text-sm font-medium">Global Network</SelectItem>
                 {branches.map((branch) => (
-                  <SelectItem key={branch.id} value={branch.id}>
+                  <SelectItem key={branch.id} value={branch.id} className="text-sm font-medium">
                     {branch.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+
+            <Button variant="outline" className="h-12 w-12 rounded-2xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-all shadow-sm" onClick={loadSales}>
+              <RefreshCw className={`h-4 w-4 ${loadingSales ? 'animate-spin' : ''}`} />
+            </Button>
           </div>
-          <Button variant="outline" className="h-10" onClick={loadSales}>
-            <RefreshCw className={`h-4 w-4 ${loadingSales ? 'animate-spin' : ''}`} />
-          </Button>
+
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              className="h-12 rounded-2xl border-slate-200 bg-white px-6 font-black uppercase tracking-widest text-[10px] text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
+              onClick={() => window.location.href = '/admin/books'}
+            >
+              <BookOpen className="mr-2 h-4 w-4" />
+              Material Catalog
+            </Button>
+            <Button
+              variant="outline"
+              className="h-12 rounded-2xl border-slate-200 bg-white px-6 font-black uppercase tracking-widest text-[10px] text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
+              onClick={() => window.location.href = '/admin/books/stock'}
+            >
+              <Warehouse className="mr-2 h-4 w-4" />
+              Stock Ledger
+            </Button>
+            <Button
+              className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95"
+              onClick={() => setCreateDialogOpen(true)}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Record Transaction
+            </Button>
+          </div>
         </div>
       </section>
 
-      {error && (
-        <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive">
-          {error}
-        </div>
-      )}
-
-      <section className="glass-panel overflow-hidden p-0">
-        <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
+      {/* Table Section */}
+      <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/30">
+        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
           <div>
-            <h2 className="text-base font-semibold tracking-tight">Recent Book Sales</h2>
-            <p className="text-base text-muted-foreground">
-              Offline and online sales, ready for invoice references.
-            </p>
+            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Sales Repository</h2>
+            <p className="mt-0.5 text-base font-bold text-indigo-500">Consolidated history of material transactions</p>
           </div>
-          <div className="hidden items-center gap-2 text-base text-muted-foreground sm:flex">
-            <ShoppingBag className="h-4 w-4" />
-            <span>{totalSales} Total Records</span>
+          <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            {totalSalesCount} Registered Sales
           </div>
         </div>
 
         {loadingSales ? (
-          <div className="p-8 text-center text-muted-foreground">Loading book sales...</div>
+          <div className="p-20 text-center flex flex-col items-center gap-4">
+             <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Synchronizing History...</p>
+          </div>
         ) : filteredSales.length === 0 ? (
-          <div className="p-8 text-center text-muted-foreground">
-            {searchQuery ? 'No sales found matching your search.' : 'No book sales recorded yet.'}
+          <div className="p-20 text-center">
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No sale records identified.</p>
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead>Sold At</TableHead>
-                <TableHead>Branch</TableHead>
-                <TableHead>Student</TableHead>
-                <TableHead>Invoice</TableHead>
-                <TableHead>Items</TableHead>
-                <TableHead>Total Amount</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredSales.map((sale) => (
-                <TableRow key={sale.id} className="hover:bg-muted/45">
-                  <TableCell className="text-base">
-                    {new Date(sale.soldAt).toLocaleString('en-US', {
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </TableCell>
-                  <TableCell>{sale.branch?.name || '-'}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="text-base font-medium">
-                        {sale.student?.fullName || 'Walk-in'}
-                      </span>
-                      {sale.student?.mobile && (
-                        <span className="text-base text-muted-foreground">
-                          {sale.student.mobile}
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {sale.invoiceId ? (
-                      <span className="inline-flex items-center gap-1 text-base">
-                        <FileText className="h-3 w-3" />
-                        {sale.invoiceId}
-                      </span>
-                    ) : (
-                      <span className="text-base text-muted-foreground">N/A</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{sale.items?.length || 0} items</Badge>
-                  </TableCell>
-                  <TableCell className="text-base">
-                    <span className="tabular-nums">
-                      {sale.totalAmount.toLocaleString('en-US', {
-                        style: 'currency',
-                        currency: 'BDT',
-                        maximumFractionDigits: 2,
-                      })}
-                    </span>
-                  </TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-slate-50/50">
+                <TableRow className="hover:bg-transparent border-b border-slate-100">
+                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Timestamp</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Node</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Beneficiary</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Billing Ref</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Payload</TableHead>
+                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Value</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredSales.map((sale) => (
+                  <TableRow key={sale.id} className="group border-slate-100 transition-colors hover:bg-slate-50/80">
+                    <TableCell className="px-8 py-5">
+                       <span className="text-sm font-bold text-slate-600">
+                         {new Date(sale.soldAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                       </span>
+                    </TableCell>
+                    <TableCell className="py-5">
+                       <div className="flex items-center gap-2">
+                          <Building2 className="h-3.5 w-3.5 text-slate-400" />
+                          <span className="font-bold text-slate-700">{sale.branch?.name || '-'}</span>
+                       </div>
+                    </TableCell>
+                    <TableCell className="py-5">
+                       <div className="flex flex-col">
+                          <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{sale.student?.fullName || 'Institutional Walk-in'}</span>
+                          <span className="text-[10px] font-black uppercase text-slate-400">{sale.student?.mobile || 'No Linked Account'}</span>
+                       </div>
+                    </TableCell>
+                    <TableCell className="py-5">
+                       {sale.invoiceId ? (
+                         <div className="flex items-center gap-2 text-indigo-600 font-bold text-sm">
+                            <FileText className="h-3.5 w-3.5" />
+                            {sale.invoiceId.slice(0, 8)}...
+                         </div>
+                       ) : (
+                         <span className="text-[10px] font-black uppercase text-slate-300">Unlinked</span>
+                       )}
+                    </TableCell>
+                    <TableCell className="py-5">
+                       <Badge variant="outline" className="rounded-lg bg-slate-50 text-[10px] font-black uppercase tracking-widest">
+                         {sale.items?.length || 0} Line Items
+                       </Badge>
+                    </TableCell>
+                    <TableCell className="px-8 py-5 text-right font-black text-slate-900 text-base">
+                       ৳{Number(sale.totalAmount).toLocaleString()}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </section>
 
       {/* Create Sale Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="max-h-[90vh] sm:max-w-4xl flex flex-col p-0 gap-0" showCloseButton={true}>
+        <DialogContent className="max-h-[90vh] sm:max-w-5xl flex flex-col p-0 gap-0" showCloseButton={true}>
           <DialogHeader className="px-6 pt-6 pb-4 shrink-0 sticky top-0 bg-background z-10 border-b shadow-sm">
-            <DialogTitle>New Book Sale</DialogTitle>
-            <DialogDescription>
-              Record an offline or online sale. Items will appear as invoice-ready descriptions.
-            </DialogDescription>
+            <DialogTitle>Initiate Material Transaction</DialogTitle>
+            <DialogDescription>Coordinate a new book or material sale. System will automatically generate an actionable invoice.</DialogDescription>
           </DialogHeader>
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            <div className="space-y-4 py-6">
-              <div className="grid gap-4 sm:grid-cols-3">
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 no-scrollbar">
+            <div className="space-y-8 py-6">
+              <div className="grid gap-6 sm:grid-cols-3">
                 <div className="space-y-2">
-                  <label className="text-base font-medium">Branch *</label>
-                  <Select
-                    value={saleBranchId}
-                    onValueChange={setSaleBranchId}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select branch" />
+                  <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">Originating Node *</label>
+                  <Select value={saleBranchId} onValueChange={setSaleBranchId}>
+                    <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
+                      <SelectValue placeholder="Select Branch" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
                       {branches.map((branch) => (
-                        <SelectItem key={branch.id} value={branch.id}>
-                          {branch.name}
-                        </SelectItem>
+                        <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-base font-medium">Student ID (optional)</label>
+                  <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">Beneficiary UID (Optional)</label>
                   <Input
+                    className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-base font-bold text-slate-900 shadow-inner"
                     value={saleStudentId}
                     onChange={(e) => setSaleStudentId(e.target.value)}
-                    placeholder="Student user ID (if linked)"
+                    placeholder="Student User ID"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-base font-medium">Invoice ID (optional)</label>
+                  <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">External Invoice Ref</label>
                   <Input
+                    className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-base font-bold text-slate-900 shadow-inner"
                     value={saleInvoiceId}
                     onChange={(e) => setSaleInvoiceId(e.target.value)}
-                    placeholder="Invoice reference"
+                    placeholder="Existing Invoice ID"
                   />
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-base font-medium">Cart Items</p>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                   <div className="flex items-center gap-2">
-                    <Select
-                      value={selectedBookForCart}
-                      onValueChange={setSelectedBookForCart}
-                    >
-                      <SelectTrigger className="w-[220px]">
-                        <SelectValue placeholder="Select book" />
+                     <ShoppingCart className="h-4 w-4 text-indigo-600" />
+                     <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Transaction Cart</h3>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Select value={selectedBookForCart} onValueChange={setSelectedBookForCart}>
+                      <SelectTrigger className="h-10 w-[280px] rounded-xl border-slate-200 bg-white font-bold text-sm">
+                        <SelectValue placeholder="Identify Material" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="rounded-xl border-slate-200 bg-white shadow-2xl">
                         {books.map((book) => (
-                          <SelectItem key={book.id} value={book.id}>
-                            {book.name} ({book.sku})
-                          </SelectItem>
+                          <SelectItem key={book.id} value={book.id} className="font-medium">{book.name} (৳{Number(book.price)})</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                     <Input
                       type="number"
                       min="1"
+                      className="h-10 w-20 rounded-xl border-slate-200 font-black text-center"
                       value={selectedQty}
                       onChange={(e) => setSelectedQty(Number(e.target.value || 1))}
-                      className="w-20"
                     />
-                    <Button variant="outline" size="icon" onClick={handleAddToCart}>
-                      <Plus className="h-4 w-4" />
+                    <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl border-indigo-200 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all shadow-sm" onClick={handleAddToCart}>
+                      <Plus className="h-5 w-5" />
                     </Button>
                   </div>
                 </div>
 
                 {cartItems.length === 0 ? (
-                  <p className="text-base text-muted-foreground">
-                    No items in the cart. Select a book and quantity to add.
-                  </p>
+                  <div className="p-12 text-center bg-slate-50/50 rounded-3xl border border-dashed border-slate-200">
+                    <ShoppingBag className="h-8 w-8 text-slate-300 mx-auto mb-3" />
+                    <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Cart is currently empty.</p>
+                  </div>
                 ) : (
-                  <div className="rounded-lg border">
+                  <div className="overflow-hidden rounded-3xl border border-slate-100 shadow-sm bg-white">
                     <Table>
-                      <TableHeader>
-                        <TableRow className="bg-muted/40">
-                          <TableHead>Book</TableHead>
-                          <TableHead>Qty</TableHead>
-                          <TableHead>Unit Price</TableHead>
-                          <TableHead>Line Total</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
+                      <TableHeader className="bg-slate-50/50">
+                        <TableRow className="hover:bg-transparent border-b border-slate-100">
+                          <TableHead className="px-6 font-black text-[10px] uppercase tracking-widest text-slate-400">Material Description</TableHead>
+                          <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-center">Qty</TableHead>
+                          <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Unit Price</TableHead>
+                          <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Line Total</TableHead>
+                          <TableHead className="px-6 font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Action</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {cartItems.map((item) => (
-                          <TableRow key={item.book.id}>
-                            <TableCell className="font-medium">
-                              {item.book.name}
-                              <span className="ml-2 text-base text-muted-foreground">
-                                {item.book.sku}
-                              </span>
+                          <TableRow key={item.book.id} className="border-slate-50">
+                            <TableCell className="px-6 py-4">
+                               <div className="flex flex-col">
+                                  <span className="font-bold text-slate-900">{item.book.name}</span>
+                                  <span className="text-[10px] font-black uppercase text-slate-400">{item.book.sku}</span>
+                               </div>
                             </TableCell>
                             <TableCell className="w-24">
                               <Input
                                 type="number"
                                 min="1"
+                                className="h-9 rounded-lg border-slate-200 font-bold text-center"
                                 value={item.qty}
-                                onChange={(e) =>
-                                  handleUpdateCartQty(item.book.id, Number(e.target.value || 1))
-                                }
+                                onChange={(e) => handleUpdateCartQty(item.book.id, Number(e.target.value || 1))}
                               />
                             </TableCell>
-                            <TableCell className="text-base">
-                              {item.unitPrice.toLocaleString('en-US', {
-                                style: 'currency',
-                                currency: 'BDT',
-                                maximumFractionDigits: 2,
-                              })}
-                            </TableCell>
-                            <TableCell className="text-base tabular-nums">
-                              {(item.unitPrice * item.qty).toLocaleString('en-US', {
-                                style: 'currency',
-                                currency: 'BDT',
-                                maximumFractionDigits: 2,
-                              })}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleRemoveCartItem(item.book.id)}
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
+                            <TableCell className="font-bold text-slate-600">৳{item.unitPrice.toLocaleString()}</TableCell>
+                            <TableCell className="font-black text-slate-900">৳{(item.unitPrice * item.qty).toLocaleString()}</TableCell>
+                            <TableCell className="px-6 text-right">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-400 hover:text-rose-600 hover:bg-rose-50" onClick={() => handleRemoveCartItem(item.book.id)}>
+                                <Trash2 className="h-4 w-4" />
                               </Button>
                             </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
                     </Table>
-                    <div className="flex items-center justify-between border-t px-4 py-3 text-base">
-                      <span className="text-muted-foreground">
-                        {cartItems.length} item(s) in cart
+                    <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/30 px-6 py-4">
+                      <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                        Total Cart Value
                       </span>
-                      <span className="font-semibold tabular-nums">
-                        Total:{' '}
-                        {cartTotal.toLocaleString('en-US', {
-                          style: 'currency',
-                          currency: 'BDT',
-                          maximumFractionDigits: 2,
-                        })}
+                      <span className="text-xl font-black text-indigo-600 tabular-nums">
+                        ৳{cartTotal.toLocaleString()}
                       </span>
                     </div>
                   </div>
@@ -580,11 +526,9 @@ export default function BookSalesPage() {
             </div>
           </div>
           <DialogFooter className="px-6 pb-6 pt-4 shrink-0 bg-background border-t shadow-lg mt-auto">
-            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateSale} disabled={createSubmitting}>
-              {createSubmitting ? 'Recording...' : 'Record Sale'}
+            <Button variant="outline" className="rounded-xl px-6" onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
+            <Button className="rounded-xl bg-slate-900 px-8 hover:bg-indigo-600 transition-all shadow-lg" onClick={handleCreateSale} disabled={createSubmitting}>
+              {createSubmitting ? 'Synchronizing...' : 'Finalize & Issue Invoice'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -594,4 +538,3 @@ export default function BookSalesPage() {
     </div>
   );
 }
-

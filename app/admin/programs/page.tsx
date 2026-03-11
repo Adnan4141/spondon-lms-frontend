@@ -232,7 +232,7 @@ export default function ProgramsPage() {
                     <TableCell className="px-8 py-5">
                        <div className="flex flex-col gap-0.5">
                           <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors text-base">{program.name}</span>
-                          <span className="text-base font-medium text-slate-400 uppercase tracking-tighter">ID: {program.id.slice(0, 8)}...</span>
+                          <span className="text-sm font-medium text-slate-400 uppercase tracking-tighter">ID: {program.id.slice(0, 8)}...</span>
                        </div>
                     </TableCell>
                     <TableCell className="max-w-xs py-5">
@@ -241,14 +241,14 @@ export default function ProgramsPage() {
                        </p>
                     </TableCell>
                     <TableCell className="py-5">
-                       <Badge variant="outline" className="rounded-lg bg-indigo-50 border-indigo-100 text-indigo-700 font-black text-base uppercase px-2.5 py-1">
+                       <Badge variant="outline" className="rounded-lg bg-indigo-50 border-indigo-100 text-indigo-700 font-black text-xs uppercase px-2.5 py-1">
                          {(program as any)._count?.courses || 0} Courses
                        </Badge>
                     </TableCell>
                     <TableCell className="py-5">
                        <div className="flex flex-col gap-1">
-                          <span className="text-base font-bold text-slate-400">Added: {new Date(program.createdAt).toLocaleDateString()}</span>
-                          <span className="text-base font-bold text-slate-500">Mod: {new Date(program.updatedAt).toLocaleDateString()}</span>
+                          <span className="text-sm font-bold text-slate-400">Added: {new Date(program.createdAt).toLocaleDateString()}</span>
+                          <span className="text-sm font-bold text-slate-500">Mod: {new Date(program.updatedAt).toLocaleDateString()}</span>
                        </div>
                     </TableCell>
                     <TableCell className="px-8 py-5">

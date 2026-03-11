@@ -157,7 +157,7 @@ export default function EnrollmentsPage() {
           title: 'Enrollment Intelligence',
           description: 'Detailed lifecycle, billing, and academic mapping.',
           className: 'sm:max-w-4xl',
-          content: <EnrollmentDetailsView enrollment={res.data} />,
+          content: <EnrollmentDetailsView enrollment={res.data} onSettle={() => handleSettleEnrollment(id)} />,
         });
       }
     } catch (err) {
@@ -259,7 +259,7 @@ export default function EnrollmentsPage() {
                   placeholder="Search by student, mobile, course, or branch..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
+                  className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
                 />
               </div>
             </div>
@@ -329,7 +329,7 @@ export default function EnrollmentsPage() {
         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
           <div>
             <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Enrollment Registry</h2>
-            <p className="mt-0.5 text-base font-bold text-indigo-500">Institutional track database</p>
+            <p className="mt-0.5 text-sm font-bold text-indigo-500">Institutional track database</p>
           </div>
           <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -374,24 +374,24 @@ export default function EnrollmentsPage() {
                     </TableCell>
                     <TableCell className="py-5">
                        <div className="flex flex-col">
-                          <span className="text-base font-bold text-slate-700">{e.course?.name}</span>
-                          <span className="text-base font-black text-slate-400 uppercase tracking-widest">Code: {e.course?.code}</span>
+                          <span className="text-sm font-bold text-slate-700">{e.course?.name}</span>
+                          <span className="text-sm font-black text-slate-400 uppercase tracking-widest">Code: {e.course?.code}</span>
                        </div>
                     </TableCell>
                     <TableCell className="py-5">
                        <div className="flex flex-col gap-1.5">
-                          <div className="flex items-center gap-1.5 text-base font-bold text-slate-600">
+                          <div className="flex items-center gap-1.5 text-sm font-bold text-slate-600">
                              <Building2 className="h-3.5 w-3.5 text-rose-500" />
                              {e.branch?.name}
                           </div>
-                          <div className="flex items-center gap-1.5 text-base font-bold text-slate-400">
+                          <div className="flex items-center gap-1.5 text-sm font-bold text-slate-400">
                              <Users className="h-3.5 w-3.5 text-indigo-400" />
                              {e.batch?.name || 'Unassigned'}
                           </div>
                        </div>
                     </TableCell>
                     <TableCell className="py-5">
-                       <Badge variant="outline" className={cn("rounded-lg text-[9px] font-black uppercase tracking-widest px-2.5 py-1", getStatusBadgeClass(String(e.status)))}>
+                       <Badge variant="outline" className={cn("rounded-lg text-[10px] font-black uppercase tracking-widest px-2.5 py-1", getStatusBadgeClass(String(e.status)))}>
                          {e.status}
                        </Badge>
                     </TableCell>

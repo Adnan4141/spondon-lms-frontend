@@ -241,7 +241,7 @@ export default function InvoicesPage() {
                   placeholder="Search by student, mobile, or statement ID..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
+                  className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
                 />
               </div>
             </div>
@@ -341,7 +341,7 @@ export default function InvoicesPage() {
                           </div>
                           <div className="flex flex-col">
                              <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors text-base">{i.student?.fullName}</span>
-                             <span className="text-base font-mono font-black text-slate-400 uppercase tracking-tighter">SID: {i.id.slice(0, 12)}</span>
+                             <span className="text-xs font-mono font-black text-slate-400 uppercase tracking-tighter">SID: {i.id.slice(0, 12)}</span>
                           </div>
                        </div>
                     </TableCell>
@@ -351,7 +351,7 @@ export default function InvoicesPage() {
                              <Building2 className="h-3.5 w-3.5 text-rose-500" />
                              {i.branch?.name}
                           </div>
-                          <div className="flex items-center gap-1.5 text-base font-black text-slate-400 uppercase tracking-widest">
+                          <div className="flex items-center gap-1.5 text-sm font-black text-slate-400 uppercase tracking-widest">
                              <Calendar className="h-3.5 w-3.5 text-emerald-500" />
                              {i.month || 'GLOBAL'}
                           </div>

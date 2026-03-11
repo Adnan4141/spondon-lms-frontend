@@ -6,13 +6,32 @@ export interface Book {
   name: string;
   sku: string;
   price: number;
+  author?: string | null;
+  description?: string | null;
   isEbook: boolean;
   fileUrl?: string | null;
+  thumbnailUrl?: string | null;
   createdAt: string;
   _count?: {
     stocks?: number;
     saleItems?: number;
   };
+}
+
+export interface CourseBook {
+  id: string;
+  courseId: string;
+  bookId: string;
+  isFree: boolean;
+  book: Book;
+}
+
+export interface BookCollaborator {
+  id: string;
+  bookId: string;
+  userId: string;
+  role: 'UPLOADER' | 'EDITOR' | 'VIEWER' | string;
+  createdAt: string;
 }
 
 export interface BookStock {
@@ -72,16 +91,22 @@ export interface CreateBookDto {
   name: string;
   sku: string;
   price: number;
+  author?: string;
+  description?: string;
   isEbook?: boolean;
   fileUrl?: string;
+  thumbnailUrl?: string;
 }
 
 export interface UpdateBookDto {
   name?: string;
   sku?: string;
   price?: number;
+  author?: string;
+  description?: string;
   isEbook?: boolean;
   fileUrl?: string;
+  thumbnailUrl?: string;
 }
 
 export interface CreateBookStockDto {
@@ -121,15 +146,20 @@ export async function getBookById(id: string): Promise<ApiResponse<Book>> {
 
 export async function createBook(
   data: CreateBookDto,
-  file?: File
+  file?: File,
+  thumbnail?: File
 ): Promise<ApiResponse<Book>> {
   const formData = new FormData();
   formData.append('name', data.name);
   formData.append('sku', data.sku);
   formData.append('price', String(data.price));
+  if (data.author) formData.append('author', data.author);
+  if (data.description) formData.append('description', data.description);
   if (data.isEbook !== undefined) formData.append('isEbook', String(data.isEbook));
   if (data.fileUrl) formData.append('fileUrl', data.fileUrl);
+  if (data.thumbnailUrl) formData.append('thumbnailUrl', data.thumbnailUrl);
   if (file) formData.append('file', file);
+  if (thumbnail) formData.append('thumbnail', thumbnail);
 
   return apiRequest<ApiResponse<Book>>('/books', {
     method: 'POST',
@@ -141,15 +171,20 @@ export async function createBook(
 export async function updateBook(
   id: string,
   data: UpdateBookDto,
-  file?: File
+  file?: File,
+  thumbnail?: File
 ): Promise<ApiResponse<Book>> {
   const formData = new FormData();
   if (data.name) formData.append('name', data.name);
   if (data.sku) formData.append('sku', data.sku);
   if (data.price !== undefined) formData.append('price', String(data.price));
+  if (data.author) formData.append('author', data.author);
+  if (data.description) formData.append('description', data.description);
   if (data.isEbook !== undefined) formData.append('isEbook', String(data.isEbook));
   if (data.fileUrl) formData.append('fileUrl', data.fileUrl);
+  if (data.thumbnailUrl) formData.append('thumbnailUrl', data.thumbnailUrl);
   if (file) formData.append('file', file);
+  if (thumbnail) formData.append('thumbnail', thumbnail);
 
   return apiRequest<ApiResponse<Book>>(`/books/${id}`, {
     method: 'PUT',
@@ -203,6 +238,30 @@ export async function getBookSales(params?: {
 
 export async function createBookSale(data: CreateBookSaleDto): Promise<ApiResponse<BookSale>> {
   return apiRequest<ApiResponse<BookSale>>('/books/sales', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getCourseBooks(courseId: string): Promise<ApiResponse<CourseBook[]>> {
+  return apiRequest<ApiResponse<CourseBook[]>>(`/books/course/${courseId}`);
+}
+
+export async function linkBookToCourse(data: { courseId: string; bookId: string; isFree?: boolean }): Promise<ApiResponse<CourseBook>> {
+  return apiRequest<ApiResponse<CourseBook>>('/books/course/link', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function unlinkBookFromCourse(courseId: string, bookId: string): Promise<ApiResponse<void>> {
+  return apiRequest<ApiResponse<void>>(`/books/course/${courseId}/${bookId}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function addBookCollaborator(data: { bookId: string; userId: string; role: string }): Promise<ApiResponse<BookCollaborator>> {
+  return apiRequest<ApiResponse<BookCollaborator>>('/books/collaborator', {
     method: 'POST',
     body: JSON.stringify(data),
   });
