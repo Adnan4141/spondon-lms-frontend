@@ -36,6 +36,7 @@ import { Toaster } from '@/components/ui/toast';
 import { useModalStore } from '@/store/modalStore';
 import { ProgramForm } from '@/components/admin/programs/ProgramForm';
 import { ProgramDetailsView } from '@/components/admin/programs/ProgramDetailsView';
+import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
 import { cn } from '@/lib/utils';
 
 function getErrorMessage(error: unknown): string {
@@ -115,18 +116,30 @@ export default function ProgramsPage() {
     });
   };
 
-  const handleDeleteProgram = async (programId: string) => {
-    if (!confirm('Are you sure you want to delete this program? This action cannot be undone.')) {
-      return;
-    }
+  const handleDeleteProgram = async (id: string) => {
+    openModal({
+      title: 'Program Deletion',
+      description: 'Are you sure you want to permanently remove this academic program? All associated course linkages will be impacted.',
+      className: 'sm:max-w-xl',
+      content: (
+        <ConfirmationModal
+          title="Confirm Deletion"
+          description="Permanently purging this program from the institutional registry."
+          variant="danger"
+          onConfirm={async () => {
+            try {
+              await deleteProgram(id);
+              await loadPrograms();
+              toast({ title: 'Success', description: 'Program deleted successfully', variant: 'success' });
+            } catch (err) {
+              toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
+            }
+          }}
+        />
+      ),
+    });
+  };
 
-    try {
-      await deleteProgram(programId);
-      await loadPrograms();
-      toast({ title: 'Success', description: 'Program deleted successfully', variant: 'success' });
-    } catch (err: unknown) {
-      toast({ title: 'Error', description: getErrorMessage(err) || 'Failed to delete program', variant: 'destructive' });
-    }
   };
 
   const filteredPrograms = programs.filter((program) =>

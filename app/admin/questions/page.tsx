@@ -281,47 +281,6 @@ export default function QuestionsPage() {
     });
   };
 
-          title="Confirm Delete"
-          description="Are you sure you want to delete this question? This action cannot be undone."
-          variant="danger"
-          onConfirm={async () => {
-            try {
-              await deleteQuestion(id);
-              callback();
-              toast({ title: 'Success', description: 'Question deleted successfully', variant: 'success' });
-            } catch (err) {
-              toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
-            }
-          }}
-        />
-      ),
-    });
-  };
-
-  const handleDeletePassage = (id: string) => {
-    openModal({
-      title: 'Passage Deletion',
-      description: 'Are you sure you want to permanently remove this passage and its child questions? This action cannot be undone.',
-      className: 'sm:max-w-xl',
-      content: (
-        <ConfirmationModal
-          title="Confirm Delete"
-          description="Are you sure you want to delete this passage? This action cannot be undone."
-          variant="danger"
-          onConfirm={async () => {
-            try {
-              await deletePassage(id);
-              loadPassages();
-              toast({ title: 'Success', description: 'Passage deleted successfully', variant: 'success' });
-            } catch (err) {
-              toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
-            }
-          }}
-        />
-      ),
-    });
-  };
-
   const stripHtml = (html: string) => html ? html.replace(/<[^>]+>/g, '') : '';
 
   const filteredQuestions = questions.filter(q => {
@@ -540,7 +499,7 @@ export default function QuestionsPage() {
                                       <Button variant="outline" size="sm" className="h-9 w-9 rounded-xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 shadow-sm" onClick={() => handleEditPassage(p.id)}>
                                          <Edit className="h-4 w-4" />
                                       </Button>
-                                      <Button variant="outline" size="sm" className="h-9 w-9 rounded-xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-rose-600 hover:text-white hover:border-rose-600 shadow-sm" onClick={() => { if(confirm('Delete?')) deletePassage(p.id).then(loadPassages); }}>
+                                      <Button variant="outline" size="sm" className="h-9 w-9 rounded-xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-rose-600 hover:text-white hover:border-rose-600 shadow-sm" onClick={() => handleDeletePassage(p.id, loadPassages)}>
                                          <Trash2 className="h-4 w-4" />
                                       </Button>
                                    </div>
@@ -567,7 +526,7 @@ export default function QuestionsPage() {
                                                   </div>
                                                   <div className="flex gap-2">
                                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-indigo-600" onClick={e => { e.stopPropagation(); handleEditQuestion(q.id); }}><Edit className="h-3.5 w-3.5" /></Button>
-                                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-rose-500" onClick={e => { e.stopPropagation(); if(confirm('Delete?')) deleteQuestion(q.id).then(loadPassages); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-rose-500" onClick={e => { e.stopPropagation(); handleDeleteQuestion(q.id, loadPassages); }}><Trash2 className="h-3.5 w-3.5" /></Button>
                                                   </div>
                                                </div>
                                              ))}
@@ -639,7 +598,7 @@ export default function QuestionsPage() {
                                            <Button variant="outline" size="sm" className="h-9 w-9 rounded-xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm" onClick={() => handleEditQuestion(q.id)}>
                                               <Edit className="h-4 w-4" />
                                            </Button>
-                                           <Button variant="outline" size="sm" className="h-9 w-9 rounded-xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all shadow-sm" onClick={() => { if(confirm('Delete?')) deleteQuestion(q.id).then(loadQuestions); }}>
+                                           <Button variant="outline" size="sm" className="h-9 w-9 rounded-xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all shadow-sm" onClick={() => handleDeleteQuestion(q.id, loadQuestions)}>
                                               <Trash2 className="h-4 w-4" />
                                            </Button>
                                         </div>

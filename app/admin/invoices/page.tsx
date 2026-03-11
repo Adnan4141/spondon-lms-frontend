@@ -54,6 +54,7 @@ import { Toaster } from '@/components/ui/toast';
 import { useModalStore } from '@/store/modalStore';
 import { InvoiceForm } from '@/components/admin/invoices/InvoiceForm';
 import { InvoiceDetailsView } from '@/components/admin/invoices/InvoiceDetailsView';
+import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
 import { cn } from '@/lib/utils';
 
 const statusOptions: (InvoiceStatus | 'all')[] = ['all', 'DRAFT', 'ISSUED', 'PAID', 'PARTIAL', 'CANCELLED', 'SETTLED'];
@@ -173,14 +174,27 @@ export default function InvoicesPage() {
   };
 
   const handleDeleteInvoice = async (invoiceId: string) => {
-    if (!confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) return;
-    try {
-      await deleteInvoice(invoiceId);
-      await loadInvoices();
-      toast({ title: 'Success', description: 'Invoice record purged successfully', variant: 'success' });
-    } catch (err: unknown) {
-      toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
-    }
+    openModal({
+      title: 'Invoice Purge',
+      description: 'Are you sure you want to permanently remove this financial statement? This action is non-reversible.',
+      className: 'sm:max-w-xl',
+      content: (
+        <ConfirmationModal
+          title="Confirm Deletion"
+          description="Permanently purging this financial record from the institutional ledger."
+          variant="danger"
+          onConfirm={async () => {
+            try {
+              await deleteInvoice(invoiceId);
+              await loadInvoices();
+              toast({ title: 'Success', description: 'Invoice record purged successfully', variant: 'success' });
+            } catch (err) {
+              toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
+            }
+          }}
+        />
+      ),
+    });
   };
 
   const filteredInvoices = invoices.filter(

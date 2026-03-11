@@ -47,6 +47,7 @@ import { Toaster } from '@/components/ui/toast';
 import { useModalStore } from '@/store/modalStore';
 import { BranchForm } from '@/components/admin/branches/BranchForm';
 import { BranchDetailsView } from '@/components/admin/branches/BranchDetailsView';
+import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
 import { cn } from '@/lib/utils';
 
 const statusOptions = ['all', 'active', 'inactive'];
