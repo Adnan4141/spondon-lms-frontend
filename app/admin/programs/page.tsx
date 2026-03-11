@@ -140,8 +140,6 @@ export default function ProgramsPage() {
     });
   };
 
-  };
-
   const filteredPrograms = programs.filter((program) =>
     program.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     program.description?.toLowerCase().includes(searchQuery.toLowerCase())

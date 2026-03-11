@@ -236,14 +236,28 @@ export default function BooksPage() {
   };
 
   const handleUnlink = async (courseId: string) => {
-    if (!bookDetails || !confirm('Unlink this book from the course?')) return;
-    try {
-      await unlinkBookFromCourse(courseId, bookDetails.id);
-      toast({ title: 'Success', description: 'Book unlinked', variant: 'success' });
-      await fetchBookDetails(bookDetails.id);
-    } catch (err) {
-      toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
-    }
+    if (!bookDetails) return;
+    openModal({
+      title: 'Material Unlink',
+      description: 'Are you sure you want to remove this book from the selected course? The digital asset will no longer be available to enrolled students.',
+      className: 'sm:max-w-xl',
+      content: (
+        <ConfirmationModal
+          title="Confirm Disconnection"
+          description="Decoupling this material from the academic course framework."
+          variant="warning"
+          onConfirm={async () => {
+            try {
+              await unlinkBookFromCourse(courseId, bookDetails.id);
+              toast({ title: 'Success', description: 'Book unlinked successfully', variant: 'success' });
+              await fetchBookDetails(bookDetails.id);
+            } catch (err) {
+              toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
+            }
+          }}
+        />
+      ),
+    });
   };
 
   const handleCollabSubmit = async () => {
@@ -308,14 +322,27 @@ export default function BooksPage() {
   };
 
   const handleDeleteBook = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this book?')) return;
-    try {
-      await deleteBook(id);
-      await loadBooks();
-      toast({ title: 'Success', description: 'Book deleted successfully', variant: 'success' });
-    } catch (err: unknown) {
-      toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
-    }
+    openModal({
+      title: 'Material Purge',
+      description: 'Are you sure you want to permanently delete this material? This will remove all associated stock and sales history records.',
+      className: 'sm:max-w-xl',
+      content: (
+        <ConfirmationModal
+          title="Confirm Deletion"
+          description="Permanently purging this asset from the institutional catalog."
+          variant="danger"
+          onConfirm={async () => {
+            try {
+              await deleteBook(id);
+              await loadBooks();
+              toast({ title: 'Success', description: 'Book deleted successfully', variant: 'success' });
+            } catch (err) {
+              toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
+            }
+          }}
+        />
+      ),
+    });
   };
 
   const filteredBooks = books.filter((book) => {

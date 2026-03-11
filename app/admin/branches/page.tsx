@@ -137,26 +137,29 @@ export default function BranchesPage() {
   };
 
   const handleDeleteBranch = async (branchId: string) => {
-    if (!confirm('Are you sure you want to delete this branch? This action cannot be undone.')) {
-      return;
-    }
-
-    try {
-      await deleteBranch(branchId);
-      await loadBranches();
-      toast({
-        title: 'Success',
-        description: 'Branch deleted successfully',
-        variant: 'success',
-      });
-    } catch (err: unknown) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(err) || 'Failed to delete branch',
-        variant: 'destructive',
-      });
-    }
+    openModal({
+      title: 'Branch Deletion',
+      description: 'Are you sure you want to permanently remove this institutional node? All associated course data and stock records will be impacted.',
+      className: 'sm:max-w-xl',
+      content: (
+        <ConfirmationModal
+          title="Confirm Deletion"
+          description="Permanently purging this branch from the global institutional network."
+          variant="danger"
+          onConfirm={async () => {
+            try {
+              await deleteBranch(branchId);
+              await loadBranches();
+              toast({ title: 'Success', description: 'Branch removed successfully', variant: 'success' });
+            } catch (err) {
+              toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
+            }
+          }}
+        />
+      ),
+    });
   };
+
 
   const filteredBranches = branches.filter(
     (branch) =>
