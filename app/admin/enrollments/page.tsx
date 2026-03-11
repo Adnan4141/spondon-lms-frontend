@@ -8,6 +8,7 @@ import {
   getEnrollments,
   getEnrollmentById,
   deleteEnrollment,
+  settleEnrollment,
   type Enrollment,
   type EnrollmentStatusType,
 } from '@/lib/api/enrollments';
@@ -188,6 +189,24 @@ export default function EnrollmentsPage() {
       toast({ title: 'Success', description: 'Enrollment record deleted successfully', variant: 'success' });
     } catch (err: unknown) {
       toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
+    }
+  };
+
+  const handleSettleEnrollment = async (id: string) => {
+    if (!confirm('Are you sure you want to settle all outstanding dues for this course? This will mark associated invoices as settled and clear remaining balances.')) return;
+    try {
+      setLoading(true);
+      const res = await settleEnrollment(id);
+      if (res.success) {
+        toast({ title: 'System Settled', description: res.message || 'All dues have been cleared successfully.', variant: 'success' });
+        await loadEnrollments();
+      } else {
+        toast({ title: 'Settlement Failed', description: res.message || 'Could not process settlement.', variant: 'destructive' });
+      }
+    } catch (err: unknown) {
+      toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -378,6 +397,16 @@ export default function EnrollmentsPage() {
                     </TableCell>
                     <TableCell className="px-8 py-5">
                        <div className="flex justify-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 rounded-xl border-emerald-200 bg-emerald-50/50 px-4 text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-all shadow-sm"
+                            onClick={() => handleSettleEnrollment(e.id)}
+                            title="Settle Outstanding Dues"
+                          >
+                            <CheckCircle2 className="mr-1.5 h-3 w-3" />
+                            Settle
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"

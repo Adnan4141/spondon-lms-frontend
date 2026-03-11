@@ -32,6 +32,7 @@ function getStatusBadgeClass(status: string) {
   if (s === 'PARTIAL') return 'bg-amber-50 text-amber-700 border-amber-100 font-black';
   if (s === 'ISSUED') return 'bg-blue-50 text-blue-700 border-blue-100 font-black';
   if (s === 'CANCELLED') return 'bg-rose-50 text-rose-700 border-rose-100 font-black';
+  if (s === 'SETTLED') return 'bg-indigo-50 text-indigo-700 border-indigo-100 font-black';
   return 'bg-slate-100 text-slate-600 border-slate-200 font-black';
 }
 

@@ -26,7 +26,7 @@ const inputClass =
 const sectionLabel = 'text-[11px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2 block px-1';
 
 const itemTypeOptions: InvoiceItemType[] = ['COURSE', 'BOOK', 'FEE', 'OTHER'];
-const statusOptions: InvoiceStatus[] = ['DRAFT', 'ISSUED', 'PAID', 'PARTIAL', 'CANCELLED'];
+const statusOptions: InvoiceStatus[] = ['DRAFT', 'ISSUED', 'PAID', 'PARTIAL', 'CANCELLED', 'SETTLED'];
 
 interface InvoiceFormProps {
   branches: Branch[];

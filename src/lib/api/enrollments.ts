@@ -113,6 +113,12 @@ export async function changeEnrollmentBranch(id: string, branchId: string, reaso
   });
 }
 
+export async function settleEnrollment(id: string): Promise<ApiResponse<void>> {
+  return apiRequest<ApiResponse<void>>(`/enrollments/${id}/settle`, {
+    method: 'POST',
+  });
+}
+
 export async function bulkChangeBatch(data: {
   courseId: string;
   branchId?: string;

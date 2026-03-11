@@ -56,7 +56,7 @@ import { InvoiceForm } from '@/components/admin/invoices/InvoiceForm';
 import { InvoiceDetailsView } from '@/components/admin/invoices/InvoiceDetailsView';
 import { cn } from '@/lib/utils';
 
-const statusOptions: (InvoiceStatus | 'all')[] = ['all', 'DRAFT', 'ISSUED', 'PAID', 'PARTIAL', 'CANCELLED'];
+const statusOptions: (InvoiceStatus | 'all')[] = ['all', 'DRAFT', 'ISSUED', 'PAID', 'PARTIAL', 'CANCELLED', 'SETTLED'];
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -64,12 +64,12 @@ function getErrorMessage(error: unknown): string {
 }
 
 function getStatusBadgeClass(status: string) {
-  const s = String(status).toUpperCase();
-  if (s === 'PAID') return 'bg-emerald-50 text-emerald-700 border-emerald-100 font-black';
-  if (s === 'PARTIAL') return 'bg-amber-50 text-amber-700 border-amber-100 font-black';
-  if (s === 'ISSUED') return 'bg-blue-50 text-blue-700 border-blue-100 font-black';
-  if (s === 'CANCELLED') return 'bg-rose-50 text-rose-700 border-rose-100 font-black';
-  return 'bg-slate-100 text-slate-600 border-slate-200 font-black';
+  if (status === 'PAID') return 'bg-emerald-50 text-emerald-700 border-emerald-100 font-black';
+  if (status === 'PARTIAL') return 'bg-amber-50 text-amber-700 border-amber-100 font-black';
+  if (status === 'ISSUED') return 'bg-blue-50 text-blue-700 border-blue-100 font-black';
+  if (status === 'CANCELLED') return 'bg-rose-50 text-rose-700 border-rose-100 font-black';
+  if (status === 'SETTLED') return 'bg-indigo-50 text-indigo-700 border-indigo-100 font-black';
+  return 'bg-slate-50 text-slate-600 border-slate-200 font-black';
 }
 
 export default function InvoicesPage() {
