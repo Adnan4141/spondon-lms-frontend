@@ -1,18 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { getStudents, getStudentById, deleteStudent } from '@/lib/api/students';
+import { useState, useEffect } from 'react';
+import {
+  getStudents,
+  deleteStudent,
+  getStudentById,
+  type Student,
+} from '@/lib/api/students';
+import { getBranches, type Branch } from '@/lib/api/branches';
 import { apiRequest } from '@/lib/api';
-import type { Student, UserStatus, Branch, Institute, ApiResponse } from '@/types/student';
+import type { Institute, ApiResponse } from '@/types/student';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -21,25 +20,29 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import {
-  BookOpenCheck,
-  Edit,
-  Eye,
   Plus,
-  RefreshCw,
   Search,
+  RefreshCw,
+  MoreVertical,
   Trash2,
   User,
-  Users,
-  Layers,
-  ShieldCheck,
+  Mail,
+  Phone,
   Building2,
   GraduationCap,
   ArrowRight,
-  MoreVertical,
-  Mail,
-  Phone,
+  ShieldCheck,
+  Users,
+  Layers,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
@@ -48,93 +51,82 @@ import { StudentForm } from '@/components/admin/students/StudentForm';
 import { StudentDetailsView } from '@/components/admin/students/StudentDetailsView';
 import { cn } from '@/lib/utils';
 
-const statusOptions: (UserStatus | 'all')[] = ['all', 'ACTIVE', 'BLOCKED'];
-
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  return 'Something went wrong';
-}
-
-function getStatusBadgeClass(status: string) {
-  if (status === 'ACTIVE') return 'bg-emerald-50 text-emerald-700 border-emerald-100 font-black';
-  if (status === 'BLOCKED') return 'bg-rose-50 text-rose-700 border-rose-100 font-black';
-  return 'bg-slate-100 text-slate-600 border-slate-200 font-black';
-}
-
 export default function StudentsPage() {
-  const { openModal } = useModalStore();
   const { toast, toasts, removeToast } = useToast();
-  
+  const { openModal } = useModalStore();
   const [students, setStudents] = useState<Student[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [institutes, setInstitutes] = useState<Institute[]>([]);
-  
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<UserStatus | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [branchFilter, setBranchFilter] = useState<string>('all');
+
+  const statusOptions = ['all', 'ACTIVE', 'BLOCKED', 'PENDING'];
+
+  useEffect(() => {
+    loadStudents();
+    loadBranches();
+    loadInstitutes();
+  }, [statusFilter, branchFilter]);
 
   const loadStudents = async () => {
     try {
       setLoading(true);
-      setError(null);
-      const params: any = { role: 'STUDENT' };
+      const params: any = {};
       if (statusFilter !== 'all') params.status = statusFilter;
       if (branchFilter !== 'all') params.branchId = branchFilter;
-
-      const response = await getStudents(params);
-      if (response.success && response.data) {
-        setStudents(response.data);
-      } else {
-        setStudents([]);
-      }
-    } catch (err: unknown) {
-      setError(getErrorMessage(err));
-      setStudents([]);
+      
+      const res = await getStudents(params);
+      if (res.success) setStudents(res.data || []);
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to load students', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
   };
 
   const loadBranches = async () => {
-    try {
-      const response = await apiRequest<ApiResponse<Branch[]>>('/branches');
-      if (response.success && response.data) setBranches(response.data);
-    } catch (err) { console.error(err); }
+    const res = await getBranches();
+    if (res.success) setBranches(res.data || []);
   };
 
   const loadInstitutes = async () => {
     try {
-      const response = await apiRequest<ApiResponse<Institute[]>>('/institutes');
-      if (response.success && response.data) setInstitutes(response.data);
-    } catch (err) { console.error(err); }
+      const res = await apiRequest<ApiResponse<Institute[]>>('/institutes');
+      if (res.success) setInstitutes(res.data || []);
+    } catch (err) {
+      console.error('Failed to load institutes:', err);
+    }
   };
 
-  useEffect(() => {
-    loadStudents();
-    loadBranches();
-    loadInstitutes();
-  }, []);
+  const getErrorMessage = (error: unknown): string => {
+    if (error instanceof Error) return error.message;
+    return 'An unexpected error occurred';
+  };
 
-  useEffect(() => {
-    loadStudents();
-  }, [statusFilter, branchFilter]);
+  const getStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case 'ACTIVE': return 'bg-emerald-50 text-emerald-600 border-emerald-100';
+      case 'BLOCKED': return 'bg-rose-50 text-rose-600 border-rose-100';
+      case 'PENDING': return 'bg-amber-50 text-amber-600 border-amber-100';
+      default: return 'bg-slate-50 text-slate-600 border-slate-100';
+    }
+  };
 
   const handleViewStudent = async (studentId: string) => {
     try {
       const res = await getStudentById(studentId);
       if (res.success && res.data) {
         openModal({
-          title: 'Student Intelligence',
-          description: 'Consolidated profile, enrollment, and participation data.',
+          title: 'Student Profile Intelligence',
+          description: 'Comprehensive overview of biological and academic records.',
           className: 'sm:max-w-4xl',
           content: <StudentDetailsView student={res.data} />,
         });
       }
     } catch (err) {
-      toast({ title: 'Error', description: 'Failed to load student data', variant: 'destructive' });
+      toast({ title: 'Error', description: 'Failed to load student details', variant: 'destructive' });
     }
   };
 
@@ -143,8 +135,8 @@ export default function StudentsPage() {
       const res = await getStudentById(studentId);
       if (res.success && res.data) {
         openModal({
-          title: 'Update Student Account',
-          description: 'Modify identity credentials and institutional profile.',
+          title: 'Update Student Registry',
+          description: 'Refine profile parameters and institutional permissions.',
           className: 'sm:max-w-4xl',
           content: <StudentForm branches={branches} institutes={institutes} student={res.data} onSuccess={loadStudents} />,
         });
@@ -186,34 +178,6 @@ export default function StudentsPage() {
 
   return (
     <div className="space-y-8 text-slate-900">
-      {/* Header Section */}
-      <section className="relative overflow-hidden rounded-[32px] border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/40">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.03),transparent_40%)]" />
-        
-        <div className="relative flex flex-wrap items-start justify-between gap-6">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 border border-indigo-100/50 shadow-sm">
-              <User className="h-3.5 w-3.5" />
-              Human Resource Admin
-            </div>
-            <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
-              Student <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">Directory</span>
-            </h1>
-            <p className="mt-2 max-w-2xl text-base font-medium leading-relaxed text-slate-500">
-              Maintain consolidated student accounts, biological profiles, and institutional enrollment records across all branches.
-            </p>
-          </div>
-
-          <Button
-            className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95"
-            onClick={handleCreateStudent}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Authorize Student
-          </Button>
-        </div>
-      </section>
-
       {/* Stats Section */}
       <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
         {[
@@ -237,50 +201,60 @@ export default function StudentsPage() {
         ))}
       </section>
 
-      {/* Filter Section */}
+      {/* Filter & Actions Section */}
       <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-wrap gap-4">
-          <div className="min-w-[300px] flex-1">
-            <div className="relative group">
-              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
-              <Input
-                placeholder="Search by full name, email, or mobile reference..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
-              />
+        <div className="flex flex-wrap items-center justify-between gap-6">
+          <div className="flex flex-wrap flex-1 items-center gap-4">
+            <div className="min-w-[300px] flex-1">
+              <div className="relative group">
+                <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                <input
+                  placeholder="Search by full name, email, or mobile reference..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-12 w-full rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner outline-none"
+                />
+              </div>
             </div>
+            
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
+              <SelectTrigger className="h-12 w-[160px] rounded-2xl border-slate-200 bg-white text-sm font-medium shadow-sm">
+                <SelectValue placeholder="All Status" />
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
+                {statusOptions.map((opt) => (
+                  <SelectItem key={opt} value={opt} className="text-sm font-medium">
+                    {opt === 'all' ? 'All Status' : opt}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={branchFilter} onValueChange={setBranchFilter}>
+              <SelectTrigger className="h-12 w-[180px] rounded-2xl border-slate-200 bg-white text-sm font-medium shadow-sm">
+                <SelectValue placeholder="All Branches" />
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
+                <SelectItem value="all" className="text-sm font-medium">All Branches</SelectItem>
+                {branches.map((branch) => (
+                  <SelectItem key={branch.id} value={branch.id} className="text-sm font-medium">
+                    {branch.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Button variant="outline" className="h-12 w-12 rounded-2xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-all shadow-sm" onClick={loadStudents}>
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
           </div>
-          
-          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
-            <SelectTrigger className="text-sm font-medium">
-              <SelectValue placeholder="All Status" />
-            </SelectTrigger>
-            <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-              {statusOptions.map((opt) => (
-                <SelectItem key={opt} value={opt} className="text-sm font-medium">
-                  {opt === 'all' ? 'All Status' : opt}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
 
-          <Select value={branchFilter} onValueChange={setBranchFilter}>
-            <SelectTrigger className="text-sm font-medium">
-              <SelectValue placeholder="All Branches" />
-            </SelectTrigger>
-            <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-              <SelectItem value="all" className="text-sm font-medium">All Branches</SelectItem>
-              {branches.map((branch) => (
-                <SelectItem key={branch.id} value={branch.id} className="text-sm font-medium">
-                  {branch.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Button variant="outline" className="h-12 w-12 rounded-2xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-all shadow-sm" onClick={loadStudents}>
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          <Button
+            className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95"
+            onClick={handleCreateStudent}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Authorize Student
           </Button>
         </div>
       </section>

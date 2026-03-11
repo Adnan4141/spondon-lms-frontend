@@ -1,5 +1,5 @@
 // Course types based on Prisma schema
-export type CourseType = 'ONLINE' | 'OFFLINE' | 'HYBRID';
+export type CourseType = 'ONLINE' | 'OFFLINE';
 export type BillingType = 'ONE_TIME' | 'MONTHLY';
 export type CourseCategory = 'SSC' | 'HSC' | 'ADMISSION' | 'JUNIOR_CADET_JOB';
 export type AdmissionStatus = 'OPEN' | 'CLOSED';

@@ -568,29 +568,33 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-8 text-slate-900">
-      {/* Header Section */}
-      <section className="relative overflow-hidden rounded-[32px] border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/40">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.03),transparent_40%)]" />
-        
-        <div className="relative flex flex-wrap items-start justify-between gap-6">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 border border-indigo-100/50 shadow-sm">
-              <Lock className="h-3.5 w-3.5" />
-              Administrative Protocol
-            </div>
-            <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
-              Global <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">Configurations</span>
-            </h1>
-            <p className="mt-2 max-w-2xl text-base font-medium leading-relaxed text-slate-500">
-              Synchronize core system variables, financial gateways, and institutional identity parameters from a unified intelligence admin.
-            </p>
+      {/* Actions Section */}
+      <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-6">
+          <div className="flex items-center gap-4 px-2">
+             <div className="h-10 w-10 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 border border-indigo-100/50">
+                <Lock className="h-5 w-5" />
+             </div>
+             <div>
+                <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 leading-none">Global Settings</h2>
+                <p className="mt-1 text-base font-bold text-indigo-500 leading-none">Administrative Protocol</p>
+             </div>
           </div>
 
-          <div className="flex gap-3">
-            <Button variant="outline" className="h-12 w-12 rounded-2xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-all shadow-sm" onClick={loadSettings} disabled={loading}>
+          <div className="flex items-center gap-3">
+            <Button 
+              variant="outline" 
+              className="h-12 w-12 rounded-2xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-all shadow-sm" 
+              onClick={loadSettings} 
+              disabled={loading}
+            >
               <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
             </Button>
-            <Button className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95" onClick={handleSave} disabled={saving}>
+            <Button 
+              className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95" 
+              onClick={handleSave} 
+              disabled={saving}
+            >
               <Save className="mr-2 h-4 w-4" />
               {saving ? 'Processing...' : 'Commit Changes'}
             </Button>

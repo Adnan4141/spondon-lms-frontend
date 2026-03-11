@@ -79,7 +79,7 @@ import { CourseStats } from '@/components/admin/courses/CourseStats';
 import { cn } from '@/lib/utils';
 
 const statusOptions: (CourseStatus | 'all')[] = ['all', 'ACTIVE', 'DISABLED', 'ARCHIVED'];
-const typeOptions: (CourseType | 'all')[] = ['all', 'ONLINE', 'OFFLINE', 'HYBRID'];
+const typeOptions: (CourseType | 'all')[] = ['all', 'ONLINE', 'OFFLINE'];
 const billingOptions: BillingType[] = ['ONE_TIME', 'MONTHLY'];
 const admissionOptions: AdmissionStatus[] = ['OPEN', 'CLOSED'];
 
@@ -98,7 +98,6 @@ function getStatusBadgeClass(status: string) {
 function getTypeBadgeClass(type: string) {
   if (type === 'ONLINE') return 'bg-blue-50 text-blue-700 border-blue-100 font-bold';
   if (type === 'OFFLINE') return 'bg-violet-50 text-violet-700 border-violet-100 font-bold';
-  if (type === 'HYBRID') return 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-100 font-bold';
   return 'bg-slate-50 text-slate-600 border-slate-200';
 }
 
@@ -224,34 +223,6 @@ export default function CoursesPage() {
 
   return (
     <div className="space-y-8 text-slate-900">
-      {/* Header Section */}
-      <section className="relative overflow-hidden rounded-[32px] border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/40">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.03),transparent_40%)]" />
-        
-        <div className="relative flex flex-wrap items-start justify-between gap-6">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 border border-indigo-100/50 shadow-sm">
-              <BookOpenCheck className="h-3.5 w-3.5" />
-              Course Admin
-            </div>
-            <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
-              Course <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">Management</span>
-            </h1>
-            <p className="mt-2 max-w-2xl text-base font-medium leading-relaxed text-slate-500">
-              Manage structure, visibility, billing, and curriculum of all courses from one unified premium admin.
-            </p>
-          </div>
-
-          <Button
-            className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95"
-            onClick={handleCreateCourse}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Create Course
-          </Button>
-        </div>
-      </section>
-
       {/* Stats Section */}
       <CourseStats
         stats={[
@@ -264,51 +235,61 @@ export default function CoursesPage() {
 
       {/* Search & Filter Section */}
       <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="relative flex flex-wrap gap-4">
-          <div className="min-w-[300px] flex-1">
-            <div className="relative group">
-              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
-              <Input
-                placeholder="Search courses by name, code, or program..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all"
-              />
+        <div className="flex flex-wrap items-center justify-between gap-6">
+          <div className="flex flex-wrap flex-1 items-center gap-4">
+            <div className="min-w-[300px] flex-1">
+              <div className="relative group">
+                <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                <Input
+                  placeholder="Search courses by name, code, or program..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all"
+                />
+              </div>
             </div>
+
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
+              <SelectTrigger className="h-12 w-[180px] rounded-2xl border-slate-200 bg-white text-sm font-medium shadow-sm">
+                <SelectValue placeholder="All Status" />
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl border-slate-200 bg-white text-slate-900 shadow-xl">
+                {statusOptions.map((opt) => (
+                  <SelectItem key={opt} value={opt} className="text-sm font-medium">
+                    {opt === 'all' ? 'All Status' : opt}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
+              <SelectTrigger className="h-12 w-[180px] rounded-2xl border-slate-200 bg-white text-sm font-medium shadow-sm">
+                <SelectValue placeholder="All Types" />
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl border-slate-200 bg-white text-slate-900 shadow-xl">
+                {typeOptions.map((opt) => (
+                  <SelectItem key={opt} value={opt} className="text-sm font-medium">
+                    {opt === 'all' ? 'All Types' : opt}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Button
+              variant="outline"
+              className="h-12 w-12 rounded-2xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-all shadow-sm"
+              onClick={loadCourses}
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
           </div>
 
-          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
-            <SelectTrigger className="text-sm font-medium">
-              <SelectValue placeholder="All Status" />
-            </SelectTrigger>
-            <SelectContent className="rounded-2xl border-slate-200 bg-white text-slate-900 shadow-xl">
-              {statusOptions.map((opt) => (
-                <SelectItem key={opt} value={opt} className="text-sm font-medium">
-                  {opt === 'all' ? 'All Status' : opt}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
-            <SelectTrigger className="text-sm font-medium">
-              <SelectValue placeholder="All Types" />
-            </SelectTrigger>
-            <SelectContent className="rounded-2xl border-slate-200 bg-white text-slate-900 shadow-xl">
-              {typeOptions.map((opt) => (
-                <SelectItem key={opt} value={opt} className="text-sm font-medium">
-                  {opt === 'all' ? 'All Types' : opt}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
           <Button
-            variant="outline"
-            className="h-12 w-12 rounded-2xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-all shadow-sm"
-            onClick={loadCourses}
+            className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95"
+            onClick={handleCreateCourse}
           >
-            <RefreshCw className="h-4 w-4" />
+            <Plus className="mr-2 h-4 w-4" />
+            Create Course
           </Button>
         </div>
       </section>

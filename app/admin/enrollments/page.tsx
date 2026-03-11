@@ -211,34 +211,6 @@ export default function EnrollmentsPage() {
 
   return (
     <div className="space-y-8 text-slate-900">
-      {/* Header Section */}
-      <section className="relative overflow-hidden rounded-[32px] border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/40">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.03),transparent_40%)]" />
-        
-        <div className="relative flex flex-wrap items-start justify-between gap-6">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 border border-indigo-100/50 shadow-sm">
-              <CalendarClock className="h-3.5 w-3.5" />
-              Enrollment Admin
-            </div>
-            <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
-              Registry <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">Operations</span>
-            </h1>
-            <p className="mt-2 max-w-2xl text-base font-medium leading-relaxed text-slate-500">
-              Manage student enrollments, track lifecycle transitions, and coordinate batch/branch assignments across the institution.
-            </p>
-          </div>
-
-          <Button
-            className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95"
-            onClick={() => window.open('/admin/enrollments/change', '_blank')}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Batch / Branch Change
-          </Button>
-        </div>
-      </section>
-
       {/* Stats Section */}
       <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
         {stats.map((stat, i) => (
@@ -259,34 +231,44 @@ export default function EnrollmentsPage() {
 
       {/* Filter Section */}
       <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-        <div className="flex flex-wrap gap-4">
-          <div className="min-w-[300px] flex-1">
-            <div className="relative group">
-              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
-              <Input
-                placeholder="Search by student, mobile, course, or branch..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
-              />
+        <div className="flex flex-wrap items-center justify-between gap-6">
+          <div className="flex flex-wrap flex-1 items-center gap-4">
+            <div className="min-w-[300px] flex-1">
+              <div className="relative group">
+                <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                <Input
+                  placeholder="Search by student, mobile, course, or branch..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
+                />
+              </div>
             </div>
-          </div>
-          
-          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
-            <SelectTrigger className="text-sm font-medium">
-              <SelectValue placeholder="All Status" />
-            </SelectTrigger>
-            <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-              {statusOptions.map((opt) => (
-                <SelectItem key={opt} value={opt} className="text-sm font-medium">
-                  {opt === 'all' ? 'All Status' : opt}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
+              <SelectTrigger className="h-12 w-[180px] rounded-2xl border-slate-200 bg-white text-sm font-medium shadow-sm">
+                <SelectValue placeholder="All Status" />
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
+                {statusOptions.map((opt) => (
+                  <SelectItem key={opt} value={opt} className="text-sm font-medium">
+                    {opt === 'all' ? 'All Status' : opt}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          <Button variant="outline" className="h-12 w-12 rounded-2xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-all shadow-sm" onClick={loadEnrollments}>
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            <Button variant="outline" className="h-12 w-12 rounded-2xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-all shadow-sm" onClick={loadEnrollments}>
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
+
+          <Button
+            className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95"
+            onClick={() => window.open('/admin/enrollments/change', '_blank')}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Batch / Branch Change
           </Button>
         </div>
 

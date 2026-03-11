@@ -30,9 +30,9 @@ function getStatusBadgeClass(status: string) {
 function getTypeBadgeClass(type: string) {
   if (type === 'ONLINE') return 'bg-blue-50 text-blue-700 border-blue-100 font-black';
   if (type === 'OFFLINE') return 'bg-violet-50 text-violet-700 border-violet-100 font-black';
-  if (type === 'HYBRID') return 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-100 font-black';
-  return 'bg-slate-50 text-slate-600 border-slate-200';
+  return 'bg-slate-50 text-slate-600 border-slate-100 font-black';
 }
+
 
 export function CourseDetailsView({ course }: CourseDetailsViewProps) {
   const outline = course.outline as any;

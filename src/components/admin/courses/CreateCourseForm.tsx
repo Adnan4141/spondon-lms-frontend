@@ -24,7 +24,7 @@ import {
 import { DialogFooter } from '@/components/ui/dialog';
 
 const statusOptions: (CourseStatus)[] = ['ACTIVE', 'DISABLED', 'ARCHIVED'];
-const typeOptions: (CourseType)[] = ['ONLINE', 'OFFLINE', 'HYBRID'];
+const typeOptions: (CourseType)[] = ['ONLINE', 'OFFLINE'];
 const billingOptions: BillingType[] = ['ONE_TIME', 'MONTHLY'];
 const admissionOptions: AdmissionStatus[] = ['OPEN', 'CLOSED'];
 

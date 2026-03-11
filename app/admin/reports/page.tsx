@@ -560,26 +560,6 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-8 text-slate-900">
-      {/* Header Section */}
-      <section className="relative overflow-hidden rounded-[32px] border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/40">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.03),transparent_40%)]" />
-        
-        <div className="relative flex flex-wrap items-start justify-between gap-6">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 border border-indigo-100/50 shadow-sm">
-              <PieChart className="h-3.5 w-3.5" />
-              Intelligence Admin
-            </div>
-            <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
-              Reports & <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">Analytics</span>
-            </h1>
-            <p className="mt-2 max-w-2xl text-base font-medium leading-relaxed text-slate-500">
-              Synchronized data streams for revenue management, enrollment metrics, and cross-institutional financial auditing.
-            </p>
-          </div>
-        </div>
-      </section>
-
       <div className="grid gap-8 lg:grid-cols-[260px_1fr]">
         <aside className="space-y-4">
            <div className="rounded-[32px] border border-slate-200 bg-white p-4 shadow-sm">
