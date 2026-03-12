@@ -187,7 +187,7 @@ export default function InvoicesPage() {
         <ConfirmationModal
           title="Confirm Batch Execution"
           description={`Process automated billing for ${month}?`}
-          variant="primary"
+          variant="info"
           onConfirm={async () => {
             try {
               setLoading(true);

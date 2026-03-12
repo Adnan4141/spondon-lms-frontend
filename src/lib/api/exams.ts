@@ -66,6 +66,9 @@ export async function addQuestionsToSet(data: {
   questionIds?: string[];
   folderId?: string;
   count?: number;
+  cqCount?: number;
+  mcqSingleCount?: number;
+  mcqPassageCount?: number;
   marks?: number;
   negativeMarks?: number;
 }): Promise<ApiResponse<any>> {

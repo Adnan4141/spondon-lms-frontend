@@ -1,5 +1,6 @@
 import { apiRequest } from '../api';
 import type { Student, CreateStudentDto, UpdateStudentDto, ApiResponse } from '@/types/student';
+export type { Student, CreateStudentDto, UpdateStudentDto, ApiResponse };
 
 export async function getStudents(params?: {
   role?: string;

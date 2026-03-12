@@ -78,8 +78,8 @@ export function CourseDetailsView({ course }: CourseDetailsViewProps) {
         getAssociatedCourses({ fromCourseId: course.id }),
         getCourses({})
       ]);
-      if (resRes.success) setResources(resRes.data);
-      if (assocRes.success) setAssociations(assocRes.data);
+      if (resRes.success) setResources(resRes.data || []);
+      if (assocRes.success) setAssociations(assocRes.data || []);
       if (coursesRes.success) setAllCourses(coursesRes.data || []);
     } catch (err) {
       console.error(err);

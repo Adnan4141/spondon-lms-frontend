@@ -65,7 +65,7 @@ export function ExamQuestionBuilder({ examId, exam, sets, onRefresh }: ExamQuest
   useEffect(() => {
     const loadFolders = async () => {
       const res = await getQuestionFolders();
-      if (res.success) setFolders(res.data);
+      if (res.success) setFolders(res.data || []);
     };
     loadFolders();
   }, []);

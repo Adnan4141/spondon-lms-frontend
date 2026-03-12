@@ -55,7 +55,7 @@ export function OfflineExamSheet({ exam, set, onClose }: OfflineExamSheetProps) 
             <Button onClick={handlePrint} className="h-12 rounded-2xl bg-slate-900 hover:bg-indigo-600 text-white font-black uppercase tracking-widest text-xs shadow-xl shadow-slate-200 transition-all active:scale-95">
                <Printer className="mr-2.5 h-4 w-4" /> Finalize & Print PDF
             </Button>
-            <Button variant="outline" onClose={onClose} className="h-12 w-12 rounded-2xl border-slate-200 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition-all">
+            <Button variant="outline" onClick={onClose} className="h-12 w-12 rounded-2xl border-slate-200 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition-all">
                <X className="h-5 w-5" />
             </Button>
          </div>

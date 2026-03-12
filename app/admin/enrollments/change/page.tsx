@@ -88,7 +88,7 @@ export default function EnrollmentChangePage() {
 
   useEffect(() => {
     if (selectedCourse && selectedBranch) {
-      loadBatches(selectedCourse, selectedBranch === 'all' ? undefined : selectedBranch);
+      loadBatches(selectedCourse || '', selectedBranch === 'all' ? undefined : selectedBranch);
       loadEnrollments();
     } else {
       setBatches([]);
@@ -118,7 +118,7 @@ export default function EnrollmentChangePage() {
     }
   };
 
-  const loadBatches = async (courseId: string, branchId: string) => {
+  const loadBatches = async (courseId: string, branchId?: string) => {
     try {
       const response = await getBatches({ courseId, branchId });
       if (response.success && response.data) {

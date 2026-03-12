@@ -244,7 +244,7 @@ export default function SmsManagementPage() {
         <ConfirmationModal
           title="Confirm Transmission"
           description="Are you sure you want to trigger this mass communication protocol?"
-          variant="primary"
+          variant="info"
           onConfirm={async () => {
             try {
               setSubmitting(true);

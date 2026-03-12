@@ -66,6 +66,8 @@ import { getCourses } from '@/lib/api/courses';
 import type { Course } from '@/types/course';
 import { getUsers } from '@/lib/api/users';
 import { cn } from '@/lib/utils';
+import { useModalStore } from '@/store/modalStore';
+import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
 
 type BookFilter = 'all' | 'physical' | 'ebook';
 
@@ -76,6 +78,7 @@ function getErrorMessage(error: unknown): string {
 
 export default function BooksPage() {
   const { toast, toasts, removeToast } = useToast();
+  const { openModal, closeModal } = useModalStore();
 
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);

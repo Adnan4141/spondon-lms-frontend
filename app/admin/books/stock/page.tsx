@@ -22,7 +22,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { RefreshCw, Search, Warehouse, ArrowRight, Layers, Package, Database, BookOpen, ShoppingBag } from 'lucide-react';
+import { RefreshCw, Search, Warehouse, ArrowRight, Layers, Package, Database, BookOpen, ShoppingBag, Building2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';

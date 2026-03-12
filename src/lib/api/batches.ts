@@ -48,6 +48,7 @@ export interface UpdateBatchDto {
 }
 
 export async function getBatches(params?: {
+  programId?: string;
   courseId?: string;
   branchId?: string;
   status?: string;
@@ -55,6 +56,7 @@ export async function getBatches(params?: {
   limit?: number;
 }): Promise<ApiResponse<Batch[]>> {
   const queryParams = new URLSearchParams();
+  if (params?.programId) queryParams.append('programId', params.programId);
   if (params?.courseId) queryParams.append('courseId', params.courseId);
   if (params?.branchId) queryParams.append('branchId', params.branchId);
   if (params?.status) queryParams.append('status', params.status);

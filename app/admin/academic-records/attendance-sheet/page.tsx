@@ -91,7 +91,7 @@ export default function AttendanceSheetPage() {
       });
 
       if (res.success) {
-        setAttendanceSheet(res.data);
+        setAttendanceSheet(res.data || null);
         toast({ title: 'Registry Synchronized', description: 'Offline attendance matrix generated successfully.', variant: 'success' });
       }
     } catch (err: any) {

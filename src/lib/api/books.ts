@@ -12,6 +12,7 @@ export interface Book {
   fileUrl?: string | null;
   thumbnailUrl?: string | null;
   createdAt: string;
+  courseBooks?: CourseBook[];
   _count?: {
     stocks?: number;
     saleItems?: number;

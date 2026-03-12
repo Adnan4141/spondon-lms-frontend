@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Calendar } from '@/components/ui/calendar';
 import { 
   Info, 
   FileUp, 
@@ -119,8 +120,8 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
         getAssociatedCourses({ fromCourseId: course.id }),
         getCourses({})
       ]);
-      if (resRes.success) setResources(resRes.data);
-      if (assocRes.success) setAssociations(assocRes.data);
+      if (resRes.success) setResources(resRes.data || []);
+      if (assocRes.success) setAssociations(assocRes.data || []);
       if (coursesRes.success) setAllCourses(coursesRes.data || []);
     } catch (err) { console.error(err); }
   };

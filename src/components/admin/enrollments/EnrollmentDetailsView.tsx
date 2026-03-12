@@ -35,7 +35,7 @@ function getStatusBadgeClass(status: string) {
   return 'bg-slate-100 text-slate-600 border-slate-200 font-black';
 }
 
-export function EnrollmentDetailsView({ enrollment }: EnrollmentDetailsViewProps) {
+export function EnrollmentDetailsView({ enrollment, onSettle }: EnrollmentDetailsViewProps) {
   return (
     <div className="flex flex-col h-full bg-white text-slate-900">
       <div className="flex-1 overflow-y-auto px-8 py-8 no-scrollbar">

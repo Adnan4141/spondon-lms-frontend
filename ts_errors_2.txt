@@ -1,0 +1,17 @@
+app/admin/enrollments/change/page.tsx(91,35): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/components/admin/courses/CourseDetailsView.tsx(81,40): error TS2345: Argument of type 'any[] | undefined' is not assignable to parameter of type 'SetStateAction<any[]>'.
+  Type 'undefined' is not assignable to type 'SetStateAction<any[]>'.
+src/components/admin/courses/CourseDetailsView.tsx(82,45): error TS2345: Argument of type 'any[] | undefined' is not assignable to parameter of type 'SetStateAction<any[]>'.
+  Type 'undefined' is not assignable to type 'SetStateAction<any[]>'.
+src/components/admin/courses/CourseForm.tsx(122,40): error TS2345: Argument of type 'any[] | undefined' is not assignable to parameter of type 'SetStateAction<any[]>'.
+  Type 'undefined' is not assignable to type 'SetStateAction<any[]>'.
+src/components/admin/courses/CourseForm.tsx(123,45): error TS2345: Argument of type 'any[] | undefined' is not assignable to parameter of type 'SetStateAction<any[]>'.
+  Type 'undefined' is not assignable to type 'SetStateAction<any[]>'.
+src/components/admin/courses/CourseForm.tsx(220,32): error TS2304: Cannot find name 'Calendar'.
+src/components/admin/enrollments/EnrollmentDetailsView.tsx(65,24): error TS2304: Cannot find name 'onSettle'.
+src/components/admin/enrollments/EnrollmentDetailsView.tsx(67,36): error TS2304: Cannot find name 'onSettle'.
+src/components/admin/exams/ExamQuestionBuilder.tsx(68,35): error TS2345: Argument of type 'QuestionFolder[] | undefined' is not assignable to parameter of type 'SetStateAction<any[]>'.
+  Type 'undefined' is not assignable to type 'SetStateAction<any[]>'.
+src/components/admin/exams/OfflineExamSheet.tsx(58,39): error TS2322: Type '{ children: Element; variant: "outline"; onClose: () => void; className: string; }' is not assignable to type 'IntrinsicAttributes & ClassAttributes<HTMLButtonElement> & ButtonHTMLAttributes<HTMLButtonElement> & VariantProps<...> & { ...; }'.
+  Property 'onClose' does not exist on type 'IntrinsicAttributes & ClassAttributes<HTMLButtonElement> & ButtonHTMLAttributes<HTMLButtonElement> & VariantProps<...> & { ...; }'.
