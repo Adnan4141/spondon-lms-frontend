@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Calendar as CalendarIcon, Clock } from "lucide-react"
+import { Calendar as CalendarIcon, Clock, ChevronDown } from "lucide-react"
 import { format } from "date-fns"
 
 import { cn } from "@/lib/utils"
@@ -12,7 +12,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 interface DateTimePickerProps {
   date?: Date
@@ -23,39 +29,42 @@ interface DateTimePickerProps {
 
 export function DateTimePicker({ date, setDate, placeholder = "Pick date and time", className }: DateTimePickerProps) {
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(date)
-  const [timeValue, setTimeValue] = React.useState<string>(date ? format(date, "HH:mm") : "00:00")
+  
+  const hour = date ? format(date, "HH") : "00"
+  const minute = date ? format(date, "mm") : "00"
 
   React.useEffect(() => {
     if (date) {
       setSelectedDate(date)
-      setTimeValue(format(date, "HH:mm"))
     }
   }, [date])
 
   const handleDateSelect = (d: Date | undefined) => {
     setSelectedDate(d)
     if (d) {
-      const [hours, minutes] = timeValue.split(":").map(Number)
       const newDateTime = new Date(d)
-      newDateTime.setHours(hours)
-      newDateTime.setMinutes(minutes)
+      newDateTime.setHours(parseInt(hour))
+      newDateTime.setMinutes(parseInt(minute))
       setDate(newDateTime)
     } else {
       setDate(undefined)
     }
   }
 
-  const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newTime = e.target.value
-    setTimeValue(newTime)
+  const handleTimeChange = (type: 'hour' | 'minute', value: string) => {
     if (selectedDate) {
-      const [hours, minutes] = newTime.split(":").map(Number)
       const newDateTime = new Date(selectedDate)
-      newDateTime.setHours(hours)
-      newDateTime.setMinutes(minutes)
+      if (type === 'hour') {
+        newDateTime.setHours(parseInt(value))
+      } else {
+        newDateTime.setMinutes(parseInt(value))
+      }
       setDate(newDateTime)
     }
   }
+
+  const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'))
+  const minutes = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'))
 
   return (
     <Popover>
@@ -79,16 +88,32 @@ export function DateTimePicker({ date, setDate, placeholder = "Pick date and tim
           onSelect={handleDateSelect}
           initialFocus
         />
-        <div className="p-4 border-t border-slate-100 flex items-center gap-3">
+        <div className="p-4 border-t border-slate-100 flex items-center gap-4">
           <Clock className="h-4 w-4 text-slate-400" />
-          <div className="flex-1">
-             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Select Time</p>
-             <Input
-               type="time"
-               value={timeValue}
-               onChange={handleTimeChange}
-               className="h-10 rounded-xl border-slate-200 bg-slate-50/50 font-bold"
-             />
+          <div className="flex items-center gap-2">
+             <div className="space-y-1">
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Hour</p>
+                <Select value={hour} onValueChange={(v) => handleTimeChange('hour', v)}>
+                   <SelectTrigger className="h-9 w-[70px] rounded-xl border-slate-200 bg-slate-50 font-bold">
+                      <SelectValue />
+                   </SelectTrigger>
+                   <SelectContent className="max-h-[200px] rounded-xl border-slate-200 shadow-xl">
+                      {hours.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                   </SelectContent>
+                </Select>
+             </div>
+             <span className="mt-4 font-black text-slate-300">:</span>
+             <div className="space-y-1">
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Min</p>
+                <Select value={minute} onValueChange={(v) => handleTimeChange('minute', v)}>
+                   <SelectTrigger className="h-9 w-[70px] rounded-xl border-slate-200 bg-slate-50 font-bold">
+                      <SelectValue />
+                   </SelectTrigger>
+                   <SelectContent className="max-h-[200px] rounded-xl border-slate-200 shadow-xl">
+                      {minutes.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                   </SelectContent>
+                </Select>
+             </div>
           </div>
         </div>
       </PopoverContent>

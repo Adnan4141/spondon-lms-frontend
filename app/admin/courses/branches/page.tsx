@@ -41,9 +41,19 @@ import {
   Trash2,
   CheckCircle2,
   XCircle,
+  ArrowRight,
+  Building2,
+  Network,
+  ShieldCheck,
+  Layers,
+  MapPin,
+  Phone,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
+import { useModalStore } from '@/store/modalStore';
+import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
+import { cn } from '@/lib/utils';
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -51,6 +61,7 @@ function getErrorMessage(error: unknown): string {
 }
 
 export default function CourseBranchesPage() {
+  const { openModal } = useModalStore();
   const { toast, toasts, removeToast } = useToast();
   const [courses, setCourses] = useState<Course[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -160,26 +171,36 @@ export default function CourseBranchesPage() {
     }
   };
 
-  const handleRemoveBranch = async (id: string) => {
-    if (!confirm('Are you sure you want to remove this branch from the course?')) {
-      return;
-    }
-
-    try {
-      await removeCourseBranch(id);
-      toast({
-        title: 'Success',
-        description: 'Branch removed from course successfully',
-        variant: 'success',
-      });
-      await loadCourseBranches();
-    } catch (err: unknown) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(err) || 'Failed to remove branch',
-        variant: 'destructive',
-      });
-    }
+  const handleRemoveBranch = (id: string) => {
+    openModal({
+      title: 'Branch Disconnection',
+      description: 'Are you sure you want to remove this branch from the course curriculum? Access permissions for this location will be revoked.',
+      className: 'sm:max-w-xl',
+      content: (
+        <ConfirmationModal
+          title="Confirm Removal"
+          description="Decoupling the institutional node from this specific academic program."
+          variant="danger"
+          onConfirm={async () => {
+            try {
+              await removeCourseBranch(id);
+              toast({
+                title: 'Success',
+                description: 'Branch removed from course successfully',
+                variant: 'success',
+              });
+              await loadCourseBranches();
+            } catch (err: unknown) {
+              toast({
+                title: 'Error',
+                description: getErrorMessage(err) || 'Failed to remove branch',
+                variant: 'destructive',
+              });
+            }
+          }}
+        />
+      ),
+    });
   };
 
   const availableBranches = branches.filter(
@@ -193,192 +214,216 @@ export default function CourseBranchesPage() {
   const selectedCourseData = courses.find((c) => c.id === selectedCourse);
 
   return (
-    <div className="space-y-4">
-      <section className="glass-panel p-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight">Course Branch Management</h1>
-            <p className="mt-2 max-w-2xl text-base text-muted-foreground">
-              Manage branch access permissions for courses. Control which branches can access specific courses.
-            </p>
+    <div className="space-y-8 text-slate-900">
+      {/* Stats Section */}
+      <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: 'Network Spread', value: courseBranches.length, color: 'from-blue-600 to-cyan-500', icon: Network },
+          { label: 'Global Availability', value: selectedCourseData?.branchAccessMode === 'ALL_BRANCH' ? 'Centralized' : 'Restricted', color: 'from-indigo-600 to-purple-600', icon: ShieldCheck },
+          { label: 'Unmapped Nodes', value: availableBranches.length, color: 'from-emerald-600 to-teal-500', icon: Building2 },
+          { label: 'System Capacity', value: branches.length, color: 'from-rose-600 to-pink-600', icon: Layers },
+        ].map((stat, i) => (
+          <div key={i} className="group relative overflow-hidden rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/40 transition-all hover:-translate-y-1 hover:shadow-2xl">
+             <div className="flex items-center justify-between">
+                <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg group-hover:scale-110 transition-transform", stat.color)}>
+                   <stat.icon className="h-6 w-6" />
+                </div>
+                <ArrowRight className="h-4 w-4 text-slate-200 group-hover:text-indigo-500 transition-colors" />
+             </div>
+             <div className="mt-6">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
+                <p className="mt-1 text-3xl font-black text-slate-900">{stat.value}</p>
+             </div>
           </div>
-        </div>
+        ))}
       </section>
 
-      <section className="glass-panel p-4 sm:p-5">
-        <div className="flex flex-wrap gap-4">
-          <div className="min-w-[300px] flex-1">
-            <label className="text-base font-medium mb-2 block">Select Course</label>
-            <Select value={selectedCourse} onValueChange={setSelectedCourse}>
-              <SelectTrigger className="h-10 border-border bg-background">
-                <SelectValue placeholder="Select a course" />
-              </SelectTrigger>
-              <SelectContent>
-                {courses.map((course) => (
-                  <SelectItem key={course.id} value={course.id}>
-                    {course.name} ({course.code})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      {/* Filter & Action Section */}
+      <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-6">
+          <div className="flex flex-wrap flex-1 items-center gap-4">
+            <div className="min-w-[300px] flex-1">
+              <Select value={selectedCourse} onValueChange={setSelectedCourse}>
+                <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-indigo-600 shadow-inner border-2">
+                  <SelectValue placeholder="Identify Target Course Context" />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
+                  {courses.map((course) => (
+                    <SelectItem key={course.id} value={course.id} className="font-bold py-3 uppercase text-[11px] tracking-widest">
+                      {course.name} ({course.code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button variant="outline" className="h-12 w-12 rounded-2xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-all shadow-sm" onClick={loadCourseBranches}>
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
           </div>
+
           {selectedCourse && (
-            <>
-              <Button
-                className="mt-6 bg-primary hover:bg-primary/90"
-                onClick={() => setAddDialogOpen(true)}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Branch
-              </Button>
+            <div className="flex items-center gap-3">
               <Button
                 variant="outline"
-                className="mt-6"
+                className="h-12 rounded-2xl border-slate-200 bg-white px-6 font-black uppercase tracking-widest text-[10px] text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
+                onClick={() => setAddDialogOpen(true)}
+              >
+                <Plus className="mr-2 h-4 w-4 text-emerald-500" />
+                Authorize Node
+              </Button>
+              <Button
+                className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95"
                 onClick={() => setBulkAddDialogOpen(true)}
               >
-                <Plus className="mr-2 h-4 w-4" />
-                Bulk Add
+                <Building2 className="mr-2 h-4 w-4" />
+                Bulk Integration
               </Button>
-              <Button variant="outline" className="mt-6" onClick={loadCourseBranches}>
-                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              </Button>
-            </>
+            </div>
           )}
         </div>
       </section>
 
-      {selectedCourse && selectedCourseData && (
-        <section className="glass-panel p-4 sm:p-5">
-          <div className="mb-4">
-            <h2 className="text-lg font-semibold">{selectedCourseData.name}</h2>
-            <p className="text-base text-muted-foreground">
-              Branch Access Mode: <Badge variant="outline">{selectedCourseData.branchAccessMode || 'ALL_BRANCH'}</Badge>
-            </p>
-            <p className="text-base text-muted-foreground mt-1">
-              {selectedCourseData.branchAccessMode === 'ALL_BRANCH'
-                ? 'This course is accessible from all branches'
-                : 'This course is only accessible from the branches listed below'}
-            </p>
-          </div>
-        </section>
-      )}
-
-      {error && (
-        <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive">
-          {error}
-        </div>
-      )}
-
-      {selectedCourse && (
-        <section className="glass-panel overflow-hidden p-0">
-          <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
+      {/* Table Section */}
+      <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/30">
+        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
+          <div className="flex items-center gap-4">
+            <div className="h-10 w-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center">
+               <MapPin className="h-5 w-5 text-indigo-500" />
+            </div>
             <div>
-              <h2 className="text-base font-semibold tracking-tight">Course Branches</h2>
-              <p className="text-base text-muted-foreground">
-                Branches that have access to this course
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search branches..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-9 w-[200px] border-border bg-background pl-10"
-                />
-              </div>
+              <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Institutional Access Nodes</h2>
+              <p className="mt-0.5 text-base font-bold text-indigo-500">{selectedCourseData?.name || 'Academic Program'}</p>
             </div>
           </div>
-
-          {loading ? (
-            <div className="p-8 text-center text-muted-foreground">Loading branches...</div>
-          ) : filteredBranches.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground">
-              {searchQuery
-                ? 'No branches found matching your search.'
-                : 'No branches added to this course yet.'}
+          <div className="flex items-center gap-4">
+            <div className="relative group">
+              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+              <input
+                placeholder="Find mapped branch..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-10 w-[240px] rounded-xl border-slate-200 bg-white pl-11 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none"
+              />
             </div>
-          ) : (
+          </div>
+        </div>
+
+        {!selectedCourse ? (
+          <div className="p-20 text-center flex flex-col items-center gap-4">
+             <Building2 className="h-12 w-12 text-slate-200" />
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Awaiting Course Selection to Initialize Node Matrix</p>
+          </div>
+        ) : loading ? (
+          <div className="p-20 text-center flex flex-col items-center gap-4">
+             <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Synchronizing Nodes...</p>
+          </div>
+        ) : filteredBranches.length === 0 ? (
+          <div className="p-20 text-center">
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No branch nodes mapped to this program.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
             <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead>Branch Name</TableHead>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Address</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+              <TableHeader className="bg-slate-50/50">
+                <TableRow className="hover:bg-transparent border-b border-slate-100">
+                  <TableHead className="px-8 font-black text-sm uppercase tracking-widest text-slate-400">Branch Identity</TableHead>
+                  <TableHead className="font-black text-sm uppercase tracking-widest text-slate-400">Node Code</TableHead>
+                  <TableHead className="font-black text-sm uppercase tracking-widest text-slate-400">Physical Location</TableHead>
+                  <TableHead className="font-black text-sm uppercase tracking-widest text-slate-400">Contact Reference</TableHead>
+                  <TableHead className="px-8 font-black text-sm uppercase tracking-widest text-slate-400 text-right">Operational Manage</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredBranches.map((cb) => (
-                  <TableRow key={cb.id} className="hover:bg-muted/45">
-                    <TableCell className="font-medium">{cb.branch?.name || '-'}</TableCell>
-                    <TableCell>{cb.branch?.code || '-'}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {cb.branch?.address || '-'}
+                  <TableRow key={cb.id} className="group border-slate-100 transition-colors hover:bg-slate-50/80">
+                    <TableCell className="px-8 py-5">
+                       <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors text-base">{cb.branch?.name || '-'}</span>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {cb.branch?.phone || '-'}
+                    <TableCell className="py-5">
+                       <Badge variant="outline" className="rounded-lg bg-white border-slate-200 px-3 py-1 font-bold text-slate-700 shadow-sm uppercase tracking-tighter text-[11px]">
+                         {cb.branch?.code || 'NODE-00'}
+                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="py-5">
+                       <span className="text-sm font-bold text-slate-500 italic line-clamp-1 max-w-[200px]">{cb.branch?.address || '-'}</span>
+                    </TableCell>
+                    <TableCell className="py-5">
+                       <div className="flex items-center gap-2 text-base font-bold text-slate-600">
+                          <Phone className="h-3.5 w-3.5 text-emerald-500" />
+                          {cb.branch?.phone || '-'}
+                       </div>
+                    </TableCell>
+                    <TableCell className="px-8 py-5 text-right">
                       <Button
-                        variant="ghost"
-                        size="icon"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 w-8 rounded-xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-rose-600 hover:text-white transition-all shadow-sm"
                         onClick={() => handleRemoveBranch(cb.id)}
-                        title="Remove Branch"
+                        title="Revoke Node Access"
                       >
-                        <Trash2 className="h-4 w-4 text-destructive" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
-          )}
-        </section>
-      )}
+          </div>
+        )}
+      </section>
 
       {/* Add Branch Dialog */}
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-        <DialogContent className="sm:max-w-2xl" showCloseButton={true}>
-          <DialogHeader>
-            <DialogTitle>Add Branch to Course</DialogTitle>
-            <DialogDescription>
-              Select a branch to add to {selectedCourseData?.name}
-            </DialogDescription>
+        <DialogContent className="max-h-[90vh] sm:max-w-xl flex flex-col p-0 gap-0 border-none bg-white shadow-2xl rounded-[40px] overflow-hidden">
+          <DialogHeader className="px-10 pt-10 pb-6 shrink-0 relative overflow-hidden border-b border-slate-100">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.03),transparent_40%)]" />
+            <div className="relative flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 shadow-sm border border-indigo-100/50">
+                <Building2 className="h-6 w-6" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-black tracking-tight text-slate-900">Authorize Node Access</DialogTitle>
+                <DialogDescription className="text-sm font-medium text-slate-500">Associate an institutional branch with this program context.</DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-base font-medium">Available Branches</label>
+          <div className="px-10 py-8 space-y-6">
+            <div className="space-y-3">
+              <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 px-1">Target Institutional Node</label>
               <Select
                 value={selectedBranches[0] || undefined}
                 onValueChange={(v) => setSelectedBranches([v])}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a branch" />
+                <SelectTrigger className="h-14 rounded-2xl border-slate-200 bg-slate-50/30 px-5 font-bold text-slate-900 border-2 shadow-inner">
+                  <SelectValue placeholder="Identify branch to map..." />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-2xl p-2">
                   {availableBranches.map((branch) => (
-                    <SelectItem key={branch.id} value={branch.id}>
+                    <SelectItem key={branch.id} value={branch.id} className="rounded-xl py-3 font-bold">
                       {branch.name} {branch.code && `(${branch.code})`}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               {availableBranches.length === 0 && (
-                <p className="text-base text-muted-foreground">
-                  All branches are already added to this course
+                <p className="text-xs font-black uppercase tracking-widest text-rose-500 bg-rose-50 p-3 rounded-xl border border-rose-100 text-center">
+                  All institutional nodes are already integrated with this program context.
                 </p>
               )}
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAddDialogOpen(false)}>
-              Cancel
+          <DialogFooter className="px-10 py-8 shrink-0 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
+            <Button variant="ghost" className="rounded-2xl px-8 font-black uppercase tracking-widest text-[11px] text-slate-400 hover:text-slate-600 transition-all" onClick={() => setAddDialogOpen(false)}>
+              Discard
             </Button>
-            <Button onClick={handleAddBranch} disabled={submitting || selectedBranches.length === 0}>
-              {submitting ? 'Adding...' : 'Add Branch'}
+            <Button 
+              className="h-14 rounded-2xl bg-slate-900 px-10 font-black uppercase tracking-widest text-[11px] text-white shadow-xl shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95 disabled:opacity-50"
+              onClick={handleAddBranch} 
+              disabled={submitting || selectedBranches.length === 0}
+            >
+              {submitting ? 'Synchronizing...' : 'Authorize Integration'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -386,65 +431,84 @@ export default function CourseBranchesPage() {
 
       {/* Bulk Add Dialog */}
       <Dialog open={bulkAddDialogOpen} onOpenChange={setBulkAddDialogOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col p-0 gap-0" showCloseButton={true}>
-          <DialogHeader className="px-6 pt-6 pb-4 shrink-0 sticky top-0 bg-background z-10 border-b shadow-sm">
-            <DialogTitle>Bulk Add Branches</DialogTitle>
-            <DialogDescription>
-              Select multiple branches to add to {selectedCourseData?.name}
-            </DialogDescription>
+        <DialogContent className="max-h-[95vh] sm:max-w-4xl flex flex-col p-0 gap-0 border-none bg-white shadow-2xl rounded-[40px] overflow-hidden">
+          <DialogHeader className="px-10 pt-10 pb-6 shrink-0 relative overflow-hidden border-b border-slate-100">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.03),transparent_40%)]" />
+            <div className="relative flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-900 text-white shadow-lg">
+                <Network className="h-6 w-6" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-black tracking-tight text-slate-900">Bulk Node Matrix Integration</DialogTitle>
+                <DialogDescription className="text-sm font-medium text-slate-500">Coordinate multiple institutional branch mappings simultaneously.</DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            <div className="space-y-4 py-6">
-              <div className="space-y-2">
-                <label className="text-base font-medium">Available Branches</label>
-                <div className="space-y-2 max-h-[400px] overflow-y-auto">
+          <div className="flex-1 min-h-0 overflow-y-auto px-10 no-scrollbar">
+            <div className="space-y-8 py-8">
+              <div className="space-y-4">
+                <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 px-1">Available Institutional Network</label>
+                <div className="grid gap-3 sm:grid-cols-2">
                   {availableBranches.length === 0 ? (
-                    <p className="text-base text-muted-foreground">
-                      All branches are already added to this course
-                    </p>
+                    <div className="sm:col-span-2 py-12 text-center rounded-[32px] border-2 border-dashed border-slate-100 bg-slate-50/30">
+                       <Building2 className="h-8 w-8 text-slate-200 mx-auto mb-3" />
+                       <p className="text-sm font-black uppercase tracking-widest text-slate-300">Global network is already integrated for this program.</p>
+                    </div>
                   ) : (
-                    availableBranches.map((branch) => (
-                      <div
-                        key={branch.id}
-                        className="flex items-center space-x-2 p-2 rounded-lg border hover:bg-muted/50 cursor-pointer"
-                        onClick={() => {
-                          if (selectedBranches.includes(branch.id)) {
-                            setSelectedBranches(selectedBranches.filter((id) => id !== branch.id));
-                          } else {
-                            setSelectedBranches([...selectedBranches, branch.id]);
-                          }
-                        }}
-                      >
-                        {selectedBranches.includes(branch.id) ? (
-                          <CheckCircle2 className="h-5 w-5 text-primary" />
-                        ) : (
-                          <XCircle className="h-5 w-5 text-muted-foreground" />
-                        )}
-                        <div className="flex-1">
-                          <p className="font-medium">{branch.name}</p>
-                          {branch.code && <p className="text-base text-muted-foreground">{branch.code}</p>}
+                    availableBranches.map((branch) => {
+                      const selected = selectedBranches.includes(branch.id);
+                      return (
+                        <div
+                          key={branch.id}
+                          className={cn(
+                            "flex items-center gap-4 rounded-2xl border-2 p-4 transition-all cursor-pointer group",
+                            selected ? "bg-indigo-50/50 border-indigo-600 shadow-lg shadow-indigo-100" : "bg-white border-slate-100 hover:border-indigo-200"
+                          )}
+                          onClick={() => {
+                            if (selectedBranches.includes(branch.id)) {
+                              setSelectedBranches(selectedBranches.filter((id) => id !== branch.id));
+                            } else {
+                              setSelectedBranches([...selectedBranches, branch.id]);
+                            }
+                          }}
+                        >
+                          <div className={cn(
+                            "flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border-2 transition-all",
+                            selected ? "bg-indigo-600 border-indigo-600 text-white" : "bg-white border-slate-200 text-transparent"
+                          )}>
+                            <CheckCircle2 className="h-4 w-4" />
+                          </div>
+                          <div className="flex-1 overflow-hidden text-ellipsis">
+                            <p className="font-black text-slate-900 text-sm truncate">{branch.name}</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                              Code: {branch.code || 'N/A'} • {branch.phone || 'No Contact'}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
-                {selectedBranches.length > 0 && (
-                  <p className="text-base text-muted-foreground">
-                    {selectedBranches.length} branch(es) selected
-                  </p>
-                )}
               </div>
             </div>
           </div>
-          <DialogFooter className="px-6 pb-6 pt-4 shrink-0 bg-background border-t shadow-lg mt-auto">
-            <Button variant="outline" onClick={() => {
-              setBulkAddDialogOpen(false);
-              setSelectedBranches([]);
-            }}>
-              Cancel
+          <DialogFooter className="px-10 py-8 shrink-0 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
+            <Button
+              variant="ghost"
+              className="rounded-2xl px-8 font-black uppercase tracking-widest text-[11px] text-slate-400 hover:text-slate-600 transition-all"
+              onClick={() => {
+                setBulkAddDialogOpen(false);
+                setSelectedBranches([]);
+              }}
+            >
+              Discard Mapping
             </Button>
-            <Button onClick={handleAddBranch} disabled={submitting || selectedBranches.length === 0}>
-              {submitting ? 'Adding...' : `Add ${selectedBranches.length} Branch(es)`}
+            <Button
+              className="h-14 rounded-2xl bg-slate-900 px-10 font-black uppercase tracking-widest text-[11px] text-white shadow-xl shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95 disabled:opacity-50"
+              onClick={handleAddBranch}
+              disabled={submitting || selectedBranches.length === 0}
+            >
+              {submitting ? 'Processing Matrix...' : `Integrate ${selectedBranches.length} Node(s)`}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -20,6 +20,7 @@ import {
 import { ShieldCheck, Calendar, Activity, GraduationCap, Building2, Plus, Trash2, CreditCard, Hash, User, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { MonthPicker } from '@/components/ui/month-picker';
 
 const inputClass =
   'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
@@ -182,16 +183,12 @@ export function InvoiceForm({ branches, students, invoice, onSuccess }: InvoiceF
              <div className="grid gap-6 sm:grid-cols-2">
                 <div className="space-y-2">
                    <label className={sectionLabel}>Billing Month (YYYY-MM)</label>
-                   <div className="relative group">
-                      <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                      <Input 
-                        className={cn(inputClass, "pl-11")} 
-                        type="month" 
-                        value={form.month} 
-                        onChange={e => setForm((p: CreateInvoiceDto) => ({ ...p, month: e.target.value }))} 
-                        disabled={isEdit}
-                      />
-                   </div>
+                   <MonthPicker 
+                     value={form.month} 
+                     onChange={v => setForm((p: CreateInvoiceDto) => ({ ...p, month: v }))} 
+                     disabled={isEdit}
+                     placeholder="Select billing month"
+                   />
                 </div>
                 <div className="space-y-2">
                    <label className={sectionLabel}>Status Control</label>

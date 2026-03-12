@@ -38,6 +38,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
+import { getSmsConfig, upsertSmsConfig, getSmsTemplates, createSmsTemplate } from '@/lib/api/sms';
 
 type SettingsCategory = 'general' | 'sms' | 'payment' | 'system' | 'email' | 'notifications';
 
@@ -131,13 +132,18 @@ export default function SettingsPage() {
 
   // SMS Settings
   const [smsSettings, setSmsSettings] = useState<SmsSettings>({
-    provider: 'twilio',
+    provider: 'BulkSMSBD',
     apiKey: '',
     apiSecret: '',
     senderId: 'SPONDON',
     maskingEnabled: true,
     nonMaskingEnabled: true,
     defaultMasking: true,
+  });
+
+  const [birthdaySettings, setBirthdaySettings] = useState({
+    enabled: true,
+    template: 'Happy Birthday! 🎉 Best wishes from Spondon Academy.'
   });
 
   // Payment Settings
@@ -189,8 +195,30 @@ export default function SettingsPage() {
   const loadSettings = async () => {
     try {
       setLoading(true);
-      // Simulating API load
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const [smsRes, tplRes] = await Promise.all([
+        getSmsConfig(),
+        getSmsTemplates()
+      ]);
+
+      if (smsRes.success && smsRes.data) {
+        setSmsSettings(prev => ({
+          ...prev,
+          provider: smsRes.data.provider,
+          apiKey: smsRes.data.apiKey,
+          senderId: smsRes.data.senderId || '',
+          nonMaskingNumber: smsRes.data.nonMaskingNumber || '',
+        } as any));
+      }
+
+      if (tplRes.success && tplRes.data) {
+        const bdayTpl = tplRes.data.find((t: any) => t.key === 'BIRTHDAY_WISH');
+        if (bdayTpl) {
+          setBirthdaySettings({
+            enabled: true,
+            template: bdayTpl.body
+          });
+        }
+      }
     } catch (err: unknown) {
       toast({
         title: 'Error',
@@ -205,7 +233,25 @@ export default function SettingsPage() {
   const handleSave = async () => {
     try {
       setSaving(true);
-      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      if (activeCategory === 'sms') {
+        await upsertSmsConfig({
+          provider: smsSettings.provider,
+          apiKey: smsSettings.apiKey,
+          senderId: smsSettings.senderId,
+          nonMaskingNumber: (smsSettings as any).nonMaskingNumber,
+        });
+
+        await createSmsTemplate({
+          key: 'BIRTHDAY_WISH',
+          body: birthdaySettings.template,
+          isMasking: smsSettings.defaultMasking
+        });
+      } else {
+        // Handle other categories
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
       toast({
         title: 'Success',
         description: 'Global configurations updated successfully',
@@ -356,8 +402,8 @@ export default function SettingsPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="rounded-2xl shadow-xl">
-                <SelectItem value="twilio" className="font-bold py-3 text-indigo-600">Twilio Infrastructure</SelectItem>
-                <SelectItem value="nexmo" className="font-bold py-3 text-blue-600">Vonage (Nexmo)</SelectItem>
+                <SelectItem value="BulkSMSBD" className="font-bold py-3 text-indigo-600">BulkSMSBD Protocol</SelectItem>
+                <SelectItem value="twilio" className="font-bold py-3 text-blue-600">Twilio Infrastructure</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -366,30 +412,46 @@ export default function SettingsPage() {
             <Input className={inputClass} type="password" value={smsSettings.apiKey} onChange={(e) => setSmsSettings(p => ({ ...p, apiKey: e.target.value }))} />
           </div>
           <div className="space-y-2">
-            <Label className={sectionLabel}>Shared Secret</Label>
-            <Input className={inputClass} type="password" value={smsSettings.apiSecret} onChange={(e) => setSmsSettings(p => ({ ...p, apiSecret: e.target.value }))} />
+            <Label className={sectionLabel}>Masking Sender ID</Label>
+            <Input className={inputClass} value={smsSettings.senderId} onChange={(e) => setSmsSettings(p => ({ ...p, senderId: e.target.value }))} placeholder="e.g. SPONDON" />
+          </div>
+          <div className="space-y-2">
+            <Label className={sectionLabel}>Non-Masking Number</Label>
+            <Input className={inputClass} value={(smsSettings as any).nonMaskingNumber} onChange={(e) => setSmsSettings(p => ({ ...p, nonMaskingNumber: e.target.value } as any))} placeholder="e.g. 88096..." />
           </div>
         </div>
       </section>
 
-      <section className="space-y-4">
-        <Label className={sectionLabel}>Transmission Protocols</Label>
-        {[
-          { id: 'maskingEnabled', label: 'Masking SMS Authorization', desc: 'Permit alphanumeric sender identification' },
-          { id: 'nonMaskingEnabled', label: 'Fixed Identity SMS', desc: 'Permit numeric-only identity transmission' },
-        ].map((item) => (
-          <div key={item.id} className="flex items-center justify-between p-6 rounded-3xl border border-slate-100 bg-white shadow-sm">
-            <div className="space-y-1">
-              <p className="text-base font-black text-slate-800">{item.label}</p>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{item.desc}</p>
-            </div>
-            <Switch
-              checked={(smsSettings as any)[item.id]}
-              onCheckedChange={(checked) => setSmsSettings(p => ({ ...p, [item.id]: checked }))}
-              className="data-[state=checked]:bg-emerald-500"
-            />
+      <section className="space-y-6 border-t border-slate-100 pt-10">
+        <div className="flex items-center gap-2">
+           <Zap className="h-4 w-4 text-amber-500" />
+           <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Automated Protocols</h3>
+        </div>
+        
+        <div className="flex items-center justify-between p-6 rounded-3xl border border-slate-100 bg-white shadow-sm">
+          <div className="space-y-1">
+            <p className="text-base font-black text-slate-800">Automated Birthday Wishes</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">System will dispatch SMS to students on their anniversary</p>
           </div>
-        ))}
+          <Switch
+            checked={birthdaySettings.enabled}
+            onCheckedChange={(checked) => setBirthdaySettings(p => ({ ...p, enabled: checked }))}
+            className="data-[state=checked]:bg-amber-500"
+          />
+        </div>
+
+        {birthdaySettings.enabled && (
+          <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+            <Label className={sectionLabel}>Birthday Message Template</Label>
+            <Textarea
+              className="min-h-[100px] rounded-2xl border-slate-200 bg-slate-50/50 px-4 py-4 text-base font-bold text-slate-900 shadow-inner"
+              value={birthdaySettings.template}
+              onChange={(e) => setBirthdaySettings(p => ({ ...p, template: e.target.value }))}
+              placeholder="Happy Birthday! 🎉 ..."
+            />
+            <p className="text-[9px] font-bold text-slate-400 uppercase px-2 italic">Variables: [fullName] will be replaced by student name</p>
+          </div>
+        )}
       </section>
     </div>
   );

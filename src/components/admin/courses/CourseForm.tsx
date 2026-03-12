@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createCourse, updateCourse } from '@/lib/api/courses';
+import { createCourse, updateCourse, getCourses, getCourseContents, deleteCourseContent, getAssociatedCourses, deleteAssociatedCourse } from '@/lib/api/courses';
 import { useModalStore } from '@/store/modalStore';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -23,6 +23,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { 
+  Info, 
+  FileUp, 
+  Link2, 
+  Plus, 
+  Trash2, 
+  ExternalLink,
+  FileText,
+  Video,
+  FileCheck,
+  Eye,
+  CheckCircle2,
+  Monitor,
+  GraduationCap
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { CourseResourceForm } from './CourseResourceForm';
+import { CourseAssociationForm } from './CourseAssociationForm';
 
 const statusOptions: CourseStatus[] = ['ACTIVE', 'DISABLED', 'ARCHIVED'];
 const typeOptions: CourseType[] = ['ONLINE', 'OFFLINE'];
@@ -81,8 +100,30 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
   const [form, setForm] = useState<FormState>(defaultForm);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  const [activeTab, setActiveTab] = useState<'basic' | 'resources' | 'links'>('basic');
+  const [resources, setResources] = useState<any[]>([]);
+  const [associations, setAssociations] = useState<any[]>([]);
+  const [allCourses, setAllCourses] = useState<any[]>([]);
+  const [showResourceForm, setShowResourceForm] = useState(false);
+  const [showAssociationForm, setShowAssociationForm] = useState(false);
+  const [editingResource, setEditingResource] = useState<any>(null);
 
   const isEdit = !!course;
+
+  const fetchExtras = async () => {
+    if (!course?.id) return;
+    try {
+      const [resRes, assocRes, coursesRes] = await Promise.all([
+        getCourseContents({ courseId: course.id }),
+        getAssociatedCourses({ fromCourseId: course.id }),
+        getCourses({})
+      ]);
+      if (resRes.success) setResources(resRes.data);
+      if (assocRes.success) setAssociations(assocRes.data);
+      if (coursesRes.success) setAllCourses(coursesRes.data || []);
+    } catch (err) { console.error(err); }
+  };
 
   useEffect(() => {
     if (course) {
@@ -100,6 +141,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
         websiteVisible: course.websiteVisible,
         settledOptionEnabled: course.settledOptionEnabled,
       });
+      fetchExtras();
     }
   }, [course]);
 
@@ -138,7 +180,15 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
       if (isEdit && course) {
         await updateCourse(course.id, payload as UpdateCourseDto);
       } else {
-        await createCourse(payload as CreateCourseDto);
+        const res = await createCourse(payload as CreateCourseDto);
+        if (res.success && res.data) {
+           toast({ title: 'Deployed', description: 'Basic configuration active. You can now add resources.', variant: 'success' });
+           // If creation was successful, we might want to stay in edit mode to add resources
+           // but for simplicity, let's just close and refresh
+           closeModal();
+           await onSuccess();
+           return;
+        }
       }
       
       toast({
@@ -162,186 +212,257 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
     }
   };
 
+  const getResourceIcon = (type: string) => {
+    switch (type) {
+      case 'VIDEO': return <Video className="h-4 w-4" />;
+      case 'SYLLABUS': return <FileCheck className="h-4 w-4" />;
+      case 'LEAFLET': return <Eye className="h-4 w-4" />;
+      case 'SCHEDULE': return <Calendar className="h-4 w-4" />;
+      default: return <FileText className="h-4 w-4" />;
+    }
+  };
+
   return (
-    <div className="flex flex-col h-full bg-white text-slate-900">
+    <div className="flex flex-col h-[85vh] bg-white text-slate-900">
+      {/* Tab Navigation */}
+      <div className="px-8 pt-4 border-b border-slate-100 flex gap-8 bg-slate-50/30 shrink-0">
+        {[
+          { id: 'basic', label: 'Basic Configuration', icon: Info },
+          { id: 'resources', label: 'Assets & Media', icon: FileUp, disabled: !isEdit },
+          { id: 'links', label: 'Connections', icon: Link2, disabled: !isEdit },
+        ].map(tab => (
+          <button
+            key={tab.id}
+            disabled={tab.disabled}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={cn(
+              "pb-4 text-[10px] font-black uppercase tracking-[0.2em] transition-all relative flex items-center gap-2",
+              activeTab === tab.id ? "text-indigo-600" : "text-black hover:text-slate-600",
+              tab.disabled && "opacity-30 cursor-not-allowed"
+            )}
+          >
+            <tab.icon className="h-3.5 w-3.5" />
+            {tab.label}
+            {activeTab === tab.id && <div className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-600 rounded-t-full" />}
+          </button>
+        ))}
+      </div>
+
       <div className="flex-1 min-h-0 overflow-y-auto px-8 py-8 no-scrollbar">
-        <div className="grid gap-8 py-2 sm:grid-cols-2">
-          <div className="space-y-2">
-            <label className={sectionLabel}>Program Hierarchy</label>
-            <Select
-              value={form.programId}
-              onValueChange={(value) => setForm((prev) => ({ ...prev, programId: value }))}
-            >
-              <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
-                <SelectValue placeholder="Select Program" />
-              </SelectTrigger>
-              <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                {programs.map((program) => (
-                  <SelectItem key={program.id} value={program.id} className="text-sm font-medium">
-                    {program.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        {activeTab === 'basic' && (
+          <div className="grid gap-8 py-2 sm:grid-cols-2 animate-in fade-in duration-300">
+            <div className="space-y-2">
+              <label className={sectionLabel}>Program Hierarchy</label>
+              <Select
+                value={form.programId}
+                onValueChange={(value) => setForm((prev) => ({ ...prev, programId: value }))}
+              >
+                <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
+                  <SelectValue placeholder="Select Program" />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
+                  {programs.map((program) => (
+                    <SelectItem key={program.id} value={program.id} className="text-sm font-medium">
+                      {program.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          <div className="space-y-2">
-            <label className={sectionLabel}>Course Code</label>
-            <Input
-              className={inputClass}
-              value={form.code}
-              onChange={(e) => setForm((prev) => ({ ...prev, code: e.target.value.toUpperCase() }))}
-              placeholder="e.g., HSC-PHY-01"
-            />
-          </div>
-
-          <div className="space-y-2 sm:col-span-2">
-            <label className={sectionLabel}>Official Title</label>
-            <Input
-              className={inputClass}
-              value={form.name}
-              onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-              placeholder="Full course name"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className={sectionLabel}>Modality</label>
-            <Select
-              value={form.type}
-              onValueChange={(value) => setForm((prev) => ({ ...prev, type: value as CourseType }))}
-            >
-              <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                {typeOptions.map((option) => (
-                  <SelectItem key={option} value={option} className="text-sm font-medium">
-                    {option}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <label className={sectionLabel}>Billing Structure</label>
-            <Select
-              value={form.billingType}
-              onValueChange={(value) =>
-                setForm((prev) => ({ ...prev, billingType: value as BillingType }))
-              }
-            >
-              <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                {billingOptions.map((option) => (
-                  <SelectItem key={option} value={option} className="text-sm font-medium">
-                    {option}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <label className={sectionLabel}>Platform Status</label>
-            <Select
-              value={form.status}
-              onValueChange={(value) => setForm((prev) => ({ ...prev, status: value as CourseStatus }))}
-            >
-              <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                {statusOptions.map((option) => (
-                  <SelectItem key={option} value={option} className="text-sm font-medium">
-                    {option}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <label className={sectionLabel}>Admission Phase</label>
-            <Select
-              value={form.admissionStatus}
-              onValueChange={(value) =>
-                setForm((prev) => ({ ...prev, admissionStatus: value as AdmissionStatus }))
-              }
-            >
-              <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                {admissionOptions.map((option) => (
-                  <SelectItem key={option} value={option} className="text-sm font-medium">
-                    {option}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2 sm:col-span-2">
-            <label className={sectionLabel}>Tuition Fee (৳)</label>
-            <Input
-              className={inputClass}
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.fee}
-              onChange={(e) => setForm((prev) => ({ ...prev, fee: e.target.value }))}
-            />
-          </div>
-
-          <div className="space-y-2 sm:col-span-2">
-            <label className={sectionLabel}>Course Overview</label>
-            <textarea
-              value={form.description}
-              onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-              rows={4}
-              placeholder="Describe the course curriculum..."
-              className={textareaClass}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:col-span-2 pt-2">
-            <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 transition-all hover:bg-white hover:shadow-md cursor-pointer group">
-              <input
-                type="checkbox"
-                checked={form.featured}
-                onChange={(e) => setForm((prev) => ({ ...prev, featured: e.target.checked }))}
-                className={checkboxClass()}
+            <div className="space-y-2">
+              <label className={sectionLabel}>Course Code</label>
+              <Input
+                className={inputClass}
+                value={form.code}
+                onChange={(e) => setForm((prev) => ({ ...prev, code: e.target.value.toUpperCase() }))}
+                placeholder="e.g., HSC-PHY-01"
               />
-              <span className="text-[11px] font-black uppercase tracking-widest text-slate-600 group-hover:text-indigo-600 transition-colors">Featured</span>
-            </label>
-            
-            <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 transition-all hover:bg-white hover:shadow-md cursor-pointer group">
-              <input
-                type="checkbox"
-                checked={form.websiteVisible}
-                onChange={(e) => setForm((prev) => ({ ...prev, websiteVisible: e.target.checked }))}
-                className={checkboxClass()}
-              />
-              <span className="text-[11px] font-black uppercase tracking-widest text-slate-600 group-hover:text-indigo-600 transition-colors">Visible</span>
-            </label>
+            </div>
 
-            <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 transition-all hover:bg-white hover:shadow-md cursor-pointer group">
-              <input
-                type="checkbox"
-                checked={form.settledOptionEnabled}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, settledOptionEnabled: e.target.checked }))
+            <div className="space-y-2 sm:col-span-2">
+              <label className={sectionLabel}>Official Title</label>
+              <Input
+                className={inputClass}
+                value={form.name}
+                onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                placeholder="Full course name"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className={sectionLabel}>Modality</label>
+              <Select
+                value={form.type}
+                onValueChange={(value) => setForm((prev) => ({ ...prev, type: value as CourseType }))}
+              >
+                <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
+                  {typeOptions.map((option) => (
+                    <SelectItem key={option} value={option} className="text-sm font-medium">
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className={sectionLabel}>Billing Structure</label>
+              <Select
+                value={form.billingType}
+                onValueChange={(value) =>
+                  setForm((prev) => ({ ...prev, billingType: value as BillingType }))
                 }
-                className={checkboxClass()}
+              >
+                <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
+                  {billingOptions.map((option) => (
+                    <SelectItem key={option} value={option} className="text-sm font-medium">
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2 sm:col-span-2">
+              <label className={sectionLabel}>Tuition Fee (৳)</label>
+              <Input
+                className={inputClass}
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.fee}
+                onChange={(e) => setForm((prev) => ({ ...prev, fee: e.target.value }))}
               />
-              <span className="text-[11px] font-black uppercase tracking-widest text-slate-600 group-hover:text-indigo-600 transition-colors">Settled</span>
-            </label>
+            </div>
+
+            <div className="space-y-2 sm:col-span-2">
+              <label className={sectionLabel}>Course Overview</label>
+              <textarea
+                value={form.description}
+                onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+                rows={4}
+                placeholder="Describe the course curriculum..."
+                className={textareaClass}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:col-span-2 pt-2">
+              <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 transition-all hover:bg-white hover:shadow-md cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={form.featured}
+                  onChange={(e) => setForm((prev) => ({ ...prev, featured: e.target.checked }))}
+                  className={checkboxClass()}
+                />
+                <span className="text-[11px] font-black uppercase tracking-widest text-slate-600 group-hover:text-indigo-600 transition-colors">Featured</span>
+              </label>
+              
+              <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 transition-all hover:bg-white hover:shadow-md cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={form.websiteVisible}
+                  onChange={(e) => setForm((prev) => ({ ...prev, websiteVisible: e.target.checked }))}
+                  className={checkboxClass()}
+                />
+                <span className="text-[11px] font-black uppercase tracking-widest text-slate-600 group-hover:text-indigo-600 transition-colors">Visible</span>
+              </label>
+            </div>
           </div>
-        </div>
+        )}
+
+        {activeTab === 'resources' && course && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="flex items-center justify-between">
+               <h3 className="text-xl font-black tracking-tight">Manage Assets</h3>
+               {!showResourceForm && (
+                 <Button onClick={() => { setEditingResource(null); setShowResourceForm(true); }} size="sm" className="h-9 rounded-xl bg-slate-900 text-white font-black uppercase tracking-widest text-[9px]">
+                    <Plus className="mr-2 h-3.5 w-3.5" /> Deploy Resource
+                 </Button>
+               )}
+            </div>
+
+            {showResourceForm && (
+              <CourseResourceForm 
+                courseId={course.id} 
+                resource={editingResource}
+                onSuccess={() => { setShowResourceForm(false); fetchExtras(); }}
+                onCancel={() => setShowResourceForm(false)}
+              />
+            )}
+
+            <div className="grid gap-3">
+               {resources.map(res => (
+                 <div key={res.id} className="group flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-white hover:border-indigo-200 transition-all">
+                    <div className="flex items-center gap-4">
+                       <div className="h-10 w-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:text-indigo-600 shadow-inner">
+                          {getResourceIcon(res.type)}
+                       </div>
+                       <div>
+                          <h4 className="text-sm font-black text-slate-800">{res.title}</h4>
+                          <Badge variant="outline" className="text-[7px] font-black uppercase mt-0.5">{res.type}</Badge>
+                       </div>
+                    </div>
+                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                       <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg border-slate-200" onClick={() => { setEditingResource(res); setShowResourceForm(true); }}>
+                          <FileText className="h-3.5 w-3.5 text-amber-500" />
+                       </Button>
+                       <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg border-slate-200 hover:bg-rose-50" onClick={async () => { if(confirm('Delete?')){ await deleteCourseContent(res.id); fetchExtras(); } }}>
+                          <Trash2 className="h-3.5 w-3.5 text-rose-500" />
+                       </Button>
+                    </div>
+                 </div>
+               ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'links' && course && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="flex items-center justify-between">
+               <h3 className="text-xl font-black tracking-tight">Manage Linkages</h3>
+               {!showAssociationForm && (
+                 <Button onClick={() => setShowAssociationForm(true)} size="sm" className="h-9 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 font-black uppercase tracking-widest text-[9px]">
+                    <Plus className="mr-2 h-3.5 w-3.5" /> Establish Link
+                 </Button>
+               )}
+            </div>
+
+            {showAssociationForm && (
+              <CourseAssociationForm 
+                fromCourseId={course.id} 
+                courses={allCourses}
+                onSuccess={() => { setShowAssociationForm(false); fetchExtras(); }}
+                onCancel={() => setShowAssociationForm(false)}
+              />
+            )}
+
+            <div className="grid gap-4">
+               {associations.map(assoc => (
+                 <div key={assoc.id} className="p-4 rounded-2xl border border-slate-100 bg-white flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                       <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs shadow-inner">
+                          {assoc.type.charAt(0)}
+                       </div>
+                       <div>
+                          <h4 className="text-sm font-black text-slate-800">{assoc.toCourse?.name}</h4>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{assoc.type}</p>
+                       </div>
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-rose-500" onClick={async () => { if(confirm('Sever?')){ await deleteAssociatedCourse(assoc.id); fetchExtras(); } }}>
+                       <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                 </div>
+               ))}
+            </div>
+          </div>
+        )}
 
         {error && (
           <div className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-base font-bold text-rose-600 uppercase tracking-widest flex items-center gap-3">

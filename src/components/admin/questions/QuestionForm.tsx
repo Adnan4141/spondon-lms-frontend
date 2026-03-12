@@ -37,6 +37,8 @@ interface QuestionFormProps {
   question?: Question | null;
   initialFolderId?: string;
   initialPassageId?: string;
+  initialType?: QuestionType;
+  initialMcqType?: McqType;
   onSuccess: () => Promise<void>;
 }
 
@@ -44,13 +46,21 @@ const questionTypeOptions: QuestionType[] = ['MCQ', 'CQ'];
 const difficultyOptions: Difficulty[] = ['EASY', 'MEDIUM', 'HARD'];
 const mcqTypeOptions: McqType[] = ['SINGLE', 'PASSAGE_CHILD'];
 
-export function QuestionForm({ folders, question, initialFolderId, initialPassageId, onSuccess }: QuestionFormProps) {
+export function QuestionForm({ 
+  folders, 
+  question, 
+  initialFolderId, 
+  initialPassageId, 
+  initialType,
+  initialMcqType,
+  onSuccess 
+}: QuestionFormProps) {
   const { closeModal } = useModalStore();
   const { toast } = useToast();
   const [form, setForm] = useState<CreateQuestionDto>({
     folderId: initialFolderId || '',
-    type: 'MCQ',
-    mcqType: 'SINGLE',
+    type: initialType || 'MCQ',
+    mcqType: initialMcqType || 'SINGLE',
     passageId: initialPassageId || undefined,
     difficulty: undefined,
     year: undefined,
@@ -63,6 +73,7 @@ export function QuestionForm({ folders, question, initialFolderId, initialPassag
   const [passages, setPassages] = useState<McqPassage[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showExplanation, setShowExplanation] = useState(false);
   
   const optionsEndRef = useRef<HTMLDivElement | null>(null);
   const isEdit = !!question;
@@ -88,6 +99,7 @@ export function QuestionForm({ folders, question, initialFolderId, initialPassag
           isCorrect: opt.isCorrect,
         })) || []
       );
+      if (question.explanation) setShowExplanation(true);
     } else if (initialPassageId) {
        setForm(prev => ({ ...prev, mcqType: 'PASSAGE_CHILD', passageId: initialPassageId }));
        setMcqOptions([
@@ -198,13 +210,40 @@ export function QuestionForm({ folders, question, initialFolderId, initialPassag
             </div>
 
             <div className="space-y-2">
-              <label className={sectionLabel}>Solution Explanation (Optional)</label>
-              <RichTextEditor
-                value={form.explanation || ''}
-                onChange={(html) => setForm(prev => ({ ...prev, explanation: html }))}
-                onImageUpload={handleEditorImageUpload}
-                placeholder="Provide reasoning for the correct answer..."
-              />
+              {!showExplanation ? (
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="h-10 rounded-xl border-slate-200 bg-white text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:bg-indigo-50"
+                  onClick={() => setShowExplanation(true)}
+                >
+                  <Plus className="mr-1.5 h-3.5 w-3.5" /> Add Solution Explanation
+                </Button>
+              ) : (
+                <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className={sectionLabel}>Solution Explanation (Optional)</label>
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => {
+                        setShowExplanation(false);
+                        setForm(prev => ({ ...prev, explanation: '' }));
+                      }}
+                      className="h-6 px-2 text-[10px] font-black uppercase text-rose-500 hover:bg-rose-50"
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                  <RichTextEditor
+                    value={form.explanation || ''}
+                    onChange={(html) => setForm(prev => ({ ...prev, explanation: html }))}
+                    onImageUpload={handleEditorImageUpload}
+                    placeholder="Provide reasoning for the correct answer..."
+                  />
+                </div>
+              )}
             </div>
 
             {form.type === 'MCQ' && (
@@ -364,7 +403,7 @@ export function QuestionForm({ folders, question, initialFolderId, initialPassag
             disabled={submitting}
             className="flex-[2] h-12 rounded-2xl bg-slate-900 font-black uppercase tracking-[0.2em] text-[11px] text-white shadow-xl shadow-slate-200 hover:bg-indigo-600 hover:scale-[1.02] active:scale-95 transition-all"
           >
-            {submitting ? 'Processing...' : isEdit ? 'Update Question' : 'Authorize Question'}
+            {submitting ? 'Processing...' : isEdit ? 'Update Question' : 'Create Question'}
           </Button>
         </div>
       </div>

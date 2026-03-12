@@ -8,6 +8,7 @@ import {
   Users,
   GraduationCap,
   FileText,
+  MessageSquare,
   Settings,
   LayoutDashboard,
   Calendar,
@@ -38,6 +39,7 @@ const menuSections = [
       { title: 'Courses', href: '/admin/courses', icon: BookOpen, color: 'text-indigo-500', bg: 'bg-indigo-50' },
       { title: 'Programs', href: '/admin/programs', icon: GraduationCap, color: 'text-rose-500', bg: 'bg-rose-50' },
       { title: 'Batches', href: '/admin/batches', icon: Calendar, color: 'text-sky-500', bg: 'bg-sky-50' },
+      { title: 'Attendance Sheet', href: '/admin/academic-records/attendance-sheet', icon: ClipboardList, color: 'text-emerald-500', bg: 'bg-emerald-50' },
       { title: 'Academic', href: '/admin/academic-records', icon: BarChart3, color: 'text-lime-500', bg: 'bg-lime-50' },
     ]
   },
@@ -56,6 +58,7 @@ const menuSections = [
     items: [
       { title: 'Enrollments', href: '/admin/enrollments', icon: FileText, color: 'text-indigo-600', bg: 'bg-indigo-50' },
       { title: 'Invoices', href: '/admin/invoices', icon: CreditCard, color: 'text-orange-500', bg: 'bg-orange-50' },
+      { title: 'SMS Console', href: '/admin/sms', icon: MessageSquare, color: 'text-emerald-500', bg: 'bg-emerald-50' },
       { title: 'Reports', href: '/admin/reports', icon: BarChart3, color: 'text-teal-500', bg: 'bg-teal-50' },
       { title: 'Settings', href: '/admin/settings', icon: Settings, color: 'text-slate-500', bg: 'bg-slate-50' },
     ]

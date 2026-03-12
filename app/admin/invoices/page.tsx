@@ -47,7 +47,8 @@ import {
   User,
   Receipt,
   Clock as ClockIcon,
-  Calendar
+  Calendar,
+  Zap
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
@@ -55,6 +56,8 @@ import { useModalStore } from '@/store/modalStore';
 import { InvoiceForm } from '@/components/admin/invoices/InvoiceForm';
 import { InvoiceDetailsView } from '@/components/admin/invoices/InvoiceDetailsView';
 import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
+import { generateMonthlyDues } from '@/lib/api/accounting';
+import { MonthPicker } from '@/components/ui/month-picker';
 import { cn } from '@/lib/utils';
 
 const statusOptions: (InvoiceStatus | 'all')[] = ['all', 'DRAFT', 'ISSUED', 'PAID', 'PARTIAL', 'CANCELLED', 'SETTLED'];
@@ -173,6 +176,43 @@ export default function InvoicesPage() {
     });
   };
 
+  const handleGenerateDues = async () => {
+    const month = monthFilter || new Date().toISOString().slice(0, 7);
+    
+    openModal({
+      title: 'Execute Batch Billing',
+      description: `Synchronizing automated dues for ${month}. This will identify all active monthly enrollments without a current statement and initialize their monthly tuition record.`,
+      className: 'sm:max-w-xl',
+      content: (
+        <ConfirmationModal
+          title="Confirm Batch Execution"
+          description={`Process automated billing for ${month}?`}
+          variant="primary"
+          onConfirm={async () => {
+            try {
+              setLoading(true);
+              const res = await generateMonthlyDues(month);
+              if (res.success) {
+                await loadInvoices();
+                toast({ 
+                  title: 'Billing Cycle Completed', 
+                  description: `${res.summary.created} new statements generated for ${month}.`, 
+                  variant: 'success' 
+                });
+              } else {
+                toast({ title: 'Batch Error', description: res.message, variant: 'destructive' });
+              }
+            } catch (err: any) {
+              toast({ title: 'System Error', description: err.message, variant: 'destructive' });
+            } finally {
+              setLoading(false);
+            }
+          }}
+        />
+      ),
+    });
+  };
+
   const handleDeleteInvoice = async (invoiceId: string) => {
     openModal({
       title: 'Invoice Purge',
@@ -278,13 +318,23 @@ export default function InvoicesPage() {
             </Button>
           </div>
 
-          <Button
-            className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95"
-            onClick={handleCreateInvoice}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Initialize Invoice
-          </Button>
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              className="h-12 rounded-2xl border-slate-200 bg-white px-6 font-black uppercase tracking-widest text-[10px] text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
+              onClick={handleGenerateDues}
+            >
+              <Zap className="mr-2 h-4 w-4 text-amber-500" />
+              Generate Monthly Dues
+            </Button>
+            <Button
+              className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95"
+              onClick={handleCreateInvoice}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Initialize Invoice
+            </Button>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-4 pt-4 border-t border-slate-100">
@@ -298,13 +348,12 @@ export default function InvoicesPage() {
               </SelectContent>
            </Select>
 
-           <div className="relative h-10 w-[200px]">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-              <Input 
-                type="month" 
+           <div className="relative h-10 w-[220px]">
+              <MonthPicker 
                 value={monthFilter} 
-                onChange={(e) => setMonthFilter(e.target.value)}
-                className="h-10 w-full rounded-xl border-slate-200 bg-slate-50/50 pl-9 font-bold text-[10px] uppercase tracking-widest text-slate-500 focus:bg-white transition-all shadow-sm"
+                onChange={setMonthFilter}
+                placeholder="Resolution Month"
+                className="h-10 rounded-xl border-slate-200 bg-slate-50/50 pl-4 font-bold text-[10px] uppercase tracking-widest text-slate-500 focus:bg-white transition-all shadow-sm"
               />
            </div>
         </div>
