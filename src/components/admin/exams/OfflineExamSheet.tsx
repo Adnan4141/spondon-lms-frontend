@@ -1,9 +1,9 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Printer, X, GraduationCap, Clock, FileText, Info, BookOpen } from 'lucide-react';
+import { Printer, X, GraduationCap, Clock, FileText, Info, BookOpen, Columns, Square } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface OfflineExamSheetProps {
@@ -13,6 +13,8 @@ interface OfflineExamSheetProps {
 }
 
 export function OfflineExamSheet({ exam, set, onClose }: OfflineExamSheetProps) {
+  const [isTwoColumn, setIsTwoColumn] = useState(true);
+
   const handlePrint = () => {
     window.print();
   };
@@ -36,7 +38,25 @@ export function OfflineExamSheet({ exam, set, onClose }: OfflineExamSheetProps) 
             </div>
          </div>
          <div className="flex items-center gap-3">
-            <Button onClick={handlePrint} className="h-10 rounded-xl bg-slate-900 hover:bg-indigo-600 text-white font-black uppercase tracking-widest text-[10px] shadow-lg transition-all">
+            <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 mr-4 shadow-sm">
+               <Button 
+                 variant="ghost" 
+                 size="sm" 
+                 className={cn("h-8 px-3 rounded-lg text-[9px] font-black uppercase transition-all", !isTwoColumn ? "bg-slate-900 text-white shadow-md" : "text-slate-400")}
+                 onClick={() => setIsTwoColumn(false)}
+               >
+                  <Square className="mr-1.5 h-3 w-3" /> Standard
+               </Button>
+               <Button 
+                 variant="ghost" 
+                 size="sm" 
+                 className={cn("h-8 px-3 rounded-lg text-[9px] font-black uppercase transition-all", isTwoColumn ? "bg-slate-900 text-white shadow-md" : "text-slate-400")}
+                 onClick={() => setIsTwoColumn(true)}
+               >
+                  <Columns className="mr-1.5 h-3 w-3" /> Two Column
+               </Button>
+            </div>
+            <Button onClick={handlePrint} className="h-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase tracking-widest text-[10px] shadow-lg transition-all">
                <Printer className="mr-2 h-4 w-4" /> Export to PDF / Print
             </Button>
             <Button variant="outline" onClick={onClose} className="h-10 w-10 rounded-xl border-slate-200">
@@ -47,7 +67,7 @@ export function OfflineExamSheet({ exam, set, onClose }: OfflineExamSheetProps) 
 
       {/* Printable Area */}
       <div className="flex-1 overflow-y-auto p-10 print:p-0 no-scrollbar">
-         <div className="max-w-[800px] mx-auto bg-white print:max-w-none">
+         <div className="max-w-[1000px] mx-auto bg-white print:max-w-none">
             {/* Header / Branding */}
             <header className="border-b-[3px] border-slate-900 pb-8 mb-10">
                <div className="flex justify-between items-start">
@@ -113,18 +133,26 @@ export function OfflineExamSheet({ exam, set, onClose }: OfflineExamSheetProps) 
             </div>
 
             {/* Questions Registry */}
-            <div className="space-y-5">
+            <div className={cn(
+               "gap-x-12",
+               isTwoColumn ? "columns-2 [column-rule:1px_solid_#e2e8f0] print:[column-rule:1px_solid_#000]" : "columns-1"
+            )}>
                {set.questions?.map((eq: any) => {
                   const q = eq.question;
                   const p = eq.passage;
 
                   if (p) {
                     return (
-                      <div key={eq.id} className="space-y-8 break-inside-avoid pt-4">
-                         <div className="bg-slate-50 p-5 r border-slate-200 print:bg-transparent print:border-slate-900 print:rounded-2xl">
-                         
-                            <div className="text-[15px] leading-[1.8] text-slate-800 font-medium prose prose-slate max-w-none" dangerouslySetInnerHTML={{ __html: p.content }} />
-                            
+                      <div key={eq.id} className="mb-10 break-inside-avoid pt-2">
+                         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 print:bg-transparent print:border-slate-900 print:rounded-xl">
+                            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-200 print:border-slate-900">
+                               <BookOpen className="h-4 w-4 text-indigo-600 print:text-slate-900" />
+                               <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-indigo-600 print:text-slate-900">Reading Passage Context</h3>
+                            </div>
+                            <div className="text-[13px] leading-relaxed text-slate-800 font-medium prose prose-slate max-w-none" dangerouslySetInnerHTML={{ __html: p.content }} />
+                            <p className="mt-4 pt-3 border-t border-dotted border-slate-300 text-[9px] font-bold italic text-slate-400 uppercase tracking-widest print:border-slate-900">
+                               Solve the related inquiries below
+                            </p>
                          </div>
                       </div>
                     );
@@ -136,40 +164,40 @@ export function OfflineExamSheet({ exam, set, onClose }: OfflineExamSheetProps) 
 
                     return (
                       <div key={eq.id} className={cn(
-                        "group relative break-inside-avoid", 
-                        isChild ? "ml-5 border-l-4 border-slate-100 pl-10 py-6 bg-slate-50/30 rounded-r-[32px] print:border-l-slate-300 print:bg-transparent" : "pt-4"
+                        "mb-10 break-inside-avoid", 
+                        isChild ? "ml-6 border-l-2 border-slate-100 pl-6 py-2" : "pt-2"
                       )}>
-                         <div className="flex items-start gap-6">
-                            <span className={cn("text-lg font-black text-slate-900 min-w-[40px] pt-0.5", isChild && "text-slate-500")}>
+                         <div className="flex items-start gap-3">
+                            <span className={cn("text-base font-black text-slate-900 min-w-[25px] pt-0.5", isChild && "text-sm text-slate-500")}>
                                {questionNumber}.
                             </span>
-                            <div className="flex-1 space-y-8">
-                               <div className="flex justify-between items-start gap-6">
-                                  <div className={cn("text-[16px] font-bold text-slate-900 leading-relaxed", isChild && "text-[15px]")} dangerouslySetInnerHTML={{ __html: q.prompt }} />
-                                  <div className="flex flex-col items-end gap-1 shrink-0">
-                                     <span className="text-[11px] font-black text-slate-900 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 whitespace-nowrap print:border-slate-900">
-                                        {eq.marks} PTS
-                                     </span>
-                                     {isChild && <span className="text-[8px] font-black text-indigo-500 uppercase tracking-tighter">Passage_Linked</span>}
-                                  </div>
+                            <div className="flex-1 space-y-4">
+                               <div className="flex justify-between items-start gap-4">
+                                  <div className={cn("text-[14px] font-bold text-slate-900 leading-snug", isChild && "text-[13px]")} dangerouslySetInnerHTML={{ __html: q.prompt }} />
+                                  <span className="text-[9px] font-black text-slate-400 bg-slate-50 px-2 py-1 rounded border border-slate-100 whitespace-nowrap print:border-slate-900 shrink-0">
+                                     {eq.marks} PTS
+                                  </span>
                                </div>
 
                                {q.type === 'MCQ' && q.options && q.options.length > 0 && (
-                                 <div className="grid grid-cols-2 gap-x-16 gap-y-6 pt-4">
+                                 <div className={cn(
+                                    "grid gap-x-6 gap-y-2 pt-1",
+                                    isTwoColumn ? "grid-cols-1" : "grid-cols-2"
+                                 )}>
                                     {q.options.map((opt: any) => (
-                                      <div key={opt.id} className="flex items-center gap-4">
-                                         <div className="h-6 w-6 rounded-full border-2 border-slate-300 shrink-0 print:border-slate-900" />
-                                         <span className="text-base font-black text-slate-400 w-5">{opt.label}.</span>
-                                         <span className="text-[15px] font-semibold text-slate-700">{opt.text}</span>
+                                      <div key={opt.id} className="flex items-center gap-2">
+                                         <div className="h-4 w-4 rounded-full border border-slate-300 shrink-0 print:border-slate-900" />
+                                         <span className="text-[13px] font-black text-slate-400 w-4">{opt.label}.</span>
+                                         <span className="text-[13px] font-semibold text-slate-700">{opt.text}</span>
                                       </div>
                                     ))}
                                  </div>
                                )}
 
                                {q.type === 'CQ' && (
-                                 <div className="pt-6 space-y-4">
-                                    <div className="h-40 w-full border-2 border-dashed border-slate-200 rounded-[32px] print:border-slate-400" />
-                                    <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.3em] text-center">Protocol Response Matrix</p>
+                                 <div className="pt-2 space-y-2">
+                                    <div className="h-24 w-full border border-dashed border-slate-200 rounded-xl print:border-slate-400" />
+                                    <p className="text-[7px] font-black text-slate-300 uppercase tracking-[0.2em] text-center italic">Response Matrix</p>
                                  </div>
                                )}
                             </div>
@@ -182,24 +210,24 @@ export function OfflineExamSheet({ exam, set, onClose }: OfflineExamSheetProps) 
             </div>
 
             {/* Institutional Compliance Footer */}
-            <footer className="mt-32 pt-16 border-t-4 border-slate-900 flex flex-col gap-10">
-               <div className="grid grid-cols-3 gap-20">
-                  <div className="border-t border-slate-200 pt-3 text-center print:border-slate-900">
-                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-900">Assessing Instructor</p>
+            <footer className="mt-20 pt-12 border-t-4 border-slate-900 flex flex-col gap-8">
+               <div className="grid grid-cols-3 gap-10">
+                  <div className="border-t border-slate-200 pt-2 text-center print:border-slate-900">
+                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-900">Instructor Signature</p>
                   </div>
-                  <div className="border-t border-slate-200 pt-3 text-center print:border-slate-900">
-                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-900">Branch Controller</p>
+                  <div className="border-t border-slate-200 pt-2 text-center print:border-slate-900">
+                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-900">Branch Controller</p>
                   </div>
-                  <div className="border-t border-slate-200 pt-3 text-center print:border-slate-900">
-                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-900">Internal Audit</p>
+                  <div className="border-t border-slate-200 pt-2 text-center print:border-slate-900">
+                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-900">Internal Audit</p>
                   </div>
                </div>
                
                <div className="flex items-center justify-between opacity-40 print:opacity-100">
-                  <div className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">
-                     © Spondon LMS Institutional Protocol v2.0
+                  <div className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-500">
+                     © Spondon LMS Institutional Protocol
                   </div>
-                  <div className="font-mono text-[9px] font-bold text-slate-400 uppercase">
+                  <div className="font-mono text-[8px] font-bold text-slate-400 uppercase">
                      REF_ID: {set.id.toUpperCase()} • {new Date().toISOString().slice(0, 10)}
                   </div>
                </div>
