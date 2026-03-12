@@ -46,3 +46,37 @@ export async function deleteExam(id: string): Promise<ApiResponse<void>> {
     method: 'DELETE',
   });
 }
+
+// Exam Set Management
+export async function createExamSet(data: { examId: string; name: string }): Promise<ApiResponse<any>> {
+  return apiRequest<ApiResponse<any>>('/exams/sets', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteExamSet(id: string): Promise<ApiResponse<void>> {
+  return apiRequest<ApiResponse<void>>(`/exams/sets/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function addQuestionsToSet(data: {
+  examSetId: string;
+  questionIds?: string[];
+  folderId?: string;
+  count?: number;
+  marks?: number;
+  negativeMarks?: number;
+}): Promise<ApiResponse<any>> {
+  return apiRequest<ApiResponse<any>>('/exams/sets/questions', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function removeQuestionFromSet(id: string): Promise<ApiResponse<void>> {
+  return apiRequest<ApiResponse<void>>(`/exams/sets/questions/${id}`, {
+    method: 'DELETE',
+  });
+}
