@@ -209,7 +209,7 @@ export default function LandingPage() {
                 <div className="h-10 w-10 rounded-xl bg-[#5C2D91] flex items-center justify-center text-white shadow-xl group-hover:scale-110 transition-transform duration-500">
                   <Zap className="h-6 w-6 fill-white" />
                 </div>
-                স্পন্দন<span className="text-[#FF2D8C]">প্রো।</span>
+                স্পন্দন
               </div>
             </Link>
             <div className="hidden lg:flex items-center gap-6">
