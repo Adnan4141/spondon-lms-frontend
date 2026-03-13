@@ -343,8 +343,7 @@ export default function StudentsPage() {
                           </div>
                           <div className="flex items-center gap-1.5 text-base font-bold text-slate-400">
                              <GraduationCap className="h-3.5 w-3.5 text-indigo-400" />
-                             {student._count?.enrollments || 0} active plans
-                          </div>
+                             {student._count?.enrollments || 0} course enrolled                          </div>
                        </div>
                     </TableCell>
                     <TableCell className="py-5">

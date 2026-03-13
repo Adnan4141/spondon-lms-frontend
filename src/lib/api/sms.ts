@@ -33,6 +33,8 @@ export const getSmsBalance = (params?: any) => {
   return apiRequest<any>(`/sms/balance${q ? `?${q}` : ''}`);
 };
 
+export const getProviderBalance = () => apiRequest<any>('/sms/provider-balance');
+
 export const updateSmsBalance = (data: any) => apiRequest<any>('/sms/balance', {
   method: 'POST',
   body: JSON.stringify(data)
@@ -43,9 +45,9 @@ export const transferSmsBalance = (branchId: string, count: number) => apiReques
   body: JSON.stringify({ branchId, count })
 });
 
-export const sendDirectSms = (to: string, message: string, isMasking: boolean) => apiRequest<any>('/sms/send-direct', {
+export const sendDirectSms = (to: string, message: string, isMasking: boolean, branchId?: string, scope?: string) => apiRequest<any>('/sms/send-direct', {
   method: 'POST',
-  body: JSON.stringify({ to, message, isMasking })
+  body: JSON.stringify({ to, message, isMasking, branchId, scope })
 });
 
 export const getSmsLogs = (page = 1, limit = 10) => apiRequest<any>(`/sms/logs?page=${page}&limit=${limit}`);

@@ -11,6 +11,8 @@ import {
   createCampaign,
   runCampaign,
   getSmsBalance,
+  updateSmsBalance,
+  getProviderBalance,
   transferSmsBalance,
   getSmsLogs,
   SmsConfig, 
@@ -99,7 +101,9 @@ export default function SmsManagementPage() {
   const [directSend, setDirectSend] = useState({
     to: '',
     message: '',
-    isMasking: false
+    isMasking: false,
+    branchId: '',
+    scope: 'ORG'
   });
 
   // Campaign Form State
@@ -115,17 +119,21 @@ export default function SmsManagementPage() {
 
   const [previewCount, setPreviewCount] = useState<number | null>(null);
 
+  const [providerBalance, setProviderBalance] = useState<any>(null);
+  const [newOrgBalance, setNewOrgBalance] = useState<number>(0);
+
   const loadData = async () => {
     try {
       setLoading(true);
-      const [configRes, templatesRes, campaignsRes, progRes, branchRes, balanceRes, logsRes] = await Promise.all([
+      const [configRes, templatesRes, campaignsRes, progRes, branchRes, balanceRes, logsRes, providerRes] = await Promise.all([
         getSmsConfig(),
         getSmsTemplates(),
         getCampaigns(),
         getPrograms(),
         getBranches(),
         getSmsBalance(),
-        getSmsLogs(1, 20)
+        getSmsLogs(1, 20),
+        getProviderBalance()
       ]);
 
       if (configRes.success && configRes.data) setConfig(configRes.data);
@@ -133,12 +141,35 @@ export default function SmsManagementPage() {
       if (campaignsRes.success && campaignsRes.data) setCampaigns(campaignsRes.data);
       if (progRes.success && progRes.data) setPrograms(progRes.data);
       if (branchRes.success && branchRes.data) setBranches(branchRes.data);
-      if (balanceRes.success && balanceRes.data) setBalances(balanceRes.data);
+      if (balanceRes.success && balanceRes.data) {
+        setBalances(balanceRes.data);
+        const org = balanceRes.data.find((b: any) => b.scope === 'ORG');
+        if (org) setNewOrgBalance(org.balanceCount);
+      }
       if (logsRes.success && logsRes.data) setSmsLogs(logsRes.data);
+      if (providerRes.success) setProviderBalance(providerRes.data);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpdateOrgBalance = async () => {
+    try {
+      setSubmitting(true);
+      const res = await updateSmsBalance({
+        scope: 'ORG',
+        balanceCount: newOrgBalance
+      });
+      if (res.success) {
+        toast({ title: 'Balance Updated', description: 'Organization SMS balance has been updated', variant: 'success' });
+        loadData();
+      }
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -195,7 +226,13 @@ export default function SmsManagementPage() {
 
     try {
       setSubmitting(true);
-      const res = await sendDirectSms(directSend.to, directSend.message, directSend.isMasking);
+      const res = await sendDirectSms(
+        directSend.to, 
+        directSend.message, 
+        directSend.isMasking,
+        directSend.scope === 'BRANCH' ? directSend.branchId : undefined,
+        directSend.scope
+      );
       if (res.success) {
         toast({ title: 'Transmission Authorized', description: 'Communication successfully dispatched', variant: 'success' });
         setDirectSend({ ...directSend, to: '', message: '' });
@@ -381,9 +418,35 @@ export default function SmsManagementPage() {
                      <span className="text-6xl font-black tracking-tighter text-slate-900">{orgBalance.toLocaleString()}</span>
                      <span className="text-sm font-black text-slate-400 uppercase tracking-widest">Units</span>
                   </div>
+                  {providerBalance && (
+                    <div className="mt-2 flex items-center gap-2 text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-100/50">
+                      <Globe className="h-3 w-3" />
+                      <span>Provider Balance: {providerBalance.balance || providerBalance.data?.balance || '0.00'}</span>
+                    </div>
+                  )}
                </div>
 
                <div className="pt-8 border-t border-slate-100 space-y-5">
+                  <div className="space-y-3">
+                     <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500 px-1">Assign Primary Balance</p>
+                     <div className="flex gap-2">
+                        <Input 
+                           type="number" 
+                           placeholder="Set Total Credits" 
+                           value={newOrgBalance || ''} 
+                           onChange={e => setNewOrgBalance(parseInt(e.target.value) || 0)}
+                           className={inputClass}
+                        />
+                        <Button 
+                           onClick={handleUpdateOrgBalance} 
+                           disabled={submitting} 
+                           className="h-12 w-12 rounded-2xl bg-slate-900 hover:bg-indigo-600 text-white shadow-lg shrink-0"
+                        >
+                           <CheckCircle2 className="h-5 w-5" />
+                        </Button>
+                     </div>
+                  </div>
+
                   <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500 px-1">Credit Allocation Protocol</p>
                   <div className="space-y-3">
                      <Select value={transfer.branchId} onValueChange={v => setTransfer({...transfer, branchId: v})}>
@@ -680,6 +743,32 @@ export default function SmsManagementPage() {
                         </div>
                      </div>
                      <Switch checked={directSend.isMasking} onCheckedChange={v => setDirectSend({...directSend, isMasking: v})} />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                     <div className="space-y-2">
+                        <label className={labelClass}>Billing Scope</label>
+                        <Select value={directSend.scope} onValueChange={v => setDirectSend({...directSend, scope: v})}>
+                           <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold">
+                              <SelectValue />
+                           </SelectTrigger>
+                           <SelectContent className="rounded-2xl shadow-xl">
+                              <SelectItem value="ORG" className="font-bold py-3 text-xs">Organization</SelectItem>
+                              <SelectItem value="BRANCH" className="font-bold py-3 text-xs">Branch</SelectItem>
+                           </SelectContent>
+                        </Select>
+                     </div>
+                     <div className="space-y-2">
+                        <label className={labelClass}>Target Branch</label>
+                        <Select value={directSend.branchId} onValueChange={v => setDirectSend({...directSend, branchId: v})} disabled={directSend.scope === 'ORG'}>
+                           <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold">
+                              <SelectValue placeholder="Branch" />
+                           </SelectTrigger>
+                           <SelectContent className="rounded-2xl shadow-xl">
+                              {branches.map(b => <SelectItem key={b.id} value={b.id} className="font-bold py-3 text-xs">{b.name}</SelectItem>)}
+                           </SelectContent>
+                        </Select>
+                     </div>
                   </div>
 
                   <div className="space-y-2">
