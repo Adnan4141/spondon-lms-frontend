@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, animate } from 'framer-motion';
 import { 
   Star, 
   Users as UsersIcon, 
@@ -31,7 +31,8 @@ import {
   BookOpen,
   Wrench,
   Heart,
-  Layers3
+  Layers3,
+  Download
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -76,69 +77,30 @@ const fadeInScale = {
   }
 };
 
-// --- Types & Data ---
-
-interface Feature {
-  id: string;
-  title: string;
-  icon: React.ReactNode;
-  previewTitle: string;
-  previewTime: string;
-}
-
-const trustPoints = [
-  { img: "🎓", title: "দেশসেরা মেন্টর" },
-  { img: "⚡", title: "স্মার্ট লার্নিং" },
-  { img: "📊", title: "প্রগ্রেস রিপোর্ট" },
-  { img: "🤝", title: "২৪/৭ সাপোর্ট" },
-];
-
-const trustFeatures = [
-  { title: 'সেরা কন্টেন্ট', icon: '💎' },
-  { title: 'সহজ স্টাডি ম্যাটেরিয়াল', icon: '🎬' },
-  { title: 'স্বল্প খরচে অনেক কিছু', icon: '👛' },
-  { title: 'সাবলীল উপস্থাপনা', icon: '🍎' },
-];
-
-const testimonials = [
-  {
-    id: 1,
-    quote: "লাইভ ক্লাসে অ্যাডভান্সড প্রবলেম সলভিংও করায়, এতে এডমিশন টেস্টের প্রশ্ন কলেজ লাইফেই শিখে যাচ্ছি",
-    name: "ইশরাত",
-    info: "বান্দরবান থেকে স্বপ্ন পূরণের লক্ষ্যে HSC '26 একাডেমিক প্রোগ্রামে",
-    videoThumb: "https://images.unsplash.com/photo-1517673132405-a56a62b18acc?w=600",
-    videoLabel: "বান্দরবান থেকে দুই বোন স্বপ্ন পূরণের লক্ষ্যে SpondonPro-তে!"
-  }
-];
-
-const interactiveFeatures: Feature[] = [
-  { id: 'live', title: 'লাইভ এবং রেকর্ডড ক্লাস', icon: <Cast className="h-5 w-5" />, previewTitle: 'জীববিজ্ঞান ৯ম- অধ্যায় ১: কোষ ও কলা', previewTime: 'রাত ৮:৩০ - ৯:৩০ | ৩০ মিনিট' },
-  { id: 'animated', title: 'অ্যানিমেটেড ভিডিও', icon: <Video className="h-5 w-5" />, previewTitle: 'পদার্থবিজ্ঞান: গতির সূত্রসমূহ (অ্যানিমেশন)', previewTime: '১০ মিনিট' },
-  { id: 'mcq-practice', title: 'প্র্যাকটিস MCQ টেস্ট', icon: <HelpCircle className="h-5 w-5" />, previewTitle: 'রসায়ন অধ্যায় ৪: পর্যায় সারণি', previewTime: '১৫ মিনিট' },
-  { id: 'mcq-live', title: 'লাইভ MCQ টেস্ট', icon: <ClipboardCheck className="h-5 w-5" />, previewTitle: 'উচ্চতর গণিত: সাপ্তাহিক লাইভ কুইজ', previewTime: 'রাত ৯:০০ | ২০ মিনিট' },
-  { id: 'notes', title: 'লেকচার নোট', icon: <FileText className="h-5 w-5" />, previewTitle: 'ইতিহাস: লেকচার ১ এর বিস্তারিত নোট', previewTime: 'পিডিএফ ফাইল' },
-  { id: 'smart-notes', title: 'স্মার্ট নোট', icon: <FileText className="h-5 w-5 text-yellow-500" />, previewTitle: 'স্মার্ট লার্নিং: শর্টকাট টেকনিকস', previewTime: 'ইন্টারেক্টিভ' },
-  { id: 'report', title: 'অগ্রগতি রিপোর্ট', icon: <PieChart className="h-5 w-5 text-blue-500" />, previewTitle: 'আপনার মাসিক অগ্রগতির রিপোর্ট', previewTime: 'বিস্তারিত এনালাইটিক্স' },
-];
-
-const paymentMethods = [
-  { name: 'bKash', url: 'https://www.logo.wine/a/logo/BKash/BKash-Logo.wine.svg' },
-  { name: 'Nagad', url: 'https://upload.wikimedia.org/wikipedia/bn/d/d0/Nagad_Logo.svg' },
-  { name: 'Rocket', url: 'https://upload.wikimedia.org/wikipedia/bn/archive/8/8b/20210214151703%21Rocket_Logo.svg' },
-  { name: 'Visa', url: 'https://upload.wikimedia.org/wikipedia/commons/d/d6/Visa_2014_logo_detail.svg' },
-  { name: 'Mastercard', url: 'https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg' },
-  { name: 'Upay', url: 'https://upload.wikimedia.org/wikipedia/bn/4/4b/Upay_logo.svg' },
-];
-
 // --- Sub-Components ---
 
-const SectionHeader = ({ title, subtitle, centered = true, badge, gradientTitle }: { title: string, subtitle?: string, centered?: boolean, badge?: string, gradientTitle?: string }) => (
+const Counter = ({ value, duration = 2 }: { value: string, duration?: number }) => {
+  const [displayValue, setDisplayValue] = useState(0);
+
+  useEffect(() => {
+    const numericValue = parseInt(value.replace(/\D/g, '')) || 0;
+    const controls = animate(0, numericValue, {
+      duration: duration,
+      onUpdate: (latest) => setDisplayValue(Math.floor(latest)),
+    });
+    return controls.stop;
+  }, [value, duration]);
+
+  return <span>{displayValue.toLocaleString()}{value.replace(/[0-9,]/g, '')}</span>;
+};
+
+const SectionHeader = ({ title, subtitle, centered = true, badge, gradientTitle, className }: { title: string, subtitle?: string, centered?: boolean, badge?: string, gradientTitle?: string, className?: string }) => (
   <motion.div 
     initial="hidden"
     whileInView="visible"
     viewport={{ once: true }}
     variants={fadeInUp}
-    className={cn("mb-16 space-y-4", centered && "text-center")}
+    className={cn("mb-16 space-y-4", centered && "text-center", className)}
   >
     {badge && <Badge className="bg-indigo-50 text-indigo-600 border-indigo-100 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] rounded-full mb-4 shadow-sm">{badge}</Badge>}
     <h2 className="text-4xl md:text-6xl font-black tracking-tighter text-slate-900 leading-tight">
@@ -148,10 +110,17 @@ const SectionHeader = ({ title, subtitle, centered = true, badge, gradientTitle 
   </motion.div>
 );
 
-const StatItem = ({ count, label, color }: { count: string, label: string, color: string }) => (
-  <div className="text-center space-y-1 group">
-    <div className={cn("text-3xl lg:text-4xl font-black tracking-tight transition-transform duration-300 group-hover:scale-110", color)}>{count}</div>
-    <div className="text-sm lg:text-base font-bold text-slate-400">{label}</div>
+const StatItem = ({ icon, value, label, color, bg }: { icon: React.ReactNode, value: string, label: string, color: string, bg: string }) => (
+  <div className="flex flex-col items-center text-center space-y-4 group">
+    <div className={cn("h-14 w-14 rounded-2xl flex items-center justify-center transition-all duration-500 group-hover:scale-110 group-hover:rotate-6 shadow-sm", bg, color)}>
+      {React.isValidElement(icon) ? React.cloneElement(icon as React.ReactElement<any>, { size: 28 }) : icon}
+    </div>
+    <div>
+      <h3 className={cn("text-3xl font-black tracking-tighter", color)}>
+        <Counter value={value} />
+      </h3>
+      <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mt-1">{label}</p>
+    </div>
   </div>
 );
 
@@ -216,6 +185,60 @@ const ProductCard = ({ image, title, subtext, price, previousPrice, bundle }: { 
   );
 };
 
+// --- Types & Data ---
+
+interface Feature {
+  id: string;
+  title: string;
+  icon: React.ReactNode;
+  previewTitle: string;
+  previewTime: string;
+}
+
+const trustPoints = [
+  { img: "🎓", title: "দেশসেরা মেন্টর" },
+  { img: "⚡", title: "স্মার্ট লার্নিং" },
+  { img: "📊", title: "প্রগ্রেস রিপোর্ট" },
+  { img: "🤝", title: "২৪/৭ সাপোর্ট" },
+];
+
+const trustFeatures = [
+  { title: 'সেরা কন্টেন্ট', icon: '💎' },
+  { title: 'সহজ স্টাডি ম্যাটেরিয়াল', icon: '🎬' },
+  { title: 'স্বল্প খরচে অনেক কিছু', icon: '👛' },
+  { title: 'সাবলীল উপস্থাপনা', icon: '🍎' },
+];
+
+const testimonials = [
+  {
+    id: 1,
+    quote: "লাইভ ক্লাসে অ্যাডভান্সড প্রবলেম সলভিংও করায়, এতে এডমিশন টেস্টের প্রশ্ন কলেজ লাইফেই শিখে যাচ্ছি",
+    name: "ইশরাত",
+    info: "বান্দরবান থেকে স্বপ্ন পূরণের লক্ষ্যে HSC '26 একাডেমিক প্রোগ্রামে",
+    videoThumb: "https://images.unsplash.com/photo-1517673132405-a56a62b18acc?w=600",
+    videoLabel: "বান্দরবান থেকে দুই বোন স্বপ্ন পূরণের লক্ষ্যে SpondonPro-তে!"
+  }
+];
+
+const interactiveFeatures: Feature[] = [
+  { id: 'live', title: 'লাইভ এবং রেকর্ডড ক্লাস', icon: <Cast className="h-5 w-5" />, previewTitle: 'জীববিজ্ঞান ৯ম- অধ্যায় ১: কোষ ও কলা', previewTime: 'রাত ৮:৩০ - ৯:৩০ | ৩০ মিনিট' },
+  { id: 'animated', title: 'অ্যানিমেটেড ভিডিও', icon: <Video className="h-5 w-5" />, previewTitle: 'পদার্থবিজ্ঞান: গতির সূত্রসমূহ (অ্যানিমেশন)', previewTime: '১০ মিনিট' },
+  { id: 'mcq-practice', title: 'প্র্যাকটিস MCQ টেস্ট', icon: <HelpCircle className="h-5 w-5" />, previewTitle: 'রসায়ন অধ্যায় ৪: পর্যায় সারণি', previewTime: '১৫ মিনিট' },
+  { id: 'mcq-live', title: 'লাইভ MCQ টেস্ট', icon: <ClipboardCheck className="h-5 w-5" />, previewTitle: 'উচ্চতর গণিত: সাপ্তাহিক লাইভ কুইজ', previewTime: 'রাত ৯:০০ | ২০ মিনিট' },
+  { id: 'notes', title: 'লেকচার নোট', icon: <FileText className="h-5 w-5" />, previewTitle: 'ইতিহাস: লেকচার ১ এর বিস্তারিত নোট', previewTime: 'পিডিএফ ফাইল' },
+  { id: 'smart-notes', title: 'স্মার্ট নোট', icon: <FileText className="h-5 w-5 text-yellow-500" />, previewTitle: 'স্মার্ট লার্নিং: শর্টকাট টেকনিকস', previewTime: 'ইন্টারেক্টিভ' },
+  { id: 'report', title: 'অগ্রগতি রিপোর্ট', icon: <PieChart className="h-5 w-5 text-blue-500" />, previewTitle: 'আপনার মাসিক অগ্রগতির রিপোর্ট', previewTime: 'বিস্তারিত এনালাইটিক্স' },
+];
+
+const paymentMethods = [
+  { name: 'bKash', url: 'https://www.logo.wine/a/logo/BKash/BKash-Logo.wine.svg' },
+  { name: 'Nagad', url: 'https://upload.wikimedia.org/wikipedia/bn/d/d0/Nagad_Logo.svg' },
+  { name: 'Rocket', url: 'https://upload.wikimedia.org/wikipedia/bn/archive/8/8b/20210214151703%21Rocket_Logo.svg' },
+  { name: 'Visa', url: 'https://upload.wikimedia.org/wikipedia/commons/d/d6/Visa_2014_logo_detail.svg' },
+  { name: 'Mastercard', url: 'https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg' },
+  { name: 'Upay', url: 'https://upload.wikimedia.org/wikipedia/bn/4/4b/Upay_logo.svg' },
+];
+
 // --- Main Page ---
 
 export default function LandingPage() {
@@ -261,123 +284,292 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 selection:bg-indigo-100 overflow-x-hidden">
+    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-[#F0F7FF] via-white to-[#FDF2F8] text-slate-900 selection:bg-indigo-100 overflow-x-hidden">
       
       <Header />
 
-      {/* 2. Hero Section - Animated with Gradient */}
-      <section className="relative pt-12 pb-20 lg:pt-24 lg:pb-32 bg-gradient-to-b from-[#E9F3FF] via-white to-white overflow-hidden">
-        {/* Background Blobs */}
-        <div className="absolute top-0 -right-20 w-96 h-96 bg-indigo-100/50 rounded-full blur-[120px] animate-pulse" />
-        <div className="absolute -bottom-20 -left-20 w-[500px] h-[500px] bg-pink-50/50 rounded-full blur-[120px] animate-pulse delay-1000" />
-
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <motion.div 
-              initial={{ opacity: 0, x: -50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, ease: "easeOut" }}
-              className="text-center lg:text-left space-y-8 z-10"
-            >
-              <h1 className="text-5xl md:text-7xl font-extrabold text-[#1F3E76] leading-tight tracking-tight">
-                একাডেমিক থেকে <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#5C2D91] to-[#FF2D8C]">এডমিশন</span>
-              </h1>
-              <p className="text-2xl md:text-4xl font-bold text-slate-600">প্রস্তুতি নাও দেশ সেরা শিক্ষক ও প্রযুক্তির সাথে</p>
-              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4">
-                <Button className="h-14 px-10 rounded-xl bg-gradient-to-r from-[#CC2E88] to-[#FF2D8C] text-white text-lg font-bold shadow-xl shadow-pink-200 hover:scale-105 transition-all active:scale-95">কোর্সসমূহ দেখো</Button>
-                <Button variant="outline" className="h-14 px-10 rounded-xl border-2 border-slate-200 bg-white text-[#5C2D91] text-lg font-bold flex items-center gap-2 hover:bg-slate-50 hover:border-indigo-300 transition-all">
-                  <PlayCircle /> শিখতে শুরু করো
-                </Button>
-              </div>
-            </motion.div>
-            
-            <motion.div 
-              initial={{ opacity: 0, x: 50, scale: 0.9 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
-              transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
-              className="relative flex justify-center lg:justify-end"
-            >
-              <div className="absolute inset-0 bg-indigo-500/10 rounded-full blur-3xl -z-10" />
-              <img 
-                src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=1000" 
-                className="w-full max-w-md rounded-[48px] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.2)] border-8 border-white" 
-                alt="Students"
-                onError={(e) => handleImageError(e, "Student Life")}
-              />
-            </motion.div>
-          </div>
+      {/* 2. Hero Section - Redesigned & Animated */}
+      <section className="relative pt-20 pb-32 overflow-hidden">
+        
+        {/* Animated Separate Gradient Background */}
+        <div className="absolute inset-0 z-0">
+          <motion.div 
+            animate={{ 
+              scale: [1, 1.2, 1],
+              rotate: [0, 90, 0],
+              opacity: [0.3, 0.5, 0.3] 
+            }}
+            transition={{ duration: 20, repeat: Infinity }}
+            className="absolute -top-[10%] -right-[5%] w-[600px] h-[600px] bg-[radial-gradient(circle,rgba(16,185,129,0.15)_0%,transparent_70%)] blur-[100px]" 
+          />
+          <motion.div 
+            animate={{ 
+              scale: [1, 1.3, 1],
+              opacity: [0.2, 0.4, 0.2] 
+            }}
+            transition={{ duration: 15, repeat: Infinity, delay: 2 }}
+            className="absolute bottom-0 -left-[10%] w-[800px] h-[800px] bg-[radial-gradient(circle,rgba(79,70,229,0.1)_0%,transparent_70%)] blur-[120px]" 
+          />
         </div>
 
-        <motion.div 
-          initial={{ opacity: 0, y: 50 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.5 }}
-          className="mx-auto max-w-6xl px-6 -mb-16 mt-16 lg:mt-24"
-        >
-          <div className="bg-white/80 backdrop-blur-xl rounded-[40px] shadow-[0_20px_80px_-15px_rgba(0,0,0,0.1)] grid grid-cols-2 lg:grid-cols-4 p-8 lg:p-12 gap-8 border border-white/50 relative z-20">
-            <StatItem count={systemStats ? `${systemStats.students}+` : "৩০ লক্ষ+"} label="শিক্ষার্থী" color="text-[#FF2D8C]" />
-            <StatItem count={systemStats ? `${systemStats.teachers}+` : "২০ জন+"} label="অভিজ্ঞ মেন্টর" color="text-[#10B981]" />
-            <StatItem count="৪৫ লক্ষ+" label="অ্যাপ ডাউনলোড" color="text-[#1F3E76]" />
-            <StatItem count={systemStats ? `${systemStats.contents}+` : "৫ লক্ষ+"} label="লার্নিং মেটেরিয়াল" color="text-[#FBBF24]" />
-          </div>
-        </motion.div>
-      </section>
+        <div className="mx-auto max-w-7xl px-6 lg:px-12 relative z-10">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            
+            {/* Left: Text Content */}
+            <motion.div
+              initial={{ opacity: 0, x: -60 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+              className="text-center lg:text-left space-y-10"
+            >
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-xs font-black uppercase tracking-widest shadow-sm">
+                <Star className="h-3 w-3 fill-current" />
+                দেশের সেরা লার্নিং প্ল্যাটফর্ম
+              </div>
 
-      {/* 3. ডিজিটাল লাইব্রেরি সেকশন - Staggered Cards */}
-      <section className="py-32 bg-white relative">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <SectionHeader 
-            badge="Digital Library" 
-            title="ডিজিটাল" 
-            gradientTitle="লাইব্রেরি" 
-            subtitle="রম্বস পাবলিকেশনসের ই-বুক সেকশনে পাবে ডিজিটাল বইয়ের এক বিশাল সম্ভার" 
-          />
+              <h1 className="text-5xl md:text-[80px] font-black text-slate-900 leading-[1.1] tracking-tighter">
+                একাডেমিক থেকে <br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#5C2D91] via-[#FF2D8C] to-[#5C2D91] animate-gradient-x">
+                  এডমিশন
+                </span>
+              </h1>
 
-          <div className="flex items-center justify-between mb-8">
-            <h3 className="text-2xl font-black text-slate-800 border-l-4 border-[#10B981] pl-4">সব ই-বুক</h3>
-            <Badge variant="secondary" className="bg-emerald-50 text-[#10B981] font-bold px-4 py-1 rounded-full text-xs border-emerald-100">
-              {dynamicEbooks.length} টি বই
-            </Badge>
-          </div>
+              <p className="text-xl md:text-2xl font-medium text-slate-500 leading-relaxed max-w-xl">
+                সেরা মেন্টর ও স্মার্ট প্রযুক্তির সাথে শুরু করো তোমার স্বপ্নের জয়যাত্রা।
+              </p>
 
-          <motion.div 
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
-            variants={staggerContainer}
-            className="grid md:grid-cols-2 lg:grid-cols-3 gap-8"
-          >
-            {dynamicEbooks.map((book) => (
+              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-5">
+                <button className="h-16 px-10 rounded-2xl bg-slate-900 text-white font-black uppercase text-xs tracking-[0.2em] shadow-2xl shadow-indigo-200 hover:bg-[#5C2D91] transition-all active:scale-95 flex items-center gap-3 group">
+                  কোর্সসমূহ দেখো
+                  <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                </button>
+                
+                <button className="h-16 px-10 rounded-2xl border-2 border-slate-200 bg-white text-slate-900 font-black uppercase text-xs tracking-[0.2em] flex items-center gap-3 hover:border-emerald-500 hover:text-emerald-600 transition-all group">
+                  <PlayCircle className="h-5 w-5 text-emerald-500 group-hover:scale-110 transition-transform" />
+                  শিখতে শুরু করো
+                </button>
+              </div>
+            </motion.div>
+
+            {/* Right: Visual Section */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+              className="relative"
+            >
+              {/* 3D Floating Elements */}
               <motion.div 
-                key={book.id}
-                variants={fadeInUp}
-                whileHover={{ y: -10 }}
-                className="bg-white border border-slate-100 rounded-[32px] p-5 shadow-sm hover:shadow-2xl transition-all duration-500 flex gap-6 items-start overflow-hidden group"
+                animate={{ y: [0, -20, 0] }}
+                transition={{ duration: 4, repeat: Infinity }}
+                className="absolute -top-10 -left-10 z-20 bg-white p-5 rounded-3xl shadow-2xl border border-slate-50 flex items-center gap-4"
               >
-                <div className="w-1/3 aspect-[3/4] rounded-2xl overflow-hidden shadow-lg flex-shrink-0 transition-transform duration-500 group-hover:scale-105">
-                  <img src={book.thumbnailUrl || ""} alt={book.name} className="w-full h-full object-cover" onError={(e) => handleImageError(e, "বই")} />
+                <div className="h-12 w-12 rounded-2xl bg-emerald-500 flex items-center justify-center text-white shadow-lg shadow-emerald-200">
+                  <UsersIcon 
+ className="h-6 w-6" />
                 </div>
-                <div className="flex-1 flex flex-col justify-between h-full py-1">
-                  <div>
-                    <h4 className="font-black text-slate-800 text-base leading-tight mb-2 group-hover:text-[#10B981] transition-colors">{book.name}</h4>
-                    <div className="inline-flex items-center gap-1 bg-emerald-50 text-[#10B981] px-2 py-0.5 rounded-md text-[10px] font-bold mb-3">
-                      <BookOpen className="h-3 w-3" /> ই-বুক
-                    </div>
-                    <p className="text-slate-400 text-xs leading-relaxed line-clamp-3 mb-4">{book.description}</p>
-                  </div>
-                  <div className="flex items-center justify-between mt-auto">
-                    <span className="text-[#10B981] font-black text-lg">{book.price === 0 ? "ফ্রি" : `৳${book.price}`}</span>
-                    <Button size="sm" className="bg-[#10B981] hover:bg-slate-900 text-white font-bold rounded-lg shadow-lg shadow-emerald-50">Buy Now</Button>
-                  </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase">একটিভ ইউজার</p>
+                  <p className="text-xl font-black text-slate-900"><Counter value="৫০০,০০০+" /></p>
                 </div>
               </motion.div>
-            ))}
+
+              <div className="relative z-10 rounded-[60px] overflow-hidden border-[12px] border-white shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] group">
+                 <img
+                  src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=1000"
+                  className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
+                  alt="Students"
+                  onError={(e) => handleImageError(e, "Student Life")}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-indigo-900/40 to-transparent" />
+              </div>
+              
+              {/* Background Circle Decoration */}
+              <div className="absolute -inset-10 border-2 border-dashed border-slate-200 rounded-full animate-[spin_60s_linear_infinite] -z-10" />
+            </motion.div>
+          </div>
+
+          {/* Stats Section: Modern Card with Animation */}
+          <motion.div
+            initial={{ opacity: 0, y: 100 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1, delay: 0.5 }}
+            className="mt-24"
+          >
+            <div className="bg-white/80 backdrop-blur-xl rounded-[40px] shadow-[0_30px_100px_-20px_rgba(0,0,0,0.08)] p-10 md:p-14 grid grid-cols-2 lg:grid-cols-4 gap-12 border border-white/50">
+              <StatItem 
+                icon={<UsersIcon />}
+ 
+                value={systemStats ? `${systemStats.students}+` : "৩০ লক্ষ+"} 
+                label="শিক্ষার্থী" 
+                color="text-indigo-600" 
+                bg="bg-indigo-50" 
+              />
+              <StatItem 
+                icon={<Star />} 
+                value={systemStats ? `${systemStats.teachers}+` : "২০ জন+"} 
+                label="অভিজ্ঞ মেন্টর" 
+                color="text-emerald-500" 
+                bg="bg-emerald-50" 
+              />
+              <StatItem 
+                icon={<Download />} 
+                value="৪৫ লক্ষ+" 
+                label="অ্যাপ ডাউনলোড" 
+                color="text-blue-600" 
+                bg="bg-blue-50" 
+              />
+              <StatItem 
+                icon={<BookOpen />} 
+                value={systemStats ? `${systemStats.contents}+` : "৫ লক্ষ+"} 
+                label="লার্নিং মেটেরিয়াল" 
+                color="text-amber-500" 
+                bg="bg-amber-50" 
+              />
+            </div>
           </motion.div>
         </div>
       </section>
 
+{/* 3. ডিজিটাল লাইব্রেরি সেকশন - Premium Dark Mode Aesthetic */}
+<section className="py-32 relative overflow-hidden bg-[#0A0F1C]">
+  
+  {/* Separate Background Layer - Glowing Mesh Gradient */}
+  <div className="absolute inset-0 z-0">
+    <motion.div 
+      animate={{ 
+        scale: [1, 1.1, 1],
+        opacity: [0.1, 0.2, 0.1] 
+      }}
+      transition={{ duration: 12, repeat: Infinity }}
+      className="absolute top-[-15%] right-[-10%] w-[80%] h-[80%] bg-[#10B981] rounded-full blur-[150px]" 
+    />
+    <motion.div 
+      animate={{ 
+        scale: [1, 1.2, 1],
+        opacity: [0.05, 0.15, 0.05] 
+      }}
+      transition={{ duration: 18, repeat: Infinity, delay: 1 }}
+      className="absolute bottom-[-15%] left-[-10%] w-[70%] h-[70%] bg-indigo-500 rounded-full blur-[150px]" 
+    />
+    {/* Subtle Grid Pattern for Technical Feel */}
+    <div className="absolute inset-0 opacity-[0.05] bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]" />
+  </div>
+
+  <div className="mx-auto max-w-7xl px-6 lg:px-12 relative z-10">
+    
+    {/* Custom Header with White/Light Text */}
+    <div className="text-center mb-20 space-y-6">
+      <motion.span 
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        className="inline-block px-5 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-black uppercase tracking-[0.3em]"
+      >
+        E-Learning Resource
+      </motion.span>
+      <h2 className="text-4xl md:text-6xl font-black text-white leading-tight tracking-tighter">
+        স্মার্ট ডিজিটাল <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">লাইব্রেরি</span>
+      </h2>
+      <p className="text-slate-400 font-medium text-lg max-w-2xl mx-auto">
+        রম্বস পাবলিকেশনসের আধুনিক ই-বুক সংগ্রহ নিয়ে তোমার প্রস্তুতি হবে আরও সহজ এবং স্মার্ট।
+      </p>
+    </div>
+
+    {/* Filter Header - Pure Glassmorphism */}
+    <div className="flex flex-col md:flex-row items-center justify-between mb-16 gap-6 p-8 bg-white/[0.03] backdrop-blur-3xl rounded-[40px] border border-white/[0.1] shadow-2xl">
+      <div className="flex items-center gap-5">
+        <div className="h-14 w-1.5 bg-emerald-500 rounded-full shadow-[0_0_20px_#10B981]" />
+        <div>
+           <h3 className="text-2xl font-black text-white tracking-tight">সবগুলো ই-বুক</h3>
+           <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em] mt-1">Access Excellence</p>
+        </div>
+      </div>
+      
+      <div className="flex items-center gap-4 bg-white/5 px-6 py-3 rounded-2xl border border-white/10">
+        <span className="text-sm font-bold text-slate-400">কলেকশন:</span>
+        <span className="text-white font-black text-lg">
+          {dynamicEbooks.length} <span className="text-xs text-emerald-400 font-bold tracking-widest ml-1">BOOKS</span>
+        </span>
+      </div>
+    </div>
+
+    {/* Grid with Neon-Glow Cards */}
+    <motion.div 
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, margin: "-100px" }}
+      variants={staggerContainer}
+      className="grid md:grid-cols-2 lg:grid-cols-3 gap-10"
+    >
+      {dynamicEbooks.map((book) => (
+        <motion.div 
+          key={book.id}
+          variants={fadeInUp}
+          className="group relative h-full"
+        >
+          {/* Outer Card Glow */}
+          <div className="absolute inset-0 bg-emerald-500/10 rounded-[48px] blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          
+          <div className="relative bg-[#111827]/80 backdrop-blur-md border border-white/[0.08] rounded-[48px] p-6 flex gap-6 items-center h-full transition-all duration-500 group-hover:border-emerald-500/40 group-hover:bg-[#161F31]">
+            
+            {/* Book Cover with 3D Effect */}
+            <div className="w-2/5 aspect-[3/4.5] rounded-[28px] overflow-hidden shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] flex-shrink-0 transition-all duration-700 group-hover:scale-105 group-hover:-rotate-3 border border-white/10 relative">
+              <img 
+                src={book.thumbnailUrl || ""} 
+                alt={book.name} 
+                className="w-full h-full object-cover" 
+                onError={(e) => (e.currentTarget.src = "https://placehold.co/400x600?text=Book")} 
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+            </div>
+
+            {/* Content Section - Pure Light Text */}
+            <div className="flex-1 flex flex-col h-full py-2">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10B981]" />
+                    <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Digital Book</span>
+                </div>
+                
+                <h4 className="font-black text-white text-lg leading-tight group-hover:text-emerald-400 transition-colors line-clamp-2">
+                  {book.name}
+                </h4>
+
+                <p className="text-slate-400 text-[11px] leading-relaxed line-clamp-2 font-medium">
+                  {book.description || "রম্বস পাবলিকেশনসের আধুনিক ডিজিটাল রিসোর্স।"}
+                </p>
+              </div>
+
+              {/* Price & CTA Area */}
+              <div className="mt-auto pt-6 flex items-center justify-between border-t border-white/5">
+                <div className="flex flex-col">
+                    <span className="text-emerald-400 font-black text-2xl tracking-tighter">
+                      {book.price === 0 ? "FREE" : `৳${book.price}`}
+                    </span>
+                </div>
+                
+                <button className="h-12 w-12 rounded-2xl bg-white text-[#0A0F1C] flex items-center justify-center shadow-xl hover:bg-emerald-500 hover:text-white transition-all duration-300 active:scale-90">
+                   <ArrowRight className="h-6 w-6" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      ))}
+    </motion.div>
+
+    {/* Bottom Ghost Button */}
+    <div className="mt-24 text-center">
+        <button className="px-12 py-5 rounded-3xl bg-transparent border border-white/10 text-white font-black uppercase text-xs tracking-[0.3em] hover:bg-white hover:text-slate-900 transition-all duration-500 group">
+            এক্সপ্লোর লাইব্রেরি 
+            <ArrowRight className="inline-block ml-3 h-4 w-4 transition-transform group-hover:translate-x-2" />
+        </button>
+    </div>
+  </div>
+</section>
+
       {/* 4. Academic Programs - Staggered Entry */}
-      <section id="programs" className="py-32 bg-slate-50/50">
+      <section id="programs" className="py-32">
         <div className="mx-auto max-w-7xl px-6 lg:px-12">
           <SectionHeader 
             badge="Academic Tracks" 
@@ -490,7 +682,7 @@ export default function LandingPage() {
       </section>
 
       {/* 6. Admission Preparation Section - Refined with Glassmorphism */}
-      <section id="admission-prep" className="py-32 bg-gradient-to-b from-white to-slate-50/50">
+      <section id="admission-prep" className="py-32">
         <div className="mx-auto max-w-7xl px-6 lg:px-12">
           <SectionHeader 
             badge="Premium Preparation" 
@@ -548,7 +740,7 @@ export default function LandingPage() {
       </section>
 
       {/* 7. Trust & Testimonial Section - Enhanced Blue Gradient */}
-      <section className="py-24 bg-white">
+      <section className="py-24">
         <div className="mx-auto max-w-7xl px-6 lg:px-12">
           <motion.div 
             initial={{ opacity: 0, y: 50 }}
@@ -602,14 +794,27 @@ export default function LandingPage() {
       </section>
 
       {/* 8. Course Plans - Staggered Grid */}
-      <section id="courses" className="py-32 bg-slate-50/30">
-        <div className="mx-auto max-w-7xl px-6 lg:px-12">
-          <SectionHeader 
-            badge="Enrollment Options" 
-            title="চলমান" 
-            gradientTitle="কোর্সসমূহ" 
-            subtitle="আপনার প্রয়োজন অনুযায়ী অনলাইন বা অফলাইন ব্রাঞ্চ ব্যাচ বেছে নিন।" 
-          />
+      <section id="courses" className="py-32 relative overflow-hidden">
+        {/* Dynamic Background Orbs */}
+        <div className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] bg-gradient-to-br from-indigo-200/40 to-purple-200/40 rounded-full blur-[120px] animate-pulse" />
+        <div className="absolute bottom-[-10%] left-[-5%] w-[600px] h-[600px] bg-gradient-to-tr from-emerald-100/50 to-teal-100/50 rounded-full blur-[120px]" />
+
+        <div className="mx-auto max-w-7xl px-6 lg:px-12 relative z-10">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
+              <SectionHeader 
+                  badge="Premium Learning" 
+                  title="আমাদের চলমান" 
+                  gradientTitle="কোর্সসমূহ" 
+                  subtitle="নিজেদের প্রস্তুত করুন আগামী দিনের চ্যালেঞ্জ মোকাবিলায়।" 
+                  className="text-left mx-0"
+              />
+              <div className="hidden md:flex gap-3 mb-4">
+                  <div className="px-5 py-2 rounded-full border border-slate-200 bg-white shadow-sm text-sm font-bold text-slate-600">
+                      সবগুলো ({courses.length})
+                  </div>
+              </div>
+          </div>
+
           <motion.div 
             initial="hidden"
             whileInView="visible"
@@ -617,41 +822,63 @@ export default function LandingPage() {
             variants={staggerContainer}
             className="grid gap-10 sm:grid-cols-2 lg:grid-cols-3"
           >
-            {courses.length > 0 ? courses.map(course => (
+            {courses.length > 0 ? courses.map((course) => (
               <motion.div 
                 key={course.id} 
                 variants={fadeInUp}
-                whileHover={{ y: -15 }}
-                className="group rounded-[56px] bg-white border border-slate-100 overflow-hidden shadow-sm hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.15)] transition-all duration-500"
+                className="group relative h-full"
               >
-                <div className="relative aspect-[16/10] bg-slate-100 overflow-hidden">
-                   <Badge className="absolute top-8 left-8 z-10 bg-[#5C2D91] text-white border-0 px-4 py-1.5 rounded-full shadow-lg font-black uppercase text-[10px] tracking-widest">{course.type === 'ONLINE' ? 'অনলাইন' : 'অফলাইন'}</Badge>
-                   <div className="absolute top-8 right-8 z-10 h-14 w-20 rounded-2xl bg-white/95 flex flex-col items-center justify-center text-[#5C2D91] font-black shadow-2xl border border-white">
-                      <span className="text-[9px] uppercase opacity-60">টাকা</span>
-                      <span className="text-xl leading-none">{String(course.fee)}</span>
-                   </div>
-                   <img 
-                    src={course.thumbnail || ""} 
-                    alt={course.name} 
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
-                    onError={(e) => handleImageError(e, "Course")}
-                   />
-                   <div className="absolute inset-0 bg-gradient-to-t from-[#1F3E76]/20 to-transparent" />
-                </div>
-                <div className="p-12 space-y-8">
-                  <h3 className="text-2xl font-black text-slate-900 min-h-[4rem] leading-tight group-hover:text-[#5C2D91] transition-colors">{course.name}</h3>
-                  <Button className="w-full h-16 rounded-2xl bg-slate-900 hover:bg-[#5C2D91] text-white font-black uppercase text-xs tracking-[0.2em] shadow-xl hover:shadow-indigo-200 transition-all duration-300">ভর্তি হোন</Button>
+                <div className="absolute -inset-[1px] bg-gradient-to-r from-indigo-500 via-emerald-400 to-indigo-500 rounded-[40px] opacity-0 group-hover:opacity-100 blur-[2px] transition-opacity duration-500" />
+                
+                <div className="relative h-full bg-white rounded-[40px] overflow-hidden flex flex-col transition-all duration-500 group-hover:translate-y-[-8px]">
+                  <div className="relative aspect-[16/10] overflow-hidden">
+                    <img src={course.thumbnail || ""} alt={course.name} className="w-full h-full object-cover transition-transform duration-[1.5s] group-hover:scale-110" />
+                    <div className="absolute top-5 left-5">
+                      <div className="backdrop-blur-md bg-black/20 border border-white/30 text-white px-4 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest">
+                         {course.type === 'ONLINE' ? '• Online' : '• Offline'}
+                      </div>
+                    </div>
+                    <div className="absolute bottom-5 right-5 bg-white px-4 py-2 rounded-2xl shadow-2xl flex flex-col items-center border border-slate-50">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase leading-none mb-1">Fee</span>
+                      <span className="text-xl font-black text-[#5C2D91]">৳{String(course.fee)}</span>
+                    </div>
+                  </div>
+                  <div className="p-8 flex flex-col flex-1">
+                    <div className="flex-1">
+                      <h3 className="text-2xl font-black text-slate-800 leading-tight group-hover:text-indigo-600 transition-colors">{course.name}</h3>
+                      <div className="flex items-center gap-6 mt-6 py-4 border-y border-slate-50">
+                          <div className="flex flex-col">
+                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">ব্যাচ সংখ্যা</span>
+                              <span className="text-sm font-bold text-slate-700">০৫ টি</span>
+                          </div>
+                          <div className="h-8 w-[1px] bg-slate-100" />
+                          <div className="flex flex-col">
+                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">ভর্তি শেষ</span>
+                              <span className="text-sm font-bold text-red-500">১৫ দিন বাকি</span>
+                          </div>
+                      </div>
+                    </div>
+                    <Link href={`/course/${course.id}`} className="mt-8 block">
+                      <button className="relative w-full group/btn overflow-hidden h-14 rounded-2xl bg-slate-900 transition-all duration-300">
+                          <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-emerald-500 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300" />
+                          <div className="relative flex items-center justify-center gap-2 text-white font-black uppercase text-xs tracking-widest">
+                              ভর্তি সংক্রান্ত তথ্য
+                              <ArrowRight className="h-4 w-4 group-hover/btn:translate-x-1 transition-transform" />
+                          </div>
+                      </button>
+                    </Link>
+                  </div>
                 </div>
               </motion.div>
             )) : [1,2,3].map(i => (
-                <div key={i} className="h-[500px] rounded-[56px] bg-slate-100 animate-pulse" />
+                <div key={i} className="h-[550px] rounded-[40px] bg-white animate-pulse border border-slate-100 shadow-sm" />
             ))}
           </motion.div>
         </div>
       </section>
 
       {/* 9. Payment Partners - Simplified & Elegant */}
-      <section className="py-24 bg-white">
+      <section className="py-24">
         <div className="mx-auto max-w-7xl px-6 lg:px-12">
           <div className="flex flex-col items-center gap-12">
             <div className="text-center space-y-3">
