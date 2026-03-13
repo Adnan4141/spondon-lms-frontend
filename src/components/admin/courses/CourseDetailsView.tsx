@@ -140,30 +140,38 @@ export function CourseDetailsView({ course }: CourseDetailsViewProps) {
         {activeTab === 'info' && (
           <div className="animate-in fade-in duration-500">
             {/* Top Header Card */}
-            <div className="relative overflow-hidden rounded-[32px] border border-slate-200 bg-slate-50/50 p-8 shadow-sm mb-10">
-               <div className="absolute top-0 right-0 p-6">
-                  <Badge variant="outline" className={cn("rounded-xl px-4 py-2 text-[10px] uppercase tracking-widest", getStatusBadgeClass(course.status))}>
-                    {course.status}
-                  </Badge>
-               </div>
+            <div className="relative overflow-hidden rounded-[32px] border border-slate-200 bg-slate-50/50 p-8 shadow-sm mb-10 flex flex-col md:flex-row gap-8">
+               {course.thumbnail && (
+                 <div className="w-full md:w-48 h-48 rounded-2xl overflow-hidden shadow-lg border border-white shrink-0">
+                    <img src={course.thumbnail} alt={course.name} className="w-full h-full object-cover" />
+                 </div>
+               )}
                
-               <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                     <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white border border-slate-200 text-indigo-600 shadow-sm">
-                        <BookOpen className="h-5 w-5" />
-                     </div>
-                     <span className="font-mono text-base font-black text-slate-400 tracking-tighter">{course.code}</span>
+               <div className="relative flex-1">
+                  <div className="absolute top-0 right-0">
+                     <Badge variant="outline" className={cn("rounded-xl px-4 py-2 text-[10px] uppercase tracking-widest", getStatusBadgeClass(course.status))}>
+                       {course.status}
+                     </Badge>
                   </div>
-                  <h2 className="text-3xl font-black tracking-tight text-slate-900">{course.name}</h2>
-                  <div className="flex flex-wrap gap-4 pt-2">
-                     <div className="flex items-center gap-2 text-base font-bold text-slate-500">
-                        <GraduationCap className="h-4 w-4 text-indigo-500" />
-                        {course.program?.name}
+                  
+                  <div className="space-y-4">
+                     <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white border border-slate-200 text-indigo-600 shadow-sm">
+                           <BookOpen className="h-5 w-5" />
+                        </div>
+                        <span className="font-mono text-base font-black text-slate-400 tracking-tighter">{course.code}</span>
                      </div>
-                     <div className="h-4 w-[1px] bg-slate-200" />
-                     <div className="flex items-center gap-2 text-base font-bold text-slate-500">
-                        <Monitor className="h-4 w-4 text-emerald-500" />
-                        {course.type}
+                     <h2 className="text-3xl font-black tracking-tight text-slate-900">{course.name}</h2>
+                     <div className="flex flex-wrap gap-4 pt-2">
+                        <div className="flex items-center gap-2 text-base font-bold text-slate-500">
+                           <GraduationCap className="h-4 w-4 text-indigo-500" />
+                           {course.program?.name}
+                        </div>
+                        <div className="h-4 w-[1px] bg-slate-200" />
+                        <div className="flex items-center gap-2 text-base font-bold text-slate-500">
+                           <Monitor className="h-4 w-4 text-emerald-500" />
+                           {course.type}
+                        </div>
                      </div>
                   </div>
                </div>

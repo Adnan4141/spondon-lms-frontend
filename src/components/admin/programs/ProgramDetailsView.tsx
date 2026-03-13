@@ -86,10 +86,14 @@ export function ProgramDetailsView({ program: initialProgram }: ProgramDetailsVi
         {activeTab === 'info' && (
           <div className="animate-in fade-in duration-500">
             {/* Header Hero Section */}
-            <div className="relative overflow-hidden rounded-[32px] border border-slate-200 bg-slate-50/50 p-8 shadow-sm mb-10">
-               <div className="absolute top-[-10%] right-[-5%] h-40 w-40 rounded-full bg-indigo-500/5 blur-3xl" />
+            <div className="relative overflow-hidden rounded-[32px] border border-slate-200 bg-slate-50/50 p-8 shadow-sm mb-10 flex flex-col md:flex-row gap-8">
+               {program.thumbnail && (
+                 <div className="w-full md:w-48 h-48 rounded-2xl overflow-hidden shadow-lg border border-white shrink-0">
+                    <img src={program.thumbnail} alt={program.name} className="w-full h-full object-cover" />
+                 </div>
+               )}
                
-               <div className="relative space-y-4">
+               <div className="relative flex-1 space-y-4">
                   <div className="flex items-center gap-3">
                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white border border-slate-200 text-indigo-600 shadow-sm">
                         <GraduationCap className="h-6 w-6" />

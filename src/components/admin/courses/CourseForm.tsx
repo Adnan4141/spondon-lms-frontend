@@ -63,6 +63,7 @@ type FormState = {
   programId: string;
   name: string;
   code: string;
+  thumbnail: string;
   type: CourseType;
   billingType: BillingType;
   fee: string;
@@ -78,6 +79,7 @@ const defaultForm: FormState = {
   programId: '',
   name: '',
   code: '',
+  thumbnail: '',
   type: 'ONLINE',
   billingType: 'ONE_TIME',
   fee: '0',
@@ -132,6 +134,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
         programId: course.programId,
         name: course.name,
         code: course.code,
+        thumbnail: course.thumbnail || '',
         type: course.type,
         billingType: course.billingType,
         fee: String(course.fee),
@@ -163,6 +166,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
       programId: form.programId,
       name: form.name.trim(),
       code: form.code.trim(),
+      thumbnail: form.thumbnail.trim() || undefined,
       type: form.type,
       billingType: form.billingType,
       fee: parsedFee,
@@ -288,6 +292,16 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                 value={form.name}
                 onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
                 placeholder="Full course name"
+              />
+            </div>
+
+            <div className="space-y-2 sm:col-span-2">
+              <label className={sectionLabel}>Thumbnail URL</label>
+              <Input
+                className={inputClass}
+                value={form.thumbnail}
+                onChange={(e) => setForm((prev) => ({ ...prev, thumbnail: e.target.value }))}
+                placeholder="https://example.com/thumbnail.png"
               />
             </div>
 

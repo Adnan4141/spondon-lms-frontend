@@ -241,9 +241,20 @@ export default function ProgramsPage() {
                 {filteredPrograms.map((program) => (
                   <TableRow key={program.id} className="group border-slate-100 transition-colors hover:bg-slate-50/80">
                     <TableCell className="px-8 py-5">
-                       <div className="flex flex-col gap-0.5">
-                          <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors text-base">{program.name}</span>
-                          <span className="text-sm font-medium text-slate-400 uppercase tracking-tighter">ID: {program.id.slice(0, 8)}...</span>
+                       <div className="flex items-center gap-4">
+                          {program.thumbnail ? (
+                            <div className="h-12 w-12 rounded-xl overflow-hidden shadow-sm border border-slate-100 shrink-0">
+                               <img src={program.thumbnail} alt={program.name} className="h-full w-full object-cover" />
+                            </div>
+                          ) : (
+                            <div className="h-12 w-12 rounded-xl bg-slate-50 flex items-center justify-center text-slate-300 border border-dashed border-slate-200 shrink-0">
+                               <GraduationCap className="h-6 w-6" />
+                            </div>
+                          )}
+                          <div className="flex flex-col gap-0.5">
+                             <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors text-base">{program.name}</span>
+                             <span className="text-sm font-medium text-slate-400 uppercase tracking-tighter">ID: {program.id.slice(0, 8)}...</span>
+                          </div>
                        </div>
                     </TableCell>
                     <TableCell className="max-w-xs py-5">

@@ -16,6 +16,7 @@ export interface Program {
   id: string;
   name: string;
   description?: string;
+  thumbnail?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -23,11 +24,13 @@ export interface Program {
 export interface CreateProgramDto {
   name: string;
   description?: string;
+  thumbnail?: string;
 }
 
 export interface UpdateProgramDto {
   name?: string;
   description?: string;
+  thumbnail?: string;
 }
 
 export interface Course {
@@ -35,6 +38,7 @@ export interface Course {
   programId: string;
   name: string;
   code: string;
+  thumbnail?: string;
   type: CourseType;
   billingType: BillingType;
   category?: CourseCategory;
@@ -61,6 +65,7 @@ export interface CreateCourseDto {
   programId: string;
   name: string;
   code: string;
+  thumbnail?: string;
   type: CourseType;
   billingType: BillingType;
   fee: number;
@@ -77,6 +82,7 @@ export interface UpdateCourseDto {
   programId?: string;
   name?: string;
   code?: string;
+  thumbnail?: string;
   type?: CourseType;
   billingType?: BillingType;
   fee?: number;

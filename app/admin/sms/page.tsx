@@ -224,6 +224,11 @@ export default function SmsManagementPage() {
       return;
     }
 
+    if (directSend.scope === 'BRANCH' && !directSend.branchId) {
+      toast({ title: 'Invalid Scope', description: 'Please select a target branch for branch billing scope', variant: 'destructive' });
+      return;
+    }
+
     try {
       setSubmitting(true);
       const res = await sendDirectSms(
@@ -248,6 +253,11 @@ export default function SmsManagementPage() {
   const handleTransfer = async () => {
     if (!transfer.branchId || transfer.count <= 0) {
       toast({ title: 'Invalid Allocation', description: 'Please select a branch and positive count', variant: 'destructive' });
+      return;
+    }
+
+    if (transfer.count > orgBalance) {
+      toast({ title: 'Insufficient Reserve', description: 'Requested allocation exceeds organization SMS reserve', variant: 'destructive' });
       return;
     }
 

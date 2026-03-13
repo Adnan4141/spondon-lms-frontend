@@ -335,9 +335,20 @@ export default function CoursesPage() {
                   <TableRow key={course.id} className="group border-slate-100 transition-colors hover:bg-slate-50/80">
                     <TableCell className="px-8 font-mono text-base font-black text-indigo-600 uppercase tracking-tighter">{course.code}</TableCell>
                     <TableCell>
-                       <div className="flex flex-col gap-0.5">
-                          <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors text-base">{course.name}</span>
-                          <span className="text-base font-medium text-slate-400 uppercase tracking-tighter">ID: {course.id.slice(0, 8)}...</span>
+                       <div className="flex items-center gap-4">
+                          {course.thumbnail ? (
+                            <div className="h-12 w-12 rounded-xl overflow-hidden shadow-sm border border-slate-100 shrink-0">
+                               <img src={course.thumbnail} alt={course.name} className="h-full w-full object-cover" />
+                            </div>
+                          ) : (
+                            <div className="h-12 w-12 rounded-xl bg-slate-50 flex items-center justify-center text-slate-300 border border-dashed border-slate-200 shrink-0">
+                               <BookOpenCheck className="h-6 w-6" />
+                            </div>
+                          )}
+                          <div className="flex flex-col gap-0.5">
+                             <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors text-base">{course.name}</span>
+                             <span className="text-base font-medium text-slate-400 uppercase tracking-tighter">ID: {course.id.slice(0, 8)}...</span>
+                          </div>
                        </div>
                     </TableCell>
                     <TableCell className="text-base font-bold text-slate-500">{course.program?.name || '-'}</TableCell>

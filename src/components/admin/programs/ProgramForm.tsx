@@ -22,7 +22,7 @@ interface ProgramFormProps {
 export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
   const { closeModal } = useModalStore();
   const { toast } = useToast();
-  const [form, setForm] = useState({ name: '', description: '' });
+  const [form, setForm] = useState({ name: '', description: '', thumbnail: '' });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,6 +33,7 @@ export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
       setForm({
         name: program.name,
         description: program.description || '',
+        thumbnail: program.thumbnail || '',
       });
     }
   }, [program]);
@@ -46,6 +47,7 @@ export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
     const payload: CreateProgramDto | UpdateProgramDto = {
       name: form.name.trim(),
       description: form.description.trim() || undefined,
+      thumbnail: form.thumbnail.trim() || undefined,
     };
 
     try {
@@ -90,6 +92,16 @@ export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
               value={form.name}
               onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
               placeholder="e.g., Higher Secondary Certificate (HSC)"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className={sectionLabel}>Thumbnail URL</label>
+            <Input
+              className={inputClass}
+              value={form.thumbnail}
+              onChange={(e) => setForm((prev) => ({ ...prev, thumbnail: e.target.value }))}
+              placeholder="https://example.com/thumbnail.png"
             />
           </div>
 

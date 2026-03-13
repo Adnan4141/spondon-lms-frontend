@@ -47,6 +47,7 @@ type EditFormState = {
   programId: string;
   name: string;
   code: string;
+  thumbnail: string;
   type: CourseType;
   billingType: BillingType;
   fee: string;
@@ -62,6 +63,7 @@ const defaultEditForm: EditFormState = {
   programId: '',
   name: '',
   code: '',
+  thumbnail: '',
   type: 'ONLINE',
   billingType: 'ONE_TIME',
   fee: '0',
@@ -104,6 +106,7 @@ export function CreateCourseForm({
       programId: createForm.programId,
       name: createForm.name.trim(),
       code: createForm.code.trim(),
+      thumbnail: createForm.thumbnail.trim() || undefined,
       type: createForm.type,
       billingType: createForm.billingType,
       fee: parsedFee,
@@ -181,6 +184,16 @@ export function CreateCourseForm({
               value={createForm.name}
               onChange={(e) => setCreateForm((prev) => ({ ...prev, name: e.target.value }))}
               placeholder="Full course name"
+            />
+          </div>
+
+          <div className="space-y-2 sm:col-span-2">
+            <label className={sectionLabel}>Thumbnail URL</label>
+            <Input
+              className={inputClass}
+              value={createForm.thumbnail}
+              onChange={(e) => setCreateForm((prev) => ({ ...prev, thumbnail: e.target.value }))}
+              placeholder="https://example.com/thumbnail.png"
             />
           </div>
 
