@@ -19,6 +19,9 @@ export interface Program {
   thumbnail?: string;
   createdAt: string;
   updatedAt: string;
+  _count?: {
+    courses?: number;
+  };
 }
 
 export interface CreateProgramDto {

@@ -4,16 +4,10 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Menu, 
-  X, 
   Star, 
   Users as UsersIcon, 
   Video, 
   ArrowRight,
-  Linkedin,
-  Twitter,
-  Facebook,
-  Instagram,
   Plus,
   Minus,
   PlayCircle,
@@ -24,24 +18,32 @@ import {
   FileText,
   ClipboardCheck,
   PieChart,
-  MessageCircle,
-  Play,
-  ChevronDown,
-  Quote,
-  ChevronLeft,
+  MessageCircle, 
+  Play, 
+  ChevronDown, 
+  Quote, 
+  ChevronLeft, 
   ChevronRight,
   GraduationCap,
   Sparkles,
   CreditCard,
   CalendarDays,
-  BookOpen
+  BookOpen,
+  Wrench,
+  Heart,
+  Layers3
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { getCourses } from '@/lib/api/courses';
 import { getPrograms } from '@/lib/api/programs';
-import { getBranches } from '@/lib/api/branches';
+import { getBranches, Branch } from '@/lib/api/branches';
+import { getBooks, Book } from '@/lib/api/books';
+import { getSystemStats, SystemStatsData } from '@/lib/api/reports';
+import { Header } from '@/components/layout/Header';
+import { Footer } from '@/components/layout/Footer';
+import type { Course, Program } from '@/types/course';
 
 // --- Types & Data ---
 
@@ -67,36 +69,6 @@ const trustFeatures = [
   { title: 'সাবলীল উপস্থাপনা', icon: '🍎' },
 ];
 
-const ebooks = [
-  {
-    id: 1,
-    title: "SUST প্রশ্নব্যাংক ২০২৫ সংস্করণ",
-    desc: "সাস্ট ভর্তি পরীক্ষায় সর্বোচ্চ সাফল্য নিশ্চিত করতে সাথে রাখো Rhombus Publications-এর সাস্ট প্রশ্নব্যাংক বইটি!",
-    price: 77,
-    oldPrice: 300,
-    tag: "ই-বুক",
-    image: "https://placehold.co/150x200/0D9488/white?text=SUST"
-  },
-  {
-    id: 2,
-    title: "মেডিক্যাল প্রশ্নব্যাংক ২০২৫ সংস্করণ",
-    desc: "Medical প্রশ্নব্যাংক (২০০৯-১০ থেকে ২০২৪-২৫) হলো মেডিকেল ভর্তিচ্ছু শিক্ষার্থীদের জন্য গত ১৫+ বছরের ভর্তি পরীক্ষার প্রশ্নসমূহের একটি সুবিন্যস্ত...",
-    price: 0, // 0 means Free
-    oldPrice: 300,
-    tag: "ই-বুক",
-    image: "https://placehold.co/150x200/1E3A8A/white?text=Medical"
-  },
-  {
-    id: 3,
-    title: "IUT প্রশ্নব্যাংক ২০২৫ সংস্করণ",
-    desc: "IUT ভর্তি পরীক্ষায় সর্বোচ্চ সাফল্য নিশ্চিত করতে সাথে রাখো Rhombus Publications-এর IUT প্রশ্নব্যাংক বইটি!",
-    price: 77,
-    oldPrice: 300,
-    tag: "ই-বুক",
-    image: "https://placehold.co/150x200/991B1B/white?text=IUT"
-  }
-];
-
 const testimonials = [
   {
     id: 1,
@@ -104,7 +76,7 @@ const testimonials = [
     name: "ইশরাত",
     info: "বান্দরবান থেকে স্বপ্ন পূরণের লক্ষ্যে HSC '26 একাডেমিক প্রোগ্রামে",
     videoThumb: "https://images.unsplash.com/photo-1517673132405-a56a62b18acc?w=600",
-    videoLabel: "বান্দরবান থেকে দুই বোন স্বপ্ন পূরণের লক্ষ্যে SpondonPro-তে!"
+    videoLabel: "বান্দরবান থেকে দুই বোন স্বপ্ন পূরণের লক্ষ্যে Spondon-তে!"
   }
 ];
 
@@ -161,15 +133,88 @@ const StatItem = ({ count, label, color }: { count: string, label: string, color
   </div>
 );
 
+const TabItem = ({ icon: Icon, title, count, isActive }: { icon: React.ElementType, title: string, count: string, isActive?: boolean }) => (
+  <div className={cn("flex flex-col items-center gap-3 p-5 rounded-[24px] border border-slate-100 min-w-[160px] cursor-pointer text-center transition-all", isActive && "border-slate-800 bg-white shadow-xl scale-105")}>
+    <div className={cn("h-16 w-16 rounded-[20px] bg-slate-100 flex items-center justify-center transition-colors", isActive && "bg-[#5C2D91] text-white")}>
+      <Icon className="h-8 w-8" />
+    </div>
+    <div className="flex flex-col items-center gap-1">
+      <span className="font-bold text-slate-800 text-sm">{title}</span>
+      <span className="font-bold text-slate-400 text-xs">{count} টি আইটেম</span>
+    </div>
+  </div>
+);
+
+const ProductCard = ({ image, title, subtext, price, previousPrice, bundle }: { image: string, title: string, subtext: string, price: string, previousPrice: string, bundle?: boolean }) => {
+  // Calculate discount percentage if possible
+  const discount = previousPrice ? Math.round(((parseInt(previousPrice.replace(/\D/g,'')) - parseInt(price.replace(/\D/g,''))) / parseInt(previousPrice.replace(/\D/g,''))) * 100) : 0;
+
+  return (
+    <div className="group bg-white rounded-[24px] border border-slate-100 p-4 flex flex-col h-full shadow-sm hover:shadow-2xl hover:shadow-emerald-100/50 transition-all duration-300 ease-out">
+      
+      {/* Image Container - Focused on Vertical Stack */}
+      <div className={cn(
+        "relative w-full overflow-hidden rounded-[20px] bg-slate-50 flex items-center justify-center transition-transform duration-500 group-hover:scale-[1.02]",
+        bundle ? "aspect-video" : "aspect-[3/4]"
+      )}>
+        <img 
+          src={image} 
+          alt={title} 
+          className="w-full h-full object-contain p-4 drop-shadow-xl"
+          onError={(e) => e.currentTarget.src = "https://placehold.co/400x600?text=Book+Cover"} 
+        />
+        
+        {/* Floating Badge */}
+        {discount > 0 && (
+          <div className="absolute top-3 right-3 bg-red-500 text-white text-[10px] font-black px-2 py-1 rounded-lg shadow-lg">
+            {discount}% OFF
+          </div>
+        )}
+      </div>
+
+      {/* Content Area */}
+      <div className="flex flex-col flex-1 mt-5">
+        <div className="space-y-2">
+          <h3 className="font-black text-slate-800 text-base md:text-lg leading-tight line-clamp-2 group-hover:text-[#5C2D91] transition-colors">
+            {title}
+          </h3>
+          <p className="text-slate-400 text-[13px] leading-snug line-clamp-2 italic">
+            {subtext}
+          </p>
+        </div>
+
+        {/* Price and Action Area */}
+        <div className="mt-auto pt-6 flex items-center justify-between border-t border-slate-50">
+          <div className="flex flex-col">
+            <span className="text-slate-400 line-through text-[11px] font-bold">
+              {previousPrice}
+            </span>
+            <span className="text-[#10B981] font-black text-xl tracking-tight">
+              {price}
+            </span>
+          </div>
+          
+          <Button className="bg-[#10B981] hover:bg-slate-900 text-white text-xs font-bold px-5 h-10 rounded-xl transition-all shadow-md active:scale-95">
+            Buy Now
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- Main Page ---
 
 export default function LandingPage() {
-  const [courses, setCourses] = useState<any[]>([]);
-  const [programs, setPrograms] = useState<any[]>([]);
-  const [branches, setBranches] = useState<any[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [programs, setPrograms] = useState<Program[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [dynamicEbooks, setDynamicEbooks] = useState<Book[]>([]);
+  const [admissionBooks, setAdmissionBooks] = useState<Book[]>([]);
+  const [systemStats, setSystemStats] = useState<SystemStatsData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(interactiveFeatures[0]);
+  const [activeAdmissionTab, setActiveAdmissionTab] = useState('ভার্সিটি');
   const [testimonialIndex, setTestimonialIndex] = useState(0);
 
   // Global Image Error Handler for Dummy Image
@@ -180,14 +225,20 @@ export default function LandingPage() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [courseRes, programRes, branchRes] = await Promise.all([
+        const [courseRes, programRes, branchRes, ebookRes, bookRes, statsRes] = await Promise.all([
           getCourses({ limit: 6, websiteVisible: true, featured: true }),
           getPrograms(),
-          getBranches()
+          getBranches(),
+          getBooks({ isEbook: true, limit: 3 }),
+          getBooks({ isEbook: false, limit: 4 }),
+          getSystemStats()
         ]);
-        if (courseRes.success) setCourses(courseRes.data);
-        if (programRes.success) setPrograms(programRes.data);
-        if (branchRes.success) setBranches(branchRes.data);
+        if (courseRes.success) setCourses(courseRes.data || []);
+        if (programRes.success) setPrograms(programRes.data || []);
+        if (branchRes.success) setBranches(branchRes.data || []);
+        if (ebookRes.success) setDynamicEbooks(ebookRes.data || []);
+        if (bookRes.success) setAdmissionBooks(bookRes.data || []);
+        if (statsRes.success) setSystemStats(statsRes.data);
       } catch (error) {
         console.error("Data load error", error);
       } finally {
@@ -200,35 +251,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-white text-slate-900 selection:bg-indigo-100">
       
-      {/* 1. Navbar */}
-      <nav className="sticky top-0 z-50 w-full border-b border-slate-100 bg-white/95 backdrop-blur-md shadow-sm">
-        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6 lg:px-8">
-          <div className="flex items-center gap-8">
-            <Link href="/" className="flex items-center gap-1 group">
-              <div className="text-3xl font-black tracking-tighter text-[#5C2D91] flex items-center gap-2">
-                <div className="h-10 w-10 rounded-xl bg-[#5C2D91] flex items-center justify-center text-white shadow-xl group-hover:scale-110 transition-transform duration-500">
-                  <Zap className="h-6 w-6 fill-white" />
-                </div>
-                স্পন্দন
-              </div>
-            </Link>
-            <div className="hidden lg:flex items-center gap-6">
-              {['স্কুল', 'একাডেমিক', 'লক্ষ্য জিপিএ-৫', 'ভর্তি প্রস্তুতি'].map((item) => (
-                <button key={item} className="flex items-center gap-1 text-[15px] font-bold text-slate-600 hover:text-[#5C2D91]">
-                  {item} <ChevronDown className="h-4 w-4" />
-                </button>
-              ))}
-              <Link href="#branches" className="text-[15px] font-bold text-slate-600 hover:text-[#5C2D91]">ব্রাঞ্চসমূহ</Link>
-            </div>
-          </div>
-          <div className="hidden lg:flex items-center gap-4">
-            <Link href="/login">
-              <Button variant="outline" className="rounded-xl border-[#5C2D91] text-[#5C2D91] font-bold px-6">লগ ইন / সাইন আপ</Button>
-            </Link>
-          </div>
-          <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="lg:hidden p-2"><Menu /></button>
-        </div>
-      </nav>
+      <Header />
 
       {/* 2. Hero Section */}
       <section className="relative pt-12 pb-20 lg:pt-24 lg:pb-32 bg-gradient-to-b from-[#E9F3FF] to-white overflow-hidden">
@@ -255,10 +278,26 @@ export default function LandingPage() {
         </div>
         <div className="mx-auto max-w-6xl px-6 -mb-16 mt-16 lg:mt-24">
           <div className="bg-white rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.08)] grid grid-cols-2 lg:grid-cols-4 p-8 lg:p-12 gap-8 border border-slate-50 relative z-20">
-            <StatItem count="৩০ লক্ষ+" label="শিক্ষার্থী" color="text-[#FF2D8C]" />
-            <StatItem count="২০ জন+" label="অভিজ্ঞ মেন্টর" color="text-[#10B981]" />
-            <StatItem count="৪৫ লক্ষ+" label="অ্যাপ ডাউনলোড" color="text-[#1F3E76]" />
-            <StatItem count="৫ লক্ষ+" label="লার্নিং মেটেরিয়াল" color="text-[#FBBF24]" />
+            <StatItem 
+              count={systemStats ? `${systemStats.students}+` : "৩০ লক্ষ+"} 
+              label="শিক্ষার্থী" 
+              color="text-[#FF2D8C]" 
+            />
+            <StatItem 
+              count={systemStats ? `${systemStats.teachers}+` : "২০ জন+"} 
+              label="অভিজ্ঞ মেন্টর" 
+              color="text-[#10B981]" 
+            />
+            <StatItem 
+              count="৪৫ লক্ষ+" 
+              label="অ্যাপ ডাউনলোড" 
+              color="text-[#1F3E76]" 
+            />
+            <StatItem 
+              count={systemStats ? `${systemStats.contents}+` : "৫ লক্ষ+"} 
+              label="লার্নিং মেটেরিয়াল" 
+              color="text-[#FBBF24]" 
+            />
           </div>
         </div>
       </section>
@@ -280,13 +319,13 @@ export default function LandingPage() {
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-2xl font-black text-slate-800 border-l-4 border-[#10B981] pl-4">সব ই-বুক</h3>
             <Badge variant="secondary" className="bg-slate-100 text-slate-600 font-bold px-4 py-1 rounded-full text-xs">
-              ৩ টি বই
+              {dynamicEbooks.length} টি বই
             </Badge>
           </div>
 
           {/* E-book Grid */}
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {ebooks.map((book) => (
+            {dynamicEbooks.map((book) => (
               <motion.div 
                 key={book.id}
                 whileHover={{ y: -5 }}
@@ -295,8 +334,8 @@ export default function LandingPage() {
                 {/* Book Cover */}
                 <div className="w-1/3 aspect-[3/4] rounded-2xl overflow-hidden shadow-md flex-shrink-0">
                   <img 
-                    src={book.image} 
-                    alt={book.title} 
+                    src={book.thumbnailUrl || ""} 
+                    alt={book.name} 
                     className="w-full h-full object-cover"
                     onError={(e) => handleImageError(e, "বই")}
                   />
@@ -306,13 +345,13 @@ export default function LandingPage() {
                 <div className="flex-1 flex flex-col justify-between h-full py-1">
                   <div>
                     <h4 className="font-black text-slate-800 text-sm md:text-base leading-tight mb-2">
-                      {book.title}
+                      {book.name}
                     </h4>
                     <div className="inline-flex items-center gap-1 bg-[#10B981]/10 text-[#10B981] px-2 py-0.5 rounded-md text-[10px] font-bold mb-2">
-                      <BookOpen className="h-3 w-3" /> {book.tag}
+                      <BookOpen className="h-3 w-3" /> ই-বুক
                     </div>
                     <p className="text-slate-400 text-[10px] md:text-xs leading-relaxed line-clamp-3 mb-4">
-                      {book.desc}
+                      {book.description}
                     </p>
                   </div>
 
@@ -320,9 +359,6 @@ export default function LandingPage() {
                     <div className="flex flex-col">
                       <span className="text-[#10B981] font-black text-sm md:text-base">
                         {book.price === 0 ? "ফ্রি" : `৳${book.price}`}
-                      </span>
-                      <span className="text-slate-300 line-through text-[10px] font-bold">
-                        ৳{book.oldPrice}
                       </span>
                     </div>
                     <Button className="bg-[#10B981] hover:bg-[#059669] text-white text-[10px] font-bold px-4 h-8 rounded-lg shadow-lg shadow-emerald-100">
@@ -402,7 +438,208 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 7. Course Plans */}
+   {/* 6. Admission Preparation Section */}
+<section id="admission-prep" className="py-24 bg-gradient-to-b from-white to-slate-50/50">
+  <div className="mx-auto max-w-7xl px-6 lg:px-12">
+    
+    {/* Header: Centered with a subtle accent */}
+    <div className="text-center mb-16 space-y-4">
+      <span className="inline-block px-4 py-1.5 rounded-full bg-purple-50 text-[#5C2D91] text-sm font-bold tracking-wide uppercase">
+        Admission 2024-25
+      </span>
+      <h2 className="text-4xl md:text-5xl font-extrabold text-slate-900 leading-tight tracking-tight">
+        ভর্তি পরীক্ষার <span className="text-[#5C2D91] relative">
+          সম্পূর্ণ প্রস্তুতি
+          <svg className="absolute -bottom-2 left-0 w-full" viewBox="0 0 100 10" preserveAspectRatio="none">
+            <path d="M0 5 Q 50 10 100 5" stroke="#5C2D91" strokeWidth="2" fill="none" opacity="0.3" />
+          </svg>
+        </span>
+      </h2>
+      <p className="text-slate-500 font-medium text-lg leading-relaxed max-w-2xl mx-auto">
+        মেডিকেল, ইঞ্জিনিয়ারিং ও ভার্সিটি ভর্তি পরীক্ষার জন্য দেশের সেরা রিসোর্স এখন একই প্ল্যাটফর্মে।
+      </p>
+    </div>
+
+    {/* Categorization Tabs: Pill-shaped & Floating */}
+    <div className="flex flex-wrap items-center justify-center gap-4 mb-16 p-2 bg-slate-100/50 rounded-2xl w-fit mx-auto backdrop-blur-sm">
+      {programs.map((prog) => (
+        <button 
+          key={prog.id} 
+          onClick={() => setActiveAdmissionTab(prog.name)}
+          className={`group flex items-center gap-3 px-6 py-3 rounded-xl transition-all duration-300 ${
+            activeAdmissionTab === prog.name 
+            ? "bg-white text-[#5C2D91] shadow-md scale-105" 
+            : "text-slate-600 hover:bg-white/50"
+          }`}
+        >
+          <GraduationCap className={`w-5 h-5 ${activeAdmissionTab === prog.name ? "text-[#5C2D91]" : "text-slate-400"}`} />
+          <span className="font-bold">{prog.name}</span>
+          <span className={`text-xs px-2 py-0.5 rounded-full ${
+            activeAdmissionTab === prog.name ? "bg-purple-100 text-[#5C2D91]" : "bg-slate-200 text-slate-500"
+          }`}>
+            {prog._count?.courses || 0}
+          </span>
+        </button>
+      ))}
+      
+      {/* Question Bank Static Tab */}
+      <button className="flex items-center gap-3 px-6 py-3 rounded-xl text-slate-600 hover:bg-white/50 transition-all group">
+        <Layers3 className="w-5 h-5 text-slate-400 group-hover:text-emerald-500" />
+        <span className="font-bold text-slate-700">প্রশ্নব্যাংক</span>
+      </button>
+    </div>
+
+    {/* Section Title with Indicator */}
+    <div className="flex items-center justify-between mb-10">
+      <div className="flex items-center gap-4">
+        <div className="h-10 w-1.5 bg-[#10B981] rounded-full"></div>
+        <h3 className="text-2xl md:text-3xl font-black text-slate-800">
+          {activeAdmissionTab} <span className="font-normal text-slate-400">বান্ডেল</span>
+        </h3>
+      </div>
+      <button className="text-sm font-bold text-[#5C2D91] hover:underline underline-offset-4">
+        সবগুলো দেখুন →
+      </button>
+    </div>
+
+    {/* Product Cards Grid: Enhanced Spacing */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+      {admissionBooks.map((book) => (
+        <div key={book.id} className="group transition-transform duration-300 hover:-translate-y-2">
+          <ProductCard 
+            image={book.thumbnailUrl || ""}
+            title={book.name}
+            subtext={book.description || ""}
+            price={`৳${book.price}`}
+            previousPrice="৳300"
+            // Ensure ProductCard has internal padding and rounded corners
+          />
+        </div>
+      ))}
+      
+      {/* Empty State */}
+      {admissionBooks.length === 0 && !loading && (
+        <div className="col-span-full py-20 rounded-3xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center bg-white">
+          <div className="p-4 bg-slate-50 rounded-full mb-4">
+            <Layers3 className="w-10 h-10 text-slate-300" />
+          </div>
+          <p className="text-slate-500 font-bold text-xl">এই ক্যাটাগরিতে কোনো বই পাওয়া যায়নি</p>
+          <p className="text-slate-400">অন্য কোনো ক্যাটাগরি চেক করে দেখুন।</p>
+        </div>
+      )}
+    </div>
+  </div>
+</section>
+
+      {/* 7. Trust & Testimonial Section - FIXED ANIMATION */}
+      <section className="py-24 bg-white">
+        <div className="mx-auto max-w-7xl px-6 lg:px-12">
+          
+          {/* Main Blue Container */}
+          <div className="bg-[#3B4D9A] rounded-[40px] pt-16 pb-32 px-10 lg:px-20 relative">
+            <div className="grid lg:grid-cols-2 gap-16 items-start">
+              
+              {/* Left Content */}
+              <div className="text-white space-y-6">
+                <h2 className="text-4xl md:text-5xl font-extrabold leading-tight">
+                  কেন Spondon-তে আস্থা রাখবে?
+                </h2>
+                <p className="text-lg text-white/80 font-medium leading-relaxed max-w-lg">
+                  সেরা মেন্টর ও সর্বাধুনিক প্রযুক্তির সাথে সারাদেশের ৩০ লক্ষ+ শিক্ষার্থীর 
+                  মানসম্মত পড়ালেখা ও পরীক্ষা প্রস্তুতির নির্ভরযোগ্য প্রতিষ্ঠান Spondon!
+                </p>
+              </div>
+
+              {/* Right Grid Features */}
+              <div className="grid grid-cols-2 gap-4">
+                {trustFeatures.map((item, i) => (
+                  <div 
+                    key={i} 
+                    className="bg-white rounded-[20px] p-6 flex items-center gap-4 shadow-sm hover:scale-[1.02] transition-transform cursor-pointer"
+                  >
+                    <div className="text-3xl bg-slate-50 w-14 h-14 rounded-xl flex items-center justify-center shadow-inner">
+                      {item.icon}
+                    </div>
+                    <span className="text-[#1F3E76] font-bold text-sm leading-tight">
+                      {item.title}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Floating Testimonial Section */}
+            <div className="absolute -bottom-24 left-1/2 -translate-x-1/2 w-full max-w-5xl px-6 lg:px-0 flex items-center justify-center gap-4">
+              
+              {/* Nav Left */}
+              <button 
+                onClick={() => setTestimonialIndex((prev) => (prev === 0 ? testimonials.length - 1 : prev - 1))}
+                className="hidden md:flex h-12 w-12 rounded-full bg-white shadow-xl items-center justify-center text-[#3B4D9A] hover:bg-slate-50 transition-colors z-40"
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </button>
+
+              {/* White Card */}
+              <motion.div 
+                key={testimonialIndex}
+                initial={{ opacity: 0, y: 50 }}
+                animate={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="bg-white rounded-[32px] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.12)] p-8 lg:p-12 flex flex-col md:flex-row gap-10 items-center border border-slate-50 z-30"
+              >
+                {/* Text Side */}
+                <div className="flex-1 space-y-6">
+                  <div className="bg-[#F3E8FF] w-12 h-12 rounded-xl flex items-center justify-center">
+                    <Quote className="h-6 w-6 text-[#A855F7] fill-[#A855F7]" />
+                  </div>
+                  <p className="text-lg lg:text-xl font-bold text-slate-800 leading-relaxed italic">
+                    "{testimonials[testimonialIndex].quote}"
+                  </p>
+                  <div className="space-y-1">
+                    <h4 className="text-xl font-black text-[#1F3E76]">{testimonials[testimonialIndex].name}</h4>
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+                      {testimonials[testimonialIndex].info}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Video Side */}
+                <div className="relative w-full md:w-[380px] aspect-[16/10] rounded-[24px] overflow-hidden group">
+                  <img 
+                    src={testimonials[testimonialIndex].videoThumb} 
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
+                    alt="Student" 
+                  />
+                  <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                    <div className="h-14 w-14 rounded-full bg-indigo-600/90 text-white flex items-center justify-center shadow-2xl group-hover:scale-110 transition-transform">
+                      <Play className="h-6 w-6 fill-current ml-1" />
+                    </div>
+                  </div>
+                  {/* Bottom Overlay Label */}
+                  <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent">
+                    <p className="text-white text-[12px] font-black leading-tight text-center">
+                      {testimonials[testimonialIndex].videoLabel}
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Nav Right */}
+              <button 
+                onClick={() => setTestimonialIndex((prev) => (prev === testimonials.length - 1 ? 0 : prev + 1))}
+                className="hidden md:flex h-12 w-12 rounded-full bg-white shadow-xl items-center justify-center text-[#3B4D9A] hover:bg-slate-50 transition-colors z-40"
+              >
+                <ChevronRight className="h-6 w-6" />
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        {/* Spacer to allow the absolute card to have space below it */}
+        <div className="h-32" />
+      </section>
+
+      {/* 8. Course Plans */}
       <section id="courses" className="py-32">
         <div className="mx-auto max-w-7xl px-6 lg:px-12">
           <SectionHeader badge="এনরোলমেন্ট অপশন" title="চলমান কোর্সসমূহ" subtitle="আপনার প্রয়োজন অনুযায়ী অনলাইন বা অফলাইন ব্রাঞ্চ ব্যাচ বেছে নিন।" />
@@ -413,10 +650,10 @@ export default function LandingPage() {
                    <Badge className="absolute top-6 left-6 z-10 bg-indigo-600 text-white border-0">{course.type === 'ONLINE' ? 'অনলাইন' : 'অফলাইন'}</Badge>
                    <div className="absolute top-6 right-6 z-10 h-12 w-16 rounded-xl bg-white/95 flex flex-col items-center justify-center text-indigo-600 font-black shadow-lg">
                       <span className="text-[8px]">টাকা</span>
-                      <span className="text-lg leading-none">{course.fee}</span>
+                      <span className="text-lg leading-none">{String(course.fee)}</span>
                    </div>
                    <img 
-                    src={course.image || ""} 
+                    src={course.thumbnail || ""} 
                     alt={course.name} 
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                     onError={(e) => handleImageError(e, "Course")}
@@ -435,61 +672,34 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 8. Payment Partners */}
-      <section className="py-12 bg-white border-t border-slate-100">
+      {/* 9. Payment Partners */}
+      <section className="py-16 bg-white border-t border-slate-100">
         <div className="mx-auto max-w-7xl px-6 lg:px-12">
-          <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
-            <div className="flex items-center gap-6 min-w-fit">
-              <span className="text-blue-600 font-black text-sm uppercase tracking-widest">পেমেন্ট করুন</span>
-              <div className="h-20 w-px bg-slate-200 hidden lg:block" />
+          <div className="flex flex-col items-center gap-10">
+            <div className="text-center space-y-2">
+              <Badge className="bg-blue-50 text-blue-600 border-blue-100 px-4 py-1 text-[10px] font-black uppercase tracking-widest rounded-full">Secure Checkout</Badge>
+              <h3 className="text-2xl font-black text-slate-800">পেমেন্ট পার্টনার</h3>
             </div>
-            <div className="flex-1 overflow-hidden">
-              <div className="flex flex-wrap justify-center gap-6 lg:gap-8">
-                {paymentMethods.map((method, i) => (
-                  <div key={i} className="w-20 h-12 flex items-center justify-center grayscale hover:grayscale-0 transition-all">
-                    <img 
-                      src={method.url} 
-                      alt={method.name} 
-                      className="max-h-full max-w-full object-contain"
-                      onError={(e) => handleImageError(e, method.name)} 
-                    />
-                  </div>
-                ))}
-              </div>
+            
+            <div className="w-full max-w-4xl bg-slate-50/50 rounded-[32px] p-8 md:p-12 border border-slate-100 flex items-center justify-center transition-all hover:shadow-xl hover:bg-white">
+              <img 
+                src="/images/SSL-Commerz-Pay-With-logo-All-Size-01-570x213.png" 
+                alt="SSLCommerz Payment Partners" 
+                className="max-w-full h-auto object-contain drop-shadow-sm"
+                onError={(e) => handleImageError(e, "Payment Gateway")}
+              />
             </div>
-            <div className="flex items-center gap-6 min-w-fit">
-              <div className="h-20 w-px bg-slate-200 hidden lg:block" />
-              <div className="text-center lg:text-left">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">ভেরিফাইড বাই</p>
-                <div className="bg-[#005BAB] text-white px-4 py-2 rounded font-black text-sm italic tracking-tight">SSLCOMMERZ</div>
-              </div>
+
+            <div className="flex items-center gap-3 text-slate-400">
+              <div className="h-px w-12 bg-slate-200" />
+              <p className="text-[10px] font-bold uppercase tracking-widest">Verified by SSLCOMMERZ</p>
+              <div className="h-px w-12 bg-slate-200" />
             </div>
           </div>
         </div>
       </section>
 
-      {/* 9. Footer */}
-      <footer className="bg-[#1F3E76] text-white pt-20 pb-10 rounded-t-[64px] mx-4 lg:mx-12">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8 text-center md:text-left">
-          <div className="flex flex-col md:flex-row justify-between items-center border-b border-white/10 pb-12 gap-8">
-            <div className="text-3xl font-black tracking-tighter">স্পন্দন<span className="text-[#FF2D8C]">প্রো।</span></div>
-            <div className="flex flex-wrap justify-center gap-8 font-bold text-sm">
-              <Link href="#" className="hover:text-[#FF2D8C] transition-colors">শর্তাবলী</Link>
-              <Link href="#" className="hover:text-[#FF2D8C] transition-colors">গোপনীয়তা নীতি</Link>
-              <Link href="#" className="hover:text-[#FF2D8C] transition-colors">যোগাযোগ</Link>
-              <Link href="#branches" className="hover:text-[#FF2D8C] transition-colors">ব্রাঞ্চ ম্যাপ</Link>
-            </div>
-          </div>
-          <div className="mt-10 flex flex-col md:flex-row items-center justify-between gap-6">
-             <p className="text-white/50 text-xs font-bold uppercase tracking-widest leading-relaxed">© ২০২৬ স্পন্দন প্রো টেকনোলজিস লিমিটেড। সর্বস্বত্ব সংরক্ষিত।</p>
-             <div className="flex gap-4">
-                {[Twitter, Linkedin, Facebook, Instagram].map((Icon, i) => (
-                  <Icon key={i} className="h-5 w-5 text-white/40 hover:text-white cursor-pointer transition-all hover:scale-110" />
-                ))}
-             </div>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

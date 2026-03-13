@@ -73,6 +73,18 @@ export interface CourseTransactionResponse {
   data: CourseTransactionData[];
 }
 
+export interface SystemStatsData {
+  students: number;
+  teachers: number;
+  courses: number;
+  contents: number;
+}
+
+export interface SystemStatsResponse {
+  success: boolean;
+  data: SystemStatsData;
+}
+
 export async function getRevenueSummary(
   params?: RevenueSummaryParams
 ): Promise<RevenueSummaryResponse> {
@@ -106,4 +118,8 @@ export async function getCourseTransactions(
   queryParams.append('courseId', params.courseId);
 
   return apiRequest<CourseTransactionResponse>(`/reports/course-transactions?${queryParams.toString()}`);
+}
+
+export async function getSystemStats(): Promise<SystemStatsResponse> {
+  return apiRequest<SystemStatsResponse>('/reports/stats');
 }
