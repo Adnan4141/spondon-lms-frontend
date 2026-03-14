@@ -18,7 +18,7 @@ export const CoursesSection: React.FC<Props> = ({ courses, handleImageError }) =
     <div className="pointer-events-none absolute top-[-10%] right-[-5%] w-[600px] h-[600px] bg-gradient-to-br from-indigo-200/40 to-purple-200/40 rounded-full blur-[120px] mix-blend-multiply opacity-70" />
     <div className="pointer-events-none absolute bottom-[-10%] left-[-5%] w-[600px] h-[600px] bg-gradient-to-tr from-emerald-100/50 to-teal-100/50 rounded-full blur-[120px] mix-blend-multiply opacity-70" />
     <div className="mx-auto max-w-7xl px-6 lg:px-12 relative z-10">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
+      <div className="flex flex-col items-center gap-6 mb-16 text-center">
         <SectionHeader
           badge="Premium Learning"
           title="আমাদের সবচেয়ে "
@@ -26,12 +26,7 @@ export const CoursesSection: React.FC<Props> = ({ courses, handleImageError }) =
           subtitle="নিজেদের প্রস্তুত করুন আগামী দিনের চ্যালেঞ্জ মোকাবিলায়।"
           className="text-center mx-auto"
         />
-        <Link href="/courses" className="cursor-pointer">
-          <button className="group flex items-center gap-3 px-8 py-4 rounded-2xl bg-white border border-slate-200 text-slate-900 font-black uppercase text-[11px] tracking-widest hover:bg-[#5C2D91] hover:text-white transition-all shadow-sm mb-4 cursor-pointer">
-            সকল কোর্স দেখুন
-            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-          </button>
-        </Link>
+       
       </div>
 
       <motion.div
@@ -60,6 +55,15 @@ export const CoursesSection: React.FC<Props> = ({ courses, handleImageError }) =
           ))
         )}
       </motion.div>
+      
     </div>
+     <div className='flex justify-center items-center mt-10 pt-5'>
+      <Link href="/courses" className="cursor-pointer">
+          <button className="group flex text-center items-center gap-3 px-8 py-4 rounded-2xl bg-white border border-slate-200 text-slate-900 font-black uppercase text-[11px] tracking-widest hover:bg-[#5C2D91] hover:text-white transition-all shadow-sm mb-4 cursor-pointer">
+            সকল কোর্স দেখুন
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+          </button>
+        </Link>
+     </div>
   </section>
 );
