@@ -24,7 +24,7 @@ export const CoursesSection: React.FC<Props> = ({ courses, handleImageError }) =
           title="আমাদের সবচেয়ে "
           gradientTitle="জনপ্রিয় কোর্সসমূহ"
           subtitle="নিজেদের প্রস্তুত করুন আগামী দিনের চ্যালেঞ্জ মোকাবিলায়।"
-          className="text-left mx-0"
+          className="text-center mx-auto"
         />
         <Link href="/courses" className="cursor-pointer">
           <button className="group flex items-center gap-3 px-8 py-4 rounded-2xl bg-white border border-slate-200 text-slate-900 font-black uppercase text-[11px] tracking-widest hover:bg-[#5C2D91] hover:text-white transition-all shadow-sm mb-4 cursor-pointer">
