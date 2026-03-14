@@ -18,7 +18,7 @@ import {
 
 export function Footer() {
   return (
-    <footer className="relative mt-32">
+    <footer className="relative ">
       {/* Floating Subscription Card - The "Premium" Touch */}
       <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-[90%] max-w-5xl z-20">
         <div className="bg-white rounded-[32px] p-8 md:p-12 shadow-2xl border border-slate-100 flex flex-col md:flex-row items-center justify-between gap-8 overflow-hidden relative group">
@@ -57,11 +57,9 @@ export function Footer() {
             {/* Column 1: Branding (Spans 4 columns) */}
             <div className="lg:col-span-4 space-y-8">
               <div className="flex items-center gap-3">
-                <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
-                  <Zap className="h-8 w-8 fill-current" />
-                </div>
+                
                 <div className="text-3xl font-black tracking-tighter">
-                  স্পন্দন<span className="text-emerald-400">প্রো।</span>
+                  স্পন্দন
                 </div>
               </div>
               <p className="text-slate-400 font-medium leading-relaxed max-w-sm">
@@ -133,7 +131,7 @@ export function Footer() {
           {/* Bottom Bar */}
           <div className="pt-10 border-t border-slate-800 flex flex-col md:flex-row items-center justify-between gap-6 text-slate-500">
             <p className="text-sm font-bold italic">
-              © ২০২৬ <span className="text-slate-300">স্পন্দন প্রো</span> | Built with excellence.
+              © ২০২৬ <span className="text-slate-300">স্পন্দন</span> 
             </p>
             <div className="flex items-center gap-6">
                {/* Replace with your monochromatic payment icons for premium feel */}
