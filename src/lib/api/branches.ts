@@ -30,6 +30,7 @@ export interface CreateBranchDto {
   address?: string;
   phone?: string;
   status?: string;
+  order?: number;
 }
 
 export interface UpdateBranchDto {
@@ -38,6 +39,7 @@ export interface UpdateBranchDto {
   address?: string;
   phone?: string;
   status?: string;
+  order?: number;
 }
 
 export async function getBranches(): Promise<ApiResponse<Branch[]>> {

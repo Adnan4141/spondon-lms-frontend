@@ -1,128 +1,180 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { Menu, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useEffect, useState } from 'react'
+import Link from 'next/link'
+import Image from 'next/image'
+import { Menu, X } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
+import { motion, AnimatePresence } from 'framer-motion'
 
 export function Header() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
     const handleScroll = () => {
-      setScrolled(window.scrollY > 20);
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+      setScrolled(window.scrollY > 10)
+    }
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
 
   const navLinks = [
     { name: 'সকল কোর্স', href: '/courses' },
     { name: 'যোগাযোগ', href: '/branches' },
-    { name: 'আমাদের সম্পর্কে', href: '#about' },
-  ];
+    { name: 'আমাদের সম্পর্কে', href: '/about-us' }
+  ]
 
   return (
     <nav
       className={cn(
-        'fixed top-0 z-50 w-full transition-all duration-500 ease-in-out',
+        'fixed top-0 z-50 w-full transition-all duration-500',
         scrolled 
-          ? 'bg-white/80 backdrop-blur-xl border-b border-slate-200/50 py-3 shadow-sm' 
-          : 'bg-transparent border-transparent py-6'
+          ? 'py-0' // Tighten up on scroll
+          : 'py-4'  // Breathable space at top
       )}
     >
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 lg:px-12">
-        <Link href="/" className="flex items-center gap-2 group cursor-pointer">
-          <div className={cn(
-            "text-3xl font-black tracking-tighter transition-colors duration-500",
-            scrolled ? "text-[#5C2D91]" : "text-white"
-          )}>
-            স্পন্দন
-          </div>
-       
-        </Link>
+      {/* Background Layer - Smooth transition between glass and transparent */}
+      <div 
+        className={cn(
+          "absolute inset-0 transition-all duration-500 ease-in-out -z-10",
+          scrolled 
+            ? "bg-white/80 backdrop-blur-xl opacity-100 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)]" 
+            : "bg-transparent opacity-0"
+        )} 
+      />
+
+      {/* Border Bottom Animation - Smooth 1px line */}
+      <div 
+        className={cn(
+          "absolute bottom-0 left-0 h-[1px] bg-slate-200 transition-all duration-700 ease-in-out -z-10",
+          scrolled ? "w-full opacity-100" : "w-0 opacity-0"
+        )} 
+      />
+
+      <div className="mx-auto max-w-7xl px-6 lg:px-12 flex items-center justify-between h-20 transition-all duration-500">
         
+        {/* Logo */}
+        <Link href="/" className="relative z-50 flex items-center shrink-0">
+          <Image
+            src="/images/logo/spondon-logo.png"
+            alt="Spondon Logo"
+            width={150}
+            height={45}
+            priority
+            className={cn(
+              "object-contain transition-all duration-500",
+              !scrolled && "brightness-0 invert"
+            )}
+          />
+        </Link>
+
+        {/* Desktop Navigation */}
         <div className="hidden lg:flex items-center gap-10">
           {navLinks.map((link) => (
-            <Link 
-              key={link.name} 
+            <Link
+              key={link.name}
               href={link.href}
-              className="relative group py-2 cursor-pointer"
+              className={cn(
+                "group relative text-sm font-bold tracking-tight transition-colors duration-300",
+                scrolled ? 'text-slate-700' : 'text-white'
+              )}
             >
-              <span 
-                className={cn(
-                  "text-[18px] font-bold transition-all duration-500",
-                  scrolled ? "text-slate-600 hover:text-[#5C2D91]" : "text-white/80 hover:text-white"
-                )}
-              >
-                {link.name}
-              </span>
+              <span className="relative z-10">{link.name}</span>
+              
+              {/* Animated Underline */}
               <span className={cn(
-                "absolute -bottom-1 left-0 h-[2px] w-0 bg-[#FF2D8C] transition-all duration-300 group-hover:w-full",
-                !scrolled && "bg-emerald-400"
+                "absolute -bottom-1 left-0 h-[2px] transition-all duration-300 group-hover:w-full w-0",
+                scrolled ? "bg-[#5C2D91]" : "bg-white"
               )} />
             </Link>
           ))}
         </div>
 
+        {/* Action Button */}
         <div className="hidden lg:flex items-center gap-6">
-          <Link href="/login" className="cursor-pointer">
-            <button className={cn(
-              "px-8 py-3 rounded-2xl text-[15px] font-black uppercase tracking-widest transition-all duration-500 active:scale-95 cursor-pointer",
+          <Link href="/login">
+            <Button className={cn(
+              "rounded-2xl px-8 h-11 font-bold transition-all duration-500 active:scale-95 shadow-sm",
               scrolled 
-                ? "bg-slate-900 text-white hover:bg-[#5C2D91] shadow-lg shadow-indigo-100" 
-                : "bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white hover:text-slate-900"
+                ? "bg-[#5C2D91] hover:bg-[#FF2D8C] text-white" 
+                : "bg-white text-[#5C2D91] hover:shadow-xl hover:shadow-white/20"
             )}>
               লগ ইন / সাইন আপ
-            </button>
+            </Button>
           </Link>
         </div>
 
-        <button 
-          onClick={() => setIsMenuOpen(!isMenuOpen)} 
+        {/* Mobile Toggle */}
+        <button
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
           className={cn(
-            "lg:hidden p-3 rounded-2xl transition-all duration-500 cursor-pointer",
-            scrolled ? "text-slate-900 bg-slate-50" : "text-white bg-white/10 backdrop-blur-md"
+            "lg:hidden relative z-50 p-2.5 rounded-2xl transition-all duration-300",
+            scrolled 
+              ? "bg-slate-100 text-slate-900" 
+              : "bg-white/10 text-white backdrop-blur-md border border-white/20"
           )}
         >
           {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
 
-      {/* Mobile Menu */}
+      {/* Mobile Menu Overlay */}
       <AnimatePresence>
         {isMenuOpen && (
-          <motion.div 
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="lg:hidden bg-white border-b border-slate-100 overflow-hidden"
-          >
-            <div className="p-8 space-y-6">
-              {navLinks.map((link) => (
-                <Link 
-                  key={link.name} 
-                  href={link.href}
-                  onClick={() => setIsMenuOpen(false)}
-                  className="block w-full text-left text-lg font-black text-slate-800 hover:text-[#5C2D91] transition-colors cursor-pointer"
+          <>
+            {/* Backdrop Blur to focus on menu */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsMenuOpen(false)}
+              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm lg:hidden -z-20"
+            />
+            
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ type: "spring", duration: 0.5, bounce: 0 }}
+              className="lg:hidden bg-white overflow-hidden shadow-2xl rounded-b-[2rem]"
+            >
+              <div className="px-8 py-10 space-y-6">
+                {navLinks.map((link, idx) => (
+                  <motion.div
+                    initial={{ x: -20, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    transition={{ delay: idx * 0.1 }}
+                    key={link.name}
+                  >
+                    <Link
+                      href={link.href}
+                      onClick={() => setIsMenuOpen(false)}
+                      className="block text-2xl font-black text-slate-800 active:text-[#5C2D91]"
+                    >
+                      {link.name}
+                    </Link>
+                  </motion.div>
+                ))}
+                
+                <motion.div 
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.3 }}
+                  className="pt-6"
                 >
-                  {link.name}
-                </Link>
-              ))}
-              <div className="pt-4">
-                <Link href="/login" className="cursor-pointer">
-                  <Button className="w-full h-16 rounded-2xl bg-[#5C2D91] hover:bg-[#FF2D8C] text-white font-black uppercase tracking-widest text-xs transition-all shadow-xl shadow-indigo-100 cursor-pointer">
-                    লগ ইন / সাইন আপ
-                  </Button>
-                </Link>
+                  <Link href="/login" onClick={() => setIsMenuOpen(false)}>
+                    <Button className="w-full h-16 rounded-[1.25rem] bg-[#5C2D91] text-white text-xl font-black shadow-lg shadow-indigo-200">
+                      লগ ইন / সাইন আপ
+                    </Button>
+                  </Link>
+                </motion.div>
               </div>
-            </div>
-          </motion.div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </nav>
-  );
+  )
 }

@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, ChevronLeft, ChevronRight, PlayCircle, Star } from 'lucide-react';
 
@@ -75,15 +76,17 @@ export const HeroCarousel: React.FC = () => {
             <div key={item.id} className="flex-[0_0_100%] min-w-0 relative h-full">
               {/* Background Image */}
               <div className="absolute inset-0 z-0">
-                <img
+                <Image
                   src={item.image}
                   alt={item.title}
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover"
+                  priority={index === 0}
                 />
 
               </div>
 
-            
+           
             </div>
           ))}
         </div>

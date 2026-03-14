@@ -35,6 +35,7 @@ export function BranchForm({ branch, onSuccess }: BranchFormProps) {
     address: '',
     phone: '',
     status: 'active',
+    order: 0,
   });
   
   const [submitting, setSubmitting] = useState(false);
@@ -50,6 +51,7 @@ export function BranchForm({ branch, onSuccess }: BranchFormProps) {
         address: branch.address || '',
         phone: branch.phone || '',
         status: branch.status,
+        order: branch.order || 0,
       });
     }
   }, [branch]);
@@ -70,6 +72,7 @@ export function BranchForm({ branch, onSuccess }: BranchFormProps) {
         address: form.address?.trim() || undefined,
         phone: form.phone?.trim() || undefined,
         status: form.status,
+        order: Number(form.order) || 0,
       };
 
       if (isEdit && branch) {
@@ -130,6 +133,19 @@ export function BranchForm({ branch, onSuccess }: BranchFormProps) {
                          <SelectItem value="inactive" className="text-sm font-medium">INACTIVE</SelectItem>
                       </SelectContent>
                    </Select>
+                </div>
+                <div className="space-y-2">
+                   <label className={sectionLabel}>Sorting Order</label>
+                   <div className="relative group">
+                      <Hash className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Input 
+                        type="number" 
+                        className={cn(inputClass, "pl-11")} 
+                        value={form.order} 
+                        onChange={e => setForm(p => ({ ...p, order: parseInt(e.target.value) || 0 }))} 
+                        placeholder="e.g., 1" 
+                      />
+                   </div>
                 </div>
              </div>
           </section>

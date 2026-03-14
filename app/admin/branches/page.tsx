@@ -71,6 +71,10 @@ export default function BranchesPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [sortConfig, setSortConfig] = useState<{ key: keyof Branch | 'order'; direction: 'asc' | 'desc' }>({
+    key: 'order',
+    direction: 'asc',
+  });
 
   const loadBranches = async () => {
     try {
@@ -161,13 +165,36 @@ export default function BranchesPage() {
   };
 
 
-  const filteredBranches = branches.filter(
-    (branch) =>
-      (branch.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        branch.code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        branch.address?.toLowerCase().includes(searchQuery.toLowerCase())) &&
-      (statusFilter === 'all' || branch.status.toLowerCase() === statusFilter.toLowerCase())
-  );
+  const filteredBranches = branches
+    .filter(
+      (branch) =>
+        (branch.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          branch.code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          branch.address?.toLowerCase().includes(searchQuery.toLowerCase())) &&
+        (statusFilter === 'all' || branch.status.toLowerCase() === statusFilter.toLowerCase())
+    )
+    .sort((a, b) => {
+      const aValue = a[sortConfig.key];
+      const bValue = b[sortConfig.key];
+
+      if (aValue === undefined || aValue === null) return 1;
+      if (bValue === undefined || bValue === null) return -1;
+
+      if (aValue < bValue) {
+        return sortConfig.direction === 'asc' ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return sortConfig.direction === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+
+  const toggleSort = (key: keyof Branch | 'order') => {
+    setSortConfig((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc',
+    }));
+  };
 
   const totalBranches = branches.length;
   const activeCount = branches.filter((b) => b.status.toLowerCase() === 'active').length;
@@ -270,9 +297,20 @@ export default function BranchesPage() {
             <Table>
               <TableHeader className="bg-slate-50/50">
                 <TableRow className="hover:bg-transparent border-b border-slate-100">
-                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Branch Identity</TableHead>
+                  <TableHead 
+                    className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400 cursor-pointer hover:text-indigo-600 transition-colors"
+                    onClick={() => toggleSort('name')}
+                  >
+                    Branch Identity {sortConfig.key === 'name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                  </TableHead>
                   <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Contact & Location</TableHead>
                   <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Metrics</TableHead>
+                  <TableHead 
+                    className="font-black text-[10px] uppercase tracking-widest text-slate-400 cursor-pointer hover:text-indigo-600 transition-colors"
+                    onClick={() => toggleSort('order')}
+                  >
+                    Order {sortConfig.key === 'order' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                  </TableHead>
                   <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Status</TableHead>
                   <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400 text-center">Manage</TableHead>
                 </TableRow>
@@ -319,6 +357,11 @@ export default function BranchesPage() {
                              <span className="text-base font-black text-slate-900">{branch._count?.enrollments || 0}</span>
                              <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Students</span>
                           </div>
+                       </div>
+                    </TableCell>
+                    <TableCell className="py-5">
+                       <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-indigo-50 text-indigo-600 font-black text-xs border border-indigo-100">
+                          {branch.order || 0}
                        </div>
                     </TableCell>
                     <TableCell className="py-5">
