@@ -21,16 +21,12 @@ export const CoursesSection: React.FC<Props> = ({ courses, handleImageError }) =
       <div className="flex flex-col items-center gap-6 mb-16">
         <SectionHeader
           badge="Premium Learning"
-          title="আমাদের চলমান"
-          gradientTitle="কোর্সসমূহ"
+          title="আমাদের সবচেয়ে "
+          gradientTitle="জনপ্রিয় কোর্সসমূহ"
           subtitle="নিজেদের প্রস্তুত করুন আগামী দিনের চ্যালেঞ্জ মোকাবিলায়।"
           className="text-center mx-auto"
         />
-        <div className="flex gap-3">
-          <div className="px-5 py-2 rounded-full border border-slate-200 bg-white shadow-sm text-sm font-bold text-slate-600">
-            সবগুলো ({courses.length})
-          </div>
-        </div>
+        
       </div>
 
       <motion.div
