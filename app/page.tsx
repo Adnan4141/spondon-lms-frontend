@@ -9,8 +9,6 @@ import { StatsSection } from '@/components/landing/StatsSection';
 import { ProgramsCTASection } from '@/components/landing/ProgramsCTASection';
 import { DigitalLibrarySection } from '@/components/landing/DigitalLibrarySection';
 // import { ProgramsSection } from '@/components/landing/ProgramsSection';
-import { InteractiveFeaturesSection } from '@/components/landing/InteractiveFeaturesSection';
-import { AdmissionPrepSection } from '@/components/landing/AdmissionPrepSection';
 import { TrustSection } from '@/components/landing/TrustSection';
 import { CoursesSection } from '@/components/landing/CoursesSection';
 import { PaymentSection } from '@/components/landing/PaymentSection';
@@ -90,19 +88,6 @@ export default function LandingPage() {
       {/* <StatsSection systemStats={systemStats} /> */}
  
       <CoursesSection courses={courses} handleImageError={handleImageError} />
-      {/* <InteractiveFeaturesSection
-        features={interactiveFeatures}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        handleImageError={handleImageError}
-      />
-      <AdmissionPrepSection
-        programs={programs}
-        admissionBooks={admissionBooks}
-        activeAdmissionTab={activeAdmissionTab}
-        setActiveAdmissionTab={setActiveAdmissionTab}
-        loading={loading}
-      /> */}
       <TrustSection testimonials={testimonials} testimonialIndex={testimonialIndex} setTestimonialIndex={setTestimonialIndex} />
       <DigitalLibrarySection dynamicEbooks={dynamicEbooks} />
       <PartnerCarouselSection />

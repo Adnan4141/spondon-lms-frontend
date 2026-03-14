@@ -18,15 +18,15 @@ export const CoursesSection: React.FC<Props> = ({ courses, handleImageError }) =
     <div className="pointer-events-none absolute top-[-10%] right-[-5%] w-[600px] h-[600px] bg-gradient-to-br from-indigo-200/40 to-purple-200/40 rounded-full blur-[120px] mix-blend-multiply opacity-70" />
     <div className="pointer-events-none absolute bottom-[-10%] left-[-5%] w-[600px] h-[600px] bg-gradient-to-tr from-emerald-100/50 to-teal-100/50 rounded-full blur-[120px] mix-blend-multiply opacity-70" />
     <div className="mx-auto max-w-7xl px-6 lg:px-12 relative z-10">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
+      <div className="flex flex-col items-center gap-6 mb-16">
         <SectionHeader
           badge="Premium Learning"
           title="আমাদের চলমান"
           gradientTitle="কোর্সসমূহ"
           subtitle="নিজেদের প্রস্তুত করুন আগামী দিনের চ্যালেঞ্জ মোকাবিলায়।"
-          className="text-left mx-0"
+          className="text-center mx-auto"
         />
-        <div className="hidden md:flex gap-3 mb-4">
+        <div className="flex gap-3">
           <div className="px-5 py-2 rounded-full border border-slate-200 bg-white shadow-sm text-sm font-bold text-slate-600">
             সবগুলো ({courses.length})
           </div>

@@ -48,13 +48,13 @@ export const ProgramsCTASection = () => (
         whileInView="visible"
         viewport={{ once: true }}
         variants={staggerContainer}
-        className="grid md:grid-cols-3 gap-4"
+        className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 justify-items-center"
       >
         {programs.map((item, idx) => (
           <motion.div
             key={item.title}
             variants={fadeInUp}
-            className={`${item.bg} rounded-2xl p-6 shadow-sm border border-slate-100 flex items-start gap-4`}
+            className={`${item.bg} w-full max-w-sm rounded-2xl p-6 shadow-sm border border-slate-100 flex items-start gap-4`}
           >
             <div className="h-12 w-12 rounded-xl bg-white text-indigo-600 flex items-center justify-center shadow-inner border border-slate-100">
               <Globe2 className="h-6 w-6" />
