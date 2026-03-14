@@ -4,7 +4,6 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { CourseCard } from '@/components/landing/shared/CourseCard';
-import { CourseListCard } from '@/components/landing/shared/CourseListCard';
 import { getCourses } from '@/lib/api/courses';
 import { getPrograms } from '@/lib/api/programs';
 import type { Course, Program } from '@/types/course';
@@ -12,8 +11,6 @@ import {
     Search,
     SlidersHorizontal,
     X,
-    LayoutGrid,
-    List,
     Filter,
     Check
 } from 'lucide-react';
@@ -25,7 +22,6 @@ export default function CoursesPage() {
     const [programs, setPrograms] = useState<Program[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
-    const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
     // Filters State
     const [selectedProgram, setSelectedProgram] = useState<string>('all');
@@ -204,46 +200,18 @@ export default function CoursesPage() {
                             >
                                 <SlidersHorizontal className="h-5 w-5" /> ফিল্টার
                             </button>
-
-                            <div className="hidden md:flex h-16 bg-white border border-slate-100 rounded-2xl p-1 shadow-sm">
-                                <button 
-                                    onClick={() => setViewMode('grid')}
-                                    className={cn(
-                                        "h-full px-4 rounded-xl flex items-center justify-center cursor-pointer transition-all",
-                                        viewMode === 'grid' ? "bg-slate-50 text-[#5C2D91]" : "text-slate-400 hover:text-slate-600"
-                                    )}
-                                >
-                                    <LayoutGrid size={20} />
-                                </button>
-                                <button 
-                                    onClick={() => setViewMode('list')}
-                                    className={cn(
-                                        "h-full px-4 rounded-xl flex items-center justify-center cursor-pointer transition-all",
-                                        viewMode === 'list' ? "bg-slate-50 text-[#5C2D91]" : "text-slate-400 hover:text-slate-600"
-                                    )}
-                                >
-                                    <List size={20} />
-                                </button>
-                            </div>
                         </div>
 
-                        {/* Courses Grid/List */}
+                        {/* Courses Grid */}
                         <div className="min-h-[400px]">
                             {loading ? (
-                                <div className={cn(
-                                    "grid gap-8",
-                                    viewMode === 'grid' ? "sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3" : "grid-cols-1"
-                                )}>
+                                <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
                                     {[1, 2, 3, 4, 5, 6].map(i => (
-                                        <div key={i} className={cn(
-                                            "bg-white animate-pulse border border-slate-100 shadow-sm",
-                                            viewMode === 'grid' ? "h-[450px] rounded-[32px]" : "h-48 rounded-[32px] w-full"
-                                        )} />
+                                        <div key={i} className="bg-white animate-pulse border border-slate-100 shadow-sm h-[380px] rounded-[32px]" />
                                     ))}
                                 </div>
                             ) : filteredCourses.length > 0 ? (
                                 <motion.div
-                                    key={viewMode}
                                     initial="hidden"
                                     animate="visible"
                                     variants={{
@@ -253,17 +221,10 @@ export default function CoursesPage() {
                                             transition: { staggerChildren: 0.08 }
                                         }
                                     }}
-                                    className={cn(
-                                        "grid gap-8",
-                                        viewMode === 'grid' ? "sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3" : "grid-cols-1"
-                                    )}
+                                    className="grid gap-8 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3"
                                 >
                                     {filteredCourses.map(course => (
-                                        viewMode === 'grid' ? (
-                                            <CourseCard key={course.id} course={course} handleImageError={handleImageError} />
-                                        ) : (
-                                            <CourseListCard key={course.id} course={course} handleImageError={handleImageError} />
-                                        )
+                                        <CourseCard key={course.id} course={course} handleImageError={handleImageError} />
                                     ))}
                                 </motion.div>
                             ) : (
