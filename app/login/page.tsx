@@ -103,12 +103,7 @@ export default function LoginPage() {
       <div className="hidden lg:flex lg:w-1/2 relative bg-[#0F172A] items-center justify-center p-12">
         {/* Background Decorative Elements */}
         <div className="absolute inset-0 z-0">
-          <Image 
-            src="/images/carousel/carousel-1.jpg" 
-            alt="Login Background" 
-            fill 
-            className="object-cover opacity-40 grayscale"
-          />
+     
           <div className="absolute inset-0 bg-gradient-to-br from-[#5C2D91]/80 via-[#0F172A]/90 to-[#0F172A]" />
         </div>
 
