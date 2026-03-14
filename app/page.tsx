@@ -105,8 +105,8 @@ export default function LandingPage() {
       /> */}
       <TrustSection testimonials={testimonials} testimonialIndex={testimonialIndex} setTestimonialIndex={setTestimonialIndex} />
       <DigitalLibrarySection dynamicEbooks={dynamicEbooks} />
-      <PaymentSection handleImageError={handleImageError} />
       <PartnerCarouselSection />
+      <PaymentSection handleImageError={handleImageError} />
       <Footer />
     </div>
   );

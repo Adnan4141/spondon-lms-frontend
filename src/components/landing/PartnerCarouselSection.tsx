@@ -1,60 +1,88 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 
 const partners = [
-  { name: 'Partner 1', logo: 'https://placehold.co/200x80/f3f4f6/1f2937?text=Partner+1' },
-  { name: 'Partner 2', logo: 'https://placehold.co/200x80/f3f4f6/1f2937?text=Partner+2' },
-  { name: 'Partner 3', logo: 'https://placehold.co/200x80/f3f4f6/1f2937?text=Partner+3' },
-  { name: 'Partner 4', logo: 'https://placehold.co/200x80/f3f4f6/1f2937?text=Partner+4' },
-  { name: 'Partner 5', logo: 'https://placehold.co/200x80/f3f4f6/1f2937?text=Partner+5' },
-  { name: 'Partner 6', logo: 'https://placehold.co/200x80/f3f4f6/1f2937?text=Partner+6' },
-  { name: 'Partner 7', logo: 'https://placehold.co/200x80/f3f4f6/1f2937?text=Partner+7' },
-  { name: 'Partner 8', logo: 'https://placehold.co/200x80/f3f4f6/1f2937?text=Partner+8' },
+  { name: 'Banglalink', logo: '/images/collaborator/banglalink-logo-png_seeklogo-411075.png' },
+  { name: 'Bikash', logo: '/images/collaborator/bikash-logo.png' },
+  { name: 'Prothom Alo', logo: '/images/collaborator/prothom-alo-logo-png_seeklogo-504130.png' },
+  { name: 'Walton', logo: '/images/collaborator/walton-logo-png_seeklogo-251022.png' },
 ];
 
 export const PartnerCarouselSection: React.FC = () => {
-  // Duplicate the partners to create a seamless loop
-  const duplicatedPartners = [...partners, ...partners];
+  // We double the content to ensure there is enough to fill the width for a seamless loop
+  const scrollContent = [...partners, ...partners];
 
   return (
-    <section className="py-20 bg-slate-50 overflow-hidden">
-      <div className="mx-auto max-w-7xl px-6 lg:px-12 mb-12 text-center">
-        <h2 className="text-2xl font-bold text-slate-400 uppercase tracking-[0.3em] mb-4">আমাদের পার্টনারসমূহ</h2>
-        <div className="h-1 w-20 bg-indigo-600 mx-auto rounded-full" />
+    <section className="relative py-20 bg-gradient-to-b from-white to-slate-50 overflow-hidden">
+      
+      {/* Section Header */}
+      <div className="mx-auto max-w-7xl px-6 mb-16 text-center">
+        <motion.p
+          initial={{ opacity: 0, y: 10 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="text-xs font-bold text-indigo-600 uppercase tracking-[0.5em] mb-4"
+        >
+          TRUSTED BY
+        </motion.p>
+
+        <motion.h2
+          initial={{ opacity: 0, y: 10 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.1 }}
+          className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight"
+        >
+          আমাদের পার্টনারসমূহ
+        </motion.h2>
       </div>
 
-      <div className="relative flex overflow-hidden group">
+      {/* Carousel Container */}
+      <div className="relative flex items-center overflow-hidden">
+        
+        {/* Advanced Edge Masks (Glassy feel) */}
+        <div className="absolute left-0 top-0 bottom-0 w-24 md:w-64 bg-gradient-to-r from-white via-white/80 to-transparent z-20 pointer-events-none" />
+        <div className="absolute right-0 top-0 bottom-0 w-24 md:w-64 bg-gradient-to-l from-white via-white/80 to-transparent z-20 pointer-events-none" />
+
         <motion.div
-          className="flex gap-12 items-center"
-          animate={{
-            x: ['0%', '-50%'],
-          }}
+          className="flex gap-8 md:gap-12 items-center py-4"
+          animate={{ x: ["0%", "-50%"] }}
           transition={{
-            duration: 30,
-            ease: 'linear',
             repeat: Infinity,
+            ease: "linear",
+            duration: 35, // Adjust speed here (higher = slower)
           }}
         >
-          {duplicatedPartners.map((partner, index) => (
-            <div
-              key={index}
-              className="flex-shrink-0 w-48 h-24 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center p-6 grayscale hover:grayscale-0 transition-all duration-500 hover:shadow-md hover:-translate-y-1"
+          {scrollContent.map((partner, index) => (
+            <motion.div
+              key={`${partner.name}-${index}`}
+              className="group relative flex-shrink-0 w-48 h-28 md:w-60 md:h-32 bg-white rounded-3xl border border-slate-200 flex items-center justify-center p-8 transition-all duration-500 hover:shadow-[0_20px_40px_-15px_rgba(79,70,229,0.15)] hover:border-indigo-300 hover:-translate-y-1"
             >
-              <img
-                src={partner.logo}
-                alt={partner.name}
-                className="max-w-full max-h-full object-contain"
-              />
-            </div>
+              {/* Internal Glow Effect */}
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl" />
+              
+              <div className="relative w-full h-full">
+                <Image
+                  src={partner.logo}
+                  alt={`${partner.name} logo`}
+                  fill
+                  sizes="(max-width: 768px) 192px, 240px"
+                  className="object-contain transition-all duration-500 group-hover:scale-110"
+                  // Use priority for the first few items to improve LCP if this is high on the page
+                  priority={index < 4}
+                />
+              </div>
+            </motion.div>
           ))}
         </motion.div>
-        
-        {/* Gradient overlays for smooth fading at the edges */}
-        <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-slate-50 to-transparent z-10" />
-        <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-slate-50 to-transparent z-10" />
       </div>
+      
+      {/* Bottom Border Accent */}
+      <div className="mt-12 mx-auto max-w-xs h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+
     </section>
   );
 };

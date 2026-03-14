@@ -34,8 +34,15 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
   <motion.div
     initial="hidden"
     whileInView="visible"
-    viewport={{ once: true }}
-    variants={fadeInUp}
+    viewport={{ once: true, margin: "100px 0px" }}
+    variants={{
+      hidden: { opacity: 0, y: 20 },
+      visible: {
+        opacity: 1,
+        y: 0,
+        transition: { duration: 0.4, ease: 'easeOut' },
+      },
+    }}
     className={cn('mb-16 space-y-4', centered && 'text-center', className)}
   >
     {badge && (

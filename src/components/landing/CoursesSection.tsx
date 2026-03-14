@@ -14,9 +14,9 @@ interface Props {
 }
 
 export const CoursesSection: React.FC<Props> = ({ courses, handleImageError }) => (
-  <section id="courses" className="py-32 relative overflow-hidden bg-white">
-    <div className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] bg-gradient-to-br from-indigo-200/40 to-purple-200/40 rounded-full blur-[120px] animate-pulse" />
-    <div className="absolute bottom-[-10%] left-[-5%] w-[600px] h-[600px] bg-gradient-to-tr from-emerald-100/50 to-teal-100/50 rounded-full blur-[120px]" />
+  <section id="courses" className="py-32 relative overflow-hidden bg-gradient-to-br from-white via-amber-50/40 to-white">
+    <div className="pointer-events-none absolute top-[-10%] right-[-5%] w-[600px] h-[600px] bg-gradient-to-br from-indigo-200/40 to-purple-200/40 rounded-full blur-[120px] mix-blend-multiply opacity-70" />
+    <div className="pointer-events-none absolute bottom-[-10%] left-[-5%] w-[600px] h-[600px] bg-gradient-to-tr from-emerald-100/50 to-teal-100/50 rounded-full blur-[120px] mix-blend-multiply opacity-70" />
     <div className="mx-auto max-w-7xl px-6 lg:px-12 relative z-10">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
         <SectionHeader
@@ -34,15 +34,35 @@ export const CoursesSection: React.FC<Props> = ({ courses, handleImageError }) =
       </div>
 
       <motion.div
-        initial="hidden"
+        initial="visible"
         whileInView="visible"
-        viewport={{ once: true }}
-        variants={staggerContainer}
+        viewport={{ once: true, margin: "400px 0px" }}
+        variants={{
+          hidden: { opacity: 0 },
+          visible: {
+            opacity: 1,
+            transition: {
+              staggerChildren: 0.05,
+              delayChildren: 0,
+            },
+          },
+        }}
         className="grid gap-10 sm:grid-cols-2 lg:grid-cols-3"
       >
         {courses.length > 0 ? (
           courses.map((course) => (
-            <motion.div key={course.id} variants={fadeInUp} className="group relative h-full">
+            <motion.div 
+              key={course.id} 
+              variants={{
+                hidden: { opacity: 0, y: 20 },
+                visible: {
+                  opacity: 1,
+                  y: 0,
+                  transition: { duration: 0.4, ease: 'easeOut' },
+                },
+              }} 
+              className="group relative h-full"
+            >
               <div className="absolute -inset-[1px] bg-gradient-to-r from-indigo-500 via-emerald-400 to-indigo-500 rounded-[40px] opacity-0 group-hover:opacity-100 blur-[2px] transition-opacity duration-500" />
               <div className="relative h-full bg-white rounded-[40px] overflow-hidden flex flex-col transition-all duration-500 group-hover:translate-y-[-8px]">
                 <div className="relative aspect-[16/10] overflow-hidden">
