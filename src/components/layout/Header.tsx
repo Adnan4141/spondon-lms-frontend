@@ -20,7 +20,7 @@ export function Header() {
   }, []);
 
   const navLinks = [
-    { name: 'সকল কোর্স', href: '#courses' },
+    { name: 'সকল কোর্স', href: '/courses' },
     { name: 'যোগাযোগ', href: '#contact' },
     { name: 'আমাদের সম্পর্কে', href: '#about' },
   ];
@@ -35,14 +35,14 @@ export function Header() {
       )}
     >
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 lg:px-12">
-        <Link href="/" className="flex items-center gap-2 group">
+        <Link href="/" className="flex items-center gap-2 group cursor-pointer">
           <div className={cn(
             "text-3xl font-black tracking-tighter transition-colors duration-500",
             scrolled ? "text-[#5C2D91]" : "text-white"
           )}>
             স্পন্দন
           </div>
-        
+       
         </Link>
         
         <div className="hidden lg:flex items-center gap-10">
@@ -50,7 +50,7 @@ export function Header() {
             <Link 
               key={link.name} 
               href={link.href}
-              className="relative group py-2"
+              className="relative group py-2 cursor-pointer"
             >
               <span 
                 className={cn(
@@ -69,9 +69,9 @@ export function Header() {
         </div>
 
         <div className="hidden lg:flex items-center gap-6">
-          <Link href="/login">
+          <Link href="/login" className="cursor-pointer">
             <button className={cn(
-              "px-8 py-3 text-[15px] cursor-pointer rounded-2xl font-black uppercase tracking-widest transition-all duration-500 active:scale-95",
+              "px-8 py-3 rounded-2xl text-[15px] font-black uppercase tracking-widest transition-all duration-500 active:scale-95 cursor-pointer",
               scrolled 
                 ? "bg-slate-900 text-white hover:bg-[#5C2D91] shadow-lg shadow-indigo-100" 
                 : "bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white hover:text-slate-900"
@@ -84,7 +84,7 @@ export function Header() {
         <button 
           onClick={() => setIsMenuOpen(!isMenuOpen)} 
           className={cn(
-            "lg:hidden p-3 rounded-2xl transition-all duration-500",
+            "lg:hidden p-3 rounded-2xl transition-all duration-500 cursor-pointer",
             scrolled ? "text-slate-900 bg-slate-50" : "text-white bg-white/10 backdrop-blur-md"
           )}
         >
@@ -107,14 +107,14 @@ export function Header() {
                   key={link.name} 
                   href={link.href}
                   onClick={() => setIsMenuOpen(false)}
-                  className="block w-full text-left text-lg font-black text-slate-800 hover:text-[#5C2D91] transition-colors"
+                  className="block w-full text-left text-lg font-black text-slate-800 hover:text-[#5C2D91] transition-colors cursor-pointer"
                 >
                   {link.name}
                 </Link>
               ))}
               <div className="pt-4">
-                <Link href="/login">
-                  <Button className="w-full h-16 rounded-2xl bg-[#5C2D91] hover:bg-[#FF2D8C] text-white font-black uppercase tracking-widest text-xs transition-all shadow-xl shadow-indigo-100">
+                <Link href="/login" className="cursor-pointer">
+                  <Button className="w-full h-16 rounded-2xl bg-[#5C2D91] hover:bg-[#FF2D8C] text-white font-black uppercase tracking-widest text-xs transition-all shadow-xl shadow-indigo-100 cursor-pointer">
                     লগ ইন / সাইন আপ
                   </Button>
                 </Link>

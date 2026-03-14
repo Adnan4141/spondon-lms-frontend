@@ -1,11 +1,14 @@
 import { apiRequest } from '../api';
 import type { Course, CreateCourseDto, UpdateCourseDto, GetCoursesParams, ApiResponse } from '@/types/course';
 
-export async function getCourses(params?: GetCoursesParams): Promise<ApiResponse<Course[]>> {
+export async function getCourses(params?: GetCoursesParams & { type?: string; isFree?: boolean; featured?: boolean }): Promise<ApiResponse<Course[]>> {
   const queryParams = new URLSearchParams();
   
   if (params?.programId) queryParams.append('programId', params.programId);
   if (params?.status) queryParams.append('status', params.status);
+  if (params?.type) queryParams.append('type', params.type);
+  if (params?.isFree !== undefined) queryParams.append('isFree', String(params.isFree));
+  if (params?.featured !== undefined) queryParams.append('featured', String(params.featured));
   if (params?.websiteVisible !== undefined) queryParams.append('websiteVisible', String(params.websiteVisible));
   if (params?.page) queryParams.append('page', String(params.page));
   if (params?.limit) queryParams.append('limit', String(params.limit));

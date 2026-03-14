@@ -80,7 +80,7 @@ export const HeroCarousel: React.FC = () => {
                   alt={item.title}
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/60 to-transparent z-10" />
+
               </div>
 
             
@@ -93,14 +93,14 @@ export const HeroCarousel: React.FC = () => {
       <div className="absolute bottom-10 right-6 lg:right-12 z-30 flex items-center gap-4">
         <button
           onClick={scrollPrev}
-          className="w-14 h-14 rounded-full border border-white/20 bg-white/5 backdrop-blur-lg text-white flex items-center justify-center hover:bg-white hover:text-slate-900 transition-all active:scale-90"
+          className="w-14 h-14 rounded-full border border-white/20 bg-white/5 backdrop-blur-lg text-white flex items-center justify-center hover:bg-white hover:text-slate-900 transition-all active:scale-90 cursor-pointer"
           aria-label="Previous slide"
         >
           <ChevronLeft className="h-6 w-6" />
         </button>
         <button
           onClick={scrollNext}
-          className="w-14 h-14 rounded-full border border-white/20 bg-white/5 backdrop-blur-lg text-white flex items-center justify-center hover:bg-white hover:text-slate-900 transition-all active:scale-90"
+          className="w-14 h-14 rounded-full border border-white/20 bg-white/5 backdrop-blur-lg text-white flex items-center justify-center hover:bg-white hover:text-slate-900 transition-all active:scale-90 cursor-pointer"
           aria-label="Next slide"
         >
           <ChevronRight className="h-6 w-6" />
@@ -112,7 +112,7 @@ export const HeroCarousel: React.FC = () => {
         {carouselItems.map((_, index) => (
           <button
             key={index}
-            className={`h-1.5 transition-all rounded-full ${
+            className={`h-1.5 transition-all rounded-full cursor-pointer ${
               index === selectedIndex ? 'w-12 bg-white' : 'w-4 bg-white/30'
             }`}
             onClick={() => emblaApi?.scrollTo(index)}
