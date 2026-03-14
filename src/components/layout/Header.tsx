@@ -21,7 +21,7 @@ export function Header() {
 
   const navLinks = [
     { name: 'সকল কোর্স', href: '/courses' },
-    { name: 'যোগাযোগ', href: '#contact' },
+    { name: 'যোগাযোগ', href: '/branches' },
     { name: 'আমাদের সম্পর্কে', href: '#about' },
   ];
 

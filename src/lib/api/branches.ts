@@ -8,6 +8,7 @@ export interface Branch {
   address?: string | null;
   phone?: string | null;
   status: string;
+  order: number;
   createdAt: string;
   updatedAt: string;
   _count?: {
