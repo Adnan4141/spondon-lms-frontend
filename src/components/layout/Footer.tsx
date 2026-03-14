@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { 
   Zap, 
@@ -57,9 +58,13 @@ export function Footer() {
             {/* Column 1: Branding (Spans 4 columns) */}
             <div className="lg:col-span-4 space-y-8">
               <div className="flex items-center gap-3">
-                
-                <div className="text-3xl font-black tracking-tighter">
-                  স্পন্দন
+                <div className="relative h-10 w-32">
+                  <Image
+                    src="/images/logo/spondon-logo.png"
+                    alt="Spondon Logo"
+                    fill
+                    className="object-contain brightness-0 invert"
+                  />
                 </div>
               </div>
               <p className="text-slate-400 font-medium leading-relaxed max-w-sm">
