@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -27,8 +27,11 @@ import { Toaster } from '@/components/ui/toast';
 export default function RegisterPage() {
   const router = useRouter();
   const { toast, toasts, removeToast } = useToast();
+
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const [formData, setFormData] = useState({
     fullName: '',
     mobile: '',
@@ -37,6 +40,7 @@ export default function RegisterPage() {
     confirmPassword: '',
   });
 
+  // Form validation
   const isFormValid = useMemo(() => {
     return (
       formData.fullName.trim().length >= 3 &&
@@ -46,9 +50,11 @@ export default function RegisterPage() {
     );
   }, [formData]);
 
+  // Handle Submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    if (isLoading) return;
+
     if (!isFormValid) {
       if (formData.password !== formData.confirmPassword) {
         toast({ title: 'পাসওয়ার্ড মেলেনি', description: 'উভয় পাসওয়ার্ড একই হতে হবে।', variant: 'destructive' });
@@ -65,7 +71,7 @@ export default function RegisterPage() {
     try {
       const response = await register({
         fullName: formData.fullName.trim(),
-        mobile: formData.mobile,
+        mobile: formData.mobile.trim(),
         gender: formData.gender,
         password: formData.password,
         role: 'STUDENT',
@@ -74,9 +80,19 @@ export default function RegisterPage() {
       if (response.success) {
         toast({
           title: 'অভিনন্দন!',
-          description: 'আপনার একাউন্ট সফলভাবে তৈরি হয়েছে। লগ ইন করুন।',
+          description: 'আপনার একাউন্ট সফলভাবে তৈরি হয়েছে।',
           variant: 'success',
         });
+
+        // Reset Form
+        setFormData({
+          fullName: '',
+          mobile: '',
+          gender: 'MALE',
+          password: '',
+          confirmPassword: '',
+        });
+
         setTimeout(() => router.push('/login'), 2000);
       } else {
         toast({
@@ -86,9 +102,14 @@ export default function RegisterPage() {
         });
       }
     } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        'একটি অপ্রত্যাশিত সমস্যা হয়েছে।';
+
       toast({
         title: 'ত্রুটি',
-        description: error.message || 'একটি অপ্রত্যাশিত সমস্যা হয়েছে।',
+        description: message,
         variant: 'destructive',
       });
     } finally {
@@ -102,7 +123,7 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen bg-white flex overflow-hidden font-sans">
       <Toaster toasts={toasts} removeToast={removeToast} />
-      
+
       {/* Left Branding Panel */}
       <div className="hidden lg:flex lg:w-5/12 relative bg-[#0F172A] items-center justify-center p-12 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-[#5C2D91] via-[#0F172A] to-[#0F172A] opacity-90" />
@@ -154,6 +175,7 @@ export default function RegisterPage() {
 
           <form onSubmit={handleSubmit} className="space-y-8">
             <div className="grid gap-6 sm:grid-cols-2">
+              {/* Gender */}
               <div className="sm:col-span-2 space-y-2">
                 <label className={labelStyles}>আপনি একজন</label>
                 <div className="grid grid-cols-2 gap-4">
@@ -174,6 +196,7 @@ export default function RegisterPage() {
                 </div>
               </div>
 
+              {/* Full Name */}
               <div className="space-y-2 sm:col-span-2">
                 <label className={labelStyles}>পুরো নাম</label>
                 <div className="relative group">
@@ -188,20 +211,24 @@ export default function RegisterPage() {
                 </div>
               </div>
 
+              {/* Mobile */}
               <div className="space-y-2 sm:col-span-2">
                 <label className={labelStyles}>মোবাইল নম্বর</label>
                 <div className="relative group">
                   <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-[#5C2D91] transition-colors" />
                   <Input 
                     type="tel" 
-                    placeholder="০১৭XXXXXXXX" 
+                    placeholder="017XXXXXXXX"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={formData.mobile} 
-                    onChange={(e) => setFormData(p => ({ ...p, mobile: e.target.value }))} 
+                    onChange={(e) => setFormData(p => ({ ...p, mobile: e.target.value.replace(/\D/g, '') }))} 
                     className={inputStyles} 
                   />
                 </div>
               </div>
 
+              {/* Password */}
               <div className="space-y-2">
                 <label className={labelStyles}>পাসওয়ার্ড</label>
                 <div className="relative group">
@@ -213,22 +240,26 @@ export default function RegisterPage() {
                     onChange={(e) => setFormData(p => ({ ...p, password: e.target.value }))} 
                     className={inputStyles} 
                   />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
                 </div>
               </div>
 
+              {/* Confirm Password */}
               <div className="space-y-2">
                 <label className={labelStyles}>পুনরায় লিখুন</label>
                 <div className="relative group">
                   <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-[#5C2D91] transition-colors" />
                   <Input 
-                    type={showPassword ? 'text' : 'password'} 
+                    type={showConfirmPassword ? 'text' : 'password'} 
                     placeholder="••••••••" 
                     value={formData.confirmPassword} 
                     onChange={(e) => setFormData(p => ({ ...p, confirmPassword: e.target.value }))} 
                     className={cn(inputStyles, "pr-12")} 
                   />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                    {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
                 </div>
               </div>
