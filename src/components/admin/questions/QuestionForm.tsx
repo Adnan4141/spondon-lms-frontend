@@ -334,13 +334,13 @@ export function QuestionForm({
 
                 {form.mcqType === 'PASSAGE_CHILD' && (
                   <div className="space-y-2">
-                     <label className={sectionLabel}><FileText className="inline h-3 w-3 mr-1" /> Link Passage</label>
+                     <label className={sectionLabel}><FileText className="inline h-3 w-3 mr-1" /> Link Combined MCQ</label>
                      <Select value={form.passageId || 'none'} onValueChange={(v) => setForm(p => ({ ...p, passageId: v === 'none' ? undefined : v }))}>
                         <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700">
-                           <SelectValue placeholder="Select Passage" />
+                           <SelectValue placeholder="Select Combined MCQ" />
                         </SelectTrigger>
                         <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                           <SelectItem value="none" className="text-sm font-medium">No Passage</SelectItem>
+                           <SelectItem value="none" className="text-sm font-medium">No Combined MCQ</SelectItem>
                            {passages.map(p => <SelectItem key={p.id} value={p.id} className="text-sm font-medium">{p.title || p.content.slice(0, 30)}...</SelectItem>)}
                         </SelectContent>
                      </Select>

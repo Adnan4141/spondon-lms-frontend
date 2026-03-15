@@ -183,7 +183,7 @@ export function OfflineExamSheet({ exam, set, onClose }: OfflineExamSheetProps) 
                          <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 print:bg-transparent print:border-slate-900 print:rounded-xl">
                             <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-200 print:border-slate-900">
                                <BookOpen className="h-4 w-4 text-indigo-600 print:text-slate-900" />
-                               <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-indigo-600 print:text-slate-900">Reading Passage Context</h3>
+                               <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-indigo-600 print:text-slate-900">Combined MCQ Context</h3>
                             </div>
                             <div className="text-[13px] leading-relaxed text-slate-800 font-medium prose prose-slate max-w-none" dangerouslySetInnerHTML={{ __html: p.content }} />
                             <p className="mt-4 pt-3 border-t border-dotted border-slate-300 text-[8px] font-bold italic text-slate-400 uppercase tracking-widest print:border-slate-900 text-center">

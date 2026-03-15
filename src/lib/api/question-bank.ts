@@ -54,10 +54,12 @@ export async function getQuestions(
   year?: number,
   tag?: string,
   mcqType?: string,
-  passageId?: string
+  passageId?: string,
+  folderIds?: string[]
 ): Promise<ApiResponse<Question[]>> {
   const queryParams = new URLSearchParams();
   if (folderId) queryParams.append('folderId', folderId);
+  if (folderIds && folderIds.length > 0) queryParams.append('folderIds', folderIds.join(','));
   if (type) queryParams.append('type', type);
   if (difficulty) queryParams.append('difficulty', difficulty);
   if (year) queryParams.append('year', String(year));
@@ -130,10 +132,12 @@ export async function uploadQuestionImage(
 
 // Passage (group MCQ) APIs
 export async function getPassages(
-  folderId?: string
+  folderId?: string,
+  folderIds?: string[]
 ): Promise<ApiResponse<McqPassage[]>> {
   const queryParams = new URLSearchParams();
   if (folderId) queryParams.append('folderId', folderId);
+  if (folderIds && folderIds.length > 0) queryParams.append('folderIds', folderIds.join(','));
   const query = queryParams.toString();
   return apiRequest<ApiResponse<McqPassage[]>>(`/question-bank/passages${query ? `?${query}` : ''}`);
 }

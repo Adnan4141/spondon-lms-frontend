@@ -70,7 +70,7 @@ export function PassageForm({ folders, passage, onSuccess }: PassageFormProps) {
 
   const handleSubmit = async () => {
     if (!form.folderId || !form.content.trim()) {
-      setError('Folder and passage content are required.');
+      setError('Folder and Combined MCQ content are required.');
       return;
     }
 
@@ -95,14 +95,14 @@ export function PassageForm({ folders, passage, onSuccess }: PassageFormProps) {
       
       toast({
         title: 'Success',
-        description: `Passage ${isEdit ? 'updated' : 'created'} successfully`,
+        description: `Combined MCQ ${isEdit ? 'updated' : 'created'} successfully`,
         variant: 'success',
       });
       
       closeModal();
       await onSuccess();
     } catch (err: any) {
-      const errorMsg = err.message || `Failed to ${isEdit ? 'update' : 'create'} passage`;
+      const errorMsg = err.message || `Failed to ${isEdit ? 'update' : 'create'} Combined MCQ`;
       setError(errorMsg);
       toast({
         title: 'Error',
@@ -139,7 +139,7 @@ export function PassageForm({ folders, passage, onSuccess }: PassageFormProps) {
             </div>
 
             <div className="space-y-2">
-              <label className={sectionLabel}>Passage Title (Optional)</label>
+              <label className={sectionLabel}>Combined MCQ Title (Optional)</label>
               <Input
                 className={inputClass}
                 value={form.title}
@@ -193,12 +193,12 @@ export function PassageForm({ folders, passage, onSuccess }: PassageFormProps) {
           </div>
 
           <div className="space-y-2">
-            <label className={sectionLabel}>Passage Content (Rich Text)</label>
+            <label className={sectionLabel}>Combined MCQ Content (Rich Text)</label>
             <RichTextEditor
               value={form.content}
               onChange={(html) => setForm((prev) => ({ ...prev, content: html }))}
               onImageUpload={handleEditorImageUpload}
-              placeholder="Draft your passage content here..."
+              placeholder="Draft your combined MCQ content here..."
             />
           </div>
         </div>
@@ -225,7 +225,7 @@ export function PassageForm({ folders, passage, onSuccess }: PassageFormProps) {
             disabled={submitting}
             className="flex-[2] h-12 rounded-2xl bg-slate-900 font-black uppercase tracking-[0.2em] text-[11px] text-white shadow-xl shadow-slate-200 hover:bg-indigo-600 hover:scale-[1.02] active:scale-95 transition-all"
           >
-            {submitting ? 'Processing...' : isEdit ? 'Update Passage' : 'Create Passage'}
+            {submitting ? 'Processing...' : isEdit ? 'Update Combined MCQ' : 'Create Combined MCQ'}
           </Button>
         </div>
       </div>

@@ -262,8 +262,8 @@ export function ExamQuestionBuilder({ examId, exam, sets, onRefresh }: ExamQuest
                                  <p className="text-[8px] font-black text-center text-slate-400 uppercase tracking-tighter">Single MCQ</p>
                               </div>
                               <div className="space-y-1">
-                                 <Input type="number" placeholder="Passage" value={mcqPassageCount || ''} onChange={e => setMcqPassageCount(parseInt(e.target.value) || 0)} className="h-10 rounded-xl border-slate-200 bg-white text-center font-bold text-xs" />
-                                 <p className="text-[8px] font-black text-center text-slate-400 uppercase tracking-tighter">Passage MCQ</p>
+                                 <Input type="number" placeholder="Combined" value={mcqPassageCount || ''} onChange={e => setMcqPassageCount(parseInt(e.target.value) || 0)} className="h-10 rounded-xl border-slate-200 bg-white text-center font-bold text-xs" />
+                                 <p className="text-[8px] font-black text-center text-slate-400 uppercase tracking-tighter">Combined MCQ</p>
                               </div>
                            </div>
                          )}
@@ -320,11 +320,11 @@ export function ExamQuestionBuilder({ examId, exam, sets, onRefresh }: ExamQuest
                                    </p>
                                    <div className="flex items-center gap-3">
                                       {isPassage ? (
-                                        <Badge className="text-[8px] font-black uppercase bg-indigo-100 text-indigo-700 border-indigo-200">Contextual_Passage</Badge>
+                                        <Badge className="text-[8px] font-black uppercase bg-indigo-100 text-indigo-700 border-indigo-200">Contextual_Combined</Badge>
                                       ) : (
                                         <>
                                           <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Weight: {eq.marks} Points</span>
-                                          {isChild && <Badge variant="outline" className="text-[8px] font-black uppercase bg-white text-indigo-500 border-indigo-100">Passage_Linked</Badge>}
+                                          {isChild && <Badge variant="outline" className="text-[8px] font-black uppercase bg-white text-indigo-500 border-indigo-100">Combined_Linked</Badge>}
                                         </>
                                       )}
                                       <span className="h-1 w-1 rounded-full bg-slate-200" />

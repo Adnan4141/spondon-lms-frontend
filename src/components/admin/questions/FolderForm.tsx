@@ -24,13 +24,18 @@ interface FolderFormProps {
   courses: Course[];
   folders: QuestionFolder[];
   folder?: QuestionFolder | null;
+  initialParentId?: string;
   onSuccess: () => Promise<void>;
 }
 
-export function FolderForm({ courses, folders, folder, onSuccess }: FolderFormProps) {
+export function FolderForm({ courses, folders, folder, initialParentId, onSuccess }: FolderFormProps) {
   const { closeModal } = useModalStore();
   const { toast } = useToast();
-  const [form, setForm] = useState({ name: '', courseId: '', parentFolderId: '' });
+  const [form, setForm] = useState({ 
+    name: '', 
+    courseId: '', 
+    parentFolderId: initialParentId || '' 
+  });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
