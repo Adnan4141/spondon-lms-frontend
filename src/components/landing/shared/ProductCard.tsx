@@ -1,11 +1,11 @@
 'use client';
 
 import React from 'react';
-import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { motion, Variants } from 'framer-motion';
 
-const fadeInScale = {
+const fadeInScale: Variants = {
   hidden: { opacity: 0, scale: 0.9 },
   visible: {
     opacity: 1,

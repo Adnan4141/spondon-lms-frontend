@@ -40,6 +40,7 @@ export interface Course {
   id: string;
   programId: string;
   name: string;
+  slug: string;
   code: string;
   thumbnail?: string;
   type: CourseType;
@@ -67,6 +68,7 @@ export interface Course {
 export interface CreateCourseDto {
   programId: string;
   name: string;
+  slug: string;
   code: string;
   thumbnail?: string;
   type: CourseType;
@@ -84,6 +86,7 @@ export interface CreateCourseDto {
 export interface UpdateCourseDto {
   programId?: string;
   name?: string;
+  slug?: string;
   code?: string;
   thumbnail?: string;
   type?: CourseType;

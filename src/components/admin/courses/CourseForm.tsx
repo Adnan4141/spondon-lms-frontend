@@ -62,6 +62,7 @@ function checkboxClass() {
 type FormState = {
   programId: string;
   name: string;
+  slug: string;
   code: string;
   thumbnail: string;
   type: CourseType;
@@ -78,6 +79,7 @@ type FormState = {
 const defaultForm: FormState = {
   programId: '',
   name: '',
+  slug: '',
   code: '',
   thumbnail: '',
   type: 'ONLINE',
@@ -133,6 +135,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
       setForm({
         programId: course.programId,
         name: course.name,
+        slug: course.slug,
         code: course.code,
         thumbnail: course.thumbnail || '',
         type: course.type,
@@ -157,14 +160,15 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
       return;
     }
 
-    if (!form.programId || !form.name.trim() || !form.code.trim()) {
-      setError('Program, name, and code are required.');
+    if (!form.programId || !form.name.trim() || !form.slug.trim() || !form.code.trim()) {
+      setError('Program, name, slug, and code are required.');
       return;
     }
 
     const payload: CreateCourseDto | UpdateCourseDto = {
       programId: form.programId,
       name: form.name.trim(),
+      slug: form.slug.trim().toLowerCase(),
       code: form.code.trim(),
       thumbnail: form.thumbnail.trim() || undefined,
       type: form.type,
@@ -282,6 +286,16 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                 value={form.code}
                 onChange={(e) => setForm((prev) => ({ ...prev, code: e.target.value.toUpperCase() }))}
                 placeholder="e.g., HSC-PHY-01"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className={sectionLabel}>Course Slug</label>
+              <Input
+                className={inputClass}
+                value={form.slug}
+                onChange={(e) => setForm((prev) => ({ ...prev, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') }))}
+                placeholder="e.g., hsc-physics-01"
               />
             </div>
 

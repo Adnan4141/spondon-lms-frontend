@@ -57,7 +57,7 @@ export const CourseCard: React.FC<Props> = ({ course, handleImageError }) => (
             </div>
           </div>
         </div>
-        <Link href={`/course/${course.id}`} className="mt-6 block cursor-pointer">
+        <Link href={`/course/${course.slug || course.id}`} className="mt-6 block cursor-pointer">
           <button className="relative w-full group/btn overflow-hidden h-12 rounded-xl bg-slate-900 transition-all duration-300 cursor-pointer">
             <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-emerald-500 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300" />
             <div className="relative flex items-center justify-center gap-2 text-white font-black uppercase text-[10px] tracking-widest">

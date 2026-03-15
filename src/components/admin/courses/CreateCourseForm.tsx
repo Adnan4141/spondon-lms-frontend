@@ -46,6 +46,7 @@ function getErrorMessage(error: unknown): string {
 type EditFormState = {
   programId: string;
   name: string;
+  slug: string;
   code: string;
   thumbnail: string;
   type: CourseType;
@@ -62,6 +63,7 @@ type EditFormState = {
 const defaultEditForm: EditFormState = {
   programId: '',
   name: '',
+  slug: '',
   code: '',
   thumbnail: '',
   type: 'ONLINE',
@@ -97,14 +99,15 @@ export function CreateCourseForm({
       return;
     }
 
-    if (!createForm.programId || !createForm.name.trim() || !createForm.code.trim()) {
-      setCreateError('Program, name, and code are required.');
+    if (!createForm.programId || !createForm.name.trim() || !createForm.slug.trim() || !createForm.code.trim()) {
+      setCreateError('Program, name, slug, and code are required.');
       return;
     }
 
     const payload: CreateCourseDto = {
       programId: createForm.programId,
       name: createForm.name.trim(),
+      slug: createForm.slug.trim().toLowerCase(),
       code: createForm.code.trim(),
       thumbnail: createForm.thumbnail.trim() || undefined,
       type: createForm.type,
@@ -174,6 +177,16 @@ export function CreateCourseForm({
               value={createForm.code}
               onChange={(e) => setCreateForm((prev) => ({ ...prev, code: e.target.value.toUpperCase() }))}
               placeholder="e.g., HSC-PHY-01"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className={sectionLabel}>Course Slug</label>
+            <Input
+              className={inputClass}
+              value={createForm.slug}
+              onChange={(e) => setCreateForm((prev) => ({ ...prev, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') }))}
+              placeholder="e.g., hsc-physics-01"
             />
           </div>
 

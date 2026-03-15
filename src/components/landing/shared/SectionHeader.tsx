@@ -1,18 +1,9 @@
 'use client';
 
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, Variants } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-
-const fadeInUp = {
-  hidden: { opacity: 0, y: 30 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.6, ease: 'easeOut' },
-  },
-};
 
 export interface SectionHeaderProps {
   title: string;
@@ -22,6 +13,15 @@ export interface SectionHeaderProps {
   gradientTitle?: string;
   className?: string;
 }
+
+const headerVariants: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.4, ease: 'easeOut' },
+  },
+};
 
 export const SectionHeader: React.FC<SectionHeaderProps> = ({
   title,
@@ -35,14 +35,7 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
     initial="hidden"
     whileInView="visible"
     viewport={{ once: true, margin: "100px 0px" }}
-    variants={{
-      hidden: { opacity: 0, y: 20 },
-      visible: {
-        opacity: 1,
-        y: 0,
-        transition: { duration: 0.4, ease: 'easeOut' },
-      },
-    }}
+    variants={headerVariants}
     className={cn('mb-16 space-y-4', centered && 'text-center', className)}
   >
     {badge && (

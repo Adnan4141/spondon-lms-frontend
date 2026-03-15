@@ -71,7 +71,8 @@ export default function LoginPage() {
 
         // Redirect based on role
         setTimeout(() => {
-          if (response.data.user.role === 'SUPER_ADMIN' || response.data.user.role === 'BRANCH_ADMIN') {
+          const user = (response.data as any)?.user;
+          if (user?.role === 'SUPER_ADMIN' || user?.role === 'BRANCH_ADMIN') {
             router.push('/admin/dashboard');
           } else {
             router.push('/student/dashboard');
