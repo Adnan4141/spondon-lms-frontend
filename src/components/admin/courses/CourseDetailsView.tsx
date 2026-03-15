@@ -73,9 +73,10 @@ export function CourseDetailsView({ course }: CourseDetailsViewProps) {
   const fetchData = async () => {
     try {
       setLoading(true);
+      const identifier = course.slug || course.id;
       const [resRes, assocRes, coursesRes] = await Promise.all([
-        getCourseContents({ courseId: course.id }),
-        getAssociatedCourses({ fromCourseId: course.id }),
+        getCourseContents({ courseId: identifier }),
+        getAssociatedCourses({ fromCourseId: identifier }),
         getCourses({})
       ]);
       if (resRes.success) setResources(resRes.data || []);
@@ -90,7 +91,7 @@ export function CourseDetailsView({ course }: CourseDetailsViewProps) {
 
   useEffect(() => {
     fetchData();
-  }, [course.id]);
+  }, [course.id, course.slug]);
 
   const handleDeleteResource = async (id: string) => {
     if (!confirm('Permanently remove this resource?')) return;
