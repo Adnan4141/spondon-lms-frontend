@@ -245,7 +245,7 @@ export default function RegisterPage() {
                   </button>
                 </div>
                 {formData.password.length > 0 && (
-                  <p className={cn("text-[10px] font-black uppercase tracking-wider ml-1 mt-1 flex items-center gap-1", formData.password.length < 6 ? "text-rose-500" : "text-emerald-500")}>
+                  <p className={cn("text-[13px] font-black uppercase tracking-wider ml-1 mt-1 flex items-center gap-1", formData.password.length < 6 ? "text-rose-500" : "text-emerald-500")}>
                     {formData.password.length < 6 ? <><span className="h-1 w-1 rounded-full bg-rose-500" /> পাসওয়ার্ড অন্তত ৬ অক্ষরের হতে হবে</> : <><span className="h-1 w-1 rounded-full bg-emerald-500" /> পাসওয়ার্ডের দৈর্ঘ্য সঠিক আছে</>}
                   </p>
                 )}
@@ -268,7 +268,7 @@ export default function RegisterPage() {
                   </button>
                 </div>
                 {formData.confirmPassword.length > 0 && (
-                  <p className={cn("text-[10px] font-black uppercase tracking-wider ml-1 mt-1 flex items-center gap-1", formData.password !== formData.confirmPassword ? "text-rose-500" : "text-emerald-500")}>
+                  <p className={cn("text-[13px] font-black uppercase tracking-wider ml-1 mt-1 flex items-center gap-1", formData.password !== formData.confirmPassword ? "text-rose-500" : "text-emerald-500")}>
                     {formData.password !== formData.confirmPassword ? <><span className="h-1 w-1 rounded-full bg-rose-500" /> পাসওয়ার্ড মেলেনি</> : <><span className="h-1 w-1 rounded-full bg-emerald-500" /> পাসওয়ার্ড মিলেছে</>}
                   </p>
                 )}
