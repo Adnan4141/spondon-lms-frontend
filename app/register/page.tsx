@@ -238,12 +238,17 @@ export default function RegisterPage() {
                     placeholder="••••••••" 
                     value={formData.password} 
                     onChange={(e) => setFormData(p => ({ ...p, password: e.target.value }))} 
-                    className={inputStyles} 
+                    className={cn(inputStyles, "pr-12", formData.password.length > 0 && (formData.password.length < 6 ? "border-rose-200 focus:ring-rose-500/10" : "border-emerald-200 focus:ring-emerald-500/10"))} 
                   />
                   <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
                 </div>
+                {formData.password.length > 0 && (
+                  <p className={cn("text-[10px] font-black uppercase tracking-wider ml-1 mt-1 flex items-center gap-1", formData.password.length < 6 ? "text-rose-500" : "text-emerald-500")}>
+                    {formData.password.length < 6 ? <><span className="h-1 w-1 rounded-full bg-rose-500" /> পাসওয়ার্ড অন্তত ৬ অক্ষরের হতে হবে</> : <><span className="h-1 w-1 rounded-full bg-emerald-500" /> পাসওয়ার্ডের দৈর্ঘ্য সঠিক আছে</>}
+                  </p>
+                )}
               </div>
 
               {/* Confirm Password */}
@@ -256,12 +261,17 @@ export default function RegisterPage() {
                     placeholder="••••••••" 
                     value={formData.confirmPassword} 
                     onChange={(e) => setFormData(p => ({ ...p, confirmPassword: e.target.value }))} 
-                    className={cn(inputStyles, "pr-12")} 
+                    className={cn(inputStyles, "pr-12", formData.confirmPassword.length > 0 && (formData.password !== formData.confirmPassword ? "border-rose-200 focus:ring-rose-500/10" : "border-emerald-200 focus:ring-emerald-500/10"))} 
                   />
                   <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
                     {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
                 </div>
+                {formData.confirmPassword.length > 0 && (
+                  <p className={cn("text-[10px] font-black uppercase tracking-wider ml-1 mt-1 flex items-center gap-1", formData.password !== formData.confirmPassword ? "text-rose-500" : "text-emerald-500")}>
+                    {formData.password !== formData.confirmPassword ? <><span className="h-1 w-1 rounded-full bg-rose-500" /> পাসওয়ার্ড মেলেনি</> : <><span className="h-1 w-1 rounded-full bg-emerald-500" /> পাসওয়ার্ড মিলেছে</>}
+                  </p>
+                )}
               </div>
             </div>
 
