@@ -23,16 +23,17 @@ const sectionLabel = 'text-[11px] font-black uppercase tracking-[0.25em] text-sl
 interface PassageFormProps {
   folders: QuestionFolder[];
   passage?: McqPassage | null;
+  initialFolderId?: string;
   onSuccess: () => Promise<void>;
 }
 
 const difficultyOptions: Difficulty[] = ['EASY', 'MEDIUM', 'HARD'];
 
-export function PassageForm({ folders, passage, onSuccess }: PassageFormProps) {
+export function PassageForm({ folders, passage, initialFolderId, onSuccess }: PassageFormProps) {
   const { closeModal } = useModalStore();
   const { toast } = useToast();
   const [form, setForm] = useState({
-    folderId: '',
+    folderId: initialFolderId || '',
     title: '',
     content: '',
     difficulty: undefined as Difficulty | undefined,
