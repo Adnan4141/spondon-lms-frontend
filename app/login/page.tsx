@@ -6,16 +6,13 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
-  Mail, 
   Lock, 
   Eye, 
   EyeOff, 
   ArrowRight, 
-  CheckCircle2, 
-  Chrome,
-  Github,
   Phone,
-  ArrowLeft
+  ArrowLeft,
+  CheckCircle2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,10 +46,11 @@ export default function LoginPage() {
         return;
       }
 
-      // Payload logic: determine if identifier is email or mobile
-      const isEmail = formData.identifier.includes('@');
+      // Payload logic: favor mobile, but support email if it looks like one
+      const identifier = formData.identifier.trim();
+      const isEmail = identifier.includes('@');
       const loginData = {
-        [isEmail ? 'email' : 'mobile']: formData.identifier,
+        [isEmail ? 'email' : 'mobile']: identifier,
         password: formData.password,
       };
 
@@ -218,15 +216,15 @@ export default function LoginPage() {
             <div className="space-y-5">
               <div className="space-y-2">
                 <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">
-                  ইমেইল অথবা মোবাইল নম্বর
+                  মোবাইল নম্বর
                 </label>
                 <div className="relative group">
                   <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#5C2D91] transition-colors">
-                    <Mail className="h-5 w-5" />
+                    <Phone className="h-5 w-5" />
                   </div>
                   <Input 
                     type="text"
-                    placeholder="example@gmail.com"
+                    placeholder="০১৭XXXXXXXX"
                     value={formData.identifier}
                     onChange={(e) => setFormData(p => ({ ...p, identifier: e.target.value }))}
                     className="h-14 pl-12 rounded-2xl border-slate-200 bg-slate-50/50 text-base font-bold focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all"
@@ -284,27 +282,7 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-100"></div>
-            </div>
-            <div className="relative flex justify-center text-[10px] uppercase font-black tracking-widest">
-              <span className="bg-white px-4 text-slate-400">অথবা সামাজিক যোগাযোগ মাধ্যম দিয়ে</span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <button className="flex items-center justify-center gap-3 h-14 rounded-2xl border border-slate-200 hover:bg-slate-50 transition-all font-bold text-slate-700 text-sm">
-              <Chrome className="h-5 w-5 text-red-500" />
-              Google
-            </button>
-            <button className="flex items-center justify-center gap-3 h-14 rounded-2xl border border-slate-200 hover:bg-slate-50 transition-all font-bold text-slate-700 text-sm">
-              <Phone className="h-5 w-5 text-indigo-500" />
-              Mobile OTP
-            </button>
-          </div>
-
-          <p className="text-center text-slate-500 font-medium">
+          <p className="text-center text-slate-500 font-medium pt-4 border-t border-slate-100">
             একাউন্ট নেই? {' '}
             <Link href="/register" className="text-[#5C2D91] font-black hover:underline">
               নতুন একাউন্ট খুলুন

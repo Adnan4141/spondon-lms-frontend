@@ -19,3 +19,10 @@ export async function login(data: any): Promise<ApiResponse<LoginResponse>> {
     body: JSON.stringify(data),
   });
 }
+
+export async function register(data: any): Promise<ApiResponse<any>> {
+  return apiRequest<ApiResponse<any>>('/users', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
