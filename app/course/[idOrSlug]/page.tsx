@@ -17,7 +17,8 @@ import {
     Info,
     Layout,
     Globe,
-    Zap
+    Zap,
+    FileText
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -83,8 +84,9 @@ export default function CourseDetailsPage() {
         );
     }
 
+    const contents = (course as any).contents || [];
+    const syllabus = contents.filter((c: any) => c.type === 'SYLLABUS');
     const outline = course.outline as any;
-    const syllabus = Array.isArray(outline?.syllabus) ? outline.syllabus : [];
     const benefits = Array.isArray(outline?.benefits) ? outline.benefits : [
         'অভিজ্ঞ শিক্ষক মন্ডলী',
         'মানসম্মত লেকচার শিট',
@@ -217,18 +219,30 @@ export default function CourseDetailsPage() {
                             </div>
                             <div className="space-y-4">
                                 {syllabus.length > 0 ? syllabus.map((item: any, idx: number) => (
-                                    <div key={idx} className="bg-white rounded-3xl border border-slate-100 overflow-hidden transition-all hover:shadow-md">
+                                    <div key={item.id || idx} className="bg-white rounded-3xl border border-slate-100 overflow-hidden transition-all hover:shadow-md">
                                         <div className="p-6 flex items-center justify-between">
                                             <div className="flex items-center gap-6">
                                                 <span className="h-10 w-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 font-black text-sm">
                                                     {String(idx + 1).padStart(2, '0')}
                                                 </span>
                                                 <div>
-                                                    <h4 className="font-black text-slate-800 mb-1">{item.title || `Module ${idx + 1}`}</h4>
-                                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{item.duration || '১.৫ ঘণ্টা'}</p>
+                                                    <h4 className="font-black text-slate-800 mb-1">{item.title}</h4>
+                                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{item.textBody || '১.৫ ঘণ্টা'}</p>
                                                 </div>
                                             </div>
-                                            <ArrowRight size={20} className="text-slate-300" />
+                                            <div className="flex items-center gap-3">
+                                                {item.fileUrl && (
+                                                    <a 
+                                                        href={item.fileUrl} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer"
+                                                        className="h-8 w-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center transition-colors hover:bg-indigo-600 hover:text-white"
+                                                    >
+                                                        <FileText size={14} />
+                                                    </a>
+                                                )}
+                                                <ArrowRight size={20} className="text-slate-300" />
+                                            </div>
                                         </div>
                                     </div>
                                 )) : (
