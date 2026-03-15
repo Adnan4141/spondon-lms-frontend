@@ -21,9 +21,9 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
   const getBreadcrumbs = () => {
     if (!pathname) return [{ label: 'Admin', active: true }];
-    
+
     const segments = pathname.split('/').filter(Boolean);
-    
+
     // If it's just /admin or /, show Admin / Analytics
     if (segments.length <= 1) {
       return [
@@ -50,7 +50,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
     return segments.map((segment, index) => {
       let label = segmentMap[segment] || segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, ' ');
-      
+
       return {
         label,
         active: index === segments.length - 1
@@ -84,7 +84,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       >
         <header className="sticky top-0 z-40">
           <div className="absolute inset-0 bg-white/60 backdrop-blur-xl border-b border-slate-200/50" />
-          
+
           <div className="relative mx-auto flex h-20 max-w-[1600px] items-center justify-between px-6 lg:px-10">
             {/* Left: Mobile Toggle & Context */}
             <div className="flex items-center gap-4">
@@ -119,14 +119,14 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             <div className="hidden md:flex flex-1 max-w-md mx-8">
               <div className="relative w-full group">
                 <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
-                <input 
-                  type="text" 
-                  placeholder="Quick search... (cmd + k)" 
+                <input
+                  type="text"
+                  placeholder="Quick Search... (cmd + k)"
                   className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-100/30 pl-11 pr-12 text-base font-medium outline-none ring-indigo-500/10 transition-all focus:bg-white focus:ring-4 focus:border-indigo-500/40"
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-1.5 py-0.5 shadow-sm">
-                   <Command className="h-3 w-3 text-slate-400" />
-                   <span className="text-[10px] font-bold text-slate-400">K</span>
+                  <Command className="h-3 w-3 text-slate-400" />
+                  <span className="text-[10px] font-bold text-slate-400">K</span>
                 </div>
               </div>
             </div>
@@ -145,8 +145,8 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                   AD
                 </div>
                 <div className="hidden sm:block text-left">
-                   <p className="text-base font-bold text-slate-800 leading-none">Adnan Hussain</p>
-                   <p className="text-[9px] font-black text-indigo-500 uppercase tracking-tight mt-1">Super Admin</p>
+                  <p className="text-base font-bold text-slate-800 leading-none">Adnan Hussain</p>
+                  <p className="text-[9px] font-black text-indigo-500 uppercase tracking-tight mt-1">Super Admin</p>
                 </div>
                 <ChevronDown className="h-3 w-3 text-slate-400 group-hover:text-indigo-500 transition-colors" />
               </button>
@@ -156,18 +156,18 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
         <main className="relative">
           <div className="mx-auto max-w-[1600px] px-6 py-8 lg:px-10 lg:py-12">
-         
+
 
             {/* Main Content Area - Glassmorphic Container */}
             <div className="relative group">
-               <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-[40px] opacity-[0.03] blur-xl group-hover:opacity-[0.05] transition-opacity" />
-               <div className="relative rounded-[36px] border border-white bg-white/70 backdrop-blur-md p-8 shadow-2xl shadow-slate-200/50 min-h-[600px]">
-                 {children}
-               </div>
+              <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-[40px] opacity-[0.03] blur-xl group-hover:opacity-[0.05] transition-opacity" />
+              <div className="relative rounded-[36px] border border-white bg-white/70 backdrop-blur-md p-8 shadow-2xl shadow-slate-200/50 min-h-[600px]">
+                {children}
+              </div>
             </div>
           </div>
         </main>
-        
+
         <GlobalModal />
       </div>
     </div>
