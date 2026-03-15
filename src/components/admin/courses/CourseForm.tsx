@@ -16,6 +16,8 @@ import {
 } from '@/types/course';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
+import { uploadQuestionImage } from '@/lib/api/question-bank';
 import {
   Select,
   SelectContent,
@@ -373,12 +375,15 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
 
             <div className="space-y-2 sm:col-span-2">
               <label className={sectionLabel}>Course Overview</label>
-              <textarea
+              <RichTextEditor
                 value={form.description}
-                onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-                rows={4}
+                onChange={(html) => setForm((prev) => ({ ...prev, description: html }))}
+                onImageUpload={async (file) => {
+                  const res = await uploadQuestionImage(file);
+                  return res.data?.url || '';
+                }}
                 placeholder="Describe the course curriculum..."
-                className={textareaClass}
+                className="min-h-[200px]"
               />
             </div>
 

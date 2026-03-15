@@ -121,9 +121,10 @@ export default function CourseDetailsPage() {
                             <h1 className="text-4xl md:text-6xl font-black text-white mb-6 leading-tight tracking-tighter">
                                 {course.name}
                             </h1>
-                            <p className="text-slate-400 text-lg font-medium mb-10 max-w-xl leading-relaxed">
-                                {course.description || 'আপনার স্বপ্ন পূরণের যাত্রায় আমরা আছি আপনার পাশে। মানসম্মত শিক্ষা এবং সঠিক নির্দেশনায় গড়ে তুলুন আপনার ভবিষ্যৎ।'}
-                            </p>
+                            <div 
+                                className="text-slate-400 text-lg font-medium mb-10 max-w-xl leading-relaxed prose prose-invert"
+                                dangerouslySetInnerHTML={{ __html: course.description || 'আপনার স্বপ্ন পূরণের যাত্রায় আমরা আছি আপনার পাশে। মানসম্মত শিক্ষা এবং সঠিক নির্দেশনায় গড়ে তুলুন আপনার ভবিষ্যৎ।' }}
+                            />
 
                             <div className="flex flex-wrap gap-6 mb-12">
                                 <div className="flex items-center gap-3">

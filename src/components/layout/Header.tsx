@@ -60,8 +60,8 @@ export function Header() {
           <Image
             src="/images/logo/spondon-logo.png"
             alt="Spondon Logo"
-            width={150}
-            height={45}
+            width={200}
+            height={65}
             priority
             className={cn(
               "object-contain transition-all duration-500",
@@ -77,7 +77,7 @@ export function Header() {
               key={link.name}
               href={link.href}
               className={cn(
-                "group relative text-sm font-bold tracking-tight transition-colors duration-300",
+                "group relative text-[17px] font-bold tracking-tight transition-colors duration-300",
                 scrolled ? 'text-slate-700' : 'text-white'
               )}
             >

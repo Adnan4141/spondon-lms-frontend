@@ -203,9 +203,10 @@ export function CourseDetailsView({ course }: CourseDetailsViewProps) {
                         <Info className="h-4 w-4" />
                         Course Description
                      </h3>
-                     <p className="text-base font-medium leading-relaxed text-slate-600 bg-slate-50/50 p-6 rounded-[24px] border border-slate-100">
-                        {course.description || 'No description provided for this course.'}
-                     </p>
+                     <div 
+                        className="text-base font-medium leading-relaxed text-slate-600 bg-slate-50/50 p-6 rounded-[24px] border border-slate-100 prose"
+                        dangerouslySetInnerHTML={{ __html: course.description || 'No description provided for this course.' }}
+                     />
                   </div>
                </div>
                <div className="space-y-6">
