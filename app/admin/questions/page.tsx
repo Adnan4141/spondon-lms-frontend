@@ -86,7 +86,6 @@ export default function QuestionsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'MCQ' | 'COMBINED' | 'CQ'>('MCQ');
   
-  const [selectedFolderIds, setSelectedFolderIds] = useState<string[]>([]);
   const [activeFolderId, setActiveFolderId] = useState<string | undefined>(undefined);
   const [difficultyFilter, setDifficultyFilter] = useState<Difficulty | 'all'>('all');
   
@@ -112,28 +111,28 @@ export default function QuestionsPage() {
       const difficulty = difficultyFilter === 'all' ? undefined : difficultyFilter;
       const typeStr = activeTab === 'CQ' ? 'CQ' : 'MCQ';
       const res = await getQuestions(
-        activeFolderId,
+        activeFolderId || 'null',
         typeStr, 
         difficulty, 
         undefined, 
         undefined, 
         undefined, 
         undefined, 
-        selectedFolderIds.length > 0 ? selectedFolderIds : undefined
+        undefined
       );
       if (res.success && res.data) setQuestions(res.data);
     } catch (err: any) { 
       console.error(err);
     } finally { setLoading(false); }
-  }, [activeFolderId, selectedFolderIds, activeTab, difficultyFilter]);
+  }, [activeFolderId, activeTab, difficultyFilter]);
 
   const loadPassages = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await getPassages(activeFolderId, selectedFolderIds.length > 0 ? selectedFolderIds : undefined);
+      const res = await getPassages(activeFolderId || 'null');
       if (res.success && res.data) setPassages(res.data);
     } catch (err) { console.error(err); } finally { setLoading(false); }
-  }, [activeFolderId, selectedFolderIds]);
+  }, [activeFolderId]);
 
   useEffect(() => { loadFolders(); loadCourses(); }, [loadFolders, loadCourses]);
   
@@ -143,7 +142,7 @@ export default function QuestionsPage() {
     } else {
       loadQuestions();
     }
-  }, [activeFolderId, selectedFolderIds, difficultyFilter, activeTab, loadQuestions, loadPassages]);
+  }, [activeFolderId, difficultyFilter, activeTab, loadQuestions, loadPassages]);
 
   const togglePassageExpand = (id: string) => {
     setExpandedPassageIds((prev) => {
@@ -203,7 +202,6 @@ export default function QuestionsPage() {
             await deleteQuestionFolder(id);
             await loadFolders();
             if (activeFolderId === id) setActiveFolderId(undefined);
-            setSelectedFolderIds(prev => prev.filter(fid => fid !== id));
           }}
         />
       ),
