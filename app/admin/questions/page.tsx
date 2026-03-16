@@ -194,11 +194,11 @@ export default function QuestionsPage() {
     openModal({
       title: 'Delete Folder',
       description: 'Delete this folder and its contents?',
-      variant: 'danger',
       content: (
         <ConfirmationModal
           title="Confirm Delete"
           description="Remove this folder permanently?"
+          variant="danger"
           onConfirm={async () => {
             await deleteQuestionFolder(id);
             await loadFolders();

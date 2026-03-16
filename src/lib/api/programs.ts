@@ -1,5 +1,6 @@
 import { apiRequest } from '../api';
 import type { Program, ApiResponse } from '@/types/course';
+export type { Program, ApiResponse };
 
 export interface CreateProgramDto {
   name: string;

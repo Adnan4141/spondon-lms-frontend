@@ -1,5 +1,6 @@
 import { apiRequest } from '../api';
 import type { Course, CreateCourseDto, UpdateCourseDto, GetCoursesParams, ApiResponse } from '@/types/course';
+export type { Course, CreateCourseDto, UpdateCourseDto, GetCoursesParams, ApiResponse };
 
 export async function getCourses(params?: GetCoursesParams & { type?: string; isFree?: boolean; featured?: boolean }): Promise<ApiResponse<Course[]>> {
   const queryParams = new URLSearchParams();

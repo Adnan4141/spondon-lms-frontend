@@ -23,7 +23,7 @@ export interface Enrollment {
     id: string;
     name: string;
     code: string;
-    fee: number;
+    fee?: number;
     program?: {
       id: string;
       name: string;
@@ -32,7 +32,7 @@ export interface Enrollment {
   batch?: {
     id: string;
     name: string;
-  };
+  } | null;
   branch?: {
     id: string;
     name: string;

@@ -389,64 +389,76 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
               </div>
 
               {/* Program overview */}
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-500">Program overview</h4>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                    {programGroups.length} program{programGroups.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+              </div>
+              
+              <div className="grid gap-3">
                 {programGroups.length === 0 ? (
                   <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">
                     No program data for these enrollments
                   </div>
                 ) : (
                   programGroups.map((group) => (
-                    <div key={group.id} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                      <div className="flex items-center justify-between mb-3">
-                        <div>
-                          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Program</p>
-                          <p className="text-lg font-black text-slate-900">{group.name}</p>
+                    <div key={group.id} className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
+                      <div className="flex items-center justify-between bg-slate-50/50 px-5 py-3 border-b border-slate-100">
+                        <div className="flex items-center gap-3">
+                           <div className="h-6 w-6 rounded border border-slate-200 bg-white flex items-center justify-center">
+                              <GraduationCap className="h-3.5 w-3.5 text-indigo-500" />
+                           </div>
+                           <p className="text-sm font-black text-slate-800">{group.name}</p>
                         </div>
-                        <Badge variant="outline" className="rounded-lg bg-slate-50 text-[10px] font-black uppercase px-3 py-1 border-slate-200">
+                        <Badge variant="secondary" className="rounded-md bg-white text-[9px] font-black uppercase px-2 py-0 border border-slate-200 text-slate-500">
                           {group.courses.length} course{group.courses.length === 1 ? '' : 's'}
                         </Badge>
                       </div>
-                          <div className="space-y-2">
-                            {group.courses.map((c) => (
-                              <div key={c.id} className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50/60 px-4 py-3">
-                                <div className="flex flex-col">
-                                  <span className="text-sm font-bold text-slate-800">{c.course?.name}</span>
-                                  <span className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-500">
-                                    {c.batch?.name || 'Batch'} / {c.status}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="outline" className={cn("rounded-lg text-[10px] font-black uppercase px-3 py-1", getStatusBadgeClass(String(c.status)))}>
-                                    {c.status}
-                                  </Badge>
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg border-slate-200 text-slate-500 hover:text-indigo-600">
-                                        <MoreVertical className="h-4 w-4" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-44 rounded-xl border-slate-200">
-                                      <DropdownMenuItem onClick={() => handleEditEnrollment(c)}>Edit</DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => handleCancelEnrollment(c)}>
-                                        <Ban className="h-3.5 w-3.5 mr-2 text-rose-500" />
-                                        Cancel
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => handleDeleteEnrollment(c)}>
-                                        <Trash2 className="h-3.5 w-3.5 mr-2 text-rose-500" />
-                                        Remove
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
-                                </div>
-                              </div>
-                            ))}
+                      
+                      <div className="divide-y divide-slate-50">
+                        {group.courses.map((c) => (
+                          <div key={c.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-3 hover:bg-slate-50/50 transition-colors">
+                            <div className="flex flex-col">
+                              <span className="text-sm font-bold text-slate-700">{c.course?.name}</span>
+                              <span className="text-[10px] font-bold text-slate-400">
+                                {c.batch?.name || 'Unassigned Batch'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <Badge variant="outline" className={cn("rounded-md text-[9px] font-black uppercase px-2 py-0 border-none", getStatusBadgeClass(String(c.status)))}>
+                                {c.status}
+                              </Badge>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6 rounded-md hover:bg-slate-100 text-slate-400 hover:text-indigo-600 focus:ring-0 focus:outline-none focus:ring-offset-0">
+                                    <MoreVertical className="h-3.5 w-3.5" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-40 rounded-xl border-slate-200 bg-white shadow-xl">
+                                  <DropdownMenuItem className="cursor-pointer text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-lg px-3 py-2" onClick={() => handleEditEnrollment(c)}>
+                                    Edit Details
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem className="cursor-pointer text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-lg px-3 py-2" onClick={() => handleCancelEnrollment(c)}>
+                                    <Ban className="h-3 w-3 mr-2" />
+                                    Cancel
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem className="cursor-pointer text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-lg px-3 py-2" onClick={() => handleDeleteEnrollment(c)}>
+                                    <Trash2 className="h-3 w-3 mr-2" />
+                                    Remove
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
                           </div>
-                        </div>
-                      ))
+                        ))}
+                      </div>
+                    </div>
+                  ))
                 )}
               </div>
-
-             
             </TabsContent>
           </div>
         </Tabs>
