@@ -104,8 +104,8 @@ export default function BranchesPage() {
       const response = await getBranchById(branchId);
       if (response.success && response.data) {
         openModal({
-          title: 'Branch Intelligence',
-          description: 'Consolidated view of branch operations, personnel, and infrastructure.',
+          title: 'Branch Details',
+          description: 'View branch info.',
           className: 'sm:max-w-4xl',
           content: <BranchDetailsView branch={response.data} />,
         });
@@ -120,8 +120,8 @@ export default function BranchesPage() {
       const response = await getBranchById(branchId);
       if (response.success && response.data) {
         openModal({
-          title: 'Update Branch Identity',
-          description: 'Modify physical location, contact references, or operational status.',
+          title: 'Edit Branch',
+          description: 'Update branch information.',
           className: 'sm:max-w-2xl',
           content: <BranchForm branch={response.data} onSuccess={loadBranches} />,
         });
@@ -133,8 +133,8 @@ export default function BranchesPage() {
 
   const handleCreateBranch = () => {
     openModal({
-      title: 'Initialize New Branch',
-      description: 'Register a new institutional branch with physical and digital identity.',
+      title: 'Add Branch',
+      description: 'Create a new branch.',
       className: 'sm:max-w-2xl',
       content: <BranchForm onSuccess={loadBranches} />,
     });
@@ -142,13 +142,13 @@ export default function BranchesPage() {
 
   const handleDeleteBranch = async (branchId: string) => {
     openModal({
-      title: 'Branch Deletion',
-      description: 'Are you sure you want to permanently remove this institutional node? All associated course data and stock records will be impacted.',
+      title: 'Delete Branch',
+      description: 'Delete this branch? This cannot be undone.',
       className: 'sm:max-w-xl',
       content: (
         <ConfirmationModal
-          title="Confirm Deletion"
-          description="Permanently purging this branch from the global institutional network."
+          title="Confirm Delete"
+          description="Remove this branch permanently?"
           variant="danger"
           onConfirm={async () => {
             try {
@@ -206,10 +206,10 @@ export default function BranchesPage() {
       {/* Stats Section */}
       <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { label: 'Total Nodes', value: totalBranches, color: 'from-blue-600 to-cyan-500', icon: Building2 },
+          { label: 'Total Branches', value: totalBranches, color: 'from-blue-600 to-cyan-500', icon: Building2 },
           { label: 'Active Branches', value: activeCount, color: 'from-emerald-600 to-teal-500', icon: Layers },
-          { label: 'Assigned Personnel', value: totalUsers, color: 'from-indigo-600 to-purple-600', icon: Users },
-          { label: 'Active Batches', value: totalBatches, color: 'from-rose-600 to-pink-600', icon: Calendar },
+          { label: 'Staff', value: totalUsers, color: 'from-indigo-600 to-purple-600', icon: Users },
+          { label: 'Batches', value: totalBatches, color: 'from-rose-600 to-pink-600', icon: Calendar },
         ].map((stat, i) => (
           <div key={i} className="group relative overflow-hidden rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/40 transition-all hover:-translate-y-1 hover:shadow-2xl">
              <div className="flex items-center justify-between">
@@ -234,7 +234,7 @@ export default function BranchesPage() {
               <div className="relative group">
                 <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
                 <Input
-                  placeholder="Search branches by name, code, or address..."
+                  placeholder="Search by name, code, or address..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
@@ -265,7 +265,7 @@ export default function BranchesPage() {
             onClick={handleCreateBranch}
           >
             <Plus className="mr-2 h-4 w-4" />
-            Initialize Branch
+            Add Branch
           </Button>
         </div>
       </section>
@@ -274,23 +274,23 @@ export default function BranchesPage() {
       <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/30">
         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
           <div>
-            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Branch Catalog</h2>
-            <p className="mt-0.5 text-base font-bold text-indigo-500">Infrastructure registry</p>
+            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Branches</h2>
+            <p className="mt-0.5 text-base font-bold text-indigo-500">All branches</p>
           </div>
           <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            {totalBranches} Active Nodes
+            {totalBranches} Branches
           </div>
         </div>
 
         {loading ? (
           <div className="p-20 text-center flex flex-col items-center gap-4">
              <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
-             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Synchronizing Data...</p>
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Loading branches...</p>
           </div>
         ) : filteredBranches.length === 0 ? (
           <div className="p-20 text-center">
-             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No matching branches identified.</p>
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No branches found.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -301,15 +301,15 @@ export default function BranchesPage() {
                     className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400 cursor-pointer hover:text-indigo-600 transition-colors"
                     onClick={() => toggleSort('name')}
                   >
-                    Branch Identity {sortConfig.key === 'name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    Branch {sortConfig.key === 'name' ? `(${sortConfig.direction === 'asc' ? 'asc' : 'desc'})` : ''}
                   </TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Contact & Location</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Metrics</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Contact</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Counts</TableHead>
                   <TableHead 
                     className="font-black text-[10px] uppercase tracking-widest text-slate-400 cursor-pointer hover:text-indigo-600 transition-colors"
                     onClick={() => toggleSort('order')}
                   >
-                    Order {sortConfig.key === 'order' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    Order {sortConfig.key === 'order' ? `(${sortConfig.direction === 'asc' ? 'asc' : 'desc'})` : ''}
                   </TableHead>
                   <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Status</TableHead>
                   <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400 text-center">Manage</TableHead>

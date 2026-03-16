@@ -24,6 +24,10 @@ export interface Enrollment {
     name: string;
     code: string;
     fee: number;
+    program?: {
+      id: string;
+      name: string;
+    };
   };
   batch?: {
     id: string;

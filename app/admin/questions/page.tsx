@@ -175,7 +175,7 @@ export default function QuestionsPage() {
   const handleCreateFolder = () => {
     openModal({
       title: activeFolderId ? 'Create Subfolder' : 'New Folder',
-      description: 'Establish a new organizational layer for question categorization.',
+      description: 'Create a folder for questions.',
       className: 'sm:max-w-2xl',
       content: <FolderForm courses={courses} folders={folders} initialParentId={activeFolderId} onSuccess={loadFolders} />,
     });
@@ -184,7 +184,7 @@ export default function QuestionsPage() {
   const handleEditFolder = (folder: QuestionFolder) => {
     openModal({
       title: 'Update Folder',
-      description: 'Modify folder properties or parent association.',
+      description: 'Edit folder details.',
       className: 'sm:max-w-2xl',
       content: <FolderForm courses={courses} folders={folders} folder={folder} onSuccess={loadFolders} />,
     });
@@ -193,12 +193,12 @@ export default function QuestionsPage() {
   const handleDeleteFolder = (id: string) => {
     openModal({
       title: 'Delete Folder',
-      description: 'This will permanently remove the folder. All nested folders and questions will be impacted.',
+      description: 'Delete this folder and its contents?',
       variant: 'danger',
       content: (
         <ConfirmationModal
-          title="Confirm Purge"
-          description="Are you sure you want to remove this folder hierarchy?"
+          title="Confirm Delete"
+          description="Remove this folder permanently?"
           onConfirm={async () => {
             await deleteQuestionFolder(id);
             await loadFolders();
@@ -221,22 +221,22 @@ export default function QuestionsPage() {
     const folderId = activeFolderId;
     if (activeTab === 'CQ') {
       openModal({
-        title: 'New Creative Write',
-        description: 'Draft and configure a new CQ inquiry.',
+        title: 'Add CQ',
+        description: 'Create a creative question.',
         className: 'sm:max-w-6xl',
         content: <QuestionForm folders={folders} initialFolderId={folderId} initialType="CQ" onSuccess={loadQuestions} />,
       });
     } else if (activeTab === 'MCQ') {
       openModal({
-        title: 'New MCQ',
-        description: 'Draft and configure a new single-line MCQ.',
+        title: 'Add MCQ',
+        description: 'Create a multiple choice question.',
         className: 'sm:max-w-6xl',
         content: <QuestionForm folders={folders} initialFolderId={folderId} initialType="MCQ" initialMcqType="SINGLE" onSuccess={loadQuestions} />,
       });
     } else {
       openModal({
-        title: 'Draft New Combined MCQ',
-        description: 'Create a root combined MCQ constraint for shared inquiry contexts.',
+        title: 'Add Combined MCQ',
+        description: 'Add a passage with linked MCQs.',
         className: 'sm:max-w-4xl',
         content: <PassageForm folders={folders} initialFolderId={folderId} onSuccess={loadPassages} />,
       });
@@ -257,10 +257,10 @@ export default function QuestionsPage() {
       {/* Stats Header */}
       <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { label: 'Total Inquiries', value: questions.length + passages.length, color: 'from-blue-600 to-cyan-500', icon: Database },
-          { label: 'MCQ Repository', value: questions.filter(q => q.type === 'MCQ').length, color: 'from-indigo-600 to-purple-600', icon: Database },
-          { label: 'Creative (CQ)', value: questions.filter(q => q.type === 'CQ').length, color: 'from-rose-600 to-pink-600', icon: LayoutGrid },
-          { label: 'Asset Folders', value: folders.length, color: 'from-emerald-600 to-teal-500', icon: Folder },
+          { label: 'Total Questions', value: questions.length + passages.length, color: 'from-blue-600 to-cyan-500', icon: Database },
+          { label: 'MCQs', value: questions.filter(q => q.type === 'MCQ').length, color: 'from-indigo-600 to-purple-600', icon: Database },
+          { label: 'CQs', value: questions.filter(q => q.type === 'CQ').length, color: 'from-rose-600 to-pink-600', icon: LayoutGrid },
+          { label: 'Folders', value: folders.length, color: 'from-emerald-600 to-teal-500', icon: Folder },
         ].map((stat, i) => (
           <div key={i} className="group relative overflow-hidden rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/40 transition-all hover:-translate-y-1 hover:shadow-2xl">
             <div className="flex items-center justify-between">
@@ -368,7 +368,7 @@ export default function QuestionsPage() {
               {loading ? (
                 <div className="p-20 text-center flex flex-col items-center gap-4">
                   <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
-                  <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Synchronizing Repository...</p>
+                  <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Loading questions...</p>
                 </div>
               ) : (
                 <>

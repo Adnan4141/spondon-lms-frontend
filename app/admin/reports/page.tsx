@@ -185,7 +185,7 @@ export default function ReportsPage() {
   };
 
   const formatCurrency = (amount: number) => {
-    return `৳${new Intl.NumberFormat('en-US', {
+    return `Tk ${new Intl.NumberFormat('en-US', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(amount)}`;
@@ -196,8 +196,8 @@ export default function ReportsPage() {
       {/* Stats Section */}
       <section className="grid gap-6 sm:grid-cols-2">
         {[
-          { label: 'Total Revenue Generated', value: formatCurrency(revenueTotals.totalAmount), color: 'from-emerald-600 to-teal-500', icon: DollarSign },
-          { label: 'Authorization Volume', value: revenueTotals.totalTransactions, color: 'from-blue-600 to-cyan-500', icon: TrendingUp },
+          { label: 'Total Revenue', value: formatCurrency(revenueTotals.totalAmount), color: 'from-emerald-600 to-teal-500', icon: DollarSign },
+          { label: 'Transactions', value: revenueTotals.totalTransactions, color: 'from-blue-600 to-cyan-500', icon: TrendingUp },
         ].map((stat, i) => (
           <div key={i} className="group relative overflow-hidden rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/40 transition-all hover:-translate-y-1 hover:shadow-2xl">
              <div className="flex items-center justify-between">
@@ -218,7 +218,7 @@ export default function ReportsPage() {
       <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm space-y-6">
         <div className="flex items-center gap-2">
            <ShieldCheck className="h-4 w-4 text-indigo-600" />
-           <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Intelligence Filters</h3>
+          <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Filters</h3>
         </div>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-2">
@@ -228,38 +228,38 @@ export default function ReportsPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="rounded-xl shadow-xl">
-                <SelectItem value="daily" className="font-bold py-2">Daily Resolution</SelectItem>
-                <SelectItem value="monthly" className="font-bold py-2">Monthly Resolution</SelectItem>
-                <SelectItem value="yearly" className="font-bold py-2">Yearly Resolution</SelectItem>
+                <SelectItem value="daily" className="font-bold py-2">Daily</SelectItem>
+                <SelectItem value="monthly" className="font-bold py-2">Monthly</SelectItem>
+                <SelectItem value="yearly" className="font-bold py-2">Yearly</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
-            <label className={sectionLabel}>Branch Context</label>
+            <label className={sectionLabel}>Branch</label>
             <Select value={revenueBranchId} onValueChange={setRevenueBranchId}>
               <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-base shadow-inner">
                 <SelectValue placeholder="All Branches" />
               </SelectTrigger>
               <SelectContent className="rounded-xl shadow-xl">
-                <SelectItem value="all" className="font-bold py-2">Universal Network</SelectItem>
+                <SelectItem value="all" className="font-bold py-2">All Branches</SelectItem>
                 {branches.map((b) => <SelectItem key={b.id} value={b.id} className="font-bold py-2">{b.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
-            <label className={sectionLabel}>Academic Program</label>
+            <label className={sectionLabel}>Course</label>
             <Select value={revenueCourseId} onValueChange={setRevenueCourseId}>
               <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-base shadow-inner">
                 <SelectValue placeholder="All Courses" />
               </SelectTrigger>
               <SelectContent className="rounded-xl shadow-xl">
-                <SelectItem value="all" className="font-bold py-2">All Active Courses</SelectItem>
+                <SelectItem value="all" className="font-bold py-2">All Courses</SelectItem>
                 {courses.map((c) => <SelectItem key={c.id} value={c.id} className="font-bold py-2">{c.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
-            <label className={sectionLabel}>Temporal Start</label>
+            <label className={sectionLabel}>From</label>
             <DatePicker
               date={revenueFrom ? new Date(revenueFrom) : undefined}
               setDate={(date) => {
@@ -276,7 +276,7 @@ export default function ReportsPage() {
             />
           </div>
           <div className="space-y-2">
-            <label className={sectionLabel}>Temporal End</label>
+            <label className={sectionLabel}>To</label>
             <DatePicker
               date={revenueTo ? new Date(revenueTo) : undefined}
               setDate={(date) => {
@@ -295,7 +295,7 @@ export default function ReportsPage() {
           <div className="flex items-end">
             <Button className="h-11 w-full rounded-xl bg-slate-900 font-black uppercase tracking-widest text-[11px] text-white hover:bg-indigo-600 transition-all shadow-lg" onClick={loadRevenueReport} disabled={loading}>
               <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
-              Sync Report
+              Load
             </Button>
           </div>
         </div>
@@ -305,25 +305,25 @@ export default function ReportsPage() {
       <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/30">
         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
           <div>
-            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Statement Ledger</h2>
-            <p className="mt-0.5 text-base font-bold text-indigo-500">Consolidated financial buckets</p>
+            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Revenue</h2>
+            <p className="mt-0.5 text-base font-bold text-indigo-500">Totals by period</p>
           </div>
         </div>
         {loading ? (
           <div className="p-20 text-center flex flex-col items-center gap-4">
              <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
-             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Synchronizing Data...</p>
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Loading...</p>
           </div>
         ) : revenueData.length === 0 ? (
           <div className="p-20 text-center">
-             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No financial footprints identified.</p>
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No data found.</p>
           </div>
         ) : (
           <Table>
             <TableHeader className="bg-slate-50/50">
               <TableRow className="border-b border-slate-100">
-                <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Timeline Bucket</TableHead>
-                <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Authorized Amount</TableHead>
+                <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Period</TableHead>
+                <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Amount</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -357,8 +357,8 @@ export default function ReportsPage() {
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <section className="grid gap-6 sm:grid-cols-2">
           {[
-            { label: 'Total Registry Volume', value: totalEnrollments, color: 'from-violet-600 to-indigo-500', icon: Users },
-            { label: 'Estimated Gross Payable', value: formatCurrency(totalPayable), color: 'from-amber-600 to-orange-500', icon: CreditCard },
+            { label: 'Total Enrollments', value: totalEnrollments, color: 'from-violet-600 to-indigo-500', icon: Users },
+            { label: 'Estimated Payable', value: formatCurrency(totalPayable), color: 'from-amber-600 to-orange-500', icon: CreditCard },
           ].map((stat, i) => (
             <div key={i} className="group relative overflow-hidden rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/40 transition-all hover:-translate-y-1 hover:shadow-2xl">
                <div className="flex items-center justify-between">
@@ -377,41 +377,41 @@ export default function ReportsPage() {
         <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm space-y-6">
           <div className="flex items-center gap-2">
              <BookOpenCheck className="h-4 w-4 text-emerald-600" />
-             <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Academic Context Filters</h3>
+             <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Filters</h3>
           </div>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-2">
-              <label className={sectionLabel}>Program Faculty</label>
+              <label className={sectionLabel}>Program</label>
               <Select value={enrollmentProgramId} onValueChange={setEnrollmentProgramId}>
                 <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-base shadow-inner">
                   <SelectValue placeholder="All Programs" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl shadow-xl">
-                  <SelectItem value="all" className="font-bold py-2">Universal Program</SelectItem>
+                  <SelectItem value="all" className="font-bold py-2">All Programs</SelectItem>
                   {programs.map((p) => <SelectItem key={p.id} value={p.id} className="font-bold py-2">{p.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <label className={sectionLabel}>Course Module</label>
+              <label className={sectionLabel}>Course</label>
               <Select value={enrollmentCourseId} onValueChange={setEnrollmentCourseId}>
                 <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-base shadow-inner">
                   <SelectValue placeholder="All Courses" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl shadow-xl">
-                  <SelectItem value="all" className="font-bold py-2">All Active Tracks</SelectItem>
+                  <SelectItem value="all" className="font-bold py-2">All Courses</SelectItem>
                   {courses.map((c) => <SelectItem key={c.id} value={c.id} className="font-bold py-2">{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <label className={sectionLabel}>Regional Branch</label>
+              <label className={sectionLabel}>Branch</label>
               <Select value={enrollmentBranchId} onValueChange={setEnrollmentBranchId}>
                 <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-base shadow-inner">
                   <SelectValue placeholder="All Branches" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl shadow-xl">
-                  <SelectItem value="all" className="font-bold py-2">Full Network</SelectItem>
+                  <SelectItem value="all" className="font-bold py-2">All Branches</SelectItem>
                   {branches.map((b) => <SelectItem key={b.id} value={b.id} className="font-bold py-2">{b.name}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -419,7 +419,7 @@ export default function ReportsPage() {
             <div className="flex items-end">
               <Button className="h-11 w-full rounded-xl bg-slate-900 font-black uppercase tracking-widest text-[11px] text-white hover:bg-emerald-600 transition-all shadow-lg" onClick={loadEnrollmentReport} disabled={loading}>
                 <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
-                Sync Analytics
+                Load
               </Button>
             </div>
           </div>
@@ -428,28 +428,28 @@ export default function ReportsPage() {
         <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/30">
           <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
             <div>
-              <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Enrollment Database</h2>
-              <p className="mt-0.5 text-base font-bold text-emerald-500">Registry mapping by program & course</p>
+              <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Enrollments</h2>
+              <p className="mt-0.5 text-base font-bold text-emerald-500">By program and course</p>
             </div>
           </div>
           {loading ? (
             <div className="p-20 text-center flex flex-col items-center gap-4">
                <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
-               <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Synchronizing Data...</p>
+               <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Loading...</p>
             </div>
           ) : enrollmentData.length === 0 ? (
             <div className="p-20 text-center">
-               <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No matching registry records.</p>
+               <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No enrollments found.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader className="bg-slate-50/50">
                   <TableRow className="border-b border-slate-100">
-                    <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Institutional Mapping</TableHead>
-                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-center">Registry Size</TableHead>
-                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Standard Fee</TableHead>
-                    <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Proj. Revenue</TableHead>
+                    <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Course</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-center">Count</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Fee</TableHead>
+                    <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Estimated</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -481,10 +481,10 @@ export default function ReportsPage() {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm flex flex-wrap gap-6 items-end">
         <div className="space-y-2 flex-1 min-w-[300px]">
-          <label className={sectionLabel}>Course Selection</label>
+          <label className={sectionLabel}>Course</label>
           <Select value={transactionCourseId} onValueChange={setTransactionCourseId}>
             <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-6 font-bold text-base shadow-inner transition-all focus:ring-4 focus:ring-indigo-500/10">
-              <SelectValue placeholder="Target specialized course analysis..." />
+              <SelectValue placeholder="Select a course..." />
             </SelectTrigger>
             <SelectContent className="rounded-2xl shadow-2xl">
               {courses.map((c) => <SelectItem key={c.id} value={c.id} className="font-bold py-3">{c.name}</SelectItem>)}
@@ -493,25 +493,25 @@ export default function ReportsPage() {
         </div>
         <Button className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white hover:bg-indigo-600 transition-all shadow-xl" onClick={loadCourseTransactions} disabled={loading || !transactionCourseId}>
           <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
-          Audit Ledger
+          Load
         </Button>
       </section>
 
       <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/30">
         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
           <div>
-            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Transaction Audit</h2>
-            <p className="mt-0.5 text-base font-bold text-indigo-500">Detailed financial tracks for course modules</p>
+            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Transactions</h2>
+            <p className="mt-0.5 text-base font-bold text-indigo-500">Course payments</p>
           </div>
         </div>
         {loading ? (
           <div className="p-20 text-center flex flex-col items-center gap-4">
              <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
-             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Synchronizing Data...</p>
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Loading...</p>
           </div>
         ) : courseTransactionData.length === 0 ? (
           <div className="p-20 text-center">
-             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No specialized transactions identified.</p>
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No transactions found.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">

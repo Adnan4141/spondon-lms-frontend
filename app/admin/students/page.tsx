@@ -120,8 +120,8 @@ export default function StudentsPage() {
       const res = await getStudentById(studentId);
       if (res.success && res.data) {
         openModal({
-          title: 'Student Profile Intelligence',
-          description: 'Comprehensive overview of biological and academic records.',
+          title: 'Student Details',
+          description: "See this student's info.",
           className: 'sm:max-w-4xl',
           content: <StudentDetailsView student={res.data} />,
         });
@@ -136,8 +136,8 @@ export default function StudentsPage() {
       const res = await getStudentById(studentId);
       if (res.success && res.data) {
         openModal({
-          title: 'Update Student Registry',
-          description: 'Refine profile parameters and institutional permissions.',
+          title: 'Edit Student',
+          description: 'Update student information.',
           className: 'sm:max-w-4xl',
           content: <StudentForm branches={branches} institutes={institutes} student={res.data} onSuccess={loadStudents} />,
         });
@@ -149,8 +149,8 @@ export default function StudentsPage() {
 
   const handleCreateStudent = () => {
     openModal({
-      title: 'Authorize New Student',
-      description: 'Initialize a new student account and associated bio-data profile.',
+      title: 'Add Student',
+      description: 'Create a new student account.',
       className: 'sm:max-w-4xl',
       content: <StudentForm branches={branches} institutes={institutes} onSuccess={loadStudents} />,
     });
@@ -158,13 +158,13 @@ export default function StudentsPage() {
 
   const handleDeleteStudent = async (studentId: string) => {
     openModal({
-      title: 'Student Deletion',
-      description: 'Are you sure you want to permanently remove this student record? This action cannot be undone.',
+      title: 'Delete Student',
+      description: 'Delete this student? This cannot be undone.',
       className: 'sm:max-w-xl',
       content: (
         <ConfirmationModal
           title="Confirm Delete"
-          description="Are you sure you want to delete this student? This action cannot be undone."
+          description="Delete this student? This cannot be undone."
           variant="danger"
           onConfirm={async () => {
             try {
@@ -195,10 +195,10 @@ export default function StudentsPage() {
       {/* Stats Section */}
       <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { label: 'Total Registry', value: totalStudents, color: 'from-blue-600 to-cyan-500', icon: Users },
-          { label: 'Active Learners', value: activeCount, color: 'from-emerald-600 to-teal-500', icon: Layers },
-          { label: 'Blocked Access', value: blockedCount, color: 'from-rose-600 to-pink-600', icon: ShieldCheck },
-          { label: 'Enrollments', value: totalEnrollments, color: 'from-indigo-600 to-purple-600', icon: GraduationCap },
+          { label: 'Total Students', value: totalStudents, color: 'from-blue-600 to-cyan-500', icon: Users },
+          { label: 'Active Students', value: activeCount, color: 'from-emerald-600 to-teal-500', icon: Layers },
+          { label: 'Blocked Students', value: blockedCount, color: 'from-rose-600 to-pink-600', icon: ShieldCheck },
+          { label: 'Course Enrollments', value: totalEnrollments, color: 'from-indigo-600 to-purple-600', icon: GraduationCap },
         ].map((stat, i) => (
           <div key={i} className="group relative overflow-hidden rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/40 transition-all hover:-translate-y-1 hover:shadow-2xl">
              <div className="flex items-center justify-between">
@@ -223,7 +223,7 @@ export default function StudentsPage() {
               <div className="relative group">
                 <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
                 <input
-                  placeholder="Search by full name, email, or mobile reference..."
+                  placeholder="Search by name, email, or phone..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="h-12 w-full rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner outline-none"
@@ -268,7 +268,7 @@ export default function StudentsPage() {
             onClick={handleCreateStudent}
           >
             <Plus className="mr-2 h-4 w-4" />
-            Authorize Student
+            Add Student
           </Button>
         </div>
       </section>
@@ -277,8 +277,8 @@ export default function StudentsPage() {
       <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/30">
         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
           <div>
-            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Student Registry</h2>
-            <p className="mt-0.5 text-base font-bold text-indigo-500">Institutional demographic data</p>
+            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Students</h2>
+            <p className="mt-0.5 text-base font-bold text-indigo-500">All students in the system</p>
           </div>
           <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -289,21 +289,21 @@ export default function StudentsPage() {
         {loading ? (
           <div className="p-20 text-center flex flex-col items-center gap-4">
              <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
-             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Synchronizing Data...</p>
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Loading students...</p>
           </div>
         ) : filteredStudents.length === 0 ? (
           <div className="p-20 text-center">
-             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No matching students identified.</p>
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No students found.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader className="bg-slate-50/50">
                 <TableRow className="hover:bg-transparent border-b border-slate-100">
-                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Student Identity</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Contact Reference</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Context</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Classification</TableHead>
+                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Student</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Contact</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Branch / Courses</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Status</TableHead>
                   <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400 text-center">Manage</TableHead>
                 </TableRow>
               </TableHeader>
@@ -341,9 +341,10 @@ export default function StudentsPage() {
                              <Building2 className="h-3.5 w-3.5 text-rose-500" />
                              {student.branch?.name || 'Central'}
                           </div>
-                          <div className="flex items-center gap-1.5 text-base font-bold text-slate-400">
-                             <GraduationCap className="h-3.5 w-3.5 text-indigo-400" />
-                             {student._count?.enrollments || 0} course enrolled                          </div>
+                             <div className="flex items-center gap-1.5 text-base font-bold text-slate-400">
+                                <GraduationCap className="h-3.5 w-3.5 text-indigo-400" />
+                                {student._count?.enrollments || 0} {student._count?.enrollments === 1 ? 'course' : 'courses'}
+                          </div>
                        </div>
                     </TableCell>
                     <TableCell className="py-5">

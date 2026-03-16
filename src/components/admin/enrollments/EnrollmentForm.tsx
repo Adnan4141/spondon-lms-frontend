@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { updateEnrollment, type Enrollment, type EnrollmentStatusType, type UpdateEnrollmentDto } from '@/lib/api/enrollments';
+import { updateEnrollment, changeEnrollmentBranch, type Enrollment, type EnrollmentStatusType, type UpdateEnrollmentDto } from '@/lib/api/enrollments';
 import { getBatches, type Batch } from '@/lib/api/batches';
+import { getBranches, type Branch } from '@/lib/api/branches';
 import { useModalStore } from '@/store/modalStore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -31,11 +32,14 @@ export function EnrollmentForm({ enrollment, onSuccess }: EnrollmentFormProps) {
   const { toast } = useToast();
   
   const [batches, setBatches] = useState<Batch[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [form, setForm] = useState<{
+    branchId: string;
     status: EnrollmentStatusType;
     billingStartMonth: string;
     batchId: string;
   }>({
+    branchId: enrollment.branchId,
     status: (enrollment.status as EnrollmentStatusType) || 'ACTIVE',
     billingStartMonth: enrollment.billingStartMonth || '',
     batchId: enrollment.batchId || '',
@@ -46,12 +50,25 @@ export function EnrollmentForm({ enrollment, onSuccess }: EnrollmentFormProps) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const loadBranches = async () => {
+      try {
+        const res = await getBranches();
+        if (res.success && res.data) setBranches(res.data);
+      } catch (err) {
+        console.error('Failed to load branches:', err);
+      }
+    };
+    loadBranches();
+  }, []);
+
+  useEffect(() => {
     const loadBatches = async () => {
       try {
         setLoadingBatches(true);
+        setBatches([]); // clear stale batches when branch changes
         const response = await getBatches({
           courseId: enrollment.courseId,
-          branchId: enrollment.branchId,
+          branchId: form.branchId || enrollment.branchId,
         });
         if (response.success && response.data) {
           setBatches(response.data);
@@ -63,7 +80,7 @@ export function EnrollmentForm({ enrollment, onSuccess }: EnrollmentFormProps) {
       }
     };
     loadBatches();
-  }, [enrollment.courseId, enrollment.branchId]);
+  }, [enrollment.courseId, form.branchId]);
 
   const handleSubmit = async () => {
     try {
@@ -75,6 +92,11 @@ export function EnrollmentForm({ enrollment, onSuccess }: EnrollmentFormProps) {
         billingStartMonth: form.billingStartMonth || undefined,
         batchId: form.batchId || undefined,
       };
+
+      // Branch change first, because batch list depends on branch
+      if (form.branchId && form.branchId !== enrollment.branchId) {
+        await changeEnrollmentBranch(enrollment.id, form.branchId);
+      }
 
       await updateEnrollment(enrollment.id, payload);
       
@@ -129,6 +151,17 @@ export function EnrollmentForm({ enrollment, onSuccess }: EnrollmentFormProps) {
              </div>
              <div className="grid gap-6 sm:grid-cols-2">
                 <div className="space-y-2">
+                   <label className={sectionLabel}>Branch</label>
+                   <Select value={form.branchId} onValueChange={v => setForm(p => ({ ...p, branchId: v, batchId: '' }))}>
+                      <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
+                         <SelectValue placeholder="Select Branch" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
+                         {branches.map(b => <SelectItem key={b.id} value={b.id} className="text-sm font-medium">{b.name}</SelectItem>)}
+                      </SelectContent>
+                   </Select>
+                </div>
+                <div className="space-y-2">
                    <label className={sectionLabel}>Enrollment Status</label>
                    <Select value={form.status} onValueChange={v => setForm(p => ({ ...p, status: v as EnrollmentStatusType }))}>
                       <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
@@ -142,6 +175,9 @@ export function EnrollmentForm({ enrollment, onSuccess }: EnrollmentFormProps) {
                       </SelectContent>
                    </Select>
                 </div>
+             </div>
+
+             <div className="grid gap-6 sm:grid-cols-2">
                 <div className="space-y-2">
                    <label className={sectionLabel}>Batch Assignment</label>
                    <Select value={form.batchId} onValueChange={v => setForm(p => ({ ...p, batchId: v }))}>

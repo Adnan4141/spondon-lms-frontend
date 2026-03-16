@@ -155,8 +155,8 @@ export default function EnrollmentsPage() {
       const res = await getEnrollmentById(id);
       if (res.success && res.data) {
         openModal({
-          title: 'Enrollment Intelligence',
-          description: 'Detailed lifecycle, billing, and academic mapping.',
+          title: 'Enrollment Details',
+          description: 'View enrollment info.',
           className: 'sm:max-w-4xl',
           content: <EnrollmentDetailsView enrollment={res.data} onSettle={() => handleSettleEnrollment(id)} />,
         });
@@ -171,8 +171,8 @@ export default function EnrollmentsPage() {
       const res = await getEnrollmentById(id);
       if (res.success && res.data) {
         openModal({
-          title: 'Update Enrollment Status',
-          description: 'Modify lifecycle state or billing configurations.',
+          title: 'Edit Enrollment',
+          description: 'Update enrollment details.',
           className: 'sm:max-w-2xl',
           content: <EnrollmentForm enrollment={res.data} onSuccess={loadEnrollments} />,
         });
@@ -184,13 +184,13 @@ export default function EnrollmentsPage() {
 
   const handleDeleteEnrollment = async (id: string) => {
     openModal({
-      title: 'Enrollment Deletion',
-      description: 'Are you sure you want to permanently remove this record? This action cannot be undone.',
+      title: 'Delete Enrollment',
+      description: 'Delete this enrollment? This cannot be undone.',
       className: 'sm:max-w-xl',
       content: (
         <ConfirmationModal
           title="Confirm Delete"
-          description="Are you sure you want to delete this enrollment? This action cannot be undone."
+          description="Delete this enrollment permanently?"
           variant="danger"
           onConfirm={async () => {
             try {
@@ -209,22 +209,22 @@ export default function EnrollmentsPage() {
   const handleSettleEnrollment = async (id: string) => {
     openModal({
       title: 'Settle Enrollment',
-      description: 'Clear all outstanding dues for this enrollment.',
+      description: 'Settle all dues for this enrollment.',
       className: 'sm:max-w-xl',
       content: (
         <ConfirmationModal
           title="Confirm Settlement"
-          description="Are you sure you want to settle all outstanding dues for this course? This will mark associated invoices as settled and clear remaining balances."
+          description="Settle outstanding dues for this enrollment?"
           variant="info"
           onConfirm={async () => {
             try {
               setLoading(true);
               const res = await settleEnrollment(id);
               if (res.success) {
-                toast({ title: 'System Settled', description: res.message || 'All dues have been cleared successfully.', variant: 'success' });
+                toast({ title: 'Settled', description: res.message || 'Dues cleared.', variant: 'success' });
                 await loadEnrollments();
               } else {
-                toast({ title: 'Settlement Failed', description: res.message || 'Could not process settlement.', variant: 'destructive' });
+                toast({ title: 'Settlement Failed', description: res.message || 'Could not settle.', variant: 'destructive' });
               }
             } catch (err: unknown) {
               toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
@@ -249,9 +249,9 @@ export default function EnrollmentsPage() {
   });
 
   const stats = [
-    { label: 'Total Volume', value: enrollments.length, color: 'from-blue-600 to-cyan-500', icon: GraduationCap },
-    { label: 'Active Learners', value: enrollments.filter(e => String(e.status) === 'ACTIVE').length, color: 'from-emerald-600 to-teal-500', icon: Layers },
-    { label: 'Paused Tracks', value: enrollments.filter(e => String(e.status) === 'PAUSED').length, color: 'from-amber-600 to-orange-500', icon: ClockIcon },
+    { label: 'Total Enrollments', value: enrollments.length, color: 'from-blue-600 to-cyan-500', icon: GraduationCap },
+    { label: 'Active', value: enrollments.filter(e => String(e.status) === 'ACTIVE').length, color: 'from-emerald-600 to-teal-500', icon: Layers },
+    { label: 'Paused', value: enrollments.filter(e => String(e.status) === 'PAUSED').length, color: 'from-amber-600 to-orange-500', icon: ClockIcon },
     { label: 'Cancelled', value: enrollments.filter(e => String(e.status) === 'CANCELLED').length, color: 'from-rose-600 to-pink-600', icon: Trash2 },
   ];
 
@@ -314,7 +314,7 @@ export default function EnrollmentsPage() {
             onClick={() => window.open('/admin/enrollments/change', '_blank')}
           >
             <Plus className="mr-2 h-4 w-4" />
-            Batch / Branch Change
+            Change Batch / Branch
           </Button>
         </div>
 
@@ -355,32 +355,32 @@ export default function EnrollmentsPage() {
       <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/30">
         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
           <div>
-            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Enrollment Registry</h2>
-            <p className="mt-0.5 text-sm font-bold text-indigo-500">Institutional track database</p>
+            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Enrollments</h2>
+            <p className="mt-0.5 text-sm font-bold text-indigo-500">All enrollments</p>
           </div>
           <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            {enrollments.length} Active Records
+            {enrollments.length} Enrollments
           </div>
         </div>
 
         {loading ? (
           <div className="p-20 text-center flex flex-col items-center gap-4">
              <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
-             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Synchronizing Data...</p>
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Loading enrollments...</p>
           </div>
         ) : filteredEnrollments.length === 0 ? (
           <div className="p-20 text-center">
-             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No matching enrollments identified.</p>
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No enrollments found.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader className="bg-slate-50/50">
                 <TableRow className="hover:bg-transparent border-b border-slate-100">
-                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Student Identity</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Academic Context</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Branch & Batch</TableHead>
+                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Student</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Course</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Branch / Batch</TableHead>
                   <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Status</TableHead>
                   <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400 text-center">Manage</TableHead>
                 </TableRow>

@@ -209,7 +209,7 @@ export default function SmsManagementPage() {
       setSubmitting(true);
       const res = await upsertSmsConfig(config);
       if (res.success) {
-        toast({ title: 'System Updated', description: 'SMS infrastructure configuration secured', variant: 'success' });
+        toast({ title: 'Saved', description: 'SMS settings updated', variant: 'success' });
       }
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -220,12 +220,12 @@ export default function SmsManagementPage() {
 
   const handleSendDirect = async () => {
     if (!directSend.to || !directSend.message) {
-      toast({ title: 'Incomplete Request', description: 'Identity and content parameters required', variant: 'destructive' });
+      toast({ title: 'Missing info', description: 'Number and message are required', variant: 'destructive' });
       return;
     }
 
     if (directSend.scope === 'BRANCH' && !directSend.branchId) {
-      toast({ title: 'Invalid Scope', description: 'Please select a target branch for branch billing scope', variant: 'destructive' });
+      toast({ title: 'Select branch', description: 'Choose a branch for branch scope', variant: 'destructive' });
       return;
     }
 
@@ -239,7 +239,7 @@ export default function SmsManagementPage() {
         directSend.scope
       );
       if (res.success) {
-        toast({ title: 'Transmission Authorized', description: 'Communication successfully dispatched', variant: 'success' });
+        toast({ title: 'Sent', description: 'SMS sent', variant: 'success' });
         setDirectSend({ ...directSend, to: '', message: '' });
         loadData();
       }
@@ -252,12 +252,12 @@ export default function SmsManagementPage() {
 
   const handleTransfer = async () => {
     if (!transfer.branchId || transfer.count <= 0) {
-      toast({ title: 'Invalid Allocation', description: 'Please select a branch and positive count', variant: 'destructive' });
+      toast({ title: 'Missing info', description: 'Select a branch and amount', variant: 'destructive' });
       return;
     }
 
     if (transfer.count > orgBalance) {
-      toast({ title: 'Insufficient Reserve', description: 'Requested allocation exceeds organization SMS reserve', variant: 'destructive' });
+      toast({ title: 'Not enough balance', description: 'Amount exceeds org balance', variant: 'destructive' });
       return;
     }
 
@@ -266,7 +266,7 @@ export default function SmsManagementPage() {
       const res = await transferSmsBalance(transfer.branchId, transfer.count);
 
       if (res.success) {
-        toast({ title: 'Allocation Authorized', description: `Successfully assigned ${transfer.count} credits`, variant: 'success' });
+        toast({ title: 'Transferred', description: `Moved ${transfer.count} credits`, variant: 'success' });
         loadData();
         setTransfer({ branchId: '', count: 0 });
       }
@@ -279,18 +279,18 @@ export default function SmsManagementPage() {
 
   const handleCreateAndRunCampaign = async () => {
     if (!newCampaign.message) {
-      toast({ title: 'Error', description: 'Campaign message is required', variant: 'destructive' });
+      toast({ title: 'Error', description: 'Message is required', variant: 'destructive' });
       return;
     }
 
     openModal({
-      title: 'Initialize Campaign Transmission',
-      description: `Dispatching ${newCampaign.type} communication to ${previewCount || 0} identified recipients. Status will be logged in real-time.`,
+      title: 'Send campaign',
+      description: `Send to about ${previewCount || 0} people.`,
       className: 'sm:max-w-xl',
       content: (
         <ConfirmationModal
-          title="Confirm Transmission"
-          description="Are you sure you want to trigger this mass communication protocol?"
+          title="Confirm Send"
+          description="Send this SMS campaign?"
           variant="info"
           onConfirm={async () => {
             try {
@@ -309,13 +309,13 @@ export default function SmsManagementPage() {
               if (createRes.success && createRes.data) {
                 const runRes = await runCampaign(createRes.data.id, newCampaign.isMasking);
                 if (runRes.success) {
-                  toast({ title: 'Transmission Complete', description: 'Campaign executed successfully', variant: 'success' });
+                  toast({ title: 'Sent', description: 'Campaign sent', variant: 'success' });
                   loadData();
                   setNewCampaign({ ...newCampaign, message: '' });
                 }
               }
             } catch (err: any) {
-              toast({ title: 'Critical Error', description: err.message, variant: 'destructive' });
+              toast({ title: 'Error', description: err.message, variant: 'destructive' });
             } finally {
               setSubmitting(false);
             }
@@ -327,8 +327,8 @@ export default function SmsManagementPage() {
 
   const handleViewLogDetails = (log: any) => {
     openModal({
-      title: 'Communication Intelligence Audit',
-      description: `Analyzing transmission matrix for campaign ID: ${log.id.slice(0, 12)}`,
+      title: 'SMS log',
+      description: `Campaign ID: ${log.id.slice(0, 12)}`,
       className: 'sm:max-w-3xl',
       content: (
         <div className="space-y-8 p-4">
@@ -365,8 +365,8 @@ export default function SmsManagementPage() {
                                 {r.status}
                              </Badge>
                           </td>
-                          <td className="px-6 py-4 text-[10px] font-bold text-slate-400 italic">
-                             {r.error || 'SUCCESSFUL_TRANSMISSION'}
+                             <td className="px-6 py-4 text-[10px] font-bold text-slate-400 italic">
+                             {r.error || 'SENT'}
                           </td>
                        </tr>
                     ))}
@@ -388,13 +388,13 @@ export default function SmsManagementPage() {
 
   return (
     <div className="space-y-10 text-slate-900 pb-20 max-w-[1600px] mx-auto">
-      {/* Premium Header */}
+      {/* Header */}
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-2">
         <div className="space-y-1">
-          <h1 className="text-4xl font-black tracking-tighter text-slate-900">Communication Console</h1>
+          <h1 className="text-4xl font-black tracking-tighter text-slate-900">SMS Center</h1>
           <p className="text-base font-bold text-indigo-500/80 flex items-center gap-2">
             <Globe className="h-4 w-4" />
-            Institutional SMS Gateway & Distributed Balance Network
+            Manage SMS, balance, and campaigns
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -708,7 +708,7 @@ export default function SmsManagementPage() {
                         <div className="flex items-center gap-8">
                            <div className="text-right space-y-1">
                               <p className="text-sm font-black text-emerald-600 uppercase tracking-widest">%{Math.round((log.successCount/(log.recipientCount || 1))*100) || 0} Delivered</p>
-                              <p className="text-[10px] font-bold text-slate-400 tracking-widest">PAYLOAD_COST: ৳{log.cost || 0}</p>
+                              <p className="text-[10px] font-bold text-slate-400 tracking-widest">PAYLOAD_COST: Tk {log.cost || 0}</p>
                            </div>
                            <div className="h-10 w-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-300 group-hover:text-indigo-600 group-hover:border-indigo-200 transition-all shadow-sm">
                               <ArrowRight className="h-5 w-5" />
@@ -858,7 +858,7 @@ export default function SmsManagementPage() {
                   </div>
                </div>
                <div className="text-right">
-                  <p className="text-sm font-black text-indigo-600">৳0.50</p>
+                  <p className="text-sm font-black text-indigo-600">Tk 0.50</p>
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Avg_Per_SMS</p>
                </div>
             </div>

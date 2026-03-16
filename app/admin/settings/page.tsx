@@ -143,7 +143,7 @@ export default function SettingsPage() {
 
   const [birthdaySettings, setBirthdaySettings] = useState({
     enabled: true,
-    template: 'Happy Birthday! 🎉 Best wishes from Spondon Academy.'
+    template: 'Happy Birthday! Best wishes from Spondon Academy.'
   });
 
   // Payment Settings
@@ -254,7 +254,7 @@ export default function SettingsPage() {
 
       toast({
         title: 'Success',
-        description: 'Global configurations updated successfully',
+        description: 'Settings saved',
         variant: 'success',
       });
     } catch (err: unknown) {
@@ -269,12 +269,12 @@ export default function SettingsPage() {
   };
 
   const categories = [
-    { id: 'general' as SettingsCategory, label: 'Identity & Regional', icon: Building2, color: 'text-indigo-500', bg: 'bg-indigo-50' },
-    { id: 'sms' as SettingsCategory, label: 'SMS Integrations', icon: MessageSquare, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-    { id: 'payment' as SettingsCategory, label: 'Financial Gateways', icon: CreditCard, color: 'text-amber-500', bg: 'bg-amber-50' },
-    { id: 'email' as SettingsCategory, label: 'Mail Infrastructure', icon: Mail, color: 'text-blue-500', bg: 'bg-blue-50' },
-    { id: 'notifications' as SettingsCategory, label: 'Alert Protocols', icon: Bell, color: 'text-rose-500', bg: 'bg-rose-50' },
-    { id: 'system' as SettingsCategory, label: 'Core System', icon: Settings, color: 'text-slate-500', bg: 'bg-slate-50' },
+    { id: 'general' as SettingsCategory, label: 'General', icon: Building2, color: 'text-indigo-500', bg: 'bg-indigo-50' },
+    { id: 'sms' as SettingsCategory, label: 'SMS', icon: MessageSquare, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+    { id: 'payment' as SettingsCategory, label: 'Payments', icon: CreditCard, color: 'text-amber-500', bg: 'bg-amber-50' },
+    { id: 'email' as SettingsCategory, label: 'Email', icon: Mail, color: 'text-blue-500', bg: 'bg-blue-50' },
+    { id: 'notifications' as SettingsCategory, label: 'Notifications', icon: Bell, color: 'text-rose-500', bg: 'bg-rose-50' },
+    { id: 'system' as SettingsCategory, label: 'System', icon: Settings, color: 'text-slate-500', bg: 'bg-slate-50' },
   ];
 
   const renderGeneralSettings = () => (
@@ -282,7 +282,7 @@ export default function SettingsPage() {
       <section className="space-y-6">
         <div className="flex items-center gap-2">
            <ShieldCheck className="h-4 w-4 text-indigo-600" />
-           <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Institutional Identity</h3>
+           <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Organization</h3>
         </div>
         <div className="grid gap-6 sm:grid-cols-2">
           <div className="space-y-2">
@@ -295,7 +295,7 @@ export default function SettingsPage() {
             />
           </div>
           <div className="space-y-2">
-            <Label className={sectionLabel}>Registry Code</Label>
+            <Label className={sectionLabel}>Org Code</Label>
             <Input
               className={inputClass}
               value={generalSettings.organizationCode}
@@ -304,7 +304,7 @@ export default function SettingsPage() {
             />
           </div>
           <div className="space-y-2">
-            <Label className={sectionLabel}>Authorization Email</Label>
+            <Label className={sectionLabel}>Email</Label>
             <div className="relative">
                <AtSign className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                <Input
@@ -316,7 +316,7 @@ export default function SettingsPage() {
             </div>
           </div>
           <div className="space-y-2">
-            <Label className={sectionLabel}>Primary Contact</Label>
+            <Label className={sectionLabel}>Phone</Label>
             <div className="relative">
                <Smartphone className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                <Input
@@ -327,7 +327,7 @@ export default function SettingsPage() {
             </div>
           </div>
           <div className="sm:col-span-2 space-y-2">
-            <Label className={sectionLabel}>Physical Headquarters</Label>
+            <Label className={sectionLabel}>Address</Label>
             <div className="relative">
                <MapPin className="absolute left-4 top-4 h-4 w-4 text-slate-400" />
                <Textarea
@@ -343,7 +343,7 @@ export default function SettingsPage() {
       <section className="space-y-6">
         <div className="flex items-center gap-2">
            <Globe className="h-4 w-4 text-emerald-600" />
-           <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Regional & Localization</h3>
+           <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Region</h3>
         </div>
         <div className="grid gap-6 sm:grid-cols-3">
           <div className="space-y-2">
@@ -359,7 +359,7 @@ export default function SettingsPage() {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label className={sectionLabel}>Chronicle Format</Label>
+            <Label className={sectionLabel}>Date Format</Label>
             <Select value={generalSettings.dateFormat} onValueChange={(v) => setGeneralSettings(p => ({ ...p, dateFormat: v }))}>
               <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700">
                 <SelectValue />
@@ -371,13 +371,13 @@ export default function SettingsPage() {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label className={sectionLabel}>Base Currency</Label>
+            <Label className={sectionLabel}>Currency</Label>
             <Select value={generalSettings.currency} onValueChange={(v) => setGeneralSettings(p => ({ ...p, currency: v }))}>
               <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="rounded-2xl shadow-xl">
-                <SelectItem value="BDT" className="font-bold py-3">BDT (৳)</SelectItem>
+                <SelectItem value="BDT" className="font-bold py-3">BDT (Tk)</SelectItem>
                 <SelectItem value="USD" className="font-bold py-3">USD ($)</SelectItem>
               </SelectContent>
             </Select>
@@ -392,31 +392,31 @@ export default function SettingsPage() {
       <section className="space-y-6">
         <div className="flex items-center gap-2">
            <Smartphone className="h-4 w-4 text-emerald-600" />
-           <h3 className="text-base font-black uppercase tracking-widest text-slate-800">SMS Gateway</h3>
+           <h3 className="text-base font-black uppercase tracking-widest text-slate-800">SMS</h3>
         </div>
         <div className="grid gap-6 sm:grid-cols-2">
           <div className="sm:col-span-2 space-y-2">
-            <Label className={sectionLabel}>Provider Access</Label>
+            <Label className={sectionLabel}>Provider</Label>
             <Select value={smsSettings.provider} onValueChange={(v) => setSmsSettings(p => ({ ...p, provider: v }))}>
               <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="rounded-2xl shadow-xl">
-                <SelectItem value="BulkSMSBD" className="font-bold py-3 text-indigo-600">BulkSMSBD Protocol</SelectItem>
-                <SelectItem value="twilio" className="font-bold py-3 text-blue-600">Twilio Infrastructure</SelectItem>
+                <SelectItem value="BulkSMSBD" className="font-bold py-3 text-indigo-600">BulkSMSBD</SelectItem>
+                <SelectItem value="twilio" className="font-bold py-3 text-blue-600">Twilio</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
-            <Label className={sectionLabel}>API Authorization Key</Label>
+            <Label className={sectionLabel}>API Key</Label>
             <Input className={inputClass} type="password" value={smsSettings.apiKey} onChange={(e) => setSmsSettings(p => ({ ...p, apiKey: e.target.value }))} />
           </div>
           <div className="space-y-2">
-            <Label className={sectionLabel}>Masking Sender ID</Label>
+            <Label className={sectionLabel}>Sender ID</Label>
             <Input className={inputClass} value={smsSettings.senderId} onChange={(e) => setSmsSettings(p => ({ ...p, senderId: e.target.value }))} placeholder="e.g. SPONDON" />
           </div>
           <div className="space-y-2">
-            <Label className={sectionLabel}>Non-Masking Number</Label>
+            <Label className={sectionLabel}>Non-masking Number</Label>
             <Input className={inputClass} value={(smsSettings as any).nonMaskingNumber} onChange={(e) => setSmsSettings(p => ({ ...p, nonMaskingNumber: e.target.value } as any))} placeholder="e.g. 88096..." />
           </div>
         </div>
@@ -425,13 +425,13 @@ export default function SettingsPage() {
       <section className="space-y-6 border-t border-slate-100 pt-10">
         <div className="flex items-center gap-2">
            <Zap className="h-4 w-4 text-amber-500" />
-           <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Automated Protocols</h3>
+           <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Automation</h3>
         </div>
         
         <div className="flex items-center justify-between p-6 rounded-3xl border border-slate-100 bg-white shadow-sm">
           <div className="space-y-1">
-            <p className="text-base font-black text-slate-800">Automated Birthday Wishes</p>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">System will dispatch SMS to students on their anniversary</p>
+            <p className="text-base font-black text-slate-800">Birthday SMS</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Send SMS on birthdays</p>
           </div>
           <Switch
             checked={birthdaySettings.enabled}
@@ -447,7 +447,7 @@ export default function SettingsPage() {
               className="min-h-[100px] rounded-2xl border-slate-200 bg-slate-50/50 px-4 py-4 text-base font-bold text-slate-900 shadow-inner"
               value={birthdaySettings.template}
               onChange={(e) => setBirthdaySettings(p => ({ ...p, template: e.target.value }))}
-              placeholder="Happy Birthday! 🎉 ..."
+              placeholder="Happy Birthday! ..."
             />
             <p className="text-[9px] font-bold text-slate-400 uppercase px-2 italic">Variables: [fullName] will be replaced by student name</p>
           </div>

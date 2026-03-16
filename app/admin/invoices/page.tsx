@@ -140,8 +140,8 @@ export default function InvoicesPage() {
       const res = await getInvoiceById(invoiceId);
       if (res.success && res.data) {
         openModal({
-          title: 'Invoice Intelligence',
-          description: 'Detailed statement items, payments, and financial audit.',
+          title: 'Invoice Details',
+          description: 'View invoice info.',
           className: 'sm:max-w-4xl',
           content: <InvoiceDetailsView invoice={res.data} />,
         });
@@ -156,8 +156,8 @@ export default function InvoicesPage() {
       const res = await getInvoiceById(invoiceId);
       if (res.success && res.data) {
         openModal({
-          title: 'Modify Statement',
-          description: 'Update lifecycle status or financial adjustments.',
+          title: 'Edit Invoice',
+          description: 'Update invoice details.',
           className: 'sm:max-w-2xl',
           content: <InvoiceForm branches={branches} students={students} invoice={res.data} onSuccess={loadInvoices} />,
         });
@@ -169,8 +169,8 @@ export default function InvoicesPage() {
 
   const handleCreateInvoice = () => {
     openModal({
-      title: 'Initialize Statement',
-      description: 'Authorize a new institutional invoice for a student.',
+      title: 'Add Invoice',
+      description: 'Create a new invoice.',
       className: 'sm:max-w-4xl',
       content: <InvoiceForm branches={branches} students={students} onSuccess={loadInvoices} />,
     });
@@ -180,13 +180,13 @@ export default function InvoicesPage() {
     const month = monthFilter || new Date().toISOString().slice(0, 7);
     
     openModal({
-      title: 'Execute Batch Billing',
-      description: `Synchronizing automated dues for ${month}. This will identify all active monthly enrollments without a current statement and initialize their monthly tuition record.`,
+      title: 'Generate Monthly Dues',
+      description: `Create monthly invoices for ${month}?`,
       className: 'sm:max-w-xl',
       content: (
         <ConfirmationModal
-          title="Confirm Batch Execution"
-          description={`Process automated billing for ${month}?`}
+          title="Confirm"
+          description={`Generate invoices for ${month}?`}
           variant="info"
           onConfirm={async () => {
             try {
@@ -195,15 +195,15 @@ export default function InvoicesPage() {
               if (res.success) {
                 await loadInvoices();
                 toast({ 
-                  title: 'Billing Cycle Completed', 
-                  description: `${res.summary.created} new statements generated for ${month}.`, 
+                  title: 'Done', 
+                  description: `${res.summary.created} invoices created for ${month}.`, 
                   variant: 'success' 
                 });
               } else {
-                toast({ title: 'Batch Error', description: res.message, variant: 'destructive' });
+                toast({ title: 'Error', description: res.message, variant: 'destructive' });
               }
             } catch (err: any) {
-              toast({ title: 'System Error', description: err.message, variant: 'destructive' });
+              toast({ title: 'Error', description: err.message, variant: 'destructive' });
             } finally {
               setLoading(false);
             }
@@ -215,13 +215,13 @@ export default function InvoicesPage() {
 
   const handleDeleteInvoice = async (invoiceId: string) => {
     openModal({
-      title: 'Invoice Purge',
-      description: 'Are you sure you want to permanently remove this financial statement? This action is non-reversible.',
+      title: 'Delete Invoice',
+      description: 'Delete this invoice? This cannot be undone.',
       className: 'sm:max-w-xl',
       content: (
         <ConfirmationModal
-          title="Confirm Deletion"
-          description="Permanently purging this financial record from the institutional ledger."
+          title="Confirm Delete"
+          description="Remove this invoice permanently?"
           variant="danger"
           onConfirm={async () => {
             try {
@@ -264,10 +264,10 @@ export default function InvoicesPage() {
       {/* Stats Section */}
       <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { label: 'Total Volume', value: invoices.length, color: 'from-blue-600 to-cyan-500', icon: FileText },
-          { label: 'Revenue Collected', value: formatCurrency(totalRevenue), color: 'from-emerald-600 to-teal-500', icon: TrendingUp },
-          { label: 'Outstanding Balance', value: formatCurrency(totalOutstanding), color: 'from-rose-600 to-pink-600', icon: CreditCard },
-          { label: 'Issued Pending', value: invoices.filter(i => i.status === 'ISSUED').length, color: 'from-amber-600 to-orange-500', icon: ClockIcon },
+          { label: 'Total Invoices', value: invoices.length, color: 'from-blue-600 to-cyan-500', icon: FileText },
+          { label: 'Paid', value: formatCurrency(totalRevenue), color: 'from-emerald-600 to-teal-500', icon: TrendingUp },
+          { label: 'Due', value: formatCurrency(totalOutstanding), color: 'from-rose-600 to-pink-600', icon: CreditCard },
+          { label: 'Issued', value: invoices.filter(i => i.status === 'ISSUED').length, color: 'from-amber-600 to-orange-500', icon: ClockIcon },
         ].map((stat, i) => (
           <div key={i} className="group relative overflow-hidden rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/40 transition-all hover:-translate-y-1 hover:shadow-2xl">
              <div className="flex items-center justify-between">
@@ -292,7 +292,7 @@ export default function InvoicesPage() {
               <div className="relative group">
                 <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
                 <Input
-                  placeholder="Search by student, mobile, or statement ID..."
+                  placeholder="Search by student, phone, or invoice ID..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
@@ -332,7 +332,7 @@ export default function InvoicesPage() {
               onClick={handleCreateInvoice}
             >
               <Plus className="mr-2 h-4 w-4" />
-              Initialize Invoice
+              Add Invoice
             </Button>
           </div>
         </div>
@@ -363,34 +363,34 @@ export default function InvoicesPage() {
       <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/30">
         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
           <div>
-            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Statement Registry</h2>
-            <p className="mt-0.5 text-base font-bold text-indigo-500">Institutional financial database</p>
+            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Invoices</h2>
+            <p className="mt-0.5 text-base font-bold text-indigo-500">All invoices</p>
           </div>
           <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            {invoices.length} Total Statements
+            {invoices.length} Invoices
           </div>
         </div>
 
         {loading ? (
           <div className="p-20 text-center flex flex-col items-center gap-4">
              <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
-             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Synchronizing Data...</p>
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Loading invoices...</p>
           </div>
         ) : filteredInvoices.length === 0 ? (
           <div className="p-20 text-center">
-             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No matching statements identified.</p>
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No invoices found.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader className="bg-slate-50/50">
                 <TableRow className="hover:bg-transparent border-b border-slate-100">
-                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Statement Identity</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Context</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Net Payable</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Outstanding</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Authorization</TableHead>
+                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Invoice</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Details</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Payable</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Due</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Status</TableHead>
                   <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400 text-center">Manage</TableHead>
                 </TableRow>
               </TableHeader>
@@ -422,7 +422,7 @@ export default function InvoicesPage() {
                     </TableCell>
                     <TableCell className="py-5 text-right font-black text-slate-900 text-base">{formatCurrency(i.payableAmount)}</TableCell>
                     <TableCell className="py-5 text-right font-black text-rose-600 text-base">
-                       {Number(i.dueAmount) > 0 ? formatCurrency(i.dueAmount) : '—'}
+                       {Number(i.dueAmount) > 0 ? formatCurrency(i.dueAmount) : '-'}
                     </TableCell>
                     <TableCell className="py-5">
                        <Badge variant="outline" className={cn("rounded-lg text-[9px] font-black uppercase tracking-widest px-2.5 py-1", getStatusBadgeClass(String(i.status)))}>
