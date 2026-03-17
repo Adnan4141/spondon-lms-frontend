@@ -16,10 +16,10 @@ export const PartnerCarouselSection: React.FC = () => {
   const scrollContent = [...partners, ...partners];
 
   return (
-    <section className="relative py-20 bg-gradient-to-b from-white to-slate-50 overflow-hidden">
+    <section className="relative py-12 sm:py-16 md:py-20 bg-gradient-to-b from-white to-slate-50 overflow-hidden">
       
       {/* Section Header */}
-      <div className="mx-auto max-w-7xl px-6 mb-16 text-center">
+      <div className="mx-auto max-w-7xl px-6 mb-10 sm:mb-16 text-center">
         <motion.p
           initial={{ opacity: 0, y: 10 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -34,7 +34,7 @@ export const PartnerCarouselSection: React.FC = () => {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ delay: 0.1 }}
-          className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight"
+          className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 tracking-tight"
         >
           আমাদের পার্টনারসমূহ
         </motion.h2>

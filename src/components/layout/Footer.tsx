@@ -22,14 +22,14 @@ export function Footer() {
     <footer className="relative ">
       {/* Floating Subscription Card - The "Premium" Touch */}
       <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-[90%] max-w-5xl z-20">
-        <div className="bg-white rounded-[32px] p-8 md:p-12 shadow-2xl border border-slate-100 flex flex-col md:flex-row items-center justify-between gap-8 overflow-hidden relative group">
+        <div className="bg-white rounded-[24px] sm:rounded-[32px] p-6 sm:p-8 md:p-12 shadow-2xl border border-slate-100 flex flex-col md:flex-row items-center justify-between gap-6 sm:gap-8 overflow-hidden relative group">
           <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-150 duration-700" />
           
           <div className="relative z-10">
-            <h3 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
+            <h3 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-black text-slate-900 tracking-tight">
               নতুন কোর্সের আপডেট পেতে চান?
             </h3>
-            <p className="text-slate-500 font-medium mt-2">আমাদের নিউজলেটারে সাবস্ক্রাইব করে যুক্ত থাকুন।</p>
+            <p className="text-slate-500 font-medium mt-2 text-sm sm:text-base">আমাদের নিউজলেটারে সাবস্ক্রাইব করে যুক্ত থাকুন।</p>
           </div>
           
           <div className="relative z-10 w-full md:w-auto flex items-center bg-slate-100 p-2 rounded-2xl border border-slate-200 focus-within:border-emerald-500 transition-all">
@@ -67,7 +67,7 @@ export function Footer() {
                   />
                 </div>
               </div>
-              <p className="text-slate-400 font-medium leading-relaxed max-w-sm">
+              <p className="text-slate-400 font-medium leading-relaxed max-w-sm text-sm sm:text-base">
                 আমরা বিশ্বাস করি মানসম্মত শিক্ষা সবার অধিকার। প্রযুক্তির মাধ্যমে শিক্ষাকে সহজলভ্য করাই আমাদের মূল লক্ষ্য।
               </p>
               <div className="flex gap-3">
@@ -85,9 +85,9 @@ export function Footer() {
 
             {/* Column 2 & 3: Links (Spans 5 columns) */}
             <div className="lg:col-span-5 grid grid-cols-2 gap-8">
-              <div className="space-y-6">
-                <h4 className="text-sm font-black uppercase tracking-widest text-emerald-500">জনপ্রিয় কোর্স</h4>
-                <ul className="space-y-4 font-bold text-slate-300">
+              <div className="space-y-4 sm:space-y-6">
+                <h4 className="text-xs sm:text-sm font-black uppercase tracking-widest text-emerald-500">জনপ্রিয় কোর্স</h4>
+                <ul className="space-y-3 sm:space-y-4 font-bold text-slate-300 text-sm sm:text-base">
                   {['একাডেমিক প্রোগ্রাম', 'মেডিকেল প্রস্তুতি', 'ইঞ্জিনিয়ারিং', 'ভার্সিটি ক ইউনিট'].map(item => (
                     <li key={item}>
                       <Link href="#" className="hover:text-emerald-400 flex items-center gap-2 transition-all group">
@@ -98,9 +98,9 @@ export function Footer() {
                   ))}
                 </ul>
               </div>
-              <div className="space-y-6">
-                <h4 className="text-sm font-black uppercase tracking-widest text-emerald-500">লিঙ্কসমূহ</h4>
-                <ul className="space-y-4 font-bold text-slate-300">
+              <div className="space-y-4 sm:space-y-6">
+                <h4 className="text-xs sm:text-sm font-black uppercase tracking-widest text-emerald-500">লিঙ্কসমূহ</h4>
+                <ul className="space-y-3 sm:space-y-4 font-bold text-slate-300 text-sm sm:text-base">
                   {['আমাদের সম্পর্কে', 'ক্যারিয়ার', 'প্রাইভেসি পলিসি', 'সচরাচর জিজ্ঞাসা'].map(item => (
                     <li key={item}>
                       <Link href="#" className="hover:text-emerald-400 flex items-center gap-2 transition-all group">
@@ -114,20 +114,20 @@ export function Footer() {
             </div>
 
             {/* Column 4: Contact (Spans 3 columns) */}
-            <div className="lg:col-span-3 space-y-6">
-              <h4 className="text-sm font-black uppercase tracking-widest text-emerald-500">সরাসরি যোগাযোগ</h4>
+            <div className="lg:col-span-3 space-y-4 sm:space-y-6">
+              <h4 className="text-xs sm:text-sm font-black uppercase tracking-widest text-emerald-500">সরাসরি যোগাযোগ</h4>
               <div className="space-y-5">
                 <a href="tel:+8801700000000" className="flex items-center gap-4 group bg-slate-800/50 p-3 rounded-2xl border border-slate-700/50 hover:border-emerald-500/50 transition-all">
                   <div className="h-10 w-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition-all">
                     <Phone className="h-5 w-5" />
                   </div>
-                  <span className="font-bold text-slate-200">+৮৮০ ১৭০০-০০০০০০</span>
+                  <span className="font-bold text-slate-200 text-sm sm:text-base">+৮৮০ ১৭০০-০০০০০০</span>
                 </a>
                 <a href="mailto:support@spondonpro.com" className="flex items-center gap-4 group bg-slate-800/50 p-3 rounded-2xl border border-slate-700/50 hover:border-emerald-500/50 transition-all">
                   <div className="h-10 w-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 group-hover:bg-indigo-500 group-hover:text-white transition-all">
                     <Mail className="h-5 w-5" />
                   </div>
-                  <span className="font-bold text-slate-200">ইমেইল করুন</span>
+                  <span className="font-bold text-slate-200 text-sm sm:text-base">ইমেইল করুন</span>
                 </a>
               </div>
             </div>

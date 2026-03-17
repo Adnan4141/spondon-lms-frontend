@@ -25,7 +25,7 @@ export const TrustSection: React.FC<Props> = ({
   testimonialIndex,
   setTestimonialIndex,
 }) => (
-  <section className="py-28 bg-[#0A1A3A] overflow-hidden">
+  <section className="py-12 sm:py-20 md:py-28 bg-[#0A1A3A] overflow-hidden">
     <div className="mx-auto max-w-7xl px-6 lg:px-12">
 
       {/* TOP SECTION */}
@@ -34,17 +34,17 @@ export const TrustSection: React.FC<Props> = ({
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         className="bg-gradient-to-br from-[#1F3E76] via-[#3B4D9A] to-[#5C2D91] 
-        rounded-[48px] px-8 lg:px-16 py-20 shadow-[0_40px_100px_-20px_rgba(31,62,118,0.35)]"
+        rounded-[32px] sm:rounded-[48px] px-6 sm:px-8 lg:px-16 py-12 sm:py-16 lg:py-20 shadow-[0_40px_100px_-20px_rgba(31,62,118,0.35)]"
       >
         <div className="grid lg:grid-cols-2 gap-16 items-center">
 
           {/* TEXT SIDE */}
-          <div className="text-white space-y-8 max-w-xl">
-            <h2 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight">
+          <div className="text-white space-y-6 sm:space-y-8 max-w-xl">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-extrabold leading-tight">
               কেন <span className="text-[#FF2D8C]">"স্পন্দন"</span> অনন্য?
             </h2>
 
-            <p className="text-lg md:text-xl text-white/80 leading-relaxed">
+            <p className="text-sm sm:text-base md:text-lg lg:text-xl text-white/80 leading-relaxed">
               আধুনিক শিক্ষা প্রযুক্তি, অভিজ্ঞ শিক্ষক এবং উন্নত মূল্যায়ন পদ্ধতির মাধ্যমে 
               শিক্ষার্থীদের সর্বোচ্চ প্রস্তুতি নিশ্চিত করে স্পন্দন।
             </p>

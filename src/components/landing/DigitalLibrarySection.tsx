@@ -11,7 +11,7 @@ interface Props {
 }
 
 export const DigitalLibrarySection: React.FC<Props> = ({ dynamicEbooks }) => (
-  <section className="py-32 relative overflow-hidden bg-[#0A0F1C]">
+  <section className="py-16 sm:py-24 md:py-32 relative overflow-hidden bg-[#0A0F1C]">
     <div className="absolute inset-0 z-0">
       <motion.div
         animate={{ scale: [1, 1.1, 1], opacity: [0.1, 0.2, 0.1] }}
@@ -27,23 +27,23 @@ export const DigitalLibrarySection: React.FC<Props> = ({ dynamicEbooks }) => (
     </div>
 
     <div className="mx-auto max-w-7xl px-6 lg:px-12 relative z-10">
-      <div className="text-center mb-20 space-y-6">
-        <motion.span initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} className="inline-block px-5 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-black uppercase tracking-[0.3em]">
+      <div className="text-center mb-12 sm:mb-20 space-y-4 sm:space-y-6">
+        <motion.span initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} className="inline-block px-4 py-1.5 sm:px-5 sm:py-2 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em]">
           E-Learning Resource
         </motion.span>
-        <h2 className="text-4xl md:text-6xl font-black text-white leading-tight tracking-tighter">
+        <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-black text-white leading-tight tracking-tighter">
           স্মার্ট ডিজিটাল <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">লাইব্রেরি</span>
         </h2>
-        <p className="text-slate-400 font-medium text-lg max-w-2xl mx-auto">
+        <p className="text-slate-400 font-medium text-sm sm:text-base md:text-lg max-w-2xl mx-auto">
           রম্বস পাবলিকেশনসের আধুনিক ই-বুক সংগ্রহ নিয়ে তোমার প্রস্তুতি হবে আরও সহজ এবং স্মার্ট।
         </p>
       </div>
 
       <div className="flex flex-col md:flex-row items-center justify-between mb-16 gap-6 p-8 bg-white/[0.03] backdrop-blur-3xl rounded-[40px] border border-white/[0.1] shadow-2xl">
-        <div className="flex items-center gap-5">
-          <div className="h-14 w-1.5 bg-emerald-500 rounded-full shadow-[0_0_20px_#10B981]" />
+        <div className="flex items-center gap-4 sm:gap-5">
+          <div className="h-10 sm:h-14 w-1.5 bg-emerald-500 rounded-full shadow-[0_0_20px_#10B981]" />
           <div>
-            <h3 className="text-2xl font-black text-white tracking-tight">সবগুলো ই-বুক</h3>
+            <h3 className="text-lg sm:text-xl md:text-2xl font-black text-white tracking-tight">সবগুলো ই-বুক</h3>
             <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em] mt-1">Access Excellence</p>
           </div>
         </div>
@@ -74,12 +74,12 @@ export const DigitalLibrarySection: React.FC<Props> = ({ dynamicEbooks }) => (
                     <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10B981]" />
                     <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Digital Book</span>
                   </div>
-                  <h4 className="font-black text-white text-lg leading-tight group-hover:text-emerald-400 transition-colors line-clamp-2">{book.name}</h4>
+                  <h4 className="font-black text-white text-base sm:text-lg leading-tight group-hover:text-emerald-400 transition-colors line-clamp-2">{book.name}</h4>
                   <p className="text-slate-400 text-[11px] leading-relaxed line-clamp-2 font-medium">{book.description || 'রম্বস পাবলিকেশনসের আধুনিক ডিজিটাল রিসোর্স।'}</p>
                 </div>
                 <div className="mt-auto pt-6 flex items-center justify-between border-t border-white/5">
                   <div className="flex flex-col">
-                    <span className="text-emerald-400 font-black text-2xl tracking-tighter">{book.price === 0 ? 'FREE' : `৳${book.price}`}</span>
+                    <span className="text-emerald-400 font-black text-lg sm:text-xl md:text-2xl tracking-tighter">{book.price === 0 ? 'FREE' : `৳${book.price}`}</span>
                   </div>
                   <button className="h-12 w-12 rounded-2xl bg-white text-[#0A0F1C] flex items-center justify-center shadow-xl hover:bg-emerald-500 hover:text-white transition-all duration-300 active:scale-90">
                     <ArrowRight className="h-6 w-6" />

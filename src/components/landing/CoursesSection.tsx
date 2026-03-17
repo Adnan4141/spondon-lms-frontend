@@ -14,11 +14,11 @@ interface Props {
 }
 
 export const CoursesSection: React.FC<Props> = ({ courses, handleImageError }) => (
-  <section id="courses" className="py-32 relative overflow-hidden bg-gradient-to-br from-white via-amber-50/40 to-white">
+  <section id="courses" className="py-16 sm:py-24 md:py-32 relative overflow-hidden bg-gradient-to-br from-white via-amber-50/40 to-white">
     <div className="pointer-events-none absolute top-[-10%] right-[-5%] w-[600px] h-[600px] bg-gradient-to-br from-indigo-200/40 to-purple-200/40 rounded-full blur-[120px] mix-blend-multiply opacity-70" />
     <div className="pointer-events-none absolute bottom-[-10%] left-[-5%] w-[600px] h-[600px] bg-gradient-to-tr from-emerald-100/50 to-teal-100/50 rounded-full blur-[120px] mix-blend-multiply opacity-70" />
     <div className="mx-auto max-w-7xl px-6 lg:px-12 relative z-10">
-      <div className="flex flex-col items-center gap-6 mb-16 text-center">
+      <div className="flex flex-col items-center gap-4 sm:gap-6 mb-10 sm:mb-16 text-center">
         <SectionHeader
           badge="Premium Learning"
           title="আমাদের সবচেয়ে "
@@ -43,7 +43,7 @@ export const CoursesSection: React.FC<Props> = ({ courses, handleImageError }) =
             },
           },
         }}
-        className="grid gap-10 sm:grid-cols-2 lg:grid-cols-3"
+        className="grid gap-6 sm:gap-8 md:gap-10 sm:grid-cols-2 lg:grid-cols-3"
       >
         {courses.length > 0 ? (
           courses.map((course) => (
@@ -59,7 +59,7 @@ export const CoursesSection: React.FC<Props> = ({ courses, handleImageError }) =
     </div>
      <div className='flex justify-center items-center mt-10 pt-5'>
       <Link href="/courses" className="cursor-pointer">
-          <button className="group flex text-center items-center gap-3 px-8 py-4 rounded-2xl bg-white border border-slate-200 text-slate-900 font-black uppercase text-[11px] tracking-widest hover:bg-[#5C2D91] hover:text-white transition-all shadow-sm mb-4 cursor-pointer">
+          <button className="group flex text-center items-center gap-2 sm:gap-3 px-6 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl bg-white border border-slate-200 text-slate-900 font-black uppercase text-[10px] sm:text-[11px] tracking-widest hover:bg-[#5C2D91] hover:text-white transition-all shadow-sm mb-4 cursor-pointer">
             সকল কোর্স দেখুন
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
           </button>

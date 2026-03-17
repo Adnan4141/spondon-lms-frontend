@@ -9,7 +9,7 @@ interface Props {
 }
 
 export const PaymentSection: React.FC<Props> = ({ handleImageError }) => (
-  <section className="relative py-28 overflow-hidden bg-gradient-to-br from-sky-50 via-white to-indigo-50">
+  <section className="relative py-12 sm:py-20 md:py-28 overflow-hidden bg-gradient-to-br from-sky-50 via-white to-indigo-50">
     
     {/* Gradient Blobs */}
     <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-sky-200/40 blur-[120px] rounded-full"></div>
@@ -24,7 +24,7 @@ export const PaymentSection: React.FC<Props> = ({ handleImageError }) => (
             Secure Checkout
           </Badge>
 
-          <h3 className="text-4xl md:text-5xl font-black text-slate-800 tracking-tight">
+          <h3 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-slate-800 tracking-tight">
             পেমেন্ট পার্টনার
           </h3>
 
@@ -43,7 +43,7 @@ export const PaymentSection: React.FC<Props> = ({ handleImageError }) => (
         >
           
           {/* Glass Card */}
-          <div className="relative bg-white/80 backdrop-blur-xl rounded-[42px] p-12 md:p-16 flex items-center justify-center transition-all duration-500 group-hover:scale-[1.02] group-hover:shadow-2xl">
+          <div className="relative bg-white/80 backdrop-blur-xl rounded-[42px] p-6 sm:p-10 md:p-16 flex items-center justify-center transition-all duration-500 group-hover:scale-[1.02] group-hover:shadow-2xl">
 
             {/* Glow */}
             <div className="absolute inset-0 rounded-[42px] opacity-0 group-hover:opacity-100 transition duration-500 bg-gradient-to-r from-blue-200/30 via-sky-200/30 to-indigo-200/30 blur-2xl"></div>
