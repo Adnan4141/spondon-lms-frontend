@@ -139,8 +139,8 @@ export default function ExamsPage() {
       const res = await getExamById(examId);
       if (res.success && res.data) {
         openModal({
-          title: 'Exam Intelligence',
-          description: 'Detailed configuration and attempt analytics.',
+          title: 'Exam Details',
+          description: 'View exam details.',
           className: 'sm:max-w-4xl',
           content: <ExamDetailsView exam={res.data} />,
         });
@@ -167,9 +167,9 @@ export default function ExamsPage() {
   };
 
   const handleCreateExam = () => {
-    openModal({
-      title: 'Authorize New Assessment',
-      description: 'Configure a new examination unit for the curriculum.',
+        openModal({
+          title: 'Create Exam',
+          description: 'Add a new exam.',
       className: 'sm:max-w-6xl',
       content: <ExamForm courses={courses} branches={branches} onSuccess={loadExams} />,
     });
@@ -205,36 +205,8 @@ export default function ExamsPage() {
       exam.course?.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const totalExams = exams.length;
-  const publishedCount = exams.filter((e) => e.status === 'PUBLISHED').length;
-  const draftCount = exams.filter((e) => e.status === 'DRAFT').length;
-  const totalAttempts = exams.reduce((sum, e) => sum + (e._count?.attempts || 0), 0);
-
   return (
     <div className="space-y-8 text-slate-900">
-      {/* Stats Section */}
-      <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          { label: 'Exam Catalog', value: totalExams, color: 'from-blue-600 to-cyan-500', icon: Layers },
-          { label: 'Active Baseline', value: publishedCount, color: 'from-emerald-600 to-teal-500', icon: Layers },
-          { label: 'Draft Assets', value: draftCount, color: 'from-amber-600 to-orange-500', icon: FileText },
-          { label: 'Participation', value: totalAttempts, color: 'from-rose-600 to-pink-600', icon: History },
-        ].map((stat, i) => (
-          <div key={i} className="group relative overflow-hidden rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/40 transition-all hover:-translate-y-1 hover:shadow-2xl">
-             <div className="flex items-center justify-between">
-                <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg group-hover:scale-110 transition-transform", stat.color)}>
-                   <stat.icon className="h-6 w-6" />
-                </div>
-                <div className="h-1.5 w-1.5 rounded-full bg-slate-200" />
-             </div>
-             <div className="mt-6">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
-                <p className="mt-1 text-3xl font-black text-slate-900">{stat.value}</p>
-             </div>
-          </div>
-        ))}
-      </section>
-
       {/* Filter & Actions Section */}
       <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-6">
@@ -243,7 +215,7 @@ export default function ExamsPage() {
               <div className="relative group">
                 <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
                 <input
-                  placeholder="Search exams by title or course identity..."
+                  placeholder="Search exams by title or course..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="h-12 w-full rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner outline-none"
@@ -288,7 +260,7 @@ export default function ExamsPage() {
             onClick={handleCreateExam}
           >
             <Plus className="mr-2 h-4 w-4" />
-            Authorize Exam
+            Add Exam
           </Button>
         </div>
       </section>
@@ -297,32 +269,32 @@ export default function ExamsPage() {
       <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/30">
         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
           <div>
-            <h2 className="text-base font-black uppercase tracking-[0.2em] text-slate-400">Exam Registry</h2>
-            <p className="mt-0.5 text-base font-bold text-indigo-500">Institutional baseline</p>
+            <h2 className="text-base font-black uppercase tracking-[0.2em] text-slate-400">Exams</h2>
+            <p className="mt-0.5 text-base font-bold text-indigo-500">All exams</p>
           </div>
           <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-sm font-black uppercase tracking-widest text-slate-500 shadow-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            {totalExams} Assessment Units
+            Exams
           </div>
         </div>
 
         {loading ? (
           <div className="p-20 text-center flex flex-col items-center gap-4">
              <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
-             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Synchronizing Data...</p>
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Loading...</p>
           </div>
         ) : filteredExams.length === 0 ? (
           <div className="p-20 text-center">
-             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No matching exams identified.</p>
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No exams found.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader className="bg-slate-50/50">
                 <TableRow className="hover:bg-transparent border-b border-slate-100">
-                  <TableHead className="px-8 font-black text-base uppercase tracking-widest text-slate-400">Assessment Identity</TableHead>
-                  <TableHead className="font-black text-base uppercase tracking-widest text-slate-400">Course & Context</TableHead>
-                  <TableHead className="font-black text-base uppercase tracking-widest text-slate-400">Classification</TableHead>
+                  <TableHead className="px-8 font-black text-base uppercase tracking-widest text-slate-400">Exam</TableHead>
+                  <TableHead className="font-black text-base uppercase tracking-widest text-slate-400">Course</TableHead>
+                  <TableHead className="font-black text-base uppercase tracking-widest text-slate-400">Type</TableHead>
                   <TableHead className="font-black text-base uppercase tracking-widest text-slate-400">Timeline</TableHead>
                   <TableHead className="px-8 font-black text-base uppercase tracking-widest text-slate-400 text-center">Manage</TableHead>
                 </TableRow>

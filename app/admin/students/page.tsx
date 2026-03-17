@@ -5,6 +5,7 @@ import {
   getStudents,
   deleteStudent,
   getStudentById,
+  bulkImportStudents,
   type Student,
 } from '@/lib/api/students';
 import { getBranches, type Branch } from '@/lib/api/branches';
@@ -38,17 +39,14 @@ import {
   Mail,
   Phone,
   Building2,
-  GraduationCap,
-  ArrowRight,
-  ShieldCheck,
-  Users,
-  Layers,
+  Upload,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { useModalStore } from '@/store/modalStore';
 import { StudentForm } from '@/components/admin/students/StudentForm';
 import { StudentDetailsView } from '@/components/admin/students/StudentDetailsView';
+import { BulkImportForm } from '@/components/admin/students/BulkImportForm';
 import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
 import { cn } from '@/lib/utils';
 
@@ -94,7 +92,7 @@ export default function StudentsPage() {
 
   const loadInstitutes = async () => {
     try {
-      const res = await apiRequest<ApiResponse<Institute[]>>('/institutes');
+      const res = await apiRequest<{ success: boolean; data: Institute[] }>('/institutes?limit=500');
       if (res.success) setInstitutes(res.data || []);
     } catch (err) {
       console.error('Failed to load institutes:', err);
@@ -156,6 +154,22 @@ export default function StudentsPage() {
     });
   };
 
+  const handleOpenBulkImport = () => {
+    openModal({
+      title: 'Bulk Import Students',
+      description: 'Upload CSV or Excel file. Columns: fullName/name, mobile/phone, fatherName, motherName, fatherMobile, motherMobile, registrationNumber (7 digits), email, address, bloodGroup, gender, smsAlertTo (SELF,FATHER,MOTHER).',
+      className: 'sm:max-w-lg',
+      content: (
+        <BulkImportForm
+          branches={branches}
+          onSuccess={loadStudents}
+          onClose={() => {}}
+          toast={toast}
+        />
+      ),
+    });
+  };
+
   const handleDeleteStudent = async (studentId: string) => {
     openModal({
       title: 'Delete Student',
@@ -185,36 +199,8 @@ export default function StudentsPage() {
     return !q || s.fullName.toLowerCase().includes(q) || s.email?.toLowerCase().includes(q) || s.mobile.toLowerCase().includes(q);
   });
 
-  const totalStudents = students.length;
-  const activeCount = students.filter((s) => s.status === 'ACTIVE').length;
-  const blockedCount = students.filter((s) => s.status === 'BLOCKED').length;
-  const totalEnrollments = students.reduce((sum, s) => sum + (s._count?.enrollments || 0), 0);
-
   return (
     <div className="space-y-8 text-slate-900">
-      {/* Stats Section */}
-      <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          { label: 'Total Students', value: totalStudents, color: 'from-blue-600 to-cyan-500', icon: Users },
-          { label: 'Active Students', value: activeCount, color: 'from-emerald-600 to-teal-500', icon: Layers },
-          { label: 'Blocked Students', value: blockedCount, color: 'from-rose-600 to-pink-600', icon: ShieldCheck },
-          { label: 'Course Enrollments', value: totalEnrollments, color: 'from-indigo-600 to-purple-600', icon: GraduationCap },
-        ].map((stat, i) => (
-          <div key={i} className="group relative overflow-hidden rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/40 transition-all hover:-translate-y-1 hover:shadow-2xl">
-             <div className="flex items-center justify-between">
-                <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg group-hover:scale-110 transition-transform", stat.color)}>
-                   <stat.icon className="h-6 w-6" />
-                </div>
-                <ArrowRight className="h-4 w-4 text-slate-200 group-hover:text-indigo-500 transition-colors" />
-             </div>
-             <div className="mt-6">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
-                <p className="mt-1 text-3xl font-black text-slate-900">{stat.value}</p>
-             </div>
-          </div>
-        ))}
-      </section>
-
       {/* Filter & Actions Section */}
       <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-6">
@@ -263,13 +249,23 @@ export default function StudentsPage() {
             </Button>
           </div>
 
-          <Button
-            className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95"
-            onClick={handleCreateStudent}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Student
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              className="h-12 rounded-2xl border-slate-200 px-6 font-black uppercase tracking-widest text-[11px] text-slate-600 shadow-sm hover:bg-slate-50"
+              onClick={handleOpenBulkImport}
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              Bulk Import
+            </Button>
+            <Button
+              className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95"
+              onClick={handleCreateStudent}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Student
+            </Button>
+          </div>
         </div>
       </section>
 
@@ -282,7 +278,7 @@ export default function StudentsPage() {
           </div>
           <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            {totalStudents} Enrolled Students
+            Students
           </div>
         </div>
 
@@ -336,16 +332,10 @@ export default function StudentsPage() {
                        </div>
                     </TableCell>
                     <TableCell className="py-5">
-                       <div className="flex flex-col gap-1.5">
-                          <div className="flex items-center gap-1.5 text-base font-bold text-slate-600">
+                       <div className="flex items-center gap-1.5 text-base font-bold text-slate-600">
                              <Building2 className="h-3.5 w-3.5 text-rose-500" />
                              {student.branch?.name || 'Central'}
                           </div>
-                             <div className="flex items-center gap-1.5 text-base font-bold text-slate-400">
-                                <GraduationCap className="h-3.5 w-3.5 text-indigo-400" />
-                                {student._count?.enrollments || 0} {student._count?.enrollments === 1 ? 'course' : 'courses'}
-                          </div>
-                       </div>
                     </TableCell>
                     <TableCell className="py-5">
                        <Badge variant="outline" className={cn("rounded-lg text-[10px] font-black uppercase tracking-widest px-2.5 py-1", getStatusBadgeClass(student.status))}>

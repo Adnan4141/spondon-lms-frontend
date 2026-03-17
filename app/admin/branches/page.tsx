@@ -196,36 +196,8 @@ export default function BranchesPage() {
     }));
   };
 
-  const totalBranches = branches.length;
-  const activeCount = branches.filter((b) => b.status.toLowerCase() === 'active').length;
-  const totalUsers = branches.reduce((sum, b) => sum + (b._count?.users || 0), 0);
-  const totalBatches = branches.reduce((sum, b) => sum + (b._count?.batches || 0), 0);
-
   return (
     <div className="space-y-8 text-slate-900">
-      {/* Stats Section */}
-      <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          { label: 'Total Branches', value: totalBranches, color: 'from-blue-600 to-cyan-500', icon: Building2 },
-          { label: 'Active Branches', value: activeCount, color: 'from-emerald-600 to-teal-500', icon: Layers },
-          { label: 'Staff', value: totalUsers, color: 'from-indigo-600 to-purple-600', icon: Users },
-          { label: 'Batches', value: totalBatches, color: 'from-rose-600 to-pink-600', icon: Calendar },
-        ].map((stat, i) => (
-          <div key={i} className="group relative overflow-hidden rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/40 transition-all hover:-translate-y-1 hover:shadow-2xl">
-             <div className="flex items-center justify-between">
-                <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg group-hover:scale-110 transition-transform", stat.color)}>
-                   <stat.icon className="h-6 w-6" />
-                </div>
-                <ArrowRight className="h-4 w-4 text-slate-200 group-hover:text-indigo-500 transition-colors" />
-             </div>
-             <div className="mt-6">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
-                <p className="mt-1 text-3xl font-black text-slate-900">{stat.value}</p>
-             </div>
-          </div>
-        ))}
-      </section>
-
       {/* Filter Section */}
       <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-6">
@@ -279,7 +251,7 @@ export default function BranchesPage() {
           </div>
           <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            {totalBranches} Branches
+            Branches
           </div>
         </div>
 
@@ -304,7 +276,6 @@ export default function BranchesPage() {
                     Branch {sortConfig.key === 'name' ? `(${sortConfig.direction === 'asc' ? 'asc' : 'desc'})` : ''}
                   </TableHead>
                   <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Contact</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Counts</TableHead>
                   <TableHead 
                     className="font-black text-[10px] uppercase tracking-widest text-slate-400 cursor-pointer hover:text-indigo-600 transition-colors"
                     onClick={() => toggleSort('order')}
@@ -338,24 +309,6 @@ export default function BranchesPage() {
                           <div className="flex items-center gap-1.5 text-base font-medium text-slate-400">
                              <MapPin className="h-3.5 w-3.5 text-rose-400" />
                              <span className="truncate max-w-[200px]">{branch.address || 'No Address'}</span>
-                          </div>
-                       </div>
-                    </TableCell>
-                    <TableCell className="py-5">
-                       <div className="flex items-center gap-3">
-                          <div className="flex flex-col items-center">
-                             <span className="text-base font-black text-slate-900">{branch._count?.users || 0}</span>
-                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Staff</span>
-                          </div>
-                          <div className="h-4 w-[1px] bg-slate-100" />
-                          <div className="flex flex-col items-center">
-                             <span className="text-base font-black text-slate-900">{branch._count?.batches || 0}</span>
-                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Batches</span>
-                          </div>
-                          <div className="h-4 w-[1px] bg-slate-100" />
-                          <div className="flex flex-col items-center">
-                             <span className="text-base font-black text-slate-900">{branch._count?.enrollments || 0}</span>
-                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Students</span>
                           </div>
                        </div>
                     </TableCell>

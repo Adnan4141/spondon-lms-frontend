@@ -5,6 +5,8 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
+import { useToast } from '@/hooks/use-toast';
+import { Toaster } from '@/components/ui/toast';
 import { getCourseById } from '@/lib/api/courses';
 import { enrollInCourse, checkEnrollment } from '@/lib/api/student-portal';
 import { initInvoicePayment } from '@/lib/api/invoices';
@@ -28,6 +30,7 @@ import { cn } from '@/lib/utils';
 
 export default function CourseDetailsPage() {
     const { idOrSlug } = useParams();
+    const { toast, toasts, removeToast } = useToast();
     const [course, setCourse] = useState<CourseDetails | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -68,16 +71,34 @@ export default function CourseDetailsPage() {
         }).catch(() => {});
     }, [course?.id]);
 
+    const redirectToLogin = () => {
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem('user');
+            localStorage.removeItem('auth_token');
+        }
+        window.location.href = `/login?redirect=/course/${idOrSlug}`;
+    };
+
     const handleEnroll = async () => {
         const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
         if (!userStr) {
-            window.location.href = `/login?redirect=/course/${idOrSlug}`;
+            redirectToLogin();
             return;
         }
         if (!course) return;
+        let user: { id?: string };
+        try {
+            user = JSON.parse(userStr);
+        } catch {
+            redirectToLogin();
+            return;
+        }
+        if (!user?.id) {
+            redirectToLogin();
+            return;
+        }
         setEnrolling(true);
         try {
-            const user = JSON.parse(userStr);
             const res = await enrollInCourse({
                 studentUserId: user.id,
                 courseId: course.id,
@@ -92,10 +113,23 @@ export default function CourseDetailsPage() {
                 throw new Error('Failed to initiate payment');
             }
         } catch (e: any) {
-            if (e.message?.includes('Already enrolled')) {
+            const apiRes = e.response; // { success, message, data }
+            const msg = apiRes?.message || e.message || 'Enrollment failed';
+            if (msg.includes('Already enrolled') || apiRes?.data?.enrollmentId) {
                 setAlreadyEnrolled(true);
+                toast({
+                    title: 'ইতিমধ্যে ভর্তি',
+                    description: msg,
+                    variant: 'success',
+                });
+            } else if (msg.includes('User not found') || msg.includes('Please log in') || msg.includes('log in again')) {
+                redirectToLogin();
             } else {
-                alert(e.message || 'Enrollment failed');
+                toast({
+                    title: 'ভর্তি ব্যর্থ',
+                    description: msg,
+                    variant: 'destructive',
+                });
             }
         } finally {
             setEnrolling(false);
@@ -146,6 +180,7 @@ export default function CourseDetailsPage() {
 
     return (
         <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-indigo-100">
+            <Toaster toasts={toasts} removeToast={removeToast} />
             <Header />
 
             {/* Hero Section */}
@@ -364,7 +399,7 @@ export default function CourseDetailsPage() {
                                         href="/student/courses"
                                         className="w-full h-16 bg-emerald-600 text-white rounded-2xl font-black uppercase text-sm tracking-widest shadow-xl shadow-emerald-100 transition-all hover:bg-emerald-700 active:scale-95 flex items-center justify-center gap-3"
                                     >
-                                        <CheckCircle2 size={20} /> আপনি ইতিমধ্যে ভর্তি করেছেন - আমার কোর্স দেখুন <ArrowRight size={20} />
+                                        <CheckCircle2 size={20} /> কোর্সটি ভিজিট করুন।<ArrowRight size={20} />
                                     </Link>
                                 ) : (
                                     <button

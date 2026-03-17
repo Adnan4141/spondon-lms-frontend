@@ -80,8 +80,8 @@ export default function ProgramsPage() {
       const response = await getProgramById(programId);
       if (response.success && response.data) {
         openModal({
-          title: 'Program Intelligence',
-          description: 'Detailed view of academic program and associated courses.',
+          title: 'Program Details',
+          description: 'View program details.',
           className: 'sm:max-w-4xl',
           content: <ProgramDetailsView program={response.data} />,
         });
@@ -108,9 +108,9 @@ export default function ProgramsPage() {
   };
 
   const handleCreateProgram = () => {
-    openModal({
-      title: 'Launch New Program',
-      description: 'Create a new academic program container.',
+        openModal({
+          title: 'Create Program',
+          description: 'Add a new program.',
       className: 'sm:max-w-2xl',
       content: <ProgramForm onSuccess={loadPrograms} />,
     });
@@ -145,34 +145,8 @@ export default function ProgramsPage() {
     program.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const totalPrograms = programs.length;
-  const totalCourses = programs.reduce((sum, program) => sum + ((program as any)._count?.courses || 0), 0);
-
   return (
     <div className="space-y-8 text-slate-900">
-      {/* Stats Section */}
-      <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          { label: 'Total Programs', value: totalPrograms, color: 'from-blue-600 to-cyan-500', icon: GraduationCap },
-          { label: 'Total Courses', value: totalCourses, color: 'from-indigo-600 to-purple-600', icon: BookOpenCheck },
-          { label: 'Avg Density', value: totalPrograms > 0 ? (totalCourses / totalPrograms).toFixed(1) : 0, color: 'from-emerald-600 to-teal-500', icon: Layers },
-          { label: 'Active Filter', value: filteredPrograms.length, color: 'from-rose-600 to-pink-600', icon: Search },
-        ].map((stat, i) => (
-          <div key={i} className="group relative overflow-hidden rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/40 transition-all hover:-translate-y-1 hover:shadow-2xl">
-             <div className="flex items-center justify-between">
-                <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg group-hover:scale-110 transition-transform", stat.color)}>
-                   <stat.icon className="h-6 w-6" />
-                </div>
-                <div className="h-1.5 w-1.5 rounded-full bg-slate-200" />
-             </div>
-             <div className="mt-6">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
-                <p className="mt-1 text-3xl font-black text-slate-900">{stat.value}</p>
-             </div>
-          </div>
-        ))}
-      </section>
-
       {/* Search Section */}
       <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-6">
@@ -212,7 +186,7 @@ export default function ProgramsPage() {
           </div>
           <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            {totalPrograms} Programs
+            Programs
           </div>
         </div>
 
@@ -263,9 +237,7 @@ export default function ProgramsPage() {
                        </p>
                     </TableCell>
                     <TableCell className="py-5">
-                       <Badge variant="outline" className="rounded-lg bg-indigo-50 border-indigo-100 text-indigo-700 font-black text-xs uppercase px-2.5 py-1">
-                         {(program as any)._count?.courses || 0} Courses
-                       </Badge>
+                       <span className="text-sm font-medium text-slate-600">{(program as any)._count?.courses ?? 0}</span>
                     </TableCell>
                     <TableCell className="py-5">
                        <div className="flex flex-col gap-1">

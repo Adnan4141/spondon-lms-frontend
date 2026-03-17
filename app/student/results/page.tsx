@@ -68,7 +68,8 @@ export default function StudentResultsPage() {
 
   const attempts = data?.onlineAttempts ?? [];
   const offlineResults: OfflineResult[] = (data?.offlineResults as OfflineResult[]) ?? [];
-  const hasResults = attempts.length > 0 || offlineResults.length > 0;
+  const academicRecords = (data?.academicRecords as any[]) ?? [];
+  const hasResults = attempts.length > 0 || offlineResults.length > 0 || academicRecords.length > 0;
 
   return (
     <div className="space-y-10">
@@ -163,7 +164,7 @@ export default function StudentResultsPage() {
                  <div className="h-8 w-8 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
                     <Award className="h-5 w-5" />
                  </div>
-                 <h2 className="text-2xl font-black text-slate-900 tracking-tight">Offline Exam Results</h2>
+                 <h2 className="text-2xl font-black text-slate-900 tracking-tight">অফলাইন পরীক্ষার ফলাফল</h2>
               </div>
               <div className="grid gap-6 sm:grid-cols-2">
                 {offlineResults.map((r: OfflineResult) => (
@@ -192,6 +193,38 @@ export default function StudentResultsPage() {
                          <div className="h-10 w-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
                             <CheckCircle2 className="h-6 w-6" />
                          </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {academicRecords.length > 0 && (
+            <div className="space-y-6">
+               <div className="flex items-center gap-3">
+                 <div className="h-8 w-8 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
+                    <FileText className="h-5 w-5" />
+                 </div>
+                 <h2 className="text-2xl font-black text-slate-900 tracking-tight">একাডেমিক রেকর্ড</h2>
+              </div>
+              <div className="grid gap-6 sm:grid-cols-2">
+                {academicRecords.map((r: any) => (
+                  <Card key={r.id} className="group rounded-[2rem] border-none bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] transition-all duration-500 overflow-hidden">
+                    <CardContent className="p-8">
+                      <div className="flex items-start justify-between mb-6">
+                        <div className="space-y-1">
+                          <h3 className="text-xl font-black text-slate-900">{r.recordType || 'Record'}</h3>
+                          {r.remarks && <p className="text-sm font-bold text-slate-400">{r.remarks}</p>}
+                        </div>
+                        <div className="h-12 w-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600">
+                          <span className="text-lg font-black">{r.score ?? '—'}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between pt-6 border-t border-slate-50">
+                        <span className="text-sm font-bold text-slate-500">{r.grade ? `Grade: ${r.grade}` : ''}</span>
+                        <CheckCircle2 className="h-6 w-6 text-emerald-500" />
                       </div>
                     </CardContent>
                   </Card>

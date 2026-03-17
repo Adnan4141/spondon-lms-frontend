@@ -16,14 +16,97 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { format } from 'date-fns';
-import { CalendarIcon, User, Phone, Mail, Lock, MapPin, Building2, ShieldCheck, HeartPulse, Fingerprint, Info, GraduationCap } from 'lucide-react';
+import { CalendarIcon, User, Phone, Mail, Lock, MapPin, Building2, ShieldCheck, HeartPulse, Fingerprint, Info, GraduationCap, ChevronsUpDown, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
+
+function InstituteCombobox({
+  institutes,
+  value,
+  onSelect,
+  placeholder = 'Search...',
+}: {
+  institutes: Institute[];
+  value: string;
+  onSelect: (v: string) => void;
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const selected = institutes.find((i) => i.id === value);
+  const filtered = institutes.filter(
+    (i) =>
+      !search ||
+      i.name.toLowerCase().includes(search.toLowerCase()) ||
+      (i.eiin && i.eiin.includes(search))
+  );
+  return (
+    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) setSearch(''); }}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="h-12 w-full justify-between rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner"
+        >
+          <span className={selected ? '' : 'text-slate-400'}>{selected?.name || placeholder}</span>
+          <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 rounded-2xl border-slate-200 shadow-xl" align="start">
+        <div className="p-2 border-b border-slate-100">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder="Search by name or EIIN..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-10 pl-9 rounded-xl border-slate-200"
+            />
+          </div>
+        </div>
+        <div className="max-h-[240px] overflow-y-auto p-1">
+          <button
+            type="button"
+            onClick={() => {
+              onSelect('');
+              setOpen(false);
+            }}
+            className="w-full rounded-xl px-3 py-2.5 text-left text-sm font-medium hover:bg-slate-100"
+          >
+            None
+          </button>
+          {filtered.map((ins) => (
+            <button
+              key={ins.id}
+              type="button"
+              onClick={() => {
+                onSelect(ins.id);
+                setOpen(false);
+              }}
+              className={cn(
+                'w-full rounded-xl px-3 py-2.5 text-left text-sm font-medium hover:bg-slate-100 flex items-center justify-between',
+                value === ins.id && 'bg-indigo-50 text-indigo-700'
+              )}
+            >
+              <span>{ins.name}</span>
+              {ins.eiin && <span className="text-xs text-slate-400 font-mono">{ins.eiin}</span>}
+            </button>
+          ))}
+          {filtered.length === 0 && search && (
+            <p className="py-4 text-center text-sm text-slate-400">No institute found</p>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 const inputClass =
   'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner outline-none';
-const sectionLabel = 'text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2 block px-1';
+const sectionLabel = 'text-xs font-bold text-slate-500 mb-2 block';
 
 function parseDateInput(value?: string): Date | undefined {
   if (!value) return undefined;
@@ -59,6 +142,8 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
     status: 'ACTIVE',
     fatherName: '',
     motherName: '',
+    fatherMobile: '',
+    motherMobile: '',
     dob: '',
     bloodGroup: '',
     gender: '',
@@ -67,6 +152,9 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
     address: '',
     instituteId: '',
     registrationNumber: '',
+    smsAlertTo: [],
+    sscInfo: undefined,
+    hscInfo: undefined,
   });
   
   const [submitting, setSubmitting] = useState(false);
@@ -85,6 +173,8 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
         status: student.status,
         fatherName: student.studentProfile?.fatherName || '',
         motherName: student.studentProfile?.motherName || '',
+        fatherMobile: student.studentProfile?.fatherMobile || '',
+        motherMobile: student.studentProfile?.motherMobile || '',
         dob: student.studentProfile?.dob || '',
         bloodGroup: student.studentProfile?.bloodGroup || '',
         gender: student.studentProfile?.gender || '',
@@ -93,6 +183,9 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
         address: student.studentProfile?.address || '',
         instituteId: student.studentProfile?.instituteId || '',
         registrationNumber: student.studentProfile?.registrationNumber || '',
+        smsAlertTo: (student.studentProfile?.smsAlertTo as string[]) || [],
+        sscInfo: student.studentProfile?.sscInfo,
+        hscInfo: student.studentProfile?.hscInfo,
       });
     }
   }, [student]);
@@ -100,6 +193,10 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
   const handleSubmit = async () => {
     if (!form.fullName.trim() || !form.mobile.trim() || (!isEdit && !form.password.trim())) {
       setError('Name, mobile, and password are required.');
+      return;
+    }
+    if (form.registrationNumber && !/^\d{7}$/.test(form.registrationNumber)) {
+      setError('Registration number must be exactly 7 digits.');
       return;
     }
 
@@ -140,9 +237,9 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
         <div className="px-8 pt-6 border-b border-slate-100 bg-slate-50/30">
           <TabsList className="bg-transparent gap-8 h-14 p-0">
             {[
-              { label: 'Account Info', value: 'account', icon: ShieldCheck },
-              { label: 'Institutional', value: 'institutional', icon: Building2 },
-              { label: 'Personal Details', value: 'personal', icon: Fingerprint },
+              { label: 'Account', value: 'account', icon: ShieldCheck },
+              { label: 'Branch & Institute', value: 'institutional', icon: Building2 },
+              { label: 'Personal', value: 'personal', icon: Fingerprint },
             ].map((tab) => (
               <TabsTrigger
                 key={tab.value}
@@ -163,38 +260,38 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
                    <Info className="h-5 w-5 text-indigo-600" />
                 </div>
                 <div>
-                   <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Core Identity</h3>
-                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Authentication & Contact Credentials</p>
+                   <h3 className="text-base font-black text-slate-800">Account</h3>
+                   <p className="text-xs text-slate-400">Login & contact</p>
                 </div>
              </div>
              
              <div className="grid gap-8 sm:grid-cols-2">
                 <div className="space-y-2">
-                   <label className={sectionLabel}>Full Legal Name</label>
+                   <label className={sectionLabel}>Name</label>
                    <div className="relative group">
                       <User className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
-                      <Input className={cn(inputClass, "pl-11")} value={form.fullName} onChange={e => setForm(p => ({ ...p, fullName: e.target.value }))} placeholder="e.g., Harper Nelson" />
+                      <Input className={cn(inputClass, "pl-11")} value={form.fullName} onChange={e => setForm(p => ({ ...p, fullName: e.target.value }))} placeholder="Student name" />
                    </div>
                 </div>
                 <div className="space-y-2">
-                   <label className={sectionLabel}>Primary Mobile</label>
+                   <label className={sectionLabel}>Mobile</label>
                    <div className="relative group">
                       <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
                       <Input className={cn(inputClass, "pl-11")} value={form.mobile} onChange={e => setForm(p => ({ ...p, mobile: e.target.value }))} placeholder="01XXX-XXXXXX" />
                    </div>
                 </div>
                 <div className="space-y-2">
-                   <label className={sectionLabel}>Email Address</label>
+                   <label className={sectionLabel}>Email</label>
                    <div className="relative group">
                       <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-                      <Input className={cn(inputClass, "pl-11")} type="email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} placeholder="student@example.com" />
+                      <Input className={cn(inputClass, "pl-11")} type="email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} placeholder="Email (optional)" />
                    </div>
                 </div>
                 <div className="space-y-2">
-                   <label className={sectionLabel}>{isEdit ? 'New Password' : 'Password'}</label>
+                   <label className={sectionLabel}>Password</label>
                    <div className="relative group">
                       <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-rose-500 transition-colors" />
-                      <Input className={cn(inputClass, "pl-11")} type="password" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} placeholder={isEdit ? 'Leave blank to keep current' : '********'} />
+                      <Input className={cn(inputClass, "pl-11")} type="password" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} placeholder={isEdit ? 'Leave blank to keep' : 'Password'} />
                    </div>
                 </div>
              </div>
@@ -206,17 +303,17 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
                    <GraduationCap className="h-5 w-5 text-emerald-600" />
                 </div>
                 <div>
-                   <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Academic Assignment</h3>
-                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Branch & Registration Data</p>
+                   <h3 className="text-base font-black text-slate-800">Branch & Institute</h3>
+                   <p className="text-xs text-slate-400">Registration info</p>
                 </div>
              </div>
 
              <div className="grid gap-8 sm:grid-cols-2">
                 <div className="space-y-2">
-                   <label className={sectionLabel}>Assigned Branch</label>
+                   <label className={sectionLabel}>Branch</label>
                    <Select value={form.branchId} onValueChange={v => setForm(p => ({ ...p, branchId: v }))}>
                       <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
-                         <SelectValue placeholder="Select Branch" />
+                         <SelectValue placeholder="Select branch" />
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
                          {branches.map(b => <SelectItem key={b.id} value={b.id} className="text-sm font-medium">{b.name}</SelectItem>)}
@@ -224,7 +321,7 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
                    </Select>
                 </div>
                 <div className="space-y-2">
-                   <label className={sectionLabel}>Account Status</label>
+                   <label className={sectionLabel}>Status</label>
                    <Select value={form.status} onValueChange={v => setForm(p => ({ ...p, status: v as UserStatus }))}>
                       <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
                          <SelectValue />
@@ -236,22 +333,20 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
                    </Select>
                 </div>
                 <div className="space-y-2">
-                   <label className={sectionLabel}>Internal Registration ID</label>
+                   <label className={sectionLabel}>Reg. No. (7 digits)</label>
                    <div className="relative group">
                       <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                      <Input className={cn(inputClass, "pl-11")} value={form.registrationNumber} onChange={e => setForm(p => ({ ...p, registrationNumber: e.target.value }))} placeholder="e.g., SP-2026-001" />
+                      <Input className={cn(inputClass, "pl-11")} value={form.registrationNumber} onChange={e => setForm(p => ({ ...p, registrationNumber: e.target.value.replace(/\D/g, '').slice(0, 7) }))} placeholder="1234567" maxLength={7} />
                    </div>
                 </div>
                 <div className="space-y-2">
-                   <label className={sectionLabel}>External Affiliation</label>
-                   <Select value={form.instituteId} onValueChange={v => setForm(p => ({ ...p, instituteId: v }))}>
-                      <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
-                         <SelectValue placeholder="Select Institute" />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                         {institutes.map(ins => <SelectItem key={ins.id} value={ins.id} className="text-sm font-medium">{ins.name}</SelectItem>)}
-                      </SelectContent>
-                   </Select>
+                   <label className={sectionLabel}>Institute</label>
+                   <InstituteCombobox
+                     institutes={institutes}
+                     value={form.instituteId}
+                     onSelect={(v) => setForm(p => ({ ...p, instituteId: v }))}
+                     placeholder="Search institute..."
+                   />
                 </div>
              </div>
           </TabsContent>
@@ -259,12 +354,26 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
           <TabsContent value="personal" className="m-0 space-y-10 animate-in fade-in slide-in-from-bottom-2 duration-300">
              <div className="grid gap-8 sm:grid-cols-2">
                 <div className="space-y-2">
-                   <label className={sectionLabel}>Father's Full Name</label>
+                   <label className={sectionLabel}>Father's Name</label>
                    <Input className={inputClass} value={form.fatherName} onChange={e => setForm(p => ({ ...p, fatherName: e.target.value }))} placeholder="Father's name" />
                 </div>
                 <div className="space-y-2">
-                   <label className={sectionLabel}>Mother's Full Name</label>
+                   <label className={sectionLabel}>Mother's Name</label>
                    <Input className={inputClass} value={form.motherName} onChange={e => setForm(p => ({ ...p, motherName: e.target.value }))} placeholder="Mother's name" />
+                </div>
+                <div className="space-y-2">
+                   <label className={sectionLabel}>Father's Mobile</label>
+                   <div className="relative group">
+                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Input className={cn(inputClass, "pl-11")} value={form.fatherMobile} onChange={e => setForm(p => ({ ...p, fatherMobile: e.target.value }))} placeholder="01XXX-XXXXXX" />
+                   </div>
+                </div>
+                <div className="space-y-2">
+                   <label className={sectionLabel}>Mother's Mobile</label>
+                   <div className="relative group">
+                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Input className={cn(inputClass, "pl-11")} value={form.motherMobile} onChange={e => setForm(p => ({ ...p, motherMobile: e.target.value }))} placeholder="01XXX-XXXXXX" />
+                   </div>
                 </div>
                 <div className="space-y-2">
                    <label className={sectionLabel}>Date of Birth</label>
@@ -272,7 +381,7 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
                       <PopoverTrigger asChild>
                          <Button variant="outline" className={cn("w-full h-12 justify-start rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700", !form.dob && "text-slate-400")}>
                             <CalendarIcon className="mr-2 h-4 w-4" />
-                            {form.dob ? format(parseDateInput(form.dob)!, 'dd-MM-yyyy') : 'Pick birth date'}
+                            {form.dob ? format(parseDateInput(form.dob)!, 'dd-MM-yyyy') : 'Select date'}
                          </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0 rounded-[28px] border border-slate-200 bg-white shadow-2xl" align="start">
@@ -296,17 +405,55 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
                    </div>
                    <div className="space-y-2">
                       <label className={sectionLabel}>Blood Group</label>
-                      <Input className={inputClass} value={form.bloodGroup} onChange={e => setForm(p => ({ ...p, bloodGroup: e.target.value }))} placeholder="e.g., A+" />
+                      <Select value={form.bloodGroup} onValueChange={v => setForm(p => ({ ...p, bloodGroup: v }))}>
+                         <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
+                            <SelectValue placeholder="Select blood group" />
+                         </SelectTrigger>
+                         <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
+                            <SelectItem value="A+" className="text-sm font-medium">A+</SelectItem>
+                            <SelectItem value="A-" className="text-sm font-medium">A-</SelectItem>
+                            <SelectItem value="B+" className="text-sm font-medium">B+</SelectItem>
+                            <SelectItem value="B-" className="text-sm font-medium">B-</SelectItem>
+                            <SelectItem value="AB+" className="text-sm font-medium">AB+</SelectItem>
+                            <SelectItem value="AB-" className="text-sm font-medium">AB-</SelectItem>
+                            <SelectItem value="O+" className="text-sm font-medium">O+</SelectItem>
+                            <SelectItem value="O-" className="text-sm font-medium">O-</SelectItem>
+                         </SelectContent>
+                      </Select>
+                   </div>
+                </div>
+                <div className="grid grid-cols-2 gap-6 sm:col-span-2">
+                   <div className="space-y-2">
+                     <label className={sectionLabel}>SSC Result (GPA)</label>
+                     <Input className={inputClass} value={(typeof form.sscInfo === 'object' && form.sscInfo?.gpa != null ? String(form.sscInfo.gpa) : '') || ''} onChange={e => setForm(p => ({ ...p, sscInfo: { ...(typeof p.sscInfo === 'object' && p.sscInfo ? p.sscInfo : {}), gpa: e.target.value || undefined } }))} placeholder="e.g. 5.00" />
+                   </div>
+                   <div className="space-y-2">
+                     <label className={sectionLabel}>HSC Result (GPA)</label>
+                     <Input className={inputClass} value={(typeof form.hscInfo === 'object' && form.hscInfo?.gpa != null ? String(form.hscInfo.gpa) : '') || ''} onChange={e => setForm(p => ({ ...p, hscInfo: { ...(typeof p.hscInfo === 'object' && p.hscInfo ? p.hscInfo : {}), gpa: e.target.value || undefined } }))} placeholder="e.g. 5.00" />
                    </div>
                 </div>
                 <div className="space-y-2 sm:col-span-2">
-                   <label className={sectionLabel}>Residential Address</label>
+                   <label className={sectionLabel}>SMS alerts to (attendance, results)</label>
+                   <div className="flex flex-wrap gap-6">
+                     {(['SELF', 'FATHER', 'MOTHER'] as const).map(opt => (
+                       <label key={opt} className="flex items-center gap-2 cursor-pointer">
+                         <Checkbox
+                           checked={form.smsAlertTo?.includes(opt)}
+                           onCheckedChange={(checked) => setForm(p => ({ ...p, smsAlertTo: checked ? [...(p.smsAlertTo || []), opt] : (p.smsAlertTo || []).filter(x => x !== opt) }))}
+                         />
+                         <span className="text-sm font-bold text-slate-700">{opt}</span>
+                       </label>
+                     ))}
+                   </div>
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                   <label className={sectionLabel}>Address</label>
                    <textarea 
                      className="w-full rounded-[24px] border border-slate-200 bg-slate-50/50 px-5 py-4 text-base font-bold text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner" 
                      rows={3} 
                      value={form.address} 
                      onChange={e => setForm(p => ({ ...p, address: e.target.value }))} 
-                     placeholder="Street, city, postal code" 
+                     placeholder="Address" 
                    />
                 </div>
              </div>
@@ -334,7 +481,7 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
               disabled={submitting}
               className="flex-[2] h-14 rounded-2xl bg-slate-900 font-black uppercase tracking-[0.2em] text-[11px] text-white shadow-xl shadow-slate-200 hover:bg-indigo-600 hover:scale-[1.02] active:scale-95 transition-all"
             >
-              {submitting ? 'Processing...' : isEdit ? 'Update Student Record' : 'Create Student Account'}
+              {submitting ? 'Saving...' : isEdit ? 'Update' : 'Create'}
             </Button>
           </div>
         </div>

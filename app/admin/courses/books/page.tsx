@@ -217,29 +217,6 @@ export default function CourseBooksPage() {
 
   return (
     <div className="space-y-8 text-slate-900">
-      {/* Stats Section */}
-      <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          { label: 'Mapped Assets', value: courseBooks.length, color: 'from-blue-600 to-cyan-500', icon: Link },
-          { label: 'Complementary', value: courseBooks.filter(cb => cb.isFree).length, color: 'from-emerald-600 to-teal-500', icon: CheckCircle2 },
-          { label: 'Premium Addons', value: courseBooks.filter(cb => !cb.isFree).length, color: 'from-amber-600 to-orange-500', icon: ShoppingBag },
-          { label: 'Context Status', value: selectedCourseId ? 'Mapped' : 'Awaiting', color: 'from-purple-600 to-indigo-600', icon: Layers },
-        ].map((stat, i) => (
-          <div key={i} className="group relative overflow-hidden rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/40 transition-all hover:-translate-y-1 hover:shadow-2xl">
-             <div className="flex items-center justify-between">
-                <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg group-hover:scale-110 transition-transform", stat.color)}>
-                   <stat.icon className="h-6 w-6" />
-                </div>
-                <ArrowRight className="h-4 w-4 text-slate-200 group-hover:text-indigo-500 transition-colors" />
-             </div>
-             <div className="mt-6">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
-                <p className="mt-1 text-3xl font-black text-slate-900">{stat.value}</p>
-             </div>
-          </div>
-        ))}
-      </section>
-
       {/* Filter & Context Section */}
       <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-6">

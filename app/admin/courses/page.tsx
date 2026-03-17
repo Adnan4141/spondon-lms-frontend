@@ -75,7 +75,6 @@ import { useModalStore } from '@/store/modalStore';
 import { CreateCourseForm } from '@/components/admin/courses/CreateCourseForm';
 import { CourseForm } from '@/components/admin/courses/CourseForm';
 import { CourseDetailsView } from '@/components/admin/courses/CourseDetailsView';
-import { CourseStats } from '@/components/admin/courses/CourseStats';
 import { cn } from '@/lib/utils';
 
 const statusOptions: (CourseStatus | 'all')[] = ['all', 'ACTIVE', 'DISABLED', 'ARCHIVED'];
@@ -170,8 +169,8 @@ export default function CoursesPage() {
       const response = await getCourseById(courseId);
       if (response.success && response.data) {
         openModal({
-          title: 'Course Intelligence',
-          description: 'Detailed view of course performance and metadata.',
+          title: 'Course Details',
+          description: 'View course details.',
           className: 'sm:max-w-4xl',
           content: <CourseDetailsView course={response.data as CourseDetails} />,
         });
@@ -198,9 +197,9 @@ export default function CoursesPage() {
   };
 
   const handleCreateCourse = () => {
-    openModal({
-      title: 'Deploy New Course',
-      description: 'Configure a new course for the institutional curriculum.',
+        openModal({
+          title: 'Create Course',
+          description: 'Add a new course.',
       className: 'sm:max-w-4xl',
       content: <CourseForm programs={programs} onSuccess={loadCourses} />,
     });
@@ -216,23 +215,8 @@ export default function CoursesPage() {
     return () => clearTimeout(timer);
   }, [searchQuery, typeFilter]);
 
-  const totalVisible = courses.length;
-  const activeCount = courses.filter((course) => course.status === 'ACTIVE').length;
-  const totalEnrollments = courses.reduce((sum, course) => sum + (course._count?.enrollments || 0), 0);
-  const featuredCount = courses.filter((course) => course.featured).length;
-
   return (
     <div className="space-y-8 text-slate-900">
-      {/* Stats Section */}
-      <CourseStats
-        stats={[
-          { label: 'Visible Rows', value: totalVisible, color: 'from-blue-600 to-cyan-500', icon: BookOpenCheck },
-          { label: 'Active Courses', value: activeCount, color: 'from-emerald-600 to-teal-500', icon: Layers },
-          { label: 'Enrollments', value: totalEnrollments, color: 'from-indigo-600 to-purple-600', icon: GraduationCap },
-          { label: 'Featured', value: featuredCount, color: 'from-rose-600 to-pink-600', icon: ArrowUpRight },
-        ]}
-      />
-
       {/* Search & Filter Section */}
       <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-6">

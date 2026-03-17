@@ -150,35 +150,8 @@ export default function BookStockPage() {
     );
   });
 
-  const totalLocations = stocks.length;
-  const totalQty = stocks.reduce((sum, s) => sum + s.stockQty, 0);
-  const physicalBooksCount = books.filter(b => !b.isEbook).length;
-
   return (
     <div className="space-y-8 text-slate-900">
-      {/* Stats Section */}
-      <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          { label: 'Stock Nodes', value: totalLocations, color: 'from-blue-600 to-cyan-500', icon: Warehouse },
-          { label: 'Total Inventory', value: totalQty, color: 'from-emerald-600 to-teal-500', icon: Package },
-          { label: 'Physical Titles', value: physicalBooksCount, color: 'from-purple-600 to-indigo-600', icon: Database },
-          { label: 'Active Branches', value: branches.length, color: 'from-rose-600 to-pink-600', icon: Layers },
-        ].map((stat, i) => (
-          <div key={i} className="group relative overflow-hidden rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/40 transition-all hover:-translate-y-1 hover:shadow-2xl">
-             <div className="flex items-center justify-between">
-                <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg group-hover:scale-110 transition-transform", stat.color)}>
-                   <stat.icon className="h-6 w-6" />
-                </div>
-                <ArrowRight className="h-4 w-4 text-slate-200 group-hover:text-indigo-500 transition-colors" />
-             </div>
-             <div className="mt-6">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
-                <p className="mt-1 text-3xl font-black text-slate-900">{stat.value}</p>
-             </div>
-          </div>
-        ))}
-      </section>
-
       {/* Filter & Actions Section */}
       <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-6">
@@ -187,7 +160,7 @@ export default function BookStockPage() {
               <div className="relative group">
                 <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
                 <Input
-                  placeholder="Search by book title, SKU, or branch location..."
+                  placeholder="Search by book, SKU or branch..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
@@ -234,7 +207,7 @@ export default function BookStockPage() {
               onClick={() => window.location.href = '/admin/books'}
             >
               <BookOpen className="mr-2 h-4 w-4" />
-              Material Catalog
+              Books
             </Button>
             <Button
               variant="outline"
@@ -252,35 +225,35 @@ export default function BookStockPage() {
       <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/30">
         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
           <div>
-            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Stock Ledger</h2>
-            <p className="mt-0.5 text-base font-bold text-indigo-500">Real-time inventory levels across nodes</p>
+            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Stock</h2>
+            <p className="mt-0.5 text-base font-bold text-indigo-500">Book inventory by branch</p>
           </div>
           <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            {totalQty} Total Units
+            Stock
           </div>
         </div>
 
         {loading ? (
           <div className="p-20 text-center flex flex-col items-center gap-4">
              <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
-             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Synchronizing Ledger...</p>
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Loading...</p>
           </div>
         ) : filteredStocks.length === 0 ? (
           <div className="p-20 text-center">
-             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No stock records identified.</p>
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No stock found.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader className="bg-slate-50/50">
                 <TableRow className="hover:bg-transparent border-b border-slate-100">
-                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Material & SKU</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Branch Node</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Inventory Level</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Classification</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Last Sync</TableHead>
-                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400 text-center">Maintain</TableHead>
+                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Book</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Branch</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Qty</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Type</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Updated</TableHead>
+                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400 text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -344,7 +317,7 @@ export default function BookStockPage() {
                                 onClick={handleSubmitEdit}
                                 disabled={editSubmitting}
                               >
-                                {editSubmitting ? 'Sync...' : 'Commit'}
+                                {editSubmitting ? 'Saving...' : 'Save'}
                               </Button>
                             </div>
                           ) : (
@@ -354,7 +327,7 @@ export default function BookStockPage() {
                               className="h-8 rounded-xl border-slate-200 bg-white px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-900 hover:text-white transition-all shadow-sm"
                               onClick={() => handleStartEdit(stock)}
                             >
-                              Adjust
+                              Edit
                             </Button>
                           )}
                         </div>

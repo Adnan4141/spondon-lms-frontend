@@ -150,10 +150,6 @@ export default function BookSalesPage() {
     );
   });
 
-  const totalSalesCount = sales.length;
-  const totalAmount = sales.reduce((sum, s) => sum + Number(s.totalAmount || 0), 0);
-  const avgOrderValue = totalSalesCount > 0 ? totalAmount / totalSalesCount : 0;
-
   const handleAddToCart = () => {
     if (!selectedBookForCart) {
       toast({ title: 'Requirement', description: 'Select a material to add to cart', variant: 'destructive' });
@@ -226,29 +222,6 @@ export default function BookSalesPage() {
 
   return (
     <div className="space-y-8 text-slate-900">
-      {/* Stats Section */}
-      <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          { label: 'Transaction Volume', value: totalSalesCount, color: 'from-blue-600 to-cyan-500', icon: TrendingUp },
-          { label: 'Gross Revenue', value: `৳${totalAmount.toLocaleString()}`, color: 'from-emerald-600 to-teal-500', icon: DollarSign },
-          { label: 'Avg Order Intel', value: `৳${avgOrderValue.toFixed(0)}`, color: 'from-purple-600 to-indigo-600', icon: CreditCard },
-          { label: 'Network Points', value: branches.length, color: 'from-rose-600 to-pink-600', icon: Building2 },
-        ].map((stat, i) => (
-          <div key={i} className="group relative overflow-hidden rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/40 transition-all hover:-translate-y-1 hover:shadow-2xl">
-             <div className="flex items-center justify-between">
-                <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg group-hover:scale-110 transition-transform", stat.color)}>
-                   <stat.icon className="h-6 w-6" />
-                </div>
-                <ArrowRight className="h-4 w-4 text-slate-200 group-hover:text-indigo-500 transition-colors" />
-             </div>
-             <div className="mt-6">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
-                <p className="mt-1 text-3xl font-black text-slate-900">{stat.value}</p>
-             </div>
-          </div>
-        ))}
-      </section>
-
       {/* Filter & Actions Section */}
       <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-6">
@@ -291,7 +264,7 @@ export default function BookSalesPage() {
               onClick={() => window.location.href = '/admin/books'}
             >
               <BookOpen className="mr-2 h-4 w-4" />
-              Material Catalog
+              Books
             </Button>
             <Button
               variant="outline"
@@ -321,14 +294,14 @@ export default function BookSalesPage() {
           </div>
           <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            {totalSalesCount} Registered Sales
+            Sales
           </div>
         </div>
 
         {loadingSales ? (
           <div className="p-20 text-center flex flex-col items-center gap-4">
              <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
-             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Synchronizing History...</p>
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Loading...</p>
           </div>
         ) : filteredSales.length === 0 ? (
           <div className="p-20 text-center">
@@ -363,7 +336,7 @@ export default function BookSalesPage() {
                     </TableCell>
                     <TableCell className="py-5">
                        <div className="flex flex-col">
-                          <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{sale.student?.fullName || 'Institutional Walk-in'}</span>
+                          <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{sale.student?.fullName || 'Walk-in'}</span>
                           <span className="text-[10px] font-black uppercase text-slate-400">{sale.student?.mobile || 'No Linked Account'}</span>
                        </div>
                     </TableCell>
@@ -397,8 +370,8 @@ export default function BookSalesPage() {
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogContent className="max-h-[90vh] sm:max-w-5xl flex flex-col p-0 gap-0" showCloseButton={true}>
           <DialogHeader className="px-6 pt-6 pb-4 shrink-0 sticky top-0 bg-background z-10 border-b shadow-sm">
-            <DialogTitle>Initiate Material Transaction</DialogTitle>
-            <DialogDescription>Coordinate a new book or material sale. System will automatically generate an actionable invoice.</DialogDescription>
+            <DialogTitle>New Sale</DialogTitle>
+            <DialogDescription>Record a book sale. An invoice will be created automatically.</DialogDescription>
           </DialogHeader>
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 no-scrollbar">
             <div className="space-y-8 py-6">
@@ -445,7 +418,7 @@ export default function BookSalesPage() {
                   <div className="flex items-center gap-3">
                     <Select value={selectedBookForCart} onValueChange={setSelectedBookForCart}>
                       <SelectTrigger className="h-10 w-[280px] rounded-xl border-slate-200 bg-white font-bold text-sm">
-                        <SelectValue placeholder="Identify Material" />
+                        <SelectValue placeholder="Select book" />
                       </SelectTrigger>
                       <SelectContent className="rounded-xl border-slate-200 bg-white shadow-2xl">
                         {books.map((book) => (
@@ -476,7 +449,7 @@ export default function BookSalesPage() {
                     <Table>
                       <TableHeader className="bg-slate-50/50">
                         <TableRow className="hover:bg-transparent border-b border-slate-100">
-                          <TableHead className="px-6 font-black text-[10px] uppercase tracking-widest text-slate-400">Material Description</TableHead>
+                          <TableHead className="px-6 font-black text-[10px] uppercase tracking-widest text-slate-400">Book</TableHead>
                           <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-center">Qty</TableHead>
                           <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Unit Price</TableHead>
                           <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Line Total</TableHead>
@@ -528,7 +501,7 @@ export default function BookSalesPage() {
           <DialogFooter className="px-6 pb-6 pt-4 shrink-0 bg-background border-t shadow-lg mt-auto">
             <Button variant="outline" className="rounded-xl px-6" onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
             <Button className="rounded-xl bg-slate-900 px-8 hover:bg-indigo-600 transition-all shadow-lg" onClick={handleCreateSale} disabled={createSubmitting}>
-              {createSubmitting ? 'Synchronizing...' : 'Finalize & Issue Invoice'}
+              {createSubmitting ? 'Saving...' : 'Save & Create Invoice'}
             </Button>
           </DialogFooter>
         </DialogContent>

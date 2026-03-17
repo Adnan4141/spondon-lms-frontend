@@ -7,7 +7,6 @@ export async function apiRequest<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
-  console.log('url', url);
   const isFormData = options.body instanceof FormData;
 
   const response = await fetch(url, {

@@ -193,27 +193,6 @@ export default function ReportsPage() {
 
   const renderRevenueReport = () => (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Stats Section */}
-      <section className="grid gap-6 sm:grid-cols-2">
-        {[
-          { label: 'Total Revenue', value: formatCurrency(revenueTotals.totalAmount), color: 'from-emerald-600 to-teal-500', icon: DollarSign },
-          { label: 'Transactions', value: revenueTotals.totalTransactions, color: 'from-blue-600 to-cyan-500', icon: TrendingUp },
-        ].map((stat, i) => (
-          <div key={i} className="group relative overflow-hidden rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/40 transition-all hover:-translate-y-1 hover:shadow-2xl">
-             <div className="flex items-center justify-between">
-                <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg group-hover:scale-110 transition-transform", stat.color)}>
-                   <stat.icon className="h-6 w-6" />
-                </div>
-                <ArrowRight className="h-4 w-4 text-slate-200 group-hover:text-indigo-500 transition-colors" />
-             </div>
-             <div className="mt-6">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
-                <p className="mt-1 text-3xl font-black text-slate-900">{stat.value}</p>
-             </div>
-          </div>
-        ))}
-      </section>
-
       {/* Filter Matrix */}
       <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm space-y-6">
         <div className="flex items-center gap-2">
@@ -349,31 +328,8 @@ export default function ReportsPage() {
     </div>
   );
 
-  const renderEnrollmentReport = () => {
-    const totalEnrollments = enrollmentData.reduce((sum, item) => sum + item.enrollmentCount, 0);
-    const totalPayable = enrollmentData.reduce((sum, item) => sum + item.estimatedPayable, 0);
-
-    return (
+  const renderEnrollmentReport = () => (
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <section className="grid gap-6 sm:grid-cols-2">
-          {[
-            { label: 'Total Enrollments', value: totalEnrollments, color: 'from-violet-600 to-indigo-500', icon: Users },
-            { label: 'Estimated Payable', value: formatCurrency(totalPayable), color: 'from-amber-600 to-orange-500', icon: CreditCard },
-          ].map((stat, i) => (
-            <div key={i} className="group relative overflow-hidden rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/40 transition-all hover:-translate-y-1 hover:shadow-2xl">
-               <div className="flex items-center justify-between">
-                  <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg group-hover:scale-110 transition-transform", stat.color)}>
-                     <stat.icon className="h-6 w-6" />
-                  </div>
-               </div>
-               <div className="mt-6">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
-                  <p className="mt-1 text-3xl font-black text-slate-900">{stat.value}</p>
-               </div>
-            </div>
-          ))}
-        </section>
-
         <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm space-y-6">
           <div className="flex items-center gap-2">
              <BookOpenCheck className="h-4 w-4 text-emerald-600" />
@@ -475,7 +431,6 @@ export default function ReportsPage() {
         </section>
       </div>
     );
-  };
 
   const renderCourseTransactions = () => (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">

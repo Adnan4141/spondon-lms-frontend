@@ -20,11 +20,15 @@ export interface Institute {
   createdAt: string;
 }
 
+export type SmsAlertTo = 'SELF' | 'FATHER' | 'MOTHER';
+
 export interface StudentProfile {
   id: string;
   userId: string;
   fatherName?: string | null;
   motherName?: string | null;
+  fatherMobile?: string | null;
+  motherMobile?: string | null;
   dob?: string | null;
   bloodGroup?: string | null;
   gender?: string | null;
@@ -33,6 +37,7 @@ export interface StudentProfile {
   address?: string | null;
   instituteId?: string | null;
   registrationNumber?: string | null;
+  smsAlertTo?: SmsAlertTo[] | null;
   sscInfo?: any;
   hscInfo?: any;
   createdAt: string;
@@ -95,6 +100,8 @@ export interface CreateStudentDto {
   // Student profile fields
   fatherName?: string;
   motherName?: string;
+  fatherMobile?: string;
+  motherMobile?: string;
   dob?: string;
   bloodGroup?: string;
   gender?: string;
@@ -103,6 +110,7 @@ export interface CreateStudentDto {
   address?: string;
   instituteId?: string;
   registrationNumber?: string;
+  smsAlertTo?: SmsAlertTo[];
   sscInfo?: any;
   hscInfo?: any;
 }
@@ -117,6 +125,8 @@ export interface UpdateStudentDto {
   // Student profile fields
   fatherName?: string;
   motherName?: string;
+  fatherMobile?: string;
+  motherMobile?: string;
   dob?: string;
   bloodGroup?: string;
   gender?: string;
@@ -125,6 +135,7 @@ export interface UpdateStudentDto {
   address?: string;
   instituteId?: string;
   registrationNumber?: string;
+  smsAlertTo?: SmsAlertTo[];
   sscInfo?: any;
   hscInfo?: any;
 }

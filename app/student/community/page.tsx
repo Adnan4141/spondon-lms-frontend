@@ -142,16 +142,41 @@ export default function StudentCommunityPage() {
       toast({ title: 'লগইন প্রয়োজন', description: 'লাইক দিতে লগইন করুন', variant: 'destructive' });
       return;
     }
+    const liked = userVote(post.votes) === 1;
+    const prevPosts = [...posts];
+
+    // Optimistic update: apply UI change immediately
+    setPosts((prev) =>
+      prev.map((p) => {
+        if (p.id !== post.id) return p;
+        const votes = p.votes ?? [];
+        const existingIdx = votes.findIndex((v) => v.userId === user.id);
+        let newVotes: typeof votes;
+        if (liked) {
+          newVotes = votes.filter((v) => v.userId !== user.id);
+        } else {
+          const newVote = { id: `opt-${Date.now()}`, postId: p.id, userId: user.id, value: 1 };
+          if (existingIdx >= 0) {
+            newVotes = votes.map((v, i) => (i === existingIdx ? newVote : v));
+          } else {
+            newVotes = [...votes, newVote];
+          }
+        }
+        return { ...p, votes: newVotes };
+      })
+    );
+
     try {
-      const liked = userVote(post.votes) === 1;
       if (liked) {
         const res = await deleteCommunityVote(post.id, user.id);
-        if (res.success) fetchPosts();
+        if (!res.success) throw new Error(res.message);
       } else {
         const res = await createCommunityVote({ postId: post.id, userId: user.id, value: 1 });
-        if (res.success) fetchPosts();
+        if (!res.success) throw new Error(res.message);
       }
     } catch (e: any) {
+      // Revert on failure
+      setPosts(prevPosts);
       toast({ title: 'ত্রুটি', description: e.message || 'লাইক করতে ব্যর্থ', variant: 'destructive' });
     }
   };

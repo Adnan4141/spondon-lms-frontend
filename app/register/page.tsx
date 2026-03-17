@@ -133,7 +133,7 @@ export default function RegisterPage() {
         <div className="relative z-10 w-full max-w-md space-y-12">
           <Link href="/" className="inline-block transform hover:scale-105 transition-transform">
             <div className="relative h-14 w-48">
-              <Image src="/images/logo/spondon-logo.png" alt="Spondon" fill sizes="192px" className="object-contain brightness-0 invert" priority style={{ height: 'auto' }} />
+              <Image src="/images/logo/spondon-logo.png" alt="Spondon" fill sizes="192px" className="object-contain brightness-0 invert" priority />
             </div>
           </Link>
 

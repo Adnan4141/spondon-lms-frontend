@@ -317,9 +317,15 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                         {[
                           { label: "Father's Name", value: profile?.fatherName },
                           { label: "Mother's Name", value: profile?.motherName },
-                          { label: "Date of Birth", value: profile?.dob ? format(new Date(profile.dob), 'dd-MM-yyyy') : null },                          { label: "Gender", value: profile?.gender },
+                          { label: "Father's Mobile", value: profile?.fatherMobile },
+                          { label: "Mother's Mobile", value: profile?.motherMobile },
+                          { label: "Date of Birth", value: profile?.dob ? format(new Date(profile.dob), 'dd-MM-yyyy') : null },
+                          { label: "Gender", value: profile?.gender },
                           { label: "Primary Mobile", value: profile?.primaryMobile || student.mobile },
                           { label: "Secondary Mobile", value: profile?.secondaryMobile },
+                          { label: "SMS Alert To", value: Array.isArray(profile?.smsAlertTo) ? profile.smsAlertTo.join(', ') : null },
+                          { label: "SSC Result", value: typeof profile?.sscInfo === 'object' && profile.sscInfo?.gpa != null ? String(profile.sscInfo.gpa) : null },
+                          { label: "HSC Result", value: typeof profile?.hscInfo === 'object' && profile.hscInfo?.gpa != null ? String(profile.hscInfo.gpa) : null },
                         ].map((item, i) => (
                           <div key={i} className="flex items-center justify-between p-6 rounded-[24px] border border-slate-100 bg-slate-50/30 transition-all hover:bg-white hover:shadow-md">
                              <span className="text-sm font-black uppercase tracking-widest text-slate-400">{item.label}</span>

@@ -241,7 +241,7 @@ export default function BooksPage() {
   const handleUnlink = async (courseId: string) => {
     if (!bookDetails) return;
     openModal({
-      title: 'Material Unlink',
+      title: 'Unlink Book',
       description: 'Are you sure you want to remove this book from the selected course? The digital asset will no longer be available to enrolled students.',
       className: 'sm:max-w-xl',
       content: (
@@ -326,7 +326,7 @@ export default function BooksPage() {
 
   const handleDeleteBook = async (id: string) => {
     openModal({
-      title: 'Material Purge',
+      title: 'Delete Book',
       description: 'Are you sure you want to permanently delete this material? This will remove all associated stock and sales history records.',
       className: 'sm:max-w-xl',
       content: (
@@ -359,38 +359,10 @@ export default function BooksPage() {
     return matchesSearch && matchesType;
   });
 
-  const totalBooks = books.length;
-  const ebookCount = books.filter((b) => b.isEbook).length;
-  const physicalCount = totalBooks - ebookCount;
-  const totalStocks = books.reduce((sum, b) => sum + (b._count?.stocks || 0), 0);
-
   const isDetailsReady = !!bookDetails && !detailsLoading;
 
   return (
     <div className="space-y-8 text-slate-900">
-      {/* Stats Section */}
-      <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          { label: 'Asset Catalog', value: totalBooks, color: 'from-blue-600 to-cyan-500', icon: BookOpen },
-          { label: 'Physical Print', value: physicalCount, color: 'from-emerald-600 to-teal-500', icon: Layers },
-          { label: 'Digital Assets', value: ebookCount, color: 'from-purple-600 to-indigo-600', icon: FileText },
-          { label: 'Stock Nodes', value: totalStocks, color: 'from-rose-600 to-pink-600', icon: Building2 },
-        ].map((stat, i) => (
-          <div key={i} className="group relative overflow-hidden rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/40 transition-all hover:-translate-y-1 hover:shadow-2xl">
-             <div className="flex items-center justify-between">
-                <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg group-hover:scale-110 transition-transform", stat.color)}>
-                   <stat.icon className="h-6 w-6" />
-                </div>
-                <ArrowRight className="h-4 w-4 text-slate-200 group-hover:text-indigo-500 transition-colors" />
-             </div>
-             <div className="mt-6">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
-                <p className="mt-1 text-3xl font-black text-slate-900">{stat.value}</p>
-             </div>
-          </div>
-        ))}
-      </section>
-
       {/* Filter & Actions Section */}
       <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-6">
@@ -399,7 +371,7 @@ export default function BooksPage() {
               <div className="relative group">
                 <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
                 <Input
-                  placeholder="Search materials by name or SKU identifier..."
+                  placeholder="Search books by name or SKU..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
@@ -412,9 +384,9 @@ export default function BooksPage() {
                 <SelectValue placeholder="All Types" />
               </SelectTrigger>
               <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                <SelectItem value="all" className="text-sm font-medium">All Assets</SelectItem>
-                <SelectItem value="physical" className="text-sm font-medium">Physical Books</SelectItem>
-                <SelectItem value="ebook" className="text-sm font-medium">Digital E-Books</SelectItem>
+                <SelectItem value="all" className="text-sm font-medium">All</SelectItem>
+                <SelectItem value="physical" className="text-sm font-medium">Physical</SelectItem>
+                <SelectItem value="ebook" className="text-sm font-medium">E-Book</SelectItem>
               </SelectContent>
             </Select>
 
@@ -445,7 +417,7 @@ export default function BooksPage() {
               onClick={() => setCreateDialogOpen(true)}
             >
               <Plus className="mr-2 h-4 w-4" />
-              Authorize Material
+              Add Book
             </Button>
           </div>
         </div>
@@ -455,34 +427,34 @@ export default function BooksPage() {
       <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/30">
         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
           <div>
-            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Inventory Registry</h2>
-            <p className="mt-0.5 text-base font-bold text-indigo-500">Asset catalog and material metadata</p>
+            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Books</h2>
+            <p className="mt-0.5 text-base font-bold text-indigo-500">All books and materials</p>
           </div>
           <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            {totalBooks} Registered Items
+            Books
           </div>
         </div>
 
         {loading ? (
           <div className="p-20 text-center flex flex-col items-center gap-4">
              <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
-             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Synchronizing Repository...</p>
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Loading...</p>
           </div>
         ) : filteredBooks.length === 0 ? (
           <div className="p-20 text-center">
-             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No materials identified in catalog.</p>
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No books found.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader className="bg-slate-50/50">
                 <TableRow className="hover:bg-transparent border-b border-slate-100">
-                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Material Identity</TableHead>
+                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Book</TableHead>
                   <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Type</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Financials</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Digital Access</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Usage Metrics</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Price</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Download</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Stock / Sales</TableHead>
                   <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400 text-center">Manage</TableHead>
                 </TableRow>
               </TableHeader>
@@ -518,7 +490,7 @@ export default function BooksPage() {
                               maximumFractionDigits: 2,
                             })}
                           </span>
-                          <span className="text-[10px] font-black uppercase text-slate-400">Fixed Rate</span>
+                          <span className="text-[10px] font-black uppercase text-slate-400">Price</span>
                        </div>
                     </TableCell>
                     <TableCell className="py-5">
@@ -538,11 +510,11 @@ export default function BooksPage() {
                     </TableCell>
                     <TableCell className="py-5">
                        <div className="flex items-center gap-4 text-base font-bold text-slate-600">
-                          <div className="flex items-center gap-1.5" title="Active Stock Nodes">
+                          <div className="flex items-center gap-1.5" title="Stock">
                              <Building2 className="h-3.5 w-3.5 text-slate-400" />
                              {book._count?.stocks || 0}
                           </div>
-                          <div className="flex items-center gap-1.5" title="Total Lifetime Sales">
+                          <div className="flex items-center gap-1.5" title="Sales">
                              <ShoppingBag className="h-3.5 w-3.5 text-slate-400" />
                              {book._count?.saleItems || 0}
                           </div>
@@ -612,8 +584,8 @@ export default function BooksPage() {
                 <Plus className="h-7 w-7" />
               </div>
               <div>
-                <DialogTitle className="text-2xl font-black tracking-tight text-slate-900">Authorize Material</DialogTitle>
-                <DialogDescription className="text-base font-medium text-slate-500">Initialize a new high-fidelity material record in the catalog.</DialogDescription>
+                <DialogTitle className="text-2xl font-black tracking-tight text-slate-900">Add Book</DialogTitle>
+                <DialogDescription className="text-base font-medium text-slate-500">Add a new book to the catalog.</DialogDescription>
               </div>
             </div>
           </DialogHeader>
@@ -623,7 +595,7 @@ export default function BooksPage() {
               <div className="space-y-3">
                 <div className="flex items-center gap-2 px-1">
                   <FileText className="h-3.5 w-3.5 text-indigo-500" />
-                  <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Official Material Name *</label>
+                  <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Book Name *</label>
                 </div>
                 <Input
                   className="h-14 rounded-2xl border-slate-200 bg-slate-50/30 px-5 text-lg font-bold text-slate-900 placeholder:text-slate-300 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-sm border-2"
@@ -637,19 +609,19 @@ export default function BooksPage() {
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 px-1">
                     <Users className="h-3.5 w-3.5 text-indigo-500" />
-                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Author / Intellectual Property</label>
+                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Author</label>
                   </div>
                   <Input
                     className="h-14 rounded-2xl border-slate-200 bg-slate-50/30 px-5 text-base font-bold text-slate-900 placeholder:text-slate-300 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all border-2"
                     value={createForm.author || ''}
                     onChange={(e) => setCreateForm((prev) => ({ ...prev, author: e.target.value }))}
-                    placeholder="Primary contributor name"
+                    placeholder="Author name"
                   />
                 </div>
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 px-1">
                     <ShoppingBag className="h-3.5 w-3.5 text-indigo-500" />
-                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Standard Price (BDT)</label>
+                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Price (BDT)</label>
                   </div>
                   <Input
                     type="number"
@@ -663,13 +635,13 @@ export default function BooksPage() {
               <div className="space-y-3">
                 <div className="flex items-center gap-2 px-1">
                   <BookOpen className="h-3.5 w-3.5 text-indigo-500" />
-                  <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Asset Summary & Description</label>
+                  <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Description</label>
                 </div>
                 <textarea
                   className="w-full rounded-3xl border-2 border-slate-200 bg-slate-50/30 px-5 py-4 text-base font-bold text-slate-900 placeholder:text-slate-300 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all min-h-[120px] outline-none leading-relaxed"
                   value={createForm.description || ''}
                   onChange={(e) => setCreateForm((prev) => ({ ...prev, description: e.target.value }))}
-                  placeholder="Summarize the key contents and academic value of this material..."
+                  placeholder="Book description..."
                 />
               </div>
 
@@ -677,7 +649,7 @@ export default function BooksPage() {
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 px-1">
                     <Layers className="h-3.5 w-3.5 text-indigo-500" />
-                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Inventory SKU *</label>
+                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">SKU *</label>
                   </div>
                   <Input
                     className="h-14 rounded-2xl border-slate-200 bg-slate-50/30 px-5 text-base font-bold text-slate-900 placeholder:text-slate-300 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all border-2"
@@ -689,15 +661,15 @@ export default function BooksPage() {
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 px-1">
                     <Database className="h-3.5 w-3.5 text-indigo-500" />
-                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Resource Classification</label>
+                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Type</label>
                   </div>
                   <Select value={createForm.isEbook ? 'ebook' : 'physical'} onValueChange={(v) => setCreateForm(p => ({ ...p, isEbook: v === 'ebook' }))}>
                     <SelectTrigger className="h-14 rounded-2xl border-slate-200 bg-slate-50/30 px-5 font-bold text-slate-700 border-2">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-2xl p-2">
-                      <SelectItem value="physical" className="rounded-xl py-3 font-bold">Physical Print Material</SelectItem>
-                      <SelectItem value="ebook" className="rounded-xl py-3 font-bold">Digital E-Book Asset</SelectItem>
+                      <SelectItem value="physical" className="rounded-xl py-3 font-bold">Physical</SelectItem>
+                      <SelectItem value="ebook" className="rounded-xl py-3 font-bold">E-Book</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -707,7 +679,7 @@ export default function BooksPage() {
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 px-1">
                     <Plus className="h-3.5 w-3.5 text-indigo-500" />
-                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Thumbnail Display</label>
+                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Cover Image</label>
                   </div>
                   <div className="group relative">
                     <Input
@@ -722,7 +694,7 @@ export default function BooksPage() {
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 px-1">
                       <Download className="h-3.5 w-3.5 text-indigo-500" />
-                      <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Source Digital File</label>
+                      <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">PDF / File</label>
                     </div>
                     <Input
                       type="file"
@@ -747,10 +719,10 @@ export default function BooksPage() {
               {createSubmitting ? (
                 <div className="flex items-center gap-2">
                   <RefreshCw className="h-4 w-4 animate-spin" />
-                  <span>Authorizing...</span>
+                  <span>Saving...</span>
                 </div>
               ) : (
-                'Register Material'
+                'Save Book'
               )}
             </Button>
           </DialogFooter>
@@ -767,8 +739,8 @@ export default function BooksPage() {
                 <Edit className="h-7 w-7" />
               </div>
               <div>
-                <DialogTitle className="text-2xl font-black tracking-tight text-slate-900">Refine Material</DialogTitle>
-                <DialogDescription className="text-base font-medium text-slate-500">Update the parameters and availability of existing catalog assets.</DialogDescription>
+                <DialogTitle className="text-2xl font-black tracking-tight text-slate-900">Edit Book</DialogTitle>
+                <DialogDescription className="text-base font-medium text-slate-500">Update book details.</DialogDescription>
               </div>
             </div>
           </DialogHeader>
@@ -779,7 +751,7 @@ export default function BooksPage() {
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 px-1">
                     <FileText className="h-3.5 w-3.5 text-amber-500" />
-                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Material Name *</label>
+                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Book Name *</label>
                   </div>
                   <Input
                     className="h-14 rounded-2xl border-slate-200 bg-slate-50/30 px-5 text-lg font-bold text-slate-900 focus:bg-white focus:ring-4 focus:ring-amber-500/10 transition-all border-2"
@@ -792,7 +764,7 @@ export default function BooksPage() {
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 px-1">
                       <Users className="h-3.5 w-3.5 text-amber-500" />
-                      <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Author Reference</label>
+                      <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Author</label>
                     </div>
                     <Input
                       className="h-14 rounded-2xl border-slate-200 bg-slate-50/30 px-5 text-base font-bold text-slate-900 focus:bg-white focus:ring-4 focus:ring-amber-500/10 transition-all border-2"
@@ -848,8 +820,8 @@ export default function BooksPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-2xl p-2">
-                        <SelectItem value="physical" className="rounded-xl py-3 font-bold">Physical Print Material</SelectItem>
-                        <SelectItem value="ebook" className="rounded-xl py-3 font-bold">Digital E-Book Asset</SelectItem>
+                        <SelectItem value="physical" className="rounded-xl py-3 font-bold">Physical</SelectItem>
+                        <SelectItem value="ebook" className="rounded-xl py-3 font-bold">E-Book</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -898,7 +870,7 @@ export default function BooksPage() {
               {editSubmitting ? (
                 <div className="flex items-center gap-2">
                   <RefreshCw className="h-4 w-4 animate-spin" />
-                  <span>Synchronizing...</span>
+                  <span>Saving...</span>
                 </div>
               ) : (
                 'Save Refinements'
@@ -918,8 +890,8 @@ export default function BooksPage() {
                 <Link className="h-6 w-6" />
               </div>
               <div>
-                <DialogTitle className="text-xl font-black tracking-tight text-slate-900">Academic Linkage</DialogTitle>
-                <DialogDescription className="text-sm font-medium text-slate-500">Associate this material with a specific course curriculum.</DialogDescription>
+                <DialogTitle className="text-xl font-black tracking-tight text-slate-900">Link to Course</DialogTitle>
+                <DialogDescription className="text-sm font-medium text-slate-500">Link this book to a course.</DialogDescription>
               </div>
             </div>
           </DialogHeader>
@@ -975,8 +947,8 @@ export default function BooksPage() {
                 <Users className="h-6 w-6" />
               </div>
               <div>
-                <DialogTitle className="text-xl font-black tracking-tight text-slate-900">Resource Collaboration</DialogTitle>
-                <DialogDescription className="text-sm font-medium text-slate-500">Delegate administrative permissions for this material.</DialogDescription>
+                <DialogTitle className="text-xl font-black tracking-tight text-slate-900">Collaborators</DialogTitle>
+                <DialogDescription className="text-sm font-medium text-slate-500">Manage who can edit this book.</DialogDescription>
               </div>
             </div>
           </DialogHeader>
@@ -995,7 +967,7 @@ export default function BooksPage() {
               </Select>
             </div>
             <div className="space-y-3">
-              <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 px-1">Authorization Level</label>
+              <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 px-1">Role</label>
               <Select value={collabRole} onValueChange={setCollabRole}>
                 <SelectTrigger className="h-14 rounded-2xl border-slate-200 bg-slate-50/30 px-5 font-bold text-slate-700 border-2">
                   <SelectValue />
@@ -1017,7 +989,7 @@ export default function BooksPage() {
               onClick={handleCollabSubmit} 
               disabled={collabSubmitting}
             >
-              {collabSubmitting ? 'Authorizing...' : 'Assign Permissions'}
+              {collabSubmitting ? 'Saving...' : 'Save'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1033,8 +1005,8 @@ export default function BooksPage() {
                 <BookOpen className="h-7 w-7" />
               </div>
               <div>
-                <DialogTitle className="text-2xl font-black tracking-tight text-slate-900">Material Intelligence</DialogTitle>
-                <DialogDescription className="text-base font-medium text-slate-500">Complete architectural overview of asset metadata and linkage.</DialogDescription>
+                <DialogTitle className="text-2xl font-black tracking-tight text-slate-900">Book Details</DialogTitle>
+                <DialogDescription className="text-base font-medium text-slate-500">View book details and linked courses.</DialogDescription>
               </div>
             </div>
           </DialogHeader>
@@ -1044,23 +1016,23 @@ export default function BooksPage() {
                 <section>
                   <div className="flex items-center gap-2 mb-6 px-1">
                     <div className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                    <h3 className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-400">Core Metadata Portfolio</h3>
+                    <h3 className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-400">Details</h3>
                   </div>
                   <div className="grid gap-6 sm:grid-cols-2">
                     <div className="rounded-[24px] border border-slate-100 bg-slate-50/30 p-6 transition-all hover:bg-white hover:shadow-xl hover:shadow-slate-200/30 group">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-indigo-500 transition-colors">Official Title</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-indigo-500 transition-colors">Title</p>
                       <p className="mt-2 text-lg font-black text-slate-900 leading-tight">{bookDetails.name}</p>
                     </div>
                     <div className="rounded-[24px] border border-slate-100 bg-slate-50/30 p-6 transition-all hover:bg-white hover:shadow-xl hover:shadow-slate-200/30 group">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-indigo-500 transition-colors">Author / Contributor</p>
-                      <p className="mt-2 text-lg font-black text-slate-900">{bookDetails.author || 'Institutional Asset'}</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-indigo-500 transition-colors">Author</p>
+                      <p className="mt-2 text-lg font-black text-slate-900">{bookDetails.author || '—'}</p>
                     </div>
                     <div className="rounded-[24px] border border-slate-100 bg-slate-50/30 p-6 transition-all hover:bg-white hover:shadow-xl hover:shadow-slate-200/30 group">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-indigo-500 transition-colors">SKU Reference</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-indigo-500 transition-colors">SKU</p>
                       <p className="mt-2 text-lg font-black text-slate-900 font-mono tracking-tighter">{bookDetails.sku}</p>
                     </div>
                     <div className="rounded-[24px] border border-slate-100 bg-slate-50/30 p-6 transition-all hover:bg-white hover:shadow-xl hover:shadow-slate-200/30 group">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-indigo-500 transition-colors">Standard Unit Price</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-indigo-500 transition-colors">Price</p>
                       <p className="mt-2 text-2xl font-black text-indigo-600 tabular-nums">৳{Number(bookDetails.price).toLocaleString()}</p>
                     </div>
                   </div>
@@ -1069,11 +1041,11 @@ export default function BooksPage() {
                 <section>
                   <div className="flex items-center gap-2 mb-6 px-1">
                     <div className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                    <h3 className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-400">Content Summary</h3>
+                    <h3 className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-400">Description</h3>
                   </div>
                   <div className="rounded-[32px] border-2 border-slate-100 bg-slate-50/30 p-8">
                     <p className="text-base font-bold leading-relaxed text-slate-600">
-                      {bookDetails.description || 'No detailed description available for this material.'}
+                      {bookDetails.description || 'No description.'}
                     </p>
                   </div>
                 </section>
@@ -1081,7 +1053,7 @@ export default function BooksPage() {
                 <section>
                   <div className="flex items-center gap-2 mb-6 px-1">
                     <div className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                    <h3 className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-400">Institutional Linkages</h3>
+                    <h3 className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-400">Linked Courses</h3>
                   </div>
                   <div className="grid gap-4">
                     {bookDetails.courseBooks && bookDetails.courseBooks.length > 0 ? (
@@ -1100,14 +1072,14 @@ export default function BooksPage() {
                             "rounded-xl px-4 py-1.5 font-black uppercase tracking-widest text-[10px]",
                             cb.isFree ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-amber-50 text-amber-600 border-amber-100"
                           )}>
-                            {cb.isFree ? 'Complementary' : 'Standard Material'}
+                            {cb.isFree ? 'Free' : 'Paid'}
                           </Badge>
                         </div>
                       ))
                     ) : (
                       <div className="text-center py-12 rounded-[32px] border-2 border-dashed border-slate-100 bg-slate-50/30">
                         <Link className="h-8 w-8 text-slate-200 mx-auto mb-3" />
-                        <p className="text-sm font-black uppercase tracking-widest text-slate-300">No active course linkages detected.</p>
+                        <p className="text-sm font-black uppercase tracking-widest text-slate-300">Not linked to any course.</p>
                       </div>
                     )}
                   </div>
@@ -1117,7 +1089,7 @@ export default function BooksPage() {
           </div>
           <DialogFooter className="px-10 py-8 shrink-0 bg-slate-50/50 border-t border-slate-100">
             <Button className="h-14 w-full rounded-2xl bg-slate-900 font-black uppercase tracking-widest text-[11px] text-white shadow-xl shadow-slate-200 hover:bg-indigo-600 transition-all" onClick={() => setViewDialogOpen(false)}>
-              Secure Overview Session
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>

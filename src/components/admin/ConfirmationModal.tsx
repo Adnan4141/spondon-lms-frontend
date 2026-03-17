@@ -66,7 +66,7 @@ export function ConfirmationModal({
           </div>
           <div>
             <h2 className="text-2xl font-black tracking-tight text-slate-900">{title}</h2>
-            <p className="text-base font-medium text-slate-500 mt-1">Strategic Finalization Required</p>
+            <p className="text-base font-medium text-slate-500 mt-1">Please confirm to proceed</p>
           </div>
         </div>
       </div>

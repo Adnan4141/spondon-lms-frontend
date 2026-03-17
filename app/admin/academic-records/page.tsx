@@ -236,28 +236,6 @@ export default function AcademicRecordsPage() {
 
       {results && (
         <div className="space-y-10">
-          {/* Dashboard Summary */}
-          <section className="grid gap-6 sm:grid-cols-3">
-            {[
-              { label: 'Online Attempts', value: onlineAttempts.length, icon: Layers, color: 'from-blue-600 to-cyan-500' },
-              { label: 'Offline Results', value: offlineResults.length, icon: FileText, color: 'from-rose-600 to-pink-500' },
-              { label: 'System Records', value: academicRecords.length, icon: Trophy, color: 'from-amber-600 to-orange-500' },
-            ].map((stat, i) => (
-              <div key={i} className="group relative overflow-hidden rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/40 transition-all hover:-translate-y-1 hover:shadow-2xl">
-                 <div className="flex items-center justify-between">
-                    <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg group-hover:scale-110 transition-transform", stat.color)}>
-                       <stat.icon className="h-6 w-6" />
-                    </div>
-                    <ArrowRight className="h-4 w-4 text-slate-200 group-hover:text-indigo-500 transition-colors" />
-                 </div>
-                 <div className="mt-6">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
-                    <p className="mt-1 text-3xl font-black text-slate-900">{stat.value}</p>
-                 </div>
-              </div>
-            ))}
-          </section>
-
           {/* Online Attempts Table */}
           <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/30">
             <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">

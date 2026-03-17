@@ -48,3 +48,14 @@ export async function deleteStudent(id: string): Promise<ApiResponse<void>> {
     method: 'DELETE',
   });
 }
+
+export async function bulkImportStudents(file: File, branchId?: string, defaultPassword = '123456'): Promise<ApiResponse<{ created: number; errors: { row: number; message: string }[] }>> {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (branchId) formData.append('branchId', branchId);
+  formData.append('defaultPassword', defaultPassword);
+  return apiRequest<ApiResponse<{ created: number; errors: { row: number; message: string }[] }>>('/users/bulk-import', {
+    method: 'POST',
+    body: formData,
+  });
+}

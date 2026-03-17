@@ -14,12 +14,12 @@ import {
 import { cn } from '@/lib/utils';
 
 const menuItems = [
-  { title: 'Dashboard', href: '/teacher', icon: LayoutDashboard },
-  { title: 'My Courses', href: '/teacher/courses', icon: BookOpen },
-  { title: 'Exams', href: '/teacher/exams', icon: ClipboardList },
-  { title: 'Questions', href: '/teacher/questions', icon: FileQuestion },
-  { title: 'Students', href: '/teacher/students', icon: Users },
-  { title: 'Doubts', href: '/teacher/doubts', icon: HelpCircle },
+  { title: 'Home', href: '/teacher', icon: LayoutDashboard },
+  { title: 'My Lessons', href: '/teacher/courses', icon: BookOpen },
+  { title: 'Tests', href: '/teacher/exams', icon: ClipboardList },
+  { title: 'Question List', href: '/teacher/questions', icon: FileQuestion },
+  { title: 'My Students', href: '/teacher/students', icon: Users },
+  { title: 'Help Students', href: '/teacher/doubts', icon: HelpCircle },
 ];
 
 export function TeacherSidebar() {
@@ -37,19 +37,17 @@ export function TeacherSidebar() {
   };
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-50 w-64 flex flex-col bg-white border-r border-slate-200 shadow-lg">
-      <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-        <Link href="/teacher" className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-2xl bg-emerald-600 flex items-center justify-center text-white">
+    <aside className="fixed inset-y-0 left-0 z-50 w-72 flex flex-col bg-white border-r border-slate-100 shadow-[20px_0_40px_rgba(0,0,0,0.02)]">
+      <div className="p-8 mb-4 flex items-center justify-between">
+        <Link href="/teacher" className="flex items-center gap-3 group">
+          <div className="h-11 w-11 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-100 transition-transform group-hover:scale-105 duration-300">
             <BookOpen className="h-5 w-5" />
           </div>
-          <span className="text-lg font-black text-slate-900">Teacher Panel</span>
+          <span className="text-xl font-black tracking-tight text-slate-900">Teacher Hub</span>
         </Link>
-        <button onClick={handleLogout} className="p-2 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors" title="Logout">
-          <LogOut className="h-5 w-5" />
-        </button>
       </div>
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+
+      <nav className="flex-1 px-4 space-y-1.5 overflow-y-auto">
         {menuItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href || (item.href !== '/teacher' && pathname?.startsWith(item.href));
@@ -58,16 +56,28 @@ export function TeacherSidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                'flex items-center gap-3 px-4 py-3 rounded-2xl transition-all',
-                isActive ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                'flex items-center gap-3 px-5 py-3.5 rounded-2xl transition-all duration-300 font-bold text-[15px]',
+                isActive 
+                  ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-100' 
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
               )}
             >
-              <Icon className="h-5 w-5" />
-              <span className="font-bold">{item.title}</span>
+              <Icon className={cn("h-5 w-5", isActive ? "text-white" : "text-slate-400")} />
+              <span>{item.title}</span>
             </Link>
           );
         })}
       </nav>
+
+      <div className="p-6 mt-auto border-t border-slate-50">
+        <button 
+          onClick={handleLogout} 
+          className="w-full flex items-center gap-3 px-5 py-4 rounded-2xl text-rose-500 hover:bg-rose-50 font-bold transition-all duration-300"
+        >
+          <LogOut className="h-5 w-5" />
+          <span>Log Out</span>
+        </button>
+      </div>
     </aside>
   );
 }

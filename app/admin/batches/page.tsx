@@ -198,36 +198,8 @@ export default function BatchesPage() {
            batch.branch?.name.toLowerCase().includes(q);
   });
 
-  const totalBatches = batches.length;
-  const activeCount = batches.filter((b) => String(b.status) === 'ACTIVE').length;
-  const totalEnrollments = batches.reduce((sum, b) => sum + (b._count?.enrollments || 0), 0);
-  const totalSessions = batches.reduce((sum, b) => sum + (b._count?.classSessions || 0), 0);
-
   return (
     <div className="space-y-8 text-slate-900">
-      {/* Stats Section */}
-      <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          { label: 'Total Batches', value: totalBatches, color: 'from-blue-600 to-cyan-500', icon: Layout },
-          { label: 'Active Status', value: activeCount, color: 'from-emerald-600 to-teal-500', icon: Layers },
-          { label: 'Enrollments', value: totalEnrollments, color: 'from-indigo-600 to-purple-600', icon: Users },
-          { label: 'Total Sessions', value: totalSessions, color: 'from-rose-600 to-pink-600', icon: CalendarClock },
-        ].map((stat, i) => (
-          <div key={i} className="group relative overflow-hidden rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/40 transition-all hover:-translate-y-1 hover:shadow-2xl">
-             <div className="flex items-center justify-between">
-                <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg group-hover:scale-110 transition-transform", stat.color)}>
-                   <stat.icon className="h-6 w-6" />
-                </div>
-                <div className="h-1.5 w-1.5 rounded-full bg-slate-200" />
-             </div>
-             <div className="mt-6">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
-                <p className="mt-1 text-3xl font-black text-slate-900">{stat.value}</p>
-             </div>
-          </div>
-        ))}
-      </section>
-
       {/* Filter Section */}
       <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-6">
@@ -295,7 +267,7 @@ export default function BatchesPage() {
           </div>
           <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            {totalBatches} Operational Batches
+            Batches
           </div>
         </div>
 

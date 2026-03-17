@@ -251,39 +251,8 @@ export default function InvoicesPage() {
     }).format(Number(amount))}`;
   };
 
-  const totalRevenue = invoices
-    .filter((i) => i.status === 'PAID' || i.status === 'PARTIAL')
-    .reduce((sum, i) => sum + Number(i.paidAmount), 0);
-
-  const totalOutstanding = invoices
-    .filter(i => i.status !== 'CANCELLED')
-    .reduce((sum, i) => sum + Number(i.dueAmount), 0);
-
   return (
     <div className="space-y-8 text-slate-900">
-      {/* Stats Section */}
-      <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          { label: 'Total Invoices', value: invoices.length, color: 'from-blue-600 to-cyan-500', icon: FileText },
-          { label: 'Paid', value: formatCurrency(totalRevenue), color: 'from-emerald-600 to-teal-500', icon: TrendingUp },
-          { label: 'Due', value: formatCurrency(totalOutstanding), color: 'from-rose-600 to-pink-600', icon: CreditCard },
-          { label: 'Issued', value: invoices.filter(i => i.status === 'ISSUED').length, color: 'from-amber-600 to-orange-500', icon: ClockIcon },
-        ].map((stat, i) => (
-          <div key={i} className="group relative overflow-hidden rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/40 transition-all hover:-translate-y-1 hover:shadow-2xl">
-             <div className="flex items-center justify-between">
-                <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg group-hover:scale-110 transition-transform", stat.color)}>
-                   <stat.icon className="h-6 w-6" />
-                </div>
-                <ArrowRight className="h-4 w-4 text-slate-200 group-hover:text-indigo-500 transition-colors" />
-             </div>
-             <div className="mt-6">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
-                <p className="mt-1 text-3xl font-black text-slate-900">{stat.value}</p>
-             </div>
-          </div>
-        ))}
-      </section>
-
       {/* Filter Section */}
       <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-6">
@@ -368,7 +337,7 @@ export default function InvoicesPage() {
           </div>
           <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            {invoices.length} Invoices
+            Invoices
           </div>
         </div>
 

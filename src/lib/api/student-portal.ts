@@ -1,4 +1,4 @@
-import { apiRequest } from '../api';
+import { apiRequest, API_BASE_URL } from '../api';
 import type { ApiResponse, StudentResults } from '@/types/academic';
 import type { Book } from './books';
 
@@ -25,15 +25,25 @@ export async function purchaseBook(data: { studentUserId: string; bookId: string
   });
 }
 
+/** API response format: { success, message?, data? } */
 export async function enrollInCourse(data: {
   studentUserId: string;
   courseId: string;
   branchId?: string;
   batchId?: string;
-}): Promise<ApiResponse<{ enrollment: any; invoice: { id: string } }>> {
-  return apiRequest<ApiResponse<{ enrollment: any; invoice: { id: string } }>>('/student-portal/enroll-course', {
+}): Promise<ApiResponse<{ enrollment: any; invoice: { id: string } }> & { data?: { enrollmentId?: string } }> {
+  const url = `${API_BASE_URL}/student-portal/enroll-course`;
+  const res = await fetch(url, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(body.message || `Request failed (${res.status})`);
+    (err as any).response = { success: false, message: body.message, data: body.data };
+    throw err;
+  }
+  return body;
 }
 
