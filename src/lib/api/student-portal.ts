@@ -18,6 +18,10 @@ export async function getPortalBooks(): Promise<ApiResponse<Book[]>> {
   return apiRequest<ApiResponse<Book[]>>('/student-portal/all-books');
 }
 
+export async function getRoutine(studentUserId: string): Promise<ApiResponse<any[]>> {
+  return apiRequest<ApiResponse<any[]>>(`/student-portal/routine/${encodeURIComponent(studentUserId)}`);
+}
+
 export async function purchaseBook(data: { studentUserId: string; bookId: string; branchId?: string }): Promise<ApiResponse<any>> {
   return apiRequest<ApiResponse<any>>('/student-portal/purchase-book', {
     method: 'POST',
