@@ -4,8 +4,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
 import Image from 'next/image';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, ChevronLeft, ChevronRight, PlayCircle, Star } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const carouselItems = [
   {
@@ -69,8 +69,8 @@ export const HeroCarousel: React.FC = () => {
   const scrollNext = useCallback(() => emblaApi && emblaApi.scrollNext(), [emblaApi]);
 
   return (
-    <section className="relative w-full h-[600px] md:h-[700px] lg:h-[800px] overflow-hidden bg-slate-900">
-      <div className="overflow-hidden h-full" ref={emblaRef}>
+    <section className="relative w-full h-[420px] sm:h-[500px] md:h-[600px] lg:h-[700px] xl:h-[800px] overflow-hidden bg-slate-900">
+      <div className="overflow-hidden h-full touch-pan-y" ref={emblaRef}>
         <div className="flex h-full">
           {carouselItems.map((item, index) => (
             <div key={item.id} className="flex-[0_0_100%] min-w-0 relative h-full">
@@ -81,43 +81,45 @@ export const HeroCarousel: React.FC = () => {
                   alt={item.title}
                   fill
                   sizes="100vw"
-                  className="object-cover"
+                  className="object-contain md:object-cover object-center"
                   priority={index === 0}
                 />
-
               </div>
 
-           
+              {/* Gradient overlay for text readability */}
+              <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+
+             
             </div>
           ))}
         </div>
       </div>
 
-      {/* Navigation Controls */}
-      <div className="absolute bottom-10 right-6 lg:right-12 z-30 flex items-center gap-4">
+      {/* Navigation Controls - responsive */}
+      <div className="absolute bottom-4 right-4 sm:bottom-6 sm:right-6 lg:bottom-10 lg:right-12 z-30 flex items-center gap-2 sm:gap-4">
         <button
           onClick={scrollPrev}
-          className="w-14 h-14 rounded-full border border-white/20 bg-white/5 backdrop-blur-lg text-white flex items-center justify-center hover:bg-white hover:text-slate-900 transition-all active:scale-90 cursor-pointer"
+          className="w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 rounded-full border border-white/20 bg-white/5 backdrop-blur-lg text-white flex items-center justify-center hover:bg-white hover:text-slate-900 transition-all active:scale-90 cursor-pointer touch-manipulation"
           aria-label="Previous slide"
         >
-          <ChevronLeft className="h-6 w-6" />
+          <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6" />
         </button>
         <button
           onClick={scrollNext}
-          className="w-14 h-14 rounded-full border border-white/20 bg-white/5 backdrop-blur-lg text-white flex items-center justify-center hover:bg-white hover:text-slate-900 transition-all active:scale-90 cursor-pointer"
+          className="w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 rounded-full border border-white/20 bg-white/5 backdrop-blur-lg text-white flex items-center justify-center hover:bg-white hover:text-slate-900 transition-all active:scale-90 cursor-pointer touch-manipulation"
           aria-label="Next slide"
         >
-          <ChevronRight className="h-6 w-6" />
+          <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
         </button>
       </div>
 
-      {/* Progress Indicators */}
-      <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-30 flex gap-3">
+      {/* Progress Indicators - responsive */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex gap-2 sm:gap-3">
         {carouselItems.map((_, index) => (
           <button
             key={index}
-            className={`h-1.5 transition-all rounded-full cursor-pointer ${
-              index === selectedIndex ? 'w-12 bg-white' : 'w-4 bg-white/30'
+            className={`h-1 sm:h-1.5 transition-all rounded-full cursor-pointer touch-manipulation ${
+              index === selectedIndex ? 'w-8 sm:w-12 bg-white' : 'w-4 bg-white/30'
             }`}
             onClick={() => emblaApi?.scrollTo(index)}
             aria-label={`Go to slide ${index + 1}`}

@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { Menu, X, LayoutDashboard, LogOut } from 'lucide-react'
+import { Menu, X, LayoutDashboard, LogOut, BookOpen, MapPin, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -61,18 +61,18 @@ export function Header() {
   };
 
   const navLinks = [
-    { name: 'সকল কোর্স', href: '/courses' },
-    { name: 'যোগাযোগ', href: '/branches' },
-    { name: 'আমাদের সম্পর্কে', href: '/about-us' }
+    { name: 'সকল কোর্স', href: '/courses', icon: BookOpen },
+    { name: 'যোগাযোগ', href: '/branches', icon: MapPin },
+    { name: 'আমাদের সম্পর্কে', href: '/about-us', icon: Info }
   ]
 
   return (
     <nav
       className={cn(
-        'fixed top-0 z-50 w-full transition-all duration-500',
+        'fixed top-0 left-0 right-0 z-50 w-full transition-all duration-500',
         scrolled 
           ? 'py-0' // Tighten up on scroll
-          : 'py-4'  // Breathable space at top
+          : 'py-2 sm:py-4'  // Less padding on mobile
       )}
     >
       {/* Background Layer - Smooth transition between glass and transparent */}
@@ -93,9 +93,9 @@ export function Header() {
         )} 
       />
 
-      <div className="mx-auto max-w-7xl px-6 lg:px-12 flex items-center justify-between h-20 transition-all duration-500">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-12 flex items-center justify-between h-14 sm:h-16 md:h-20 transition-all duration-500">
         
-        {/* Logo */}
+        {/* Logo - responsive size */}
         <Link href="/" className="relative z-50 flex items-center shrink-0">
           <Image
             src="/images/logo/spondon-logo.png"
@@ -104,7 +104,7 @@ export function Header() {
             height={65}
             priority
             className={cn(
-              "object-contain transition-all duration-500",
+              "object-contain transition-all duration-500 w-28 sm:w-36 md:w-44 lg:w-[200px] h-auto",
               !scrolled && "brightness-0 invert"
             )}
           />
@@ -172,17 +172,18 @@ export function Header() {
           )}
         </div>
 
-        {/* Mobile Toggle */}
+        {/* Mobile Toggle - touch friendly */}
         <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
+          aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
           className={cn(
-            "lg:hidden relative z-50 p-2.5 rounded-2xl transition-all duration-300",
+            "lg:hidden relative z-[60] p-3 sm:p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl sm:rounded-2xl transition-all duration-300 touch-manipulation",
             scrolled 
               ? "bg-slate-100 text-slate-900" 
               : "bg-white/10 text-white backdrop-blur-md border border-white/20"
           )}
         >
-          {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          {isMenuOpen ? <X size={22} className="sm:w-6 sm:h-6" /> : <Menu size={22} className="sm:w-6 sm:h-6" />}
         </button>
       </div>
 
@@ -190,65 +191,78 @@ export function Header() {
       <AnimatePresence>
         {isMenuOpen && (
           <>
-            {/* Backdrop Blur to focus on menu */}
+            {/* Backdrop - full screen, below header */}
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsMenuOpen(false)}
-              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm lg:hidden -z-20"
+              className="fixed inset-0 top-14 sm:top-16 md:top-20 lg:hidden bg-slate-900/50 backdrop-blur-sm z-40"
             />
             
             <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ type: "spring", duration: 0.5, bounce: 0 }}
-              className="lg:hidden bg-white overflow-hidden shadow-2xl rounded-b-[2rem]"
+              initial={{ opacity: 0, y: -10, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.98 }}
+              transition={{ type: "spring", duration: 0.35, bounce: 0.15 }}
+              className="fixed left-3 right-3 sm:left-4 sm:right-4 top-14 sm:top-16 md:top-20 lg:hidden z-50 max-h-[calc(100vh-5rem)] overflow-y-auto"
             >
-              <div className="px-8 py-10 space-y-6">
-                {navLinks.map((link, idx) => (
-                  <motion.div
-                    initial={{ x: -20, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    transition={{ delay: idx * 0.1 }}
-                    key={link.name}
-                  >
-                    <Link
-                      href={link.href}
-                      onClick={() => setIsMenuOpen(false)}
-                      className="block text-2xl font-black text-slate-800 active:text-[#5C2D91]"
-                    >
-                      {link.name}
-                    </Link>
-                  </motion.div>
-                ))}
-                
+              <div className="bg-white/95 backdrop-blur-xl shadow-2xl shadow-slate-900/20 rounded-2xl border border-slate-100 overflow-hidden">
+                {/* Nav links - compact on mobile */}
+                <div className="px-4 py-5 sm:px-6 sm:py-6 space-y-0.5">
+                  {navLinks.map((link, idx) => {
+                    const Icon = link.icon;
+                    return (
+                      <motion.div
+                        initial={{ x: -12, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        transition={{ delay: idx * 0.05 }}
+                        key={link.name}
+                      >
+                        <Link
+                          href={link.href}
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center gap-3 py-3 px-3 -mx-3 rounded-xl text-slate-700 hover:bg-slate-50 hover:text-[#5C2D91] active:bg-indigo-50 transition-all touch-manipulation group"
+                        >
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 group-hover:bg-[#5C2D91]/10 group-hover:text-[#5C2D91] transition-colors">
+                            <Icon className="h-4 w-4" />
+                          </span>
+                          <span className="text-sm sm:text-base font-bold">{link.name}</span>
+                        </Link>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+
+                {/* Divider */}
+                <div className="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent mx-4" />
+
+                {/* Action buttons */}
                 <motion.div 
-                  initial={{ y: 20, opacity: 0 }}
+                  initial={{ y: 12, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.3 }}
-                  className="pt-6 space-y-3"
+                  transition={{ delay: 0.15 }}
+                  className="p-4 sm:p-6 space-y-3"
                 >
                   {user ? (
                     <>
                       <Link href={getDashboardHref()} onClick={() => setIsMenuOpen(false)}>
-                        <Button className="w-full h-16 rounded-[1.25rem] bg-[#5C2D91] text-white text-xl font-black shadow-lg shadow-indigo-200">
-                          <LayoutDashboard className="h-5 w-5 mr-2" />
+                        <Button className="w-full h-12 sm:h-14 rounded-xl bg-gradient-to-r from-[#5C2D91] to-[#7B3FA3] hover:from-[#4A2475] hover:to-[#5C2D91] text-white text-sm sm:text-base font-bold shadow-lg shadow-indigo-200/50 touch-manipulation">
+                          <LayoutDashboard className="h-4 w-4 mr-2" />
                           ড্যাশবোর্ড
                         </Button>
                       </Link>
                       <button
                         onClick={() => { handleLogout(); setIsMenuOpen(false); }}
-                        className="w-full h-14 rounded-[1.25rem] border-2 border-slate-200 text-slate-700 font-black flex items-center justify-center gap-2"
+                        className="w-full h-11 sm:h-12 rounded-xl border border-slate-200 text-slate-600 text-sm sm:text-base font-bold flex items-center justify-center gap-2 hover:bg-slate-50 hover:border-slate-300 transition-colors touch-manipulation"
                       >
-                        <LogOut className="h-5 w-5" />
+                        <LogOut className="h-4 w-4" />
                         লগ আউট
                       </button>
                     </>
                   ) : (
                     <Link href="/login" onClick={() => setIsMenuOpen(false)}>
-                      <Button className="w-full h-16 rounded-[1.25rem] bg-[#5C2D91] text-white text-xl font-black shadow-lg shadow-indigo-200">
+                      <Button className="w-full h-12 sm:h-14 rounded-xl bg-gradient-to-r from-[#5C2D91] to-[#7B3FA3] hover:from-[#4A2475] hover:to-[#5C2D91] text-white text-sm sm:text-base font-bold shadow-lg shadow-indigo-200/50 touch-manipulation">
                         লগ ইন / সাইন আপ
                       </Button>
                     </Link>
