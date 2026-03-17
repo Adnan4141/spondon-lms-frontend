@@ -65,7 +65,7 @@ export const DigitalLibrarySection: React.FC<Props> = ({ dynamicEbooks }) => (
             <div className="absolute inset-0 bg-emerald-500/10 rounded-[48px] blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <div className="relative bg-[#111827]/80 backdrop-blur-md border border-white/[0.08] rounded-[48px] p-6 flex gap-6 items-center h-full transition-all duration-500 group-hover:border-emerald-500/40 group-hover:bg-[#161F31]">
               <div className="w-2/5 aspect-[3/4.5] rounded-[28px] overflow-hidden shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] flex-shrink-0 transition-all duration-700 group-hover:scale-105 group-hover:-rotate-3 border border-white/10 relative">
-                <img src={book.thumbnailUrl || ''} alt={book.name} className="w-full h-full object-contain" onError={(e) => (e.currentTarget.src = 'https://placehold.co/400x600?text=Book')} />
+                <img src={book.thumbnailUrl || 'https://placehold.co/400x600?text=Book'} alt={book.name} className="w-full h-full object-contain" onError={(e) => (e.currentTarget.src = 'https://placehold.co/400x600?text=Book')} />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
               </div>
               <div className="flex-1 flex flex-col h-full py-2">

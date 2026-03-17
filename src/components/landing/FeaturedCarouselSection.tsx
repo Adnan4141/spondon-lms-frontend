@@ -72,7 +72,7 @@ export const FeaturedCarouselSection: React.FC = () => {
               {carouselItems.map((item, index) => (
                 <div key={index} className="flex-[0_0_100%] min-w-0 relative h-[400px] md:h-[500px]">
                   <img
-                    src={item.image}
+                    src={item.image || 'https://placehold.co/1200x500?text=Featured'}
                     alt={item.title}
                     className="absolute inset-0 w-full h-full object-cover"
                     loading="lazy"

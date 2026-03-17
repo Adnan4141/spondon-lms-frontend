@@ -156,9 +156,10 @@ export default function AboutUsPage() {
               >
                 <div className="relative h-64 overflow-hidden">
                   <Image 
-                    src={value.img} 
+                    src={value.img || 'https://placehold.co/800x400?text=Image'} 
                     alt={value.title} 
-                    fill 
+                    fill
+                    sizes="(max-width: 768px) 100vw, 50vw" 
                     className="object-cover group-hover:scale-110 transition-transform duration-1000"
                   />
                   <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-all duration-500" />

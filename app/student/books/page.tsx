@@ -111,7 +111,7 @@ export default function StudentBooksPage() {
             <Card key={book.id} className="group flex flex-col rounded-[2rem] border-none bg-white p-2 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] transition-all duration-500 overflow-hidden">
               <div className="aspect-[3/4] bg-slate-50 rounded-2xl relative overflow-hidden group-hover:scale-[1.02] transition-transform duration-500">
                 {book.thumbnailUrl ? (
-                  <Image src={book.thumbnailUrl} alt={book.name} fill className="object-cover" unoptimized />
+                  <Image src={book.thumbnailUrl} alt={book.name} fill sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw" className="object-cover" unoptimized />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
                     <BookMarked className="h-20 w-20 text-slate-200" />

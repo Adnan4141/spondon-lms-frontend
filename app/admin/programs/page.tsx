@@ -244,7 +244,7 @@ export default function ProgramsPage() {
                        <div className="flex items-center gap-4">
                           {program.thumbnail ? (
                             <div className="h-12 w-12 rounded-xl overflow-hidden shadow-sm border border-slate-100 shrink-0">
-                               <img src={program.thumbnail} alt={program.name} className="h-full w-full object-cover" />
+                               <img src={program.thumbnail || 'https://placehold.co/400x225?text=Program'} alt={program.name} className="h-full w-full object-cover" />
                             </div>
                           ) : (
                             <div className="h-12 w-12 rounded-xl bg-slate-50 flex items-center justify-center text-slate-300 border border-dashed border-slate-200 shrink-0">

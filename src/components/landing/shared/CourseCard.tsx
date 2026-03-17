@@ -27,7 +27,7 @@ export const CourseCard: React.FC<Props> = ({ course, handleImageError }) => (
     <div className="relative h-full bg-white rounded-[32px] overflow-hidden flex flex-col transition-all duration-500 group-hover:translate-y-[-8px] border border-slate-100">
       <div className="relative aspect-[16/9] overflow-hidden">
         <img
-          src={course.thumbnail || ''}
+          src={course.thumbnail || 'https://placehold.co/800x450/5C2D91/white?text=Course'}
           alt={course.name}
           className="w-full h-full object-cover transition-transform duration-[1.5s] group-hover:scale-110"
           onError={(e) => handleImageError(e, 'Course')}

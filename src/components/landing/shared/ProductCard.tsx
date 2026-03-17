@@ -44,7 +44,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ image, title, subtext,
         )}
       >
         <img
-          src={image}
+          src={image || 'https://placehold.co/400x600?text=Book'}
           alt={title}
           className="w-full h-full object-contain p-4 drop-shadow-xl"
           onError={(e) => (e.currentTarget.src = 'https://placehold.co/400x600?text=Book+Cover')}

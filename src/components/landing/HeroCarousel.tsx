@@ -77,9 +77,10 @@ export const HeroCarousel: React.FC = () => {
               {/* Background Image */}
               <div className="absolute inset-0 z-0">
                 <Image
-                  src={item.image}
+                  src={item.image || 'https://placehold.co/1920x1080?text=Hero'}
                   alt={item.title}
                   fill
+                  sizes="100vw"
                   className="object-cover"
                   priority={index === 0}
                 />

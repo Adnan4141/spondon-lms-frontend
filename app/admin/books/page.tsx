@@ -493,7 +493,7 @@ export default function BooksPage() {
                        <div className="flex items-center gap-4">
                           <div className={cn("h-12 w-12 rounded-xl flex items-center justify-center font-black text-white text-base shadow-lg overflow-hidden", !book.thumbnailUrl && (book.isEbook ? "bg-indigo-500" : "bg-emerald-500"))}>
                              {book.thumbnailUrl ? (
-                               <img src={book.thumbnailUrl} alt={book.name} className="h-full w-full object-cover" />
+                               <img src={book.thumbnailUrl || 'https://placehold.co/400x600?text=Book'} alt={book.name} className="h-full w-full object-cover" />
                              ) : (
                                book.name.charAt(0)
                              )}

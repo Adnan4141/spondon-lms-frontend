@@ -150,7 +150,7 @@ export function CourseDetailsView({ course }: CourseDetailsViewProps) {
             <div className="relative overflow-hidden rounded-[32px] border border-slate-200 bg-slate-50/50 p-8 shadow-sm mb-10 flex flex-col md:flex-row gap-8">
                {course.thumbnail && (
                  <div className="w-full md:w-48 h-48 rounded-2xl overflow-hidden shadow-lg border border-white shrink-0">
-                    <img src={course.thumbnail} alt={course.name} className="w-full h-full object-cover" />
+                    <img src={course.thumbnail || 'https://placehold.co/800x450?text=Course'} alt={course.name} className="w-full h-full object-cover" />
                  </div>
                )}
                

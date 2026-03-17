@@ -338,7 +338,7 @@ export default function CoursesPage() {
                        <div className="flex items-center gap-4">
                           {course.thumbnail ? (
                             <div className="h-12 w-12 rounded-xl overflow-hidden shadow-sm border border-slate-100 shrink-0">
-                               <img src={course.thumbnail} alt={course.name} className="h-full w-full object-cover" />
+                               <img src={course.thumbnail || 'https://placehold.co/400x225?text=Course'} alt={course.name} className="h-full w-full object-cover" />
                             </div>
                           ) : (
                             <div className="h-12 w-12 rounded-xl bg-slate-50 flex items-center justify-center text-slate-300 border border-dashed border-slate-200 shrink-0">

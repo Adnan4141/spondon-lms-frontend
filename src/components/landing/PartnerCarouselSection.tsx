@@ -66,7 +66,7 @@ export const PartnerCarouselSection: React.FC = () => {
               
               <div className="relative w-full h-full">
                 <Image
-                  src={partner.logo}
+                  src={partner.logo || 'https://placehold.co/240x128?text=Logo'}
                   alt={`${partner.name} logo`}
                   fill
                   sizes="(max-width: 768px) 192px, 240px"
