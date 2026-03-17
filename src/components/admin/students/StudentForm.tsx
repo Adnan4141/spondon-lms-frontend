@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { createStudent, updateStudent } from '@/lib/api/students';
 import { useModalStore } from '@/store/modalStore';
 import { useToast } from '@/hooks/use-toast';
-import type { Student, CreateStudentDto, UpdateStudentDto, UserStatus, Branch, Institute } from '@/types/student';
+import type { Student, CreateStudentDto, UpdateStudentDto, UserStatus, Branch, Institute, SmsAlertTo } from '@/types/student';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -183,7 +183,7 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
         address: student.studentProfile?.address || '',
         instituteId: student.studentProfile?.instituteId || '',
         registrationNumber: student.studentProfile?.registrationNumber || '',
-        smsAlertTo: (student.studentProfile?.smsAlertTo as string[]) || [],
+        smsAlertTo: (student.studentProfile?.smsAlertTo as SmsAlertTo[] | undefined) || [],
         sscInfo: student.studentProfile?.sscInfo,
         hscInfo: student.studentProfile?.hscInfo,
       });
@@ -341,9 +341,9 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
                 </div>
                 <div className="space-y-2">
                    <label className={sectionLabel}>Institute</label>
-                   <InstituteCombobox
-                     institutes={institutes}
-                     value={form.instituteId}
+                    <InstituteCombobox
+                      institutes={institutes}
+                      value={form.instituteId ?? ''}
                      onSelect={(v) => setForm(p => ({ ...p, instituteId: v }))}
                      placeholder="Search institute..."
                    />

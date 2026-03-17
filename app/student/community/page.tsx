@@ -187,7 +187,11 @@ export default function StudentCommunityPage() {
   const userVote = (votes: { userId: string; value: number }[] | undefined) =>
     votes?.find((v) => v.userId === user?.id)?.value ?? 0;
 
-  const uniqueCourses = Array.from(new Map(courses.map((c) => [c.course?.id, c.course]).filter(([id]) => id)).values());
+  const uniqueCoursesMap = new Map<string, { id: string; name: string }>();
+  for (const c of courses) {
+    if (c.course?.id) uniqueCoursesMap.set(c.course.id, c.course);
+  }
+  const uniqueCourses = Array.from(uniqueCoursesMap.values());
   const batchesForCourse = courseFilter
     ? courses.filter((c) => c.course?.id === courseFilter)
     : [];
