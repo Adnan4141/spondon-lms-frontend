@@ -2,8 +2,16 @@ import { apiRequest } from '../api';
 import type { ApiResponse, StudentResults } from '@/types/academic';
 import type { Book } from './books';
 
+export async function getMyCourses(studentUserId: string): Promise<ApiResponse<any[]>> {
+  return apiRequest<ApiResponse<any[]>>(`/student-portal/my-courses/${studentUserId}`);
+}
+
 export async function getStudentResults(studentUserId: string): Promise<ApiResponse<StudentResults>> {
   return apiRequest<ApiResponse<StudentResults>>(`/student-portal/results/${studentUserId}`);
+}
+
+export async function checkEnrollment(studentUserId: string, courseId: string): Promise<ApiResponse<{ enrolled: boolean; enrollmentId?: string }>> {
+  return apiRequest<ApiResponse<{ enrolled: boolean; enrollmentId?: string }>>(`/student-portal/check-enrollment/${studentUserId}/${encodeURIComponent(courseId)}`);
 }
 
 export async function getPortalBooks(): Promise<ApiResponse<Book[]>> {

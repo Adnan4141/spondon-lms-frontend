@@ -2,10 +2,11 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { getCourseById } from '@/lib/api/courses';
-import { enrollInCourse } from '@/lib/api/student-portal';
+import { enrollInCourse, checkEnrollment } from '@/lib/api/student-portal';
 import { initInvoicePayment } from '@/lib/api/invoices';
 import type { CourseDetails } from '@/types/course';
 import { 
@@ -31,6 +32,7 @@ export default function CourseDetailsPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [enrolling, setEnrolling] = useState(false);
+    const [alreadyEnrolled, setAlreadyEnrolled] = useState(false);
 
     const fetchCourse = useCallback(async () => {
         try {
@@ -54,6 +56,17 @@ export default function CourseDetailsPage() {
             fetchCourse();
         }
     }, [idOrSlug, fetchCourse]);
+
+    useEffect(() => {
+        if (!course?.id) return;
+        const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+        if (!userStr) return;
+        const user = JSON.parse(userStr);
+        if (!user?.id) return;
+        checkEnrollment(user.id, course.id).then((r) => {
+            if (r.success && r.data?.enrolled) setAlreadyEnrolled(true);
+        }).catch(() => {});
+    }, [course?.id]);
 
     const handleEnroll = async () => {
         const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
@@ -79,7 +92,11 @@ export default function CourseDetailsPage() {
                 throw new Error('Failed to initiate payment');
             }
         } catch (e: any) {
-            alert(e.message || 'Enrollment failed');
+            if (e.message?.includes('Already enrolled')) {
+                setAlreadyEnrolled(true);
+            } else {
+                alert(e.message || 'Enrollment failed');
+            }
         } finally {
             setEnrolling(false);
         }
@@ -208,13 +225,22 @@ export default function CourseDetailsPage() {
                                         <span className="text-white/60 text-[10px] font-black uppercase tracking-widest mb-1">কোর্স ফি</span>
                                         <span className="text-3xl font-black text-white">৳{String(course.fee)}</span>
                                     </div>
-                                    <button
-                                        onClick={handleEnroll}
-                                        disabled={enrolling}
-                                        className="px-8 py-4 bg-white text-slate-900 rounded-2xl font-black uppercase text-xs tracking-widest transition-all hover:scale-105 active:scale-95 shadow-xl shadow-white/10 disabled:opacity-70"
-                                    >
-                                        {enrolling ? 'প্রসেসিং...' : 'ভর্তি হোন'}
-                                    </button>
+                                    {alreadyEnrolled ? (
+                                        <Link
+                                            href="/student/courses"
+                                            className="inline-flex items-center gap-2 px-8 py-4 bg-emerald-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest transition-all hover:scale-105 active:scale-95 shadow-xl shadow-emerald-500/30"
+                                        >
+                                            <CheckCircle2 size={18} /> আমার কোর্স দেখুন
+                                        </Link>
+                                    ) : (
+                                        <button
+                                            onClick={handleEnroll}
+                                            disabled={enrolling}
+                                            className="px-8 py-4 bg-white text-slate-900 rounded-2xl font-black uppercase text-xs tracking-widest transition-all hover:scale-105 active:scale-95 shadow-xl shadow-white/10 disabled:opacity-70"
+                                        >
+                                            {enrolling ? 'প্রসেসিং...' : 'ভর্তি হোন'}
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         </motion.div>
@@ -333,30 +359,27 @@ export default function CourseDetailsPage() {
                                     <span className="font-black text-slate-500 uppercase text-xs tracking-widest">মোট ফি</span>
                                     <span className="text-4xl font-black text-[#5C2D91]">৳{String(course.fee)}</span>
                                 </div>
-                                <button
-                                    onClick={handleEnroll}
-                                    disabled={enrolling}
-                                    className="w-full h-16 bg-[#5C2D91] text-white rounded-2xl font-black uppercase text-sm tracking-widest shadow-xl shadow-indigo-100 transition-all hover:bg-[#4A2475] active:scale-95 flex items-center justify-center gap-3 disabled:opacity-70"
-                                >
-                                    {enrolling ? 'প্রসেসিং...' : 'এখনই ভর্তি হোন'} <ArrowRight size={20} />
-                                </button>
+                                {alreadyEnrolled ? (
+                                    <Link
+                                        href="/student/courses"
+                                        className="w-full h-16 bg-emerald-600 text-white rounded-2xl font-black uppercase text-sm tracking-widest shadow-xl shadow-emerald-100 transition-all hover:bg-emerald-700 active:scale-95 flex items-center justify-center gap-3"
+                                    >
+                                        <CheckCircle2 size={20} /> আপনি ইতিমধ্যে ভর্তি করেছেন - আমার কোর্স দেখুন <ArrowRight size={20} />
+                                    </Link>
+                                ) : (
+                                    <button
+                                        onClick={handleEnroll}
+                                        disabled={enrolling}
+                                        className="w-full h-16 bg-[#5C2D91] text-white rounded-2xl font-black uppercase text-sm tracking-widest shadow-xl shadow-indigo-100 transition-all hover:bg-[#4A2475] active:scale-95 flex items-center justify-center gap-3 disabled:opacity-70"
+                                    >
+                                        {enrolling ? 'প্রসেসিং...' : 'এখনই ভর্তি হোন'} <ArrowRight size={20} />
+                                    </button>
+                                )}
                                 <p className="text-center text-[10px] font-bold text-slate-400 mt-4 uppercase tracking-widest">নিরাপদ পেমেন্ট গ্যারান্টি</p>
                             </div>
                         </div>
 
-                        {/* Contact Card */}
-                        <div className="bg-indigo-600 rounded-[40px] p-8 text-white relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 blur-3xl rounded-full" />
-                            <h3 className="text-xl font-black mb-2">সহযোগিতা প্রয়োজন?</h3>
-                            <p className="text-indigo-100 text-sm font-medium mb-8 leading-relaxed">ভর্তি সংক্রান্ত যেকোনো তথ্যের জন্য সরাসরি আমাদের কল করুন অথবা যোগাযোগ করুন।</p>
-                            <a href="tel:01332606020" className="flex items-center gap-4 text-2xl font-black mb-4 hover:translate-x-1 transition-transform">
-                                ০১৩৩২৬০৬০২০
-                            </a>
-                            <div className="h-[1px] bg-white/20 w-full mb-6" />
-                            <button className="text-xs font-black uppercase tracking-widest flex items-center gap-2 hover:gap-3 transition-all">
-                                মেসেজ দিন <ArrowRight size={14} />
-                            </button>
-                        </div>
+                     
                     </aside>
                 </div>
             </div>
