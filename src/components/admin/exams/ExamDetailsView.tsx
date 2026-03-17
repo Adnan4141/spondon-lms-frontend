@@ -16,9 +16,16 @@ import {
   Info,
   CheckCircle2,
   AlertCircle,
-  FileSearch
+  FileSearch,
+  FileText,
+  Download,
+  Upload,
+  Image,
+  FileSpreadsheet,
+  XCircle
 } from 'lucide-react';
-import { getExamById } from '@/lib/api/exams';
+import { getExamById, regenerateExamPdf, regenerateSolveSheet, getExamPdfDownloadUrl } from '@/lib/api/exams';
+import { getOmrScans, uploadOmrScan, getOmrScanDownloadUrl, importOfflineResults, getOfflineResults, approveOfflineResult, rejectOfflineResult, type OmrScan } from '@/lib/api/exam-results';
 import { useState, useEffect } from 'react';
 import { ExamQuestionBuilder } from './ExamQuestionBuilder';
 
@@ -35,10 +42,102 @@ function getStatusBadgeClass(status: string) {
 export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
   const [activeTab, setActiveTab] = useState<'info' | 'questions'>('info');
   const [exam, setExam] = useState(initialExam);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [solveSheetLoading, setSolveSheetLoading] = useState(false);
+  const [omrScans, setOmrScans] = useState<OmrScan[]>([]);
+  const [omrUploading, setOmrUploading] = useState(false);
+  const [excelImporting, setExcelImporting] = useState(false);
+  const [offlineResults, setOfflineResults] = useState<any[]>([]);
 
   const fetchExamData = async () => {
     const res = await getExamById(exam.id);
     if (res.success && res.data) setExam(res.data);
+  };
+
+  const fetchOmrScans = async () => {
+    const res = await getOmrScans(exam.id);
+    if (res.success && res.data) setOmrScans(res.data);
+  };
+
+  useEffect(() => {
+    if (exam.mode === 'OFFLINE') {
+      fetchOmrScans();
+      getOfflineResults(exam.id).then((r) => r.success && r.data && setOfflineResults(r.data));
+    }
+  }, [exam.id, exam.mode]);
+
+  const handleApproveResult = async (id: string) => {
+    try {
+      const res = await approveOfflineResult(id);
+      if (res.success) setOfflineResults((prev) => prev.map((r) => (r.id === id ? { ...r, approvalStatus: 'APPROVED' } : r)));
+    } catch (e) {
+      alert((e as Error).message);
+    }
+  };
+
+  const handleRejectResult = async (id: string) => {
+    try {
+      const res = await rejectOfflineResult(id);
+      if (res.success) setOfflineResults((prev) => prev.map((r) => (r.id === id ? { ...r, approvalStatus: 'REJECTED' } : r)));
+    } catch (e) {
+      alert((e as Error).message);
+    }
+  };
+
+  const handleOmrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setOmrUploading(true);
+    try {
+      const res = await uploadOmrScan(exam.id, file);
+      if (res.success && res.data) setOmrScans((prev) => [res.data!, ...prev]);
+    } finally {
+      setOmrUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleExcelImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setExcelImporting(true);
+    try {
+      const res = await importOfflineResults(exam.id, file);
+      if (res.success && res.data) {
+        alert(`Imported ${res.data.count} results successfully.`);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Import failed');
+    } finally {
+      setExcelImporting(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleRegeneratePdf = async () => {
+    setPdfLoading(true);
+    try {
+      const res = await regenerateExamPdf(exam.id);
+      if (res.success && res.data?.pdfUrl) {
+        setExam((prev) => ({ ...prev, pdfUrl: res.data!.pdfUrl }));
+        window.open(getExamPdfDownloadUrl(res.data!.pdfUrl), '_blank');
+      }
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
+  const handleRegenerateSolveSheet = async () => {
+    setSolveSheetLoading(true);
+    try {
+      const res = await regenerateSolveSheet(exam.id);
+      if (res.success && res.data?.solveSheetUrl) {
+        setExam((prev) => ({ ...prev, solveSheetUrl: res.data!.solveSheetUrl }));
+        window.open(getExamPdfDownloadUrl(res.data!.solveSheetUrl), '_blank');
+      }
+    } finally {
+      setSolveSheetLoading(false);
+    }
   };
 
   return (
@@ -150,8 +249,87 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
                      </div>
                   </div>
 
+                  {exam.mode === 'OFFLINE' && (
+                    <div>
+                       <h3 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-amber-600 mb-4">
+                          <Image className="h-4 w-4" />
+                          OMR Scans
+                       </h3>
+                           <div className="flex flex-wrap gap-3 mb-4">
+                             <label className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm font-bold text-slate-700 cursor-pointer disabled:opacity-50">
+                               <Upload className="h-4 w-4" />
+                               {omrUploading ? 'Uploading...' : 'Upload OMR Scan'}
+                               <input type="file" accept="image/*,application/pdf" className="hidden" onChange={handleOmrUpload} disabled={omrUploading} />
+                             </label>
+                             <label className="flex items-center gap-2 px-4 py-2 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-sm font-bold text-emerald-700 cursor-pointer disabled:opacity-50">
+                               <FileSpreadsheet className="h-4 w-4" />
+                               {excelImporting ? 'Importing...' : 'Import Excel Results'}
+                               <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleExcelImport} disabled={excelImporting} />
+                             </label>
+                           </div>
+                           <p className="text-xs text-slate-500 mb-2">Excel columns: rollNo, subject, totalMarks, obtainedMarks, meritPosition</p>
+                           {offlineResults.length > 0 && (
+                             <div className="mt-4">
+                               <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-2">Imported Results ({offlineResults.filter((r) => r.approvalStatus === 'PENDING').length} pending)</h4>
+                               <div className="space-y-2 max-h-40 overflow-y-auto">
+                                 {offlineResults.slice(0, 10).map((r) => (
+                                   <div key={r.id} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 text-sm">
+                                     <span className="font-bold">{r.rollNo}</span>
+                                     <span>{r.obtainedMarks ?? '—'}/{r.totalMarks ?? '—'}</span>
+                                     <div className="flex gap-1">
+                                       {r.approvalStatus === 'PENDING' && (
+                                         <>
+                                           <button onClick={() => handleApproveResult(r.id)} className="p-1 rounded text-emerald-600 hover:bg-emerald-50" title="Approve"><CheckCircle2 className="h-4 w-4" /></button>
+                                           <button onClick={() => handleRejectResult(r.id)} className="p-1 rounded text-rose-600 hover:bg-rose-50" title="Reject"><XCircle className="h-4 w-4" /></button>
+                                         </>
+                                       )}
+                                       {r.approvalStatus === 'APPROVED' && <Badge className="text-[9px] bg-emerald-100 text-emerald-700">Approved</Badge>}
+                                       {r.approvalStatus === 'REJECTED' && <Badge className="text-[9px] bg-rose-100 text-rose-700">Rejected</Badge>}
+                                     </div>
+                                   </div>
+                                 ))}
+                               </div>
+                               {offlineResults.length > 10 && <p className="text-xs text-slate-400 mt-1">+{offlineResults.length - 10} more</p>}
+                             </div>
+                           )}
+                       {omrScans.length > 0 && (
+                         <div className="space-y-2 mb-6">
+                           {omrScans.map((scan) => (
+                             <div key={scan.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-white">
+                               <span className="text-sm font-bold text-slate-700 truncate">{scan.fileName || 'OMR scan'}</span>
+                               <a href={getOmrScanDownloadUrl(scan.fileUrl)} target="_blank" rel="noopener noreferrer" className="text-indigo-600 text-sm font-bold hover:underline">
+                                 View
+                               </a>
+                             </div>
+                           ))}
+                         </div>
+                       )}
+                    </div>
+                  )}
                   {exam.sets && exam.sets.length > 0 && (
                     <div>
+                       <h3 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-indigo-600 mb-4">
+                          <FileText className="h-4 w-4" />
+                          Exam Documents
+                       </h3>
+                       <div className="flex flex-wrap gap-3 mb-6">
+                         <button
+                           onClick={exam.pdfUrl ? () => window.open(getExamPdfDownloadUrl(exam.pdfUrl!), '_blank') : handleRegeneratePdf}
+                           disabled={pdfLoading}
+                           className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm font-bold text-slate-700 disabled:opacity-50"
+                         >
+                           <Download className="h-4 w-4" />
+                           {pdfLoading ? 'Generating...' : exam.pdfUrl ? 'Download Exam PDF' : 'Generate Exam PDF'}
+                         </button>
+                         <button
+                           onClick={exam.solveSheetUrl ? () => window.open(getExamPdfDownloadUrl(exam.solveSheetUrl!), '_blank') : handleRegenerateSolveSheet}
+                           disabled={solveSheetLoading}
+                           className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm font-bold text-slate-700 disabled:opacity-50"
+                         >
+                           <Download className="h-4 w-4" />
+                           {solveSheetLoading ? 'Generating...' : exam.solveSheetUrl ? 'Download Solve Sheet' : 'Generate Solve Sheet'}
+                         </button>
+                       </div>
                        <h3 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-emerald-600 mb-4">
                           <Layers className="h-4 w-4" />
                           Active Question Sets

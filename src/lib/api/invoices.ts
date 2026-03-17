@@ -44,3 +44,13 @@ export async function deleteInvoice(id: string): Promise<ApiResponse<void>> {
     method: 'DELETE',
   });
 }
+
+export async function initInvoicePayment(invoiceId: string) {
+  return apiRequest<{ success: boolean; data: { GatewayPageURL: string; tranId: string; invoiceId: string; amount: number } }>(
+    '/payment-gateway/invoice/init',
+    {
+      method: 'POST',
+      body: JSON.stringify({ invoiceId }),
+    }
+  );
+}

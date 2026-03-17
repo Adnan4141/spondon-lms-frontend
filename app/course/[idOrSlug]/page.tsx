@@ -5,6 +5,8 @@ import { useParams } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { getCourseById } from '@/lib/api/courses';
+import { enrollInCourse } from '@/lib/api/student-portal';
+import { initInvoicePayment } from '@/lib/api/invoices';
 import type { CourseDetails } from '@/types/course';
 import { 
     BookOpen, 
@@ -28,6 +30,7 @@ export default function CourseDetailsPage() {
     const [course, setCourse] = useState<CourseDetails | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [enrolling, setEnrolling] = useState(false);
 
     const fetchCourse = useCallback(async () => {
         try {
@@ -51,6 +54,36 @@ export default function CourseDetailsPage() {
             fetchCourse();
         }
     }, [idOrSlug, fetchCourse]);
+
+    const handleEnroll = async () => {
+        const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+        if (!userStr) {
+            window.location.href = `/login?redirect=/course/${idOrSlug}`;
+            return;
+        }
+        if (!course) return;
+        setEnrolling(true);
+        try {
+            const user = JSON.parse(userStr);
+            const res = await enrollInCourse({
+                studentUserId: user.id,
+                courseId: course.id,
+            });
+            if (!res.success || !res.data?.invoice?.id) {
+                throw new Error(res.message || 'Failed to enroll');
+            }
+            const payRes = await initInvoicePayment(res.data.invoice.id);
+            if (payRes.success && payRes.data?.GatewayPageURL) {
+                window.location.href = payRes.data.GatewayPageURL;
+            } else {
+                throw new Error('Failed to initiate payment');
+            }
+        } catch (e: any) {
+            alert(e.message || 'Enrollment failed');
+        } finally {
+            setEnrolling(false);
+        }
+    };
 
     if (loading) {
         return (
@@ -175,8 +208,12 @@ export default function CourseDetailsPage() {
                                         <span className="text-white/60 text-[10px] font-black uppercase tracking-widest mb-1">কোর্স ফি</span>
                                         <span className="text-3xl font-black text-white">৳{String(course.fee)}</span>
                                     </div>
-                                    <button className="px-8 py-4 bg-white text-slate-900 rounded-2xl font-black uppercase text-xs tracking-widest transition-all hover:scale-105 active:scale-95 shadow-xl shadow-white/10">
-                                        ভর্তি হোন
+                                    <button
+                                        onClick={handleEnroll}
+                                        disabled={enrolling}
+                                        className="px-8 py-4 bg-white text-slate-900 rounded-2xl font-black uppercase text-xs tracking-widest transition-all hover:scale-105 active:scale-95 shadow-xl shadow-white/10 disabled:opacity-70"
+                                    >
+                                        {enrolling ? 'প্রসেসিং...' : 'ভর্তি হোন'}
                                     </button>
                                 </div>
                             </div>
@@ -296,8 +333,12 @@ export default function CourseDetailsPage() {
                                     <span className="font-black text-slate-500 uppercase text-xs tracking-widest">মোট ফি</span>
                                     <span className="text-4xl font-black text-[#5C2D91]">৳{String(course.fee)}</span>
                                 </div>
-                                <button className="w-full h-16 bg-[#5C2D91] text-white rounded-2xl font-black uppercase text-sm tracking-widest shadow-xl shadow-indigo-100 transition-all hover:bg-[#4A2475] active:scale-95 flex items-center justify-center gap-3">
-                                    এখনই ভর্তি হোন <ArrowRight size={20} />
+                                <button
+                                    onClick={handleEnroll}
+                                    disabled={enrolling}
+                                    className="w-full h-16 bg-[#5C2D91] text-white rounded-2xl font-black uppercase text-sm tracking-widest shadow-xl shadow-indigo-100 transition-all hover:bg-[#4A2475] active:scale-95 flex items-center justify-center gap-3 disabled:opacity-70"
+                                >
+                                    {enrolling ? 'প্রসেসিং...' : 'এখনই ভর্তি হোন'} <ArrowRight size={20} />
                                 </button>
                                 <p className="text-center text-[10px] font-bold text-slate-400 mt-4 uppercase tracking-widest">নিরাপদ পেমেন্ট গ্যারান্টি</p>
                             </div>

@@ -15,6 +15,8 @@ export interface OnlineExamAttempt {
     type: string;
     mode: string;
     courseId: string;
+    status?: string;
+    solveSheetUrl?: string | null;
   };
 }
 

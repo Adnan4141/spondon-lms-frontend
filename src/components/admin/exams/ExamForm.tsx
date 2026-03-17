@@ -18,8 +18,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { DateTimePicker } from '@/components/ui/datetime-picker';
+import { Switch } from '@/components/ui/switch';
 import { format } from 'date-fns';
-import { Calendar, Clock, BookOpen, MapPin, Layers, Settings2, ShieldCheck, Activity } from 'lucide-react';
+import { Calendar, Clock, BookOpen, MapPin, Layers, Settings2, ShieldCheck, Activity, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const examTypeOptions: ExamType[] = ['PRACTICE', 'SCHEDULED', 'MODEL', 'TALENT_HUNT', 'UNIVERSITY'];
@@ -52,6 +53,7 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
     durationMinutes: undefined,
     allowedAttempts: 1,
     status: 'DRAFT',
+    settings: { leaderboardEnabled: false },
   });
   const [batches, setBatches] = useState<Batch[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -73,6 +75,7 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
         durationMinutes: exam.durationMinutes || undefined,
         allowedAttempts: exam.allowedAttempts,
         status: exam.status,
+        settings: exam.settings || { leaderboardEnabled: false },
       });
     }
   }, [exam]);
@@ -106,6 +109,7 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
         title: form.title.trim(),
         startAt: form.startAt || undefined,
         endAt: form.endAt || undefined,
+        settings: { leaderboardEnabled: (form as any).settings?.leaderboardEnabled ?? false },
       };
 
       if (isEdit && exam) {
@@ -266,6 +270,20 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
                          {examStatusOptions.map(o => <SelectItem key={o} value={o} className="font-bold text-[10px] uppercase tracking-widest py-3">{o}</SelectItem>)}
                       </SelectContent>
                    </Select>
+                </div>
+
+                <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3">
+                   <div className="flex items-center gap-2">
+                      <Trophy className="h-4 w-4 text-amber-500" />
+                      <span className="text-[11px] font-black uppercase tracking-widest text-slate-600">Leaderboard</span>
+                   </div>
+                   <Switch
+                     checked={(form as any).settings?.leaderboardEnabled ?? false}
+                     onCheckedChange={(v) => setForm((p: CreateExamDto) => ({
+                       ...p,
+                       settings: { ...(p as any).settings, leaderboardEnabled: v },
+                     }))}
+                   />
                 </div>
              </div>
 

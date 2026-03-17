@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
   BookOpen,
@@ -74,6 +74,17 @@ type SidebarProps = {
 
 export function Sidebar({ mobileOpen, onCloseMobile, collapsed, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleLogout = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
+      document.cookie = 'auth_token=; path=/; max-age=0';
+      document.cookie = 'user_role=; path=/; max-age=0';
+      router.push('/login');
+    }
+  };
 
   return (
     <>
@@ -201,7 +212,7 @@ export function Sidebar({ mobileOpen, onCloseMobile, collapsed, onToggleCollapse
                   <p className="text-base font-bold text-slate-800 truncate">Adnan Hussain</p>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Super Admin</p>
                 </div>
-                <button className="text-slate-300 hover:text-rose-500 transition-colors">
+                <button onClick={handleLogout} className="text-slate-300 hover:text-rose-500 transition-colors" title="Logout">
                   <LogOut className="h-4 w-4" />
                 </button>
               </div>

@@ -71,6 +71,8 @@ export interface Exam {
   allowedAttempts: number;
   status: ExamStatus;
   settings?: any;
+  pdfUrl?: string | null;
+  solveSheetUrl?: string | null;
   createdAt: string;
   course?: Course;
   branch?: Branch;

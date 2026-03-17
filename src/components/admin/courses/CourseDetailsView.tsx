@@ -32,9 +32,11 @@ import {
   deleteAssociatedCourse,
   getCourses 
 } from '@/lib/api/courses';
+import { getCourseSchedules, createCourseSchedule, deleteCourseSchedule } from '@/lib/api/course-schedules';
 import { useToast } from '@/hooks/use-toast';
 import { CourseResourceForm } from './CourseResourceForm';
 import { CourseAssociationForm } from './CourseAssociationForm';
+import { CourseScheduleSection } from './CourseScheduleSection';
 
 interface CourseDetailsViewProps {
   course: CourseDetails;
@@ -59,9 +61,10 @@ const getResourceIcon = (type: string) => {
 
 export function CourseDetailsView({ course }: CourseDetailsViewProps) {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<'info' | 'resources' | 'links'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'resources' | 'schedule' | 'links'>('info');
   const [resources, setResources] = useState<any[]>([]);
   const [associations, setAssociations] = useState<any[]>([]);
+  const [schedules, setSchedules] = useState<any[]>([]);
   const [allCourses, setAllCourses] = useState<any[]>([]);
   const [showResourceForm, setShowResourceForm] = useState(false);
   const [showAssociationForm, setShowAssociationForm] = useState(false);
@@ -74,14 +77,16 @@ export function CourseDetailsView({ course }: CourseDetailsViewProps) {
     try {
       setLoading(true);
       const identifier = course.slug || course.id;
-      const [resRes, assocRes, coursesRes] = await Promise.all([
+      const [resRes, assocRes, coursesRes, schedRes] = await Promise.all([
         getCourseContents({ courseId: identifier }),
         getAssociatedCourses({ fromCourseId: identifier }),
-        getCourses({})
+        getCourses({}),
+        getCourseSchedules(course.id)
       ]);
       if (resRes.success) setResources(resRes.data || []);
       if (assocRes.success) setAssociations(assocRes.data || []);
       if (coursesRes.success) setAllCourses(coursesRes.data || []);
+      if (schedRes.success) setSchedules(schedRes.data || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -119,6 +124,7 @@ export function CourseDetailsView({ course }: CourseDetailsViewProps) {
             {[
               { id: 'info', label: 'Primary Intelligence', icon: Info },
               { id: 'resources', label: 'Course Assets', icon: FileUp },
+              { id: 'schedule', label: 'Schedule', icon: Calendar },
               { id: 'links', label: 'Strategic Linkages', icon: Link2 },
             ].map(tab => (
               <button
@@ -223,6 +229,14 @@ export function CourseDetailsView({ course }: CourseDetailsViewProps) {
                   </div>
                </div>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'schedule' && (
+          <div className="space-y-8 animate-in fade-in duration-500">
+            <h3 className="text-xl font-black tracking-tight">Course Schedule / Timeline</h3>
+            <p className="text-sm font-medium text-slate-400 uppercase tracking-widest">Class routine / milestones</p>
+            <CourseScheduleSection courseId={course.id} schedules={schedules} onRefresh={fetchData} />
           </div>
         )}
 

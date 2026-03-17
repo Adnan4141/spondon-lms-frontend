@@ -21,6 +21,8 @@ import {
 import { getPrograms } from '@/lib/api/programs';
 import { getBranches } from '@/lib/api/branches';
 import { getBatches } from '@/lib/api/batches';
+import { getSmsPricing, initiateSmsPurchase, getSmsTransactions } from '@/lib/api/sms-purchase';
+import { MonthPicker } from '@/components/ui/month-picker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -87,6 +89,11 @@ export default function SmsManagementPage() {
   const [batches, setBatches] = useState<any[]>([]);
   const [balances, setBalances] = useState<any[]>([]);
   const [smsLogs, setSmsLogs] = useState<any[]>([]);
+  const [smsTransactions, setSmsTransactions] = useState<any[]>([]);
+  const [smsPricing, setSmsPricing] = useState<{ pricePerSms: number; minPurchase: number }>({ pricePerSms: 0.5, minPurchase: 100 });
+  const [purchaseQuantity, setPurchaseQuantity] = useState<number>(100);
+  const [purchaseScope, setPurchaseScope] = useState<'ORG' | 'BRANCH'>('ORG');
+  const [purchaseBranchId, setPurchaseBranchId] = useState('');
   
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -148,10 +155,44 @@ export default function SmsManagementPage() {
       }
       if (logsRes.success && logsRes.data) setSmsLogs(logsRes.data);
       if (providerRes.success) setProviderBalance(providerRes.data);
+
+      const [pricingRes, txRes] = await Promise.all([
+        getSmsPricing(),
+        getSmsTransactions({ page: 1, limit: 10 })
+      ]);
+      if (pricingRes.success && pricingRes.data) setSmsPricing(pricingRes.data);
+      if (txRes.success && txRes.data) setSmsTransactions(txRes.data);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePurchaseSms = async () => {
+    if (purchaseQuantity < smsPricing.minPurchase) {
+      toast({ title: 'Error', description: `Minimum purchase is ${smsPricing.minPurchase} SMS`, variant: 'destructive' });
+      return;
+    }
+    try {
+      setSubmitting(true);
+      const res = await initiateSmsPurchase({
+        scope: purchaseScope,
+        branchId: purchaseScope === 'BRANCH' ? purchaseBranchId : undefined,
+        quantity: purchaseQuantity,
+        cusName: 'Admin',
+        cusEmail: 'admin@spondon.com',
+        cusPhone: '01700000000',
+      });
+      if (res.success && res.data?.GatewayPageURL) {
+        window.location.href = res.data.GatewayPageURL;
+      } else {
+        toast({ title: 'Error', description: (res as any).message || 'Failed to initiate purchase', variant: 'destructive' });
+      }
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -630,10 +671,7 @@ export default function SmsManagementPage() {
                      {newCampaign.type === 'DUE' && (
                         <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
                            <label className={labelClass}>Due Resolution Month</label>
-                           <div className="relative">
-                              <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                              <Input type="month" className={cn(inputClass, "bg-slate-50/50 pl-11")} value={newCampaign.targetMonth} onChange={e => setNewCampaign({...newCampaign, targetMonth: e.target.value})} />
-                           </div>
+                           <MonthPicker value={newCampaign.targetMonth} onChange={v => setNewCampaign({...newCampaign, targetMonth: v})} placeholder="Select month" />
                         </div>
                      )}
                   </div>
@@ -803,6 +841,64 @@ export default function SmsManagementPage() {
                      <Send className="mr-2 h-4 w-4" />
                      Initialize Send
                   </Button>
+               </div>
+            </section>
+
+            {/* SMS Purchase via SSL E-commerce */}
+            <section className={cardClass}>
+               <div className="mb-8 flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                     <CreditCard className="h-6 w-6" />
+                  </div>
+                  <h2 className="text-xl font-black text-slate-900 tracking-tight uppercase">Purchase SMS (SSL)</h2>
+               </div>
+               <div className="space-y-6">
+                  <div className="space-y-2">
+                     <label className={labelClass}>Quantity (min {smsPricing.minPurchase})</label>
+                     <Input type="number" value={purchaseQuantity || ''} onChange={e => setPurchaseQuantity(parseInt(e.target.value) || 0)} placeholder="e.g. 500" className={inputClass} min={smsPricing.minPurchase} />
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4">
+                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Total</p>
+                     <p className="text-2xl font-black text-indigo-600">৳ {(purchaseQuantity * smsPricing.pricePerSms).toFixed(2)}</p>
+                     <p className="text-[9px] font-bold text-slate-500 mt-1">৳{smsPricing.pricePerSms} per SMS</p>
+                  </div>
+                  <div className="space-y-2">
+                     <label className={labelClass}>Credit to</label>
+                     <Select value={purchaseScope} onValueChange={(v: 'ORG' | 'BRANCH') => setPurchaseScope(v)}>
+                        <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 font-bold">
+                           <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-2xl shadow-xl">
+                           <SelectItem value="ORG" className="font-bold py-3">Organization</SelectItem>
+                           <SelectItem value="BRANCH" className="font-bold py-3">Branch</SelectItem>
+                        </SelectContent>
+                     </Select>
+                     {purchaseScope === 'BRANCH' && (
+                        <Select value={purchaseBranchId} onValueChange={setPurchaseBranchId}>
+                           <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 font-bold mt-2">
+                              <SelectValue placeholder="Select branch" />
+                           </SelectTrigger>
+                           <SelectContent className="rounded-2xl shadow-xl">
+                              {branches.map(b => <SelectItem key={b.id} value={b.id} className="font-bold py-3">{b.name}</SelectItem>)}
+                           </SelectContent>
+                        </Select>
+                     )}
+                  </div>
+                  <Button onClick={handlePurchaseSms} disabled={submitting || purchaseQuantity < smsPricing.minPurchase} className="h-14 w-full rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-widest text-xs shadow-xl">
+                     <CreditCard className="mr-2 h-4 w-4" />
+                     Pay via SSL Gateway
+                  </Button>
+                  {smsTransactions.length > 0 && (
+                     <div className="pt-4 border-t border-slate-100">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Recent</p>
+                        {smsTransactions.slice(0, 3).map((t: any) => (
+                           <div key={t.id} className="flex justify-between text-xs font-bold py-1">
+                              <span>{t.quantity} SMS</span>
+                              <Badge variant="outline" className={cn("text-[9px]", t.status === 'SUCCESS' ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600")}>{t.status}</Badge>
+                           </div>
+                        ))}
+                     </div>
+                  )}
                </div>
             </section>
 

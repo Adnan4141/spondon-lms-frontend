@@ -75,6 +75,7 @@ type FormState = {
   admissionStatus: AdmissionStatus;
   featured: boolean;
   websiteVisible: boolean;
+  enrollmentVisible: boolean;
   settledOptionEnabled: boolean;
 };
 
@@ -92,6 +93,7 @@ const defaultForm: FormState = {
   admissionStatus: 'OPEN',
   featured: false,
   websiteVisible: true,
+  enrollmentVisible: true,
   settledOptionEnabled: false,
 };
 
@@ -148,6 +150,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
         admissionStatus: course.admissionStatus,
         featured: course.featured,
         websiteVisible: course.websiteVisible,
+        enrollmentVisible: course.enrollmentVisible !== false,
         settledOptionEnabled: course.settledOptionEnabled,
       });
       fetchExtras();
@@ -181,6 +184,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
       admissionStatus: form.admissionStatus,
       featured: form.featured,
       websiteVisible: form.websiteVisible,
+      enrollmentVisible: form.enrollmentVisible,
       settledOptionEnabled: form.settledOptionEnabled,
     };
 
@@ -405,7 +409,16 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                   onChange={(e) => setForm((prev) => ({ ...prev, websiteVisible: e.target.checked }))}
                   className={checkboxClass()}
                 />
-                <span className="text-[11px] font-black uppercase tracking-widest text-slate-600 group-hover:text-indigo-600 transition-colors">Visible</span>
+                <span className="text-[11px] font-black uppercase tracking-widest text-slate-600 group-hover:text-indigo-600 transition-colors">Website Visible</span>
+              </label>
+              <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 transition-all hover:bg-white hover:shadow-md cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={form.enrollmentVisible}
+                  onChange={(e) => setForm((prev) => ({ ...prev, enrollmentVisible: e.target.checked }))}
+                  className={checkboxClass()}
+                />
+                <span className="text-[11px] font-black uppercase tracking-widest text-slate-600 group-hover:text-indigo-600 transition-colors">Enrollment No Visible</span>
               </label>
             </div>
           </div>

@@ -17,3 +17,15 @@ export async function purchaseBook(data: { studentUserId: string; bookId: string
   });
 }
 
+export async function enrollInCourse(data: {
+  studentUserId: string;
+  courseId: string;
+  branchId?: string;
+  batchId?: string;
+}): Promise<ApiResponse<{ enrollment: any; invoice: { id: string } }>> {
+  return apiRequest<ApiResponse<{ enrollment: any; invoice: { id: string } }>>('/student-portal/enroll-course', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+

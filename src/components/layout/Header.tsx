@@ -3,14 +3,19 @@
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Menu, X } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Menu, X, LayoutDashboard, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 
+const ADMIN_ROLES = ['SUPER_ADMIN', 'BRANCH_ADMIN', 'ACCOUNTS', 'MODERATOR'];
+
 export function Header() {
+  const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const [user, setUser] = useState<{ fullName: string; role: string } | null>(null)
 
   useEffect(() => {
     const handleScroll = () => {
@@ -19,6 +24,41 @@ export function Header() {
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const userStr = localStorage.getItem('user');
+      const token = localStorage.getItem('auth_token');
+      const role = document.cookie.split('; ').find(r => r.startsWith('user_role='))?.split('=')[1];
+      if (token && userStr) {
+        const u = JSON.parse(userStr);
+        setUser({ fullName: u.fullName || 'User', role: role || u.role || '' });
+      } else {
+        setUser(null);
+      }
+    } catch {
+      setUser(null);
+    }
+  }, [])
+
+  const handleLogout = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
+      document.cookie = 'auth_token=; path=/; max-age=0';
+      document.cookie = 'user_role=; path=/; max-age=0';
+      setUser(null);
+      router.push('/login');
+    }
+  };
+
+  const getDashboardHref = () => {
+    if (!user?.role) return '/login';
+    if (ADMIN_ROLES.includes(user.role)) return '/admin';
+    if (user.role === 'TEACHER') return '/teacher';
+    return '/student';
+  };
 
   const navLinks = [
     { name: 'সকল কোর্স', href: '/courses' },
@@ -94,16 +134,42 @@ export function Header() {
 
         {/* Action Button */}
         <div className="hidden lg:flex items-center gap-6">
-          <Link href="/login">
-            <Button className={cn(
-              "rounded-2xl px-8 h-11 font-bold transition-all duration-500 active:scale-95 shadow-sm",
-              scrolled 
-                ? "bg-[#5C2D91] hover:bg-[#FF2D8C] text-white" 
-                : "bg-white text-[#5C2D91] hover:shadow-xl hover:shadow-white/20"
-            )}>
-              লগ ইন / সাইন আপ
-            </Button>
-          </Link>
+          {user ? (
+            <div className="flex items-center gap-3">
+              <Link href={getDashboardHref()}>
+                <Button className={cn(
+                  "rounded-2xl px-6 h-11 font-bold transition-all duration-500 active:scale-95 shadow-sm",
+                  scrolled 
+                    ? "bg-[#5C2D91] hover:bg-[#FF2D8C] text-white" 
+                    : "bg-white text-[#5C2D91] hover:shadow-xl hover:shadow-white/20"
+                )}>
+                  <LayoutDashboard className="h-4 w-4 mr-2" />
+                  ড্যাশবোর্ড
+                </Button>
+              </Link>
+              <button
+                onClick={handleLogout}
+                className={cn(
+                  "rounded-2xl px-4 h-11 font-bold transition-all flex items-center gap-2",
+                  scrolled ? "text-slate-600 hover:text-rose-500" : "text-white/90 hover:text-white"
+                )}
+                title="Logout"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <Link href="/login">
+              <Button className={cn(
+                "rounded-2xl px-8 h-11 font-bold transition-all duration-500 active:scale-95 shadow-sm",
+                scrolled 
+                  ? "bg-[#5C2D91] hover:bg-[#FF2D8C] text-white" 
+                  : "bg-white text-[#5C2D91] hover:shadow-xl hover:shadow-white/20"
+              )}>
+                লগ ইন / সাইন আপ
+              </Button>
+            </Link>
+          )}
         </div>
 
         {/* Mobile Toggle */}
@@ -162,13 +228,31 @@ export function Header() {
                   initial={{ y: 20, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.3 }}
-                  className="pt-6"
+                  className="pt-6 space-y-3"
                 >
-                  <Link href="/login" onClick={() => setIsMenuOpen(false)}>
-                    <Button className="w-full h-16 rounded-[1.25rem] bg-[#5C2D91] text-white text-xl font-black shadow-lg shadow-indigo-200">
-                      লগ ইন / সাইন আপ
-                    </Button>
-                  </Link>
+                  {user ? (
+                    <>
+                      <Link href={getDashboardHref()} onClick={() => setIsMenuOpen(false)}>
+                        <Button className="w-full h-16 rounded-[1.25rem] bg-[#5C2D91] text-white text-xl font-black shadow-lg shadow-indigo-200">
+                          <LayoutDashboard className="h-5 w-5 mr-2" />
+                          ড্যাশবোর্ড
+                        </Button>
+                      </Link>
+                      <button
+                        onClick={() => { handleLogout(); setIsMenuOpen(false); }}
+                        className="w-full h-14 rounded-[1.25rem] border-2 border-slate-200 text-slate-700 font-black flex items-center justify-center gap-2"
+                      >
+                        <LogOut className="h-5 w-5" />
+                        লগ আউট
+                      </button>
+                    </>
+                  ) : (
+                    <Link href="/login" onClick={() => setIsMenuOpen(false)}>
+                      <Button className="w-full h-16 rounded-[1.25rem] bg-[#5C2D91] text-white text-xl font-black shadow-lg shadow-indigo-200">
+                        লগ ইন / সাইন আপ
+                      </Button>
+                    </Link>
+                  )}
                 </motion.div>
               </div>
             </motion.div>

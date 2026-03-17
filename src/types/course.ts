@@ -1,7 +1,7 @@
 // Course types based on Prisma schema
 export type CourseType = 'ONLINE' | 'OFFLINE';
 export type BillingType = 'ONE_TIME' | 'MONTHLY';
-export type CourseCategory = 'SSC' | 'HSC' | 'ADMISSION' | 'JUNIOR_CADET_JOB';
+export type CourseCategory = 'SSC' | 'HSC' | 'ADMISSION' | 'JUNIOR_CADET_JOB' | 'JOB';
 export type AdmissionStatus = 'OPEN' | 'CLOSED';
 export type CourseStatus = 'ACTIVE' | 'DISABLED' | 'ARCHIVED';
 export type JsonValue =
@@ -78,6 +78,7 @@ export interface CreateCourseDto {
   outline?: JsonValue;
   featured?: boolean;
   websiteVisible?: boolean;
+  enrollmentVisible?: boolean;
   admissionStatus?: AdmissionStatus;
   status?: CourseStatus;
   settledOptionEnabled?: boolean;
@@ -96,6 +97,7 @@ export interface UpdateCourseDto {
   outline?: JsonValue;
   featured?: boolean;
   websiteVisible?: boolean;
+  enrollmentVisible?: boolean;
   admissionStatus?: AdmissionStatus;
   status?: CourseStatus;
   settledOptionEnabled?: boolean;

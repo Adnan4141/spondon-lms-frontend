@@ -1,4 +1,4 @@
-import { apiRequest } from '../api';
+import { apiRequest, API_ORIGIN } from '../api';
 import type { Exam, CreateExamDto, UpdateExamDto, ApiResponse } from '@/types/exam';
 
 export async function getExams(params?: {
@@ -82,4 +82,20 @@ export async function removeQuestionFromSet(id: string): Promise<ApiResponse<voi
   return apiRequest<ApiResponse<void>>(`/exams/sets/questions/${id}`, {
     method: 'DELETE',
   });
+}
+
+export async function regenerateExamPdf(examId: string): Promise<ApiResponse<{ pdfUrl: string }>> {
+  return apiRequest<ApiResponse<{ pdfUrl: string }>>(`/exams/${examId}/regenerate-pdf`, {
+    method: 'POST',
+  });
+}
+
+export async function regenerateSolveSheet(examId: string): Promise<ApiResponse<{ solveSheetUrl: string }>> {
+  return apiRequest<ApiResponse<{ solveSheetUrl: string }>>(`/exams/${examId}/regenerate-solve-sheet`, {
+    method: 'POST',
+  });
+}
+
+export function getExamPdfDownloadUrl(pdfUrl: string): string {
+  return `${API_ORIGIN}${pdfUrl}`;
 }

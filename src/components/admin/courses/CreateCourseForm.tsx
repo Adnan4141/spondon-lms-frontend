@@ -59,6 +59,7 @@ type EditFormState = {
   admissionStatus: AdmissionStatus;
   featured: boolean;
   websiteVisible: boolean;
+  enrollmentVisible: boolean;
   settledOptionEnabled: boolean;
 };
 
@@ -76,6 +77,7 @@ const defaultEditForm: EditFormState = {
   admissionStatus: 'OPEN',
   featured: false,
   websiteVisible: true,
+  enrollmentVisible: true,
   settledOptionEnabled: false,
 };
 
@@ -120,6 +122,7 @@ export function CreateCourseForm({
       admissionStatus: createForm.admissionStatus,
       featured: createForm.featured,
       websiteVisible: createForm.websiteVisible,
+      enrollmentVisible: createForm.enrollmentVisible,
       settledOptionEnabled: createForm.settledOptionEnabled,
     };
 

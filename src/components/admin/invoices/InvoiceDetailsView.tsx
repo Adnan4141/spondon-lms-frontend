@@ -1,6 +1,8 @@
 'use client';
 
+import React, { useState } from 'react';
 import { Invoice } from '@/types/invoice';
+import { initInvoicePayment } from '@/lib/api/invoices';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { 
@@ -21,9 +23,11 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
 
 interface InvoiceDetailsViewProps {
   invoice: Invoice;
+  onRefresh?: () => void;
 }
 
 function getStatusBadgeClass(status: string) {
@@ -36,7 +40,25 @@ function getStatusBadgeClass(status: string) {
   return 'bg-slate-100 text-slate-600 border-slate-200 font-black';
 }
 
-export function InvoiceDetailsView({ invoice }: InvoiceDetailsViewProps) {
+export function InvoiceDetailsView({ invoice, onRefresh }: InvoiceDetailsViewProps) {
+  const [paying, setPaying] = useState(false);
+  const dueAmount = Number(invoice.dueAmount);
+
+  const handlePayViaGateway = async () => {
+    if (dueAmount <= 0) return;
+    try {
+      setPaying(true);
+      const res = await initInvoicePayment(invoice.id);
+      if (res.success && res.data?.GatewayPageURL) {
+        window.location.href = res.data.GatewayPageURL;
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setPaying(false);
+    }
+  };
+
   const formatCurrency = (amount: number | string) => {
     return `৳${new Intl.NumberFormat('en-US', {
       minimumFractionDigits: 2,
@@ -90,6 +112,16 @@ export function InvoiceDetailsView({ invoice }: InvoiceDetailsViewProps) {
               </div>
            </div>
         </div>
+
+        {/* Pay via SSL - when due */}
+        {dueAmount > 0 && (
+          <div className="mb-6 flex justify-end">
+            <Button onClick={handlePayViaGateway} disabled={paying} className="h-12 px-8 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-widest shadow-lg">
+              <CreditCard className="mr-2 h-4 w-4" />
+              {paying ? 'Redirecting...' : 'Pay via SSL Gateway'}
+            </Button>
+          </div>
+        )}
 
         {/* Financial Core Metrics */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10">

@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   Lock, 
   Eye, 
@@ -23,6 +23,8 @@ import { Toaster } from '@/components/ui/toast';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get('redirect') || '';
   const { toast, toasts, removeToast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -32,11 +34,8 @@ export default function LoginPage() {
   });
 
   const isFormValid = useMemo(() => {
-    const id = formData.identifier.trim();
-    // Support either a valid mobile (11 digits) or an email format
-    const isMobile = /^01[3-9]\d{8}$/.test(id);
-    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(id);
-    return (isMobile || isEmail) && formData.password.length >= 6;
+    const mobile = formData.identifier.trim();
+    return /^01[3-9]\d{8}$/.test(mobile) && formData.password.length >= 6;
   }, [formData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,10 +45,9 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const identifier = formData.identifier.trim();
-      const isEmail = identifier.includes('@');
+      const mobile = formData.identifier.trim();
       const loginData = {
-        [isEmail ? 'email' : 'mobile']: identifier,
+        mobile,
         password: formData.password,
       };
 
@@ -64,14 +62,15 @@ export default function LoginPage() {
         
         localStorage.setItem('auth_token', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
+        document.cookie = `auth_token=${response.data.token}; path=/; max-age=${24 * 60 * 60}`;
+        document.cookie = `user_role=${(response.data as any).user?.role || ''}; path=/; max-age=${24 * 60 * 60}`;
 
         setTimeout(() => {
           const user = (response.data as any)?.user;
-          if (user?.role === 'SUPER_ADMIN' || user?.role === 'BRANCH_ADMIN') {
-            router.push('/admin/dashboard');
-          } else {
-            router.push('/student/dashboard');
-          }
+          let target = '/student';
+          if (user?.role === 'SUPER_ADMIN' || user?.role === 'BRANCH_ADMIN' || user?.role === 'ACCOUNTS') target = '/admin';
+          else if (user?.role === 'TEACHER') target = '/teacher';
+          router.push(redirectTo && redirectTo.startsWith('/') ? redirectTo : target);
         }, 1500);
       } else {
         toast({
