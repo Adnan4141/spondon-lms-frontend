@@ -22,6 +22,27 @@ export async function getRoutine(studentUserId: string): Promise<ApiResponse<any
   return apiRequest<ApiResponse<any[]>>(`/student-portal/routine/${encodeURIComponent(studentUserId)}`);
 }
 
+export async function getCourseContentsWithProgress(
+  courseId: string,
+  studentUserId: string
+): Promise<ApiResponse<any[]>> {
+  return apiRequest<ApiResponse<any[]>>(
+    `/student-portal/course-contents/${encodeURIComponent(courseId)}/${encodeURIComponent(studentUserId)}`
+  );
+}
+
+export async function updateContentProgress(data: {
+  studentUserId: string;
+  contentId: string;
+  completed?: boolean;
+  progressPercent?: number;
+}): Promise<ApiResponse<any>> {
+  return apiRequest<ApiResponse<any>>('/student-portal/course-progress', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
 export async function purchaseBook(data: { studentUserId: string; bookId: string; branchId?: string }): Promise<ApiResponse<any>> {
   return apiRequest<ApiResponse<any>>('/student-portal/purchase-book', {
     method: 'POST',

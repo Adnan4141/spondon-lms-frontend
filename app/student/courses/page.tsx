@@ -114,7 +114,7 @@ export default function StudentMyCoursesPage() {
                         <Clock className="h-3.5 w-3.5" />
                         <span>Last active: 2h ago</span>
                       </div>
-                      <Link href={`/course/${c.course?.id}`} className="h-10 w-10 rounded-full bg-slate-900 text-white flex items-center justify-center hover:bg-indigo-600 transition-colors shadow-lg">
+                      <Link href={`/student/courses/${c.course?.id}`} className="h-10 w-10 rounded-full bg-slate-900 text-white flex items-center justify-center hover:bg-indigo-600 transition-colors shadow-lg">
                         <ArrowRight className="h-5 w-5" />
                       </Link>
                     </div>

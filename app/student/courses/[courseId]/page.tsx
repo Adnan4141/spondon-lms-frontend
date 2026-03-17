@@ -1,0 +1,298 @@
+'use client';
+
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { Card, CardContent } from '@/components/ui/card';
+import { ChevronDown, ChevronRight, Play, CheckCircle2, Circle } from 'lucide-react';
+import { getCourseContentsWithProgress, updateContentProgress } from '@/lib/api/student-portal';
+import { getCourseById } from '@/lib/api/courses';
+import type { CourseDetails } from '@/types/course';
+
+interface ContentItem {
+  id: string;
+  type: string;
+  title: string;
+  fileUrl?: string;
+  topicTitle?: string;
+  topicSortOrder?: number;
+  durationMinutes?: number;
+  sortOrder: number;
+  progress?: { completed: boolean; progressPercent?: number } | null;
+}
+
+function formatDuration(min: number) {
+  if (min >= 60) return `${Math.floor(min / 60)}h ${min % 60}min`;
+  return `${min}min`;
+}
+
+function groupByTopic(contents: ContentItem[]) {
+  const groups: { topic: string; sortOrder: number; items: ContentItem[] }[] = [];
+  const map = new Map<string, ContentItem[]>();
+
+  for (const c of contents) {
+    const topic = c.topicTitle || 'Uncategorized';
+    const so = c.topicSortOrder ?? 999;
+    if (!map.has(topic)) {
+      map.set(topic, []);
+      groups.push({ topic, sortOrder: so, items: [] });
+    }
+    map.get(topic)!.push(c);
+  }
+
+  for (const g of groups) {
+    g.items = map.get(g.topic)!.sort((a, b) => a.sortOrder - b.sortOrder);
+  }
+  groups.sort((a, b) => a.sortOrder - b.sortOrder);
+
+  return groups;
+}
+
+export default function StudentCourseLearnPage() {
+  const params = useParams();
+  const router = useRouter();
+  const courseId = params.courseId as string;
+  const [course, setCourse] = useState<CourseDetails | null>(null);
+  const [contents, setContents] = useState<ContentItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedContent, setSelectedContent] = useState<ContentItem | null>(null);
+  const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
+  const [studentUserId, setStudentUserId] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    try {
+      const u = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+      setStudentUserId(u ? JSON.parse(u)?.id ?? null : null);
+    } catch {
+      setStudentUserId(null);
+    }
+  }, []);
+
+  const fetchData = useCallback(async () => {
+    if (!courseId || !studentUserId) {
+      setLoading(false);
+      return;
+    }
+    try {
+      setLoading(true);
+      const [courseRes, contentsRes] = await Promise.all([
+        getCourseById(courseId),
+        getCourseContentsWithProgress(courseId, studentUserId),
+      ]);
+      if (courseRes.success && courseRes.data) setCourse(courseRes.data as CourseDetails);
+      if (contentsRes.success && contentsRes.data) {
+        const items = contentsRes.data as ContentItem[];
+        setContents(items);
+        if (items.length > 0) {
+          const firstVideo = items.find((c) => c.type === 'VIDEO' && c.fileUrl) || items[0];
+          setSelectedContent(firstVideo);
+          setExpandedTopics(new Set([firstVideo.topicTitle || 'Uncategorized']));
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      setContents([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [courseId, studentUserId]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const markProgress = useCallback(
+    async (contentId: string, completed: boolean, progressPercent?: number) => {
+      if (!studentUserId) return;
+      try {
+        await updateContentProgress({ studentUserId, contentId, completed, progressPercent });
+        setContents((prev) =>
+          prev.map((c) =>
+            c.id === contentId
+              ? { ...c, progress: { completed, progressPercent: progressPercent ?? c.progress?.progressPercent ?? 0 } }
+              : c
+          )
+        );
+      } catch (err) {
+        console.error(err);
+      }
+    },
+    [studentUserId]
+  );
+
+  const handleVideoTimeUpdate = () => {
+    const v = videoRef.current;
+    if (!v || !selectedContent || !studentUserId) return;
+    const pct = v.duration ? Math.min(100, Math.round((v.currentTime / v.duration) * 100)) : 0;
+    if (pct >= 90) markProgress(selectedContent.id, true, 100);
+  };
+
+  const handleVideoEnded = () => {
+    if (selectedContent && studentUserId) markProgress(selectedContent.id, true, 100);
+  };
+
+  const groups = groupByTopic(contents);
+  const totalLessons = contents.filter((c) => c.type === 'VIDEO').length;
+  const completedCount = contents.filter((c) => c.progress?.completed).length;
+  const progressPct = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
+  const totalMins = contents.reduce((s, c) => s + (c.durationMinutes ?? 0), 0);
+
+  if (!studentUserId) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <p className="text-slate-600 mb-4">Please log in to view this course.</p>
+        <Link href="/login" className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold">
+          Log in
+        </Link>
+      </div>
+    );
+  }
+
+  if (loading && !course) {
+    return (
+      <div className="flex justify-center py-20">
+        <div className="h-12 w-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <Link href="/student/courses" className="text-sm text-indigo-600 hover:underline mb-2 inline-block">
+            ← Back to My Courses
+          </Link>
+          <h1 className="text-3xl font-black text-slate-900">{course?.name || 'Course'}</h1>
+          <p className="text-slate-500 mt-1">
+            {totalLessons} lessons · {formatDuration(totalMins)} total
+          </p>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="text-right">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Progress</p>
+            <p className="text-xl font-black text-indigo-600">{progressPct}%</p>
+          </div>
+          <div className="w-32 h-2 bg-slate-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-indigo-500 rounded-full transition-all"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-6">
+          <Card className="rounded-2xl overflow-hidden border-none shadow-lg">
+            <div className="aspect-video bg-slate-900">
+              {selectedContent?.type === 'VIDEO' && selectedContent.fileUrl ? (
+                <video
+                  ref={videoRef}
+                  key={selectedContent.id}
+                  src={selectedContent.fileUrl}
+                  controls
+                  className="w-full h-full"
+                  onTimeUpdate={handleVideoTimeUpdate}
+                  onEnded={handleVideoEnded}
+                  onPlay={() => {}}
+                />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
+                  <Play className="h-16 w-16 mb-4 opacity-50" />
+                  <p className="font-bold">
+                    {selectedContent ? (selectedContent.fileUrl ? 'Video not available' : selectedContent.title) : 'Select a lesson'}
+                  </p>
+                  {selectedContent?.type !== 'VIDEO' && (
+                    <p className="text-sm mt-2">This content type is not playable as video.</p>
+                  )}
+                </div>
+              )}
+            </div>
+            <CardContent className="p-6">
+              <h2 className="text-xl font-black text-slate-900">
+                {selectedContent?.title || 'Select a lesson from the sidebar'}
+              </h2>
+              {selectedContent?.durationMinutes && (
+                <p className="text-slate-500 text-sm mt-1">{formatDuration(selectedContent.durationMinutes)}</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-4">
+          <h3 className="text-lg font-black text-slate-900">Course content</h3>
+          <Card className="rounded-2xl border border-slate-100 overflow-hidden">
+            <CardContent className="p-0">
+              {groups.map((g) => {
+                const topicDuration = g.items.reduce((s, i) => s + (i.durationMinutes ?? 0), 0);
+                const isExpanded = expandedTopics.has(g.topic);
+                return (
+                  <div key={g.topic} className="border-b border-slate-100 last:border-0">
+                    <button
+                      onClick={() =>
+                        setExpandedTopics((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(g.topic)) next.delete(g.topic);
+                          else next.add(g.topic);
+                          return next;
+                        })
+                      }
+                      className="w-full flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-2">
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4 text-slate-400" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-slate-400" />
+                        )}
+                        <span className="font-bold text-slate-900">{g.topic}</span>
+                      </div>
+                      <span className="text-xs font-bold text-slate-400">{formatDuration(topicDuration)}</span>
+                    </button>
+                    {isExpanded && (
+                      <div className="bg-slate-50/50">
+                        {g.items.map((item) => {
+                          const isSelected = selectedContent?.id === item.id;
+                          const isCompleted = item.progress?.completed;
+                          return (
+                            <button
+                              key={item.id}
+                              onClick={() => setSelectedContent(item)}
+                              className={`w-full flex items-center gap-3 px-5 py-3 pl-12 hover:bg-white/80 transition-colors text-left ${
+                                isSelected ? 'bg-indigo-50 border-l-2 border-indigo-600' : ''
+                              }`}
+                            >
+                              {isCompleted ? (
+                                <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                              ) : (
+                                <Circle className="h-4 w-4 text-slate-300 shrink-0" />
+                              )}
+                              <Play className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                              <span className={`flex-1 font-medium ${isSelected ? 'text-indigo-700' : 'text-slate-700'}`}>
+                                {item.title}
+                              </span>
+                              {item.durationMinutes != null && (
+                                <span className="text-xs text-slate-400">{item.durationMinutes} min</span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {groups.length === 0 && !loading && (
+                <div className="p-8 text-center text-slate-500">
+                  <p>No course content yet.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}

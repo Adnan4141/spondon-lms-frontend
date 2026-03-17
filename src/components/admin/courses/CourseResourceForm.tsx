@@ -44,6 +44,9 @@ export function CourseResourceForm({ courseId, resource, onSuccess, onCancel }: 
     textBody: resource?.textBody || '',
     isFree: resource?.isFree || false,
     sortOrder: resource?.sortOrder || 0,
+    topicTitle: resource?.topicTitle || '',
+    topicSortOrder: resource?.topicSortOrder ?? '',
+    durationMinutes: resource?.durationMinutes ?? '',
   });
   const [file, setFile] = useState<File | null>(null);
 
@@ -60,6 +63,9 @@ export function CourseResourceForm({ courseId, resource, onSuccess, onCancel }: 
       data.append('textBody', formData.textBody);
       data.append('isFree', String(formData.isFree));
       data.append('sortOrder', String(formData.sortOrder));
+      data.append('topicTitle', formData.topicTitle);
+      data.append('topicSortOrder', String(formData.topicSortOrder));
+      data.append('durationMinutes', String(formData.durationMinutes));
       if (file) data.append('file', file);
 
       const res = resource 
@@ -144,6 +150,38 @@ export function CourseResourceForm({ courseId, resource, onSuccess, onCancel }: 
             className="h-12 rounded-2xl border-slate-200 bg-white font-bold" 
             value={formData.sortOrder} 
             onChange={e => setFormData({...formData, sortOrder: parseInt(e.target.value) || 0})}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Topic / Module (e.g. 01: Intro)</Label>
+          <Input 
+            className="h-12 rounded-2xl border-slate-200 bg-white font-bold" 
+            value={formData.topicTitle} 
+            onChange={e => setFormData({...formData, topicTitle: e.target.value})}
+            placeholder="e.g. 01: Intro, 02: Intermediate"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Topic Order</Label>
+          <Input 
+            type="number" 
+            className="h-12 rounded-2xl border-slate-200 bg-white font-bold" 
+            value={formData.topicSortOrder} 
+            onChange={e => setFormData({...formData, topicSortOrder: e.target.value})}
+            placeholder="0"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Duration (minutes)</Label>
+          <Input 
+            type="number" 
+            className="h-12 rounded-2xl border-slate-200 bg-white font-bold" 
+            value={formData.durationMinutes} 
+            onChange={e => setFormData({...formData, durationMinutes: e.target.value})}
+            placeholder="e.g. 5"
           />
         </div>
       </div>

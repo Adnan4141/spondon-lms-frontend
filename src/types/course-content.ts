@@ -10,8 +10,12 @@ export interface CourseContent {
   textBody?: string;
   isFree: boolean;
   sortOrder: number;
+  topicTitle?: string;
+  topicSortOrder?: number;
+  durationMinutes?: number;
   createdAt: string;
   updatedAt: string;
+  progress?: { completed: boolean; progressPercent?: number } | null;
   course?: {
     id: string;
     name: string;
@@ -27,6 +31,9 @@ export interface CreateCourseContentDto {
   textBody?: string;
   isFree?: boolean;
   sortOrder?: number;
+  topicTitle?: string;
+  topicSortOrder?: number;
+  durationMinutes?: number;
 }
 
 export interface UpdateCourseContentDto {
@@ -36,6 +43,9 @@ export interface UpdateCourseContentDto {
   textBody?: string;
   isFree?: boolean;
   sortOrder?: number;
+  topicTitle?: string;
+  topicSortOrder?: number;
+  durationMinutes?: number;
 }
 
 export interface CourseOutline {
