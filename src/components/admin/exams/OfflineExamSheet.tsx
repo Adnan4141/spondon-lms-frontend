@@ -2,8 +2,9 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Printer, X, GraduationCap, BookOpen, Columns, Square, FileText } from 'lucide-react';
+import { Download, X, GraduationCap, Columns, Square, FileText, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { regenerateExamPdf, getExamPdfDownloadUrl } from '@/lib/api/exams';
 
 interface OfflineExamSheetProps {
   exam: any;
@@ -13,15 +14,26 @@ interface OfflineExamSheetProps {
 
 export function OfflineExamSheet({ exam, set, onClose }: OfflineExamSheetProps) {
   const [isTwoColumn, setIsTwoColumn] = useState(true);
+  const [downloading, setDownloading] = useState(false);
 
-  const handlePrint = () => {
-    window.print();
+  const handleDownloadPdf = async () => {
+    try {
+      setDownloading(true);
+      const res = await regenerateExamPdf(exam.id);
+      if (res.success && res.data?.pdfUrl) {
+        window.open(getExamPdfDownloadUrl(res.data.pdfUrl), '_blank');
+      }
+    } catch (err) {
+      console.error('PDF generation failed', err);
+    } finally {
+      setDownloading(false);
+    }
   };
 
   let questionNumber = 0;
 
   return (
-    <div className="flex flex-col h-full bg-white text-slate-900">
+    <div data-print-root className="flex flex-col h-full bg-white text-slate-900 print:block print:h-auto print:overflow-visible">
       {/* Premium Action Bar (Hidden on Print) */}
       <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-white print:hidden shrink-0 z-50 shadow-sm">
          <div className="flex items-center gap-4">
@@ -52,8 +64,9 @@ export function OfflineExamSheet({ exam, set, onClose }: OfflineExamSheetProps) 
                   <Columns className="mr-2 h-3.5 w-3.5" /> Dual
                </Button>
             </div>
-            <Button onClick={handlePrint} className="h-12 rounded-2xl bg-slate-900 hover:bg-indigo-600 text-white font-black uppercase tracking-widest text-xs shadow-xl shadow-slate-200 transition-all active:scale-95">
-               <Printer className="mr-2.5 h-4 w-4" /> Finalize & Print PDF
+            <Button onClick={handleDownloadPdf} disabled={downloading} className="h-12 rounded-2xl bg-slate-900 hover:bg-indigo-600 text-white font-black uppercase tracking-widest text-xs shadow-xl shadow-slate-200 transition-all active:scale-95 disabled:opacity-50">
+               {downloading ? <Loader2 className="mr-2.5 h-4 w-4 animate-spin" /> : <Download className="mr-2.5 h-4 w-4" />}
+               {downloading ? 'Generating...' : 'Download PDF'}
             </Button>
             <Button variant="outline" onClick={onClose} className="h-12 w-12 rounded-2xl border-slate-200 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition-all">
                <X className="h-5 w-5" />
@@ -64,24 +77,63 @@ export function OfflineExamSheet({ exam, set, onClose }: OfflineExamSheetProps) 
       {/* Global Print Isolation Styles */}
       <style jsx global>{`
         @media print {
-          /* Hide everything in the body */
-          body * {
-            visibility: hidden;
-          }
-          
-          /* Specifically show ONLY the printable canvas and its children */
-          #printable-exam-canvas, #printable-exam-canvas * {
-            visibility: visible;
+          /* Hide the main app content behind the dialog */
+          #__next > *:not([role="dialog"]):not([data-radix-portal]) {
+            display: none !important;
           }
 
-          /* Reset positioning for the printable area to take full page */
+          /* Hide the dialog overlay (black backdrop) */
+          [data-slot="dialog-overlay"] {
+            display: none !important;
+          }
+
+          /* Make dialog content flow naturally for multi-page print */
+          [data-slot="dialog-content"] {
+            position: static !important;
+            transform: none !important;
+            max-height: none !important;
+            height: auto !important;
+            overflow: visible !important;
+            border: none !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            max-width: none !important;
+            width: 100% !important;
+          }
+
+          /* Make dialog portal flow naturally */
+          [data-radix-portal] {
+            position: static !important;
+            height: auto !important;
+            overflow: visible !important;
+          }
+
+          /* Hide the dialog close button */
+          [data-slot="dialog-close"] {
+            display: none !important;
+          }
+
+          /* Remove all height/overflow constraints on the content wrapper */
+          [data-print-root],
+          [data-print-root] > * {
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+            position: static !important;
+          }
+
+          /* The printable canvas itself */
           #printable-exam-canvas {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            visibility: visible !important;
-            display: block !important;
+            position: static !important;
+            width: 100% !important;
+            max-width: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+            overflow: visible !important;
           }
 
           @page {
@@ -103,7 +155,7 @@ export function OfflineExamSheet({ exam, set, onClose }: OfflineExamSheetProps) 
       `}</style>
 
       {/* High-Fidelity Printable Canvas */}
-      <div className="flex-1 overflow-y-auto p-12 bg-slate-100/30 print:bg-white print:p-0 no-scrollbar">
+      <div className="flex-1 overflow-y-auto p-12 bg-slate-100/30 print:bg-white print:p-0 print:overflow-visible print:h-auto no-scrollbar">
          <div id="printable-exam-canvas" className="w-full max-w-[900px] mx-auto bg-white shadow-2xl border border-slate-200 p-12 print:shadow-none print:border-none print:p-0 print:max-w-none">
             
             {/* Header / Institutional Branding (Standard Div - Shows only once at the top) */}
@@ -189,32 +241,43 @@ export function OfflineExamSheet({ exam, set, onClose }: OfflineExamSheetProps) 
                       const passageContent = q?.passage?.content;
                       const children = questions.filter((c: any) => c.question?.passageId === passageId);
 
-                      rendered.push(
-                        <div key={`passage-${passageId}`} className="mb-6 print-no-break">
-                          {/* Passage Context Block */}
-                          <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 print:bg-transparent print:border-slate-900 print:rounded-xl mb-4">
-                         
-                            {passageContent && (
-                              <div className="text-[13px] leading-relaxed text-slate-800 font-medium prose prose-slate max-w-none" dangerouslySetInnerHTML={{ __html: passageContent }} />
-                            )}
-                           
-                          </div>
+                      // Calculate question number range for instruction text
+                      const firstNum = questionNumber + 1;
+                      const lastNum = firstNum + children.length - 1;
+                      const toBn = (n: number) => String(n).replace(/\d/g, (d) => ['০','১','২','৩','৪','৫','৬','৭','৮','৯'][parseInt(d)]);
+                      let instruction: string;
+                      if (children.length === 1) {
+                        instruction = `উদ্দীপকটি পড়ে ${toBn(firstNum)} নং প্রশ্নের উত্তর দাও:`;
+                      } else if (children.length === 2) {
+                        instruction = `উদ্দীপকটি পড়ে ${toBn(firstNum)} ও ${toBn(lastNum)} নং প্রশ্নের উত্তর দাও:`;
+                      } else {
+                        const nums = children.map((_: any, i: number) => toBn(firstNum + i));
+                        const last = nums.pop();
+                        instruction = `উদ্দীপকটি পড়ে ${nums.join(', ')} ও ${last} নং প্রশ্নের উত্তর দাও:`;
+                      }
 
-                          {/* Child Questions */}
+                      rendered.push(
+                        <div key={`passage-${passageId}`} className="mb-4">
+                          {/* Passage stimulus text */}
+                          {passageContent && (
+                            <div className="text-[13px] leading-relaxed text-slate-800 font-medium mb-1 pl-[28px]" dangerouslySetInnerHTML={{ __html: passageContent }} />
+                          )}
+                          {/* Instruction line with question numbers */}
+                          <p className="text-[13px] font-bold text-slate-900 mb-3 pl-[28px]">{instruction}</p>
+
+                          {/* Child Questions — same style as standalone, no indent */}
                           {children.map((child: any) => {
                             questionNumber++;
                             const cq = child.question;
                             return (
-                              <div key={child.id} className={cn(
-                                "mb-6 print-no-break ml-6 border-l-2 border-slate-100 pl-6 py-2"
-                              )}>
+                              <div key={child.id} className={cn("mb-10 print-no-break pt-2")}>
                                 <div className="flex items-start gap-3">
-                                  <span className="text-sm font-black text-slate-500 min-w-[25px] pt-0.5">
+                                  <span className="text-base font-black text-slate-900 min-w-[25px] pt-0.5">
                                     {questionNumber}.
                                   </span>
                                   <div className="flex-1 space-y-4">
                                     <div className="flex justify-between items-start gap-4">
-                                      <div className="text-[13px] font-bold text-slate-900 leading-snug" dangerouslySetInnerHTML={{ __html: cq?.prompt || '' }} />
+                                      <div className="text-[14px] font-bold text-slate-900 leading-snug" dangerouslySetInnerHTML={{ __html: cq?.prompt || '' }} />
                                       <span className="text-[9px] font-black text-slate-900 bg-slate-50 px-2 py-1 rounded border border-slate-100 whitespace-nowrap print:border-slate-900 shrink-0">
                                         {child.marks} PTS
                                       </span>
