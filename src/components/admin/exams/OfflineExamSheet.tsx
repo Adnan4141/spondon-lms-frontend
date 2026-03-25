@@ -283,7 +283,8 @@ export function OfflineExamSheet({ exam, set, onClose }: OfflineExamSheetProps) 
                         </div>
                       );
                     }
-             s
+   
+                 
                   }
                   return rendered;
                })()}
