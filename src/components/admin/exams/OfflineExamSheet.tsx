@@ -283,35 +283,13 @@ export function OfflineExamSheet({ exam, set, onClose }: OfflineExamSheetProps) 
                         </div>
                       );
                     }
-                    // Skip already-seen passage children
+             s
                   }
                   return rendered;
                })()}
             </div>
 
-            {/* Compliance Footer (Standard Div - Appears only once at the end) */}
-            <footer className="mt-16 pt-12 border-t-4 border-slate-900 flex flex-col gap-6 w-full print-no-break">
-               <div className="grid grid-cols-3 gap-10">
-                  <div className="border-t border-slate-200 pt-2 text-center print:border-slate-900">
-                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-900">Senior Instructor</p>
-                  </div>
-                  <div className="border-t border-slate-200 pt-2 text-center print:border-slate-900">
-                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-900">Exam Controller</p>
-                  </div>
-                  <div className="border-t border-slate-200 pt-2 text-center print:border-slate-900">
-                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-900">Audit Node</p>
-                  </div>
-               </div>
-               
-               <div className="flex items-center justify-between opacity-40 print:opacity-100">
-                  <div className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-500">
-                     © Spondon LMS Institutional Protocol
-                  </div>
-                  <div className="font-mono text-[8px] font-bold text-slate-400 uppercase">
-                     REF_ID: {set.id.toUpperCase()} • COMPILATION_NODE
-                  </div>
-               </div>
-            </footer>
+      
          </div>
       </div>
     </div>
