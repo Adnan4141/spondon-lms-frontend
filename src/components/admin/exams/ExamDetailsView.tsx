@@ -46,6 +46,7 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
   const [exam, setExam] = useState(initialExam);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [solveSheetLoading, setSolveSheetLoading] = useState(false);
+  const sheetLang: 'bn' | 'en' = exam.language === 'en' ? 'en' : 'bn';
   const [omrScans, setOmrScans] = useState<OmrScan[]>([]);
   const [omrUploading, setOmrUploading] = useState(false);
   const [excelImporting, setExcelImporting] = useState(false);
@@ -322,7 +323,17 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
                            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm font-bold text-slate-700 disabled:opacity-50"
                          >
                            <Download className="h-4 w-4" />
-                           {pdfLoading ? 'Generating...' : exam.pdfUrl ? 'Download Exam PDF' : 'Generate Exam PDF'}
+                        {pdfLoading
+                          ? sheetLang === 'en'
+                            ? 'Generating...'
+                            : 'তৈরি হচ্ছে...'
+                          : exam.pdfUrl
+                            ? sheetLang === 'en'
+                              ? 'Download Exam PDF'
+                              : 'পরীক্ষার PDF ডাউনলোড'
+                            : sheetLang === 'en'
+                              ? 'Generate Exam PDF'
+                              : 'পরীক্ষার PDF তৈরি'}
                          </button>
                          <button
                            onClick={exam.solveSheetUrl ? () => window.open(getExamPdfDownloadUrl(exam.solveSheetUrl!), '_blank') : handleRegenerateSolveSheet}
@@ -330,7 +341,17 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
                            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm font-bold text-slate-700 disabled:opacity-50"
                          >
                            <Download className="h-4 w-4" />
-                           {solveSheetLoading ? 'Generating...' : exam.solveSheetUrl ? 'Download Solve Sheet' : 'Generate Solve Sheet'}
+                        {solveSheetLoading
+                          ? sheetLang === 'en'
+                            ? 'Generating...'
+                            : 'তৈরি হচ্ছে...'
+                          : exam.solveSheetUrl
+                            ? sheetLang === 'en'
+                              ? 'Download Solve Sheet'
+                              : 'সমাধান পত্র ডাউনলোড'
+                            : sheetLang === 'en'
+                              ? 'Generate Solve Sheet'
+                              : 'সমাধান পত্র তৈরি'}
                          </button>
                        </div>
                        <h3 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-emerald-600 mb-4">

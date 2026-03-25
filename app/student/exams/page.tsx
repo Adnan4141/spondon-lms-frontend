@@ -31,10 +31,10 @@ function getTypeBadgeClass(type: string) {
   }
 }
 
-function timeRemaining(endAt: string | null | undefined): string | null {
+function timeRemaining(endAt: string | null | undefined, lang: 'bn' | 'en' = 'bn'): string | null {
   if (!endAt) return null;
   const diff = new Date(endAt).getTime() - Date.now();
-  if (diff <= 0) return 'Ended';
+  if (diff <= 0) return lang === 'en' ? 'Ended' : 'শেষ হয়েছে';
   const hours = Math.floor(diff / 3600000);
   const mins = Math.floor((diff % 3600000) / 60000);
   if (hours > 24) return `${Math.floor(hours / 24)}d ${hours % 24}h left`;
@@ -116,7 +116,8 @@ export default function StudentExamsPage() {
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {availableExams.map((exam) => {
-              const remaining = timeRemaining(exam.endAt);
+              const lang: 'bn' | 'en' = exam.language === 'en' ? 'en' : 'bn';
+              const remaining = timeRemaining(exam.endAt, lang);
               return (
                 <div
                   key={exam.id}
@@ -154,7 +155,7 @@ export default function StudentExamsPage() {
                   <div className="flex items-center gap-4 text-xs font-medium text-slate-400 mt-3">
                     {exam.durationMinutes && (
                       <span className="flex items-center gap-1">
-                        <Timer className="h-3 w-3" /> {exam.durationMinutes} মিনিট
+                        <Timer className="h-3 w-3" /> {exam.durationMinutes} {lang === 'en' ? 'minutes' : 'মিনিট'}
                       </span>
                     )}
                     {remaining && (
@@ -178,9 +179,9 @@ export default function StudentExamsPage() {
                       }}
                     >
                       {exam.hasInProgress ? (
-                        <><RotateCcw className="h-3.5 w-3.5 mr-2" /> পরীক্ষায় ফিরুন</>
+                        <><RotateCcw className="h-3.5 w-3.5 mr-2" /> {lang === 'en' ? 'Return to exam' : 'পরীক্ষায় ফিরুন'}</>
                       ) : (
-                        <><Play className="h-3.5 w-3.5 mr-2" /> পরীক্ষা শুরু করুন</>
+                        <><Play className="h-3.5 w-3.5 mr-2" /> {lang === 'en' ? 'Start exam' : 'পরীক্ষা শুরু করুন'}</>
                       )}
                     </Button>
                   </div>
@@ -199,6 +200,7 @@ export default function StudentExamsPage() {
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {completedExams.map((exam) => {
+              const lang: 'bn' | 'en' = exam.language === 'en' ? 'en' : 'bn';
               const lastAttempt = exam.studentAttempts?.[exam.studentAttempts.length - 1];
               const percentage = lastAttempt?.totalMarks && lastAttempt?.obtainedMarks != null
                 ? Math.round((lastAttempt.obtainedMarks / lastAttempt.totalMarks) * 100)
@@ -235,7 +237,7 @@ export default function StudentExamsPage() {
                         {lastAttempt.obtainedMarks ?? 0}/{lastAttempt.totalMarks ?? 0}
                       </span>
                       {lastAttempt.submittedAt && (
-                        <span>{new Date(lastAttempt.submittedAt).toLocaleDateString('bn-BD')}</span>
+                        <span>{new Date(lastAttempt.submittedAt).toLocaleDateString(lang === 'en' ? 'en-US' : 'bn-BD')}</span>
                       )}
                     </div>
                   )}
@@ -249,7 +251,7 @@ export default function StudentExamsPage() {
                         router.push(`/student/exams/${exam.id}`);
                       }}
                     >
-                      <FileText className="h-3.5 w-3.5 mr-2" /> ফলাফল দেখুন
+                      <FileText className="h-3.5 w-3.5 mr-2" /> {lang === 'en' ? 'View results' : 'ফলাফল দেখুন'}
                     </Button>
                   </div>
                 </div>

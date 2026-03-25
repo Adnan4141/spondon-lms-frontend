@@ -12,14 +12,108 @@ interface OfflineExamSheetProps {
   onClose: () => void;
 }
 
+type Lang = 'bn' | 'en';
+
 function toBn(n: number) {
   return String(n).replace(/\d/g, (d) => ['০','১','২','৩','৪','৫','৬','৭','৮','৯'][parseInt(d)]);
+}
+
+function formatNum(n: number, lang: Lang): string {
+  return lang === 'bn' ? toBn(n) : String(n);
+}
+
+function isBanglaText(v?: string | null) {
+  if (!v) return false;
+  return /[\u0980-\u09FF]/.test(v);
+}
+
+function detectQuestionLang(question: any, fallback: Lang = 'bn'): Lang {
+  const prompt = String(question?.prompt ?? '');
+  const optionText = (question?.options ?? [])
+    .map((o: any) => String(o?.text ?? ''))
+    .join(' ');
+  const combined = `${prompt} ${optionText}`;
+  return isBanglaText(combined) ? 'bn' : 'en';
+}
+
+const bnOptionLetters = ['ক', 'খ', 'গ', 'ঘ', 'ঙ', 'চ', 'ছ', 'জ'];
+const bnOptionInv: Record<string, number> = Object.fromEntries(
+  bnOptionLetters.map((l, i) => [l, i]),
+);
+
+function getOptionUiLetter(label: string | undefined, idx: number, lang: Lang): string {
+  const raw = String(label ?? '').trim();
+  const upper = raw.toUpperCase();
+  const isAlpha = upper.length === 1 && upper >= 'A' && upper <= 'Z';
+  const alphaIndex = isAlpha ? upper.charCodeAt(0) - 65 : -1;
+
+  if (lang === 'bn') {
+    // If stored as A/B/C... convert to Bengali letters when we can.
+    if (alphaIndex >= 0 && alphaIndex < bnOptionLetters.length) return bnOptionLetters[alphaIndex];
+    // If already Bengali, keep it.
+    if (isBanglaText(raw)) return raw;
+    // Fallback to positional Bengali letters.
+    return bnOptionLetters[idx] ?? raw ?? String(idx + 1);
+  }
+
+  // lang === 'en'
+  const bnIdx = bnOptionInv[raw];
+  if (bnIdx !== undefined) return String.fromCharCode(65 + bnIdx);
+  if (isAlpha) return upper;
+  // Fallback to positional English letters.
+  return String.fromCharCode(65 + idx) ?? raw ?? String(idx + 1);
+}
+
+const bnCQLetters = ['ক', 'খ', 'গ', 'ঘ', 'ঙ', 'চ', 'ছ', 'জ', 'ঝ', 'ঞ'];
+function getPartLabel(idx: number, lang: Lang): string {
+  if (lang === 'en') return String.fromCharCode(65 + idx);
+  return bnCQLetters[idx] ?? String(idx + 1);
 }
 
 export function OfflineExamSheet({ exam, set, onClose }: OfflineExamSheetProps) {
   const [isTwoColumn, setIsTwoColumn] = useState(true);
   const [downloadingSet, setDownloadingSet] = useState(false);
   const [downloadingAll, setDownloadingAll] = useState(false);
+
+  const sheetLang: Lang = exam?.language === 'en' ? 'en' : 'bn';
+
+  const ui = sheetLang === 'en'
+    ? {
+        previewTitle: `Question Paper Preview — Set ${set?.name ?? ''}`,
+        previewMeta: (qCount: number, totalMarks: number) => `(${qCount} questions, ${totalMarks} marks)`,
+        col1: '1 column',
+        col2: '2 columns',
+        downloading: 'Generating...',
+        downloadSet: (setName: string) => `Download Set ${setName}`,
+        downloadAll: 'Download all sets',
+        headerAcademy: 'Spondon Academy',
+        subject: 'Subject',
+        branch: 'Branch',
+        batch: 'Batch',
+        duration: 'Time',
+        fullMarks: 'Full marks',
+        studentName: 'Name',
+        studentRoll: 'Roll No',
+        passageInstruction: 'Read the passage and answer',
+      }
+    : {
+        previewTitle: `প্রশ্নপত্র প্রিভিউ — সেট ${set?.name ?? ''}`,
+        previewMeta: (qCount: number, totalMarks: number) => `(${qCount} প্রশ্ন, ${totalMarks} নম্বর)`,
+        col1: '১ কলাম',
+        col2: '২ কলাম',
+        downloading: 'তৈরি হচ্ছে...',
+        downloadSet: (setName: string) => `সেট ${setName} ডাউনলোড`,
+        downloadAll: 'সব সেট ডাউনলোড',
+        headerAcademy: 'স্পন্দন একাডেমি',
+        subject: 'বিষয়',
+        branch: 'শাখা',
+        batch: 'ব্যাচ',
+        duration: 'সময়',
+        fullMarks: 'পূর্ণমান',
+        studentName: 'নাম',
+        studentRoll: 'রোল নং',
+        passageInstruction: 'উদ্দীপকটি পড়ে',
+      };
 
   const handleDownloadSetPdf = async () => {
     try {
@@ -62,9 +156,9 @@ export function OfflineExamSheet({ exam, set, onClose }: OfflineExamSheetProps) 
       <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 bg-slate-50 shrink-0">
         <div className="flex items-center gap-3">
           <h3 className="text-sm font-bold text-slate-700">
-            প্রশ্নপত্র প্রিভিউ — সেট {set.name}
+            {ui.previewTitle}
           </h3>
-          <span className="text-xs text-slate-400">({questions.length} প্রশ্ন, {totalMarks} নম্বর)</span>
+          <span className="text-xs text-slate-400">{ui.previewMeta(questions.length, totalMarks)}</span>
         </div>
         <div className="flex items-center gap-2">
           {/* Layout toggle */}
@@ -73,13 +167,13 @@ export function OfflineExamSheet({ exam, set, onClose }: OfflineExamSheetProps) 
               className={cn("px-3 py-1.5 text-xs font-semibold transition-colors", !isTwoColumn ? "bg-slate-900 text-white" : "bg-white text-slate-500 hover:bg-slate-100")}
               onClick={() => setIsTwoColumn(false)}
             >
-              <AlignJustify className="h-3.5 w-3.5 inline mr-1" />১ কলাম
+              <AlignJustify className="h-3.5 w-3.5 inline mr-1" />{ui.col1}
             </button>
             <button
               className={cn("px-3 py-1.5 text-xs font-semibold transition-colors", isTwoColumn ? "bg-slate-900 text-white" : "bg-white text-slate-500 hover:bg-slate-100")}
               onClick={() => setIsTwoColumn(true)}
             >
-              <Columns className="h-3.5 w-3.5 inline mr-1" />২ কলাম
+              <Columns className="h-3.5 w-3.5 inline mr-1" />{ui.col2}
             </button>
           </div>
 
@@ -91,7 +185,7 @@ export function OfflineExamSheet({ exam, set, onClose }: OfflineExamSheetProps) 
             className="bg-slate-900 hover:bg-slate-700 text-white text-xs font-bold h-8"
           >
             {downloadingSet ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Download className="h-3.5 w-3.5 mr-1.5" />}
-            {downloadingSet ? 'তৈরি হচ্ছে...' : `সেট ${set.name} ডাউনলোড`}
+            {downloadingSet ? ui.downloading : ui.downloadSet(set.name)}
           </Button>
 
           {/* Download all sets */}
@@ -104,7 +198,7 @@ export function OfflineExamSheet({ exam, set, onClose }: OfflineExamSheetProps) 
               className="text-xs font-bold h-8"
             >
               {downloadingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Download className="h-3.5 w-3.5 mr-1.5" />}
-              {downloadingAll ? 'তৈরি হচ্ছে...' : 'সব সেট ডাউনলোড'}
+              {downloadingAll ? ui.downloading : ui.downloadAll}
             </Button>
           )}
 
@@ -120,24 +214,32 @@ export function OfflineExamSheet({ exam, set, onClose }: OfflineExamSheetProps) 
 
           {/* ─── Header ─── */}
           <div className="text-center border-b-2 border-slate-900 pb-4 mb-4">
-            <h1 className="text-xl font-black text-slate-900">স্পন্দন একাডেমি</h1>
+            <h1 className="text-xl font-black text-slate-900">{ui.headerAcademy}</h1>
             <p className="text-base font-bold text-slate-800 mt-0.5">{exam.title}</p>
             <div className="flex items-center justify-center gap-4 mt-1 text-xs text-slate-600">
-              {exam.course?.name && <span>বিষয়: {exam.course.name}</span>}
-              {exam.branch?.name && <span>শাখা: {exam.branch.name}</span>}
-              {exam.batch?.name && <span>ব্যাচ: {exam.batch.name}</span>}
+              {exam.course?.name && <span>{ui.subject}: {exam.course.name}</span>}
+              {exam.branch?.name && <span>{ui.branch}: {exam.branch.name}</span>}
+              {exam.batch?.name && <span>{ui.batch}: {exam.batch.name}</span>}
             </div>
             <div className="flex items-center justify-center gap-6 mt-1 text-xs font-semibold text-slate-700">
-              {exam.durationMinutes && <span>সময়: {exam.durationMinutes} মিনিট</span>}
-              <span>পূর্ণমান: {totalMarks}</span>
-              <span>সেট: {set.name}</span>
+              {exam.durationMinutes && (
+                <span>
+                  {ui.duration}: {exam.durationMinutes} {sheetLang === 'en' ? 'minutes' : 'মিনিট'}
+                </span>
+              )}
+              <span>{ui.fullMarks}: {totalMarks}</span>
+              <span>{sheetLang === 'en' ? 'Set' : 'সেট'}: {set.name}</span>
             </div>
           </div>
 
           {/* ─── Student Info ─── */}
           <div className="flex gap-8 text-xs text-slate-600 mb-5 pb-3 border-b border-dashed border-slate-300">
-            <span>নাম: ______________________________________</span>
-            <span>রোল নং: _______________</span>
+            <span>
+              {ui.studentName}: ______________________________________
+            </span>
+            <span>
+              {ui.studentRoll}: _______________
+            </span>
           </div>
 
           {/* ─── Questions ─── */}
@@ -161,15 +263,25 @@ export function OfflineExamSheet({ exam, set, onClose }: OfflineExamSheetProps) 
 
                   const firstNum = questionNumber + 1;
                   const lastNum = firstNum + children.length - 1;
+                  const instructionLang: Lang = detectQuestionLang(children[0]?.question, sheetLang);
                   let instruction: string;
                   if (children.length === 1) {
-                    instruction = `উদ্দীপকটি পড়ে ${toBn(firstNum)} নং প্রশ্নের উত্তর দাও:`;
+                    instruction =
+                      instructionLang === 'en'
+                        ? `${ui.passageInstruction} question ${formatNum(firstNum, instructionLang)}.`
+                        : `${ui.passageInstruction} ${formatNum(firstNum, instructionLang)} নং প্রশ্নের উত্তর দাও:`;
                   } else if (children.length === 2) {
-                    instruction = `উদ্দীপকটি পড়ে ${toBn(firstNum)} ও ${toBn(lastNum)} নং প্রশ্নের উত্তর দাও:`;
+                    instruction =
+                      instructionLang === 'en'
+                        ? `${ui.passageInstruction} questions ${formatNum(firstNum, instructionLang)} and ${formatNum(lastNum, instructionLang)}.`
+                        : `${ui.passageInstruction} ${formatNum(firstNum, instructionLang)} ও ${formatNum(lastNum, instructionLang)} নং প্রশ্নের উত্তর দাও:`;
                   } else {
-                    const nums = children.map((_: any, idx: number) => toBn(firstNum + idx));
+                    const nums = children.map((_: any, idx: number) => formatNum(firstNum + idx, instructionLang));
                     const last = nums.pop();
-                    instruction = `উদ্দীপকটি পড়ে ${nums.join(', ')} ও ${last} নং প্রশ্নের উত্তর দাও:`;
+                    instruction =
+                      instructionLang === 'en'
+                        ? `${ui.passageInstruction} questions ${nums.join(', ')} and ${last}.`
+                        : `${ui.passageInstruction} ${nums.join(', ')} ও ${last} নং প্রশ্নের উত্তর দাও:`;
                   }
 
                   rendered.push(
@@ -180,13 +292,13 @@ export function OfflineExamSheet({ exam, set, onClose }: OfflineExamSheetProps) 
                       )}
                       {children.map((child: any) => {
                         questionNumber++;
-                        return renderQuestion(child, questionNumber, isTwoColumn);
+                        return renderQuestion(child, questionNumber, isTwoColumn, sheetLang);
                       })}
                     </div>
                   );
                 } else if (!passageId) {
                   questionNumber++;
-                  rendered.push(renderQuestion(eq, questionNumber, isTwoColumn));
+                  rendered.push(renderQuestion(eq, questionNumber, isTwoColumn, sheetLang));
                 }
               }
               return rendered;
@@ -198,9 +310,11 @@ export function OfflineExamSheet({ exam, set, onClose }: OfflineExamSheetProps) 
   );
 }
 
-function renderQuestion(eq: any, num: number, isTwoColumn: boolean) {
+function renderQuestion(eq: any, num: number, isTwoColumn: boolean, sheetLang: Lang) {
   const q = eq.question;
   if (!q) return null;
+
+  const questionLang: Lang = detectQuestionLang(q, sheetLang);
 
   const validOpts = (q.options || []).filter((o: any) => o.text && o.text.replace(/<[^>]*>/g, '').trim());
 
@@ -220,7 +334,9 @@ function renderQuestion(eq: any, num: number, isTwoColumn: boolean) {
             )}>
               {validOpts.map((opt: any, idx: number) => (
                 <div key={opt.id || idx} className="flex items-center gap-1 text-[11px] text-slate-700 leading-snug">
-                  <span className="font-bold text-slate-400 w-3.5">({opt.label || ['ক','খ','গ','ঘ','ঙ','চ','ছ','জ'][idx] || idx + 1})</span>
+                  <span className="font-bold text-slate-400 w-3.5">
+                    ({getOptionUiLetter(opt.label, idx, questionLang)})
+                  </span>
                   <span>{opt.text?.replace(/<[^>]*>/g, '').trim()}</span>
                 </div>
               ))}
@@ -233,7 +349,7 @@ function renderQuestion(eq: any, num: number, isTwoColumn: boolean) {
             return (
               <div className="mt-1 space-y-0.5">
                 {meta.parts.map((part: any, idx: number) => {
-                  const lbl = ['ক','খ','গ','ঘ','ঙ'][idx] || String(idx + 1);
+                  const lbl = getPartLabel(idx, questionLang);
                   const txt = (part.text || part.prompt || '').replace(/<[^>]*>/g, '').trim();
                   const marks = part.marks ? ` [${part.marks}]` : '';
                   return (

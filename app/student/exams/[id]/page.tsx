@@ -49,8 +49,17 @@ const getOptionLabel = (label: string, lang: Lang): string => {
   if (lang === 'bn') {
     const upper = label?.toUpperCase?.() || label;
     if (upper === 'A' || upper === 'B' || upper === 'C' || upper === 'D') return bnOptionLetters[upper as 'A' | 'B' | 'C' | 'D'];
+    return label;
   }
-  return label;
+
+  // English: convert Bangla option letters back to A/B/C/D (if stored that way).
+  const bnToEn: Record<string, 'A' | 'B' | 'C' | 'D'> = {
+    [bnOptionLetters.A]: 'A',
+    [bnOptionLetters.B]: 'B',
+    [bnOptionLetters.C]: 'C',
+    [bnOptionLetters.D]: 'D',
+  };
+  return bnToEn[label] ?? label;
 };
 
 const getExamUiStrings = (lang: Lang) => {
@@ -568,7 +577,7 @@ export default function StudentExamTakingPage() {
             className="h-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-wider text-[10px] px-6"
             onClick={() => setShowSubmitConfirm(true)}
           >
-            <Send className="h-3.5 w-3.5 mr-2" /> জমা দিন
+            <Send className="h-3.5 w-3.5 mr-2" /> {ui.submit}
           </Button>
         </div>
       </div>
@@ -578,7 +587,7 @@ export default function StudentExamTakingPage() {
         {/* Question sidebar */}
         {showSidebar && (
           <div className="w-64 border-r border-slate-200 bg-slate-50 p-4 overflow-y-auto">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3">প্রশ্ন নেভিগেশন</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3">{ui.questionNavigation}</p>
             <div className="grid grid-cols-5 gap-2">
               {questions.map((q, idx) => {
                 const qId = q.questionId;
@@ -609,19 +618,19 @@ export default function StudentExamTakingPage() {
             <div className="mt-6 space-y-2 text-xs font-medium text-slate-500">
               <div className="flex items-center gap-2">
                 <div className="h-4 w-4 rounded bg-emerald-100 border border-emerald-200" />
-                উত্তর দেওয়া হয়েছে
+                {ui.legendAnswered}
               </div>
               <div className="flex items-center gap-2">
                 <div className="h-4 w-4 rounded bg-white border border-slate-200" />
-                উত্তর দেওয়া হয়নি
+                {ui.legendUnanswered}
               </div>
               <div className="flex items-center gap-2">
                 <div className="h-4 w-4 rounded bg-indigo-600" />
-                বর্তমান প্রশ্ন
+                {ui.legendCurrent}
               </div>
               <div className="flex items-center gap-2">
                 <Flag className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
-                পরে দেখব
+                {ui.legendFlagged}
               </div>
             </div>
           </div>
@@ -640,13 +649,13 @@ export default function StudentExamTakingPage() {
                     </span>
                     <div>
                       <span className="text-xs font-bold text-slate-400">
-                        প্রশ্ন {currentIndex + 1} / {totalQuestions}
+                        {ui.questionLabel(currentIndex + 1, totalQuestions)}
                       </span>
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-[9px] font-black">{currentQ.marks} মার্কস</Badge>
+                        <Badge variant="outline" className="text-[9px] font-black">{currentQ.marks} {ui.marksLabel}</Badge>
                         {currentQ.negativeMarks && (
                           <Badge variant="outline" className="text-[9px] font-black text-rose-600 border-rose-200">
-                            -{currentQ.negativeMarks} নেগেটিভ
+                            -{currentQ.negativeMarks} {ui.negativeLabel}
                           </Badge>
                         )}
                       </div>
@@ -664,7 +673,7 @@ export default function StudentExamTakingPage() {
                     onClick={() => toggleFlag(currentQ.questionId)}
                   >
                     <Flag className={cn("h-3.5 w-3.5 mr-1", flagged.has(currentQ.questionId) && "fill-amber-500")} />
-                    {flagged.has(currentQ.questionId) ? 'পতাকা সরান' : 'পতাকা দিন'}
+                    {flagged.has(currentQ.questionId) ? ui.unflag : ui.flag}
                   </Button>
                 </div>
 
@@ -703,7 +712,7 @@ export default function StudentExamTakingPage() {
                               ? "border-indigo-500 bg-indigo-600 text-white"
                               : "border-slate-300 bg-white text-slate-600"
                           )}>
-                            {opt.label}
+                            {getOptionLabel(opt.label, currentLang)}
                           </span>
                           <span className={cn(
                             "text-base font-medium transition-colors",
@@ -718,12 +727,12 @@ export default function StudentExamTakingPage() {
                 {/* CQ text input */}
                 {currentQ.question.type === 'CQ' && (
                   <div className="space-y-3">
-                    <label className="text-sm font-bold text-slate-500">আপনার উত্তর লিখুন:</label>
+                    <label className="text-sm font-bold text-slate-500">{ui.cqLabel}</label>
                     <textarea
                       className="w-full min-h-[200px] rounded-2xl border border-slate-200 bg-slate-50/50 p-5 text-base font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all resize-y"
                       value={answers[currentQ.questionId]?.text || ''}
                       onChange={(e) => handleTextAnswer(currentQ.questionId, e.target.value)}
-                      placeholder="এখানে আপনার উত্তর লিখুন..."
+                      placeholder={ui.cqPlaceholder}
                     />
                   </div>
                 )}
@@ -740,7 +749,7 @@ export default function StudentExamTakingPage() {
                 disabled={currentIndex === 0}
                 onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
               >
-                <ChevronLeft className="h-4 w-4 mr-1" /> আগের প্রশ্ন
+                <ChevronLeft className="h-4 w-4 mr-1" /> {ui.prevQuestion}
               </Button>
               
               <span className="text-sm font-medium text-slate-400">
@@ -752,7 +761,7 @@ export default function StudentExamTakingPage() {
                 disabled={currentIndex === totalQuestions - 1}
                 onClick={() => setCurrentIndex((prev) => Math.min(totalQuestions - 1, prev + 1))}
               >
-                পরের প্রশ্ন <ChevronRight className="h-4 w-4 ml-1" />
+                {ui.nextQuestion} <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             </div>
           </div>
@@ -765,25 +774,25 @@ export default function StudentExamTakingPage() {
           <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl max-w-md w-full mx-4">
             <div className="text-center mb-6">
               <AlertTriangle className="h-14 w-14 text-amber-500 mx-auto mb-3" />
-              <h2 className="text-2xl font-black text-slate-900">পরীক্ষা জমা দিবেন?</h2>
+              <h2 className="text-2xl font-black text-slate-900">{ui.submitConfirmTitle}</h2>
             </div>
             
             <div className="space-y-3 mb-6">
               <div className="flex justify-between p-3 rounded-xl bg-slate-50 text-sm font-bold">
-                <span className="text-slate-500">মোট প্রশ্ন</span>
+                  <span className="text-slate-500">{ui.totalQuestions}</span>
                 <span className="text-slate-900">{totalQuestions}</span>
               </div>
               <div className="flex justify-between p-3 rounded-xl bg-emerald-50 text-sm font-bold">
-                <span className="text-emerald-600">উত্তর দেওয়া</span>
+                  <span className="text-emerald-600">{ui.answered}</span>
                 <span className="text-emerald-700">{answeredCount}</span>
               </div>
               <div className="flex justify-between p-3 rounded-xl bg-rose-50 text-sm font-bold">
-                <span className="text-rose-600">উত্তর দেওয়া হয়নি</span>
+                  <span className="text-rose-600">{ui.unanswered}</span>
                 <span className="text-rose-700">{totalQuestions - answeredCount}</span>
               </div>
               {flagged.size > 0 && (
                 <div className="flex justify-between p-3 rounded-xl bg-amber-50 text-sm font-bold">
-                  <span className="text-amber-600">পতাকা দেওয়া</span>
+                    <span className="text-amber-600">{ui.flagged}</span>
                   <span className="text-amber-700">{flagged.size}</span>
                 </div>
               )}
@@ -795,13 +804,13 @@ export default function StudentExamTakingPage() {
                 className="flex-1 h-12 rounded-2xl font-bold"
                 onClick={() => setShowSubmitConfirm(false)}
               >
-                ফিরে যান
+                  {ui.submitConfirmGoBack}
               </Button>
               <Button
                 className="flex-1 h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black"
                 onClick={() => handleSubmit(false)}
               >
-                <Send className="h-4 w-4 mr-2" /> জমা দিন
+                  <Send className="h-4 w-4 mr-2" /> {ui.submit}
               </Button>
             </div>
           </div>
