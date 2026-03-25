@@ -66,6 +66,7 @@ import { useModalStore } from '@/store/modalStore';
 import { FolderForm } from '@/components/admin/questions/FolderForm';
 import { PassageForm } from '@/components/admin/questions/PassageForm';
 import { QuestionForm } from '@/components/admin/questions/QuestionForm';
+import { CqForm } from '@/components/admin/questions/CqForm';
 import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
 import { cn } from '@/lib/utils';
 
@@ -229,9 +230,9 @@ export default function QuestionsPage() {
     if (activeTab === 'CQ') {
       openModal({
         title: 'Add CQ',
-        description: 'Create a creative question.',
+        description: 'Create a creative question with sub-parts.',
         className: 'sm:max-w-6xl',
-        content: <QuestionForm folders={folders} initialFolderId={folderId} initialType="CQ" onSuccess={loadQuestions} />,
+        content: <CqForm folders={folders} initialFolderId={folderId} onSuccess={loadQuestions} />,
       });
     } else if (activeTab === 'MCQ') {
       openModal({
@@ -601,6 +602,17 @@ export default function QuestionsPage() {
                                               ))}
                                             </div>
                                           )}
+                                          {q.type === 'CQ' && q.meta && Array.isArray((q.meta as any).parts) && (q.meta as any).parts.length > 0 && (
+                                            <div className="flex flex-wrap gap-2 mt-2">
+                                              {(q.meta as any).parts.map((part: any, pi: number) => (
+                                                <div key={pi} className="flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1">
+                                                  <span className="h-5 w-5 rounded-md bg-slate-900 text-white flex items-center justify-center text-[9px] font-black">{part.label}</span>
+                                                  <span className="text-[10px] font-bold text-indigo-600">{part.marks}m</span>
+                                                  {part.knowledgeLevel && <span className="text-[9px] font-bold text-slate-400">{part.knowledgeLevel}</span>}
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
                                         </div>
                                       </div>
                                     </TableCell>
@@ -614,7 +626,7 @@ export default function QuestionsPage() {
                                       <Badge className="bg-indigo-50 text-indigo-700 border-indigo-100 font-bold text-[10px] uppercase shadow-none">{q.type}</Badge>
                                     </TableCell>
                                     <TableCell className="py-4 text-center text-sm font-bold text-slate-700">
-                                      1.0
+                                      {q.type === 'CQ' && q.meta && (q.meta as any).totalMarks ? (q.meta as any).totalMarks : '1.0'}
                                     </TableCell>
                                     <TableCell className="py-4 text-right">
                                       <div className="flex justify-end gap-1" onClick={e => e.stopPropagation()}>
@@ -622,12 +634,21 @@ export default function QuestionsPage() {
                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-indigo-600" onClick={() => {
                                           const res = questions.find(question => question.id === q.id);
                                           if (res) {
-                                            openModal({
-                                              title: 'Update Question',
-                                              description: 'Modify question contents and parameters.',
-                                              className: 'sm:max-w-6xl',
-                                              content: <QuestionForm folders={folders} initialFolderId={q.folderId || undefined} initialType={q.type} initialMcqType={q.mcqType || undefined} question={res} onSuccess={loadQuestions} />,
-                                            });
+                                            if (res.type === 'CQ') {
+                                              openModal({
+                                                title: 'Update CQ',
+                                                description: 'Modify creative question and sub-parts.',
+                                                className: 'sm:max-w-6xl',
+                                                content: <CqForm folders={folders} question={res} onSuccess={loadQuestions} />,
+                                              });
+                                            } else {
+                                              openModal({
+                                                title: 'Update Question',
+                                                description: 'Modify question contents and parameters.',
+                                                className: 'sm:max-w-6xl',
+                                                content: <QuestionForm folders={folders} initialFolderId={q.folderId || undefined} initialType={q.type} initialMcqType={q.mcqType || undefined} question={res} onSuccess={loadQuestions} />,
+                                              });
+                                            }
                                           }
                                         }}><Edit className="h-4 w-4" /></Button>
                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-rose-600" onClick={() => deleteQuestion(q.id).then(() => loadQuestions())}><Trash2 className="h-4 w-4" /></Button>
