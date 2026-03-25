@@ -190,3 +190,51 @@ export async function deletePassage(id: string): Promise<ApiResponse<void>> {
     method: 'DELETE',
   });
 }
+
+export async function createPassageWithQuestions(data: {
+  folderId: string;
+  title?: string;
+  content: string;
+  difficulty?: string;
+  year?: number;
+  tags?: string[];
+  questions: Array<{
+    prompt: string;
+    explanation?: string;
+    difficulty?: string;
+    year?: number;
+    tags?: string[];
+    options?: Array<{ label: string; text: string; isCorrect?: boolean }>;
+  }>;
+}): Promise<ApiResponse<McqPassage>> {
+  return apiRequest<ApiResponse<McqPassage>>('/question-bank/passages/with-questions', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updatePassageWithQuestions(
+  id: string,
+  data: {
+    folderId?: string;
+    title?: string;
+    content?: string;
+    difficulty?: string;
+    year?: number;
+    tags?: string[];
+    questions: Array<{
+      id?: string;
+      prompt: string;
+      explanation?: string;
+      difficulty?: string;
+      year?: number;
+      tags?: string[];
+      options?: Array<{ label: string; text: string; isCorrect?: boolean }>;
+    }>;
+  }
+): Promise<ApiResponse<McqPassage>> {
+  return apiRequest<ApiResponse<McqPassage>>(`/question-bank/passages/${id}/with-questions`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}

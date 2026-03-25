@@ -10,6 +10,7 @@ import {
   deleteQuestionFolder,
   copyQuestion,
   bulkCopyQuestions,
+  deletePassage,
 } from '@/lib/api/question-bank';
 import { getCourses } from '@/lib/api/courses';
 import type {
@@ -455,6 +456,33 @@ export default function QuestionsPage() {
                                 </div>
                                 <h3 className="text-lg font-black tracking-tight text-slate-900 group-hover:text-indigo-600 transition-colors">{p.title || 'Untitled Combined Asset'}</h3>
                                 {!isExpanded && <p className="text-base font-medium text-slate-500 line-clamp-2 leading-relaxed">{stripHtml(p.content)}</p>}
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-indigo-600" onClick={() => {
+                                  openModal({
+                                    title: 'Update Combined MCQ',
+                                    description: 'Edit passage and its MCQ questions.',
+                                    className: 'sm:max-w-4xl',
+                                    content: <PassageForm folders={folders} passage={p} onSuccess={loadPassages} />,
+                                  });
+                                }}><Edit className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-rose-600" onClick={() => {
+                                  openModal({
+                                    title: 'Delete Combined MCQ',
+                                    description: 'Delete this passage and all its questions?',
+                                    content: (
+                                      <ConfirmationModal
+                                        title="Confirm Delete"
+                                        description="This will permanently remove the passage and all its child questions."
+                                        variant="danger"
+                                        onConfirm={async () => {
+                                          await deletePassage(p.id);
+                                          await loadPassages();
+                                        }}
+                                      />
+                                    ),
+                                  });
+                                }}><Trash2 className="h-4 w-4" /></Button>
                               </div>
                             </div>
                             {isExpanded && (
