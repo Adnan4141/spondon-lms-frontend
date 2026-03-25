@@ -174,10 +174,10 @@ export function OfflineExamSheet({ exam, set, onClose }: OfflineExamSheetProps) 
 
                   rendered.push(
                     <div key={`passage-${passageId}`} className="mb-3 break-inside-avoid">
+                      <p className="text-[12px] font-bold text-slate-900 mb-1 pl-5">{instruction}</p>
                       {passageContent && (
-                        <div className="text-[12px] leading-relaxed text-slate-700 mb-1 pl-5" dangerouslySetInnerHTML={{ __html: passageContent }} />
+                        <div className="text-[12px] leading-relaxed text-slate-700 mb-2 pl-5" dangerouslySetInnerHTML={{ __html: passageContent }} />
                       )}
-                      <p className="text-[12px] font-bold text-slate-900 mb-2 pl-5">{instruction}</p>
                       {children.map((child: any) => {
                         questionNumber++;
                         return renderQuestion(child, questionNumber, isTwoColumn);
