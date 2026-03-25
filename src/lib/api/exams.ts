@@ -84,8 +84,14 @@ export async function removeQuestionFromSet(id: string): Promise<ApiResponse<voi
   });
 }
 
-export async function regenerateExamPdf(examId: string): Promise<ApiResponse<{ pdfUrl: string }>> {
-  return apiRequest<ApiResponse<{ pdfUrl: string }>>(`/exams/${examId}/regenerate-pdf`, {
+export async function regenerateExamPdf(examId: string, columns: 1 | 2 = 2): Promise<ApiResponse<{ pdfUrl: string }>> {
+  return apiRequest<ApiResponse<{ pdfUrl: string }>>(`/exams/${examId}/regenerate-pdf?columns=${columns}`, {
+    method: 'POST',
+  });
+}
+
+export async function generateSetPdf(examId: string, setId: string, columns: 1 | 2 = 2): Promise<ApiResponse<{ pdfUrl: string }>> {
+  return apiRequest<ApiResponse<{ pdfUrl: string }>>(`/exams/${examId}/sets/${setId}/generate-pdf?columns=${columns}`, {
     method: 'POST',
   });
 }
