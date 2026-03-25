@@ -74,7 +74,62 @@ export const TrustSection: React.FC<Props> = ({
         </div>
       </motion.div>
 
- 
+      {/* TESTIMONIAL CAROUSEL */}
+      {testimonials.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="mt-16 sm:mt-20"
+        >
+          <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-white text-center mb-10">
+            শিক্ষার্থীদের মতামত
+          </h3>
+
+          <div className="relative max-w-3xl mx-auto">
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-8 sm:p-10 text-center">
+              <Quote className="w-10 h-10 text-[#FF2D8C] mx-auto mb-4 opacity-60" />
+              <p className="text-white/90 text-base sm:text-lg md:text-xl leading-relaxed italic mb-6">
+                &ldquo;{testimonials[testimonialIndex]?.quote}&rdquo;
+              </p>
+              <p className="text-white font-bold text-sm sm:text-base">
+                {testimonials[testimonialIndex]?.name}
+              </p>
+              {testimonials[testimonialIndex]?.info && (
+                <p className="text-white/60 text-xs sm:text-sm mt-1">
+                  {testimonials[testimonialIndex].info}
+                </p>
+              )}
+            </div>
+
+            {testimonials.length > 1 && (
+              <div className="flex justify-center items-center gap-4 mt-6">
+                <button
+                  onClick={() => setTestimonialIndex(testimonialIndex === 0 ? testimonials.length - 1 : testimonialIndex - 1)}
+                  className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <div className="flex gap-2">
+                  {testimonials.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setTestimonialIndex(i)}
+                      className={`w-2.5 h-2.5 rounded-full transition ${i === testimonialIndex ? 'bg-[#FF2D8C]' : 'bg-white/30'}`}
+                    />
+                  ))}
+                </div>
+                <button
+                  onClick={() => setTestimonialIndex(testimonialIndex === testimonials.length - 1 ? 0 : testimonialIndex + 1)}
+                  className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
 
     </div>
   </section>

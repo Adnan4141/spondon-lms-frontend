@@ -8,6 +8,8 @@ import {
   deleteQuestion,
   getPassages,
   deleteQuestionFolder,
+  copyQuestion,
+  bulkCopyQuestions,
 } from '@/lib/api/question-bank';
 import { getCourses } from '@/lib/api/courses';
 import type {
@@ -55,6 +57,7 @@ import {
   Trash2,
   ArrowRight,
   ArrowLeft,
+  Copy,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
@@ -91,6 +94,9 @@ export default function QuestionsPage() {
   const [difficultyFilter, setDifficultyFilter] = useState<Difficulty | 'all'>('all');
 
   const [expandedPassageIds, setExpandedPassageIds] = useState<Set<string>>(new Set());
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState<Set<string>>(new Set());
+  const [copyModalOpen, setCopyModalOpen] = useState(false);
+  const [copyTargetFolderId, setCopyTargetFolderId] = useState<string>('');
 
   const loadFolders = useCallback(async () => {
     try {
@@ -244,6 +250,54 @@ export default function QuestionsPage() {
   };
 
   const stripHtml = (html: string) => html ? html.replace(/<[^>]+>/g, '') : '';
+
+  const handleCopySingle = (questionId: string) => {
+    setSelectedQuestionIds(new Set([questionId]));
+    setCopyModalOpen(true);
+  };
+
+  const handleCopySelected = () => {
+    if (selectedQuestionIds.size === 0) return;
+    setCopyModalOpen(true);
+  };
+
+  const executeCopy = async () => {
+    if (!copyTargetFolderId || selectedQuestionIds.size === 0) return;
+    try {
+      const ids = Array.from(selectedQuestionIds);
+      if (ids.length === 1) {
+        await copyQuestion({ questionId: ids[0], targetFolderId: copyTargetFolderId });
+      } else {
+        await bulkCopyQuestions({ questionIds: ids, targetFolderId: copyTargetFolderId });
+      }
+      toast({ title: 'Success', description: `${ids.length} question(s) copied successfully` });
+      setCopyModalOpen(false);
+      setSelectedQuestionIds(new Set());
+      setCopyTargetFolderId('');
+      loadQuestions();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'Failed to copy questions', variant: 'destructive' });
+    }
+  };
+
+  const toggleQuestionSelect = (id: string) => {
+    setSelectedQuestionIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedQuestionIds.size === filteredQuestions.length) {
+      setSelectedQuestionIds(new Set());
+    } else {
+      setSelectedQuestionIds(new Set(filteredQuestions.map(q => q.id)));
+    }
+  };
+
+  // Flat list of all folders for the copy picker
+  const allFoldersFlat = folders.filter(f => f.id !== activeFolderId);
 
   const filteredQuestions = questions.filter(q => {
     if (q.type !== (activeTab === 'CQ' ? 'CQ' : 'MCQ')) return false;
@@ -408,6 +462,56 @@ export default function QuestionsPage() {
                                 <div className="bg-slate-50/50 p-8 rounded-[28px] border border-slate-100">
                                   <div className="prose prose-sm max-w-none text-slate-700 leading-relaxed font-medium" dangerouslySetInnerHTML={{ __html: p.content }} />
                                 </div>
+                                {/* Child Questions */}
+                                {p.questions && p.questions.length > 0 && (
+                                  <div className="space-y-4">
+                                    <h4 className="text-sm font-black text-slate-700 uppercase tracking-wider">Questions ({p.questions.length})</h4>
+                                    {p.questions.map((cq, idx) => (
+                                      <div key={cq.id} className="bg-white border border-slate-100 rounded-2xl p-5 space-y-3">
+                                        <div className="flex items-start gap-3">
+                                          <span className="shrink-0 h-7 w-7 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-black">{idx + 1}</span>
+                                          <div className="flex-1">
+                                            <div className="prose prose-sm text-slate-800 font-medium leading-snug" dangerouslySetInnerHTML={{ __html: cq.prompt }} />
+                                            {cq.options && cq.options.length > 0 && (
+                                              <div className="grid grid-cols-2 gap-2 mt-3">
+                                                {cq.options.map(opt => (
+                                                  <div key={opt.id} className={cn("text-xs flex gap-1 p-2 rounded-lg", opt.isCorrect ? "bg-emerald-50 font-bold text-emerald-700" : "bg-slate-50 font-medium text-slate-600")}>
+                                                    <span className="font-black shrink-0">{opt.label}.</span>
+                                                    {opt.isCorrect && <CheckCircle2 className="h-3 w-3 shrink-0 mt-0.5" />}
+                                                    <span className="truncate">{opt.text}</span>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            )}
+                                            {cq.explanation && (
+                                              <div className="mt-2 text-xs text-slate-500 italic">
+                                                <span className="font-bold">Explanation:</span> {stripHtml(cq.explanation)}
+                                              </div>
+                                            )}
+                                          </div>
+                                          <div className="flex gap-1 shrink-0">
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-indigo-600" onClick={(e) => {
+                                              e.stopPropagation();
+                                              openModal({
+                                                title: 'Update Question',
+                                                description: 'Modify question contents and parameters.',
+                                                className: 'sm:max-w-6xl',
+                                                content: <QuestionForm folders={folders} initialFolderId={cq.folderId || undefined} initialType={cq.type} initialMcqType={cq.mcqType || undefined} question={cq} onSuccess={loadPassages} />,
+                                              });
+                                            }}><Edit className="h-3.5 w-3.5" /></Button>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-rose-600" onClick={(e) => {
+                                              e.stopPropagation();
+                                              deleteQuestion(cq.id).then(() => loadPassages());
+                                            }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                {(!p.questions || p.questions.length === 0) && (
+                                  <div className="text-center py-6 text-slate-400 text-sm font-medium">No questions added to this passage yet.</div>
+                                )}
                               </div>
                             )}
                           </div>
@@ -420,15 +524,28 @@ export default function QuestionsPage() {
                   ) : (
                     <>
                       {filteredQuestions.length > 0 && (
+                      <>
+                      {selectedQuestionIds.size > 0 && (
+                        <div className="flex items-center gap-3 p-3 mb-3 bg-indigo-50 rounded-xl border border-indigo-100">
+                          <span className="text-sm font-bold text-indigo-700">{selectedQuestionIds.size} selected</span>
+                          <Button size="sm" variant="outline" className="h-8 rounded-lg text-xs font-bold border-indigo-200 text-indigo-700 hover:bg-indigo-100" onClick={handleCopySelected}>
+                            <Copy className="mr-1.5 h-3.5 w-3.5" /> Copy to folder
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-8 rounded-lg text-xs font-bold text-slate-500" onClick={() => setSelectedQuestionIds(new Set())}>Clear</Button>
+                        </div>
+                      )}
                       <div className="overflow-x-auto">
                         <Table>
                           <TableHeader>
                             <TableRow className="hover:bg-transparent border-b border-slate-200 bg-slate-50">
+                              <TableHead className="py-4 w-[40px]">
+                                <input type="checkbox" className="rounded border-slate-300" checked={filteredQuestions.length > 0 && selectedQuestionIds.size === filteredQuestions.length} onChange={toggleSelectAll} />
+                              </TableHead>
                               <TableHead className="py-4 text-sm font-bold text-slate-900 w-full">Question </TableHead>
                               <TableHead className="py-4 text-sm font-bold text-slate-900 w-[150px]">Created by</TableHead>
                               <TableHead className="py-4 text-sm font-bold text-slate-900 w-[150px]">Question type</TableHead>
                               <TableHead className="py-4 text-sm font-bold text-slate-900 w-[100px] text-center">Marks</TableHead>
-                              <TableHead className="w-[50px]"></TableHead>
+                              <TableHead className="w-[80px]"></TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -438,6 +555,9 @@ export default function QuestionsPage() {
                               return (
                                 <React.Fragment key={q.id}>
                                   <TableRow className="group border-b border-slate-100 transition-colors hover:bg-slate-50/50">
+                                    <TableCell className="py-4 w-[40px]">
+                                      <input type="checkbox" className="rounded border-slate-300" checked={selectedQuestionIds.has(q.id)} onChange={() => toggleQuestionSelect(q.id)} />
+                                    </TableCell>
                                     <TableCell className="py-4 max-w-[400px]">
                                       <div className="flex items-start gap-4">
                                         <div className="flex flex-col gap-1 flex-1">
@@ -470,6 +590,7 @@ export default function QuestionsPage() {
                                     </TableCell>
                                     <TableCell className="py-4 text-right">
                                       <div className="flex justify-end gap-1" onClick={e => e.stopPropagation()}>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-blue-600" title="Copy to folder" onClick={() => handleCopySingle(q.id)}><Copy className="h-4 w-4" /></Button>
                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-indigo-600" onClick={() => {
                                           const res = questions.find(question => question.id === q.id);
                                           if (res) {
@@ -491,6 +612,7 @@ export default function QuestionsPage() {
                           </TableBody>
                         </Table>
                       </div>
+                      </>
                       )}
                       {currentFolderSubfolders.length === 0 && filteredQuestions.length === 0 && (
                         <div className="py-20 text-center text-slate-400 text-sm font-medium">Directory is empty.</div>
@@ -503,6 +625,36 @@ export default function QuestionsPage() {
           </div>
         </div>
       </div>
+      {/* Copy to Folder Modal */}
+      {copyModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setCopyModalOpen(false)}>
+          <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl space-y-6" onClick={e => e.stopPropagation()}>
+            <div>
+              <h3 className="text-lg font-black text-slate-900">Copy {selectedQuestionIds.size} Question(s)</h3>
+              <p className="text-sm text-slate-500 mt-1">Select target folder to copy the question(s) to.</p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700">Target Folder</label>
+              <Select value={copyTargetFolderId} onValueChange={setCopyTargetFolderId}>
+                <SelectTrigger className="h-10 rounded-xl">
+                  <SelectValue placeholder="Select folder..." />
+                </SelectTrigger>
+                <SelectContent className="max-h-60">
+                  {allFoldersFlat.map(f => (
+                    <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" className="rounded-xl font-bold" onClick={() => { setCopyModalOpen(false); setCopyTargetFolderId(''); }}>Cancel</Button>
+              <Button className="rounded-xl font-bold bg-slate-900 text-white hover:bg-slate-800" disabled={!copyTargetFolderId} onClick={executeCopy}>
+                <Copy className="mr-2 h-4 w-4" /> Copy
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       <Toaster toasts={toasts} removeToast={removeToast} />
     </div>
   );

@@ -4,16 +4,27 @@ import React from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 
-const partners = [
+const fallbackPartners = [
   { name: 'Banglalink', logo: '/images/collaborator/banglalink-logo-png_seeklogo-411075.png' },
   { name: 'Bikash', logo: '/images/collaborator/bikash-logo.png' },
   { name: 'Prothom Alo', logo: '/images/collaborator/prothom-alo-logo-png_seeklogo-504130.png' },
   { name: 'Walton', logo: '/images/collaborator/walton-logo-png_seeklogo-251022.png' },
 ];
 
-export const PartnerCarouselSection: React.FC = () => {
+interface PartnerItem {
+  name: string;
+  logo?: string | null;
+  websiteUrl?: string | null;
+}
+
+interface Props {
+  partners?: PartnerItem[];
+}
+
+export const PartnerCarouselSection: React.FC<Props> = ({ partners }) => {
+  const items = partners && partners.length > 0 ? partners : fallbackPartners;
   // We double the content to ensure there is enough to fill the width for a seamless loop
-  const scrollContent = [...partners, ...partners];
+  const scrollContent = [...items, ...items];
 
   return (
     <section className="relative py-12 sm:py-16 md:py-20 bg-gradient-to-b from-white to-slate-50 overflow-hidden">

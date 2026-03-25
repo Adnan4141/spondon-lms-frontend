@@ -112,6 +112,11 @@ export interface CopyQuestionDto {
   targetFolderId: string;
 }
 
+export interface BulkCopyQuestionsDto {
+  questionIds: string[];
+  targetFolderId: string;
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;

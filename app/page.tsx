@@ -13,12 +13,19 @@ import { TrustSection } from '@/components/landing/TrustSection';
 import { CoursesSection } from '@/components/landing/CoursesSection';
 import { PaymentSection } from '@/components/landing/PaymentSection';
 import { PartnerCarouselSection } from '@/components/landing/PartnerCarouselSection';
+import { TeachersSection } from '@/components/landing/TeachersSection';
 import { Feature, Testimonial } from '@/components/landing/types';
 import type { Course, Program } from '@/types/course';
 import { getCourses } from '@/lib/api/courses';
 import { getPrograms } from '@/lib/api/programs';
 import { getBooks, Book } from '@/lib/api/books';
 import { getSystemStats, SystemStatsData } from '@/lib/api/reports';
+import { getPublicTestimonials } from '@/lib/api/testimonials';
+import { getPublicPartners, Partner } from '@/lib/api/partners';
+import { getPublicTeachers, PublicTeacher } from '@/lib/api/teachers';
+import { getPublicTestimonials } from '@/lib/api/testimonials';
+import { getPublicPartners, Partner } from '@/lib/api/partners';
+import { getPublicTeachers, PublicTeacher } from '@/lib/api/teachers';
 
 const interactiveFeatures: Feature[] = [
   { id: 'live', title: 'লাইভ এবং রেকর্ডড ক্লাস', icon: <Cast className="h-5 w-5" />, previewTitle: 'জীববিজ্ঞান ৯ম- অধ্যায় ১: কোষ ও কলা', previewTime: 'রাত ৮:৩০ - ৯:৩০ | ৩০ মিনিট' },
@@ -47,6 +54,9 @@ export default function LandingPage() {
   const [dynamicEbooks, setDynamicEbooks] = useState<Book[]>([]);
   const [admissionBooks, setAdmissionBooks] = useState<Book[]>([]);
   const [systemStats, setSystemStats] = useState<SystemStatsData | null>(null);
+  const [dynamicTestimonials, setDynamicTestimonials] = useState<Testimonial[]>([]);
+  const [dynamicPartners, setDynamicPartners] = useState<Partner[]>([]);
+  const [teachers, setTeachers] = useState<PublicTeacher[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(interactiveFeatures[0]);
   const [activeAdmissionTab, setActiveAdmissionTab] = useState('ভার্সিটি');
@@ -59,18 +69,33 @@ export default function LandingPage() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [courseRes, programRes, ebookRes, bookRes, statsRes] = await Promise.all([
+        const [courseRes, programRes, ebookRes, bookRes, statsRes, testimonialRes, partnerRes, teacherRes] = await Promise.all([
           getCourses({ limit: 6, websiteVisible: true, featured: true }),
           getPrograms(),
           getBooks({ isEbook: true, limit: 3 }),
           getBooks({ isEbook: false, limit: 4 }),
           getSystemStats(),
+          getPublicTestimonials().catch(() => ({ success: false, data: [] })),
+          getPublicPartners().catch(() => ({ success: false, data: [] })),
+          getPublicTeachers().catch(() => ({ success: false, data: [] })),
         ]);
         if (courseRes.success) setCourses(courseRes.data || []);
         if (programRes.success) setPrograms(programRes.data || []);
         if (ebookRes.success) setDynamicEbooks(ebookRes.data || []);
         if (bookRes.success) setAdmissionBooks(bookRes.data || []);
         if (statsRes.success) setSystemStats(statsRes.data);
+        if (testimonialRes.success && testimonialRes.data?.length) {
+          setDynamicTestimonials(testimonialRes.data.map((t: any, i: number) => ({
+            id: i + 1,
+            quote: t.quote,
+            name: t.name,
+            info: t.info || '',
+            videoThumb: t.thumbnailUrl || '',
+            videoLabel: t.videoUrl || '',
+          })));
+        }
+        if (partnerRes.success) setDynamicPartners(partnerRes.data || []);
+        if (teacherRes.success) setTeachers(teacherRes.data || []);
       } catch (error) {
         console.error('Data load error', error);
       } finally {
@@ -88,9 +113,10 @@ export default function LandingPage() {
       {/* <StatsSection systemStats={systemStats} /> */}
  
       <CoursesSection courses={courses} handleImageError={handleImageError} />
-      <TrustSection testimonials={testimonials} testimonialIndex={testimonialIndex} setTestimonialIndex={setTestimonialIndex} />
+      <TrustSection testimonials={dynamicTestimonials.length > 0 ? dynamicTestimonials : testimonials} testimonialIndex={testimonialIndex} setTestimonialIndex={setTestimonialIndex} />
+      <TeachersSection teachers={teachers} />
       <DigitalLibrarySection dynamicEbooks={dynamicEbooks} />
-      <PartnerCarouselSection />
+      <PartnerCarouselSection partners={dynamicPartners} />
       <PaymentSection handleImageError={handleImageError} />
       <Footer />
     </div>

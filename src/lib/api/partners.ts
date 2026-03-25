@@ -1,0 +1,42 @@
+import { apiRequest } from '../api';
+
+export interface Partner {
+  id: string;
+  name: string;
+  logo?: string | null;
+  description?: string | null;
+  websiteUrl?: string | null;
+  type?: string | null;
+}
+
+export interface PartnerAdmin extends Partner {
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+}
+
+export async function getPublicPartners(): Promise<{ success: boolean; data: Partner[] }> {
+  return apiRequest('/partners/public');
+}
+
+export async function getAllPartners(): Promise<{ success: boolean; data: PartnerAdmin[] }> {
+  return apiRequest('/partners');
+}
+
+export async function createPartner(data: FormData): Promise<{ success: boolean; data: PartnerAdmin }> {
+  return apiRequest('/partners', {
+    method: 'POST',
+    body: data,
+  });
+}
+
+export async function updatePartner(id: string, data: FormData): Promise<{ success: boolean; data: PartnerAdmin }> {
+  return apiRequest(`/partners/${id}`, {
+    method: 'PUT',
+    body: data,
+  });
+}
+
+export async function deletePartner(id: string): Promise<{ success: boolean }> {
+  return apiRequest(`/partners/${id}`, { method: 'DELETE' });
+}

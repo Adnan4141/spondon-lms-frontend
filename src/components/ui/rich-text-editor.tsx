@@ -8,6 +8,8 @@ import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import TextAlign from '@tiptap/extension-text-align';
 import Placeholder from '@/lib/tiptap-placeholder';
+import { MathExtension } from '@/lib/tiptap-math';
+import 'katex/dist/katex.min.css';
 import {
   Bold,
   Italic,
@@ -30,6 +32,7 @@ import {
   Image as ImageIcon,
   ArrowUp,
   ArrowDown,
+  Sigma,
 } from 'lucide-react';
 import { Button } from './button';
 
@@ -45,6 +48,8 @@ export function RichTextEditor({ value, onChange, onImageUpload, placeholder, cl
   const [isUploading, setIsUploading] = useState(false);
   const [imageWidth, setImageWidthState] = useState(100);
   const [imageHeight, setImageHeightState] = useState<number | undefined>(undefined);
+  const [mathInput, setMathInput] = useState('');
+  const [showMathDialog, setShowMathDialog] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const editor = useEditor({
@@ -66,6 +71,7 @@ export function RichTextEditor({ value, onChange, onImageUpload, placeholder, cl
       TextAlign.configure({
         types: ['heading', 'paragraph'],
       }),
+      MathExtension,
       Placeholder.configure({
         placeholder: placeholder || 'Start writing...',
         showOnlyWhenEditable: true,
@@ -319,6 +325,52 @@ export function RichTextEditor({ value, onChange, onImageUpload, placeholder, cl
         >
           <Redo className="h-3 w-3" />
         </Button>
+        <span className="mx-1 h-4 w-px bg-border" />
+        {/* LaTeX Math Button */}
+        <div className="relative inline-flex items-center">
+          <Button
+            type="button"
+            variant={showMathDialog ? 'default' : 'ghost'}
+            size="icon-xs"
+            title="Insert LaTeX equation"
+            onClick={() => setShowMathDialog(!showMathDialog)}
+          >
+            <Sigma className="h-3 w-3" />
+          </Button>
+          {showMathDialog && (
+            <div className="absolute top-full left-0 mt-1 z-50 flex items-center gap-1 rounded border bg-background p-1.5 shadow-lg">
+              <input
+                type="text"
+                value={mathInput}
+                onChange={(e) => setMathInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && mathInput.trim()) {
+                    (editor.commands as any).insertMath(mathInput.trim());
+                    setMathInput('');
+                    setShowMathDialog(false);
+                  }
+                  if (e.key === 'Escape') setShowMathDialog(false);
+                }}
+                placeholder="e.g. x^2 + y^2 = z^2"
+                className="h-6 w-48 rounded border px-1.5 text-xs font-mono outline-none"
+                autoFocus
+              />
+              <Button
+                type="button"
+                size="icon-xs"
+                onClick={() => {
+                  if (mathInput.trim()) {
+                    (editor.commands as any).insertMath(mathInput.trim());
+                    setMathInput('');
+                    setShowMathDialog(false);
+                  }
+                }}
+              >
+                ✓
+              </Button>
+            </div>
+          )}
+        </div>
         {onImageUpload && (
           <>
             <span className="mx-1 h-4 w-px bg-border" />

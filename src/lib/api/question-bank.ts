@@ -9,6 +9,7 @@ import type {
   CreateQuestionDto,
   UpdateQuestionDto,
   CopyQuestionDto,
+  BulkCopyQuestionsDto,
 } from '@/types/question';
 
 export async function getQuestionFolders(
@@ -97,6 +98,13 @@ export async function deleteQuestion(id: string): Promise<ApiResponse<void>> {
 
 export async function copyQuestion(data: CopyQuestionDto): Promise<ApiResponse<Question>> {
   return apiRequest<ApiResponse<Question>>('/question-bank/questions/copy', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function bulkCopyQuestions(data: BulkCopyQuestionsDto): Promise<ApiResponse<Question[]>> {
+  return apiRequest<ApiResponse<Question[]>>('/question-bank/questions/bulk-copy', {
     method: 'POST',
     body: JSON.stringify(data),
   });
