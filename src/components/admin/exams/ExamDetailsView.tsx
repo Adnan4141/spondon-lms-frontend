@@ -22,12 +22,14 @@ import {
   Upload,
   Image,
   FileSpreadsheet,
-  XCircle
+  XCircle,
+  Trophy
 } from 'lucide-react';
 import { getExamById, regenerateExamPdf, regenerateSolveSheet, getExamPdfDownloadUrl } from '@/lib/api/exams';
 import { getOmrScans, uploadOmrScan, getOmrScanDownloadUrl, importOfflineResults, getOfflineResults, approveOfflineResult, rejectOfflineResult, type OmrScan } from '@/lib/api/exam-results';
 import { useState, useEffect } from 'react';
 import { ExamQuestionBuilder } from './ExamQuestionBuilder';
+import { ExamLeaderboard } from './ExamLeaderboard';
 
 interface ExamDetailsViewProps {
   exam: Exam;
@@ -40,7 +42,7 @@ function getStatusBadgeClass(status: string) {
 }
 
 export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
-  const [activeTab, setActiveTab] = useState<'info' | 'questions'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'questions' | 'leaderboard'>('info');
   const [exam, setExam] = useState(initialExam);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [solveSheetLoading, setSolveSheetLoading] = useState(false);
@@ -146,8 +148,9 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
       <div className="px-8 pt-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/30 shrink-0">
          <div className="flex gap-8">
             {[
-              { id: 'info', label: 'Exam Intelligence', icon: Info },
-              { id: 'questions', label: 'Question Registry', icon: FileSearch },
+              { id: 'info', label: 'Exam Info', icon: Info },
+              { id: 'questions', label: 'Questions', icon: FileSearch },
+              { id: 'leaderboard', label: 'Leaderboard', icon: Trophy },
             ].map(tab => (
               <button
                 key={tab.id}
@@ -401,6 +404,8 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
                </div>
             </div>
           </div>
+        ) : activeTab === 'leaderboard' ? (
+          <ExamLeaderboard examId={exam.id} showLeaderboard={exam.showLeaderboard} />
         ) : (
           <ExamQuestionBuilder 
             examId={exam.id} 

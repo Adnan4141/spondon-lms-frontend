@@ -32,6 +32,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import {
   BookOpenCheck,
+  Clock,
   Edit,
   Eye,
   Plus,
@@ -67,6 +68,23 @@ function getStatusBadgeClass(status: string) {
   if (status === 'PUBLISHED') return 'bg-emerald-50 text-emerald-700 border-emerald-100 font-black';
   if (status === 'CLOSED') return 'bg-rose-50 text-rose-700 border-rose-100 font-black';
   return 'bg-slate-100 text-slate-600 border-slate-200 font-black';
+}
+
+function getTypeBadgeClass(type: string) {
+  switch (type) {
+    case 'PRACTICE': return 'bg-blue-50 text-blue-700 border-blue-100';
+    case 'SCHEDULED': return 'bg-violet-50 text-violet-700 border-violet-100';
+    case 'MODEL': return 'bg-amber-50 text-amber-700 border-amber-100';
+    case 'TALENT_HUNT': return 'bg-pink-50 text-pink-700 border-pink-100';
+    case 'UNIVERSITY': return 'bg-indigo-50 text-indigo-700 border-indigo-100';
+    default: return 'bg-slate-50 text-slate-600 border-slate-200';
+  }
+}
+
+function getModeBadgeClass(mode: string) {
+  return mode === 'ONLINE' 
+    ? 'bg-cyan-50 text-cyan-700 border-cyan-100' 
+    : 'bg-orange-50 text-orange-700 border-orange-100';
 }
 
 export default function ExamsPage() {
@@ -236,6 +254,20 @@ export default function ExamsPage() {
               </SelectContent>
             </Select>
 
+            <Select value={modeFilter} onValueChange={(v) => setModeFilter(v as any)}>
+              <SelectTrigger className="h-12 w-[150px] rounded-2xl border-slate-200 bg-white font-bold text-sm uppercase tracking-widest text-slate-600 shadow-sm">
+                <SelectValue placeholder="All Modes" />
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
+                <SelectItem value="all" className="font-bold text-sm uppercase tracking-widest py-3">All Modes</SelectItem>
+                {examModeOptions.map((opt) => (
+                  <SelectItem key={opt} value={opt} className="font-bold text-sm uppercase tracking-widest py-3">
+                    {opt}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             <Select value={courseFilter} onValueChange={setCourseFilter}>
               <SelectTrigger className="h-12 w-[200px] rounded-2xl border-slate-200 bg-white font-bold text-sm uppercase tracking-widest text-slate-600 shadow-sm">
                 <SelectValue placeholder="All Courses" />
@@ -292,75 +324,99 @@ export default function ExamsPage() {
             <Table>
               <TableHeader className="bg-slate-50/50">
                 <TableRow className="hover:bg-transparent border-b border-slate-100">
-                  <TableHead className="px-8 font-black text-base uppercase tracking-widest text-slate-400">Exam</TableHead>
-                  <TableHead className="font-black text-base uppercase tracking-widest text-slate-400">Course</TableHead>
-                  <TableHead className="font-black text-base uppercase tracking-widest text-slate-400">Type</TableHead>
-                  <TableHead className="font-black text-base uppercase tracking-widest text-slate-400">Timeline</TableHead>
-                  <TableHead className="px-8 font-black text-base uppercase tracking-widest text-slate-400 text-center">Manage</TableHead>
+                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Exam</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Course / Branch</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Type / Mode</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Status</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Schedule</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Sets / Attempts</TableHead>
+                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400 text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredExams.map((exam) => (
                   <TableRow key={exam.id} className="group border-slate-100 transition-colors hover:bg-slate-50/80">
-                    <TableCell className="px-8 py-5">
+                    <TableCell className="px-8 py-4">
                        <div className="flex flex-col">
-                          <span className="font-bold text-base text-slate-900 group-hover:text-indigo-600 transition-colors">{exam.title}</span>
-                          <span className="text-base font-medium text-slate-400">Ref: {exam.id.slice(0, 8)}...</span>
+                          <span className="font-bold text-sm text-slate-900 group-hover:text-indigo-600 transition-colors">{exam.title}</span>
+                          {exam.durationMinutes && (
+                            <span className="text-xs font-medium text-slate-400 flex items-center gap-1 mt-0.5">
+                              <Clock className="h-3 w-3" /> {exam.durationMinutes} min
+                            </span>
+                          )}
                        </div>
                     </TableCell>
-                    <TableCell className="py-5">
-                       <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-1.5 text-base font-bold text-slate-600">
-                             <BookOpen className="h-4 w-4 text-indigo-500" />
+                    <TableCell className="py-4">
+                       <div className="flex flex-col gap-0.5">
+                          <div className="flex items-center gap-1.5 text-sm font-bold text-slate-600">
+                             <BookOpen className="h-3.5 w-3.5 text-indigo-500" />
                              {exam.course?.name}
                           </div>
-                          <div className="flex items-center gap-1.5 text-base font-bold text-slate-400">
-                             <MapPin className="h-4 w-4 text-rose-500" />
+                          <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400">
+                             <MapPin className="h-3 w-3 text-rose-400" />
                              {exam.branch?.name}
                           </div>
                        </div>
                     </TableCell>
-                    <TableCell className="py-5">
-                       <div className="flex flex-wrap gap-2">
-                          <Badge variant="outline" className={cn("rounded-lg text-sm font-black uppercase px-2.5 py-1", getStatusBadgeClass(exam.status))}>
-                            {exam.status}
+                    <TableCell className="py-4">
+                       <div className="flex flex-col gap-1.5">
+                          <Badge variant="outline" className={cn("rounded-lg text-[9px] font-black uppercase px-2 py-0.5 w-fit", getTypeBadgeClass(exam.type))}>
+                            {exam.type.replace('_', ' ')}
                           </Badge>
-                          <Badge variant="outline" className="rounded-lg bg-slate-50 border-slate-200 text-slate-600 font-black text-sm uppercase px-2.5 py-1">
+                          <Badge variant="outline" className={cn("rounded-lg text-[9px] font-black uppercase px-2 py-0.5 w-fit", getModeBadgeClass(exam.mode))}>
                             {exam.mode}
                           </Badge>
                        </div>
                     </TableCell>
-                    <TableCell className="py-5">
-                       <div className="flex flex-col gap-1">
-                          <span className="text-base font-bold text-slate-400">Window: {exam.startAt ? new Date(exam.startAt).toLocaleDateString() : 'Immediate'}</span>
-                          <span className="text-base font-bold text-slate-500">Attempts: {exam._count?.attempts || 0} logs</span>
+                    <TableCell className="py-4">
+                       <Badge variant="outline" className={cn("rounded-lg text-[9px] uppercase px-2.5 py-1", getStatusBadgeClass(exam.status))}>
+                         {exam.status}
+                       </Badge>
+                    </TableCell>
+                    <TableCell className="py-4">
+                       <div className="flex flex-col gap-0.5 text-xs font-medium text-slate-500">
+                          <span>{exam.startAt ? new Date(exam.startAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'No start'}</span>
+                          <span className="text-slate-400">{exam.endAt ? `→ ${new Date(exam.endAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : 'No end'}</span>
                        </div>
                     </TableCell>
-                    <TableCell className="px-8 py-5">
+                    <TableCell className="py-4">
+                       <div className="flex items-center gap-3">
+                          <div className="flex flex-col items-center">
+                            <span className="text-sm font-black text-slate-700">{exam.sets?.length || exam._count?.sets || 0}</span>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase">Sets</span>
+                          </div>
+                          <div className="h-6 w-px bg-slate-200" />
+                          <div className="flex flex-col items-center">
+                            <span className="text-sm font-black text-slate-700">{exam._count?.attempts || 0}</span>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase">Attempts</span>
+                          </div>
+                       </div>
+                    </TableCell>
+                    <TableCell className="px-8 py-4">
                        <div className="flex justify-center gap-2">
                           <Button
                             variant="outline"
                             size="sm"
-                            className="h-9 rounded-xl border-slate-200 bg-white px-4 text-sm font-black uppercase tracking-widest text-slate-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm"
+                            className="h-8 rounded-xl border-slate-200 bg-white px-3 text-xs font-black uppercase tracking-wider text-slate-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm"
                             onClick={() => handleViewExam(exam.id)}
                           >
-                            View
+                            <Eye className="h-3.5 w-3.5 mr-1" /> View
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
-                            className="h-9 rounded-xl border-slate-200 bg-white px-4 text-sm font-black uppercase tracking-widest text-slate-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm"
+                            className="h-8 rounded-xl border-slate-200 bg-white px-3 text-xs font-black uppercase tracking-wider text-slate-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm"
                             onClick={() => handleEditExam(exam.id)}
                           >
-                            Edit
+                            <Edit className="h-3.5 w-3.5 mr-1" /> Edit
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
-                            className="h-9 w-9 rounded-xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all shadow-sm"
+                            className="h-8 w-8 rounded-xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all shadow-sm"
                             onClick={() => handleDeleteExam(exam.id)}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                        </div>
                     </TableCell>

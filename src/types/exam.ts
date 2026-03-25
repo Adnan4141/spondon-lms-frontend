@@ -38,8 +38,16 @@ export interface ExamQuestion {
     id: string;
     prompt: string;
     type: string;
-    options?: any[];
+    meta?: any;
+    explanation?: string | null;
+    options?: { id: string; label: string; text: string; isCorrect?: boolean }[];
+    passage?: { id: string; title?: string | null; content: string } | null;
   };
+  studentAnswer?: {
+    answer: any;
+    isCorrect: boolean | null;
+    obtainedMarks: number | null;
+  } | null;
 }
 
 export interface ExamAttempt {
@@ -73,6 +81,9 @@ export interface Exam {
   settings?: any;
   pdfUrl?: string | null;
   solveSheetUrl?: string | null;
+  showLeaderboard?: boolean;
+  solveSheetVisibility?: string | null;
+  solveSheetScheduledAt?: string | null;
   createdAt: string;
   course?: Course;
   branch?: Branch;
@@ -83,6 +94,10 @@ export interface Exam {
     attempts?: number;
     sets?: number;
   };
+  // Student enrichment
+  studentAttempts?: { examId: string; status: string; obtainedMarks?: number | null; totalMarks?: number | null; submittedAt?: string | null }[];
+  canAttempt?: boolean;
+  hasInProgress?: boolean;
 }
 
 export interface CreateExamDto {
@@ -98,6 +113,9 @@ export interface CreateExamDto {
   allowedAttempts?: number;
   status?: ExamStatus;
   settings?: any;
+  showLeaderboard?: boolean;
+  solveSheetVisibility?: string;
+  solveSheetScheduledAt?: string;
 }
 
 export interface UpdateExamDto {
@@ -113,6 +131,26 @@ export interface UpdateExamDto {
   allowedAttempts?: number;
   status?: ExamStatus;
   settings?: any;
+  showLeaderboard?: boolean;
+  solveSheetVisibility?: string;
+  solveSheetScheduledAt?: string;
+}
+
+export interface StartAttemptResponse {
+  attempt: { id: string; startedAt: string; status: string };
+  exam: { id: string; title: string; durationMinutes: number | null; type: ExamType; mode: ExamMode };
+  setName: string;
+  questions: ExamQuestion[];
+  totalMarks: number;
+  answeredMap: Record<string, any>;
+}
+
+export interface AttemptResultResponse {
+  attempt: { id: string; status: string; startedAt: string; submittedAt: string | null; totalMarks: number | null; obtainedMarks: number | null };
+  student: { id: string; fullName: string };
+  exam: { id: string; title: string; type: ExamType; showLeaderboard: boolean };
+  questions: ExamQuestion[];
+  showSolutions: boolean;
 }
 
 export interface ApiResponse<T> {

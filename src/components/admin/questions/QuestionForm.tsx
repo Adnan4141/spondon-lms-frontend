@@ -349,13 +349,20 @@ export function QuestionForm({
 
                 <div className="space-y-2">
                    <label className={sectionLabel}><BarChart3 className="inline h-3 w-3 mr-1" /> Difficulty</label>
-                   <Select value={form.difficulty || 'none'} onValueChange={(v) => setForm(p => ({ ...p, difficulty: v === 'none' ? undefined : v as Difficulty }))}>
-                      <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700">
-                         <SelectValue placeholder="Unspecified" />
+                   <Select 
+                     value={form.difficulty ?? 'none'} 
+                     onValueChange={(v) => setForm(p => ({ ...p, difficulty: v === 'none' ? undefined : v as Difficulty }))}
+                   >
+                      <SelectTrigger className={cn("h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold shadow-inner", 
+                        !form.difficulty ? "text-slate-400" : "text-slate-700"
+                      )}>
+                         <SelectValue placeholder="Select difficulty" />
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                         <SelectItem value="none" className="text-sm font-medium">Unspecified</SelectItem>
-                         {difficultyOptions.map(o => <SelectItem key={o} value={o} className="text-sm font-medium">{o}</SelectItem>)}
+                         <SelectItem value="none" className="text-sm font-medium text-slate-400">Unspecified</SelectItem>
+                         <SelectItem value="EASY" className="text-sm font-medium text-emerald-600">EASY</SelectItem>
+                         <SelectItem value="MEDIUM" className="text-sm font-medium text-amber-600">MEDIUM</SelectItem>
+                         <SelectItem value="HARD" className="text-sm font-medium text-rose-600">HARD</SelectItem>
                       </SelectContent>
                    </Select>
                 </div>

@@ -20,12 +20,17 @@ import {
 import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { Switch } from '@/components/ui/switch';
 import { format } from 'date-fns';
-import { Calendar, Clock, BookOpen, MapPin, Layers, Settings2, ShieldCheck, Activity, Trophy } from 'lucide-react';
+import { Calendar, Clock, BookOpen, MapPin, Layers, Settings2, ShieldCheck, Activity, Trophy, FileText, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const examTypeOptions: ExamType[] = ['PRACTICE', 'SCHEDULED', 'MODEL', 'TALENT_HUNT', 'UNIVERSITY'];
 const examModeOptions: ExamMode[] = ['ONLINE', 'OFFLINE'];
 const examStatusOptions: ExamStatus[] = ['DRAFT', 'PUBLISHED', 'CLOSED'];
+const solveSheetOptions = [
+  { value: 'HIDDEN', label: 'Hidden' },
+  { value: 'IMMEDIATELY', label: 'Immediately after exam' },
+  { value: 'SCHEDULED', label: 'Scheduled time' },
+];
 
 const inputClass =
   'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
@@ -53,7 +58,10 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
     durationMinutes: undefined,
     allowedAttempts: 1,
     status: 'DRAFT',
-    settings: { leaderboardEnabled: false },
+    settings: {},
+    showLeaderboard: false,
+    solveSheetVisibility: 'HIDDEN',
+    solveSheetScheduledAt: undefined,
   });
   const [batches, setBatches] = useState<Batch[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -75,7 +83,10 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
         durationMinutes: exam.durationMinutes || undefined,
         allowedAttempts: exam.allowedAttempts,
         status: exam.status,
-        settings: exam.settings || { leaderboardEnabled: false },
+        settings: exam.settings || {},
+        showLeaderboard: exam.showLeaderboard ?? false,
+        solveSheetVisibility: exam.solveSheetVisibility || 'HIDDEN',
+        solveSheetScheduledAt: exam.solveSheetScheduledAt ? new Date(exam.solveSheetScheduledAt).toISOString().slice(0, 16) : undefined,
       });
     }
   }, [exam]);
@@ -96,7 +107,7 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
 
   const handleSubmit = async () => {
     if (!form.title.trim() || !form.courseId || !form.branchId) {
-      setError('Title, Course, and Branch are required identifiers.');
+      setError('Title, Course, and Branch are required.');
       return;
     }
 
@@ -104,12 +115,12 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
       setSubmitting(true);
       setError(null);
       
-      const payload = {
+      const payload: any = {
         ...form,
         title: form.title.trim(),
         startAt: form.startAt || undefined,
         endAt: form.endAt || undefined,
-        settings: { leaderboardEnabled: (form as any).settings?.leaderboardEnabled ?? false },
+        solveSheetScheduledAt: form.solveSheetVisibility === 'SCHEDULED' && form.solveSheetScheduledAt ? form.solveSheetScheduledAt : undefined,
       };
 
       if (isEdit && exam) {
@@ -142,11 +153,11 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
           {/* Main Identity */}
           <div className="lg:col-span-2 space-y-8">
             <div className="space-y-2">
-              <label className={sectionLabel}>Exam Identity & Title</label>
+              <label className={sectionLabel}>Exam Title</label>
               <Input
                 className={cn(inputClass, "h-14 text-lg")}
                 value={form.title}
-                onChange={(e) => setForm((prev: CreateExamDto) => ({ ...prev, title: e.target.value }))}
+                onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
                 placeholder="e.g., Weekly Model Test - Physics"
               />
             </div>
@@ -156,32 +167,28 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
                   <label className={sectionLabel}><Calendar className="inline h-3 w-3 mr-1" /> Start Date & Time</label>
                   <DateTimePicker
                     date={form.startAt ? new Date(form.startAt) : undefined}
-                    setDate={(date) => {
-                      setForm((p: CreateExamDto) => ({ ...p, startAt: date ? date.toISOString() : '' }));
-                    }}
-                    placeholder="Set commencement..."
+                    setDate={(date) => setForm((p) => ({ ...p, startAt: date ? date.toISOString() : '' }))}
+                    placeholder="Set start time..."
                   />
                </div>
                <div className="space-y-2">
-                  <label className={sectionLabel}><Calendar className="inline h-3 w-3 mr-1" /> Conclusion Date & Time</label>
+                  <label className={sectionLabel}><Calendar className="inline h-3 w-3 mr-1" /> End Date & Time</label>
                   <DateTimePicker
                     date={form.endAt ? new Date(form.endAt) : undefined}
-                    setDate={(date) => {
-                      setForm((p: CreateExamDto) => ({ ...p, endAt: date ? date.toISOString() : '' }));
-                    }}
-                    placeholder="Set expiration..."
+                    setDate={(date) => setForm((p) => ({ ...p, endAt: date ? date.toISOString() : '' }))}
+                    placeholder="Set end time..."
                   />
                </div>
             </div>
 
-            <div className="grid gap-6 sm:grid-cols-2">
+            <div className="grid gap-6 sm:grid-cols-3">
                <div className="space-y-2">
                   <label className={sectionLabel}><Clock className="inline h-3 w-3 mr-1" /> Duration (Minutes)</label>
                   <Input 
                     type="number" 
                     className={inputClass} 
                     value={form.durationMinutes || ''} 
-                    onChange={(e) => setForm((p: CreateExamDto) => ({ ...p, durationMinutes: e.target.value ? Number(e.target.value) : undefined }))}
+                    onChange={(e) => setForm((p) => ({ ...p, durationMinutes: e.target.value ? Number(e.target.value) : undefined }))}
                     placeholder="e.g., 60"
                   />
                </div>
@@ -190,10 +197,67 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
                   <Input 
                     type="number" 
                     className={inputClass} 
-                    value={form.allowedAttempts} 
-                    onChange={(e) => setForm((p: CreateExamDto) => ({ ...p, allowedAttempts: Number(e.target.value) }))}
+                    value={form.allowedAttempts ?? 1} 
+                    onChange={(e) => setForm((p) => ({ ...p, allowedAttempts: Number(e.target.value) || 1 }))}
+                    min={1}
                   />
                </div>
+               <div className="space-y-2">
+                  <label className={sectionLabel}><Activity className="inline h-3 w-3 mr-1" /> Status</label>
+                  <Select value={form.status} onValueChange={(v) => setForm((p) => ({ ...p, status: v as ExamStatus }))}>
+                     <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner"><SelectValue /></SelectTrigger>
+                     <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
+                        {examStatusOptions.map(o => <SelectItem key={o} value={o} className="font-bold text-sm py-3">{o}</SelectItem>)}
+                     </SelectContent>
+                  </Select>
+               </div>
+            </div>
+
+            {/* Solve Sheet & Leaderboard Section */}
+            <div className="rounded-2xl border border-slate-200 p-6 space-y-6">
+              <h3 className="text-[11px] font-black uppercase tracking-[0.25em] text-indigo-600 flex items-center gap-2">
+                <Eye className="h-3.5 w-3.5" /> Solution Sheet & Leaderboard
+              </h3>
+              
+              <div className="grid gap-6 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <label className={sectionLabel}><FileText className="inline h-3 w-3 mr-1" /> Solve Sheet Visibility</label>
+                  <Select 
+                    value={form.solveSheetVisibility || 'HIDDEN'} 
+                    onValueChange={(v) => setForm((p) => ({ ...p, solveSheetVisibility: v }))}
+                  >
+                    <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner"><SelectValue /></SelectTrigger>
+                    <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
+                      {solveSheetOptions.map(o => <SelectItem key={o.value} value={o.value} className="font-bold text-sm py-3">{o.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {form.solveSheetVisibility === 'SCHEDULED' && (
+                  <div className="space-y-2">
+                    <label className={sectionLabel}><Calendar className="inline h-3 w-3 mr-1" /> Solve Sheet Date</label>
+                    <DateTimePicker
+                      date={form.solveSheetScheduledAt ? new Date(form.solveSheetScheduledAt) : undefined}
+                      setDate={(date) => setForm((p) => ({ ...p, solveSheetScheduledAt: date ? date.toISOString() : undefined }))}
+                      placeholder="When to show solutions..."
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/50 px-5 py-4">
+                <div className="flex items-center gap-3">
+                  <Trophy className="h-5 w-5 text-amber-500" />
+                  <div>
+                    <span className="text-sm font-black text-slate-700">Leaderboard</span>
+                    <p className="text-xs text-slate-400">Show ranking to students after exam</p>
+                  </div>
+                </div>
+                <Switch
+                  checked={form.showLeaderboard ?? false}
+                  onCheckedChange={(v) => setForm((p) => ({ ...p, showLeaderboard: v }))}
+                />
+              </div>
             </div>
           </div>
 
@@ -202,8 +266,8 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
              <div className="space-y-6">
                 <div className="space-y-2">
                    <label className={sectionLabel}><BookOpen className="inline h-3 w-3 mr-1" /> Course</label>
-                   <Select value={form.courseId} onValueChange={(v) => setForm((p: CreateExamDto) => ({ ...p, courseId: v, batchId: undefined }))}>
-                      <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700">
+                   <Select value={form.courseId} onValueChange={(v) => setForm((p) => ({ ...p, courseId: v, batchId: undefined }))}>
+                      <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
                          <SelectValue placeholder="Select Course" />
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
@@ -214,8 +278,8 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
 
                 <div className="space-y-2">
                    <label className={sectionLabel}><MapPin className="inline h-3 w-3 mr-1" /> Branch</label>
-                   <Select value={form.branchId} onValueChange={(v) => setForm((p: CreateExamDto) => ({ ...p, branchId: v, batchId: undefined }))}>
-                      <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700">
+                   <Select value={form.branchId} onValueChange={(v) => setForm((p) => ({ ...p, branchId: v, batchId: undefined }))}>
+                      <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
                          <SelectValue placeholder="Select Branch" />
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
@@ -225,13 +289,13 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
                 </div>
 
                 <div className="space-y-2">
-                   <label className={sectionLabel}><Layers className="inline h-3 w-3 mr-1" /> Batch (Targeted)</label>
+                   <label className={sectionLabel}><Layers className="inline h-3 w-3 mr-1" /> Batch</label>
                    <Select 
                      value={form.batchId || 'all'} 
-                     onValueChange={(v) => setForm((p: CreateExamDto) => ({ ...p, batchId: v === 'all' ? undefined : v }))}
+                     onValueChange={(v) => setForm((p) => ({ ...p, batchId: v === 'all' ? undefined : v }))}
                      disabled={!form.courseId || !form.branchId}
                    >
-                      <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700">
+                      <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
                          <SelectValue placeholder="All Batches" />
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
@@ -244,60 +308,40 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
                 <div className="grid grid-cols-2 gap-4">
                    <div className="space-y-2">
                       <label className={sectionLabel}>Type</label>
-                      <Select value={form.type} onValueChange={(v) => setForm((p: CreateExamDto) => ({ ...p, type: v as ExamType }))}>
-                         <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700"><SelectValue /></SelectTrigger>
+                      <Select value={form.type} onValueChange={(v) => setForm((p) => ({ ...p, type: v as ExamType }))}>
+                         <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner"><SelectValue /></SelectTrigger>
                          <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                            {examTypeOptions.map(o => <SelectItem key={o} value={o} className="font-bold text-[10px] uppercase tracking-widest py-3">{o}</SelectItem>)}
+                            {examTypeOptions.map(o => <SelectItem key={o} value={o} className="font-bold text-xs uppercase py-3">{o.replace('_', ' ')}</SelectItem>)}
                          </SelectContent>
                       </Select>
                    </div>
                    <div className="space-y-2">
                       <label className={sectionLabel}>Mode</label>
-                      <Select value={form.mode} onValueChange={(v) => setForm((p: CreateExamDto) => ({ ...p, mode: v as ExamMode }))}>
-                         <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700"><SelectValue /></SelectTrigger>
+                      <Select value={form.mode} onValueChange={(v) => setForm((p) => ({ ...p, mode: v as ExamMode }))}>
+                         <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner"><SelectValue /></SelectTrigger>
                          <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                            {examModeOptions.map(o => <SelectItem key={o} value={o} className="font-bold text-[10px] uppercase tracking-widest py-3">{o}</SelectItem>)}
+                            {examModeOptions.map(o => <SelectItem key={o} value={o} className="font-bold text-xs uppercase py-3">{o}</SelectItem>)}
                          </SelectContent>
                       </Select>
                    </div>
                 </div>
-
-                <div className="space-y-2">
-                   <label className={sectionLabel}><Activity className="inline h-3 w-3 mr-1" /> Lifecycle Status</label>
-                   <Select value={form.status} onValueChange={(v) => setForm((p: CreateExamDto) => ({ ...p, status: v as ExamStatus }))}>
-                      <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700"><SelectValue /></SelectTrigger>
-                      <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                         {examStatusOptions.map(o => <SelectItem key={o} value={o} className="font-bold text-[10px] uppercase tracking-widest py-3">{o}</SelectItem>)}
-                      </SelectContent>
-                   </Select>
-                </div>
-
-                <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3">
-                   <div className="flex items-center gap-2">
-                      <Trophy className="h-4 w-4 text-amber-500" />
-                      <span className="text-[11px] font-black uppercase tracking-widest text-slate-600">Leaderboard</span>
-                   </div>
-                   <Switch
-                     checked={(form as any).settings?.leaderboardEnabled ?? false}
-                     onCheckedChange={(v) => setForm((p: CreateExamDto) => ({
-                       ...p,
-                       settings: { ...(p as any).settings, leaderboardEnabled: v },
-                     }))}
-                   />
-                </div>
              </div>
 
-             <div className="rounded-[28px] bg-slate-900 p-6 text-white shadow-xl shadow-slate-200">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400 mb-2">Scheduler Context</p>
-                <p className="text-base font-bold leading-relaxed text-slate-300">
-                  Configure exam visibility and access rules. Start and End times control when students can enter the assessment.
-                </p>
+             {/* Info Box */}
+             <div className="rounded-2xl bg-slate-900 p-6 text-white shadow-xl">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400 mb-2">Exam Setup Guide</p>
+                <ul className="space-y-2 text-sm font-medium text-slate-300">
+                  <li>• <strong className="text-white">ONLINE</strong> — Students take exam in browser with timer</li>
+                  <li>• <strong className="text-white">OFFLINE</strong> — Print PDF, collect OMR sheets</li>
+                  <li>• <strong className="text-white">TALENT HUNT</strong> — Multiple sets, unlimited subjects</li>
+                  <li>• <strong className="text-white">UNIVERSITY</strong> — Special format (DU, KUET style)</li>
+                </ul>
              </div>
           </div>
         </div>
 
         {error && (
-          <div className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-base font-bold text-rose-600 uppercase tracking-widest flex items-center gap-3">
+          <div className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-600 flex items-center gap-3">
              <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />
              {error}
           </div>
@@ -311,14 +355,14 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
             className="flex-1 h-12 rounded-2xl border-slate-200 bg-white font-black uppercase tracking-[0.2em] text-[11px] text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-all"
             onClick={closeModal}
           >
-            Discard
+            Cancel
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={submitting}
             className="flex-[2] h-12 rounded-2xl bg-slate-900 font-black uppercase tracking-[0.2em] text-[11px] text-white shadow-xl shadow-slate-200 hover:bg-indigo-600 hover:scale-[1.02] active:scale-95 transition-all"
           >
-            {submitting ? 'Processing...' : isEdit ? 'Update Baseline' : 'Authorize Exam'}
+            {submitting ? 'Saving...' : isEdit ? 'Update Exam' : 'Create Exam'}
           </Button>
         </div>
       </div>

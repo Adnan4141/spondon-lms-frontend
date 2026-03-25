@@ -94,3 +94,15 @@ export async function getMultipleExamMeritList(examIds: string[]): Promise<{ suc
 export async function findStudentByRollNo(rollNo: string): Promise<{ success: boolean; data: { id: string; fullName: string; mobile: string; registrationNumber?: string } | null }> {
   return apiRequest<{ success: boolean; data: any }>(`/exam-results/student-by-roll?rollNo=${encodeURIComponent(rollNo)}`);
 }
+
+export interface LeaderboardEntry {
+  rank: number;
+  studentId: string;
+  studentName: string;
+  marks: number;
+  source: string;
+}
+
+export async function getLeaderboard(examId: string): Promise<{ success: boolean; data: { examTitle: string; leaderboard: LeaderboardEntry[] } }> {
+  return apiRequest<{ success: boolean; data: { examTitle: string; leaderboard: LeaderboardEntry[] } }>(`/exam-results/leaderboard?examId=${examId}`);
+}

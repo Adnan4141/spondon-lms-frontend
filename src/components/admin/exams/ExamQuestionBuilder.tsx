@@ -296,56 +296,120 @@ export function ExamQuestionBuilder({ examId, exam, sets, onRefresh }: ExamQuest
                       <Badge variant="outline" className="bg-white text-indigo-600 font-black">{currentSet?.questions?.length || 0} Identified</Badge>
                    </div>
                    <div className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto no-scrollbar">
-                      {currentSet?.questions?.map((eq: any, index: number) => {
-                        const isPassage = !!eq.passageId;
-                        const isChild = !!eq.question?.passageId;
+                      {(() => {
+                        const questions = currentSet?.questions || [];
+                        // Group questions: standalone items + passage blocks
+                        const rendered: React.ReactNode[] = [];
+                        const seenPassageIds = new Set<string>();
+                        let questionNumber = 0;
 
-                        return (
-                          <div key={eq.id} className={cn(
-                            "group p-6 flex items-center justify-between transition-all",
-                            isPassage ? "bg-indigo-50/30" : "hover:bg-slate-50",
-                            isChild && "ml-10 border-l-4 border-slate-100 bg-white/50 pl-8"
-                          )}>
-                             <div className="flex items-center gap-5">
-                                {!isPassage && <span className="text-sm font-black text-slate-300 w-6">{index + 1}.</span>}
-                                <div className={cn(
-                                  "h-10 w-10 rounded-xl flex items-center justify-center shadow-sm transition-colors",
-                                  isPassage ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-400 group-hover:text-indigo-600"
-                                )}>
-                                   {isPassage ? <Layers className="h-5 w-5" /> : <FileText className="h-5 w-5" />}
-                                </div>
-                                <div className="space-y-0.5">
-                                   <p className={cn("text-base font-bold text-slate-800 line-clamp-1", isPassage && "text-indigo-900")}>
-                                      {isPassage ? eq.passage?.content.replace(/<[^>]+>/g, '') : eq.question?.prompt.replace(/<[^>]+>/g, '')}
-                                   </p>
-                                   <div className="flex items-center gap-3">
-                                      {isPassage ? (
-                                        <Badge className="text-[8px] font-black uppercase bg-indigo-100 text-indigo-700 border-indigo-200">Contextual_Combined</Badge>
-                                      ) : (
-                                        <>
-                                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Weight: {eq.marks} Points</span>
-                                          {isChild && <Badge variant="outline" className="text-[8px] font-black uppercase bg-white text-indigo-500 border-indigo-100">Combined_Linked</Badge>}
-                                        </>
+                        for (let i = 0; i < questions.length; i++) {
+                          const eq = questions[i];
+                          const passageId = eq.question?.passageId;
+
+                          if (passageId && !seenPassageIds.has(passageId)) {
+                            // First encounter of this passage — render passage block + all children
+                            seenPassageIds.add(passageId);
+                            const passageContent = eq.question?.passage?.content;
+                            const children = questions.filter((q: any) => q.question?.passageId === passageId);
+
+                            rendered.push(
+                              <div key={`passage-${passageId}`} className="border-b border-slate-100">
+                                {/* Passage Header */}
+                                <div className="p-6 bg-indigo-50/40 border-b border-indigo-100/60">
+                                  <div className="flex items-center gap-4">
+                                    <div className="h-10 w-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-sm shrink-0">
+                                      <Layers className="h-5 w-5" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <Badge className="text-[8px] font-black uppercase bg-indigo-100 text-indigo-700 border-indigo-200">Combined MCQ Passage</Badge>
+                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{children.length} Questions</span>
+                                      </div>
+                                      {passageContent && (
+                                        <p className="text-sm font-medium text-indigo-900 line-clamp-2">
+                                          {passageContent.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ')}
+                                        </p>
                                       )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Child Questions */}
+                                {children.map((child: any) => {
+                                  questionNumber++;
+                                  return (
+                                    <div key={child.id} className="group p-5 pl-14 flex items-center justify-between transition-all hover:bg-indigo-50/20 border-l-4 border-indigo-200 ml-6">
+                                      <div className="flex items-center gap-4">
+                                        <span className="text-sm font-black text-indigo-400 w-6">{questionNumber}.</span>
+                                        <div className="h-8 w-8 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center shrink-0">
+                                          <FileText className="h-4 w-4" />
+                                        </div>
+                                        <div className="space-y-0.5">
+                                          <p className="text-sm font-bold text-slate-700 line-clamp-1">
+                                            {child.question?.prompt?.replace(/<[^>]+>/g, '')}
+                                          </p>
+                                          <div className="flex items-center gap-3">
+                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Weight: {child.marks} Points</span>
+                                            <span className="h-1 w-1 rounded-full bg-slate-200" />
+                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Index: {child.orderIndex}</span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-9 w-9 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl opacity-0 group-hover:opacity-100 transition-all"
+                                        onClick={() => handleRemoveQuestion(child.id)}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          } else if (!passageId) {
+                            // Standalone question (Single MCQ or CQ)
+                            questionNumber++;
+                            rendered.push(
+                              <div key={eq.id} className="group p-6 flex items-center justify-between transition-all hover:bg-slate-50">
+                                <div className="flex items-center gap-5">
+                                  <span className="text-sm font-black text-slate-300 w-6">{questionNumber}.</span>
+                                  <div className="h-10 w-10 rounded-xl bg-slate-100 text-slate-400 group-hover:text-indigo-600 flex items-center justify-center shadow-sm transition-colors">
+                                    <FileText className="h-5 w-5" />
+                                  </div>
+                                  <div className="space-y-0.5">
+                                    <p className="text-base font-bold text-slate-800 line-clamp-1">
+                                      {eq.question?.prompt?.replace(/<[^>]+>/g, '')}
+                                    </p>
+                                    <div className="flex items-center gap-3">
+                                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Weight: {eq.marks} Points</span>
+                                      <Badge variant="outline" className="text-[8px] font-black uppercase bg-white text-slate-500 border-slate-200">{eq.question?.type}</Badge>
                                       <span className="h-1 w-1 rounded-full bg-slate-200" />
                                       <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Index: {eq.orderIndex}</span>
-                                   </div>
+                                    </div>
+                                  </div>
                                 </div>
-                             </div>
-                             <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-9 w-9 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl opacity-0 group-hover:opacity-100 transition-all"
-                                onClick={() => handleRemoveQuestion(eq.id)}
-                             >
-                                <Trash2 className="h-4 w-4" />
-                             </Button>
-                          </div>
-                        );
-                      })}
-                      {(!currentSet?.questions || currentSet.questions.length === 0) && (
-                        <div className="p-20 text-center text-[10px] font-black uppercase tracking-[0.3em] text-slate-300 italic">No inquiries linked to this set protocol.</div>
-                      )}
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-9 w-9 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl opacity-0 group-hover:opacity-100 transition-all"
+                                  onClick={() => handleRemoveQuestion(eq.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            );
+                          }
+                          // If passageId is already seen, skip (already rendered as part of the passage block)
+                        }
+
+                        if (rendered.length === 0) {
+                          return <div className="p-20 text-center text-[10px] font-black uppercase tracking-[0.3em] text-slate-300 italic">No inquiries linked to this set protocol.</div>;
+                        }
+                        return rendered;
+                      })()}
                    </div>
                 </div>
               </>

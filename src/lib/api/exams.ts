@@ -1,5 +1,5 @@
 import { apiRequest, API_ORIGIN } from '../api';
-import type { Exam, CreateExamDto, UpdateExamDto, ApiResponse } from '@/types/exam';
+import type { Exam, CreateExamDto, UpdateExamDto, ApiResponse, StartAttemptResponse, AttemptResultResponse } from '@/types/exam';
 
 export async function getExams(params?: {
   courseId?: string;
@@ -98,4 +98,34 @@ export async function regenerateSolveSheet(examId: string): Promise<ApiResponse<
 
 export function getExamPdfDownloadUrl(pdfUrl: string): string {
   return `${API_ORIGIN}${pdfUrl}`;
+}
+
+// Student Exam APIs
+export async function getStudentExams(studentUserId: string): Promise<ApiResponse<Exam[]>> {
+  return apiRequest<ApiResponse<Exam[]>>(`/exams/student/${studentUserId}`);
+}
+
+export async function startExamAttempt(examId: string, studentUserId: string): Promise<ApiResponse<StartAttemptResponse>> {
+  return apiRequest<ApiResponse<StartAttemptResponse>>(`/exams/${examId}/start-attempt`, {
+    method: 'POST',
+    body: JSON.stringify({ studentUserId }),
+  });
+}
+
+export async function saveExamAnswer(examId: string, data: { studentUserId: string; questionId: string; answer: any }): Promise<ApiResponse<void>> {
+  return apiRequest<ApiResponse<void>>(`/exams/${examId}/save-answer`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function submitExamAttempt(examId: string, data: { studentUserId: string; antiCheatLog?: any }): Promise<ApiResponse<any>> {
+  return apiRequest<ApiResponse<any>>(`/exams/${examId}/submit-attempt`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getAttemptResult(attemptId: string): Promise<ApiResponse<AttemptResultResponse>> {
+  return apiRequest<ApiResponse<AttemptResultResponse>>(`/exams/attempts/${attemptId}/result`);
 }

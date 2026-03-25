@@ -173,76 +173,120 @@ export function OfflineExamSheet({ exam, set, onClose }: OfflineExamSheetProps) 
                "gap-x-12",
                isTwoColumn ? "columns-2 [column-rule:1px_solid_#f1f5f9] print:[column-rule:1px_solid_#000]" : "columns-1"
             )}>
-               {set.questions?.map((eq: any) => {
-                  const q = eq.question;
-                  const p = eq.passage;
+               {(() => {
+                  const questions = set.questions || [];
+                  const rendered: React.ReactNode[] = [];
+                  const seenPassageIds = new Set<string>();
 
-                  if (p) {
-                    return (
-                      <div key={eq.id} className="mb-10 print-no-break">
-                         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 print:bg-transparent print:border-slate-900 print:rounded-xl">
-                            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-200 print:border-slate-900">
-                               <BookOpen className="h-4 w-4 text-indigo-600 print:text-slate-900" />
-                               <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-indigo-600 print:text-slate-900">Combined MCQ Context</h3>
-                            </div>
-                            <div className="text-[13px] leading-relaxed text-slate-800 font-medium prose prose-slate max-w-none" dangerouslySetInnerHTML={{ __html: p.content }} />
-                            <p className="mt-4 pt-3 border-t border-dotted border-slate-300 text-[8px] font-bold italic text-slate-400 uppercase tracking-widest print:border-slate-900 text-center">
-                               End of Context Block
-                            </p>
-                         </div>
-                      </div>
-                    );
-                  }
+                  for (let i = 0; i < questions.length; i++) {
+                    const eq = questions[i];
+                    const q = eq.question;
+                    const passageId = q?.passageId;
 
-                  if (q) {
-                    questionNumber++;
-                    const isChild = !!q.passageId;
+                    if (passageId && !seenPassageIds.has(passageId)) {
+                      // Render passage block once, then all child questions
+                      seenPassageIds.add(passageId);
+                      const passageContent = q?.passage?.content;
+                      const children = questions.filter((c: any) => c.question?.passageId === passageId);
 
-                    return (
-                      <div key={eq.id} className={cn(
-                        "mb-10 print-no-break", 
-                        isChild ? "ml-6 border-l-2 border-slate-100 pl-6 py-2" : "pt-2"
-                      )}>
-                         <div className="flex items-start gap-3">
-                            <span className={cn("text-base font-black text-slate-900 min-w-[25px] pt-0.5", isChild && "text-sm text-slate-500")}>
-                               {questionNumber}.
+                      rendered.push(
+                        <div key={`passage-${passageId}`} className="mb-6 print-no-break">
+                          {/* Passage Context Block */}
+                          <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 print:bg-transparent print:border-slate-900 print:rounded-xl mb-4">
+                         
+                            {passageContent && (
+                              <div className="text-[13px] leading-relaxed text-slate-800 font-medium prose prose-slate max-w-none" dangerouslySetInnerHTML={{ __html: passageContent }} />
+                            )}
+                           
+                          </div>
+
+                          {/* Child Questions */}
+                          {children.map((child: any) => {
+                            questionNumber++;
+                            const cq = child.question;
+                            return (
+                              <div key={child.id} className={cn(
+                                "mb-6 print-no-break ml-6 border-l-2 border-slate-100 pl-6 py-2"
+                              )}>
+                                <div className="flex items-start gap-3">
+                                  <span className="text-sm font-black text-slate-500 min-w-[25px] pt-0.5">
+                                    {questionNumber}.
+                                  </span>
+                                  <div className="flex-1 space-y-4">
+                                    <div className="flex justify-between items-start gap-4">
+                                      <div className="text-[13px] font-bold text-slate-900 leading-snug" dangerouslySetInnerHTML={{ __html: cq?.prompt || '' }} />
+                                      <span className="text-[9px] font-black text-slate-900 bg-slate-50 px-2 py-1 rounded border border-slate-100 whitespace-nowrap print:border-slate-900 shrink-0">
+                                        {child.marks} PTS
+                                      </span>
+                                    </div>
+                                    {cq?.type === 'MCQ' && cq?.options && cq.options.length > 0 && (
+                                      <div className={cn(
+                                        "grid gap-x-6 gap-y-2 pt-1",
+                                        isTwoColumn ? "grid-cols-1" : "grid-cols-2"
+                                      )}>
+                                        {cq.options.map((opt: any) => (
+                                          <div key={opt.id} className="flex items-center gap-2">
+                                            <div className="h-4 w-4 rounded-full border border-slate-300 shrink-0 print:border-slate-900" />
+                                            <span className="text-[13px] font-black text-slate-400 w-4">{opt.label}.</span>
+                                            <span className="text-[13px] font-semibold text-slate-700">{opt.text}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    } else if (!passageId) {
+                      // Standalone question
+                      questionNumber++;
+                      rendered.push(
+                        <div key={eq.id} className={cn("mb-10 print-no-break pt-2")}>
+                          <div className="flex items-start gap-3">
+                            <span className="text-base font-black text-slate-900 min-w-[25px] pt-0.5">
+                              {questionNumber}.
                             </span>
                             <div className="flex-1 space-y-4">
-                               <div className="flex justify-between items-start gap-4">
-                                  <div className={cn("text-[14px] font-bold text-slate-900 leading-snug", isChild && "text-[13px]")} dangerouslySetInnerHTML={{ __html: q.prompt }} />
-                                  <span className="text-[9px] font-black text-slate-900 bg-slate-50 px-2 py-1 rounded border border-slate-100 whitespace-nowrap print:border-slate-900 shrink-0">
-                                     {eq.marks} PTS
-                                  </span>
-                               </div>
+                              <div className="flex justify-between items-start gap-4">
+                                <div className="text-[14px] font-bold text-slate-900 leading-snug" dangerouslySetInnerHTML={{ __html: q?.prompt || '' }} />
+                                <span className="text-[9px] font-black text-slate-900 bg-slate-50 px-2 py-1 rounded border border-slate-100 whitespace-nowrap print:border-slate-900 shrink-0">
+                                  {eq.marks} PTS
+                                </span>
+                              </div>
 
-                               {q.type === 'MCQ' && q.options && q.options.length > 0 && (
-                                 <div className={cn(
-                                    "grid gap-x-6 gap-y-2 pt-1",
-                                    isTwoColumn ? "grid-cols-1" : "grid-cols-2"
-                                 )}>
-                                    {q.options.map((opt: any) => (
-                                      <div key={opt.id} className="flex items-center gap-2">
-                                         <div className="h-4 w-4 rounded-full border border-slate-300 shrink-0 print:border-slate-900" />
-                                         <span className="text-[13px] font-black text-slate-400 w-4">{opt.label}.</span>
-                                         <span className="text-[13px] font-semibold text-slate-700">{opt.text}</span>
-                                      </div>
-                                    ))}
-                                 </div>
-                               )}
+                              {q?.type === 'MCQ' && q?.options && q.options.length > 0 && (
+                                <div className={cn(
+                                  "grid gap-x-6 gap-y-2 pt-1",
+                                  isTwoColumn ? "grid-cols-1" : "grid-cols-2"
+                                )}>
+                                  {q.options.map((opt: any) => (
+                                    <div key={opt.id} className="flex items-center gap-2">
+                                      <div className="h-4 w-4 rounded-full border border-slate-300 shrink-0 print:border-slate-900" />
+                                      <span className="text-[13px] font-black text-slate-400 w-4">{opt.label}.</span>
+                                      <span className="text-[13px] font-semibold text-slate-700">{opt.text}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
 
-                               {q.type === 'CQ' && (
-                                 <div className="pt-2 space-y-2">
-                                    <div className="h-24 w-full border border-dashed border-slate-200 rounded-xl print:border-slate-400" />
-                                    <p className="text-[7px] font-black text-slate-300 uppercase tracking-[0.2em] text-center italic">Response Matrix</p>
-                                 </div>
-                               )}
+                              {q?.type === 'CQ' && (
+                                <div className="pt-2 space-y-2">
+                                  <div className="h-24 w-full border border-dashed border-slate-200 rounded-xl print:border-slate-400" />
+                                  <p className="text-[7px] font-black text-slate-300 uppercase tracking-[0.2em] text-center italic">Response Matrix</p>
+                                </div>
+                              )}
                             </div>
-                         </div>
-                      </div>
-                    );
+                          </div>
+                        </div>
+                      );
+                    }
+                    // Skip already-seen passage children
                   }
-                  return null;
-               })}
+                  return rendered;
+               })()}
             </div>
 
             {/* Compliance Footer (Standard Div - Appears only once at the end) */}

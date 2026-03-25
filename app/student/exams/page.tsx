@@ -1,0 +1,271 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { getStudentExams } from '@/lib/api/exams';
+import type { Exam } from '@/types/exam';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  BookOpenCheck,
+  Clock,
+  Play,
+  RotateCcw,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  Trophy,
+  FileText,
+  Timer,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+function getTypeBadgeClass(type: string) {
+  switch (type) {
+    case 'PRACTICE': return 'bg-blue-50 text-blue-700 border-blue-100';
+    case 'SCHEDULED': return 'bg-violet-50 text-violet-700 border-violet-100';
+    case 'MODEL': return 'bg-amber-50 text-amber-700 border-amber-100';
+    case 'TALENT_HUNT': return 'bg-pink-50 text-pink-700 border-pink-100';
+    case 'UNIVERSITY': return 'bg-indigo-50 text-indigo-700 border-indigo-100';
+    default: return 'bg-slate-50 text-slate-600 border-slate-200';
+  }
+}
+
+function timeRemaining(endAt: string | null | undefined): string | null {
+  if (!endAt) return null;
+  const diff = new Date(endAt).getTime() - Date.now();
+  if (diff <= 0) return 'Ended';
+  const hours = Math.floor(diff / 3600000);
+  const mins = Math.floor((diff % 3600000) / 60000);
+  if (hours > 24) return `${Math.floor(hours / 24)}d ${hours % 24}h left`;
+  if (hours > 0) return `${hours}h ${mins}m left`;
+  return `${mins}m left`;
+}
+
+export default function StudentExamsPage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [exams, setExams] = useState<Exam[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchExams = async () => {
+      const userStr = localStorage.getItem('user');
+      if (!userStr) {
+        setError('পরীক্ষা দেখতে লগইন করুন');
+        setLoading(false);
+        return;
+      }
+      try {
+        const user = JSON.parse(userStr);
+        const res = await getStudentExams(user.id);
+        if (res.success && res.data) setExams(res.data);
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : 'পরীক্ষা লোড ব্যর্থ');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchExams();
+  }, []);
+
+  const availableExams = exams.filter(e => e.canAttempt || e.hasInProgress);
+  const completedExams = exams.filter(e => !e.canAttempt && !e.hasInProgress && e.studentAttempts && e.studentAttempts.length > 0);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-12 w-12 animate-spin text-indigo-600" />
+          <p className="text-slate-500 font-bold animate-pulse">পরীক্ষা লোড হচ্ছে...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-10">
+        <h1 className="text-4xl font-black text-slate-900 tracking-tight">পরীক্ষা</h1>
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-8 text-center">
+          <AlertCircle className="h-10 w-10 text-rose-400 mx-auto mb-4" />
+          <p className="text-lg font-bold text-rose-600">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-10">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-4xl font-black text-slate-900 tracking-tight">পরীক্ষা</h1>
+          <p className="text-slate-500 font-medium mt-1">আপনার সকল পরীক্ষা এখানে</p>
+        </div>
+        <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-2 text-sm font-black text-slate-500 shadow-sm">
+          <BookOpenCheck className="h-4 w-4 text-indigo-500" />
+          মোট {exams.length} টি পরীক্ষা
+        </div>
+      </div>
+
+      {/* In-progress or available exams */}
+      {availableExams.length > 0 && (
+        <section>
+          <h2 className="text-[11px] font-black uppercase tracking-[0.25em] text-indigo-600 mb-4 flex items-center gap-2">
+            <Play className="h-3.5 w-3.5" /> চলমান / নতুন পরীক্ষা
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {availableExams.map((exam) => {
+              const remaining = timeRemaining(exam.endAt);
+              return (
+                <div
+                  key={exam.id}
+                  className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all cursor-pointer"
+                  onClick={() => router.push(`/student/exams/${exam.id}`)}
+                >
+                  {exam.hasInProgress && (
+                    <div className="absolute top-3 right-3">
+                      <span className="flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500" />
+                      </span>
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center gap-2 mb-3">
+                    <Badge variant="outline" className={cn("rounded-lg text-[9px] font-black uppercase px-2 py-0.5", getTypeBadgeClass(exam.type))}>
+                      {exam.type.replace('_', ' ')}
+                    </Badge>
+                    {exam.mode === 'ONLINE' && (
+                      <Badge variant="outline" className="rounded-lg text-[9px] font-black uppercase px-2 py-0.5 bg-cyan-50 text-cyan-700 border-cyan-100">
+                        ONLINE
+                      </Badge>
+                    )}
+                  </div>
+
+                  <h3 className="text-lg font-black text-slate-900 group-hover:text-indigo-600 transition-colors mb-2">
+                    {exam.title}
+                  </h3>
+
+                  <p className="text-sm font-medium text-slate-500 mb-1">
+                    {exam.course?.name}
+                  </p>
+
+                  <div className="flex items-center gap-4 text-xs font-medium text-slate-400 mt-3">
+                    {exam.durationMinutes && (
+                      <span className="flex items-center gap-1">
+                        <Timer className="h-3 w-3" /> {exam.durationMinutes} মিনিট
+                      </span>
+                    )}
+                    {remaining && (
+                      <span className="flex items-center gap-1 text-amber-600">
+                        <Clock className="h-3 w-3" /> {remaining}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="mt-4 pt-4 border-t border-slate-100">
+                    <Button
+                      className={cn(
+                        "w-full h-10 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all",
+                        exam.hasInProgress
+                          ? "bg-amber-500 hover:bg-amber-600 text-white"
+                          : "bg-indigo-600 hover:bg-indigo-700 text-white"
+                      )}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/student/exams/${exam.id}`);
+                      }}
+                    >
+                      {exam.hasInProgress ? (
+                        <><RotateCcw className="h-3.5 w-3.5 mr-2" /> পরীক্ষায় ফিরুন</>
+                      ) : (
+                        <><Play className="h-3.5 w-3.5 mr-2" /> পরীক্ষা শুরু করুন</>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Completed exams */}
+      {completedExams.length > 0 && (
+        <section>
+          <h2 className="text-[11px] font-black uppercase tracking-[0.25em] text-emerald-600 mb-4 flex items-center gap-2">
+            <CheckCircle2 className="h-3.5 w-3.5" /> সম্পন্ন পরীক্ষা
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {completedExams.map((exam) => {
+              const lastAttempt = exam.studentAttempts?.[exam.studentAttempts.length - 1];
+              const percentage = lastAttempt?.totalMarks && lastAttempt?.obtainedMarks != null
+                ? Math.round((lastAttempt.obtainedMarks / lastAttempt.totalMarks) * 100)
+                : null;
+              return (
+                <div
+                  key={exam.id}
+                  className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-all cursor-pointer"
+                  onClick={() => router.push(`/student/exams/${exam.id}`)}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <Badge variant="outline" className={cn("rounded-lg text-[9px] font-black uppercase px-2 py-0.5", getTypeBadgeClass(exam.type))}>
+                      {exam.type.replace('_', ' ')}
+                    </Badge>
+                    {percentage != null && (
+                      <span className={cn(
+                        "text-sm font-black",
+                        percentage >= 80 ? "text-emerald-600" : percentage >= 50 ? "text-amber-600" : "text-rose-600"
+                      )}>
+                        {percentage}%
+                      </span>
+                    )}
+                  </div>
+
+                  <h3 className="text-lg font-bold text-slate-800 group-hover:text-indigo-600 transition-colors mb-1">
+                    {exam.title}
+                  </h3>
+                  <p className="text-sm text-slate-500">{exam.course?.name}</p>
+
+                  {lastAttempt && (
+                    <div className="flex items-center gap-3 mt-3 text-xs font-medium text-slate-400">
+                      <span className="flex items-center gap-1">
+                        <Trophy className="h-3 w-3 text-amber-500" />
+                        {lastAttempt.obtainedMarks ?? 0}/{lastAttempt.totalMarks ?? 0}
+                      </span>
+                      {lastAttempt.submittedAt && (
+                        <span>{new Date(lastAttempt.submittedAt).toLocaleDateString('bn-BD')}</span>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="mt-4 pt-4 border-t border-slate-100">
+                    <Button
+                      variant="outline"
+                      className="w-full h-9 rounded-xl font-bold text-xs text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-all"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/student/exams/${exam.id}`);
+                      }}
+                    >
+                      <FileText className="h-3.5 w-3.5 mr-2" /> ফলাফল দেখুন
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {exams.length === 0 && (
+        <div className="flex flex-col items-center justify-center p-20 rounded-3xl border border-dashed border-slate-200 bg-slate-50">
+          <BookOpenCheck className="h-16 w-16 text-slate-300 mb-4" />
+          <p className="text-lg font-bold text-slate-400">এখনো কোনো পরীক্ষা নেই</p>
+          <p className="text-sm text-slate-400 mt-1">কোর্সে ভর্তি হলে পরীক্ষা দেখতে পাবেন</p>
+        </div>
+      )}
+    </div>
+  );
+}

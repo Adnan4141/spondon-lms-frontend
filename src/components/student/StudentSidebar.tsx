@@ -15,6 +15,7 @@ import {
   BookMarked,
   LogOut,
   ChevronRight,
+  BookOpenCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -22,6 +23,7 @@ const menuItems = [
   { title: 'হোম', href: '/student', icon: LayoutDashboard },
   { title: 'আমার কোর্স', href: '/student/courses', icon: BookOpen },
   { title: 'সকল কোর্স', href: '/student/all-courses', icon: GraduationCap },
+  { title: 'পরীক্ষা', href: '/student/exams', icon: BookOpenCheck },
   { title: 'বই', href: '/student/books', icon: BookMarked },
   { title: 'কমিউনিটি', href: '/student/community', icon: MessageSquare },
   { title: 'প্রশ্ন', href: '/student/doubts', icon: HelpCircle },
