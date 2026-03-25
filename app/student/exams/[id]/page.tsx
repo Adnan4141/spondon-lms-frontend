@@ -23,6 +23,124 @@ import { cn } from '@/lib/utils';
 
 type Phase = 'loading' | 'exam' | 'submitting' | 'result';
 
+type Lang = 'bn' | 'en';
+
+const isBanglaText = (v?: string | null): boolean => {
+  if (!v) return false;
+  // Unicode range for Bangla script
+  return /[\u0980-\u09FF]/.test(v);
+};
+
+const detectQuestionLang = (question?: { prompt?: string; options?: { text?: string }[] } | null, fallback: Lang = 'bn'): Lang => {
+  const prompt = question?.prompt || '';
+  const optionText = (question?.options || []).map((o) => o?.text || '').join(' ');
+  const combined = `${prompt} ${optionText}`;
+  return isBanglaText(combined) ? 'bn' : 'en';
+};
+
+const bnOptionLetters: Record<'A' | 'B' | 'C' | 'D', string> = {
+  A: 'ক',
+  B: 'খ',
+  C: 'গ',
+  D: 'ঘ',
+};
+
+const getOptionLabel = (label: string, lang: Lang): string => {
+  if (lang === 'bn') {
+    const upper = label?.toUpperCase?.() || label;
+    if (upper === 'A' || upper === 'B' || upper === 'C' || upper === 'D') return bnOptionLetters[upper as 'A' | 'B' | 'C' | 'D'];
+  }
+  return label;
+};
+
+const getExamUiStrings = (lang: Lang) => {
+  if (lang === 'en') {
+    return {
+      loading: 'Loading exam...',
+      loginToTakeExam: 'Please log in to take the exam',
+      startFailed: 'Failed to start the exam',
+      submitting: 'Submitting your paper...',
+      examSubmitted: 'Exam submitted',
+      examCompleted: 'Exam completed!',
+
+      submit: 'Submit',
+      submitConfirmTitle: 'Submit this exam?',
+      submitConfirmGoBack: 'Go back',
+
+      questionNavigation: 'Question navigation',
+      legendAnswered: 'Answered',
+      legendUnanswered: 'Unanswered',
+      legendCurrent: 'Current question',
+      legendFlagged: 'Review later',
+
+      questionLabel: (idx: number, total: number) => `Question ${idx} / ${total}`,
+      marksLabel: 'Marks',
+      negativeLabel: 'Negative',
+
+      flag: 'Flag',
+      unflag: 'Unflag',
+
+      cqLabel: 'Write your answer:',
+      cqPlaceholder: 'Write your answer here...',
+
+      prevQuestion: 'Previous question',
+      nextQuestion: 'Next question',
+
+      totalQuestions: 'Total questions',
+      answered: 'Answered',
+      unanswered: 'Unanswered',
+      flagged: 'Flagged',
+
+      backToExamList: 'Back to exam list',
+      scoreLabel: 'Your score',
+      solutionsLabel: 'Solution Sheet',
+      explanationLabel: 'Explanation',
+    };
+  }
+
+  return {
+    loading: 'পরীক্ষা লোড হচ্ছে...',
+    loginToTakeExam: 'পরীক্ষা দিতে লগইন করুন',
+    startFailed: 'পরীক্ষা শুরু করা যায়নি',
+    submitting: 'উত্তরপত্র জমা হচ্ছে...',
+    examSubmitted: 'পরীক্ষা জমা হয়েছে',
+    examCompleted: 'পরীক্ষা সম্পন্ন!',
+
+    submit: 'জমা দিন',
+    submitConfirmTitle: 'পরীক্ষা জমা দিবেন?',
+    submitConfirmGoBack: 'ফিরে যান',
+
+    questionNavigation: 'প্রশ্ন নেভিগেশন',
+    legendAnswered: 'উত্তর দেওয়া হয়েছে',
+    legendUnanswered: 'উত্তর দেওয়া হয়নি',
+    legendCurrent: 'বর্তমান প্রশ্ন',
+    legendFlagged: 'পরে দেখব',
+
+    questionLabel: (idx: number, total: number) => `প্রশ্ন ${idx} / ${total}`,
+    marksLabel: 'মার্কস',
+    negativeLabel: 'নেগেটিভ',
+
+    flag: 'পতাকা দিন',
+    unflag: 'পতাকা সরান',
+
+    cqLabel: 'আপনার উত্তর লিখুন:',
+    cqPlaceholder: 'এখানে আপনার উত্তর লিখুন...',
+
+    prevQuestion: 'আগের প্রশ্ন',
+    nextQuestion: 'পরের প্রশ্ন',
+
+    totalQuestions: 'মোট প্রশ্ন',
+    answered: 'উত্তর দেওয়া',
+    unanswered: 'উত্তর দেওয়া হয়নি',
+    flagged: 'পতাকা দেওয়া',
+
+    backToExamList: 'পরীক্ষা তালিকায় ফিরুন',
+    scoreLabel: 'আপনার স্কোর',
+    solutionsLabel: 'সমাধান পত্র',
+    explanationLabel: 'ব্যাখ্যা',
+  };
+};
+
 export default function StudentExamTakingPage() {
   const router = useRouter();
   const params = useParams();
@@ -42,6 +160,9 @@ export default function StudentExamTakingPage() {
 
   // Result state
   const [result, setResult] = useState<AttemptResultResponse | null>(null);
+
+  const examBaseLang: Lang = attemptData?.exam.language === 'en' ? 'en' : 'bn';
+  const baseUi = getExamUiStrings(examBaseLang);
 
   // Anti-cheat
   const antiCheatRef = useRef({ tabSwitches: 0, blurEvents: 0 });
@@ -239,13 +360,13 @@ export default function StudentExamTakingPage() {
             <AlertTriangle className="h-16 w-16 text-rose-400 mx-auto" />
             <p className="text-xl font-bold text-rose-600">{error}</p>
             <Button variant="outline" onClick={() => router.back()} className="mt-4">
-              ফিরে যান
+              {baseUi.submitConfirmGoBack}
             </Button>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-6">
             <Loader2 className="h-16 w-16 animate-spin text-indigo-600" />
-            <p className="text-xl font-bold text-slate-500 animate-pulse">পরীক্ষা লোড হচ্ছে...</p>
+            <p className="text-xl font-bold text-slate-500 animate-pulse">{baseUi.loading}</p>
           </div>
         )}
       </div>
@@ -258,7 +379,7 @@ export default function StudentExamTakingPage() {
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-white">
         <div className="flex flex-col items-center gap-6">
           <Loader2 className="h-16 w-16 animate-spin text-indigo-600" />
-          <p className="text-xl font-bold text-slate-600">উত্তরপত্র জমা হচ্ছে...</p>
+          <p className="text-xl font-bold text-slate-600">{baseUi.submitting}</p>
         </div>
       </div>
     );
@@ -266,6 +387,9 @@ export default function StudentExamTakingPage() {
 
   // Result view
   if (phase === 'result') {
+    const resultLang: Lang = result?.exam.language === 'en' ? 'en' : examBaseLang;
+    const resultUi = getExamUiStrings(resultLang);
+
     return (
       <div className="min-h-screen bg-slate-50 py-12 px-4">
         <div className="max-w-3xl mx-auto">
@@ -273,7 +397,7 @@ export default function StudentExamTakingPage() {
             <div className="inline-flex items-center justify-center h-20 w-20 rounded-full bg-emerald-100 mb-4">
               <CheckCircle2 className="h-10 w-10 text-emerald-600" />
             </div>
-            <h1 className="text-3xl font-black text-slate-900">পরীক্ষা সম্পন্ন!</h1>
+            <h1 className="text-3xl font-black text-slate-900">{resultUi.examCompleted}</h1>
             {result && (
               <p className="text-lg font-medium text-slate-500 mt-2">{result.exam.title}</p>
             )}
@@ -283,7 +407,7 @@ export default function StudentExamTakingPage() {
             <div className="space-y-8">
               {/* Score card */}
               <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm text-center">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">আপনার স্কোর</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">{baseUi.scoreLabel}</p>
                 <div className="flex items-baseline justify-center gap-2">
                   <span className="text-6xl font-black text-indigo-600">{result.attempt.obtainedMarks ?? 0}</span>
                   <span className="text-2xl font-bold text-slate-400">/ {result.attempt.totalMarks ?? 0}</span>
@@ -304,11 +428,13 @@ export default function StudentExamTakingPage() {
               {result.showSolutions && result.questions.length > 0 && (
                 <div className="space-y-4">
                   <h2 className="text-[11px] font-black uppercase tracking-[0.25em] text-indigo-600 flex items-center gap-2">
-                    <Eye className="h-3.5 w-3.5" /> সমাধান পত্র
+                    <Eye className="h-3.5 w-3.5" /> {resultUi.solutionsLabel}
                   </h2>
                   {result.questions.map((eq, idx) => {
                     const q = eq.question;
                     if (!q) return null;
+                    const qLang = detectQuestionLang(q, resultLang);
+                    const qUi = getExamUiStrings(qLang);
                     const studentAns = eq.studentAnswer;
                     const isCorrect = studentAns?.isCorrect;
                     
@@ -323,7 +449,9 @@ export default function StudentExamTakingPage() {
                         <div className="flex items-start justify-between mb-3">
                           <span className="text-sm font-black text-slate-400">#{idx + 1}</span>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-slate-400">{eq.marks} marks</span>
+                            <span className="text-xs font-bold text-slate-400">
+                              {eq.marks} {qUi.marksLabel}
+                            </span>
                             {isCorrect === true && <CheckCircle2 className="h-5 w-5 text-emerald-500" />}
                             {isCorrect === false && <XCircle className="h-5 w-5 text-rose-500" />}
                           </div>
@@ -347,7 +475,7 @@ export default function StudentExamTakingPage() {
                                   )}
                                 >
                                   <span className="flex-shrink-0 h-7 w-7 rounded-lg border flex items-center justify-center text-xs font-black">
-                                    {opt.label}
+                                    {getOptionLabel(opt.label, qLang)}
                                   </span>
                                   <span className="font-medium text-slate-700" dangerouslySetInnerHTML={{ __html: opt.text }} />
                                   {isCorrectOpt && <CheckCircle2 className="h-4 w-4 text-emerald-500 ml-auto flex-shrink-0" />}
@@ -360,7 +488,7 @@ export default function StudentExamTakingPage() {
 
                         {q.explanation && (
                           <div className="mt-4 rounded-xl bg-indigo-50 border border-indigo-100 p-4">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500 mb-1">ব্যাখ্যা</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500 mb-1">{qUi.explanationLabel}</p>
                             <div className="prose prose-sm max-w-none text-slate-700" dangerouslySetInnerHTML={{ __html: q.explanation }} />
                           </div>
                         )}
@@ -372,7 +500,7 @@ export default function StudentExamTakingPage() {
 
               <div className="flex justify-center gap-4">
                 <Button variant="outline" className="h-12 rounded-2xl px-8 font-bold" onClick={() => router.push('/student/exams')}>
-                  পরীক্ষা তালিকায় ফিরুন
+                  {resultUi.backToExamList}
                 </Button>
               </div>
             </div>
@@ -380,9 +508,9 @@ export default function StudentExamTakingPage() {
 
           {!result && (
             <div className="text-center">
-              <p className="text-slate-500 font-medium mb-4">পরীক্ষা জমা হয়েছে</p>
+              <p className="text-slate-500 font-medium mb-4">{resultUi.examSubmitted}</p>
               <Button onClick={() => router.push('/student/exams')} className="h-12 rounded-2xl px-8 bg-indigo-600">
-                পরীক্ষা তালিকায় ফিরুন
+                {resultUi.backToExamList}
               </Button>
             </div>
           )}
@@ -399,6 +527,11 @@ export default function StudentExamTakingPage() {
   const answeredCount = Object.keys(answers).length;
   const totalQuestions = questions.length;
   const isTimeLow = timeLeft !== null && timeLeft < 300; // < 5 minutes
+
+  // Decide language from the current question content
+  const currentLang = detectQuestionLang(currentQ?.question as any, examBaseLang);
+  const ui = getExamUiStrings(currentLang);
+  const showSidebar = true;
 
   return (
     <div className="fixed inset-0 z-50 flex bg-white">

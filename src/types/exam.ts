@@ -82,6 +82,7 @@ export interface Exam {
   pdfUrl?: string | null;
   solveSheetUrl?: string | null;
   showLeaderboard?: boolean;
+  language?: string;
   solveSheetVisibility?: string | null;
   solveSheetScheduledAt?: string | null;
   createdAt: string;
@@ -116,6 +117,7 @@ export interface CreateExamDto {
   showLeaderboard?: boolean;
   solveSheetVisibility?: string;
   solveSheetScheduledAt?: string;
+  language?: string;
 }
 
 export interface UpdateExamDto {
@@ -138,7 +140,7 @@ export interface UpdateExamDto {
 
 export interface StartAttemptResponse {
   attempt: { id: string; startedAt: string; status: string };
-  exam: { id: string; title: string; durationMinutes: number | null; type: ExamType; mode: ExamMode };
+  exam: { id: string; title: string; durationMinutes: number | null; type: ExamType; mode: ExamMode; language?: string | null };
   setName: string;
   questions: ExamQuestion[];
   totalMarks: number;
@@ -148,7 +150,7 @@ export interface StartAttemptResponse {
 export interface AttemptResultResponse {
   attempt: { id: string; status: string; startedAt: string; submittedAt: string | null; totalMarks: number | null; obtainedMarks: number | null };
   student: { id: string; fullName: string };
-  exam: { id: string; title: string; type: ExamType; showLeaderboard: boolean };
+  exam: { id: string; title: string; type: ExamType; showLeaderboard: boolean; language?: string | null };
   questions: ExamQuestion[];
   showSolutions: boolean;
 }

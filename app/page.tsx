@@ -23,9 +23,6 @@ import { getSystemStats, SystemStatsData } from '@/lib/api/reports';
 import { getPublicTestimonials } from '@/lib/api/testimonials';
 import { getPublicPartners, Partner } from '@/lib/api/partners';
 import { getPublicTeachers, PublicTeacher } from '@/lib/api/teachers';
-import { getPublicTestimonials } from '@/lib/api/testimonials';
-import { getPublicPartners, Partner } from '@/lib/api/partners';
-import { getPublicTeachers, PublicTeacher } from '@/lib/api/teachers';
 
 const interactiveFeatures: Feature[] = [
   { id: 'live', title: 'লাইভ এবং রেকর্ডড ক্লাস', icon: <Cast className="h-5 w-5" />, previewTitle: 'জীববিজ্ঞান ৯ম- অধ্যায় ১: কোষ ও কলা', previewTime: 'রাত ৮:৩০ - ৯:৩০ | ৩০ মিনিট' },

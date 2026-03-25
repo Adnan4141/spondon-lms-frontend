@@ -62,6 +62,7 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
     showLeaderboard: false,
     solveSheetVisibility: 'HIDDEN',
     solveSheetScheduledAt: undefined,
+    language: 'bn',
   });
   const [batches, setBatches] = useState<Batch[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -87,6 +88,7 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
         showLeaderboard: exam.showLeaderboard ?? false,
         solveSheetVisibility: exam.solveSheetVisibility || 'HIDDEN',
         solveSheetScheduledAt: exam.solveSheetScheduledAt ? new Date(exam.solveSheetScheduledAt).toISOString().slice(0, 16) : undefined,
+        language: exam.language || 'bn',
       });
     }
   }, [exam]);
@@ -324,6 +326,17 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
                          </SelectContent>
                       </Select>
                    </div>
+                </div>
+
+                <div className="space-y-2">
+                   <label className={sectionLabel}>🌐 Question Language</label>
+                   <Select value={form.language || 'bn'} onValueChange={(v) => setForm((p) => ({ ...p, language: v }))}>
+                      <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner"><SelectValue /></SelectTrigger>
+                      <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
+                         <SelectItem value="bn" className="font-bold text-sm py-3">বাংলা (Bangla)</SelectItem>
+                         <SelectItem value="en" className="font-bold text-sm py-3">English</SelectItem>
+                      </SelectContent>
+                   </Select>
                 </div>
              </div>
 
