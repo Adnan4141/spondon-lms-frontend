@@ -1,19 +1,23 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
-import { ChevronDown, ChevronRight, Play, CheckCircle2, Circle } from 'lucide-react';
+import { ChevronDown, ChevronRight, Play, CheckCircle2, Circle, ExternalLink, FileText } from 'lucide-react';
 import { getCourseContentsWithProgress, updateContentProgress } from '@/lib/api/student-portal';
 import { getCourseById } from '@/lib/api/courses';
 import type { CourseDetails } from '@/types/course';
+import { isYoutubeContentUrl, parseYoutubeVideoId, toYoutubeEmbedSrc } from '@/lib/youtube';
+import { resolveAttachmentUrl } from '@/lib/attachment-url';
+import { API_ORIGIN } from '@/lib/api';
 
 interface ContentItem {
   id: string;
   type: string;
   title: string;
   fileUrl?: string;
+  textBody?: string;
   topicTitle?: string;
   topicSortOrder?: number;
   durationMinutes?: number;
@@ -50,7 +54,6 @@ function groupByTopic(contents: ContentItem[]) {
 
 export default function StudentCourseLearnPage() {
   const params = useParams();
-  const router = useRouter();
   const courseId = params.courseId as string;
   const [course, setCourse] = useState<CourseDetails | null>(null);
   const [contents, setContents] = useState<ContentItem[]>([]);
@@ -59,6 +62,7 @@ export default function StudentCourseLearnPage() {
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
   const [studentUserId, setStudentUserId] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+
 
   useEffect(() => {
     try {
@@ -138,6 +142,20 @@ export default function StudentCourseLearnPage() {
   const progressPct = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
   const totalMins = contents.reduce((s, c) => s + (c.durationMinutes ?? 0), 0);
 
+  const rawUrl = selectedContent?.fileUrl;
+  const resolvedMediaUrl = rawUrl ? resolveAttachmentUrl(rawUrl, API_ORIGIN) : '';
+  const embedYoutubeId =
+    rawUrl && isYoutubeContentUrl(rawUrl) ? parseYoutubeVideoId(rawUrl) : null;
+  const ytBroken = !!(rawUrl && isYoutubeContentUrl(rawUrl) && !embedYoutubeId);
+  const treatAsPdf =
+    !!rawUrl && (selectedContent?.type === 'PDF' || /\.pdf(\?|#|$)/i.test(rawUrl));
+  const mediaFrameClass =
+    selectedContent?.type === 'VIDEO' || (rawUrl && isYoutubeContentUrl(rawUrl))
+      ? 'aspect-video'
+      : rawUrl
+        ? 'min-h-[480px]'
+        : 'aspect-video';
+
   if (!studentUserId) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
@@ -186,26 +204,68 @@ export default function StudentCourseLearnPage() {
       <div className="grid lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
           <Card className="rounded-2xl overflow-hidden border-none shadow-lg">
-            <div className="aspect-video bg-slate-900">
-              {selectedContent?.type === 'VIDEO' && selectedContent.fileUrl ? (
+            <div className={`${mediaFrameClass} bg-slate-900`}>
+              {ytBroken ? (
+                <div className="w-full h-full flex flex-col items-center justify-center text-amber-200/90 px-6 text-center">
+                  <p className="font-bold">This YouTube link could not be loaded.</p>
+                  <p className="text-sm mt-2 text-slate-400">Ask your instructor to check the video URL.</p>
+                </div>
+              ) : embedYoutubeId ? (
+                <iframe
+                  key={selectedContent!.id}
+                  title={selectedContent!.title}
+                  src={toYoutubeEmbedSrc(embedYoutubeId)}
+                  className="w-full h-full border-0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              ) : selectedContent?.type === 'VIDEO' && rawUrl ? (
                 <video
                   ref={videoRef}
                   key={selectedContent.id}
-                  src={selectedContent.fileUrl}
+                  src={resolvedMediaUrl}
                   controls
                   className="w-full h-full"
                   onTimeUpdate={handleVideoTimeUpdate}
                   onEnded={handleVideoEnded}
                   onPlay={() => {}}
                 />
+              ) : selectedContent && selectedContent.type !== 'VIDEO' && rawUrl ? (
+                treatAsPdf ? (
+                  <iframe
+                    title={selectedContent.title}
+                    src={resolvedMediaUrl}
+                    className="w-full h-full min-h-[480px] border-0 bg-white"
+                  />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-slate-200 px-6">
+                    <FileText className="h-14 w-14 opacity-40" />
+                    <p className="font-bold text-center">This segment is a linked file or page</p>
+                    <a
+                      href={resolvedMediaUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-slate-900 font-bold text-sm hover:bg-slate-100"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      Open link
+                    </a>
+                  </div>
+                )
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
                   <Play className="h-16 w-16 mb-4 opacity-50" />
-                  <p className="font-bold">
-                    {selectedContent ? (selectedContent.fileUrl ? 'Video not available' : selectedContent.title) : 'Select a lesson'}
+                  <p className="font-bold text-center px-4">
+                    {selectedContent
+                      ? selectedContent.type === 'VIDEO' && !selectedContent.fileUrl
+                        ? 'Add a video file or YouTube link for this lesson'
+                        : selectedContent.fileUrl
+                          ? 'Preview not available for this item'
+                          : selectedContent.title
+                      : 'Select a lesson'}
                   </p>
-                  {selectedContent?.type !== 'VIDEO' && (
-                    <p className="text-sm mt-2">This content type is not playable as video.</p>
+                  {selectedContent && selectedContent.type !== 'VIDEO' && !selectedContent.fileUrl && (
+                    <p className="text-sm mt-2 text-center px-4">Upload a file or add a link when editing this segment.</p>
                   )}
                 </div>
               )}
@@ -214,9 +274,12 @@ export default function StudentCourseLearnPage() {
               <h2 className="text-xl font-black text-slate-900">
                 {selectedContent?.title || 'Select a lesson from the sidebar'}
               </h2>
-              {selectedContent?.durationMinutes && (
+              {selectedContent?.durationMinutes != null && selectedContent.durationMinutes > 0 && (
                 <p className="text-slate-500 text-sm mt-1">{formatDuration(selectedContent.durationMinutes)}</p>
               )}
+              {selectedContent?.textBody ? (
+                <p className="text-slate-600 text-sm mt-4 whitespace-pre-wrap">{selectedContent.textBody}</p>
+              ) : null}
             </CardContent>
           </Card>
         </div>
