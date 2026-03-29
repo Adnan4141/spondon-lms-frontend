@@ -30,14 +30,25 @@ import {
   Pencil,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { 
   getCourseContents, 
   deleteCourseContent, 
   getAssociatedCourses, 
   deleteAssociatedCourse,
-  getCourses 
+  getCourses,
+  addCourseTeacher,
+  removeCourseTeacher,
 } from '@/lib/api/courses';
+import { getUsers } from '@/lib/api/users';
+import type { CourseDetailTeacher } from '@/types/course';
 import { getCourseSchedules, createCourseSchedule, deleteCourseSchedule } from '@/lib/api/course-schedules';
 import { useToast } from '@/hooks/use-toast';
 import { CourseResourceForm } from './CourseResourceForm';
@@ -79,8 +90,28 @@ export function CourseDetailsView({ course }: CourseDetailsViewProps) {
   const [addingToChapter, setAddingToChapter] = useState<string | null>(null);
   const [addingChapterOrder, setAddingChapterOrder] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [teacherPick, setTeacherPick] = useState('');
+  const [teachersPool, setTeachersPool] = useState<{ id: string; fullName: string; email?: string }[]>([]);
+  const [assignedTeachers, setAssignedTeachers] = useState<CourseDetailTeacher[]>(() => course.teachers || []);
+  const [teacherActionLoading, setTeacherActionLoading] = useState(false);
 
   const outline = course.outline as any;
+
+  useEffect(() => {
+    setAssignedTeachers(course.teachers || []);
+  }, [course.id, course.teachers?.length]);
+
+  useEffect(() => {
+    if (activeTab !== 'info') return;
+    let cancelled = false;
+    (async () => {
+      const res = await getUsers({ role: 'TEACHER', status: 'ACTIVE', limit: 200 });
+      if (!cancelled && res.success && res.data) setTeachersPool(res.data);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab]);
 
   const fetchData = async () => {
     try {
@@ -88,7 +119,7 @@ export function CourseDetailsView({ course }: CourseDetailsViewProps) {
       const identifier = course.slug || course.id;
       const [resRes, assocRes, coursesRes, schedRes] = await Promise.all([
         getCourseContents({ courseId: identifier }),
-        getAssociatedCourses({ fromCourseId: identifier }),
+        getAssociatedCourses({ fromCourseId: course.id }),
         getCourses({}),
         getCourseSchedules(course.id)
       ]);
@@ -134,6 +165,46 @@ export function CourseDetailsView({ course }: CourseDetailsViewProps) {
     setEditingResource(null);
     setAddingToChapter(null);
     setAddingChapterOrder(null);
+  };
+
+  const assignableTeachers = teachersPool.filter(
+    (t) => !assignedTeachers.some((a) => a.teacher?.id === t.id)
+  );
+
+  const handleAssignTeacher = async () => {
+    if (!teacherPick) return;
+    setTeacherActionLoading(true);
+    try {
+      const res = await addCourseTeacher(course.id, teacherPick);
+      if (res.success && res.data) {
+        const row = res.data as { id: string; teacher?: CourseDetailTeacher['teacher'] };
+        setAssignedTeachers((prev) => [...prev, { id: row.id, teacher: row.teacher }]);
+        setTeacherPick('');
+        toast({ title: 'Teacher assigned', variant: 'success' });
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Failed to assign';
+      toast({ title: 'Error', description: msg, variant: 'destructive' });
+    } finally {
+      setTeacherActionLoading(false);
+    }
+  };
+
+  const handleRemoveTeacher = async (teacherUserId: string) => {
+    if (!confirm('Remove this teacher from the course?')) return;
+    setTeacherActionLoading(true);
+    try {
+      const res = await removeCourseTeacher(course.id, teacherUserId);
+      if (res.success) {
+        setAssignedTeachers((prev) => prev.filter((a) => a.teacher?.id !== teacherUserId));
+        toast({ title: 'Teacher removed' });
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Failed to remove';
+      toast({ title: 'Error', description: msg, variant: 'destructive' });
+    } finally {
+      setTeacherActionLoading(false);
+    }
   };
 
   return (
@@ -232,6 +303,62 @@ export function CourseDetailsView({ course }: CourseDetailsViewProps) {
                     <p className="mt-1 text-xl font-black text-slate-900">{stat.value}</p>
                  </div>
                ))}
+            </div>
+
+            <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm mb-10">
+              <h3 className="flex items-center gap-2 text-sm font-black text-slate-800 mb-4">
+                <Users className="h-4 w-4 text-indigo-600" />
+                Teachers assigned
+              </h3>
+              <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                <Select value={teacherPick || undefined} onValueChange={setTeacherPick}>
+                  <SelectTrigger className="h-11 rounded-xl border-slate-200 font-bold flex-1">
+                    <SelectValue placeholder="Select teacher to assign" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl max-h-64">
+                    {assignableTeachers.map((t) => (
+                      <SelectItem key={t.id} value={t.id} className="font-medium">
+                        {t.fullName}
+                        {t.email ? ` · ${t.email}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  disabled={!teacherPick || teacherActionLoading || assignableTeachers.length === 0}
+                  className="h-11 rounded-xl font-black uppercase text-xs shrink-0"
+                  onClick={handleAssignTeacher}
+                >
+                  Assign
+                </Button>
+              </div>
+              {assignedTeachers.length === 0 ? (
+                <p className="text-sm text-slate-500 font-medium">No teachers assigned yet.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {assignedTeachers.map((row) => (
+                    <li
+                      key={row.id}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-2.5"
+                    >
+                      <span className="font-bold text-slate-800">{row.teacher?.fullName || '—'}</span>
+                      {row.teacher?.id ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-slate-400 hover:text-rose-600"
+                          disabled={teacherActionLoading}
+                          onClick={() => handleRemoveTeacher(row.teacher.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             <div className="grid gap-10 md:grid-cols-2">

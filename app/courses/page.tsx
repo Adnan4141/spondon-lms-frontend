@@ -38,7 +38,7 @@ export default function CoursesPage() {
             setLoading(true);
             const [programsRes, coursesRes] = await Promise.all([
                 getPrograms(),
-                getCourses({ websiteVisible: true, limit: 100 })
+                getCourses({ websiteVisible: true, status: 'ACTIVE', limit: 100 })
             ]);
 
             if (programsRes.success) setPrograms(programsRes.data || []);
@@ -55,9 +55,15 @@ export default function CoursesPage() {
     }, [fetchInitialData]);
 
     const filteredCourses = useMemo(() => {
+        const q = searchQuery.toLowerCase().trim();
         return courses.filter(course => {
-            const matchesSearch = course.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                course.code.toLowerCase().includes(searchQuery.toLowerCase());
+            const desc = typeof course.description === 'string' ? course.description.toLowerCase() : '';
+            const prog = course.program?.name?.toLowerCase() ?? '';
+            const matchesSearch = !q ||
+                course.name.toLowerCase().includes(q) ||
+                course.code.toLowerCase().includes(q) ||
+                desc.includes(q) ||
+                prog.includes(q);
             const matchesProgram = selectedProgram === 'all' || course.programId === selectedProgram;
             const matchesType = selectedType === 'all' || course.type === selectedType;
             const matchesPrice = selectedPrice === 'all' ||

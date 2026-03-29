@@ -11,6 +11,7 @@ export async function getCourses(params?: GetCoursesParams & { type?: string; is
   if (params?.isFree !== undefined) queryParams.append('isFree', String(params.isFree));
   if (params?.featured !== undefined) queryParams.append('featured', String(params.featured));
   if (params?.websiteVisible !== undefined) queryParams.append('websiteVisible', String(params.websiteVisible));
+  if (params?.teacherUserId) queryParams.append('teacherUserId', params.teacherUserId);
   if (params?.page) queryParams.append('page', String(params.page));
   if (params?.limit) queryParams.append('limit', String(params.limit));
 
@@ -38,6 +39,22 @@ export async function updateCourse(id: string, data: UpdateCourseDto): Promise<A
 
 export async function deleteCourse(id: string): Promise<ApiResponse<void>> {
   return apiRequest<ApiResponse<void>>(`/courses/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function addCourseTeacher(
+  courseId: string,
+  teacherUserId: string
+): Promise<ApiResponse<{ id: string; teacher?: { id: string; fullName: string; email?: string | null } }>> {
+  return apiRequest(`/courses/${courseId}/teachers`, {
+    method: 'POST',
+    body: JSON.stringify({ teacherUserId }),
+  });
+}
+
+export async function removeCourseTeacher(courseId: string, teacherUserId: string): Promise<ApiResponse<void>> {
+  return apiRequest<ApiResponse<void>>(`/courses/${courseId}/teachers/${teacherUserId}`, {
     method: 'DELETE',
   });
 }

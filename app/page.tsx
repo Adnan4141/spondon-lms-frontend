@@ -67,7 +67,7 @@ export default function LandingPage() {
     async function loadData() {
       try {
         const [courseRes, programRes, ebookRes, bookRes, statsRes, testimonialRes, partnerRes, teacherRes] = await Promise.all([
-          getCourses({ limit: 6, websiteVisible: true, featured: true }),
+          getCourses({ limit: 6, websiteVisible: true, featured: true, status: 'ACTIVE' }),
           getPrograms(),
           getBooks({ isEbook: true, limit: 3 }),
           getBooks({ isEbook: false, limit: 4 }),

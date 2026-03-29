@@ -105,9 +105,12 @@ export default function TeacherDashboardPage() {
               Update your lesson content regularly to keep students engaged and excited about learning!
             </p>
           </div>
-          <button className="bg-white text-slate-900 px-8 py-4 rounded-2xl font-black hover:bg-slate-50 transition-all w-fit shadow-lg shadow-black/20">
+          <Link
+            href="/teacher/students"
+            className="inline-flex bg-white text-slate-900 px-8 py-4 rounded-2xl font-black hover:bg-slate-50 transition-all w-fit shadow-lg shadow-black/20"
+          >
             View My Students
-          </button>
+          </Link>
         </div>
         
         {/* Decorative Circles */}

@@ -139,6 +139,8 @@ export interface GetCoursesParams {
   programId?: string;
   status?: CourseStatus;
   websiteVisible?: boolean;
+  /** When set, returns only courses where this user is assigned as a teacher (CourseTeacher). */
+  teacherUserId?: string;
   page?: number;
   limit?: number;
 }
