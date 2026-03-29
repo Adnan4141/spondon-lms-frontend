@@ -23,9 +23,14 @@ import {
   FileUp,
   Video,
   Eye,
-  FileCheck
+  FileCheck,
+  ChevronDown,
+  ChevronRight,
+  Play,
+  Pencil,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { 
   getCourseContents, 
   deleteCourseContent, 
@@ -70,6 +75,9 @@ export function CourseDetailsView({ course }: CourseDetailsViewProps) {
   const [showResourceForm, setShowResourceForm] = useState(false);
   const [showAssociationForm, setShowAssociationForm] = useState(false);
   const [editingResource, setEditingResource] = useState<any>(null);
+  const [expandedChapters, setExpandedChapters] = useState<Record<string, boolean>>({});
+  const [addingToChapter, setAddingToChapter] = useState<string | null>(null);
+  const [addingChapterOrder, setAddingChapterOrder] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
 
   const outline = course.outline as any;
@@ -117,6 +125,17 @@ export function CourseDetailsView({ course }: CourseDetailsViewProps) {
     }
   };
 
+  const toggleChapter = (chapter: string) => {
+    setExpandedChapters((prev) => ({ ...prev, [chapter]: !prev[chapter] }));
+  };
+
+  const closeResourceForm = () => {
+    setShowResourceForm(false);
+    setEditingResource(null);
+    setAddingToChapter(null);
+    setAddingChapterOrder(null);
+  };
+
   return (
     <div className="flex flex-col h-full bg-white text-slate-900">
       {/* Navigation Header */}
@@ -148,7 +167,7 @@ export function CourseDetailsView({ course }: CourseDetailsViewProps) {
              href={`/course/${course.slug}`}
              target="_blank"
              rel="noopener noreferrer"
-             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 transition-colors"
+             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-black transition-colors"
            >
              <ExternalLink className="h-4 w-4" /> View on website
            </Link>
@@ -254,68 +273,168 @@ export function CourseDetailsView({ course }: CourseDetailsViewProps) {
         )}
 
         {activeTab === 'resources' && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
-            <div className="flex items-center justify-between mb-2">
+          <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+            <div className="flex items-center justify-between">
                <div>
-                  <h3 className="text-xl font-bold tracking-tight">Resources</h3>
-                  <p className="text-sm text-slate-500 mt-1">Syllabus, leaflets, materials</p>
+                  <h3 className="text-xl font-bold tracking-tight">Course Content</h3>
+                  <p className="text-sm text-slate-500 mt-1">Chapters, segments &amp; materials</p>
                </div>
-               {!showResourceForm && (
-                 <Button onClick={() => { setEditingResource(null); setShowResourceForm(true); }} className="h-10 rounded-xl bg-slate-900 text-white font-bold text-xs hover:bg-slate-800">
-                    <Plus className="mr-2 h-4 w-4" /> Add Resource
-                 </Button>
-               )}
+               <Button onClick={() => { setEditingResource(null); setAddingToChapter(null); setAddingChapterOrder(null); setShowResourceForm(true); }} className="h-10 rounded-xl bg-slate-900 text-white font-bold text-xs hover:bg-slate-800">
+                  <Plus className="mr-2 h-4 w-4" /> New Chapter
+               </Button>
             </div>
 
-            {showResourceForm && (
-              <CourseResourceForm 
-                courseId={course.id} 
-                resource={editingResource}
-                onSuccess={() => { setShowResourceForm(false); fetchData(); }}
-                onCancel={() => setShowResourceForm(false)}
-              />
-            )}
+            {/* Content form dialog */}
+            <Dialog open={showResourceForm} onOpenChange={(open) => { if (!open) closeResourceForm(); }}>
+              <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl p-0">
+                <DialogHeader className="px-6 pt-6 pb-0">
+                  <DialogTitle className="text-lg font-black tracking-tight">
+                    {editingResource ? 'Edit Segment' : addingToChapter ? `Add Segment to "${addingToChapter}"` : 'Add New Content'}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="px-6 pb-6">
+                  <CourseResourceForm
+                    courseId={course.id}
+                    resource={editingResource}
+                    defaultTopicTitle={addingToChapter === 'Ungrouped' ? '' : (addingToChapter ?? undefined)}
+                    defaultTopicSortOrder={addingChapterOrder ?? undefined}
+                    onSuccess={() => { closeResourceForm(); fetchData(); }}
+                    onCancel={closeResourceForm}
+                  />
+                </div>
+              </DialogContent>
+            </Dialog>
 
-            <div className="grid gap-4">
-               {resources.map(res => (
-                 <div key={res.id} className="group flex items-center justify-between p-6 rounded-[28px] border border-slate-100 bg-white hover:border-indigo-200 hover:shadow-xl transition-all">
-                    <div className="flex items-center gap-5">
-                       <div className="h-12 w-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors shadow-inner">
-                          {getResourceIcon(res.type)}
-                       </div>
-                       <div>
-                          <div className="flex items-center gap-2">
-                             <h4 className="text-base font-black text-slate-800">{res.title}</h4>
-                             <Badge variant="outline" className="text-xs font-bold bg-slate-50">{res.type}</Badge>
-                             {res.isFree && <Badge className="text-xs font-bold bg-emerald-50 text-emerald-600 border-emerald-100">Free</Badge>}
+            {/* Chapter-wise grouped content */}
+            {(() => {
+              const chapters = resources.reduce<Record<string, typeof resources>>((acc, res) => {
+                const key = res.topicTitle || 'Ungrouped';
+                if (!acc[key]) acc[key] = [];
+                acc[key].push(res);
+                return acc;
+              }, {});
+
+              const sortedChapters = Object.entries(chapters).sort(([, a], [, b]) => {
+                const aOrder = a[0]?.topicSortOrder ?? 999;
+                const bOrder = b[0]?.topicSortOrder ?? 999;
+                return aOrder - bOrder;
+              });
+
+              if (sortedChapters.length === 0) {
+                return (
+                  <div className="flex flex-col items-center justify-center py-16 text-slate-300">
+                    <FileText className="h-12 w-12 mb-3" />
+                    <p className="text-sm font-bold">No content yet</p>
+                    <p className="text-xs mt-1">Click &quot;New Chapter&quot; to start building your course</p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-3">
+                  {sortedChapters.map(([chapterTitle, items], chapterIdx) => {
+                    const isExpanded = !!expandedChapters[chapterTitle];
+                    const totalDuration = items.reduce((sum, r) => sum + (r.durationMinutes || 0), 0);
+                    const videoCount = items.filter((r: any) => r.type === 'VIDEO').length;
+                    const chapterOrder = items[0]?.topicSortOrder ?? chapterIdx;
+
+                    return (
+                      <div key={chapterTitle} className="rounded-2xl border border-slate-100 bg-white overflow-hidden">
+                        {/* Chapter header */}
+                        <button
+                          type="button"
+                          onClick={() => toggleChapter(chapterTitle)}
+                          className="flex w-full items-center gap-3 p-4 text-left hover:bg-slate-50/80 transition-colors"
+                        >
+                          {isExpanded
+                            ? <ChevronDown className="h-4 w-4 text-slate-900 shrink-0" />
+                            : <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />
+                          }
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-sm font-black text-slate-800 truncate">
+                              {chapterTitle === 'Ungrouped' ? 'General Content' : chapterTitle}
+                            </h4>
+                            <div className="flex items-center gap-3 mt-0.5">
+                              <span className="text-[10px] font-bold text-slate-400">
+                                {items.length} {items.length === 1 ? 'segment' : 'segments'}
+                              </span>
+                              {videoCount > 0 && (
+                                <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400">
+                                  <Play className="h-2.5 w-2.5" /> {videoCount} video{videoCount !== 1 ? 's' : ''}
+                                </span>
+                              )}
+                              {totalDuration > 0 && (
+                                <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400">
+                                  <Clock className="h-2.5 w-2.5" /> {totalDuration} min
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <p className="text-xs text-slate-400 mt-1">
-                             {res.fileUrl ? 'File attached' : 'Text'} • Order: {res.sortOrder}
-                          </p>
-                       </div>
-                    </div>
-                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                       {res.fileUrl && (
-                         <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl border-slate-200" onClick={() => window.open(res.fileUrl, '_blank')}>
-                            <ExternalLink className="h-4 w-4 text-indigo-500" />
-                         </Button>
-                       )}
-                       <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl border-slate-200" onClick={() => { setEditingResource(res); setShowResourceForm(true); }}>
-                          <FileText className="h-4 w-4 text-amber-500" />
-                       </Button>
-                       <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl border-slate-200 hover:bg-rose-50 hover:border-rose-200" onClick={() => handleDeleteResource(res.id)}>
-                          <Trash2 className="h-4 w-4 text-rose-500" />
-                       </Button>
-                    </div>
-                 </div>
-               ))}
-               {resources.length === 0 && !showResourceForm && (
-                 <div className="p-20 text-center border-2 border-dashed border-slate-100 rounded-[40px]">
-                    <FileText className="h-12 w-12 text-slate-100 mx-auto mb-4" />
-                    <p className="text-sm font-bold text-slate-400">No resources</p>
-                 </div>
-               )}
-            </div>
+                          <Badge variant="outline" className="text-[8px] font-black uppercase shrink-0">
+                            Ch {chapterIdx + 1}
+                          </Badge>
+                        </button>
+
+                        {/* Chapter content items */}
+                        {isExpanded && (
+                          <div className="border-t border-slate-50">
+                            {items
+                              .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+                              .map((res, idx) => (
+                              <div
+                                key={res.id}
+                                className="group flex items-center gap-3 px-4 py-3 hover:bg-slate-50/60 transition-colors border-b border-slate-50 last:border-b-0"
+                              >
+                                <span className="text-[10px] font-black text-slate-300 w-5 text-center shrink-0">
+                                  {String(idx + 1).padStart(2, '0')}
+                                </span>
+                                <div className="h-8 w-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:text-slate-900 shrink-0">
+                                  {getResourceIcon(res.type)}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <h5 className="text-[13px] font-bold text-slate-700 truncate">{res.title}</h5>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <Badge variant="outline" className="text-[7px] font-black uppercase">{res.type}</Badge>
+                                    {res.isFree && (
+                                      <Badge className="text-[7px] font-black uppercase bg-emerald-50 text-emerald-600 border-emerald-200">Free</Badge>
+                                    )}
+                                    {res.durationMinutes > 0 && (
+                                      <span className="text-[10px] font-bold text-slate-400">{res.durationMinutes} min</span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                  {res.fileUrl && (
+                                    <Button variant="outline" size="icon" className="h-7 w-7 rounded-lg border-slate-200" onClick={() => window.open(res.fileUrl, '_blank')}>
+                                      <ExternalLink className="h-3 w-3 text-slate-500" />
+                                    </Button>
+                                  )}
+                                  <Button variant="outline" size="icon" className="h-7 w-7 rounded-lg border-slate-200" onClick={() => { setEditingResource(res); setAddingToChapter(null); setShowResourceForm(true); }}>
+                                    <Pencil className="h-3 w-3 text-amber-500" />
+                                  </Button>
+                                  <Button variant="outline" size="icon" className="h-7 w-7 rounded-lg border-slate-200 hover:bg-rose-50" onClick={() => handleDeleteResource(res.id)}>
+                                    <Trash2 className="h-3 w-3 text-rose-500" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+
+                            {/* Add segment button — opens modal */}
+                            <button
+                              type="button"
+                              onClick={() => { setEditingResource(null); setAddingToChapter(chapterTitle); setAddingChapterOrder(chapterOrder); setShowResourceForm(true); }}
+                              className="flex w-full items-center justify-center gap-2 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 hover:bg-slate-50 transition-colors border-t border-dashed border-slate-100"
+                            >
+                              <Plus className="h-3 w-3" /> Add Segment
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         )}
 
@@ -327,7 +446,7 @@ export function CourseDetailsView({ course }: CourseDetailsViewProps) {
                   <p className="text-sm text-slate-500 mt-1">Linked courses</p>
                </div>
                {!showAssociationForm && (
-                 <Button onClick={() => setShowAssociationForm(true)} className="h-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs">
+                 <Button onClick={() => setShowAssociationForm(true)} className="h-10 rounded-xl bg-slate-900 hover:bg-black text-white font-bold text-xs">
                     <Link2 className="mr-2 h-4 w-4" /> Add Link
                  </Button>
                )}

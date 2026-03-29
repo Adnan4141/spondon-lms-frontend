@@ -51,6 +51,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { CourseResourceForm } from './CourseResourceForm';
 import { CourseAssociationForm } from './CourseAssociationForm';
 
@@ -531,30 +532,35 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
             <div className="flex items-center justify-between">
                <h3 className="text-xl font-black tracking-tight">Course Content</h3>
-               <div className="flex items-center gap-2">
-                 {!showResourceForm && (
-                   <>
-                     <Button
-                       onClick={() => { setEditingResource(null); setAddingToChapter(null); setAddingChapterOrder(null); setShowResourceForm(true); }}
-                       size="sm" variant="outline"
-                       className="h-9 rounded-xl font-black uppercase tracking-widest text-[9px] border-slate-200"
-                     >
-                       <Plus className="mr-1.5 h-3.5 w-3.5" /> New Chapter
-                     </Button>
-                   </>
-                 )}
-               </div>
+               <Button
+                 onClick={() => { setEditingResource(null); setAddingToChapter(null); setAddingChapterOrder(null); setShowResourceForm(true); }}
+                 size="sm"
+                 className="h-9 rounded-xl bg-slate-900 text-white hover:bg-black font-black uppercase tracking-widest text-[9px]"
+               >
+                 <Plus className="mr-1.5 h-3.5 w-3.5" /> New Chapter
+               </Button>
             </div>
 
-            {/* Top-level form (for new chapter / ungrouped content) */}
-            {showResourceForm && addingToChapter === null && (
-              <CourseResourceForm 
-                courseId={course.id} 
-                resource={editingResource}
-                onSuccess={() => { setShowResourceForm(false); setEditingResource(null); fetchExtras(); }}
-                onCancel={() => { setShowResourceForm(false); setEditingResource(null); }}
-              />
-            )}
+            {/* Content form dialog */}
+            <Dialog open={showResourceForm} onOpenChange={(open) => { if (!open) { setShowResourceForm(false); setEditingResource(null); setAddingToChapter(null); setAddingChapterOrder(null); } }}>
+              <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl p-0">
+                <DialogHeader className="px-6 pt-6 pb-0">
+                  <DialogTitle className="text-lg font-black tracking-tight">
+                    {editingResource ? 'Edit Segment' : addingToChapter ? `Add Segment to "${addingToChapter}"` : 'Add New Content'}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="px-6 pb-6">
+                  <CourseResourceForm
+                    courseId={course.id}
+                    resource={editingResource}
+                    defaultTopicTitle={addingToChapter === 'Ungrouped' ? '' : (addingToChapter ?? undefined)}
+                    defaultTopicSortOrder={addingChapterOrder ?? undefined}
+                    onSuccess={() => { setShowResourceForm(false); setEditingResource(null); setAddingToChapter(null); setAddingChapterOrder(null); fetchExtras(); }}
+                    onCancel={() => { setShowResourceForm(false); setEditingResource(null); setAddingToChapter(null); setAddingChapterOrder(null); }}
+                  />
+                </div>
+              </DialogContent>
+            </Dialog>
 
             {/* Chapter-wise grouped content */}
             {(() => {
@@ -571,7 +577,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                 return aOrder - bOrder;
               });
 
-              if (sortedChapters.length === 0 && !showResourceForm) {
+              if (sortedChapters.length === 0) {
                 return (
                   <div className="flex flex-col items-center justify-center py-16 text-slate-300">
                     <FileText className="h-12 w-12 mb-3" />
@@ -587,7 +593,6 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                     const isExpanded = !!expandedChapters[chapterTitle];
                     const totalDuration = items.reduce((sum, r) => sum + (r.durationMinutes || 0), 0);
                     const videoCount = items.filter((r: any) => r.type === 'VIDEO').length;
-                    const isAddingHere = showResourceForm && addingToChapter === chapterTitle;
                     const chapterOrder = items[0]?.topicSortOrder ?? chapterIdx;
 
                     return (
@@ -637,15 +642,12 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                                 key={res.id}
                                 className="group flex items-center gap-3 px-4 py-3 hover:bg-indigo-50/40 transition-colors border-b border-slate-50 last:border-b-0"
                               >
-                                {/* Index */}
                                 <span className="text-[10px] font-black text-slate-300 w-5 text-center shrink-0">
                                   {String(idx + 1).padStart(2, '0')}
                                 </span>
-                                {/* Icon */}
                                 <div className="h-8 w-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:text-indigo-600 shrink-0">
                                   {getResourceIcon(res.type)}
                                 </div>
-                                {/* Info */}
                                 <div className="flex-1 min-w-0">
                                   <h5 className="text-[13px] font-bold text-slate-700 truncate">{res.title}</h5>
                                   <div className="flex items-center gap-2 mt-0.5">
@@ -658,7 +660,6 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                                     )}
                                   </div>
                                 </div>
-                                {/* Actions */}
                                 <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                                   <Button variant="outline" size="icon" className="h-7 w-7 rounded-lg border-slate-200" onClick={() => { setEditingResource(res); setAddingToChapter(null); setShowResourceForm(true); }}>
                                     <Pencil className="h-3 w-3 text-amber-500" />
@@ -670,30 +671,14 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                               </div>
                             ))}
 
-                            {/* Inline form for adding segment to this chapter */}
-                            {isAddingHere && (
-                              <div className="p-3 border-t border-slate-100 bg-slate-50/30">
-                                <CourseResourceForm
-                                  courseId={course.id}
-                                  resource={editingResource}
-                                  defaultTopicTitle={chapterTitle === 'Ungrouped' ? '' : chapterTitle}
-                                  defaultTopicSortOrder={chapterOrder}
-                                  onSuccess={() => { setShowResourceForm(false); setAddingToChapter(null); setAddingChapterOrder(null); setEditingResource(null); fetchExtras(); }}
-                                  onCancel={() => { setShowResourceForm(false); setAddingToChapter(null); setAddingChapterOrder(null); setEditingResource(null); }}
-                                />
-                              </div>
-                            )}
-
-                            {/* Add segment button */}
-                            {!showResourceForm && (
-                              <button
-                                type="button"
-                                onClick={() => { setEditingResource(null); setAddingToChapter(chapterTitle); setAddingChapterOrder(chapterOrder); setShowResourceForm(true); }}
-                                className="flex w-full items-center justify-center gap-2 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 hover:bg-indigo-50/50 transition-colors border-t border-dashed border-slate-100"
-                              >
-                                <Plus className="h-3 w-3" /> Add Segment
-                              </button>
-                            )}
+                            {/* Add segment button — opens modal */}
+                            <button
+                              type="button"
+                              onClick={() => { setEditingResource(null); setAddingToChapter(chapterTitle); setAddingChapterOrder(chapterOrder); setShowResourceForm(true); }}
+                              className="flex w-full items-center justify-center gap-2 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 hover:bg-indigo-50/50 transition-colors border-t border-dashed border-slate-100"
+                            >
+                              <Plus className="h-3 w-3" /> Add Segment
+                            </button>
                           </div>
                         )}
                       </div>
@@ -710,7 +695,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
             <div className="flex items-center justify-between">
                <h3 className="text-xl font-black tracking-tight">Related Courses</h3>
                {!showAssociationForm && (
-                 <Button onClick={() => setShowAssociationForm(true)} size="sm" className="h-9 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 font-black uppercase tracking-widest text-[9px]">
+                 <Button onClick={() => setShowAssociationForm(true)} size="sm" className="h-9 rounded-xl bg-slate-900 text-white hover:bg-black font-black uppercase tracking-widest text-[9px]">
                     <Plus className="mr-2 h-3.5 w-3.5" /> Add Related Course
                  </Button>
                )}
@@ -766,7 +751,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
           <Button
             onClick={handleSubmit}
             disabled={submitting}
-            className="flex-[2] h-12 rounded-2xl bg-slate-900 font-black uppercase tracking-[0.2em] text-[11px] text-white shadow-xl shadow-slate-200 hover:bg-indigo-600 hover:scale-[1.02] active:scale-95 transition-all"
+            className="flex-[2] h-12 rounded-2xl bg-slate-900 font-black uppercase tracking-[0.2em] text-[11px] text-white shadow-xl shadow-slate-200 hover:bg-black hover:scale-[1.02] active:scale-95 transition-all"
           >
             {submitting ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Course'}
           </Button>

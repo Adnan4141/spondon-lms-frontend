@@ -98,7 +98,7 @@ export function CourseAssociationForm({ fromCourseId, courses, onSuccess, onCanc
         <Button 
           type="submit" 
           disabled={loading || !formData.toCourseId}
-          className="flex-1 h-12 rounded-2xl bg-slate-900 hover:bg-indigo-600 text-white font-black uppercase tracking-widest text-xs shadow-lg transition-all"
+          className="flex-1 h-12 rounded-2xl bg-slate-900 hover:bg-black text-white font-black uppercase tracking-widest text-xs shadow-lg transition-all"
         >
           <Link2 className="mr-2 h-4 w-4" />
           {loading ? 'Adding...' : 'Add Related Course'}

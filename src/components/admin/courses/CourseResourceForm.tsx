@@ -193,7 +193,7 @@ export function CourseResourceForm({ courseId, resource, defaultTopicTitle, defa
         <Button 
           type="submit" 
           disabled={loading}
-          className="flex-1 h-12 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase tracking-widest text-xs"
+          className="flex-1 h-12 rounded-2xl bg-slate-900 hover:bg-black text-white font-black uppercase tracking-widest text-xs"
         >
           <Save className="mr-2 h-4 w-4" />
           {loading ? 'Saving...' : resource ? 'Update' : 'Add Content'}
