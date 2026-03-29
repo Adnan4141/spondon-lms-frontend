@@ -20,6 +20,8 @@ import { FileUp, Save, X } from 'lucide-react';
 interface CourseResourceFormProps {
   courseId: string;
   resource?: any;
+  defaultTopicTitle?: string;
+  defaultTopicSortOrder?: number;
   onSuccess: () => void;
   onCancel: () => void;
 }
@@ -35,7 +37,7 @@ const contentTypes = [
   { value: 'OTHER', label: 'Other' },
 ];
 
-export function CourseResourceForm({ courseId, resource, onSuccess, onCancel }: CourseResourceFormProps) {
+export function CourseResourceForm({ courseId, resource, defaultTopicTitle, defaultTopicSortOrder, onSuccess, onCancel }: CourseResourceFormProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -44,8 +46,8 @@ export function CourseResourceForm({ courseId, resource, onSuccess, onCancel }: 
     textBody: resource?.textBody || '',
     isFree: resource?.isFree || false,
     sortOrder: resource?.sortOrder || 0,
-    topicTitle: resource?.topicTitle || '',
-    topicSortOrder: resource?.topicSortOrder ?? '',
+    topicTitle: resource?.topicTitle || defaultTopicTitle || '',
+    topicSortOrder: resource?.topicSortOrder ?? defaultTopicSortOrder ?? '',
     durationMinutes: resource?.durationMinutes ?? '',
   });
   const [file, setFile] = useState<File | null>(null);
