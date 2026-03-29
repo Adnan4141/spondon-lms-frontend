@@ -151,7 +151,7 @@ export function OfflineExamSheet({ exam, set, onClose }: OfflineExamSheetProps) 
   const totalSets = exam.sets?.length || 1;
 
   return (
-    <div className="flex flex-col h-full bg-white text-slate-900">
+    <div className="flex min-h-0 max-h-[min(85vh,calc(92vh-6rem))] flex-1 flex-col bg-white text-slate-900">
       {/* ─── Toolbar ─── */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 bg-slate-50 shrink-0">
         <div className="flex items-center gap-3">

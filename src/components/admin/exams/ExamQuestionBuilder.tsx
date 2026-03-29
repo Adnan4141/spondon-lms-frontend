@@ -130,17 +130,36 @@ export function ExamQuestionBuilder({ examId, exam, sets, onRefresh }: ExamQuest
 
   const handleExportSet = (set: any) => {
     openModal({
-      title: 'Institutional Exam Compilation',
-      description: 'Preparing high-fidelity offline assessment payload.',
-      className: 'sm:max-w-[950px] h-[95vh]',
-      content: <OfflineExamSheet exam={exam} set={set} onClose={closeModal} />
+      title: exam?.mode === 'OFFLINE' ? 'Offline / hall question paper' : 'Print preview (PDF)',
+      description: 'MCQ + written (CQ) layout · download PDF for students or print.',
+      className: 'sm:max-w-[960px] w-[min(100vw-2rem,960px)] max-h-[92vh]',
+      content: <OfflineExamSheet exam={exam} set={set} onClose={closeModal} />,
     });
   };
 
   const currentSet = sets.find(s => s.id === selectedSetId);
 
+  const countTypes = (set: { questions?: { question?: { type?: string } }[] }) => {
+    const qs = set.questions || [];
+    let mcq = 0;
+    let cq = 0;
+    for (const eq of qs) {
+      const t = eq.question?.type;
+      if (t === 'CQ') cq += 1;
+      else mcq += 1;
+    }
+    return { mcq, cq, total: qs.length };
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-10">
+      {exam?.mode === 'OFFLINE' && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/60 px-5 py-4 text-sm font-bold text-amber-900">
+          <span className="font-black uppercase tracking-widest text-[10px] text-amber-700 mr-2">Offline exam</span>
+          Students see this exam in the portal with hall instructions and can download the question PDF (after you generate it from Exam info). MCQ sheets can be OMR-scanned or marks imported via Excel; written (CQ) answers are graded in-centre or via teacher evaluation.
+        </div>
+      )}
+
       {/* Set Management Area */}
       <div className="grid gap-8 lg:grid-cols-3">
          <div className="lg:col-span-1 space-y-6">
@@ -160,7 +179,10 @@ export function ExamQuestionBuilder({ examId, exam, sets, onRefresh }: ExamQuest
                       >
                          <span className="font-bold text-sm truncate pr-10">{s.name}</span>
                          <Badge variant="outline" className={cn("text-[9px] font-black", selectedSetId === s.id ? "bg-white/20 text-white border-white/30" : "bg-white text-slate-400")}>
-                            {s.questions?.length || 0} Q
+                            {(() => {
+                              const c = countTypes(s);
+                              return c.total ? `${c.mcq} MCQ · ${c.cq} written` : '0 Q';
+                            })()}
                          </Badge>
                       </button>
                       <div className="absolute right-12 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

@@ -149,8 +149,8 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
   };
 
   return (
-    <div className="flex flex-col h-full bg-white text-slate-900">
-      <div className="flex-1 min-h-0 overflow-y-auto px-8 py-8 no-scrollbar">
+    <div className="flex min-h-0 max-h-[min(88vh,calc(92vh-7rem))] flex-1 flex-col bg-white text-slate-900">
+      <div className="min-h-0 flex-1 overflow-y-auto px-8 py-8 no-scrollbar">
         <div className="grid gap-8 lg:grid-cols-3">
           {/* Main Identity */}
           <div className="lg:col-span-2 space-y-8">
@@ -344,10 +344,10 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
              <div className="rounded-2xl bg-slate-900 p-6 text-white shadow-xl">
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400 mb-2">Exam Setup Guide</p>
                 <ul className="space-y-2 text-sm font-medium text-slate-300">
-                  <li>• <strong className="text-white">ONLINE</strong> — Students take exam in browser with timer</li>
-                  <li>• <strong className="text-white">OFFLINE</strong> — Print PDF, collect OMR sheets</li>
-                  <li>• <strong className="text-white">TALENT HUNT</strong> — Multiple sets, unlimited subjects</li>
-                  <li>• <strong className="text-white">UNIVERSITY</strong> — Special format (DU, KUET style)</li>
+                  <li>• <strong className="text-white">ONLINE</strong> — Browser exam: MCQ auto-graded; CQ (written) typed and pending teacher marks</li>
+                  <li>• <strong className="text-white">OFFLINE</strong> — Hall exam: PDF includes MCQ + written parts; portal shows download + instructions</li>
+                  <li>• <strong className="text-white">TALENT HUNT</strong> — Multiple sets, mixed subjects</li>
+                  <li>• <strong className="text-white">UNIVERSITY</strong> — Model test style sets</li>
                 </ul>
              </div>
           </div>

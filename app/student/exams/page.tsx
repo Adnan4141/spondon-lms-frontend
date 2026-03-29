@@ -17,6 +17,8 @@ import {
   Trophy,
   FileText,
   Timer,
+  Building2,
+  Download,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -69,8 +71,17 @@ export default function StudentExamsPage() {
     fetchExams();
   }, []);
 
-  const availableExams = exams.filter(e => e.canAttempt || e.hasInProgress);
-  const completedExams = exams.filter(e => !e.canAttempt && !e.hasInProgress && e.studentAttempts && e.studentAttempts.length > 0);
+  const hallExams = exams.filter((e) => e.mode === 'OFFLINE');
+  const availableOnline = exams.filter(
+    (e) => e.mode === 'ONLINE' && (e.canAttempt || e.hasInProgress),
+  );
+  const completedOnline = exams.filter(
+    (e) =>
+      e.mode === 'ONLINE' &&
+      !e.canAttempt &&
+      !e.hasInProgress &&
+      (e.studentAttempts?.length ?? 0) > 0,
+  );
 
   if (loading) {
     return (
@@ -108,14 +119,73 @@ export default function StudentExamsPage() {
         </div>
       </div>
 
-      {/* In-progress or available exams */}
-      {availableExams.length > 0 && (
+      {/* Offline / hall exams (PDF + centre instructions) */}
+      {hallExams.length > 0 && (
         <section>
-          <h2 className="text-[11px] font-black uppercase tracking-[0.25em] text-indigo-600 mb-4 flex items-center gap-2">
-            <Play className="h-3.5 w-3.5" /> চলমান / নতুন পরীক্ষা
+          <h2 className="text-[11px] font-black uppercase tracking-[0.25em] text-amber-700 mb-4 flex items-center gap-2">
+            <Building2 className="h-3.5 w-3.5" /> হল পরীক্ষা / Offline hall exams
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {availableExams.map((exam) => {
+            {hallExams.map((exam) => {
+              const lang: 'bn' | 'en' = exam.language === 'en' ? 'en' : 'bn';
+              const remaining = timeRemaining(exam.endAt, lang);
+              return (
+                <div
+                  key={exam.id}
+                  className="group relative overflow-hidden rounded-2xl border border-amber-200 bg-amber-50/40 p-6 shadow-sm hover:shadow-md hover:border-amber-300 transition-all cursor-pointer"
+                  onClick={() => router.push(`/student/exams/${exam.id}`)}
+                >
+                  <div className="flex items-center gap-2 mb-3 flex-wrap">
+                    <Badge variant="outline" className={cn('rounded-lg text-[9px] font-black uppercase px-2 py-0.5', getTypeBadgeClass(exam.type))}>
+                      {exam.type.replace('_', ' ')}
+                    </Badge>
+                    <Badge variant="outline" className="rounded-lg text-[9px] font-black uppercase px-2 py-0.5 bg-orange-50 text-orange-800 border-orange-200">
+                      OFFLINE
+                    </Badge>
+                  </div>
+                  <h3 className="text-lg font-black text-slate-900 group-hover:text-amber-800 transition-colors mb-2">
+                    {exam.title}
+                  </h3>
+                  <p className="text-sm font-medium text-slate-600 mb-1">{exam.course?.name}</p>
+                  <div className="flex items-center gap-4 text-xs font-medium text-slate-500 mt-3">
+                    {exam.durationMinutes ? (
+                      <span className="flex items-center gap-1">
+                        <Timer className="h-3 w-3" /> {exam.durationMinutes} {lang === 'en' ? 'min' : 'মিনিট'}
+                      </span>
+                    ) : null}
+                    {remaining ? (
+                      <span className="flex items-center gap-1 text-amber-700">
+                        <Clock className="h-3 w-3" /> {remaining}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-amber-200/80">
+                    <Button
+                      className="w-full h-10 rounded-xl font-black uppercase tracking-widest text-[10px] bg-amber-600 hover:bg-amber-700 text-white"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/student/exams/${exam.id}`);
+                      }}
+                    >
+                      <Download className="h-3.5 w-3.5 mr-2" />
+                      {lang === 'en' ? 'Instructions & PDF' : 'নির্দেশনা ও PDF'}
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Online — in-progress or available */}
+      {availableOnline.length > 0 && (
+        <section>
+          <h2 className="text-[11px] font-black uppercase tracking-[0.25em] text-indigo-600 mb-4 flex items-center gap-2">
+            <Play className="h-3.5 w-3.5" /> অনলাইন — চলমান / নতুন
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {availableOnline.map((exam) => {
               const lang: 'bn' | 'en' = exam.language === 'en' ? 'en' : 'bn';
               const remaining = timeRemaining(exam.endAt, lang);
               return (
@@ -137,11 +207,9 @@ export default function StudentExamsPage() {
                     <Badge variant="outline" className={cn("rounded-lg text-[9px] font-black uppercase px-2 py-0.5", getTypeBadgeClass(exam.type))}>
                       {exam.type.replace('_', ' ')}
                     </Badge>
-                    {exam.mode === 'ONLINE' && (
-                      <Badge variant="outline" className="rounded-lg text-[9px] font-black uppercase px-2 py-0.5 bg-cyan-50 text-cyan-700 border-cyan-100">
-                        ONLINE
-                      </Badge>
-                    )}
+                    <Badge variant="outline" className="rounded-lg text-[9px] font-black uppercase px-2 py-0.5 bg-cyan-50 text-cyan-700 border-cyan-100">
+                      ONLINE
+                    </Badge>
                   </div>
 
                   <h3 className="text-lg font-black text-slate-900 group-hover:text-indigo-600 transition-colors mb-2">
@@ -192,14 +260,14 @@ export default function StudentExamsPage() {
         </section>
       )}
 
-      {/* Completed exams */}
-      {completedExams.length > 0 && (
+      {/* Online — completed */}
+      {completedOnline.length > 0 && (
         <section>
           <h2 className="text-[11px] font-black uppercase tracking-[0.25em] text-emerald-600 mb-4 flex items-center gap-2">
-            <CheckCircle2 className="h-3.5 w-3.5" /> সম্পন্ন পরীক্ষা
+            <CheckCircle2 className="h-3.5 w-3.5" /> সম্পন্ন অনলাইন পরীক্ষা
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {completedExams.map((exam) => {
+            {completedOnline.map((exam) => {
               const lang: 'bn' | 'en' = exam.language === 'en' ? 'en' : 'bn';
               const lastAttempt = exam.studentAttempts?.[exam.studentAttempts.length - 1];
               const percentage = lastAttempt?.totalMarks && lastAttempt?.obtainedMarks != null

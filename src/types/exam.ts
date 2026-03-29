@@ -101,6 +101,31 @@ export interface Exam {
   hasInProgress?: boolean;
 }
 
+/** Safe exam summary for students (from GET /exams/:id/student-view). */
+export interface ExamStudentView {
+  id: string;
+  title: string;
+  mode: ExamMode;
+  status: ExamStatus;
+  type: ExamType;
+  startAt?: string | null;
+  endAt?: string | null;
+  durationMinutes?: number | null;
+  language?: string | null;
+  pdfUrl?: string | null;
+  solveSheetUrl?: string | null;
+  solveSheetVisibility?: string | null;
+  solveSheetScheduledAt?: string | null;
+  courseId: string;
+  branchId: string;
+  batchId?: string | null;
+  allowedAttempts: number;
+  course?: Course;
+  branch?: Branch;
+  batch?: Batch | null;
+  _count?: { sets: number };
+}
+
 export interface CreateExamDto {
   courseId: string;
   branchId: string;

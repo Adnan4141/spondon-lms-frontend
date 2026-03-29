@@ -2,8 +2,15 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { startExamAttempt, saveExamAnswer, submitExamAttempt, getAttemptResult } from '@/lib/api/exams';
-import type { StartAttemptResponse, AttemptResultResponse } from '@/types/exam';
+import {
+  startExamAttempt,
+  saveExamAnswer,
+  submitExamAttempt,
+  getAttemptResult,
+  getExamStudentView,
+  getExamPdfDownloadUrl,
+} from '@/lib/api/exams';
+import type { StartAttemptResponse, AttemptResultResponse, ExamStudentView } from '@/types/exam';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -18,10 +25,14 @@ import {
   Eye,
   Trophy,
   XCircle,
+  Building2,
+  Download,
+  FileText,
+  PenLine,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-type Phase = 'loading' | 'exam' | 'submitting' | 'result';
+type Phase = 'loading' | 'offline' | 'exam' | 'submitting' | 'result';
 
 type Lang = 'bn' | 'en';
 
@@ -158,6 +169,7 @@ export default function StudentExamTakingPage() {
   const [phase, setPhase] = useState<Phase>('loading');
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string>('');
+  const [examMeta, setExamMeta] = useState<ExamStudentView | null>(null);
 
   // Exam state
   const [attemptData, setAttemptData] = useState<StartAttemptResponse | null>(null);
@@ -180,7 +192,7 @@ export default function StudentExamTakingPage() {
   const savingRef = useRef(false);
   const handleSubmitRef = useRef<(auto?: boolean) => void>(() => {});
 
-  // Initialize exam
+  // Initialize: student-safe exam view, then offline panel or online attempt
   useEffect(() => {
     const userStr = localStorage.getItem('user');
     if (!userStr) {
@@ -190,21 +202,32 @@ export default function StudentExamTakingPage() {
     const user = JSON.parse(userStr);
     setUserId(user.id);
 
-    const startExam = async () => {
+    const run = async () => {
       try {
+        const viewRes = await getExamStudentView(examId, user.id);
+        if (!viewRes.success || !viewRes.data) {
+          setError(viewRes.message || 'পরীক্ষা লোড করা যায়নি');
+          return;
+        }
+        setExamMeta(viewRes.data);
+
+        if (viewRes.data.mode === 'OFFLINE') {
+          setPhase('offline');
+          return;
+        }
+
         const res = await startExamAttempt(examId, user.id);
         if (res.success && res.data) {
           setAttemptData(res.data);
           setAnswers(res.data.answeredMap || {});
-          
-          // Set timer
+
           if (res.data.exam.durationMinutes) {
             const startTime = new Date(res.data.attempt.startedAt).getTime();
             const endTime = startTime + res.data.exam.durationMinutes * 60 * 1000;
             const remaining = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
             setTimeLeft(remaining);
           }
-          
+
           setPhase('exam');
         } else {
           setError(res.message || 'পরীক্ষা শুরু করা যায়নি');
@@ -213,7 +236,7 @@ export default function StudentExamTakingPage() {
         setError(e instanceof Error ? e.message : 'পরীক্ষা শুরু ব্যর্থ');
       }
     };
-    startExam();
+    run();
   }, [examId]);
 
   // Timer countdown
@@ -382,6 +405,142 @@ export default function StudentExamTakingPage() {
     );
   }
 
+  // Offline / hall exam — instructions + PDF (no browser attempt)
+  if (phase === 'offline' && examMeta) {
+    const lang: Lang = examMeta.language === 'en' ? 'en' : 'bn';
+    const ui =
+      lang === 'en'
+        ? {
+            title: 'Offline hall exam',
+            sub: 'Take this exam at your centre on paper. MCQ (OMR) and written parts are on the PDF.',
+            course: 'Course',
+            branch: 'Branch',
+            batch: 'Batch',
+            window: 'Schedule',
+            open: 'Opens',
+            closes: 'Closes',
+            pdf: 'Download question paper (PDF)',
+            noPdf: 'Your teacher will upload the PDF soon. Check back later.',
+            solve: 'Solution / marks sheet (PDF)',
+            sets: 'Question sets prepared',
+            back: 'Back to exams',
+          }
+        : {
+            title: 'হলে অনুষ্ঠিত পরীক্ষা',
+            sub: 'এটি কাগজে দেওয়া হয়। PDF এ এমসিকিউ ও লিখিত (রচনামূলক) উভয় অংশ থাকতে পারে।',
+            course: 'কোর্স',
+            branch: 'শাখা',
+            batch: 'ব্যাচ',
+            window: 'সময়সূচি',
+            open: 'শুরু',
+            closes: 'শেষ',
+            pdf: 'প্রশ্নপত্র PDF ডাউনলোড',
+            noPdf: 'শিক্ষক PDF আপলোড করলে এখানে লিংক আসবে।',
+            solve: 'সমাধান / মাননির্ধারণ শিট (PDF)',
+            sets: 'প্রশ্ন সেট প্রস্তুত',
+            back: 'পরীক্ষার তালিকা',
+          };
+
+    const pdfHref = examMeta.pdfUrl ? getExamPdfDownloadUrl(examMeta.pdfUrl) : null;
+    let showSolve = false;
+    if (examMeta.solveSheetVisibility === 'IMMEDIATELY') showSolve = true;
+    else if (examMeta.solveSheetVisibility === 'SCHEDULED' && examMeta.solveSheetScheduledAt) {
+      showSolve = new Date() >= new Date(examMeta.solveSheetScheduledAt);
+    }
+    const solveHref =
+      examMeta.solveSheetUrl && showSolve ? getExamPdfDownloadUrl(examMeta.solveSheetUrl) : null;
+
+    return (
+      <div className="min-h-[60vh] max-w-2xl mx-auto space-y-8 py-6">
+        <div className="rounded-3xl border border-amber-200 bg-amber-50/50 p-8 shadow-sm">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="h-12 w-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center">
+              <Building2 className="h-6 w-6" />
+            </div>
+            <div>
+              <Badge variant="outline" className="mb-1 text-[9px] font-black uppercase bg-orange-100 text-orange-800 border-orange-200">
+                OFFLINE
+              </Badge>
+              <h1 className="text-2xl font-black text-slate-900">{examMeta.title}</h1>
+            </div>
+          </div>
+          <p className="text-slate-600 font-medium leading-relaxed mb-6">{ui.sub}</p>
+          <ul className="space-y-2 text-sm font-bold text-slate-700 mb-6">
+            <li className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-indigo-500 shrink-0" />
+              {ui.course}: {examMeta.course?.name ?? '—'}
+            </li>
+            <li className="flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-rose-400 shrink-0" />
+              {ui.branch}: {examMeta.branch?.name ?? '—'}
+            </li>
+            {examMeta.batch?.name ? (
+              <li className="flex items-center gap-2">
+                <PenLine className="h-4 w-4 text-violet-500 shrink-0" />
+                {ui.batch}: {examMeta.batch.name}
+              </li>
+            ) : null}
+            <li className="flex items-center gap-2 text-slate-500">
+              <Timer className="h-4 w-4 shrink-0" />
+              {examMeta.durationMinutes
+                ? `${examMeta.durationMinutes} ${lang === 'en' ? 'minutes' : 'মিনিট'}`
+                : lang === 'en'
+                  ? 'Duration: as announced'
+                  : 'সময়: ঘোষণা অনুযায়ী'}
+            </li>
+          </ul>
+          <div className="rounded-2xl bg-white border border-slate-100 p-4 text-sm font-bold text-slate-600 mb-6">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">{ui.window}</p>
+            <p>
+              {ui.open}:{' '}
+              {examMeta.startAt
+                ? new Date(examMeta.startAt).toLocaleString(lang === 'en' ? 'en-GB' : 'bn-BD')
+                : lang === 'en'
+                  ? 'Any time'
+                  : 'যেকোনো সময়'}
+            </p>
+            <p>
+              {ui.closes}:{' '}
+              {examMeta.endAt
+                ? new Date(examMeta.endAt).toLocaleString(lang === 'en' ? 'en-GB' : 'bn-BD')
+                : lang === 'en'
+                  ? 'As announced'
+                  : 'ঘোষণা অনুযায়ী'}
+            </p>
+          </div>
+          {examMeta._count?.sets != null && (
+            <p className="text-xs font-bold text-slate-500 mb-4">
+              {ui.sets}: {examMeta._count.sets}
+            </p>
+          )}
+          <div className="flex flex-col sm:flex-row gap-3">
+            {pdfHref ? (
+              <Button className="h-12 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white font-black uppercase tracking-widest text-[10px]" asChild>
+                <a href={pdfHref} target="_blank" rel="noopener noreferrer">
+                  <Download className="h-4 w-4 mr-2" />
+                  {ui.pdf}
+                </a>
+              </Button>
+            ) : (
+              <p className="text-sm font-bold text-amber-800 bg-amber-100/80 rounded-2xl px-4 py-3">{ui.noPdf}</p>
+            )}
+            {solveHref ? (
+              <Button variant="outline" className="h-12 rounded-2xl font-black uppercase tracking-widest text-[10px] border-slate-200" asChild>
+                <a href={solveHref} target="_blank" rel="noopener noreferrer">
+                  <FileText className="h-4 w-4 mr-2" />
+                  {ui.solve}
+                </a>
+              </Button>
+            ) : null}
+          </div>
+        </div>
+        <Button variant="outline" className="h-12 rounded-2xl font-bold" onClick={() => router.push('/student/exams')}>
+          {ui.back}
+        </Button>
+      </div>
+    );
+  }
+
   // Submitting state
   if (phase === 'submitting') {
     return (
@@ -468,7 +627,29 @@ export default function StudentExamTakingPage() {
                         
                         <div className="prose prose-sm max-w-none mb-4" dangerouslySetInnerHTML={{ __html: q.prompt }} />
 
-                        {q.options && q.options.length > 0 && (
+                        {q.type === 'CQ' && (
+                          <div className="mt-4 rounded-xl border border-violet-100 bg-violet-50/40 p-4">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-violet-600 mb-2">
+                              {qLang === 'en' ? 'Your written answer' : 'আপনার লিখিত উত্তর'}
+                            </p>
+                            <p className="text-sm text-slate-800 whitespace-pre-wrap font-medium">
+                              {studentAns?.answer?.text?.trim() ? studentAns.answer.text : qLang === 'en' ? '—' : '(জমা দেওয়া নেই)'}
+                            </p>
+                            {studentAns?.obtainedMarks != null ? (
+                              <p className="mt-3 text-sm font-black text-violet-800">
+                                {qLang === 'en' ? 'Marks' : 'নম্বর'}: {studentAns.obtainedMarks}
+                              </p>
+                            ) : (
+                              <p className="mt-3 text-xs font-bold text-amber-700">
+                                {qLang === 'en'
+                                  ? 'Written answers are marked by your teacher; score may appear later.'
+                                  : 'লিখিত উত্তর শিক্ষক মূল্যায়ন করবেন; নম্বর পরে দেখাতে পারে।'}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {q.options && q.options.length > 0 && q.type !== 'CQ' && (
                           <div className="space-y-2">
                             {q.options.map((opt) => {
                               const isSelected = studentAns?.answer?.selectedOptionId === opt.id;

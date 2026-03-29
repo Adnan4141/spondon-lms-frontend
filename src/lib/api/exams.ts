@@ -1,5 +1,13 @@
 import { apiRequest, API_ORIGIN } from '../api';
-import type { Exam, CreateExamDto, UpdateExamDto, ApiResponse, StartAttemptResponse, AttemptResultResponse } from '@/types/exam';
+import type {
+  Exam,
+  CreateExamDto,
+  UpdateExamDto,
+  ApiResponse,
+  StartAttemptResponse,
+  AttemptResultResponse,
+  ExamStudentView,
+} from '@/types/exam';
 
 export async function getExams(params?: {
   courseId?: string;
@@ -109,6 +117,14 @@ export function getExamPdfDownloadUrl(pdfUrl: string): string {
 // Student Exam APIs
 export async function getStudentExams(studentUserId: string): Promise<ApiResponse<Exam[]>> {
   return apiRequest<ApiResponse<Exam[]>>(`/exams/student/${studentUserId}`);
+}
+
+export async function getExamStudentView(
+  examId: string,
+  studentUserId: string,
+): Promise<ApiResponse<ExamStudentView>> {
+  const q = new URLSearchParams({ studentUserId });
+  return apiRequest<ApiResponse<ExamStudentView>>(`/exams/${examId}/student-view?${q}`);
 }
 
 export async function startExamAttempt(examId: string, studentUserId: string): Promise<ApiResponse<StartAttemptResponse>> {

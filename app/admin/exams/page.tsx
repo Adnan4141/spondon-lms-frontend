@@ -158,8 +158,8 @@ export default function ExamsPage() {
       if (res.success && res.data) {
         openModal({
           title: 'Exam Details',
-          description: 'View exam details.',
-          className: 'sm:max-w-4xl',
+          description: 'Questions, PDFs, offline results, leaderboard.',
+          className: 'sm:max-w-5xl w-[min(100vw-2rem,56rem)] max-h-[92vh]',
           content: <ExamDetailsView exam={res.data} />,
         });
       }
@@ -175,7 +175,7 @@ export default function ExamsPage() {
         openModal({
           title: 'Update Exam Baseline',
           description: 'Refine exam scheduling and access rules.',
-          className: 'sm:max-w-6xl',
+          className: 'sm:max-w-6xl w-[min(100vw-2rem,72rem)] max-h-[92vh]',
           content: <ExamForm courses={courses} branches={branches} exam={res.data} onSuccess={loadExams} />,
         });
       }
@@ -187,10 +187,10 @@ export default function ExamsPage() {
   const handleCreateExam = () => {
         openModal({
           title: 'Create Exam',
-          description: 'Add a new exam.',
-      className: 'sm:max-w-6xl',
-      content: <ExamForm courses={courses} branches={branches} onSuccess={loadExams} />,
-    });
+          description: 'Online (browser) or offline (hall PDF + OMR / Excel).',
+          className: 'sm:max-w-6xl w-[min(100vw-2rem,72rem)] max-h-[92vh]',
+          content: <ExamForm courses={courses} branches={branches} onSuccess={loadExams} />,
+        });
   };
 
   const handleDeleteExam = async (examId: string) => {
