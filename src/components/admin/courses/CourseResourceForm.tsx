@@ -113,6 +113,7 @@ export function CourseResourceForm({ courseId, resource, onSuccess, onCancel }: 
           <div className="relative group">
             <input 
               type="file" 
+              accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt"
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
               onChange={e => setFile(e.target.files?.[0] || null)}
             />

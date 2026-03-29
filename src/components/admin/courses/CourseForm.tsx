@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createCourse, updateCourse, getCourses, getCourseContents, deleteCourseContent, getAssociatedCourses, deleteAssociatedCourse } from '@/lib/api/courses';
+import { createCourse, updateCourse, getCourses, getCourseContents, deleteCourseContent, getAssociatedCourses, deleteAssociatedCourse, uploadCourseThumbnail } from '@/lib/api/courses';
+import { API_ORIGIN } from '@/lib/api';
 import { useModalStore } from '@/store/modalStore';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -39,7 +40,14 @@ import {
   Eye,
   CheckCircle2,
   Monitor,
-  GraduationCap
+  GraduationCap,
+  Upload,
+  ImageIcon,
+  ChevronDown,
+  ChevronRight,
+  Play,
+  Clock,
+  Pencil,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -109,6 +117,9 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
   const [form, setForm] = useState<FormState>(defaultForm);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [thumbnailUploading, setThumbnailUploading] = useState(false);
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+  const [expandedChapters, setExpandedChapters] = useState<Record<string, boolean>>({});
   
   const [activeTab, setActiveTab] = useState<'basic' | 'content' | 'related'>('basic');
   const [resources, setResources] = useState<any[]>([]);
@@ -153,9 +164,52 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
         enrollmentVisible: course.enrollmentVisible !== false,
         settledOptionEnabled: course.settledOptionEnabled,
       });
+      if (course.thumbnail) {
+        const url = course.thumbnail.startsWith('/') ? `${API_ORIGIN}${course.thumbnail}` : course.thumbnail;
+        setThumbnailPreview(url);
+      }
       fetchExtras();
     }
   }, [course]);
+
+  const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    // Show local preview immediately
+    const localUrl = URL.createObjectURL(file);
+    setThumbnailPreview(localUrl);
+
+    if (isEdit && course) {
+      // Upload to server right away for existing courses
+      try {
+        setThumbnailUploading(true);
+        const res = await uploadCourseThumbnail(course.id, file);
+        if (res.success && res.data?.thumbnail) {
+          const url = res.data.thumbnail;
+          setForm((prev) => ({ ...prev, thumbnail: url }));
+          setThumbnailPreview(url);
+          toast({ title: 'Thumbnail uploaded', variant: 'success' });
+        }
+      } catch {
+        toast({ title: 'Upload failed', variant: 'destructive' });
+        setThumbnailPreview(form.thumbnail || null);
+      } finally {
+        setThumbnailUploading(false);
+      }
+    } else {
+      // For new courses, store the file for upload after creation
+      // We'll use the local preview for now, and the URL placeholder
+      setForm((prev) => ({ ...prev, thumbnail: '' }));
+      // Store file ref in a data attribute via closure
+      (handleThumbnailUpload as any).__pendingFile = file;
+    }
+  };
+
+  const toggleChapter = (chapter: string) => {
+    setExpandedChapters((prev) => ({ ...prev, [chapter]: !prev[chapter] }));
+  };
 
   const handleSubmit = async () => {
     const parsedFee = Number(form.fee);
@@ -197,7 +251,15 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
       } else {
         const res = await createCourse(payload as CreateCourseDto);
         if (res.success && res.data) {
-           toast({ title: 'Deployed', description: 'Basic configuration active. You can now add resources.', variant: 'success' });
+           // Upload pending thumbnail for newly created course
+           const pendingFile = (handleThumbnailUpload as any).__pendingFile as File | undefined;
+           if (pendingFile && res.data.id) {
+             try {
+               await uploadCourseThumbnail(res.data.id, pendingFile);
+             } catch { /* thumbnail upload failed silently */ }
+             (handleThumbnailUpload as any).__pendingFile = undefined;
+           }
+           toast({ title: 'Created', description: 'Course created successfully. You can now add content.', variant: 'success' });
            // If creation was successful, we might want to stay in edit mode to add resources
            // but for simplicity, let's just close and refresh
            closeModal();
@@ -316,13 +378,52 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
             </div>
 
             <div className="space-y-2 sm:col-span-2">
-              <label className={sectionLabel}>Thumbnail URL</label>
-              <Input
-                className={inputClass}
-                value={form.thumbnail}
-                onChange={(e) => setForm((prev) => ({ ...prev, thumbnail: e.target.value }))}
-                placeholder="https://example.com/thumbnail.png"
-              />
+              <label className={sectionLabel}>Course Thumbnail</label>
+              <div className="flex items-start gap-4">
+                {/* Preview */}
+                {thumbnailPreview ? (
+                  <div className="relative shrink-0 group">
+                    <img
+                      src={thumbnailPreview}
+                      alt="Thumbnail"
+                      className="h-28 w-44 rounded-2xl border border-slate-200 object-cover shadow-inner"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => { setThumbnailPreview(null); setForm((prev) => ({ ...prev, thumbnail: '' })); }}
+                      className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-rose-500 text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity shadow"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : null}
+                {/* Upload area */}
+                <label className="flex-1 cursor-pointer">
+                  <div className={cn(
+                    "flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 py-6 px-4 transition-all hover:border-indigo-400 hover:bg-white",
+                    thumbnailUploading && "opacity-50 pointer-events-none"
+                  )}>
+                    {thumbnailUploading ? (
+                      <span className="text-sm font-bold text-indigo-600 animate-pulse">Uploading...</span>
+                    ) : (
+                      <>
+                        <Upload className="h-8 w-8 text-slate-300" />
+                        <span className="text-sm font-bold text-slate-500">
+                          {thumbnailPreview ? 'Change thumbnail' : 'Click to upload thumbnail'}
+                        </span>
+                        <span className="text-[10px] text-slate-400">All image formats supported · Max 5MB</span>
+                      </>
+                    )}
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleThumbnailUpload}
+                    disabled={thumbnailUploading}
+                  />
+                </label>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -425,7 +526,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
         )}
 
         {activeTab === 'content' && course && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+          <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
             <div className="flex items-center justify-between">
                <h3 className="text-xl font-black tracking-tight">Course Content</h3>
                {!showResourceForm && (
@@ -444,29 +545,125 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
               />
             )}
 
-            <div className="grid gap-3">
-               {resources.map(res => (
-                 <div key={res.id} className="group flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-white hover:border-indigo-200 transition-all">
-                    <div className="flex items-center gap-4">
-                       <div className="h-10 w-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:text-indigo-600 shadow-inner">
-                          {getResourceIcon(res.type)}
-                       </div>
-                       <div>
-                          <h4 className="text-sm font-black text-slate-800">{res.title}</h4>
-                          <Badge variant="outline" className="text-[7px] font-black uppercase mt-0.5">{res.type}</Badge>
-                       </div>
-                    </div>
-                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                       <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg border-slate-200" onClick={() => { setEditingResource(res); setShowResourceForm(true); }}>
-                          <FileText className="h-3.5 w-3.5 text-amber-500" />
-                       </Button>
-                       <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg border-slate-200 hover:bg-rose-50" onClick={async () => { if(confirm('Delete?')){ await deleteCourseContent(res.id); fetchExtras(); } }}>
-                          <Trash2 className="h-3.5 w-3.5 text-rose-500" />
-                       </Button>
-                    </div>
-                 </div>
-               ))}
-            </div>
+            {/* Chapter-wise grouped content */}
+            {(() => {
+              const chapters = resources.reduce<Record<string, typeof resources>>((acc, res) => {
+                const key = res.topicTitle || 'Ungrouped';
+                if (!acc[key]) acc[key] = [];
+                acc[key].push(res);
+                return acc;
+              }, {});
+
+              const sortedChapters = Object.entries(chapters).sort(([, a], [, b]) => {
+                const aOrder = a[0]?.topicSortOrder ?? 999;
+                const bOrder = b[0]?.topicSortOrder ?? 999;
+                return aOrder - bOrder;
+              });
+
+              if (sortedChapters.length === 0) {
+                return (
+                  <div className="flex flex-col items-center justify-center py-16 text-slate-300">
+                    <FileText className="h-12 w-12 mb-3" />
+                    <p className="text-sm font-bold">No content yet</p>
+                    <p className="text-xs mt-1">Click &quot;Add Content&quot; to start building chapters</p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-3">
+                  {sortedChapters.map(([chapterTitle, items], chapterIdx) => {
+                    const isExpanded = !!expandedChapters[chapterTitle];
+                    const totalDuration = items.reduce((sum, r) => sum + (r.durationMinutes || 0), 0);
+                    const videoCount = items.filter((r: any) => r.type === 'VIDEO').length;
+
+                    return (
+                      <div key={chapterTitle} className="rounded-2xl border border-slate-100 bg-white overflow-hidden">
+                        {/* Chapter header */}
+                        <button
+                          type="button"
+                          onClick={() => toggleChapter(chapterTitle)}
+                          className="flex w-full items-center gap-3 p-4 text-left hover:bg-slate-50/80 transition-colors"
+                        >
+                          {isExpanded
+                            ? <ChevronDown className="h-4 w-4 text-indigo-500 shrink-0" />
+                            : <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />
+                          }
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-sm font-black text-slate-800 truncate">
+                              {chapterTitle === 'Ungrouped' ? 'General Content' : chapterTitle}
+                            </h4>
+                            <div className="flex items-center gap-3 mt-0.5">
+                              <span className="text-[10px] font-bold text-slate-400">
+                                {items.length} {items.length === 1 ? 'item' : 'items'}
+                              </span>
+                              {videoCount > 0 && (
+                                <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400">
+                                  <Play className="h-2.5 w-2.5" /> {videoCount} video{videoCount !== 1 ? 's' : ''}
+                                </span>
+                              )}
+                              {totalDuration > 0 && (
+                                <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400">
+                                  <Clock className="h-2.5 w-2.5" /> {totalDuration} min
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <Badge variant="outline" className="text-[8px] font-black uppercase shrink-0">
+                            Ch {chapterIdx + 1}
+                          </Badge>
+                        </button>
+
+                        {/* Chapter content items */}
+                        {isExpanded && (
+                          <div className="border-t border-slate-50">
+                            {items
+                              .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+                              .map((res, idx) => (
+                              <div
+                                key={res.id}
+                                className="group flex items-center gap-3 px-4 py-3 hover:bg-indigo-50/40 transition-colors border-b border-slate-50 last:border-b-0"
+                              >
+                                {/* Index */}
+                                <span className="text-[10px] font-black text-slate-300 w-5 text-center shrink-0">
+                                  {String(idx + 1).padStart(2, '0')}
+                                </span>
+                                {/* Icon */}
+                                <div className="h-8 w-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:text-indigo-600 shrink-0">
+                                  {getResourceIcon(res.type)}
+                                </div>
+                                {/* Info */}
+                                <div className="flex-1 min-w-0">
+                                  <h5 className="text-[13px] font-bold text-slate-700 truncate">{res.title}</h5>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <Badge variant="outline" className="text-[7px] font-black uppercase">{res.type}</Badge>
+                                    {res.isFree && (
+                                      <Badge className="text-[7px] font-black uppercase bg-emerald-50 text-emerald-600 border-emerald-200">Free</Badge>
+                                    )}
+                                    {res.durationMinutes > 0 && (
+                                      <span className="text-[10px] font-bold text-slate-400">{res.durationMinutes} min</span>
+                                    )}
+                                  </div>
+                                </div>
+                                {/* Actions */}
+                                <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                  <Button variant="outline" size="icon" className="h-7 w-7 rounded-lg border-slate-200" onClick={() => { setEditingResource(res); setShowResourceForm(true); }}>
+                                    <Pencil className="h-3 w-3 text-amber-500" />
+                                  </Button>
+                                  <Button variant="outline" size="icon" className="h-7 w-7 rounded-lg border-slate-200 hover:bg-rose-50" onClick={async () => { if(confirm('Delete this content?')){ await deleteCourseContent(res.id); fetchExtras(); } }}>
+                                    <Trash2 className="h-3 w-3 text-rose-500" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         )}
 

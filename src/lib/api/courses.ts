@@ -1,4 +1,4 @@
-import { apiRequest } from '../api';
+import { apiRequest, API_ORIGIN } from '../api';
 import type { Course, CreateCourseDto, UpdateCourseDto, GetCoursesParams, ApiResponse } from '@/types/course';
 export type { Course, CreateCourseDto, UpdateCourseDto, GetCoursesParams, ApiResponse };
 
@@ -40,6 +40,23 @@ export async function deleteCourse(id: string): Promise<ApiResponse<void>> {
   return apiRequest<ApiResponse<void>>(`/courses/${id}`, {
     method: 'DELETE',
   });
+}
+
+export async function uploadCourseThumbnail(courseId: string, file: File): Promise<ApiResponse<Course>> {
+  const formData = new FormData();
+  formData.append('thumbnail', file);
+  const res = await apiRequest<ApiResponse<Course>>(`/courses/${courseId}/thumbnail`, {
+    method: 'POST',
+    body: formData,
+  });
+  // Make thumbnail URL absolute
+  if (res.success && res.data?.thumbnail) {
+    const url = res.data.thumbnail;
+    if (url.startsWith('/')) {
+      res.data.thumbnail = `${API_ORIGIN}${url}`;
+    }
+  }
+  return res;
 }
 
 // Course Contents
