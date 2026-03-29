@@ -1,6 +1,12 @@
 import { apiRequest } from '../api';
-import type { Student, CreateStudentDto, UpdateStudentDto, ApiResponse } from '@/types/student';
-export type { Student, CreateStudentDto, UpdateStudentDto, ApiResponse };
+import type {
+  Student,
+  CreateStudentDto,
+  UpdateStudentDto,
+  ApiResponse,
+  StudentCreatedWithCredentials,
+} from '@/types/student';
+export type { Student, CreateStudentDto, UpdateStudentDto, ApiResponse, StudentCreatedWithCredentials };
 
 export async function getStudents(params?: {
   role?: string;
@@ -24,14 +30,18 @@ export async function getStudentById(id: string): Promise<ApiResponse<Student>> 
   return apiRequest<ApiResponse<Student>>(`/users/${id}`);
 }
 
-export async function createStudent(data: CreateStudentDto): Promise<ApiResponse<Student>> {
-  // All data is now handled in a single call to the backend
-  return apiRequest<ApiResponse<Student>>('/users', {
+export async function createStudent(
+  data: CreateStudentDto,
+): Promise<ApiResponse<StudentCreatedWithCredentials>> {
+  const body: Record<string, unknown> = {
+    ...data,
+    role: 'STUDENT',
+  };
+  if (!data.password) delete body.password;
+  if (!data.registrationNumber) delete body.registrationNumber;
+  return apiRequest<ApiResponse<StudentCreatedWithCredentials>>('/users', {
     method: 'POST',
-    body: JSON.stringify({
-      ...data,
-      role: 'STUDENT',
-    }),
+    body: JSON.stringify(body),
   });
 }
 

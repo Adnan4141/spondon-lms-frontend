@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createStudent, updateStudent } from '@/lib/api/students';
+import { updateStudent } from '@/lib/api/students';
 import { useModalStore } from '@/store/modalStore';
 import { useToast } from '@/hooks/use-toast';
 import type { Student, CreateStudentDto, UpdateStudentDto, UserStatus, Branch, Institute, SmsAlertTo } from '@/types/student';
@@ -22,7 +22,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
 
-function InstituteCombobox({
+export function InstituteCombobox({
   institutes,
   value,
   onSelect,
@@ -125,15 +125,17 @@ function formatDateInput(date?: Date): string {
 interface StudentFormProps {
   branches: Branch[];
   institutes: Institute[];
-  student?: Student | null;
+  student: Student;
   onSuccess: () => Promise<void>;
 }
+
+type EditFormState = Omit<CreateStudentDto, 'registrationNumber'>;
 
 export function StudentForm({ branches, institutes, student, onSuccess }: StudentFormProps) {
   const { closeModal } = useModalStore();
   const { toast } = useToast();
-  
-  const [form, setForm] = useState<CreateStudentDto>({
+
+  const [form, setForm] = useState<EditFormState>({
     fullName: '',
     email: '',
     mobile: '',
@@ -151,81 +153,68 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
     secondaryMobile: '',
     address: '',
     instituteId: '',
-    registrationNumber: '',
     smsAlertTo: [],
     sscInfo: undefined,
     hscInfo: undefined,
   });
-  
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isEdit = !!student;
-
   useEffect(() => {
-    if (student) {
-      setForm({
-        fullName: student.fullName,
-        email: student.email || '',
-        mobile: student.mobile,
-        password: '',
-        branchId: student.branchId || '',
-        status: student.status,
-        fatherName: student.studentProfile?.fatherName || '',
-        motherName: student.studentProfile?.motherName || '',
-        fatherMobile: student.studentProfile?.fatherMobile || '',
-        motherMobile: student.studentProfile?.motherMobile || '',
-        dob: student.studentProfile?.dob || '',
-        bloodGroup: student.studentProfile?.bloodGroup || '',
-        gender: student.studentProfile?.gender || '',
-        primaryMobile: student.studentProfile?.primaryMobile || '',
-        secondaryMobile: student.studentProfile?.secondaryMobile || '',
-        address: student.studentProfile?.address || '',
-        instituteId: student.studentProfile?.instituteId || '',
-        registrationNumber: student.studentProfile?.registrationNumber || '',
-        smsAlertTo: (student.studentProfile?.smsAlertTo as SmsAlertTo[] | undefined) || [],
-        sscInfo: student.studentProfile?.sscInfo,
-        hscInfo: student.studentProfile?.hscInfo,
-      });
-    }
+    setForm({
+      fullName: student.fullName,
+      email: student.email || '',
+      mobile: student.mobile,
+      password: '',
+      branchId: student.branchId || '',
+      status: student.status,
+      fatherName: student.studentProfile?.fatherName || '',
+      motherName: student.studentProfile?.motherName || '',
+      fatherMobile: student.studentProfile?.fatherMobile || '',
+      motherMobile: student.studentProfile?.motherMobile || '',
+      dob: student.studentProfile?.dob || '',
+      bloodGroup: student.studentProfile?.bloodGroup || '',
+      gender: student.studentProfile?.gender || '',
+      primaryMobile: student.studentProfile?.primaryMobile || '',
+      secondaryMobile: student.studentProfile?.secondaryMobile || '',
+      address: student.studentProfile?.address || '',
+      instituteId: student.studentProfile?.instituteId || '',
+      smsAlertTo: (student.studentProfile?.smsAlertTo as SmsAlertTo[] | undefined) || [],
+      sscInfo: student.studentProfile?.sscInfo,
+      hscInfo: student.studentProfile?.hscInfo,
+    });
   }, [student]);
 
   const handleSubmit = async () => {
-    if (!form.fullName.trim() || !form.mobile.trim() || (!isEdit && !form.password.trim())) {
-      setError('Name, mobile, and password are required.');
-      return;
-    }
-    if (form.registrationNumber && !/^\d{7}$/.test(form.registrationNumber)) {
-      setError('Registration number must be exactly 7 digits.');
+    if (!form.fullName.trim() || !form.mobile.trim()) {
+      setError('Name and mobile are required.');
       return;
     }
 
     try {
       setSubmitting(true);
       setError(null);
-      
-      if (isEdit && student) {
-        const { password, ...updateData } = form;
-        const payload: UpdateStudentDto = {
-          ...updateData,
-          password: password || undefined,
-        };
-        await updateStudent(student.id, payload);
-      } else {
-        await createStudent(form);
-      }
-      
+
+      const { password, ...rest } = form;
+      const payload: UpdateStudentDto = {
+        ...rest,
+        password: password?.trim() ? password : undefined,
+      };
+      await updateStudent(student.id, payload);
+
       toast({
         title: 'Success',
-        description: `Student ${isEdit ? 'updated' : 'added'} successfully`,
+        description: 'Student updated successfully',
         variant: 'success',
       });
-      
+
       closeModal();
       await onSuccess();
-    } catch (err: any) {
-      setError(err.message || 'Processing failed');
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Processing failed';
+      setError(msg);
+      toast({ title: 'Error', description: msg, variant: 'destructive' });
     } finally {
       setSubmitting(false);
     }
@@ -291,7 +280,7 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
                    <label className={sectionLabel}>Password</label>
                    <div className="relative group">
                       <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-rose-500 transition-colors" />
-                      <Input className={cn(inputClass, "pl-11")} type="password" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} placeholder={isEdit ? 'Leave blank to keep' : 'Password'} />
+                      <Input className={cn(inputClass, "pl-11")} type="password" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} placeholder="Leave blank to keep current password" />
                    </div>
                 </div>
              </div>
@@ -304,11 +293,19 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
                 </div>
                 <div>
                    <h3 className="text-base font-black text-slate-800">Branch & Institute</h3>
-                   <p className="text-xs text-slate-400">Registration info</p>
+                   <p className="text-xs text-slate-400">Roll / registration is assigned by the system</p>
                 </div>
              </div>
 
              <div className="grid gap-8 sm:grid-cols-2">
+                {student.studentProfile?.registrationNumber ? (
+                  <div className="space-y-2 sm:col-span-2">
+                    <label className={sectionLabel}>Roll / registration no.</label>
+                    <div className="flex h-12 items-center rounded-2xl border border-slate-200 bg-slate-100/80 px-4 font-mono text-base font-black tracking-widest text-slate-800">
+                      {student.studentProfile.registrationNumber}
+                    </div>
+                  </div>
+                ) : null}
                 <div className="space-y-2">
                    <label className={sectionLabel}>Branch</label>
                    <Select value={form.branchId} onValueChange={v => setForm(p => ({ ...p, branchId: v }))}>
@@ -332,14 +329,7 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
                       </SelectContent>
                    </Select>
                 </div>
-                <div className="space-y-2">
-                   <label className={sectionLabel}>Reg. No. (7 digits)</label>
-                   <div className="relative group">
-                      <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                      <Input className={cn(inputClass, "pl-11")} value={form.registrationNumber} onChange={e => setForm(p => ({ ...p, registrationNumber: e.target.value.replace(/\D/g, '').slice(0, 7) }))} placeholder="1234567" maxLength={7} />
-                   </div>
-                </div>
-                <div className="space-y-2">
+                <div className="space-y-2 sm:col-span-2">
                    <label className={sectionLabel}>Institute</label>
                     <InstituteCombobox
                       institutes={institutes}
@@ -481,7 +471,7 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
               disabled={submitting}
               className="flex-[2] h-14 rounded-2xl bg-slate-900 font-black uppercase tracking-[0.2em] text-[11px] text-white shadow-xl shadow-slate-200 hover:bg-indigo-600 hover:scale-[1.02] active:scale-95 transition-all"
             >
-              {submitting ? 'Saving...' : isEdit ? 'Update' : 'Create'}
+              {submitting ? 'Saving...' : 'Update'}
             </Button>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import { apiRequest } from '../api';
+import { apiRequest, API_ORIGIN } from '../api';
 import type { ApiResponse } from '@/types/course';
 
 export type EnrollmentStatusType = 'ACTIVE' | 'PAUSED' | 'CANCELLED' | 'COMPLETED';
@@ -148,4 +148,55 @@ export async function bulkChangeBranch(data: {
     method: 'POST',
     body: JSON.stringify(data),
   });
+}
+
+export type PaymentMethodType = 'CASH' | 'BKASH' | 'BANK' | 'GATEWAY';
+
+export interface OfflineAdmissionDto {
+  studentUserId: string;
+  courseId: string;
+  batchId?: string;
+  branchId: string;
+  billingStartMonth?: string;
+  paymentMethod?: PaymentMethodType;
+  paymentAmount?: number;
+  paymentTrxId?: string;
+  receivedByUserId?: string;
+  discountAmount?: number;
+  scholarshipAmount?: number;
+  nextPaymentDueDate?: string;
+  additionalItems?: Array<{
+    type?: string;
+    refId?: string;
+    title?: string;
+    qty?: number;
+    unitPrice?: number;
+  }>;
+}
+
+export interface OfflineAdmissionResult {
+  enrollment: Enrollment;
+  invoice: {
+    id: string;
+    dueAmount: number | string;
+    payableAmount: number | string;
+    paidAmount: number | string;
+    totalAmount: number | string;
+    nextPaymentDueDate?: string | null;
+    status: string;
+  };
+  pdfUrl: string | null;
+}
+
+export async function offlineAdmission(
+  data: OfflineAdmissionDto,
+): Promise<ApiResponse<OfflineAdmissionResult>> {
+  const res = await apiRequest<ApiResponse<OfflineAdmissionResult>>('/enrollments/offline-admission', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  if (res.success && res.data?.pdfUrl?.startsWith('/')) {
+    res.data.pdfUrl = `${API_ORIGIN}${res.data.pdfUrl}`;
+  }
+  return res;
 }

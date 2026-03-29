@@ -1,4 +1,9 @@
 import { apiRequest } from '../api';
+import {
+  appendActorUserIdToFormData,
+  getActorUserIdQuery,
+  getActorUserIdFromStorage,
+} from '../actor-user';
 import type { CourseContent, CreateCourseContentDto, UpdateCourseContentDto, ApiResponse } from '@/types/course-content';
 
 export async function getCourseContents(courseId?: string, type?: string): Promise<ApiResponse<CourseContent[]>> {
@@ -36,6 +41,8 @@ export async function createCourseContent(
     formData.append('file', file);
   }
 
+  appendActorUserIdToFormData(formData);
+
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
   
   const response = await fetch(`${API_BASE_URL}/course-contents`, {
@@ -53,14 +60,16 @@ export async function createCourseContent(
 }
 
 export async function updateCourseContent(id: string, data: UpdateCourseContentDto): Promise<ApiResponse<CourseContent>> {
+  const actorUserId = getActorUserIdFromStorage();
+  const body = { ...data, ...(actorUserId ? { actorUserId } : {}) };
   return apiRequest<ApiResponse<CourseContent>>(`/course-contents/${id}`, {
     method: 'PUT',
-    body: JSON.stringify(data),
+    body: JSON.stringify(body),
   });
 }
 
 export async function deleteCourseContent(id: string): Promise<ApiResponse<void>> {
-  return apiRequest<ApiResponse<void>>(`/course-contents/${id}`, {
+  return apiRequest<ApiResponse<void>>(`/course-contents/${id}${getActorUserIdQuery()}`, {
     method: 'DELETE',
   });
 }

@@ -1,4 +1,4 @@
-import { apiRequest } from '../api';
+import { apiRequest, API_ORIGIN } from '../api';
 import type { Program, ApiResponse } from '@/types/course';
 export type { Program, ApiResponse };
 
@@ -38,4 +38,17 @@ export async function deleteProgram(id: string): Promise<ApiResponse<void>> {
   return apiRequest<ApiResponse<void>>(`/programs/${id}`, {
     method: 'DELETE',
   });
+}
+
+export async function uploadProgramThumbnail(programId: string, file: File): Promise<ApiResponse<Program>> {
+  const formData = new FormData();
+  formData.append('thumbnail', file);
+  const res = await apiRequest<ApiResponse<Program>>(`/programs/${programId}/thumbnail`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (res.success && res.data?.thumbnail?.startsWith('/')) {
+    res.data.thumbnail = `${API_ORIGIN}${res.data.thumbnail}`;
+  }
+  return res;
 }

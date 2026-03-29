@@ -45,6 +45,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { useModalStore } from '@/store/modalStore';
 import { StudentForm } from '@/components/admin/students/StudentForm';
+import { AddStudentWizard } from '@/components/admin/students/AddStudentWizard';
 import { StudentDetailsView } from '@/components/admin/students/StudentDetailsView';
 import { BulkImportForm } from '@/components/admin/students/BulkImportForm';
 import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
@@ -147,10 +148,10 @@ export default function StudentsPage() {
 
   const handleCreateStudent = () => {
     openModal({
-      title: 'Add Student',
-      description: 'Create a new student account.',
-      className: 'sm:max-w-4xl',
-      content: <StudentForm branches={branches} institutes={institutes} onSuccess={loadStudents} />,
+      title: 'Offline admission',
+      description: 'Profile → course → payment & invoice in one flow. Roll and password are generated automatically.',
+      className: 'sm:max-w-2xl max-h-[90vh]',
+      content: <AddStudentWizard branches={branches} institutes={institutes} onSuccess={loadStudents} />,
     });
   };
 

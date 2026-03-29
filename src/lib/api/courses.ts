@@ -1,4 +1,5 @@
 import { apiRequest, API_ORIGIN } from '../api';
+import { appendActorUserIdToFormData, getActorUserIdQuery } from '../actor-user';
 import type { Course, CreateCourseDto, UpdateCourseDto, GetCoursesParams, ApiResponse } from '@/types/course';
 export type { Course, CreateCourseDto, UpdateCourseDto, GetCoursesParams, ApiResponse };
 
@@ -86,6 +87,7 @@ export async function getCourseContents(params?: { courseId?: string; type?: str
 }
 
 export async function createCourseContent(formData: FormData): Promise<ApiResponse<any>> {
+  appendActorUserIdToFormData(formData);
   return apiRequest<ApiResponse<any>>('/course-contents', {
     method: 'POST',
     body: formData, // fetch will handle boundary for FormData
@@ -93,6 +95,7 @@ export async function createCourseContent(formData: FormData): Promise<ApiRespon
 }
 
 export async function updateCourseContent(id: string, formData: FormData): Promise<ApiResponse<any>> {
+  appendActorUserIdToFormData(formData);
   return apiRequest<ApiResponse<any>>(`/course-contents/${id}`, {
     method: 'PUT',
     body: formData,
@@ -100,7 +103,7 @@ export async function updateCourseContent(id: string, formData: FormData): Promi
 }
 
 export async function deleteCourseContent(id: string): Promise<ApiResponse<void>> {
-  return apiRequest<ApiResponse<void>>(`/course-contents/${id}`, {
+  return apiRequest<ApiResponse<void>>(`/course-contents/${id}${getActorUserIdQuery()}`, {
     method: 'DELETE',
   });
 }

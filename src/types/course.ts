@@ -113,6 +113,8 @@ export interface CourseDetailBatch {
 
 export interface CourseDetailTeacher {
   id: string;
+  /** e.g. { contentUpload: true, examManage: true } */
+  permissions?: Record<string, boolean> | null;
   teacher?: {
     id: string;
     fullName: string;
@@ -139,7 +141,7 @@ export interface GetCoursesParams {
   programId?: string;
   status?: CourseStatus;
   websiteVisible?: boolean;
-  /** When set, returns only courses where this user is assigned as a teacher (CourseTeacher). */
+  /** When set, returns courses where this user is on CourseTeacher OR CourseCollaborator. */
   teacherUserId?: string;
   page?: number;
   limit?: number;

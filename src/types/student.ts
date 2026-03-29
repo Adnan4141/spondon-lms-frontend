@@ -94,7 +94,8 @@ export interface CreateStudentDto {
   fullName: string;
   email?: string;
   mobile: string;
-  password: string;
+  /** Omit for new students — server generates a one-time password. */
+  password?: string;
   branchId?: string;
   status?: UserStatus;
   // Student profile fields
@@ -109,11 +110,15 @@ export interface CreateStudentDto {
   secondaryMobile?: string;
   address?: string;
   instituteId?: string;
+  /** Omit — server assigns roll / registration number. */
   registrationNumber?: string;
   smsAlertTo?: SmsAlertTo[];
   sscInfo?: any;
   hscInfo?: any;
 }
+
+/** Returned once from POST /users when the server generated login credentials. */
+export type StudentCreatedWithCredentials = Student & { oneTimePassword?: string };
 
 export interface UpdateStudentDto {
   fullName?: string;

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { createCourse } from '@/lib/api/courses';
+import { useState, useRef } from 'react';
+import { createCourse, uploadCourseThumbnail } from '@/lib/api/courses';
 import { useModalStore } from '@/store/modalStore';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -24,6 +24,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { DialogFooter } from '@/components/ui/dialog';
+import { Upload } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const statusOptions: (CourseStatus)[] = ['ACTIVE', 'DISABLED', 'ARCHIVED'];
 const typeOptions: (CourseType)[] = ['ONLINE', 'OFFLINE'];
@@ -94,6 +96,24 @@ export function CreateCourseForm({
   const [createForm, setCreateForm] = useState<EditFormState>(defaultEditForm);
   const [createSubmitting, setCreateSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+  const [thumbnailUploading, setThumbnailUploading] = useState(false);
+  const pendingThumbnailFile = useRef<File | null>(null);
+
+  const handleThumbnailSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    pendingThumbnailFile.current = file;
+    setThumbnailPreview(URL.createObjectURL(file));
+    setCreateForm((prev) => ({ ...prev, thumbnail: '' }));
+  };
+
+  const clearThumbnail = () => {
+    pendingThumbnailFile.current = null;
+    setThumbnailPreview(null);
+    setCreateForm((prev) => ({ ...prev, thumbnail: '' }));
+  };
 
   const handleCreateSubmit = async () => {
     const parsedFee = Number(createForm.fee);
@@ -113,7 +133,6 @@ export function CreateCourseForm({
       name: createForm.name.trim(),
       slug: createForm.slug.trim().toLowerCase(),
       code: createForm.code.trim(),
-      thumbnail: createForm.thumbnail.trim() || undefined,
       type: createForm.type,
       billingType: createForm.billingType,
       fee: parsedFee,
@@ -129,14 +148,30 @@ export function CreateCourseForm({
     try {
       setCreateSubmitting(true);
       setCreateError(null);
-      await createCourse(payload);
-      
+      const res = await createCourse(payload);
+
+      if (res.success && res.data?.id && pendingThumbnailFile.current) {
+        try {
+          setThumbnailUploading(true);
+          await uploadCourseThumbnail(res.data.id, pendingThumbnailFile.current);
+        } catch {
+          toast({
+            title: 'Course created',
+            description: 'Thumbnail upload failed — you can add it from course settings.',
+            variant: 'destructive',
+          });
+        } finally {
+          setThumbnailUploading(false);
+          pendingThumbnailFile.current = null;
+        }
+      }
+
       toast({
         title: 'Success',
         description: 'Course created successfully',
         variant: 'success',
       });
-      
+
       closeModal();
       await onSuccess();
     } catch (err: unknown) {
@@ -206,13 +241,53 @@ export function CreateCourseForm({
           </div>
 
           <div className="space-y-2 sm:col-span-2">
-            <label className={sectionLabel}>Thumbnail URL</label>
-            <Input
-              className={inputClass}
-              value={createForm.thumbnail}
-              onChange={(e) => setCreateForm((prev) => ({ ...prev, thumbnail: e.target.value }))}
-              placeholder="https://example.com/thumbnail.png"
-            />
+            <label className={sectionLabel}>Course thumbnail</label>
+            <div className="flex items-start gap-4">
+              {thumbnailPreview ? (
+                <div className="relative shrink-0 group">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={thumbnailPreview}
+                    alt=""
+                    className="h-28 w-44 rounded-2xl border border-slate-200 object-cover shadow-inner"
+                  />
+                  <button
+                    type="button"
+                    onClick={clearThumbnail}
+                    className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-rose-500 text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity shadow"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : null}
+              <label className="flex-1 cursor-pointer">
+                <div
+                  className={cn(
+                    'flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 py-6 px-4 transition-all hover:border-indigo-400 hover:bg-white',
+                    thumbnailUploading && 'opacity-50 pointer-events-none'
+                  )}
+                >
+                  {thumbnailUploading ? (
+                    <span className="text-sm font-bold text-indigo-600 animate-pulse">Uploading…</span>
+                  ) : (
+                    <>
+                      <Upload className="h-8 w-8 text-slate-300" />
+                      <span className="text-sm font-bold text-slate-500">
+                        {thumbnailPreview ? 'Change image' : 'Upload cover image'}
+                      </span>
+                      <span className="text-[10px] text-slate-400">JPEG, PNG, WebP · max 5MB · saved after course is created</span>
+                    </>
+                  )}
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleThumbnailSelect}
+                  disabled={thumbnailUploading || createSubmitting}
+                />
+              </label>
+            </div>
           </div>
 
           <div className="space-y-2">

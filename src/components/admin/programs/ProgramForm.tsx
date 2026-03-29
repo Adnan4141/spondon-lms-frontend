@@ -1,12 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { createProgram, updateProgram } from '@/lib/api/programs';
+import { useState, useEffect, useRef } from 'react';
+import { createProgram, updateProgram, uploadProgramThumbnail } from '@/lib/api/programs';
+import { API_ORIGIN } from '@/lib/api';
 import { useModalStore } from '@/store/modalStore';
 import { useToast } from '@/hooks/use-toast';
 import { Program, CreateProgramDto, UpdateProgramDto } from '@/types/course';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Upload } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const inputClass =
   'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
@@ -25,6 +28,9 @@ export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
   const [form, setForm] = useState({ name: '', description: '', thumbnail: '' });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [thumbnailUploading, setThumbnailUploading] = useState(false);
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+  const pendingThumbnailFile = useRef<File | null>(null);
 
   const isEdit = !!program;
 
@@ -35,8 +41,57 @@ export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
         description: program.description || '',
         thumbnail: program.thumbnail || '',
       });
+      if (program.thumbnail) {
+        const url = program.thumbnail.startsWith('/') ? `${API_ORIGIN}${program.thumbnail}` : program.thumbnail;
+        setThumbnailPreview(url);
+      } else {
+        setThumbnailPreview(null);
+      }
+      pendingThumbnailFile.current = null;
+    } else {
+      setForm({ name: '', description: '', thumbnail: '' });
+      setThumbnailPreview(null);
+      pendingThumbnailFile.current = null;
     }
   }, [program]);
+
+  const handleThumbnailSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    const localUrl = URL.createObjectURL(file);
+    setThumbnailPreview(localUrl);
+
+    if (isEdit && program) {
+      try {
+        setThumbnailUploading(true);
+        const res = await uploadProgramThumbnail(program.id, file);
+        if (res.success && res.data?.thumbnail) {
+          setForm((prev) => ({ ...prev, thumbnail: res.data!.thumbnail! }));
+          setThumbnailPreview(res.data.thumbnail);
+          toast({ title: 'Thumbnail uploaded', variant: 'success' });
+        }
+      } catch {
+        toast({ title: 'Upload failed', variant: 'destructive' });
+        const t = program?.thumbnail;
+        setThumbnailPreview(
+          t ? (t.startsWith('/') ? `${API_ORIGIN}${t}` : t) : null
+        );
+      } finally {
+        setThumbnailUploading(false);
+      }
+    } else {
+      pendingThumbnailFile.current = file;
+      setForm((prev) => ({ ...prev, thumbnail: '' }));
+    }
+  };
+
+  const clearThumbnail = () => {
+    pendingThumbnailFile.current = null;
+    setThumbnailPreview(null);
+    setForm((prev) => ({ ...prev, thumbnail: '' }));
+  };
 
   const handleSubmit = async () => {
     if (!form.name.trim()) {
@@ -47,29 +102,43 @@ export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
     const payload: CreateProgramDto | UpdateProgramDto = {
       name: form.name.trim(),
       description: form.description.trim() || undefined,
-      thumbnail: form.thumbnail.trim() || undefined,
     };
 
     try {
       setSubmitting(true);
       setError(null);
-      
+
       if (isEdit && program) {
         await updateProgram(program.id, payload as UpdateProgramDto);
       } else {
-        await createProgram(payload as CreateProgramDto);
+        const res = await createProgram(payload as CreateProgramDto);
+        if (res.success && res.data?.id && pendingThumbnailFile.current) {
+          try {
+            setThumbnailUploading(true);
+            await uploadProgramThumbnail(res.data.id, pendingThumbnailFile.current);
+          } catch {
+            toast({
+              title: 'Program created',
+              description: 'Thumbnail upload failed — you can add it when editing the program.',
+              variant: 'destructive',
+            });
+          } finally {
+            setThumbnailUploading(false);
+            pendingThumbnailFile.current = null;
+          }
+        }
       }
-      
+
       toast({
         title: 'Success',
         description: `Program ${isEdit ? 'updated' : 'created'} successfully`,
         variant: 'success',
       });
-      
+
       closeModal();
       await onSuccess();
-    } catch (err: any) {
-      const errorMsg = err.message || `Failed to ${isEdit ? 'update' : 'create'} program`;
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : `Failed to ${isEdit ? 'update' : 'create'} program`;
       setError(errorMsg);
       toast({
         title: 'Error',
@@ -96,13 +165,56 @@ export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
           </div>
 
           <div className="space-y-2">
-            <label className={sectionLabel}>Thumbnail URL</label>
-            <Input
-              className={inputClass}
-              value={form.thumbnail}
-              onChange={(e) => setForm((prev) => ({ ...prev, thumbnail: e.target.value }))}
-              placeholder="https://example.com/thumbnail.png"
-            />
+            <label className={sectionLabel}>Program thumbnail</label>
+            <div className="flex items-start gap-4">
+              {thumbnailPreview ? (
+                <div className="relative shrink-0 group">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={thumbnailPreview}
+                    alt=""
+                    className="h-28 w-44 rounded-2xl border border-slate-200 object-cover shadow-inner"
+                  />
+                  <button
+                    type="button"
+                    onClick={clearThumbnail}
+                    className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-rose-500 text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity shadow"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : null}
+              <label className="flex-1 cursor-pointer">
+                <div
+                  className={cn(
+                    'flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 py-6 px-4 transition-all hover:border-indigo-400 hover:bg-white',
+                    thumbnailUploading && 'opacity-50 pointer-events-none'
+                  )}
+                >
+                  {thumbnailUploading ? (
+                    <span className="text-sm font-bold text-indigo-600 animate-pulse">Uploading…</span>
+                  ) : (
+                    <>
+                      <Upload className="h-8 w-8 text-slate-300" />
+                      <span className="text-sm font-bold text-slate-500">
+                        {thumbnailPreview ? 'Change image' : 'Upload cover image'}
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        JPEG, PNG, WebP · max 5MB
+                        {!isEdit ? ' · saved after program is created' : ''}
+                      </span>
+                    </>
+                  )}
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleThumbnailSelect}
+                  disabled={thumbnailUploading || submitting}
+                />
+              </label>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -119,8 +231,8 @@ export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
 
         {error && (
           <div className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-base font-bold text-rose-600 uppercase tracking-widest flex items-center gap-3">
-             <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-             {error}
+            <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+            {error}
           </div>
         )}
       </div>

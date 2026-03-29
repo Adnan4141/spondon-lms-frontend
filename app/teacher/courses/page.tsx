@@ -84,7 +84,9 @@ export default function TeacherCoursesPage() {
       <div>
         <h1 className="text-4xl font-black tracking-tight text-slate-900">My lessons</h1>
         <p className="text-slate-500 mt-2 text-lg font-medium max-w-2xl">
-          Courses you are assigned to teach. Open a course to review segments and materials. To edit content, use the admin course manager if you have access.
+          Courses where you are a <strong className="text-slate-800">teacher</strong> or{' '}
+          <strong className="text-slate-800">collaborator</strong>. Open a course to review segments; you can add or edit
+          segments when your role allows content upload.
         </p>
       </div>
 
@@ -97,8 +99,8 @@ export default function TeacherCoursesPage() {
           <BookOpen className="h-14 w-14 text-slate-300 mx-auto mb-4" />
           <p className="text-slate-700 font-bold text-lg mb-2">No courses assigned yet</p>
           <p className="text-slate-500 font-medium max-w-md mx-auto">
-            Ask an administrator to assign you on the course <strong className="text-slate-700">Info</strong> tab under{' '}
-            <strong className="text-slate-700">Teachers assigned</strong>.
+            Ask an administrator to assign you as a teacher on the course <strong className="text-slate-700">Info</strong>{' '}
+            tab, or add you as a <strong className="text-slate-700">course collaborator</strong>.
           </p>
         </div>
       ) : (
