@@ -110,7 +110,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  const [activeTab, setActiveTab] = useState<'basic' | 'resources' | 'links'>('basic');
+  const [activeTab, setActiveTab] = useState<'basic' | 'content' | 'related'>('basic');
   const [resources, setResources] = useState<any[]>([]);
   const [associations, setAssociations] = useState<any[]>([]);
   const [allCourses, setAllCourses] = useState<any[]>([]);
@@ -242,9 +242,9 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
       {/* Tab Navigation */}
       <div className="px-8 pt-4 border-b border-slate-100 flex gap-8 bg-slate-50/30 shrink-0">
         {[
-          { id: 'basic', label: 'Basic Configuration', icon: Info },
-          { id: 'resources', label: 'Assets & Media', icon: FileUp, disabled: !isEdit },
-          { id: 'links', label: 'Connections', icon: Link2, disabled: !isEdit },
+          { id: 'basic', label: 'Basic Info', icon: Info },
+          { id: 'content', label: 'Course Content', icon: FileUp, disabled: !isEdit },
+          { id: 'related', label: 'Related Courses', icon: Link2, disabled: !isEdit },
         ].map(tab => (
           <button
             key={tab.id}
@@ -267,7 +267,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
         {activeTab === 'basic' && (
           <div className="grid gap-8 py-2 sm:grid-cols-2 animate-in fade-in duration-300">
             <div className="space-y-2">
-              <label className={sectionLabel}>Program Hierarchy</label>
+              <label className={sectionLabel}>Program</label>
               <Select
                 value={form.programId}
                 onValueChange={(value) => setForm((prev) => ({ ...prev, programId: value }))}
@@ -306,7 +306,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
             </div>
 
             <div className="space-y-2 sm:col-span-2">
-              <label className={sectionLabel}>Official Title</label>
+              <label className={sectionLabel}>Course Title</label>
               <Input
                 className={inputClass}
                 value={form.name}
@@ -326,7 +326,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
             </div>
 
             <div className="space-y-2">
-              <label className={sectionLabel}>Modality</label>
+              <label className={sectionLabel}>Course Type</label>
               <Select
                 value={form.type}
                 onValueChange={(value) => setForm((prev) => ({ ...prev, type: value as CourseType }))}
@@ -345,7 +345,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
             </div>
 
             <div className="space-y-2">
-              <label className={sectionLabel}>Billing Structure</label>
+              <label className={sectionLabel}>Billing Type</label>
               <Select
                 value={form.billingType}
                 onValueChange={(value) =>
@@ -424,13 +424,13 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
           </div>
         )}
 
-        {activeTab === 'resources' && course && (
+        {activeTab === 'content' && course && (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
             <div className="flex items-center justify-between">
-               <h3 className="text-xl font-black tracking-tight">Manage Assets</h3>
+               <h3 className="text-xl font-black tracking-tight">Course Content</h3>
                {!showResourceForm && (
                  <Button onClick={() => { setEditingResource(null); setShowResourceForm(true); }} size="sm" className="h-9 rounded-xl bg-slate-900 text-white font-black uppercase tracking-widest text-[9px]">
-                    <Plus className="mr-2 h-3.5 w-3.5" /> Deploy Resource
+                    <Plus className="mr-2 h-3.5 w-3.5" /> Add Content
                  </Button>
                )}
             </div>
@@ -470,13 +470,13 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
           </div>
         )}
 
-        {activeTab === 'links' && course && (
+        {activeTab === 'related' && course && (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
             <div className="flex items-center justify-between">
-               <h3 className="text-xl font-black tracking-tight">Manage Linkages</h3>
+               <h3 className="text-xl font-black tracking-tight">Related Courses</h3>
                {!showAssociationForm && (
                  <Button onClick={() => setShowAssociationForm(true)} size="sm" className="h-9 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 font-black uppercase tracking-widest text-[9px]">
-                    <Plus className="mr-2 h-3.5 w-3.5" /> Establish Link
+                    <Plus className="mr-2 h-3.5 w-3.5" /> Add Related Course
                  </Button>
                )}
             </div>
@@ -533,7 +533,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
             disabled={submitting}
             className="flex-[2] h-12 rounded-2xl bg-slate-900 font-black uppercase tracking-[0.2em] text-[11px] text-white shadow-xl shadow-slate-200 hover:bg-indigo-600 hover:scale-[1.02] active:scale-95 transition-all"
           >
-            {submitting ? 'Processing...' : isEdit ? 'Update Changes' : 'Deploy Course'}
+            {submitting ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Course'}
           </Button>
         </div>
       </div>

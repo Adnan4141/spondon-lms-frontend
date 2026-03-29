@@ -22,10 +22,10 @@ interface CourseAssociationFormProps {
 }
 
 const associationTypes = [
-  { value: 'RECOMMENDED', label: 'Highly Recommended' },
-  { value: 'NEXT', label: 'Next in Sequence' },
+  { value: 'RECOMMENDED', label: 'Recommended' },
+  { value: 'NEXT', label: 'Next Course' },
   { value: 'PREREQUISITE', label: 'Prerequisite' },
-  { value: 'RELATED', label: 'Related Content' },
+  { value: 'RELATED', label: 'Related' },
 ];
 
 export function CourseAssociationForm({ fromCourseId, courses, onSuccess, onCancel }: CourseAssociationFormProps) {
@@ -49,7 +49,7 @@ export function CourseAssociationForm({ fromCourseId, courses, onSuccess, onCanc
       });
 
       if (res.success) {
-        toast({ title: 'Association Established', description: 'Course linkage successfully recorded', variant: 'success' });
+        toast({ title: 'Added', description: 'Related course added successfully', variant: 'success' });
         onSuccess();
       }
     } catch (err: any) {
@@ -66,10 +66,10 @@ export function CourseAssociationForm({ fromCourseId, courses, onSuccess, onCanc
     <form onSubmit={handleSubmit} className="space-y-6 bg-indigo-50/30 p-6 rounded-[24px] border border-indigo-100 animate-in fade-in slide-in-from-top-2 duration-300">
       <div className="grid gap-6 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label className="text-[10px] font-black uppercase tracking-widest text-indigo-400 ml-1">Target Course</Label>
+          <Label className="text-[10px] font-black uppercase tracking-widest text-indigo-400 ml-1">Select Course</Label>
           <Select value={formData.toCourseId} onValueChange={(v) => setFormData({...formData, toCourseId: v})}>
             <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-white font-bold">
-              <SelectValue placeholder="Select course to link" />
+              <SelectValue placeholder="Choose a course" />
             </SelectTrigger>
             <SelectContent className="rounded-2xl shadow-xl">
               {availableCourses.map(c => (
@@ -82,7 +82,7 @@ export function CourseAssociationForm({ fromCourseId, courses, onSuccess, onCanc
         </div>
 
         <div className="space-y-2">
-          <Label className="text-[10px] font-black uppercase tracking-widest text-indigo-400 ml-1">Linkage Type</Label>
+          <Label className="text-[10px] font-black uppercase tracking-widest text-indigo-400 ml-1">Relation Type</Label>
           <Select value={formData.type} onValueChange={(v) => setFormData({...formData, type: v})}>
             <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-white font-bold">
               <SelectValue />
@@ -101,7 +101,7 @@ export function CourseAssociationForm({ fromCourseId, courses, onSuccess, onCanc
           className="flex-1 h-12 rounded-2xl bg-slate-900 hover:bg-indigo-600 text-white font-black uppercase tracking-widest text-xs shadow-lg transition-all"
         >
           <Link2 className="mr-2 h-4 w-4" />
-          {loading ? 'Establishing...' : 'Establish Connection'}
+          {loading ? 'Adding...' : 'Add Related Course'}
         </Button>
         <Button 
           type="button" 

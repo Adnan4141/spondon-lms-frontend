@@ -25,14 +25,14 @@ interface CourseResourceFormProps {
 }
 
 const contentTypes = [
-  { value: 'SYLLABUS', label: 'Course Syllabus' },
-  { value: 'LEAFLET', label: 'Marketing Leaflet' },
-  { value: 'SCHEDULE', label: 'Course Schedule' },
+  { value: 'SYLLABUS', label: 'Syllabus' },
+  { value: 'LEAFLET', label: 'Leaflet' },
+  { value: 'SCHEDULE', label: 'Schedule' },
   { value: 'SAMPLE', label: 'Free Sample' },
-  { value: 'NOTE', label: 'Lecture Note' },
-  { value: 'VIDEO', label: 'Video Content' },
-  { value: 'PDF', label: 'PDF Document' },
-  { value: 'OTHER', label: 'Other Resource' },
+  { value: 'NOTE', label: 'Note' },
+  { value: 'VIDEO', label: 'Video' },
+  { value: 'PDF', label: 'PDF' },
+  { value: 'OTHER', label: 'Other' },
 ];
 
 export function CourseResourceForm({ courseId, resource, onSuccess, onCancel }: CourseResourceFormProps) {
@@ -87,7 +87,7 @@ export function CourseResourceForm({ courseId, resource, onSuccess, onCancel }: 
     <form onSubmit={handleSubmit} className="space-y-6 bg-slate-50/50 p-6 rounded-[24px] border border-slate-200 animate-in fade-in zoom-in duration-300">
       <div className="grid gap-6 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Resource Type</Label>
+          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Content Type</Label>
           <Select value={formData.type} onValueChange={(v) => setFormData({...formData, type: v})}>
             <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-white font-bold">
               <SelectValue />
@@ -99,7 +99,7 @@ export function CourseResourceForm({ courseId, resource, onSuccess, onCancel }: 
         </div>
 
         <div className="space-y-2">
-          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Resource Title</Label>
+          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Title</Label>
           <Input 
             className="h-12 rounded-2xl border-slate-200 bg-white font-bold" 
             value={formData.title} 
@@ -109,7 +109,7 @@ export function CourseResourceForm({ courseId, resource, onSuccess, onCancel }: 
         </div>
 
         <div className="sm:col-span-2 space-y-2">
-          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Attachment (File/Media)</Label>
+          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">File Upload</Label>
           <div className="relative group">
             <input 
               type="file" 
@@ -126,7 +126,7 @@ export function CourseResourceForm({ courseId, resource, onSuccess, onCancel }: 
         </div>
 
         <div className="sm:col-span-2 space-y-2">
-          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Content / Description (Optional)</Label>
+          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Description (Optional)</Label>
           <Textarea 
             className="min-h-[100px] rounded-[20px] border-slate-200 bg-white p-4 font-bold"
             value={formData.textBody}
@@ -137,14 +137,14 @@ export function CourseResourceForm({ courseId, resource, onSuccess, onCancel }: 
 
         <div className="flex items-center justify-between p-4 rounded-2xl bg-white border border-slate-100 shadow-sm">
           <div className="space-y-0.5">
-            <p className="text-sm font-black text-slate-800">Public Access</p>
-            <p className="text-[10px] font-bold text-slate-400 uppercase">Visible to non-enrolled students</p>
+            <p className="text-sm font-black text-slate-800">Free Preview</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase">Allow non-enrolled students to view</p>
           </div>
           <Switch checked={formData.isFree} onCheckedChange={v => setFormData({...formData, isFree: v})} />
         </div>
 
         <div className="space-y-2">
-          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Sort Priority</Label>
+          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Sort Order</Label>
           <Input 
             type="number" 
             className="h-12 rounded-2xl border-slate-200 bg-white font-bold" 
@@ -154,17 +154,17 @@ export function CourseResourceForm({ courseId, resource, onSuccess, onCancel }: 
         </div>
 
         <div className="space-y-2">
-          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Topic / Module (e.g. 01: Intro)</Label>
+          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Chapter / Section Name</Label>
           <Input 
             className="h-12 rounded-2xl border-slate-200 bg-white font-bold" 
             value={formData.topicTitle} 
             onChange={e => setFormData({...formData, topicTitle: e.target.value})}
-            placeholder="e.g. 01: Intro, 02: Intermediate"
+            placeholder="e.g. Chapter 1: Introduction"
           />
         </div>
 
         <div className="space-y-2">
-          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Topic Order</Label>
+          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Chapter Order</Label>
           <Input 
             type="number" 
             className="h-12 rounded-2xl border-slate-200 bg-white font-bold" 
@@ -193,7 +193,7 @@ export function CourseResourceForm({ courseId, resource, onSuccess, onCancel }: 
           className="flex-1 h-12 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase tracking-widest text-xs"
         >
           <Save className="mr-2 h-4 w-4" />
-          {loading ? 'Synchronizing...' : resource ? 'Update Resource' : 'Publish Resource'}
+          {loading ? 'Saving...' : resource ? 'Update' : 'Add Content'}
         </Button>
         <Button 
           type="button" 

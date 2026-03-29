@@ -125,7 +125,7 @@ export function CourseDetailsView({ course }: CourseDetailsViewProps) {
          <div className="flex gap-8">
             {[
               { id: 'info', label: 'Info', icon: Info },
-              { id: 'resources', label: 'Resources', icon: FileUp },
+              { id: 'resources', label: 'Course Content', icon: FileUp },
               { id: 'schedule', label: 'Schedule', icon: Calendar },
               { id: 'links', label: 'Related Courses', icon: Link2 },
             ].map(tab => (
