@@ -60,7 +60,6 @@ import {
   Warehouse,
   Database,
   CheckCircle2,
-  Trash2,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';

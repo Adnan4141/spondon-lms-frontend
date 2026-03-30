@@ -155,4 +155,3 @@ export const DigitalLibrarySection: React.FC<Props> = ({ dynamicEbooks }) => {
     </section>
   );
 };
-/admin/books/page.tsx 

@@ -32,6 +32,7 @@ import { getAllTestimonials } from '@/lib/api/testimonials';
 
 export default function AdminDashboard() {
    const router = useRouter();
+   const [pendingReviews, setPendingReviews] = useState<number | null>(null);
    const [teacherTotal, setTeacherTotal] = useState<number | null>(null);
    const [monthlyCourseTotal, setMonthlyCourseTotal] = useState<number | null>(null);
    const [stats, setStats] = useState<SystemStatsData | null>(null);
