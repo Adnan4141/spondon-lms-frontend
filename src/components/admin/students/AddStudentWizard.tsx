@@ -1200,7 +1200,7 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
       <div className="shrink-0 border-t border-slate-100 bg-white px-8 pb-8 pt-6 flex flex-col sm:flex-row gap-3">
         <Button
           variant="outline"
-          className="h-14 rounded-2xl flex-1 font-black uppercase tracking-widest text-[11px]"
+          className="h-14 rounded-2xl flex-1 font-black uppercase tracking-widest text-[11px] bg-slate-700 text-white border-slate-700 hover:bg-slate-800 hover:text-white"
           onClick={step === 1 ? closeModal : goBack}
         >
           {step === 1 ? (

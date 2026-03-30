@@ -17,7 +17,7 @@ import {
   updatePartner,
   type PartnerAdmin,
 } from '@/lib/api/partners';
-import { Globe2, Upload } from 'lucide-react';
+import { Globe2, Upload, Sparkles } from 'lucide-react';
 
 const PARTNER_TYPES = [
   'MEDIA',
@@ -121,12 +121,12 @@ export function PartnerAdminForm({
       )}
 
       {/* ACTIVE TOGGLE */}
-      <div className="flex items-center justify-between rounded-2xl p-4 bg-gradient-to-r from-indigo-50 via-white to-purple-50 border shadow-sm">
+      <div className="flex items-center justify-between rounded-2xl p-4 bg-slate-900 text-white border border-slate-800 shadow-lg shadow-slate-900/30">
         <div>
-          <p className="font-semibold text-indigo-700">
-            Show on homepage
+          <p className="font-semibold flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-emerald-300" /> Show on homepage
           </p>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-slate-300">
             Only active partners will be visible
           </p>
         </div>
@@ -134,17 +134,17 @@ export function PartnerAdminForm({
       </div>
 
       {/* MAIN CARD */}
-      <div className="rounded-3xl p-6 md:p-8 space-y-6 bg-white shadow-xl border border-gray-100">
+      <div className="rounded-3xl p-6 md:p-8 space-y-6 bg-white shadow-[0_18px_55px_-24px_rgba(0,0,0,0.25)] border border-slate-100">
 
         {/* NAME + TYPE */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
           <div>
-            <label className="text-xs font-semibold text-indigo-500">
+            <label className="text-xs font-semibold text-slate-700">
               Partner Name
             </label>
             <Input
-              className="mt-1 h-12 rounded-xl border-gray-200 focus:ring-2 focus:ring-indigo-400"
+              className="mt-1 h-12 rounded-xl border-slate-200 focus:ring-2 focus:ring-indigo-400"
               placeholder="e.g. bKash"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -152,7 +152,7 @@ export function PartnerAdminForm({
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-purple-500">
+            <label className="text-xs font-semibold text-slate-700">
               Category
             </label>
             <Select
@@ -163,7 +163,7 @@ export function PartnerAdminForm({
                 )
               }
             >
-              <SelectTrigger className="mt-1 h-12 rounded-xl border-gray-200 focus:ring-2 focus:ring-purple-400">
+              <SelectTrigger className="mt-1 h-12 rounded-xl border-slate-200 focus:ring-2 focus:ring-indigo-400">
                 <SelectValue placeholder="Select type" />
               </SelectTrigger>
               <SelectContent>
@@ -181,7 +181,7 @@ export function PartnerAdminForm({
         {/* CUSTOM TYPE */}
         {typePreset === 'CUSTOM' && (
           <Input
-            className="h-12 rounded-xl border-gray-200 focus:ring-2 focus:ring-pink-400"
+            className="h-12 rounded-xl border-slate-200 focus:ring-2 focus:ring-indigo-300"
             placeholder="Custom category"
             value={typeCustom}
             onChange={(e) => setTypeCustom(e.target.value)}
@@ -190,13 +190,13 @@ export function PartnerAdminForm({
 
         {/* WEBSITE */}
         <div>
-          <label className="text-xs font-semibold text-blue-500">
+          <label className="text-xs font-semibold text-slate-700">
             Website
           </label>
           <div className="relative mt-1">
-            <Globe2 className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 w-4 h-4" />
+            <Globe2 className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 w-4 h-4" />
             <Input
-              className="pl-10 h-12 rounded-xl border-gray-200 focus:ring-2 focus:ring-blue-400"
+              className="pl-10 h-12 rounded-xl border-slate-200 focus:ring-2 focus:ring-indigo-400"
               placeholder="https://example.com"
               value={websiteUrl}
               onChange={(e) => setWebsiteUrl(e.target.value)}
@@ -208,24 +208,24 @@ export function PartnerAdminForm({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
           <div>
-            <label className="text-xs font-semibold text-emerald-500">
+            <label className="text-xs font-semibold text-slate-700">
               Sort Order
             </label>
             <Input
               type="number"
-              className="h-12 rounded-xl mt-1 border-gray-200 focus:ring-2 focus:ring-emerald-400"
+              className="h-12 rounded-xl mt-1 border-slate-200 focus:ring-2 focus:ring-indigo-400"
               value={sortOrder}
               onChange={(e) => setSortOrder(e.target.value)}
             />
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-pink-500">
+            <label className="text-xs font-semibold text-slate-700">
               Logo
             </label>
-            <label className="mt-1 flex items-center gap-3 border-2 border-dashed border-pink-300 rounded-xl h-12 px-3 cursor-pointer hover:bg-pink-50 transition">
-              <Upload className="w-4 h-4 text-pink-500" />
-              <span className="text-sm text-gray-600 truncate">
+            <label className="mt-1 flex items-center gap-3 border-2 border-dashed border-indigo-200 rounded-xl h-12 px-3 cursor-pointer hover:bg-indigo-50 transition">
+              <Upload className="w-4 h-4 text-indigo-500" />
+              <span className="text-sm text-slate-600 truncate">
                 {logoFile ? logoFile.name : 'Upload logo'}
               </span>
               <input
@@ -242,11 +242,11 @@ export function PartnerAdminForm({
 
         {/* DESCRIPTION */}
         <div>
-          <label className="text-xs font-semibold text-orange-500">
+          <label className="text-xs font-semibold text-slate-700">
             Description
           </label>
           <Textarea
-            className="mt-1 rounded-xl min-h-[120px] border-gray-200 focus:ring-2 focus:ring-orange-400"
+            className="mt-1 rounded-xl min-h-[120px] border-slate-200 focus:ring-2 focus:ring-indigo-300"
             placeholder="Short description..."
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -255,7 +255,7 @@ export function PartnerAdminForm({
       </div>
 
       {/* ACTION BAR */}
-      <div className="fixed bottom-0 left-0 w-full bg-white/80 backdrop-blur border-t p-4 flex justify-end gap-3 z-50">
+      <div className="fixed bottom-0 left-0 w-full bg-white/90 backdrop-blur border-t border-slate-200 p-4 flex justify-end gap-3 z-50">
         <Button
           variant="ghost"
           onClick={onCancel}
@@ -268,7 +268,7 @@ export function PartnerAdminForm({
         <Button
           onClick={submit}
           disabled={saving}
-          className="rounded-xl px-6 bg-gradient-to-r  bg-black text-white font-semibold shadow-lg hover:opacity-90"
+          className="rounded-xl px-6 bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-semibold shadow-lg shadow-indigo-200 hover:opacity-90"
         >
           {saving
             ? 'Saving...'

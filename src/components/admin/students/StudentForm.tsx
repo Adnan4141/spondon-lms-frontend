@@ -461,7 +461,7 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
           <div className="flex flex-col sm:flex-row gap-4">
             <Button
               variant="outline"
-              className="flex-1 h-14 rounded-2xl border-slate-200 bg-white font-black uppercase tracking-[0.2em] text-[11px] text-slate-400 hover:bg-slate-50 hover:text-slate-800 transition-all shadow-sm"
+              className="flex-1 h-14 rounded-2xl border-slate-700 bg-slate-800 font-black uppercase tracking-[0.2em] text-[11px] text-white hover:bg-slate-900 hover:text-white transition-all shadow-sm"
               onClick={closeModal}
             >
               Cancel
