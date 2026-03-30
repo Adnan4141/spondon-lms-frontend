@@ -12,6 +12,7 @@ export async function getCourses(params?: GetCoursesParams & { type?: string; is
   if (params?.isFree !== undefined) queryParams.append('isFree', String(params.isFree));
   if (params?.featured !== undefined) queryParams.append('featured', String(params.featured));
   if (params?.websiteVisible !== undefined) queryParams.append('websiteVisible', String(params.websiteVisible));
+  if (params?.billingType) queryParams.append('billingType', params.billingType);
   if (params?.teacherUserId) queryParams.append('teacherUserId', params.teacherUserId);
   if (params?.page) queryParams.append('page', String(params.page));
   if (params?.limit) queryParams.append('limit', String(params.limit));
@@ -41,6 +42,18 @@ export async function updateCourse(id: string, data: UpdateCourseDto): Promise<A
 export async function deleteCourse(id: string): Promise<ApiResponse<void>> {
   return apiRequest<ApiResponse<void>>(`/courses/${id}`, {
     method: 'DELETE',
+  });
+}
+
+export async function settleCourse(courseId: string): Promise<ApiResponse<{ message?: string }>> {
+  return apiRequest<ApiResponse<{ message?: string }>>(`/courses/${courseId}/settle`, {
+    method: 'POST',
+  });
+}
+
+export async function disableCourse(courseId: string): Promise<ApiResponse<Course>> {
+  return apiRequest<ApiResponse<Course>>(`/courses/${courseId}/disable`, {
+    method: 'POST',
   });
 }
 

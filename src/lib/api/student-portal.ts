@@ -43,8 +43,22 @@ export async function updateContentProgress(data: {
   });
 }
 
-export async function purchaseBook(data: { studentUserId: string; bookId: string; branchId?: string }): Promise<ApiResponse<any>> {
-  return apiRequest<ApiResponse<any>>('/student-portal/purchase-book', {
+export type BookPurchaseDelivery = {
+  recipientName: string;
+  phone: string;
+  address: string;
+  city?: string;
+  postalCode?: string;
+  notes?: string;
+};
+
+export async function purchaseBook(data: {
+  studentUserId: string;
+  bookId: string;
+  branchId?: string;
+  delivery: BookPurchaseDelivery;
+}): Promise<ApiResponse<{ id: string }>> {
+  return apiRequest<ApiResponse<{ id: string }>>('/student-portal/purchase-book', {
     method: 'POST',
     body: JSON.stringify(data),
   });

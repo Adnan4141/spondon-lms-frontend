@@ -5,7 +5,9 @@ import { getBranches } from '@/lib/api/branches';
 import { getBooks, createBookSale, getBookSales, type Book, type BookSale } from '@/lib/api/books';
 import type { Branch } from '@/lib/api/branches';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -46,6 +48,7 @@ import {
   ShoppingCart,
   BookOpen,
   Warehouse,
+  Truck,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
@@ -83,6 +86,30 @@ export default function BookSalesPage() {
   const [selectedBookForCart, setSelectedBookForCart] = useState<string>('');
   const [selectedQty, setSelectedQty] = useState<number>(1);
   const [createSubmitting, setCreateSubmitting] = useState(false);
+
+  const [saleDeliveryEnabled, setSaleDeliveryEnabled] = useState(false);
+  const [deliveryRecipientName, setDeliveryRecipientName] = useState('');
+  const [deliveryPhone, setDeliveryPhone] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [deliveryCity, setDeliveryCity] = useState('');
+  const [deliveryPostalCode, setDeliveryPostalCode] = useState('');
+  const [deliveryNotes, setDeliveryNotes] = useState('');
+
+  const resetCreateSaleForm = () => {
+    setSaleBranchId('');
+    setSaleStudentId('');
+    setSaleInvoiceId('');
+    setCartItems([]);
+    setSelectedBookForCart('');
+    setSelectedQty(1);
+    setSaleDeliveryEnabled(false);
+    setDeliveryRecipientName('');
+    setDeliveryPhone('');
+    setDeliveryAddress('');
+    setDeliveryCity('');
+    setDeliveryPostalCode('');
+    setDeliveryNotes('');
+  };
 
   const loadBranches = async () => {
     try {
@@ -194,6 +221,19 @@ export default function BookSalesPage() {
       toast({ title: 'Empty Cart', description: 'Add at least one material to the session', variant: 'destructive' });
       return;
     }
+    if (saleDeliveryEnabled) {
+      const name = deliveryRecipientName.trim();
+      const phone = deliveryPhone.trim();
+      const address = deliveryAddress.trim();
+      if (!name || !phone || !address) {
+        toast({
+          title: 'Delivery details',
+          description: 'Recipient name, phone, and address are required when delivery is enabled.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
     try {
       setCreateSubmitting(true);
       await createBookSale({
@@ -205,12 +245,20 @@ export default function BookSalesPage() {
           qty: item.qty,
           unitPrice: item.unitPrice,
         })),
+        delivery:
+          saleDeliveryEnabled
+            ? {
+                recipientName: deliveryRecipientName.trim(),
+                phone: deliveryPhone.trim(),
+                address: deliveryAddress.trim(),
+                city: deliveryCity.trim() || undefined,
+                postalCode: deliveryPostalCode.trim() || undefined,
+                notes: deliveryNotes.trim() || undefined,
+              }
+            : undefined,
       });
       setCreateDialogOpen(false);
-      setSaleBranchId('');
-      setSaleStudentId('');
-      setSaleInvoiceId('');
-      setCartItems([]);
+      resetCreateSaleForm();
       await loadSales();
       toast({ title: 'Transaction Secured', description: 'The sale has been successfully registered and invoiced.', variant: 'success' });
     } catch (err: unknown) {
@@ -355,6 +403,24 @@ export default function BookSalesPage() {
                          {sale.items?.length || 0} Line Items
                        </Badge>
                     </TableCell>
+                    <TableCell className="py-5">
+                      {sale.delivery ? (
+                        <div className="flex flex-col gap-1">
+                          <Badge
+                            variant="outline"
+                            className="w-fit rounded-lg border-emerald-200 bg-emerald-50 text-[10px] font-black uppercase tracking-widest text-emerald-800"
+                          >
+                            <Truck className="mr-1 inline h-3 w-3" />
+                            {sale.delivery.deliveryStatus || 'PENDING'}
+                          </Badge>
+                          <span className="max-w-[180px] truncate text-[10px] font-bold text-slate-500" title={sale.delivery.recipientName}>
+                            {sale.delivery.recipientName}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-[10px] font-black uppercase text-slate-300">—</span>
+                      )}
+                    </TableCell>
                     <TableCell className="px-8 py-5 text-right font-black text-slate-900 text-base">
                        ৳{Number(sale.totalAmount).toLocaleString()}
                     </TableCell>
@@ -367,7 +433,13 @@ export default function BookSalesPage() {
       </section>
 
       {/* Create Sale Dialog */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+      <Dialog
+        open={createDialogOpen}
+        onOpenChange={(open) => {
+          setCreateDialogOpen(open);
+          if (!open) resetCreateSaleForm();
+        }}
+      >
         <DialogContent className="max-h-[90vh] sm:max-w-5xl flex flex-col p-0 gap-0" showCloseButton={true}>
           <DialogHeader className="px-6 pt-6 pb-4 shrink-0 sticky top-0 bg-background z-10 border-b shadow-sm">
             <DialogTitle>New Sale</DialogTitle>
@@ -407,6 +479,84 @@ export default function BookSalesPage() {
                     placeholder="Existing Invoice ID"
                   />
                 </div>
+              </div>
+
+              <div className="space-y-4 rounded-3xl border border-slate-100 bg-slate-50/40 p-5">
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="sale-delivery-enabled"
+                    checked={saleDeliveryEnabled}
+                    onCheckedChange={(checked) => setSaleDeliveryEnabled(Boolean(checked))}
+                    className="mt-0.5"
+                  />
+                  <div className="space-y-1">
+                    <label htmlFor="sale-delivery-enabled" className="flex cursor-pointer items-center gap-2 text-sm font-black uppercase tracking-widest text-slate-800">
+                      <Truck className="h-4 w-4 text-indigo-600" />
+                      Record delivery / shipping details
+                    </label>
+                    <p className="text-xs font-medium text-slate-500">
+                      Optional. Creates a delivery record linked to this sale for fulfillment tracking.
+                    </p>
+                  </div>
+                </div>
+                {saleDeliveryEnabled && (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2 sm:col-span-2">
+                      <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">Recipient name *</label>
+                      <Input
+                        className="h-11 rounded-2xl border-slate-200 bg-white px-4 text-base font-bold text-slate-900"
+                        value={deliveryRecipientName}
+                        onChange={(e) => setDeliveryRecipientName(e.target.value)}
+                        placeholder="Full name"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">Phone *</label>
+                      <Input
+                        className="h-11 rounded-2xl border-slate-200 bg-white px-4 text-base font-bold text-slate-900"
+                        value={deliveryPhone}
+                        onChange={(e) => setDeliveryPhone(e.target.value)}
+                        placeholder="Contact number"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">City</label>
+                      <Input
+                        className="h-11 rounded-2xl border-slate-200 bg-white px-4 text-base font-bold text-slate-900"
+                        value={deliveryCity}
+                        onChange={(e) => setDeliveryCity(e.target.value)}
+                        placeholder="Optional"
+                      />
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">Address *</label>
+                      <Textarea
+                        className="min-h-[88px] rounded-2xl border-slate-200 bg-white px-4 py-3 text-base font-bold text-slate-900"
+                        value={deliveryAddress}
+                        onChange={(e) => setDeliveryAddress(e.target.value)}
+                        placeholder="Street, area, instructions"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">Postal code</label>
+                      <Input
+                        className="h-11 rounded-2xl border-slate-200 bg-white px-4 text-base font-bold text-slate-900"
+                        value={deliveryPostalCode}
+                        onChange={(e) => setDeliveryPostalCode(e.target.value)}
+                        placeholder="Optional"
+                      />
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">Notes</label>
+                      <Textarea
+                        className="min-h-[72px] rounded-2xl border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-800"
+                        value={deliveryNotes}
+                        onChange={(e) => setDeliveryNotes(e.target.value)}
+                        placeholder="Optional internal or courier notes"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-4">
@@ -499,7 +649,9 @@ export default function BookSalesPage() {
             </div>
           </div>
           <DialogFooter className="px-6 pb-6 pt-4 shrink-0 bg-background border-t shadow-lg mt-auto">
-            <Button variant="outline" className="rounded-xl px-6" onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
+            <Button variant="outline" className="rounded-xl px-6" onClick={() => setCreateDialogOpen(false)}>
+              Cancel
+            </Button>
             <Button className="rounded-xl bg-slate-900 px-8 hover:bg-indigo-600 transition-all shadow-lg" onClick={handleCreateSale} disabled={createSubmitting}>
               {createSubmitting ? 'Saving...' : 'Save & Create Invoice'}
             </Button>

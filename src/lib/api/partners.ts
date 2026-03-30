@@ -40,3 +40,14 @@ export async function updatePartner(id: string, data: FormData): Promise<{ succe
 export async function deletePartner(id: string): Promise<{ success: boolean }> {
   return apiRequest(`/partners/${id}`, { method: 'DELETE' });
 }
+
+export async function patchPartner(
+  id: string,
+  body: { isActive: boolean },
+): Promise<{ success: boolean; data: PartnerAdmin }> {
+  return apiRequest(`/partners/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}

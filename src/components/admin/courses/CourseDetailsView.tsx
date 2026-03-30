@@ -28,6 +28,8 @@ import {
   ChevronRight,
   Play,
   Pencil,
+  Ban,
+  Scale,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -46,6 +48,8 @@ import {
   getCourses,
   addCourseTeacher,
   removeCourseTeacher,
+  disableCourse,
+  settleCourse,
 } from '@/lib/api/courses';
 import { getUsers } from '@/lib/api/users';
 import type { CourseDetailTeacher } from '@/types/course';
@@ -57,6 +61,8 @@ import { CourseScheduleSection } from './CourseScheduleSection';
 
 interface CourseDetailsViewProps {
   course: CourseDetails;
+  /** Called after disable admission or full course settle (e.g. refresh list and close modal). */
+  onAfterMutation?: () => void | Promise<void>;
 }
 
 function getStatusBadgeClass(status: string) {
@@ -76,7 +82,7 @@ const getResourceIcon = (type: string) => {
   }
 };
 
-export function CourseDetailsView({ course }: CourseDetailsViewProps) {
+export function CourseDetailsView({ course, onAfterMutation }: CourseDetailsViewProps) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'info' | 'resources' | 'schedule' | 'links'>('info');
   const [resources, setResources] = useState<any[]>([]);
@@ -94,8 +100,82 @@ export function CourseDetailsView({ course }: CourseDetailsViewProps) {
   const [teachersPool, setTeachersPool] = useState<{ id: string; fullName: string; email?: string }[]>([]);
   const [assignedTeachers, setAssignedTeachers] = useState<CourseDetailTeacher[]>(() => course.teachers || []);
   const [teacherActionLoading, setTeacherActionLoading] = useState(false);
+  const [courseOpLoading, setCourseOpLoading] = useState<'disable' | 'settle' | null>(null);
 
   const outline = course.outline as any;
+  const courseApiId = course.slug || course.id;
+
+  const handleDisableAdmission = async () => {
+    if (course.status === 'DISABLED' || course.status === 'ARCHIVED') {
+      toast({ title: 'Skipped', description: 'Course is already disabled or archived.', variant: 'destructive' });
+      return;
+    }
+    if (
+      !confirm(
+        'ভর্তি বন্ধ করবেন? কোনও ব্রাঞ্চ/অ্যাডমিন নতুন ভর্তি নিতে পারবে না; বিদ্যমান স্টুডেন্টরা কোর্স কন্টেন্ট দেখতে পারবে।'
+      )
+    ) {
+      return;
+    }
+    try {
+      setCourseOpLoading('disable');
+      const res = await disableCourse(courseApiId);
+      if (res.success) {
+        toast({
+          title: 'Admission stopped',
+          description: res.message || 'Course disabled. Existing students keep content access.',
+          variant: 'success',
+        });
+        await onAfterMutation?.();
+      } else {
+        toast({ title: 'Failed', description: res.message, variant: 'destructive' });
+      }
+    } catch (e: unknown) {
+      toast({
+        title: 'Error',
+        description: e instanceof Error ? e.message : 'Request failed',
+        variant: 'destructive',
+      });
+    } finally {
+      setCourseOpLoading(null);
+    }
+  };
+
+  const handleSettleCourse = async () => {
+    if (!course.settledOptionEnabled) {
+      toast({
+        title: 'Not enabled',
+        description: 'Turn on “Settle course option” in course settings first.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (
+      !confirm(
+        'সেটেল করলে সকল বাকি ইনভয়েস পরিশোধিত ধরা হবে, সকল এনরোলমেন্ট বাতিল হবে এবং স্টুডেন্ট পোর্টাল থেকে কোর্স সরে যাবে। কোর্স আর্কাইভ হবে। চালিয়ে যাবেন?'
+      )
+    ) {
+      return;
+    }
+    try {
+      setCourseOpLoading('settle');
+      const res = await settleCourse(courseApiId);
+      if (res.success) {
+        toast({ title: 'Course settled', description: res.message, variant: 'success' });
+        await onAfterMutation?.();
+      } else {
+        toast({ title: 'Failed', description: res.message, variant: 'destructive' });
+      }
+    } catch (e: unknown) {
+      toast({
+        title: 'Error',
+        description: e instanceof Error ? e.message : 'Request failed',
+        variant: 'destructive',
+      });
+    } finally {
+      setCourseOpLoading(null);
+    }
+  };
 
   useEffect(() => {
     setAssignedTeachers(course.teachers || []);
@@ -291,7 +371,13 @@ export function CourseDetailsView({ course }: CourseDetailsViewProps) {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10">
                {[
                  { label: 'Enrolled', value: course._count?.enrollments || 0, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
-                 { label: 'Fee', value: `৳${Number(course.fee).toLocaleString()}`, icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                 {
+                   label: course.billingType === 'MONTHLY' ? 'Monthly fee' : 'Course fee',
+                   value: `৳${Number(course.fee).toLocaleString()}`,
+                   icon: DollarSign,
+                   color: 'text-emerald-600',
+                   bg: 'bg-emerald-50',
+                 },
                  { label: 'Classes', value: outline?.totalClasses || 'N/A', icon: Calendar, color: 'text-violet-600', bg: 'bg-violet-50' },
                  { label: 'Duration', value: outline?.duration || 'N/A', icon: Clock, color: 'text-rose-600', bg: 'bg-rose-50' },
                ].map((stat, i) => (
@@ -304,6 +390,70 @@ export function CourseDetailsView({ course }: CourseDetailsViewProps) {
                  </div>
                ))}
             </div>
+
+            {course.billingType === 'MONTHLY' && (
+              <div className="mb-10 rounded-2xl border border-violet-200 bg-linear-to-br from-violet-50/90 to-indigo-50/50 p-5 sm:p-6 shadow-sm">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="space-y-2">
+                    <p className="text-xs font-black uppercase tracking-widest text-violet-700">Monthly billing course</p>
+                    <p className="text-sm font-medium leading-relaxed text-slate-700 max-w-2xl">
+                      Students need a <strong className="font-bold text-slate-900">billing start month</strong> (YYYY-MM) on
+                      their enrollment. Invoices are generated per calendar month from{' '}
+                      <strong className="font-bold text-slate-900">Admin → Monthly billing</strong> or{' '}
+                      <strong className="font-bold text-slate-900">Invoices</strong>. Benefits (discounts / scholarships) apply
+                      automatically when generating.
+                    </p>
+                  </div>
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="h-11 shrink-0 rounded-xl border-violet-300 bg-white font-bold text-violet-800 hover:bg-violet-50"
+                  >
+                    <Link href="/admin/monthly-billing">Open monthly billing</Link>
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {course.status !== 'ARCHIVED' && (
+              <div className="mb-10 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm">
+                <h3 className="mb-2 flex items-center gap-2 text-sm font-black text-slate-900">
+                  <Scale className="h-4 w-4 text-indigo-600" />
+                  Course operations
+                </h3>
+                <p className="mb-4 text-xs font-medium leading-relaxed text-slate-600">
+                  <strong>Disable admission</strong>: ভর্তি বন্ধ; স্টুডেন্ট কন্টেন্ট দেখতে পারবে।{' '}
+                  <strong>Settle course</strong> (যখন ফর্মে “settle option” চালু): বাকি ইনভয়েস বন্ধ, এনরোলমেন্ট বাতিল, স্টুডেন্ট
+                  পোর্টাল থেকে সরে যাবে।
+                </p>
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 rounded-xl border-amber-200 bg-amber-50/50 font-bold text-amber-900 hover:bg-amber-100"
+                    disabled={course.status === 'DISABLED' || courseOpLoading !== null}
+                    onClick={handleDisableAdmission}
+                  >
+                    <Ban className="mr-2 h-4 w-4" />
+                    {courseOpLoading === 'disable' ? 'Working…' : 'Disable admission only'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    className="h-11 rounded-xl font-bold"
+                    disabled={!course.settledOptionEnabled || courseOpLoading !== null}
+                    onClick={handleSettleCourse}
+                  >
+                    {courseOpLoading === 'settle' ? 'Working…' : 'Settle course & remove from student portal'}
+                  </Button>
+                </div>
+                {!course.settledOptionEnabled && (
+                  <p className="mt-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Enable “Settle course option” in edit course to unlock full settlement.
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm mb-10">
               <h3 className="flex items-center gap-2 text-sm font-black text-slate-800 mb-4">

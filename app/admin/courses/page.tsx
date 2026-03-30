@@ -101,7 +101,7 @@ function getTypeBadgeClass(type: string) {
 }
 
 export default function CoursesPage() {
-  const { openModal } = useModalStore();
+  const { openModal, closeModal } = useModalStore();
   const { toast, toasts, removeToast } = useToast();
   const [courses, setCourses] = useState<Course[]>([]);
   const [programs, setPrograms] = useState<Program[]>([]);
@@ -110,6 +110,7 @@ export default function CoursesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<CourseStatus | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<CourseType | 'all'>('all');
+  const [billingFilter, setBillingFilter] = useState<BillingType | 'all'>('all');
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -126,6 +127,7 @@ export default function CoursesPage() {
         limit: pagination.limit,
       };
       if (statusFilter !== 'all') params.status = statusFilter;
+      if (billingFilter !== 'all') params.billingType = billingFilter;
 
       const response = await getCourses(params);
 
@@ -172,7 +174,15 @@ export default function CoursesPage() {
           title: 'Course Details',
           description: 'View course details.',
           className: 'sm:max-w-4xl',
-          content: <CourseDetailsView course={response.data as CourseDetails} />,
+          content: (
+            <CourseDetailsView
+              course={response.data as CourseDetails}
+              onAfterMutation={async () => {
+                await loadCourses();
+                closeModal();
+              }}
+            />
+          ),
         });
       }
     } catch (err) {
@@ -206,7 +216,7 @@ export default function CoursesPage() {
   };
 
   useEffect(() => { loadPrograms(); }, []);
-  useEffect(() => { loadCourses(); }, [pagination.page, statusFilter]);
+  useEffect(() => { loadCourses(); }, [pagination.page, statusFilter, billingFilter]);
   useEffect(() => {
     const timer = setTimeout(() => {
       if (pagination.page === 1) loadCourses();
@@ -254,6 +264,22 @@ export default function CoursesPage() {
                 {typeOptions.map((opt) => (
                   <SelectItem key={opt} value={opt} className="text-sm font-medium">
                     {opt === 'all' ? 'All Types' : opt}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={billingFilter} onValueChange={(v) => setBillingFilter(v as BillingType | 'all')}>
+              <SelectTrigger className="h-12 w-[200px] rounded-2xl border-slate-200 bg-white text-sm font-medium shadow-sm">
+                <SelectValue placeholder="All billing" />
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl border-slate-200 bg-white text-slate-900 shadow-xl">
+                <SelectItem value="all" className="text-sm font-medium">
+                  All billing
+                </SelectItem>
+                {billingOptions.map((opt) => (
+                  <SelectItem key={opt} value={opt} className="text-sm font-medium">
+                    {opt === 'MONTHLY' ? 'Monthly courses' : 'One-time courses'}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -50,6 +50,7 @@ import { StudentDetailsView } from '@/components/admin/students/StudentDetailsVi
 import { BulkImportForm } from '@/components/admin/students/BulkImportForm';
 import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
 import { cn } from '@/lib/utils';
+import StudentExamTakingPage from '../../student/exams/[id]/page';
 
 export default function StudentsPage() {
   const { toast, toasts, removeToast } = useToast();
@@ -63,6 +64,12 @@ export default function StudentsPage() {
   const [branchFilter, setBranchFilter] = useState<string>('all');
 
   const statusOptions = ['all', 'ACTIVE', 'BLOCKED', 'PENDING'];
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const bid = new URLSearchParams(window.location.search).get('branchId');
+    if (bid) setBranchFilter(bid);
+  }, []);
 
   useEffect(() => {
     loadStudents();
@@ -121,7 +128,7 @@ export default function StudentsPage() {
         openModal({
           title: 'Student Details',
           description: "See this student's info.",
-          className: 'sm:max-w-4xl',
+          className: 'sm:max-w-5xl max-h-[92vh] flex flex-col overflow-hidden',
           content: <StudentDetailsView student={res.data} />,
         });
       }
@@ -137,7 +144,7 @@ export default function StudentsPage() {
         openModal({
           title: 'Edit Student',
           description: 'Update student information.',
-          className: 'sm:max-w-4xl',
+          className: 'sm:max-w-5xl',
           content: <StudentForm branches={branches} institutes={institutes} student={res.data} onSuccess={loadStudents} />,
         });
       }
@@ -150,7 +157,7 @@ export default function StudentsPage() {
     openModal({
       title: 'Offline admission',
       description: 'Profile → course → payment & invoice in one flow. Roll and password are generated automatically.',
-      className: 'sm:max-w-2xl max-h-[90vh]',
+      className: 'sm:max-w-5xl max-h-[90vh]',
       content: <AddStudentWizard branches={branches} institutes={institutes} onSuccess={loadStudents} />,
     });
   };
@@ -194,7 +201,8 @@ export default function StudentsPage() {
       ),
     });
   };
-
+ console.log(students)
+ 
   const filteredStudents = students.filter((s) => {
     const q = searchQuery.toLowerCase();
     return !q || s.fullName.toLowerCase().includes(q) || s.email?.toLowerCase().includes(q) || s.mobile.toLowerCase().includes(q);
@@ -275,7 +283,11 @@ export default function StudentsPage() {
         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
           <div>
             <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Students</h2>
-            <p className="mt-0.5 text-base font-bold text-indigo-500">All students in the system</p>
+            <p className="mt-0.5 text-base font-bold text-indigo-500">Student accounts only</p>
+            <p className="mt-1 max-w-xl text-xs font-medium text-slate-500">
+              This list includes users with the <strong>Student</strong> role. Teachers and staff appear under Teachers / Staff,
+              not here.
+            </p>
           </div>
           <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -314,7 +326,9 @@ export default function StudentsPage() {
                           </div>
                           <div className="flex flex-col">
                              <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors text-base">{student.fullName}</span>
-                             <span className="text-base font-medium text-slate-400">UID: {student.id.slice(0, 8)}...</span>
+                             <span className="text-sm font-bold text-slate-500">
+                                {student.studentProfile?.registrationNumber || 'No Reg #'}
+                             </span>
                           </div>
                        </div>
                     </TableCell>

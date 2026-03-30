@@ -10,7 +10,7 @@ import { Toaster } from '@/components/ui/toast';
 import { getCourseById } from '@/lib/api/courses';
 import { enrollInCourse, checkEnrollment } from '@/lib/api/student-portal';
 import { initInvoicePayment } from '@/lib/api/invoices';
-import type { CourseDetails } from '@/types/course';
+import type { CourseDetailCourseBook, CourseDetails } from '@/types/course';
 import { 
     BookOpen, 
     Calendar, 
@@ -42,7 +42,7 @@ export default function CourseDetailsPage() {
             setLoading(true);
             const res = await getCourseById(idOrSlug as string);
             if (res.success && res.data) {
-                setCourse(res.data as CourseDetails);
+                setCourse(res.data as unknown as CourseDetails);
             } else {
                 setError(res.message || 'Course not found');
             }
@@ -170,6 +170,8 @@ export default function CourseDetailsPage() {
 
     const contents = (course as any).contents || [];
     const syllabus = contents.filter((c: any) => c.type === 'SYLLABUS');
+    const courseBooks: CourseDetailCourseBook[] = course.courseBooks || [];
+    const feeBreakdown = course.feeBreakdown;
     const outline = course.outline as any;
     const benefits = Array.isArray(outline?.benefits) ? outline.benefits : [
         'অভিজ্ঞ শিক্ষক মন্ডলী',
@@ -255,10 +257,29 @@ export default function CourseDetailsPage() {
                                     className="w-full h-full object-cover"
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                                <div className="absolute bottom-8 left-8 right-8 flex items-center justify-between">
-                                    <div className="flex flex-col">
-                                        <span className="text-white/60 text-[10px] font-black uppercase tracking-widest mb-1">কোর্স ফি</span>
-                                        <span className="text-3xl font-black text-white">৳{String(course.fee)}</span>
+                                <div className="absolute bottom-8 left-8 right-8 flex flex-col sm:flex-row sm:items-end gap-6 justify-between">
+                                    <div className="flex flex-col gap-1 max-w-[min(100%,280px)]">
+                                        <span className="text-white/60 text-[10px] font-black uppercase tracking-widest">কোর্স ফি (টিউশন)</span>
+                                        <span className="text-3xl font-black text-white leading-none">
+                                            ৳{Number(course.fee).toLocaleString()}
+                                        </span>
+                                        {feeBreakdown && feeBreakdown.linkedBooksTotal > 0 ? (
+                                            <div className="mt-2 space-y-1 rounded-xl bg-black/30 px-3 py-2 border border-white/10">
+                                                <p className="text-[9px] font-black uppercase text-emerald-300/90 tracking-widest">
+                                                    + লিঙ্ক করা বই (আলাদা)
+                                                </p>
+                                                <p className="text-lg font-black text-emerald-300">
+                                                    ৳{Number(feeBreakdown.linkedBooksTotal).toLocaleString()}
+                                                </p>
+                                                <p className="text-[9px] font-bold text-white/50 uppercase">সর্বমোট (কোর্স + বই)</p>
+                                                <p className="text-base font-black text-white">
+                                                    ৳{Number(feeBreakdown.totalWithPaidBooks).toLocaleString()}
+                                                </p>
+                                                <p className="text-[10px] text-white/45 font-medium leading-snug pt-1">
+                                                    ভর্তির পেমেন্টে সাধারণত শুধু কোর্স ফি; বই আলাদা কিনতে হতে পারে।
+                                                </p>
+                                            </div>
+                                        ) : null}
                                     </div>
                                     {alreadyEnrolled ? (
                                         <Link
@@ -307,6 +328,53 @@ export default function CourseDetailsPage() {
                                 ))}
                             </div>
                         </section>
+
+                        {courseBooks.length > 0 ? (
+                            <section>
+                                <div className="flex items-center gap-4 mb-8">
+                                    <div className="h-12 w-12 rounded-2xl bg-amber-500 flex items-center justify-center text-white shadow-lg shadow-amber-100">
+                                        <FileText size={24} />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-3xl font-black text-slate-900 tracking-tight">সুপারিশকৃত বই</h2>
+                                        <p className="text-sm font-medium text-slate-500 mt-1">
+                                            অ্যাডমিন থেকে কোর্সে যুক্ত বই। বিনামূল্যে চিহ্নিত থাকলে কোর্সের সাথে জুড়ে দেওয়া হয়।
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="grid sm:grid-cols-2 gap-4">
+                                    {courseBooks.map((cb) => (
+                                        <div
+                                            key={cb.id}
+                                            className="bg-white p-5 rounded-3xl border border-slate-100 flex gap-4 items-center hover:border-amber-100 transition-colors"
+                                        >
+                                            {cb.book.thumbnailUrl ? (
+                                                <img
+                                                    src={cb.book.thumbnailUrl}
+                                                    alt=""
+                                                    className="h-20 w-14 object-cover rounded-xl border border-slate-100"
+                                                />
+                                            ) : (
+                                                <div className="h-20 w-14 rounded-xl bg-slate-100 flex items-center justify-center text-slate-300">
+                                                    <BookOpen className="h-6 w-6" />
+                                                </div>
+                                            )}
+                                            <div className="min-w-0 flex-1">
+                                                <p className="font-black text-slate-900 truncate">{cb.book.name}</p>
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                                    {cb.book.isEbook ? 'ই-বুক' : 'প্রিন্ট'}{' '}
+                                                    {cb.isFree ? (
+                                                        <span className="text-emerald-600">· বিনামূল্যে (কোর্সে)</span>
+                                                    ) : (
+                                                        <span className="text-amber-700">· ৳{Number(cb.book.price).toLocaleString()}</span>
+                                                    )}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
+                        ) : null}
 
                         {/* Syllabus / Modules */}
                         <section>

@@ -16,7 +16,8 @@ export async function getStudents(params?: {
   limit?: number;
 }): Promise<ApiResponse<Student[]>> {
   const queryParams = new URLSearchParams();
-  if (params?.role) queryParams.append('role', params.role);
+  const role = params?.role?.trim() || 'STUDENT';
+  queryParams.append('role', role);
   if (params?.branchId) queryParams.append('branchId', params.branchId);
   if (params?.status) queryParams.append('status', params.status);
   if (params?.page) queryParams.append('page', String(params.page));

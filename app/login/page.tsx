@@ -68,8 +68,13 @@ function LoginForm() {
         setTimeout(() => {
           const user = (response.data as any)?.user;
           let target = '/student';
-          if (user?.role === 'SUPER_ADMIN' || user?.role === 'BRANCH_ADMIN' || user?.role === 'ACCOUNTS') target = '/admin';
-          else if (user?.role === 'TEACHER') target = '/teacher';
+          if (user?.role === 'SUPER_ADMIN' || user?.role === 'ACCOUNTS' || user?.role === 'MODERATOR') {
+            target = '/admin';
+          } else if (user?.role === 'BRANCH_ADMIN') {
+            target = '/admin/branch';
+          } else if (user?.role === 'TEACHER') {
+            target = '/teacher';
+          }
           router.push(redirectTo && redirectTo.startsWith('/') ? redirectTo : target);
         }, 1500);
       } else {

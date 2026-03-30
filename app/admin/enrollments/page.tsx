@@ -58,6 +58,7 @@ import { EnrollmentForm } from '@/components/admin/enrollments/EnrollmentForm';
 import { EnrollmentDetailsView } from '@/components/admin/enrollments/EnrollmentDetailsView';
 import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
 import { cn } from '@/lib/utils';
+import { CourseDeliveryBadge } from '@/lib/course-delivery';
 
 const statusOptions: (EnrollmentStatusType | 'all')[] = ['all', 'ACTIVE', 'PAUSED', 'CANCELLED', 'COMPLETED'];
 
@@ -92,6 +93,12 @@ export default function EnrollmentsPage() {
   const [courseFilter, setCourseFilter] = useState<string>('all');
   const [branchFilter, setBranchFilter] = useState<string>('all');
   const [batchFilter, setBatchFilter] = useState<string>('all');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const bid = new URLSearchParams(window.location.search).get('branchId');
+    if (bid) setBranchFilter(bid);
+  }, []);
 
   const loadCourses = async () => {
     try {
@@ -158,7 +165,13 @@ export default function EnrollmentsPage() {
           title: 'Enrollment Details',
           description: 'View enrollment info.',
           className: 'sm:max-w-4xl',
-          content: <EnrollmentDetailsView enrollment={res.data} onSettle={() => handleSettleEnrollment(id)} />,
+          content: (
+            <EnrollmentDetailsView
+              enrollment={res.data}
+              onRequestSettle={() => handleSettleEnrollment(id)}
+              onAfterMutation={loadEnrollments}
+            />
+          ),
         });
       }
     } catch (err) {
@@ -331,7 +344,11 @@ export default function EnrollmentsPage() {
         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
           <div>
             <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Enrollments</h2>
-            <p className="mt-0.5 text-sm font-bold text-indigo-500">All enrollments</p>
+            <p className="mt-0.5 text-sm font-bold text-indigo-500">Student enrollments only</p>
+            <p className="mt-1 max-w-xl text-xs font-medium text-slate-500">
+              Rows are enrollments where the user is a <strong>Student</strong>. Teachers assigned to courses are not listed as
+              students.
+            </p>
           </div>
           <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -355,6 +372,7 @@ export default function EnrollmentsPage() {
                 <TableRow className="hover:bg-transparent border-b border-slate-100">
                   <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Student</TableHead>
                   <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Course</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Delivery</TableHead>
                   <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Branch / Batch</TableHead>
                   <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Status</TableHead>
                   <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400 text-center">Manage</TableHead>
@@ -379,6 +397,9 @@ export default function EnrollmentsPage() {
                           <span className="text-sm font-bold text-slate-700">{e.course?.name}</span>
                           <span className="text-sm font-black text-slate-400 uppercase tracking-widest">Code: {e.course?.code}</span>
                        </div>
+                    </TableCell>
+                    <TableCell className="py-5">
+                      <CourseDeliveryBadge type={e.course?.type} className="text-[9px]" />
                     </TableCell>
                     <TableCell className="py-5">
                        <div className="flex flex-col gap-1.5">

@@ -14,11 +14,13 @@ import type {
 
 export async function getQuestionFolders(
   courseId?: string,
-  parentFolderId?: string
+  parentFolderId?: string,
+  teacherUserId?: string
 ): Promise<ApiResponse<QuestionFolder[]>> {
   const queryParams = new URLSearchParams();
   if (courseId) queryParams.append('courseId', courseId);
   if (parentFolderId) queryParams.append('parentFolderId', parentFolderId);
+  if (teacherUserId) queryParams.append('teacherUserId', teacherUserId);
 
   const query = queryParams.toString();
   return apiRequest<ApiResponse<QuestionFolder[]>>(`/question-bank/folders${query ? `?${query}` : ''}`);

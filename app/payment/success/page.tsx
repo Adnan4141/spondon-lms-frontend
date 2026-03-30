@@ -1,21 +1,44 @@
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { CheckCircle2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 function SuccessContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const tranId = searchParams.get('tran_id');
   const invoiceId = searchParams.get('invoice_id');
   const [verifying, setVerifying] = useState(true);
+  const [redirectHref, setRedirectHref] = useState('/admin');
 
   useEffect(() => {
     const t = setTimeout(() => setVerifying(false), 2000);
     return () => clearTimeout(t);
   }, []);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('user');
+      const role = raw ? (JSON.parse(raw) as { role?: string })?.role : null;
+      if (role === 'STUDENT') setRedirectHref('/student');
+      else if (role === 'TEACHER') setRedirectHref('/teacher');
+      else if (role === 'BRANCH_ADMIN') setRedirectHref('/admin/branch');
+      else setRedirectHref('/admin');
+    } catch {
+      setRedirectHref('/');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!verifying) {
+      const t = setTimeout(() => router.replace(redirectHref), 1800);
+      return () => clearTimeout(t);
+    }
+    return undefined;
+  }, [verifying, redirectHref, router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
@@ -35,7 +58,7 @@ function SuccessContent() {
           )}
         </p>
         {tranId && <p className="text-xs font-mono text-slate-400 mb-6">Transaction: {tranId}</p>}
-        <Link href={invoiceId ? '/admin/invoices' : '/admin'}>
+        <Link href={invoiceId ? '/admin/invoices' : redirectHref}>
           <Button className="w-full h-12 rounded-2xl bg-indigo-600 hover:bg-indigo-700">
             Back to Dashboard
           </Button>

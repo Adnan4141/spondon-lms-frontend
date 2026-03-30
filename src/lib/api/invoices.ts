@@ -1,6 +1,10 @@
 import { apiRequest } from '../api';
 import type { Invoice, CreateInvoiceDto, UpdateInvoiceDto, ApiResponse } from '@/types/invoice';
 
+export async function getInvoicePdfUrl(invoiceId: string): Promise<ApiResponse<{ pdfUrl: string }>> {
+  return apiRequest<ApiResponse<{ pdfUrl: string }>>(`/invoices/${invoiceId}/pdf`);
+}
+
 export async function getInvoices(params?: {
   studentUserId?: string;
   branchId?: string;
@@ -53,4 +57,33 @@ export async function initInvoicePayment(invoiceId: string) {
       body: JSON.stringify({ invoiceId }),
     }
   );
+}
+
+export type MonthlyGenerateResult = {
+  month: string;
+  totalEnrollments: number;
+  invoicesCreated: number;
+  skipped: number;
+  errors?: string[];
+};
+
+export async function generateMonthlyInvoices(body?: {
+  month?: string;
+  branchId?: string;
+  courseId?: string;
+}): Promise<ApiResponse<MonthlyGenerateResult>> {
+  return apiRequest<ApiResponse<MonthlyGenerateResult>>('/invoices/monthly/generate', {
+    method: 'POST',
+    body: JSON.stringify(body ?? {}),
+  });
+}
+
+export async function cancelMonthlyEnrollment(
+  enrollmentId: string,
+  body?: { reason?: string; settleInvoices?: boolean }
+): Promise<ApiResponse<{ message?: string }>> {
+  return apiRequest<ApiResponse<{ message?: string }>>(`/invoices/monthly/cancel/${enrollmentId}`, {
+    method: 'POST',
+    body: JSON.stringify(body ?? {}),
+  });
 }

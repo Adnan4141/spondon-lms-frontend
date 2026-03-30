@@ -1,107 +1,243 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
    ArrowUpRight,
    BookOpen,
-   CalendarDays,
    GraduationCap,
    Users,
    TrendingUp,
    Wallet,
-   Layers,
    Plus,
    ArrowRight,
    MoreVertical,
    Activity,
    Target,
-   Zap,
    Settings,
-   ShieldCheck,
-   CreditCard,
-   PieChart,
    BarChart3,
-   Globe
+   CalendarRange,
+   Presentation,
+   Building2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-const kpis = [
-   {
-      label: 'Total Students',
-      value: '5,248',
-      change: '+12.5%',
-      trend: 'up',
-      icon: Users,
-      color: 'indigo',
-      gradient: 'from-indigo-600 to-violet-600',
-   },
-   {
-      label: 'Total Income',
-      value: '৳84,200',
-      change: '+8.1%',
-      trend: 'up',
-      icon: Wallet,
-      color: 'emerald',
-      gradient: 'from-emerald-500 to-teal-600',
-   },
-   {
-      label: 'Average Attendance',
-      value: '94.2%',
-      change: '-1.4%',
-      trend: 'down',
-      icon: Activity,
-      color: 'rose',
-      gradient: 'from-rose-500 to-pink-600',
-   },
-   {
-      label: 'Active Batches',
-      value: '128',
-      change: '+4.3%',
-      trend: 'up',
-      icon: Target,
-      color: 'amber',
-      gradient: 'from-amber-500 to-orange-600',
-   },
-];
-
-const recentActivities = [
-   {
-      user: 'Sarah Connor',
-      action: 'Enrolled',
-      target: 'Advanced Physics 101',
-      time: '2 mins ago',
-      avatar: 'SC',
-      color: 'bg-blue-100 text-blue-600'
-   },
-   {
-      user: 'John Doe',
-      action: 'Submitted',
-      target: 'Term Exam - Math',
-      time: '45 mins ago',
-      avatar: 'JD',
-      color: 'bg-emerald-100 text-emerald-600'
-   },
-   {
-      user: 'Admin Panel',
-      action: 'Created',
-      target: 'Monthly Income Report',
-      time: '2 hours ago',
-      avatar: 'AP',
-      color: 'bg-indigo-100 text-indigo-600'
-   },
-   {
-      user: 'Batch A-2',
-      action: 'Scheduled',
-      target: 'Live Session #42',
-      time: '5 hours ago',
-      avatar: 'A2',
-      color: 'bg-rose-100 text-rose-600'
-   },
-];
+import { getUsers } from '@/lib/api/users';
+import { getCourses } from '@/lib/api/courses';
+import { getSystemStats, getRevenueSummary, getEnrollmentReport, type SystemStatsData, type RevenueSummaryResponse, type EnrollmentReportData } from '@/lib/api/reports';
+import { getBatches } from '@/lib/api/batches';
+import { getEnrollments, type Enrollment } from '@/lib/api/enrollments';
 
 export default function AdminDashboard() {
+   const router = useRouter();
+   const [teacherTotal, setTeacherTotal] = useState<number | null>(null);
+   const [monthlyCourseTotal, setMonthlyCourseTotal] = useState<number | null>(null);
+   const [stats, setStats] = useState<SystemStatsData | null>(null);
+   const [revenue, setRevenue] = useState<RevenueSummaryResponse | null>(null);
+   const [activeBatches, setActiveBatches] = useState<number | null>(null);
+   const [recentEnrollments, setRecentEnrollments] = useState<Enrollment[]>([]);
+   const [popularity, setPopularity] = useState<EnrollmentReportData[]>([]);
+
+   useEffect(() => {
+      try {
+         const raw = localStorage.getItem('user');
+         if (raw) {
+            const u = JSON.parse(raw) as { role?: string };
+            if (u.role === 'BRANCH_ADMIN') {
+               router.replace('/admin/branch');
+            }
+         }
+      } catch {
+         /* ignore */
+      }
+   }, [router]);
+
+   useEffect(() => {
+      let cancelled = false;
+      (async () => {
+         try {
+            const [tRes, cRes, statsRes, revRes, batchRes, enrollRes, enrollReportRes] = await Promise.all([
+               getUsers({ role: 'TEACHER', status: 'ACTIVE', limit: 1 }),
+               getCourses({ billingType: 'MONTHLY', status: 'ACTIVE', limit: 1 }),
+               getSystemStats(),
+               getRevenueSummary({ period: 'monthly' }),
+               getBatches({ status: 'ACTIVE', limit: 1 }),
+               getEnrollments({ page: 1, limit: 6 }),
+               getEnrollmentReport(),
+            ]);
+            if (cancelled) return;
+            setTeacherTotal(tRes.pagination?.total ?? (tRes.data?.length ?? 0));
+            setMonthlyCourseTotal(cRes.pagination?.total ?? (cRes.data?.length ?? 0));
+            setStats(statsRes.data || null);
+            setRevenue(revRes);
+            setActiveBatches(batchRes.pagination?.total ?? batchRes.data?.length ?? null);
+            setRecentEnrollments(enrollRes.data ?? []);
+            setPopularity(enrollReportRes.data ?? []);
+         } catch {
+            if (!cancelled) {
+               setStats(null);
+               setRevenue(null);
+               setActiveBatches(null);
+               setRecentEnrollments([]);
+               setPopularity([]);
+            }
+         }
+      })();
+      return () => {
+         cancelled = true;
+      };
+   }, []);
+
+   const kpis = useMemo(() => {
+      const formatNumber = (val: number | null | undefined) =>
+         val == null ? '—' : Number(val).toLocaleString('en-US');
+      const formatCurrency = (val: number | null | undefined) =>
+         val == null
+            ? '—'
+            : new Intl.NumberFormat('en-BD', { style: 'currency', currency: 'BDT', maximumFractionDigits: 0 }).format(Number(val));
+
+      return [
+         {
+            label: 'Total Students',
+            value: formatNumber(stats?.students),
+            change: 'live',
+            trend: 'up' as const,
+            icon: Users,
+            gradient: 'from-indigo-600 to-violet-600',
+         },
+         {
+            label: 'Monthly Income',
+            value: formatCurrency(revenue?.totals.totalAmount),
+            change: revenue ? `${revenue.totals.totalTransactions} tx` : '—',
+            trend: 'up' as const,
+            icon: Wallet,
+            gradient: 'from-emerald-500 to-teal-600',
+         },
+         {
+            label: 'Active Teachers',
+            value: formatNumber(stats?.teachers),
+            change: '',
+            trend: 'up' as const,
+            icon: Activity,
+            gradient: 'from-rose-500 to-pink-600',
+         },
+         {
+            label: 'Active Batches',
+            value: formatNumber(activeBatches),
+            change: '',
+            trend: 'up' as const,
+            icon: Target,
+            gradient: 'from-amber-500 to-orange-600',
+         },
+      ];
+   }, [stats, revenue, activeBatches]);
+
+   const incomeBars = useMemo(() => {
+      const series = revenue?.data ?? [];
+      const max = Math.max(...series.map((s) => s.amount), 1);
+      return series.map((bucket) => ({
+         label: bucket.bucket,
+         value: bucket.amount,
+         height: `${Math.max(6, (bucket.amount / max) * 100)}%`,
+      }));
+   }, [revenue]);
+
+   const popularCourses = useMemo(() => {
+      const list = [...(popularity || [])].sort((a, b) => b.enrollmentCount - a.enrollmentCount).slice(0, 4);
+      const max = Math.max(...list.map((c) => c.enrollmentCount), 1);
+      return { list, max };
+   }, [popularity]);
+
+   const formatTimeAgo = (dateStr: string) => {
+      const d = new Date(dateStr);
+      const diff = Date.now() - d.getTime();
+      const minutes = Math.floor(diff / 60000);
+      if (minutes < 1) return 'just now';
+      if (minutes < 60) return `${minutes} min ago`;
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return `${hours} h ago`;
+      const days = Math.floor(hours / 24);
+      return `${days} d ago`;
+   };
+
    return (
       <div className="space-y-10 pb-10 text-slate-900">
 
+         {/* Teacher workspace, branch hub & monthly billing */}
+         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Link
+               href="/admin/branch"
+               className="group flex flex-col justify-between rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm transition-all hover:border-sky-200 hover:shadow-lg"
+            >
+               <div className="flex items-start justify-between gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-600">
+                     <Building2 className="h-6 w-6" />
+                  </div>
+                  <ArrowUpRight className="h-5 w-5 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-sky-500" />
+               </div>
+               <div className="mt-6 space-y-1">
+                  <h2 className="text-lg font-black text-slate-900">Branch dashboard</h2>
+                  <p className="text-sm font-medium text-slate-500 leading-relaxed">
+                     Per-branch counts and shortcuts to students, teachers, enrollments, and invoices.
+                  </p>
+               </div>
+            </Link>
+            <Link
+               href="/teacher"
+               className="group flex flex-col justify-between rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm transition-all hover:border-indigo-200 hover:shadow-lg"
+            >
+               <div className="flex items-start justify-between gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+                     <Presentation className="h-6 w-6" />
+                  </div>
+                  <ArrowUpRight className="h-5 w-5 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-indigo-500" />
+               </div>
+               <div className="mt-6 space-y-1">
+                  <h2 className="text-lg font-black text-slate-900">Teacher workspace</h2>
+                  <p className="text-sm font-medium text-slate-500 leading-relaxed">
+                     Open the teacher portal (lessons, tests, doubts). Use a teacher account to sign in, or keep this shortcut handy.
+                  </p>
+               </div>
+            </Link>
+            <Link
+               href="/admin/teachers"
+               className="group flex flex-col justify-between rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm transition-all hover:border-cyan-200 hover:shadow-lg"
+            >
+               <div className="flex items-start justify-between gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600">
+                     <Users className="h-6 w-6" />
+                  </div>
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
+                     {teacherTotal === null ? '—' : teacherTotal} active
+                  </span>
+               </div>
+               <div className="mt-6 space-y-1">
+                  <h2 className="text-lg font-black text-slate-900">Teachers</h2>
+                  <p className="text-sm font-medium text-slate-500 leading-relaxed">
+                     Directory of teacher accounts, links to course assignment and the teacher app.
+                  </p>
+               </div>
+            </Link>
+            <Link
+               href="/admin/monthly-billing"
+               className="group flex flex-col justify-between rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm transition-all hover:border-violet-200 hover:shadow-lg"
+            >
+               <div className="flex items-start justify-between gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-50 text-violet-600">
+                     <CalendarRange className="h-6 w-6" />
+                  </div>
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
+                     {monthlyCourseTotal === null ? '—' : monthlyCourseTotal} courses
+                  </span>
+               </div>
+               <div className="mt-6 space-y-1">
+                  <h2 className="text-lg font-black text-slate-900">Monthly billing</h2>
+                  <p className="text-sm font-medium text-slate-500 leading-relaxed">
+                     Run monthly invoice generation, preview enrollments, and jump to invoices.
+                  </p>
+               </div>
+            </Link>
+         </section>
 
          {/* KPI Section */}
          <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
@@ -161,53 +297,25 @@ export default function AdminDashboard() {
                   </div>
                </div>
 
-               {/* Premium Static SVG Chart */}
-               <div className="relative h-80 w-full mt-8">
-                  <svg className="w-full h-full overflow-visible" viewBox="0 0 800 300" preserveAspectRatio="none">
-                     <defs>
-                        <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                           <stop offset="0%" stopColor="#6366f1" stopOpacity="0.2" />
-                           <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
-                        </linearGradient>
-                        <filter id="shadow">
-                           <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#6366f1" floodOpacity="0.2" />
-                        </filter>
-                     </defs>
-
-                     {/* Horizontal Grid Lines */}
-                     {[0, 1, 2, 3, 4].map(i => (
-                        <line key={i} x1="0" y1={i * 75} x2="800" y2={i * 75} stroke="#f1f5f9" strokeWidth="1" strokeDasharray="4 4" />
-                     ))}
-
-                     {/* Area Path */}
-                     <path
-                        d="M0,250 C100,220 150,280 200,180 C250,80 300,150 400,120 C500,90 600,200 700,100 C750,50 800,80 800,80 L800,300 L0,300 Z"
-                        fill="url(#chartGradient)"
-                     />
-
-                     {/* Line Path */}
-                     <path
-                        d="M0,250 C100,220 150,280 200,180 C250,80 300,150 400,120 C500,90 600,200 700,100 C750,50 800,80 800,80"
-                        fill="none"
-                        stroke="#6366f1"
-                        strokeWidth="4"
-                        strokeLinecap="round"
-                        filter="url(#shadow)"
-                     />
-
-                     {/* Interaction Points */}
-                     {[200, 400, 700].map((x, i) => (
-                        <g key={i}>
-                           <circle cx={x} cy={x === 200 ? 180 : x === 400 ? 120 : 100} r="6" fill="#fff" stroke="#6366f1" strokeWidth="3" />
-                           <circle cx={x} cy={x === 200 ? 180 : x === 400 ? 120 : 100} r="12" fill="#6366f1" fillOpacity="0.1" />
-                        </g>
-                     ))}
-                  </svg>
-
-                  <div className="absolute bottom-0 left-0 w-full flex justify-between px-2 pt-4">
-                     {['Jan', 'Mar', 'May', 'Jul', 'Sep', 'Nov'].map(m => (
-                        <span key={m} className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{m}</span>
-                     ))}
+               {/* Dynamic mini bar chart */}
+               <div className="relative h-72 w-full mt-8">
+                  <div className="absolute inset-0 flex items-end gap-3 px-2">
+                     {incomeBars.length === 0 ? (
+                        <div className="text-sm font-medium text-slate-400">No revenue data yet</div>
+                     ) : (
+                        incomeBars.map((bar) => (
+                           <div key={bar.label} className="flex-1 flex flex-col items-center gap-2">
+                              <div
+                                 className="w-full rounded-xl bg-gradient-to-t from-indigo-200 to-indigo-500 shadow-sm"
+                                 style={{ height: bar.height }}
+                                 title={`${bar.label}: ${bar.value.toLocaleString('en-US')}`}
+                              />
+                              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                 {bar.label}
+                              </span>
+                           </div>
+                        ))
+                     )}
                   </div>
                </div>
             </div>
@@ -228,24 +336,27 @@ export default function AdminDashboard() {
                </div>
 
                <div className="space-y-8">
-                  {recentActivities.map((activity, idx) => (
-                     <div key={idx} className="group flex items-start gap-4 cursor-pointer">
-                        <div className={cn(
-                           "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-sm font-black shadow-sm transition-all group-hover:scale-110 group-hover:rotate-3",
-                           activity.color
-                        )}>
-                           {activity.avatar}
+                  {recentEnrollments.length === 0 ? (
+                     <p className="text-sm font-medium text-slate-400">No recent enrollments yet.</p>
+                  ) : (
+                     recentEnrollments.map((enroll) => (
+                        <div key={enroll.id} className="group flex items-start gap-4 cursor-pointer">
+                           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-sm font-black shadow-sm bg-indigo-50 text-indigo-600 transition-all group-hover:scale-110 group-hover:rotate-3">
+                              {enroll.student?.fullName?.slice(0, 2).toUpperCase() || 'ST'}
+                           </div>
+                           <div className="flex-1 min-w-0 border-b border-slate-50 pb-5 group-last:border-0">
+                              <p className="text-base font-bold text-slate-800 leading-tight">
+                                 {enroll.student?.fullName || 'Student'} <span className="font-medium text-slate-400">enrolled</span>
+                              </p>
+                              <p className="text-base font-black text-indigo-600 truncate mt-0.5">{enroll.course?.name || 'Course'}</p>
+                              <p className="mt-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                 {formatTimeAgo(enroll.createdAt)}
+                              </p>
+                           </div>
+                           <ArrowRight className="h-4 w-4 text-slate-300 opacity-0 -translate-x-2 transition-all group-hover:opacity-100 group-hover:translate-x-0" />
                         </div>
-                        <div className="flex-1 min-w-0 border-b border-slate-50 pb-5 group-last:border-0">
-                           <p className="text-base font-bold text-slate-800 leading-tight">
-                              {activity.user} <span className="font-medium text-slate-400">{activity.action}</span>
-                           </p>
-                           <p className="text-base font-black text-indigo-600 truncate mt-0.5">{activity.target}</p>
-                           <p className="mt-2 text-[10px] font-black uppercase tracking-widest text-slate-400">{activity.time}</p>
-                        </div>
-                        <ArrowRight className="h-4 w-4 text-slate-300 opacity-0 -translate-x-2 transition-all group-hover:opacity-100 group-hover:translate-x-0" />
-                     </div>
-                  ))}
+                     ))
+                  )}
                </div>
 
                <button className="mt-6 w-full h-14 rounded-2xl bg-slate-50 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 transition-all hover:bg-slate-900 hover:text-white shadow-inner">
@@ -305,25 +416,25 @@ export default function AdminDashboard() {
                </div>
 
                <div className="grid gap-6 sm:grid-cols-2">
-                  {[
-                     { name: 'Quantum Physics Masters', code: 'PHY-01', growth: '+42%', val: 85, color: 'bg-indigo-500' },
-                     { name: 'Advanced Mathematics', code: 'MAT-04', growth: '+12%', val: 65, color: 'bg-violet-500' },
-                     { name: 'Digital Architecture', code: 'ARC-02', growth: '+28%', val: 72, color: 'bg-blue-500' },
-                     { name: 'Molecular Biology', code: 'BIO-09', growth: '+5%', val: 45, color: 'bg-emerald-500' },
-                  ].map((course, i) => (
+                  {(popularCourses.list.length ? popularCourses.list : []).map((course, i) => (
                      <div key={i} className="group p-6 rounded-3xl border border-slate-50 bg-slate-50/30 transition-all hover:bg-white hover:shadow-xl hover:shadow-slate-200/50 hover:border-indigo-100">
                         <div className="flex items-center justify-between mb-4">
                            <div>
-                              <h4 className="text-base font-black text-slate-900 group-hover:text-indigo-600 transition-colors">{course.name}</h4>
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{course.code}</p>
+                              <h4 className="text-base font-black text-slate-900 group-hover:text-indigo-600 transition-colors">{course.courseName}</h4>
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{course.courseId}</p>
                            </div>
-                           <span className="text-[10px] font-black text-emerald-500">{course.growth}</span>
+                           <span className="text-[10px] font-black text-emerald-500">
+                              {course.enrollmentCount} students
+                           </span>
                         </div>
                         <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
-                           <div className={cn("h-full transition-all duration-1000", course.color)} style={{ width: `${course.val}%` }} />
+                           <div className="h-full bg-indigo-500 transition-all duration-1000" style={{ width: `${Math.min(100, (course.enrollmentCount / popularCourses.max) * 100)}%` }} />
                         </div>
                      </div>
                   ))}
+                  {popularCourses.list.length === 0 && (
+                     <p className="text-sm font-medium text-slate-400">No enrollment data yet.</p>
+                  )}
                </div>
             </div>
          </section>

@@ -4,13 +4,16 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
-import { ChevronDown, ChevronRight, Play, CheckCircle2, Circle, ExternalLink, FileText } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { ChevronDown, ChevronRight, Play, CheckCircle2, Circle, ExternalLink, FileText, Star } from 'lucide-react';
 import { getCourseContentsWithProgress, updateContentProgress } from '@/lib/api/student-portal';
 import { getCourseById } from '@/lib/api/courses';
 import type { CourseDetails } from '@/types/course';
 import { isYoutubeContentUrl, parseYoutubeVideoId, toYoutubeEmbedSrc } from '@/lib/youtube';
 import { resolveAttachmentUrl } from '@/lib/attachment-url';
 import { API_ORIGIN } from '@/lib/api';
+import { createTestimonial, getPublicTestimonials, type Testimonial } from '@/lib/api/testimonials';
 
 interface ContentItem {
   id: string;
@@ -61,13 +64,19 @@ export default function StudentCourseLearnPage() {
   const [selectedContent, setSelectedContent] = useState<ContentItem | null>(null);
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
   const [studentUserId, setStudentUserId] = useState<string | null>(null);
+  const [studentName, setStudentName] = useState<string>('');
+  const [reviews, setReviews] = useState<Testimonial[]>([]);
+  const [reviewForm, setReviewForm] = useState({ quote: '', rating: 5 });
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
 
   useEffect(() => {
     try {
       const u = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
-      setStudentUserId(u ? JSON.parse(u)?.id ?? null : null);
+      const parsed = u ? JSON.parse(u) : null;
+      setStudentUserId(parsed?.id ?? null);
+      setStudentName(parsed?.fullName ?? '');
     } catch {
       setStudentUserId(null);
     }
@@ -102,9 +111,21 @@ export default function StudentCourseLearnPage() {
     }
   }, [courseId, studentUserId]);
 
+  const loadReviews = useCallback(async () => {
+    try {
+      const res = await getPublicTestimonials();
+      if (res.success && res.data) {
+        setReviews(res.data.filter((t) => t.course?.id === courseId));
+      }
+    } catch (err) {
+      console.error('Failed to load reviews', err);
+    }
+  }, [courseId]);
+
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    loadReviews();
+  }, [fetchData, loadReviews]);
 
   const markProgress = useCallback(
     async (contentId: string, completed: boolean, progressPercent?: number) => {
@@ -355,6 +376,98 @@ export default function StudentCourseLearnPage() {
             </CardContent>
           </Card>
         </div>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2 rounded-2xl border border-slate-100 shadow-sm">
+          <CardContent className="p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-500">Course reviews</p>
+                <h3 className="text-xl font-black text-slate-900">এই কোর্সের রিভিউ</h3>
+              </div>
+              <span className="text-xs font-bold text-slate-400">{reviews.length} reviews</span>
+            </div>
+            {reviews.length === 0 ? (
+              <p className="text-sm text-slate-500">এখনও কোনো রিভিউ নেই।</p>
+            ) : (
+              <div className="space-y-4">
+                {reviews.map((r) => (
+                  <div key={r.id} className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bold text-slate-900">{r.name}</h4>
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star key={i} className={`h-4 w-4 ${i < (r.rating || 0) ? 'fill-amber-400 text-amber-400' : 'text-slate-300'}`} />
+                        ))}
+                      </div>
+                    </div>
+                    {r.info && <p className="text-xs text-slate-400 mt-1">{r.info}</p>}
+                    <p className="text-sm text-slate-700 mt-2 leading-relaxed">{r.quote}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl border border-slate-100 shadow-sm">
+          <CardContent className="p-6 space-y-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-500">আপনার মতামত</p>
+            <h3 className="text-lg font-black text-slate-900">কোর্স রিভিউ দিন</h3>
+            {!studentUserId ? (
+              <p className="text-sm text-rose-500">রিভিউ দিতে লগইন থাকতে হবে।</p>
+            ) : (
+              <>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      onClick={() => setReviewForm((p) => ({ ...p, rating: star }))}
+                      className="p-2 rounded-xl border border-slate-100 bg-slate-50 hover:bg-white"
+                    >
+                      <Star className={`h-5 w-5 ${star <= reviewForm.rating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'}`} />
+                    </button>
+                  ))}
+                </div>
+                <Textarea
+                  rows={5}
+                  placeholder="আপনার অভিজ্ঞতা লিখুন..."
+                  value={reviewForm.quote}
+                  onChange={(e) => setReviewForm((p) => ({ ...p, quote: e.target.value }))}
+                />
+                <Button
+                  className="w-full"
+                  disabled={reviewSubmitting || !reviewForm.quote.trim()}
+                  onClick={async () => {
+                    if (!studentUserId) return;
+                    try {
+                      setReviewSubmitting(true);
+                      await createTestimonial({
+                        name: studentName || 'Student',
+                        info: course?.name,
+                        quote: reviewForm.quote.trim(),
+                        rating: reviewForm.rating,
+                        courseId,
+                        studentUserId,
+                      });
+                      setReviewForm({ quote: '', rating: 5 });
+                      await loadReviews();
+                      alert('রিভিউ পাঠানো হয়েছে। অনুমোদনের পর প্রকাশ হবে।');
+                    } catch (err) {
+                      console.error(err);
+                      alert('রিভিউ পাঠানো যায়নি');
+                    } finally {
+                      setReviewSubmitting(false);
+                    }
+                  }}
+                >
+                  জমা দিন
+                </Button>
+              </>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

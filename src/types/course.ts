@@ -47,6 +47,8 @@ export interface Course {
   billingType: BillingType;
   category?: CourseCategory;
   fee: number | string;
+  offerDiscountAmount?: number | string | null;
+  offerDiscountNote?: string | null;
   description?: string;
   outline?: JsonValue;
   featured: boolean;
@@ -74,6 +76,8 @@ export interface CreateCourseDto {
   type: CourseType;
   billingType: BillingType;
   fee: number;
+  offerDiscountAmount?: number | null;
+  offerDiscountNote?: string | null;
   description?: string;
   outline?: JsonValue;
   featured?: boolean;
@@ -93,6 +97,8 @@ export interface UpdateCourseDto {
   type?: CourseType;
   billingType?: BillingType;
   fee?: number;
+  offerDiscountAmount?: number | null;
+  offerDiscountNote?: string | null;
   description?: string;
   outline?: JsonValue;
   featured?: boolean;
@@ -131,16 +137,42 @@ export interface CourseDetailEnrollment {
   } | null;
 }
 
+/** Linked book from admin “Course books”; isFree = bundled / no extra charge */
+export interface CourseDetailCourseBook {
+  id: string;
+  courseId: string;
+  bookId: string;
+  isFree: boolean;
+  book: {
+    id: string;
+    name: string;
+    sku: string;
+    price: number | string;
+    isEbook: boolean;
+    thumbnailUrl?: string | null;
+    author?: string | null;
+  };
+}
+
+export interface CourseFeeBreakdown {
+  courseFee: number;
+  linkedBooksTotal: number;
+  totalWithPaidBooks: number;
+}
+
 export interface CourseDetails extends Course {
   batches?: CourseDetailBatch[];
   teachers?: CourseDetailTeacher[];
   enrollments?: CourseDetailEnrollment[];
+  courseBooks?: CourseDetailCourseBook[];
+  feeBreakdown?: CourseFeeBreakdown;
 }
 
 export interface GetCoursesParams {
   programId?: string;
   status?: CourseStatus;
   websiteVisible?: boolean;
+  billingType?: BillingType;
   /** When set, returns courses where this user is on CourseTeacher OR CourseCollaborator. */
   teacherUserId?: string;
   page?: number;

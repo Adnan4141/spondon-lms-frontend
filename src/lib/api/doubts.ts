@@ -27,11 +27,13 @@ export interface ApiResponse<T> {
 export async function getDoubtThreads(params?: {
   studentUserId?: string;
   courseId?: string;
+  teacherUserId?: string;
   status?: string;
 }): Promise<ApiResponse<DoubtThread[]>> {
   const q = new URLSearchParams();
   if (params?.studentUserId) q.append('studentUserId', params.studentUserId);
   if (params?.courseId) q.append('courseId', params.courseId);
+  if (params?.teacherUserId) q.append('teacherUserId', params.teacherUserId);
   if (params?.status) q.append('status', params.status);
   const query = q.toString();
   return apiRequest<ApiResponse<DoubtThread[]>>(`/doubts/threads${query ? `?${query}` : ''}`);

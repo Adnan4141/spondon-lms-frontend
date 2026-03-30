@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Cast, ClipboardCheck, FileText, HelpCircle, PieChart, Video } from 'lucide-react';
+import { BookOpen, Cast, ClipboardCheck, ExternalLink, FileText, Globe, GraduationCap, HelpCircle, PieChart, Sparkles, Video } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { HeroCarousel } from '@/components/landing/HeroCarousel';
@@ -16,6 +16,13 @@ import { PartnerCarouselSection } from '@/components/landing/PartnerCarouselSect
 import { TeachersSection } from '@/components/landing/TeachersSection';
 import { Feature, Testimonial } from '@/components/landing/types';
 import type { Course, Program } from '@/types/course';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { getCourses } from '@/lib/api/courses';
 import { getPrograms } from '@/lib/api/programs';
 import { getBooks, Book } from '@/lib/api/books';
@@ -23,6 +30,8 @@ import { getSystemStats, SystemStatsData } from '@/lib/api/reports';
 import { getPublicTestimonials } from '@/lib/api/testimonials';
 import { getPublicPartners, Partner } from '@/lib/api/partners';
 import { getPublicTeachers, PublicTeacher } from '@/lib/api/teachers';
+import { API_ORIGIN } from '@/lib/api';
+import { resolveAttachmentUrl } from '@/lib/attachment-url';
 
 const interactiveFeatures: Feature[] = [
   { id: 'live', title: 'লাইভ এবং রেকর্ডড ক্লাস', icon: <Cast className="h-5 w-5" />, previewTitle: 'জীববিজ্ঞান ৯ম- অধ্যায় ১: কোষ ও কলা', previewTime: 'রাত ৮:৩০ - ৯:৩০ | ৩০ মিনিট' },
@@ -53,7 +62,9 @@ export default function LandingPage() {
   const [systemStats, setSystemStats] = useState<SystemStatsData | null>(null);
   const [dynamicTestimonials, setDynamicTestimonials] = useState<Testimonial[]>([]);
   const [dynamicPartners, setDynamicPartners] = useState<Partner[]>([]);
+  const [partnersLoadResolved, setPartnersLoadResolved] = useState(false);
   const [teachers, setTeachers] = useState<PublicTeacher[]>([]);
+  const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(interactiveFeatures[0]);
   const [activeAdmissionTab, setActiveAdmissionTab] = useState('ভার্সিটি');
@@ -97,6 +108,7 @@ export default function LandingPage() {
         console.error('Data load error', error);
       } finally {
         setLoading(false);
+        setPartnersLoadResolved(true);
       }
     }
     loadData();
@@ -113,8 +125,104 @@ export default function LandingPage() {
       <TrustSection testimonials={dynamicTestimonials.length > 0 ? dynamicTestimonials : testimonials} testimonialIndex={testimonialIndex} setTestimonialIndex={setTestimonialIndex} />
       <TeachersSection teachers={teachers} />
       <DigitalLibrarySection dynamicEbooks={dynamicEbooks} />
-      <PartnerCarouselSection partners={dynamicPartners} />
+      <PartnerCarouselSection
+        partners={dynamicPartners}
+        loadResolved={partnersLoadResolved}
+        onSelect={(p) => setSelectedPartner(p as Partner)}
+      />
       <PaymentSection handleImageError={handleImageError} />
+      <Dialog open={!!selectedPartner} onOpenChange={(open) => !open && setSelectedPartner(null)}>
+        <DialogContent className="sm:max-w-3xl overflow-hidden border-none p-0 bg-white/95 backdrop-blur-xl shadow-2xl">
+          <div className="relative h-32 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500">
+             <div className="absolute inset-0 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:20px_20px] opacity-20"></div>
+             <div className="absolute -bottom-12 left-8 p-1 rounded-2xl bg-white shadow-xl border border-slate-100">
+                {selectedPartner?.logo ? (
+                  <img src={resolveAttachmentUrl(selectedPartner.logo, API_ORIGIN)} alt={selectedPartner.name} className="h-24 w-24 object-contain rounded-xl" />
+                ) : (
+                  <div className="h-24 w-24 bg-slate-50 rounded-xl flex items-center justify-center">
+                    <Globe className="h-10 w-10 text-slate-300" />
+                  </div>
+                )}
+             </div>
+          </div>
+          
+          <div className="pt-16 px-8 pb-8 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                  {selectedPartner?.name}
+                  {selectedPartner?.type && (
+                    <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-bold uppercase tracking-wider">
+                      {selectedPartner.type}
+                    </span>
+                  )}
+                </h2>
+                <p className="text-slate-500 text-sm leading-relaxed max-w-xl">
+                  {selectedPartner?.description || 'আমাদের সম্মানিত পার্টনার প্রতিষ্ঠানের সাথে আপনার শেখার যাত্রা হোক আরও আনন্দদায়ক।'}
+                </p>
+              </div>
+              
+              {selectedPartner?.websiteUrl && (
+                <a 
+                  href={selectedPartner.websiteUrl} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-slate-200"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  ওয়েবসাইট দেখুন
+                </a>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 ring-1 ring-indigo-200">
+                    <GraduationCap className="h-4 w-4" />
+                  </div>
+                  <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">প্রস্তাবিত কোর্সসমূহ</h4>
+                </div>
+                <div className="grid gap-3">
+                  {courses.slice(0, 3).map((c) => (
+                    <div key={c.id} className="group relative rounded-2xl border border-slate-100 bg-slate-50/50 p-4 transition-all hover:bg-white hover:shadow-md hover:border-indigo-100 cursor-default">
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-1">
+                          <p className="text-sm font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{c.name}</p>
+                          <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">{c.code}</p>
+                        </div>
+                        <Sparkles className="h-4 w-4 text-indigo-200 group-hover:text-indigo-400 transition-colors" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-rose-50 text-rose-600 ring-1 ring-rose-200">
+                    <BookOpen className="h-4 w-4" />
+                  </div>
+                  <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">ডিজিটাল প্রোডাক্ট</h4>
+                </div>
+                <div className="grid gap-3">
+                  {dynamicEbooks.slice(0, 3).map((b) => (
+                    <div key={b.id} className="group relative rounded-2xl border border-slate-100 bg-slate-50/50 p-4 transition-all hover:bg-white hover:shadow-md hover:border-rose-100 cursor-default">
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-1">
+                          <p className="text-sm font-bold text-slate-800 group-hover:text-rose-600 transition-colors">{b.name}</p>
+                          <p className="text-[10px] font-bold text-rose-500 uppercase">৳{b.price}</p>
+                        </div>
+                        <div className="h-1.5 w-1.5 rounded-full bg-rose-200 group-hover:scale-150 transition-transform" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       <Footer />
     </div>
   );

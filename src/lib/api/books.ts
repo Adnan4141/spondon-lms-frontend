@@ -54,6 +54,18 @@ export interface BookStock {
   };
 }
 
+export interface BookSaleDelivery {
+  id: string;
+  recipientName: string;
+  phone: string;
+  address: string;
+  city?: string | null;
+  postalCode?: string | null;
+  deliveryStatus?: string;
+  trackingNumber?: string | null;
+  notes?: string | null;
+}
+
 export interface BookSale {
   id: string;
   branchId: string;
@@ -63,6 +75,7 @@ export interface BookSale {
   soldAt: string;
   createdAt: string;
   items?: BookSaleItem[];
+  delivery?: BookSaleDelivery | null;
   student?: {
     id: string;
     fullName: string;
@@ -116,6 +129,15 @@ export interface CreateBookStockDto {
   stockQty: number;
 }
 
+export interface BookSaleDeliveryDto {
+  recipientName: string;
+  phone: string;
+  address: string;
+  city?: string;
+  postalCode?: string;
+  notes?: string;
+}
+
 export interface CreateBookSaleDto {
   branchId: string;
   studentUserId?: string;
@@ -125,6 +147,8 @@ export interface CreateBookSaleDto {
     qty: number;
     unitPrice: number;
   }>;
+  /** Saved as BookDelivery; use for shipping / contact after offline sale + invoice */
+  delivery?: BookSaleDeliveryDto;
 }
 
 export async function getBooks(params?: {

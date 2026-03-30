@@ -8,9 +8,11 @@ import { getMyCourses } from '@/lib/api/student-portal';
 
 interface Course {
   id: string;
+  billingStartMonth?: string | null;
   course?: {
     id: string;
     name: string;
+    billingType?: 'ONE_TIME' | 'MONTHLY';
   };
   batch?: {
     name: string;
@@ -88,9 +90,19 @@ export default function StudentMyCoursesPage() {
                   </div>
                   <div className="space-y-4">
                     <div>
-                      <span className="inline-block px-3 py-1 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase tracking-widest mb-2">
-                        {c.batch?.name}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        {c.batch?.name ? (
+                          <span className="inline-block px-3 py-1 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase tracking-widest">
+                            {c.batch.name}
+                          </span>
+                        ) : null}
+                        {c.course?.billingType === 'MONTHLY' ? (
+                          <span className="inline-block px-3 py-1 rounded-full bg-violet-50 text-violet-700 text-[10px] font-black uppercase tracking-widest">
+                            মাসিক বিলিং
+                            {c.billingStartMonth ? ` · ${c.billingStartMonth}` : ''}
+                          </span>
+                        ) : null}
+                      </div>
                       <h3 className="text-xl font-black text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-2">
                         {c.course?.name}
                       </h3>

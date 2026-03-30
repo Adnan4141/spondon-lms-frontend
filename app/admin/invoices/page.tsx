@@ -56,7 +56,7 @@ import { useModalStore } from '@/store/modalStore';
 import { InvoiceForm } from '@/components/admin/invoices/InvoiceForm';
 import { InvoiceDetailsView } from '@/components/admin/invoices/InvoiceDetailsView';
 import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
-import { generateMonthlyDues } from '@/lib/api/accounting';
+import { generateMonthlyInvoices } from '@/lib/api/invoices';
 import { MonthPicker } from '@/components/ui/month-picker';
 import { cn } from '@/lib/utils';
 
@@ -90,6 +90,12 @@ export default function InvoicesPage() {
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | 'all'>('all');
   const [branchFilter, setBranchFilter] = useState<string>('all');
   const [monthFilter, setMonthFilter] = useState<string>('');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const bid = new URLSearchParams(window.location.search).get('branchId');
+    if (bid) setBranchFilter(bid);
+  }, []);
 
   const loadInvoices = async () => {
     try {
@@ -191,16 +197,24 @@ export default function InvoicesPage() {
           onConfirm={async () => {
             try {
               setLoading(true);
-              const res = await generateMonthlyDues(month);
-              if (res.success) {
+              const res = await generateMonthlyInvoices({ month });
+              if (res.success && res.data) {
                 await loadInvoices();
-                toast({ 
-                  title: 'Done', 
-                  description: `${res.summary.created} invoices created for ${month}.`, 
-                  variant: 'success' 
+                const d = res.data;
+                toast({
+                  title: 'Done',
+                  description: `${d.invoicesCreated} invoices created for ${d.month} · ${d.skipped} skipped.`,
+                  variant: 'success',
                 });
+                if (d.errors?.length) {
+                  toast({
+                    title: 'Some rows failed',
+                    description: d.errors.slice(0, 3).join(' · '),
+                    variant: 'destructive',
+                  });
+                }
               } else {
-                toast({ title: 'Error', description: res.message, variant: 'destructive' });
+                toast({ title: 'Error', description: res.message || 'Generation failed', variant: 'destructive' });
               }
             } catch (err: any) {
               toast({ title: 'Error', description: err.message, variant: 'destructive' });

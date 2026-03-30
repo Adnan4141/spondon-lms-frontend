@@ -2,29 +2,28 @@
 
 import React from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
-
-const fallbackPartners = [
-  { name: 'Banglalink', logo: '/images/collaborator/banglalink-logo-png_seeklogo-411075.png' },
-  { name: 'Bikash', logo: '/images/collaborator/bikash-logo.png' },
-  { name: 'Prothom Alo', logo: '/images/collaborator/prothom-alo-logo-png_seeklogo-504130.png' },
-  { name: 'Walton', logo: '/images/collaborator/walton-logo-png_seeklogo-251022.png' },
-];
+import { API_ORIGIN } from '@/lib/api';
+import { resolveAttachmentUrl } from '@/lib/attachment-url';
 
 interface PartnerItem {
   name: string;
   logo?: string | null;
   websiteUrl?: string | null;
+  description?: string | null;
 }
 
 interface Props {
-  partners?: PartnerItem[];
+  /** Active partners from API (homepage only lists `isActive` from backend). */
+  partners: PartnerItem[];
+  /** After the first public API response (even if empty). */
+  loadResolved: boolean;
+  onSelect?: (partner: PartnerItem) => void;
 }
 
-export const PartnerCarouselSection: React.FC<Props> = ({ partners }) => {
-  const items = partners && partners.length > 0 ? partners : fallbackPartners;
-  // We double the content to ensure there is enough to fill the width for a seamless loop
-  const scrollContent = [...items, ...items];
+export const PartnerCarouselSection: React.FC<Props> = ({ partners, loadResolved, onSelect }) => {
+  const scrollContent = partners.length > 0 ? [...partners, ...partners] : [];
 
   return (
     <section className="relative py-12 sm:py-16 md:py-20 bg-gradient-to-b from-white to-slate-50 overflow-hidden">
@@ -49,9 +48,42 @@ export const PartnerCarouselSection: React.FC<Props> = ({ partners }) => {
         >
           আমাদের পার্টনারসমূহ
         </motion.h2>
+        <motion.p
+          initial={{ opacity: 0, y: 8 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.15 }}
+          className="mx-auto mt-3 max-w-2xl text-sm font-medium text-slate-500"
+        >
+          যেসব প্রতিষ্ঠান ও ব্র্যান্ডের সাথে আমরা কাজ করি — তালিকা অ্যাডমিন প্যানেল থেকে আপডেট করা যায়।
+        </motion.p>
       </div>
 
+      {!loadResolved ? (
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="flex gap-6 overflow-hidden py-6">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="h-28 w-48 shrink-0 animate-pulse rounded-3xl bg-slate-200/60 md:h-32 md:w-60"
+              />
+            ))}
+          </div>
+        </div>
+      ) : partners.length === 0 ? (
+        <div className="mx-auto max-w-lg px-6 text-center">
+          <p className="rounded-3xl border border-dashed border-slate-200 bg-white px-6 py-10 text-sm font-semibold text-slate-600 shadow-sm">
+            এখনও কোনো সক্রিয় পার্টনার যোগ করা হয়নি।{' '}
+            <Link href="/admin/partners" className="font-black text-indigo-600 underline-offset-2 hover:underline">
+              অ্যাডমিন → Partners
+            </Link>{' '}
+            থেকে লোগো ও লিংক যোগ করুন।
+          </p>
+        </div>
+      ) : null}
+
       {/* Carousel Container */}
+      {loadResolved && partners.length > 0 ? (
       <div className="relative flex items-center overflow-hidden">
         
         {/* Advanced Edge Masks (Glassy feel) */}
@@ -68,28 +100,28 @@ export const PartnerCarouselSection: React.FC<Props> = ({ partners }) => {
           }}
         >
           {scrollContent.map((partner, index) => (
-            <motion.div
+            <motion.button
+              type="button"
               key={`${partner.name}-${index}`}
-              className="group relative flex-shrink-0 w-48 h-28 md:w-60 md:h-32 bg-white rounded-3xl border border-slate-200 flex items-center justify-center p-8 transition-all duration-500 hover:shadow-[0_20px_40px_-15px_rgba(79,70,229,0.15)] hover:border-indigo-300 hover:-translate-y-1"
+              onClick={() => onSelect?.(partner)}
+              className="group relative flex-shrink-0 w-48 h-28 md:w-60 md:h-32 bg-white rounded-3xl border border-slate-200 flex items-center justify-center p-8 transition-all duration-500 hover:shadow-[0_20px_40px_-15px_rgba(79,70,229,0.15)] hover:border-indigo-300 hover:-translate-y-1 focus:outline-none"
             >
-              {/* Internal Glow Effect */}
               <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl" />
-              
               <div className="relative w-full h-full">
                 <Image
-                  src={partner.logo || 'https://placehold.co/240x128?text=Logo'}
+                  src={resolveAttachmentUrl(partner.logo, API_ORIGIN) || 'https://placehold.co/240x128?text=Logo'}
                   alt={`${partner.name} logo`}
                   fill
                   sizes="(max-width: 768px) 192px, 240px"
                   className="object-contain transition-all duration-500 group-hover:scale-110"
-                  // Use priority for the first few items to improve LCP if this is high on the page
                   priority={index < 4}
                 />
               </div>
-            </motion.div>
+            </motion.button>
           ))}
         </motion.div>
       </div>
+      ) : null}
       
       {/* Bottom Border Accent */}
       <div className="mt-12 mx-auto max-w-xs h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />

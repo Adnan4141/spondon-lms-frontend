@@ -8,11 +8,35 @@ export interface User {
   mobile: string;
   role: string;
   status: string;
+  profileImage?: string | null;
   branchId?: string;
   branch?: {
+    id: string;
     name: string;
   };
 }
+
+export type CreateUserPayload = {
+  fullName: string;
+  email?: string;
+  mobile: string;
+  password?: string;
+  role: string;
+  branchId?: string;
+  status?: string;
+  profileImage?: string;
+};
+
+export type UpdateUserPayload = {
+  fullName?: string;
+  email?: string;
+  mobile?: string;
+  password?: string;
+  role?: string;
+  branchId?: string | null;
+  status?: string;
+  profileImage?: string | null;
+};
 
 export async function getUsers(params?: {
   role?: string;
@@ -34,4 +58,29 @@ export async function getUsers(params?: {
 
 export async function getUserById(id: string): Promise<ApiResponse<User>> {
   return apiRequest<ApiResponse<User>>(`/users/${id}`);
+}
+
+export async function createUser(data: CreateUserPayload): Promise<
+  ApiResponse<User & { oneTimePassword?: string }>
+> {
+  return apiRequest<ApiResponse<User & { oneTimePassword?: string }>>('/users', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateUser(
+  id: string,
+  data: UpdateUserPayload
+): Promise<ApiResponse<User>> {
+  return apiRequest<ApiResponse<User>>(`/users/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteUser(id: string): Promise<ApiResponse<void>> {
+  return apiRequest<ApiResponse<void>>(`/users/${id}`, {
+    method: 'DELETE',
+  });
 }

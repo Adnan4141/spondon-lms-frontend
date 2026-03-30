@@ -35,6 +35,7 @@ export interface Invoice {
   status: InvoiceStatus;
   totalAmount: number | string;
   discountAmount: number | string;
+  discountReference?: string | null;
   scholarshipAmount: number | string;
   payableAmount: number | string;
   paidAmount: number | string;

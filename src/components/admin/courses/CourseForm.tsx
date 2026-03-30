@@ -79,6 +79,8 @@ type FormState = {
   type: CourseType;
   billingType: BillingType;
   fee: string;
+  offerDiscountAmount: string;
+  offerDiscountNote: string;
   description: string;
   status: CourseStatus;
   admissionStatus: AdmissionStatus;
@@ -97,6 +99,8 @@ const defaultForm: FormState = {
   type: 'ONLINE',
   billingType: 'ONE_TIME',
   fee: '0',
+  offerDiscountAmount: '',
+  offerDiscountNote: '',
   description: '',
   status: 'ACTIVE',
   admissionStatus: 'OPEN',
@@ -159,6 +163,11 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
         type: course.type,
         billingType: course.billingType,
         fee: String(course.fee),
+        offerDiscountAmount:
+          course.offerDiscountAmount != null && String(course.offerDiscountAmount) !== ''
+            ? String(course.offerDiscountAmount)
+            : '',
+        offerDiscountNote: course.offerDiscountNote || '',
         description: course.description || '',
         status: course.status,
         admissionStatus: course.admissionStatus,
@@ -222,6 +231,18 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
       return;
     }
 
+    let offerDisc: number | null | undefined;
+    if (form.offerDiscountAmount.trim() === '') {
+      offerDisc = isEdit ? null : undefined;
+    } else {
+      const od = Number(form.offerDiscountAmount);
+      if (Number.isNaN(od) || od < 0) {
+        setError('Offer discount must be a valid non-negative number.');
+        return;
+      }
+      offerDisc = od;
+    }
+
     if (!form.programId || !form.name.trim() || !form.slug.trim() || !form.code.trim()) {
       setError('Program, name, slug, and code are required.');
       return;
@@ -236,6 +257,8 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
       type: form.type,
       billingType: form.billingType,
       fee: parsedFee,
+      ...(offerDisc !== undefined ? { offerDiscountAmount: offerDisc } : {}),
+      offerDiscountNote: form.offerDiscountNote.trim() || (isEdit ? null : undefined),
       description: form.description.trim() || undefined,
       status: form.status,
       admissionStatus: form.admissionStatus,
@@ -467,10 +490,19 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                   ))}
                 </SelectContent>
               </Select>
+              {form.billingType === 'MONTHLY' && (
+                <p className="text-xs font-medium text-slate-500 leading-relaxed">
+                  Monthly courses bill students every month. Set the fee as the amount due each month. When enrolling students,
+                  set their billing start month; run <span className="font-bold text-slate-700">Monthly billing</span> in admin
+                  to create invoices (benefits apply automatically).
+                </p>
+              )}
             </div>
 
             <div className="space-y-2 sm:col-span-2">
-              <label className={sectionLabel}>Tuition Fee (৳)</label>
+              <label className={sectionLabel}>
+                {form.billingType === 'MONTHLY' ? 'Monthly tuition (৳)' : 'Tuition fee (৳)'}
+              </label>
               <Input
                 className={inputClass}
                 type="number"
@@ -479,6 +511,36 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                 value={form.fee}
                 onChange={(e) => setForm((prev) => ({ ...prev, fee: e.target.value }))}
               />
+            </div>
+
+            <div className="space-y-2 sm:col-span-2 rounded-2xl border border-amber-100 bg-amber-50/30 p-4">
+              <label className={sectionLabel}>অফার ডিস্কাউন্ট (কোর্সে সংযুক্ত · পরে এডিট করা যাবে)</label>
+              <p className="mb-3 text-[10px] font-bold text-amber-900/80">
+                ভর্তির ধাপে এই মান ডিফল্ট হিসেবে আসবে। ডিস্কাউন্ট দিলে রেফারেন্স/নোট এখানে রাখুন; অফলাইন পেমেন্টে আলাদা রেফারেন্সও লাগবে।
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <label className={sectionLabel}>Offer amount (৳)</label>
+                  <Input
+                    className={inputClass}
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.offerDiscountAmount}
+                    onChange={(e) => setForm((prev) => ({ ...prev, offerDiscountAmount: e.target.value }))}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <label className={sectionLabel}>Offer label / note (e.g. Eid 2026)</label>
+                  <Input
+                    className={inputClass}
+                    value={form.offerDiscountNote}
+                    onChange={(e) => setForm((prev) => ({ ...prev, offerDiscountNote: e.target.value }))}
+                    placeholder="Shown when prefilling admission discount"
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="space-y-2 sm:col-span-2">
@@ -523,6 +585,17 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                   className={checkboxClass()}
                 />
                 <span className="text-[11px] font-black uppercase tracking-widest text-slate-600 group-hover:text-indigo-600 transition-colors">Enrollment No Visible</span>
+              </label>
+              <label className="flex items-center gap-3 rounded-2xl border border-rose-100 bg-rose-50/40 px-4 py-3 transition-all hover:bg-white hover:shadow-md cursor-pointer group sm:col-span-2">
+                <input
+                  type="checkbox"
+                  checked={form.settledOptionEnabled}
+                  onChange={(e) => setForm((prev) => ({ ...prev, settledOptionEnabled: e.target.checked }))}
+                  className={checkboxClass()}
+                />
+                <span className="text-[11px] font-black uppercase tracking-widest text-rose-800 group-hover:text-rose-900 transition-colors">
+                  Settle course option (admin can mark all dues paid, cancel enrollments, remove from student portal)
+                </span>
               </label>
             </div>
           </div>

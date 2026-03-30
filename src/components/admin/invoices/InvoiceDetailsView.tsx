@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { Invoice } from '@/types/invoice';
-import { initInvoicePayment } from '@/lib/api/invoices';
+import { initInvoicePayment, getInvoicePdfUrl } from '@/lib/api/invoices';
+import { API_ORIGIN } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { 
@@ -20,10 +21,14 @@ import {
   Download,
   ShieldCheck,
   TrendingUp,
-  AlertCircle
+  AlertCircle,
+  ArrowLeft,
+  FileText,
+  ExternalLink,
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 interface InvoiceDetailsViewProps {
   invoice: Invoice;
@@ -40,9 +45,63 @@ function getStatusBadgeClass(status: string) {
   return 'bg-slate-100 text-slate-600 border-slate-200 font-black';
 }
 
-export function InvoiceDetailsView({ invoice, onRefresh }: InvoiceDetailsViewProps) {
+function resolvePdfUrl(relativeOrAbsolute: string): string {
+  if (relativeOrAbsolute.startsWith('http://') || relativeOrAbsolute.startsWith('https://')) {
+    return relativeOrAbsolute;
+  }
+  return `${API_ORIGIN}${relativeOrAbsolute.startsWith('/') ? '' : '/'}${relativeOrAbsolute}`;
+}
+
+export function InvoiceDetailsView({ invoice }: InvoiceDetailsViewProps) {
+  const { toast } = useToast();
   const [paying, setPaying] = useState(false);
+  const [panel, setPanel] = useState<'details' | 'pdf'>('details');
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
   const dueAmount = Number(invoice.dueAmount);
+
+  const loadPdfAndShow = async () => {
+    try {
+      setPdfLoading(true);
+      const res = await getInvoicePdfUrl(invoice.id);
+      if (!res.success || !res.data?.pdfUrl) {
+        toast({
+          title: 'PDF unavailable',
+          description: res.message || 'Could not generate invoice PDF.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      setPdfUrl(resolvePdfUrl(res.data.pdfUrl));
+      setPanel('pdf');
+    } catch (e) {
+      console.error(e);
+      toast({ title: 'PDF error', description: 'Could not load invoice PDF.', variant: 'destructive' });
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
+  const openPdfNewTab = async () => {
+    try {
+      setPdfLoading(true);
+      const res = await getInvoicePdfUrl(invoice.id);
+      if (res.success && res.data?.pdfUrl) {
+        window.open(resolvePdfUrl(res.data.pdfUrl), '_blank', 'noopener,noreferrer');
+      } else {
+        toast({
+          title: 'PDF unavailable',
+          description: res.message || 'Could not generate invoice PDF.',
+          variant: 'destructive',
+        });
+      }
+    } catch (e) {
+      console.error(e);
+      toast({ title: 'PDF error', description: 'Could not open invoice PDF.', variant: 'destructive' });
+    } finally {
+      setPdfLoading(false);
+    }
+  };
 
   const handlePayViaGateway = async () => {
     if (dueAmount <= 0) return;
@@ -66,9 +125,73 @@ export function InvoiceDetailsView({ invoice, onRefresh }: InvoiceDetailsViewPro
     }).format(Number(amount))}`;
   };
 
+  if (panel === 'pdf' && pdfUrl) {
+    return (
+      <div className="flex flex-col bg-white text-slate-900">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 gap-2 rounded-xl font-bold"
+            onClick={() => {
+              setPanel('details');
+            }}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to invoice
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-10 gap-2 rounded-xl font-bold"
+            onClick={() => window.open(pdfUrl, '_blank', 'noopener,noreferrer')}
+          >
+            <ExternalLink className="h-4 w-4" />
+            Open in new tab
+          </Button>
+          <a
+            href={pdfUrl}
+            download
+            className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-800 hover:bg-slate-50"
+          >
+            <Download className="h-4 w-4" />
+            Download
+          </a>
+        </div>
+        <iframe
+          title="Invoice PDF"
+          src={pdfUrl}
+          className="w-full shrink-0 rounded-b-xl border-0 bg-slate-100"
+          style={{ height: 'min(72vh, 640px)' }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full bg-white text-slate-900">
       <div className="flex-1 overflow-y-auto px-8 py-8 no-scrollbar">
+        <div className="mb-6 flex flex-wrap items-center justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 gap-2 rounded-xl font-bold"
+            onClick={loadPdfAndShow}
+            disabled={pdfLoading}
+          >
+            <FileText className="h-4 w-4" />
+            {pdfLoading ? 'Loading…' : 'View PDF'}
+          </Button>
+          <Button
+            type="button"
+            className="h-10 gap-2 rounded-xl bg-slate-900 font-bold text-white hover:bg-slate-800 hover:text-white"
+            onClick={openPdfNewTab}
+            disabled={pdfLoading}
+          >
+            <Download className="h-4 w-4" />
+            Download PDF
+          </Button>
+        </div>
         {/* Header Hero Card */}
         <div className="relative overflow-hidden rounded-[32px] border border-slate-200 bg-slate-50/50 p-8 shadow-sm mb-10">
            <div className="absolute top-0 right-0 p-6">
@@ -89,8 +212,8 @@ export function InvoiceDetailsView({ invoice, onRefresh }: InvoiceDetailsViewPro
 
               <div className="space-y-4 text-center md:text-left">
                  <div className="space-y-1">
-                    <h2 className="text-3xl font-black tracking-tight text-slate-900">Statement Intelligence</h2>
-                    <p className="text-base font-black uppercase tracking-[0.2em] text-indigo-500">Invoice ID: {invoice.id.slice(0, 16)}...</p>
+                    <h2 className="text-3xl font-black tracking-tight text-slate-900">Invoice</h2>
+                    <p className="text-sm font-mono font-bold text-indigo-600">#{invoice.id.slice(0, 12)}…</p>
                  </div>
                  
                  <div className="flex flex-wrap justify-center md:justify-start gap-6 pt-2">
@@ -140,6 +263,13 @@ export function InvoiceDetailsView({ invoice, onRefresh }: InvoiceDetailsViewPro
              </div>
            ))}
         </div>
+
+        {Number(invoice.discountAmount) > 0 && invoice.discountReference ? (
+          <div className="mb-6 rounded-2xl border border-amber-100 bg-amber-50/50 px-4 py-3 text-sm font-bold text-amber-950">
+            <span className="text-[10px] font-black uppercase tracking-widest text-amber-700">Discount reference</span>
+            <p className="mt-1">{invoice.discountReference}</p>
+          </div>
+        ) : null}
 
         {/* Statement Items */}
         <div className="space-y-6 mb-10">

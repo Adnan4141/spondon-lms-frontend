@@ -59,6 +59,9 @@ export interface Enrollment {
     id: string;
     name: string;
     code: string;
+    type?: string;
+    fee?: number | string;
+    billingType?: string;
     program?: {
       id: string;
       name: string;
@@ -71,6 +74,7 @@ export interface Enrollment {
 }
 
 export interface Student {
+  registrationNumber: ReactNode;
   id: string;
   fullName: string;
   email?: string | null;

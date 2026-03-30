@@ -35,7 +35,7 @@ export const TeachersSection: React.FC<Props> = ({ teachers }) => {
           </h2>
         </motion.div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <div className=" grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {teachers.map((teacher, i) => (
             <motion.div
               key={teacher.id}

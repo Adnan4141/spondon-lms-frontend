@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState, type ComponentType } from 'react';
 import { cn } from '@/lib/utils';
 import {
   BookOpen,
@@ -22,52 +23,102 @@ import {
   Building2,
   ChevronRight,
   LogOut,
-  Bell,
-  Search,
   Award,
   School,
+  CalendarRange,
+  Presentation,
+  Globe,
 } from 'lucide-react';
 
-const menuSections = [
-  {
-    label: 'Overview',
-    items: [
-      { title: 'Dashboard', href: '/admin', icon: LayoutDashboard, color: 'text-blue-500', bg: 'bg-blue-50' },
-    ]
-  },
-  {
-    label: 'Academic',
-    items: [
-      { title: 'Courses', href: '/admin/courses', icon: BookOpen, color: 'text-indigo-500', bg: 'bg-indigo-50' },
-      { title: 'Programs', href: '/admin/programs', icon: GraduationCap, color: 'text-rose-500', bg: 'bg-rose-50' },
-      { title: 'Batches', href: '/admin/batches', icon: Calendar, color: 'text-sky-500', bg: 'bg-sky-50' },
-      { title: 'Attendance Sheet', href: '/admin/academic-records/attendance-sheet', icon: ClipboardList, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-      { title: 'Academic', href: '/admin/academic-records', icon: BarChart3, color: 'text-lime-500', bg: 'bg-lime-50' },
-    ]
-  },
-  {
-    label: 'Management',
-    items: [
-      { title: 'Questions', href: '/admin/questions', icon: HelpCircle, color: 'text-amber-500', bg: 'bg-amber-50' },
-      { title: 'Exams', href: '/admin/exams', icon: ClipboardList, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-      { title: 'Exam Results', href: '/admin/exam-results', icon: Award, color: 'text-amber-500', bg: 'bg-amber-50' },
-      { title: 'Books', href: '/admin/books', icon: BookOpen, color: 'text-blue-500', bg: 'bg-blue-50' },
-      { title: 'Students', href: '/admin/students', icon: Users, color: 'text-violet-500', bg: 'bg-violet-50' },
-      { title: 'Branches', href: '/admin/branches', icon: Building2, color: 'text-red-500', bg: 'bg-red-50' },
-      { title: 'Institutes', href: '/admin/institutes', icon: School, color: 'text-rose-500', bg: 'bg-rose-50' },
-    ]
-  },
-  {
-    label: 'Administrative',
-    items: [
-      { title: 'Enrollments', href: '/admin/enrollments', icon: FileText, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-      { title: 'Invoices', href: '/admin/invoices', icon: CreditCard, color: 'text-orange-500', bg: 'bg-orange-50' },
-      { title: 'SMS Console', href: '/admin/sms', icon: MessageSquare, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-      { title: 'Reports', href: '/admin/reports', icon: BarChart3, color: 'text-teal-500', bg: 'bg-teal-50' },
-      { title: 'Settings', href: '/admin/settings', icon: Settings, color: 'text-slate-500', bg: 'bg-slate-50' },
-    ]
-  }
-];
+type MenuItem = {
+  title: string;
+  href: string;
+  icon: ComponentType<{ className?: string }>;
+  color: string;
+  bg: string;
+};
+
+function buildMenuSections(role: string | null): { label: string; items: MenuItem[] }[] {
+  const isBranchAdmin = role === 'BRANCH_ADMIN';
+
+  const overviewItems: MenuItem[] = isBranchAdmin
+    ? [
+        {
+          title: 'Branch dashboard',
+          href: '/admin/branch',
+          icon: Building2,
+          color: 'text-sky-600',
+          bg: 'bg-sky-50',
+        },
+        {
+          title: 'All modules',
+          href: '/admin',
+          icon: LayoutDashboard,
+          color: 'text-blue-500',
+          bg: 'bg-blue-50',
+        },
+      ]
+    : [
+        {
+          title: 'Dashboard',
+          href: '/admin',
+          icon: LayoutDashboard,
+          color: 'text-blue-500',
+          bg: 'bg-blue-50',
+        },
+      ];
+
+  const managementItems: MenuItem[] = [
+    { title: 'Teachers', href: '/admin/teachers', icon: Presentation, color: 'text-cyan-600', bg: 'bg-cyan-50' },
+    { title: 'Partners', href: '/admin/partners', icon: Globe, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { title: 'Reviews', href: '/admin/testimonials', icon: MessageSquare, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+    { title: 'Questions', href: '/admin/questions', icon: HelpCircle, color: 'text-amber-500', bg: 'bg-amber-50' },
+    { title: 'Exams', href: '/admin/exams', icon: ClipboardList, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+    { title: 'Exam Results', href: '/admin/exam-results', icon: Award, color: 'text-amber-500', bg: 'bg-amber-50' },
+    { title: 'Books', href: '/admin/books', icon: BookOpen, color: 'text-blue-500', bg: 'bg-blue-50' },
+    { title: 'Students', href: '/admin/students', icon: Users, color: 'text-violet-500', bg: 'bg-violet-50' },
+    { title: 'Branches', href: '/admin/branches', icon: Building2, color: 'text-red-500', bg: 'bg-red-50' },
+    { title: 'Institutes', href: '/admin/institutes', icon: School, color: 'text-rose-500', bg: 'bg-rose-50' },
+  ].filter((item) => !(isBranchAdmin && item.href === '/admin/branches'));
+
+  return [
+    { label: 'Overview', items: overviewItems },
+    {
+      label: 'Academic',
+      items: [
+        { title: 'Courses', href: '/admin/courses', icon: BookOpen, color: 'text-indigo-500', bg: 'bg-indigo-50' },
+        { title: 'Programs', href: '/admin/programs', icon: GraduationCap, color: 'text-rose-500', bg: 'bg-rose-50' },
+        { title: 'Batches', href: '/admin/batches', icon: Calendar, color: 'text-sky-500', bg: 'bg-sky-50' },
+        {
+          title: 'Attendance Sheet',
+          href: '/admin/academic-records/attendance-sheet',
+          icon: ClipboardList,
+          color: 'text-emerald-500',
+          bg: 'bg-emerald-50',
+        },
+        { title: 'Academic', href: '/admin/academic-records', icon: BarChart3, color: 'text-lime-500', bg: 'bg-lime-50' },
+      ],
+    },
+    { label: 'Management', items: managementItems },
+    {
+      label: 'Administrative',
+      items: [
+        { title: 'Enrollments', href: '/admin/enrollments', icon: FileText, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+        {
+          title: 'Monthly billing',
+          href: '/admin/monthly-billing',
+          icon: CalendarRange,
+          color: 'text-violet-600',
+          bg: 'bg-violet-50',
+        },
+        { title: 'Invoices', href: '/admin/invoices', icon: CreditCard, color: 'text-orange-500', bg: 'bg-orange-50' },
+        { title: 'SMS Console', href: '/admin/sms', icon: MessageSquare, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+        { title: 'Reports', href: '/admin/reports', icon: BarChart3, color: 'text-teal-500', bg: 'bg-teal-50' },
+        { title: 'Settings', href: '/admin/settings', icon: Settings, color: 'text-slate-500', bg: 'bg-slate-50' },
+      ],
+    },
+  ];
+}
 
 type SidebarProps = {
   mobileOpen: boolean;
@@ -79,6 +130,20 @@ type SidebarProps = {
 export function Sidebar({ mobileOpen, onCloseMobile, collapsed, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const [role, setRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('user');
+      const u = raw ? (JSON.parse(raw) as { role?: string }) : null;
+      setRole(u?.role ?? null);
+    } catch {
+      setRole(null);
+    }
+  }, []);
+
+  const menuSections = useMemo(() => buildMenuSections(role), [role]);
+  const homeHref = role === 'BRANCH_ADMIN' ? '/admin/branch' : '/admin';
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
@@ -117,7 +182,7 @@ export function Sidebar({ mobileOpen, onCloseMobile, collapsed, onToggleCollapse
 
         {/* Header / Logo Section */}
         <div className="relative flex h-20 items-center px-6 border-b border-slate-100/80">
-          <Link href="/admin" className="flex items-center gap-3 group">
+          <Link href={homeHref} className="flex items-center gap-3 group">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 shadow-lg shadow-indigo-200 transition-transform group-hover:scale-105 group-hover:rotate-3">
               <GraduationCap className="h-5 w-5 text-white" />
             </div>
@@ -150,7 +215,10 @@ export function Sidebar({ mobileOpen, onCloseMobile, collapsed, onToggleCollapse
               <nav className="space-y-1">
                 {section.items.map((item) => {
                   const Icon = item.icon;
-                  const isActive = pathname === item.href || (item.href !== '/admin' && pathname?.startsWith(item.href));
+                  const isActive =
+                    item.href === '/admin'
+                      ? pathname === '/admin'
+                      : pathname === item.href || (pathname?.startsWith(`${item.href}/`) ?? false);
 
                   return (
                     <Link

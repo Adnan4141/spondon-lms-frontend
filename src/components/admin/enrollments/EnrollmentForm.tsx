@@ -15,8 +15,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ShieldCheck, Calendar, Activity, GraduationCap, Building2 } from 'lucide-react';
+import { ShieldCheck, Calendar, Activity, GraduationCap, Building2, CreditCard } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 const inputClass =
   'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
@@ -86,7 +87,16 @@ export function EnrollmentForm({ enrollment, onSuccess }: EnrollmentFormProps) {
     try {
       setSubmitting(true);
       setError(null);
-      
+
+      if (enrollment.course?.billingType === 'MONTHLY') {
+        const m = form.billingStartMonth.trim();
+        if (!/^\d{4}-\d{2}$/.test(m)) {
+          setError('মাসিক কোর্সের জন্য billing start month (YYYY-MM) আবশ্যক / Required for monthly courses');
+          setSubmitting(false);
+          return;
+        }
+      }
+
       const payload: UpdateEnrollmentDto = {
         status: form.status,
         billingStartMonth: form.billingStartMonth || undefined,
@@ -131,6 +141,26 @@ export function EnrollmentForm({ enrollment, onSuccess }: EnrollmentFormProps) {
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{enrollment.course?.name}</p>
               </div>
             </div>
+            <div className="flex flex-wrap gap-2 pt-2">
+              {enrollment.course?.billingType && (
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    'rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-widest',
+                    enrollment.course.billingType === 'MONTHLY'
+                      ? 'border-violet-200 bg-violet-50 text-violet-800'
+                      : 'border-sky-200 bg-sky-50 text-sky-800',
+                  )}
+                >
+                  {enrollment.course.billingType === 'MONTHLY' ? 'মাসিক বিলিং' : 'এককালীন ফি'}
+                </Badge>
+              )}
+              {enrollment.course?.program?.name && (
+                <Badge variant="outline" className="rounded-lg border-slate-200 bg-white px-2 py-0.5 text-[9px] font-black uppercase text-slate-600">
+                  {enrollment.course.program.name}
+                </Badge>
+              )}
+            </div>
             <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
                <div className="flex flex-col">
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Current Branch</span>
@@ -140,6 +170,13 @@ export function EnrollmentForm({ enrollment, onSuccess }: EnrollmentFormProps) {
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">ID Reference</span>
                   <span className="text-base font-mono font-bold text-indigo-600">{enrollment.id.slice(0, 12)}</span>
                </div>
+            </div>
+            <div className="flex items-start gap-2 rounded-xl border border-indigo-100 bg-indigo-50/40 p-3 text-[10px] font-bold text-indigo-900">
+              <CreditCard className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                পেমেন্ট ও ইনভয়েস দেখতে স্টুডেন্ট মোডাল → <strong>Payments</strong> ট্যাব খুলুন। এখানে শুধু ব্যাচ, ব্রাঞ্চ ও বিলিং
+                মাস এডিট করা হয়।
+              </span>
             </div>
           </section>
 
@@ -196,26 +233,31 @@ export function EnrollmentForm({ enrollment, onSuccess }: EnrollmentFormProps) {
              </div>
           </section>
 
-          {/* Billing Configuration */}
-          <section className="space-y-6">
-             <div className="flex items-center gap-2">
+          {/* Billing — only for monthly courses */}
+          {enrollment.course?.billingType === 'MONTHLY' && (
+            <section className="space-y-6">
+              <div className="flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Financial Identity</h3>
-             </div>
-             <div className="space-y-2">
-                <label className={sectionLabel}>Billing Cycle Start (YYYY-MM)</label>
+                <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Monthly billing</h3>
+              </div>
+              <div className="space-y-2">
+                <label className={sectionLabel}>Billing start month (YYYY-MM)</label>
                 <div className="relative group">
-                   <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                   <Input 
-                     className={cn(inputClass, "pl-11")} 
-                     value={form.billingStartMonth} 
-                     onChange={e => setForm(p => ({ ...p, billingStartMonth: e.target.value }))} 
-                     placeholder="e.g., 2026-03" 
-                   />
+                  <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    className={cn(inputClass, 'pl-11')}
+                    value={form.billingStartMonth}
+                    onChange={(e) => setForm((p) => ({ ...p, billingStartMonth: e.target.value }))}
+                    placeholder="e.g., 2026-03"
+                  />
                 </div>
-                <p className="text-[10px] font-bold text-slate-400 px-1 italic">Determines the first month for invoice generation.</p>
-             </div>
-          </section>
+                <p className="text-[10px] font-bold text-slate-500 px-1">
+                  First month this student should receive a monthly invoice. Months before this are skipped when generating
+                  dues.
+                </p>
+              </div>
+            </section>
+          )}
         </div>
 
         {error && (

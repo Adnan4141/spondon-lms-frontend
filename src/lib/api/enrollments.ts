@@ -23,7 +23,9 @@ export interface Enrollment {
     id: string;
     name: string;
     code: string;
-    fee?: number;
+    type?: 'ONLINE' | 'OFFLINE' | string;
+    fee?: number | string;
+    billingType?: 'ONE_TIME' | 'MONTHLY';
     program?: {
       id: string;
       name: string;
@@ -59,6 +61,7 @@ export async function getEnrollments(params?: {
   courseId?: string;
   branchId?: string;
   batchId?: string;
+  teacherUserId?: string;
   status?: string;
   page?: number;
   limit?: number;
@@ -68,6 +71,7 @@ export async function getEnrollments(params?: {
   if (params?.courseId) queryParams.append('courseId', params.courseId);
   if (params?.branchId) queryParams.append('branchId', params.branchId);
   if (params?.batchId) queryParams.append('batchId', params.batchId);
+  if (params?.teacherUserId) queryParams.append('teacherUserId', params.teacherUserId);
   if (params?.status) queryParams.append('status', params.status);
   if (params?.page) queryParams.append('page', String(params.page));
   if (params?.limit) queryParams.append('limit', String(params.limit));
@@ -163,6 +167,7 @@ export interface OfflineAdmissionDto {
   paymentTrxId?: string;
   receivedByUserId?: string;
   discountAmount?: number;
+  discountReference?: string;
   scholarshipAmount?: number;
   nextPaymentDueDate?: string;
   additionalItems?: Array<{

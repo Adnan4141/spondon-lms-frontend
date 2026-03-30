@@ -45,7 +45,10 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       'branches': 'Branches',
       'programs': 'Programs',
       'books': 'Books',
-      'questions': 'Question Bank'
+      'questions': 'Question Bank',
+      'branch': 'Branch dashboard',
+      'teachers': 'Teachers',
+      'monthly-billing': 'Monthly billing',
     };
 
     return segments.map((segment, index) => {
