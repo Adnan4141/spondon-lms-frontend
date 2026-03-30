@@ -52,3 +52,24 @@ export async function getAttendanceSheet(params: {
 
   return apiRequest<ApiResponse<AttendanceSheet>>(`/classes/attendance/sheet?${queryParams.toString()}`);
 }
+
+export type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE';
+
+export async function recordAttendance(payload: {
+  sessionId: string;
+  studentUserId: string;
+  status: AttendanceStatus;
+}): Promise<
+  ApiResponse<{
+    id: string;
+    sessionId: string;
+    studentUserId: string;
+    status: string;
+    student: { id: string; fullName: string };
+  }>
+> {
+  return apiRequest(`/classes/attendance`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}

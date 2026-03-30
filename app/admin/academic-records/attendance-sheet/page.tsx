@@ -1,7 +1,12 @@
 'use client';
 
 import React, { useEffect, useState, useMemo } from 'react';
-import { getAttendanceSheet, type AttendanceSheet } from '@/lib/api/attendance';
+import {
+  getAttendanceSheet,
+  recordAttendance,
+  type AttendanceSheet,
+  type AttendanceStatus,
+} from '@/lib/api/attendance';
 import { getCourses } from '@/lib/api/courses';
 import { getBranches } from '@/lib/api/branches';
 import { getBatches } from '@/lib/api/batches';
@@ -15,6 +20,7 @@ import {
 } from '@/components/ui/select';
 import {
   Printer,
+  Download,
   FileText,
   Search,
   RefreshCw,
@@ -36,6 +42,12 @@ import { Badge } from '@/components/ui/badge';
 type CourseRow = { id: string; name: string };
 type BranchRow = { id: string; name: string };
 type BatchRow = { id: string; name: string };
+
+function nextAttendanceStatus(current: string | null): AttendanceStatus {
+  if (!current || current === 'LATE') return 'PRESENT';
+  if (current === 'PRESENT') return 'ABSENT';
+  return 'LATE';
+}
 
 function StatusDot({ status }: { status: string | null }) {
   if (status === 'PRESENT') {
@@ -86,6 +98,7 @@ export default function AttendanceSheetPage() {
   const [fetchingFilters, setFetchingFilters] = useState(true);
   /** Mobile / tablet: 'cards' is easier to read; 'table' for wide matrix with horizontal scroll */
   const [layoutMode, setLayoutMode] = useState<'cards' | 'table'>('cards');
+  const [editAttendance, setEditAttendance] = useState(true);
 
   const loadFilters = async () => {
     try {
@@ -171,6 +184,94 @@ export default function AttendanceSheetPage() {
     window.print();
   };
 
+  const applyAttendancePatch = (
+    sessionId: string,
+    studentUserId: string,
+    row: { id: string; status: string; student: { id: string; fullName: string } }
+  ) => {
+    setSheetData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        sessions: prev.sessions.map((s) => {
+          if (s.id !== sessionId) return s;
+          const others = s.attendanceRecords.filter((r) => r.studentUserId !== studentUserId);
+          return {
+            ...s,
+            attendanceRecords: [
+              ...others,
+              {
+                id: row.id,
+                studentUserId,
+                status: row.status,
+                student: row.student,
+              },
+            ],
+          };
+        }),
+      };
+    });
+  };
+
+  const handleCellAttendance = async (
+    sessionId: string,
+    studentUserId: string,
+    studentName: string,
+    current: string | null
+  ) => {
+    if (!editAttendance) return;
+    const status = nextAttendanceStatus(current);
+    try {
+      const res = await recordAttendance({ sessionId, studentUserId, status });
+      if (res.success && res.data) {
+        applyAttendancePatch(sessionId, studentUserId, {
+          id: res.data.id,
+          status: res.data.status,
+          student: res.data.student || { id: studentUserId, fullName: studentName },
+        });
+        toast({ title: 'Attendance saved', description: `${status}`, variant: 'success' });
+      } else {
+        toast({
+          title: 'Could not save',
+          description: (res as { message?: string }).message || 'Request failed',
+          variant: 'destructive',
+        });
+      }
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: err instanceof Error ? err.message : 'Request failed',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleExportCsv = () => {
+    if (!sheetData) return;
+    const sep = ',';
+    const esc = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
+    const header = ['Student', 'Mobile', 'Batch', ...sheetData.sessions.map((s) => sessionLabel(s.sessionDate))];
+    const lines = [header.map(esc).join(sep)];
+    for (const enr of sheetData.enrollments) {
+      const batch = enr.batch?.name || '';
+      const cells = sheetData.sessions.map((sess) => {
+        const r = sess.attendanceRecords.find((x) => x.studentUserId === enr.student.id);
+        return r?.status || '';
+      });
+      lines.push(
+        [enr.student.fullName, enr.student.mobile, batch, ...cells].map(esc).join(sep)
+      );
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `attendance-${sheetData.course.code}-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: 'CSV exported', variant: 'success' });
+  };
+
   if (fetchingFilters) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center px-4">
@@ -201,13 +302,31 @@ export default function AttendanceSheetPage() {
             </div>
             <div className="flex flex-wrap items-center gap-3">
               {sheetData ? (
-                <Button
-                  onClick={handlePrint}
-                  className="h-11 rounded-2xl bg-white font-bold text-slate-900 hover:bg-slate-100 sm:h-12"
-                >
-                  <Printer className="mr-2 h-4 w-4" />
-                  Print
-                </Button>
+                <>
+                  <label className="flex cursor-pointer items-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold text-white sm:text-sm">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-white/40"
+                      checked={editAttendance}
+                      onChange={(e) => setEditAttendance(e.target.checked)}
+                    />
+                    Edit attendance
+                  </label>
+                  <Button
+                    onClick={handleExportCsv}
+                    className="h-11 rounded-2xl bg-white font-bold text-slate-900 hover:bg-slate-100 sm:h-12"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Export CSV
+                  </Button>
+                  <Button
+                    onClick={handlePrint}
+                    className="h-11 rounded-2xl bg-white font-bold text-slate-900 hover:bg-slate-100 sm:h-12"
+                  >
+                    <Printer className="mr-2 h-4 w-4" />
+                    Print
+                  </Button>
+                </>
               ) : null}
             </div>
           </div>
@@ -412,7 +531,22 @@ export default function AttendanceSheetPage() {
                             <Calendar className="mb-0.5 inline h-3 w-3 text-indigo-400" />{' '}
                             {sessionLabel(session.sessionDate)}
                           </span>
-                          <StatusDot status={st} />
+                          <button
+                            type="button"
+                            disabled={!editAttendance}
+                            title={editAttendance ? 'Tap to cycle P → A → L' : 'Enable editing in the header'}
+                            onClick={() =>
+                              handleCellAttendance(
+                                session.id,
+                                enrollment.student.id,
+                                enrollment.student.fullName,
+                                st
+                              )
+                            }
+                            className="shrink-0 rounded-lg disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <StatusDot status={st} />
+                          </button>
                         </li>
                       );
                     })}
@@ -462,9 +596,22 @@ export default function AttendanceSheetPage() {
                         const record = session.attendanceRecords.find((r) => r.studentUserId === enrollment.student.id);
                         return (
                           <td key={session.id} className="px-2 py-3 text-center">
-                            <div className="flex justify-center">
+                            <button
+                              type="button"
+                              disabled={!editAttendance}
+                              title={editAttendance ? 'Cycle P → A → L' : 'Enable editing in the header'}
+                              onClick={() =>
+                                handleCellAttendance(
+                                  session.id,
+                                  enrollment.student.id,
+                                  enrollment.student.fullName,
+                                  record?.status ?? null
+                                )
+                              }
+                              className="mx-auto flex justify-center rounded-lg disabled:cursor-not-allowed disabled:opacity-50"
+                            >
                               <StatusDot status={record?.status ?? null} />
-                            </div>
+                            </button>
                           </td>
                         );
                       })}
@@ -519,9 +666,22 @@ export default function AttendanceSheetPage() {
                       const record = session.attendanceRecords.find((r) => r.studentUserId === enrollment.student.id);
                       return (
                         <td key={session.id} className="border-l border-slate-100 px-3 py-4 text-center">
-                          <div className="flex justify-center">
+                          <button
+                            type="button"
+                            disabled={!editAttendance}
+                            title={editAttendance ? 'Cycle P → A → L' : 'Enable editing in the header'}
+                            onClick={() =>
+                              handleCellAttendance(
+                                session.id,
+                                enrollment.student.id,
+                                enrollment.student.fullName,
+                                record?.status ?? null
+                              )
+                            }
+                            className="mx-auto flex justify-center rounded-lg disabled:cursor-not-allowed disabled:opacity-50"
+                          >
                             <StatusDot status={record?.status ?? null} />
-                          </div>
+                          </button>
                         </td>
                       );
                     })}

@@ -22,6 +22,11 @@ import { isLocalUploadPath, isValidHttpUrl } from '@/lib/attachment-url';
 interface CourseResourceFormProps {
   courseId: string;
   resource?: any;
+  /** Curriculum subject (e.g. Physics) */
+  defaultSubjectTitle?: string;
+  /** Chapter under subject */
+  defaultChapterTitle?: string;
+  /** Optional segment label for sidebar ordering */
   defaultTopicTitle?: string;
   defaultTopicSortOrder?: number;
   onSuccess: () => void;
@@ -42,6 +47,8 @@ const contentTypes = [
 export function CourseResourceForm({
   courseId,
   resource,
+  defaultSubjectTitle,
+  defaultChapterTitle,
   defaultTopicTitle,
   defaultTopicSortOrder,
   onSuccess,
@@ -55,6 +62,8 @@ export function CourseResourceForm({
     textBody: resource?.textBody || '',
     isFree: resource?.isFree || false,
     sortOrder: resource?.sortOrder || 0,
+    subjectTitle: resource?.subjectTitle || defaultSubjectTitle || '',
+    chapterTitle: resource?.chapterTitle || defaultChapterTitle || '',
     topicTitle: resource?.topicTitle || defaultTopicTitle || '',
     topicSortOrder: resource?.topicSortOrder ?? defaultTopicSortOrder ?? '',
     durationMinutes: resource?.durationMinutes ?? '',
@@ -150,6 +159,8 @@ export function CourseResourceForm({
       data.append('textBody', formData.textBody);
       data.append('isFree', String(formData.isFree));
       data.append('sortOrder', String(formData.sortOrder));
+      data.append('subjectTitle', formData.subjectTitle || '');
+      data.append('chapterTitle', formData.chapterTitle || '');
       data.append('topicTitle', formData.topicTitle);
       data.append('topicSortOrder', String(formData.topicSortOrder));
       data.append('durationMinutes', String(formData.durationMinutes));
@@ -212,6 +223,25 @@ export function CourseResourceForm({
             value={formData.title}
             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
             placeholder="e.g. Week 1 Lecture Slides"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Subject</Label>
+          <Input
+            className="h-12 rounded-2xl border-slate-200 bg-white font-bold"
+            value={formData.subjectTitle}
+            onChange={(e) => setFormData({ ...formData, subjectTitle: e.target.value })}
+            placeholder="e.g. Physics (required for structured curriculum)"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Chapter</Label>
+          <Input
+            className="h-12 rounded-2xl border-slate-200 bg-white font-bold"
+            value={formData.chapterTitle}
+            onChange={(e) => setFormData({ ...formData, chapterTitle: e.target.value })}
+            placeholder="e.g. Vectors"
           />
         </div>
 
@@ -326,18 +356,18 @@ export function CourseResourceForm({
 
         <div className="space-y-2">
           <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
-            Chapter / Section Name
+            Segment / topic label (optional)
           </Label>
           <Input
             className="h-12 rounded-2xl border-slate-200 bg-white font-bold"
             value={formData.topicTitle}
             onChange={(e) => setFormData({ ...formData, topicTitle: e.target.value })}
-            placeholder="e.g. Chapter 1: Introduction"
+            placeholder="e.g. 01 — Introduction"
           />
         </div>
 
         <div className="space-y-2">
-          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Chapter Order</Label>
+          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Section order</Label>
           <Input
             type="number"
             className="h-12 rounded-2xl border-slate-200 bg-white font-bold"

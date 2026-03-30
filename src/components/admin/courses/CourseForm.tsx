@@ -619,14 +619,36 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
               <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl p-0">
                 <DialogHeader className="px-6 pt-6 pb-0">
                   <DialogTitle className="text-lg font-black tracking-tight">
-                    {editingResource ? 'Edit Segment' : addingToChapter ? `Add Segment to "${addingToChapter}"` : 'Add New Content'}
+                    {editingResource
+                      ? 'Edit Segment'
+                      : addingToChapter
+                        ? 'Add segment to chapter'
+                        : 'Add new content'}
                   </DialogTitle>
                 </DialogHeader>
                 <div className="px-6 pb-6">
                   <CourseResourceForm
+                    key={`${course.id}-${editingResource?.id ?? 'new'}-${addingToChapter ?? 'root'}`}
                     courseId={course.id}
                     resource={editingResource}
-                    defaultTopicTitle={addingToChapter === 'Ungrouped' ? '' : (addingToChapter ?? undefined)}
+                    defaultSubjectTitle={
+                      addingToChapter
+                        ? (() => {
+                            const s = addingToChapter.split(':::')[0];
+                            return s === 'General' ? '' : s;
+                          })()
+                        : undefined
+                    }
+                    defaultChapterTitle={
+                      addingToChapter
+                        ? (() => {
+                            const p = addingToChapter.split(':::');
+                            const c = p[1] || '';
+                            return c === 'Ungrouped' ? '' : c;
+                          })()
+                        : undefined
+                    }
+                    defaultTopicTitle={undefined}
                     defaultTopicSortOrder={addingChapterOrder ?? undefined}
                     onSuccess={() => { setShowResourceForm(false); setEditingResource(null); setAddingToChapter(null); setAddingChapterOrder(null); fetchExtras(); }}
                     onCancel={() => { setShowResourceForm(false); setEditingResource(null); setAddingToChapter(null); setAddingChapterOrder(null); }}
@@ -635,10 +657,13 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
               </DialogContent>
             </Dialog>
 
-            {/* Chapter-wise grouped content */}
+            {/* Subject → chapter grouped content */}
             {(() => {
               const chapters = resources.reduce<Record<string, typeof resources>>((acc, res) => {
-                const key = res.topicTitle || 'Ungrouped';
+                const subject = (res.subjectTitle || '').trim() || 'General';
+                const chapter =
+                  (res.chapterTitle || '').trim() || (res.topicTitle || '').trim() || 'Ungrouped';
+                const key = `${subject}:::${chapter}`;
                 if (!acc[key]) acc[key] = [];
                 acc[key].push(res);
                 return acc;
@@ -647,6 +672,10 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
               const sortedChapters = Object.entries(chapters).sort(([, a], [, b]) => {
                 const aOrder = a[0]?.topicSortOrder ?? 999;
                 const bOrder = b[0]?.topicSortOrder ?? 999;
+                const subA = (a[0]?.subjectTitle || '').trim() || 'General';
+                const subB = (b[0]?.subjectTitle || '').trim() || 'General';
+                const subCmp = subA.localeCompare(subB);
+                if (subCmp !== 0) return subCmp;
                 return aOrder - bOrder;
               });
 
@@ -662,18 +691,23 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
 
               return (
                 <div className="space-y-3">
-                  {sortedChapters.map(([chapterTitle, items], chapterIdx) => {
-                    const isExpanded = !!expandedChapters[chapterTitle];
+                  {sortedChapters.map(([compoundKey, items], chapterIdx) => {
+                    const isExpanded = !!expandedChapters[compoundKey];
                     const totalDuration = items.reduce((sum, r) => sum + (r.durationMinutes || 0), 0);
                     const videoCount = items.filter((r: any) => r.type === 'VIDEO').length;
                     const chapterOrder = items[0]?.topicSortOrder ?? chapterIdx;
+                    const subjectPart = compoundKey.split(':::')[0] || 'General';
+                    const chapterPart = compoundKey.split(':::')[1] || 'Ungrouped';
+                    const showSubject = subjectPart !== 'General';
+                    const chapterHeading =
+                      chapterPart === 'Ungrouped' && !showSubject ? 'General content' : chapterPart === 'Ungrouped' ? 'General' : chapterPart;
 
                     return (
-                      <div key={chapterTitle} className="rounded-2xl border border-slate-100 bg-white overflow-hidden">
+                      <div key={compoundKey} className="rounded-2xl border border-slate-100 bg-white overflow-hidden">
                         {/* Chapter header */}
                         <button
                           type="button"
-                          onClick={() => toggleChapter(chapterTitle)}
+                          onClick={() => toggleChapter(compoundKey)}
                           className="flex w-full items-center gap-3 p-4 text-left hover:bg-slate-50/80 transition-colors"
                         >
                           {isExpanded
@@ -681,8 +715,11 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                             : <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />
                           }
                           <div className="flex-1 min-w-0">
+                            {showSubject ? (
+                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 truncate">{subjectPart}</p>
+                            ) : null}
                             <h4 className="text-sm font-black text-slate-800 truncate">
-                              {chapterTitle === 'Ungrouped' ? 'General Content' : chapterTitle}
+                              {chapterHeading}
                             </h4>
                             <div className="flex items-center gap-3 mt-0.5">
                               <span className="text-[10px] font-bold text-slate-400">
@@ -747,7 +784,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                             {/* Add segment button — opens modal */}
                             <button
                               type="button"
-                              onClick={() => { setEditingResource(null); setAddingToChapter(chapterTitle); setAddingChapterOrder(chapterOrder); setShowResourceForm(true); }}
+                              onClick={() => { setEditingResource(null); setAddingToChapter(compoundKey); setAddingChapterOrder(chapterOrder); setShowResourceForm(true); }}
                               className="flex w-full items-center justify-center gap-2 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 hover:bg-indigo-50/50 transition-colors border-t border-dashed border-slate-100"
                             >
                               <Plus className="h-3 w-3" /> Add Segment

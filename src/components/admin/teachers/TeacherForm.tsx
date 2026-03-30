@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import {
   createUser,
   updateUser,
+  uploadUserProfileImage,
   type User as TeacherUser,
   type CreateUserPayload,
   type UpdateUserPayload,
@@ -20,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Building2, User as UserIcon, Phone, Mail, Lock, Shield } from 'lucide-react';
+import { Building2, User as UserIcon, Phone, Mail, Lock, Shield, ImagePlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const inputClass =
@@ -49,6 +50,8 @@ export function TeacherForm({ branches, teacher, lockedBranchId, onSuccess }: Te
   const [branchId, setBranchId] = useState<string>('');
   const [status, setStatus] = useState<string>('ACTIVE');
   const [photoUrl, setPhotoUrl] = useState('');
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,6 +64,8 @@ export function TeacherForm({ branches, teacher, lockedBranchId, onSuccess }: Te
       setStatus(teacher.status || 'ACTIVE');
       setPassword('');
       setPhotoUrl(teacher.profileImage || '');
+      setPhotoFile(null);
+      setPhotoPreview(null);
     } else {
       setFullName('');
       setMobile('');
@@ -69,6 +74,8 @@ export function TeacherForm({ branches, teacher, lockedBranchId, onSuccess }: Te
       setBranchId(lockedBranchId || '');
       setStatus('ACTIVE');
       setPhotoUrl('');
+      setPhotoFile(null);
+      setPhotoPreview(null);
     }
   }, [teacher, lockedBranchId]);
 
@@ -102,7 +109,7 @@ export function TeacherForm({ branches, teacher, lockedBranchId, onSuccess }: Te
           mobile: mob,
           email: em || undefined,
           status,
-          profileImage: photoUrl || null,
+          profileImage: photoFile ? undefined : photoUrl || null,
         };
         if (lockedBranchId) {
           payload.branchId = lockedBranchId;
@@ -112,13 +119,20 @@ export function TeacherForm({ branches, teacher, lockedBranchId, onSuccess }: Te
         if (password.trim()) payload.password = password.trim();
 
         const res = await updateUser(teacher.id, payload);
-        if (res.success) {
-          await onSuccess();
-          toast({ title: 'Saved', description: 'Teacher updated.', variant: 'success' });
-          closeModal();
-        } else {
+        if (!res.success) {
           setError(res.message || 'Update failed');
+          return;
         }
+        if (photoFile) {
+          const up = await uploadUserProfileImage(teacher.id, photoFile);
+          if (!up.success) {
+            setError(up.message || 'Profile saved but image upload failed');
+            return;
+          }
+        }
+        await onSuccess();
+        toast({ title: 'Saved', description: 'Teacher updated.', variant: 'success' });
+        closeModal();
       } else {
         const payload: CreateUserPayload = {
           fullName: name,
@@ -126,26 +140,34 @@ export function TeacherForm({ branches, teacher, lockedBranchId, onSuccess }: Te
           email: em || undefined,
           role: 'TEACHER',
           status: 'ACTIVE',
-          profileImage: photoUrl || undefined,
+          profileImage: photoFile ? undefined : photoUrl || undefined,
         };
         if (password.trim()) payload.password = password.trim();
         if (effectiveBranchId) payload.branchId = effectiveBranchId;
 
         const res = await createUser(payload);
-        if (res.success && res.data) {
-          await onSuccess();
-          const otp = (res.data as { oneTimePassword?: string }).oneTimePassword;
-          toast({
-            title: 'Teacher created',
-            description: otp
-              ? `Share this one-time password with the teacher: ${otp}`
-              : 'Teacher account is ready.',
-            variant: 'success',
-          });
-          closeModal();
-        } else {
+        if (!res.success || !res.data) {
           setError(res.message || 'Could not create teacher');
+          return;
         }
+        const newId = res.data.id;
+        if (photoFile && newId) {
+          const up = await uploadUserProfileImage(newId, photoFile);
+          if (!up.success) {
+            setError(up.message || 'Teacher created but photo upload failed');
+            return;
+          }
+        }
+        await onSuccess();
+        const otp = (res.data as { oneTimePassword?: string }).oneTimePassword;
+        toast({
+          title: 'Teacher created',
+          description: otp
+            ? `Share this one-time password with the teacher: ${otp}`
+            : 'Teacher account is ready.',
+          variant: 'success',
+        });
+        closeModal();
       }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Request failed');
@@ -202,13 +224,55 @@ export function TeacherForm({ branches, teacher, lockedBranchId, onSuccess }: Te
                   />
                 </div>
               </div>
-              <div className="space-y-2">
-                <label className={sectionLabel}>Profile photo (URL)</label>
+              <div className="space-y-2 sm:col-span-2">
+                <label className={sectionLabel}>Profile photo</label>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                  <label className="flex cursor-pointer items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-600 transition-colors hover:border-indigo-300 hover:bg-indigo-50/30">
+                    <ImagePlus className="h-4 w-4 text-indigo-500" />
+                    Upload image
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="sr-only"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (!f) return;
+                        setPhotoFile(f);
+                        setPhotoPreview(URL.createObjectURL(f));
+                      }}
+                    />
+                  </label>
+                  {(photoPreview || photoUrl) && (
+                    <div className="flex items-center gap-3">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={photoPreview || photoUrl}
+                        alt=""
+                        className="h-16 w-16 rounded-2xl border border-slate-200 object-cover"
+                      />
+                      {photoFile ? (
+                        <button
+                          type="button"
+                          className="text-xs font-bold text-rose-600 hover:underline"
+                          onClick={() => {
+                            if (photoPreview) URL.revokeObjectURL(photoPreview);
+                            setPhotoFile(null);
+                            setPhotoPreview(null);
+                          }}
+                        >
+                          Remove upload
+                        </button>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+                <p className="text-[10px] font-bold text-slate-400 px-1">Or paste an image URL:</p>
                 <Input
                   className={inputClass}
                   value={photoUrl}
                   onChange={(e) => setPhotoUrl(e.target.value)}
                   placeholder="https://…/photo.jpg"
+                  disabled={!!photoFile}
                 />
               </div>
             </div>

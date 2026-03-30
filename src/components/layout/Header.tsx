@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { Menu, X, LayoutDashboard, LogOut, BookOpen, MapPin, Info } from 'lucide-react'
+import { Menu, X, LayoutDashboard, LogOut, BookOpen, Library, MapPin, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -62,6 +62,7 @@ export function Header() {
 
   const navLinks = [
     { name: 'সকল কোর্স', href: '/courses', icon: BookOpen },
+    { name: 'বইসমূহ', href: '/books', icon: Library },
     { name: 'যোগাযোগ', href: '/branches', icon: MapPin },
     { name: 'আমাদের সম্পর্কে', href: '/about-us', icon: Info }
   ]

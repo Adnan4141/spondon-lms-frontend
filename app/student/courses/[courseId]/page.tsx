@@ -21,6 +21,8 @@ interface ContentItem {
   title: string;
   fileUrl?: string;
   textBody?: string;
+  subjectTitle?: string | null;
+  chapterTitle?: string | null;
   topicTitle?: string;
   topicSortOrder?: number;
   durationMinutes?: number;
@@ -33,24 +35,38 @@ function formatDuration(min: number) {
   return `${min}min`;
 }
 
-function groupByTopic(contents: ContentItem[]) {
-  const groups: { topic: string; sortOrder: number; items: ContentItem[] }[] = [];
-  const map = new Map<string, ContentItem[]>();
+function contentGroupKey(c: ContentItem) {
+  const subject = (c.subjectTitle || '').trim() || 'Course';
+  const chapter =
+    (c.chapterTitle || '').trim() || (c.topicTitle || '').trim() || 'General';
+  return `${subject}\n${chapter}`;
+}
+
+function groupBySubjectChapter(contents: ContentItem[]) {
+  const map = new Map<string, { key: string; subject: string; chapter: string; sortOrder: number; items: ContentItem[] }>();
 
   for (const c of contents) {
-    const topic = c.topicTitle || 'Uncategorized';
+    const subject = (c.subjectTitle || '').trim() || 'Course';
+    const chapter =
+      (c.chapterTitle || '').trim() || (c.topicTitle || '').trim() || 'General';
+    const key = `${subject}\n${chapter}`;
     const so = c.topicSortOrder ?? 999;
-    if (!map.has(topic)) {
-      map.set(topic, []);
-      groups.push({ topic, sortOrder: so, items: [] });
+    if (!map.has(key)) {
+      map.set(key, { key, subject, chapter, sortOrder: so, items: [] });
     }
-    map.get(topic)!.push(c);
+    map.get(key)!.items.push(c);
   }
 
-  for (const g of groups) {
-    g.items = map.get(g.topic)!.sort((a, b) => a.sortOrder - b.sortOrder);
-  }
-  groups.sort((a, b) => a.sortOrder - b.sortOrder);
+  const groups = [...map.values()].map((g) => ({
+    ...g,
+    items: g.items.sort((a, b) => a.sortOrder - b.sortOrder),
+  }));
+
+  groups.sort((a, b) => {
+    const s = a.subject.localeCompare(b.subject);
+    if (s !== 0) return s;
+    return a.sortOrder - b.sortOrder;
+  });
 
   return groups;
 }
@@ -100,7 +116,7 @@ export default function StudentCourseLearnPage() {
         if (items.length > 0) {
           const firstVideo = items.find((c) => c.type === 'VIDEO' && c.fileUrl) || items[0];
           setSelectedContent(firstVideo);
-          setExpandedTopics(new Set([firstVideo.topicTitle || 'Uncategorized']));
+          setExpandedTopics(new Set([contentGroupKey(firstVideo)]));
         }
       }
     } catch (err) {
@@ -157,7 +173,7 @@ export default function StudentCourseLearnPage() {
     if (selectedContent && studentUserId) markProgress(selectedContent.id, true, 100);
   };
 
-  const groups = groupByTopic(contents);
+  const groups = groupBySubjectChapter(contents);
   const totalLessons = contents.filter((c) => c.type === 'VIDEO').length;
   const completedCount = contents.filter((c) => c.progress?.completed).length;
   const progressPct = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
@@ -311,29 +327,38 @@ export default function StudentCourseLearnPage() {
             <CardContent className="p-0">
               {groups.map((g) => {
                 const topicDuration = g.items.reduce((s, i) => s + (i.durationMinutes ?? 0), 0);
-                const isExpanded = expandedTopics.has(g.topic);
+                const isExpanded = expandedTopics.has(g.key);
+                const subjectLine = g.subject !== 'Course' ? g.subject : null;
+                const chapterLine = g.chapter === 'General' && !subjectLine ? 'Content' : g.chapter;
                 return (
-                  <div key={g.topic} className="border-b border-slate-100 last:border-0">
+                  <div key={g.key} className="border-b border-slate-100 last:border-0">
                     <button
                       onClick={() =>
                         setExpandedTopics((prev) => {
                           const next = new Set(prev);
-                          if (next.has(g.topic)) next.delete(g.topic);
-                          else next.add(g.topic);
+                          if (next.has(g.key)) next.delete(g.key);
+                          else next.add(g.key);
                           return next;
                         })
                       }
                       className="w-full flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition-colors text-left"
                     >
-                      <div className="flex items-center gap-2">
-                        {isExpanded ? (
-                          <ChevronDown className="h-4 w-4 text-slate-400" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4 text-slate-400" />
-                        )}
-                        <span className="font-bold text-slate-900">{g.topic}</span>
+                      <div className="flex flex-col items-start gap-0.5 min-w-0">
+                        <div className="flex items-center gap-2">
+                          {isExpanded ? (
+                            <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />
+                          )}
+                          <span className="font-bold text-slate-900 truncate">{chapterLine}</span>
+                        </div>
+                        {subjectLine ? (
+                          <span className="pl-6 text-[10px] font-black uppercase tracking-wider text-slate-400 truncate">
+                            {subjectLine}
+                          </span>
+                        ) : null}
                       </div>
-                      <span className="text-xs font-bold text-slate-400">{formatDuration(topicDuration)}</span>
+                      <span className="text-xs font-bold text-slate-400 shrink-0">{formatDuration(topicDuration)}</span>
                     </button>
                     {isExpanded && (
                       <div className="bg-slate-50/50">

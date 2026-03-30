@@ -91,12 +91,23 @@ export async function purchaseBook(data: {
 }
 
 /** API response format: { success, message?, data? } */
+export type EnrollCourseDelivery = {
+  recipientName: string;
+  phone: string;
+  address: string;
+  city?: string;
+  postalCode?: string;
+  notes?: string;
+};
+
 export async function enrollInCourse(data: {
   studentUserId: string;
   courseId: string;
   branchId?: string;
   batchId?: string;
-}): Promise<ApiResponse<{ enrollment: any; invoice: { id: string } }> & { data?: { enrollmentId?: string } }> {
+  includeBookIds?: string[];
+  delivery?: EnrollCourseDelivery;
+}): Promise<ApiResponse<{ enrollment: any; invoice: { id: string; totalAmount?: number; dueAmount?: number } }> & { data?: { enrollmentId?: string } }> {
   const url = `${API_BASE_URL}/student-portal/enroll-course`;
   const res = await fetch(url, {
     method: 'POST',

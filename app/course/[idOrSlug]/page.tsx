@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Header } from '@/components/layout/Header';
@@ -8,9 +8,20 @@ import { Footer } from '@/components/layout/Footer';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { getCourseById } from '@/lib/api/courses';
-import { enrollInCourse, checkEnrollment } from '@/lib/api/student-portal';
-import { initInvoicePayment } from '@/lib/api/invoices';
+import { enrollInCourse, checkEnrollment, type EnrollCourseDelivery } from '@/lib/api/student-portal';
+import { getInvoicePdfUrl, initInvoicePayment } from '@/lib/api/invoices';
+import { API_ORIGIN } from '@/lib/api';
 import type { CourseDetailCourseBook, CourseDetails } from '@/types/course';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { 
     BookOpen, 
     Calendar, 
@@ -23,7 +34,9 @@ import {
     Layout,
     Globe,
     Zap,
-    FileText
+    FileText,
+    Receipt,
+    Download,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -36,6 +49,18 @@ export default function CourseDetailsPage() {
     const [error, setError] = useState<string | null>(null);
     const [enrolling, setEnrolling] = useState(false);
     const [alreadyEnrolled, setAlreadyEnrolled] = useState(false);
+    const [selectedPaidBookIds, setSelectedPaidBookIds] = useState<string[]>([]);
+    const [deliveryOpen, setDeliveryOpen] = useState(false);
+    const [delivery, setDelivery] = useState({
+        recipientName: '',
+        phone: '',
+        address: '',
+        city: '',
+        postalCode: '',
+        notes: '',
+    });
+    const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+    const [createdInvoice, setCreatedInvoice] = useState<{ id: string; total?: number } | null>(null);
 
     const fetchCourse = useCallback(async () => {
         try {
@@ -79,7 +104,38 @@ export default function CourseDetailsPage() {
         window.location.href = `/login?redirect=/course/${idOrSlug}`;
     };
 
-    const handleEnroll = async () => {
+    const courseBooks: CourseDetailCourseBook[] = course?.courseBooks || [];
+
+    const booksAddonTotal = useMemo(() => {
+        let s = 0;
+        for (const cb of courseBooks) {
+            if (cb.isFree) continue;
+            if (!selectedPaidBookIds.includes(cb.bookId)) continue;
+            s += Number(cb.book.price);
+        }
+        return s;
+    }, [courseBooks, selectedPaidBookIds]);
+
+    const needsDelivery = useMemo(() => {
+        if (!course) return false;
+        if (course.type === 'OFFLINE') return true;
+        return courseBooks.some(
+            (cb) =>
+                !cb.isFree &&
+                selectedPaidBookIds.includes(cb.bookId) &&
+                !cb.book.isEbook
+        );
+    }, [course, courseBooks, selectedPaidBookIds]);
+
+    const enrollTotal = course ? Number(course.fee) + booksAddonTotal : 0;
+
+    const togglePaidBook = (bookId: string) => {
+        setSelectedPaidBookIds((prev) =>
+            prev.includes(bookId) ? prev.filter((id) => id !== bookId) : [...prev, bookId]
+        );
+    };
+
+    const performEnroll = async (deliveryPayload?: EnrollCourseDelivery) => {
         const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
         if (!userStr) {
             redirectToLogin();
@@ -102,18 +158,25 @@ export default function CourseDetailsPage() {
             const res = await enrollInCourse({
                 studentUserId: user.id,
                 courseId: course.id,
+                includeBookIds: selectedPaidBookIds.length ? selectedPaidBookIds : undefined,
+                delivery: deliveryPayload,
             });
             if (!res.success || !res.data?.invoice?.id) {
-                throw new Error(res.message || 'Failed to enroll');
+                throw new Error((res as { message?: string }).message || 'Failed to enroll');
             }
-            const payRes = await initInvoicePayment(res.data.invoice.id);
-            if (payRes.success && payRes.data?.GatewayPageURL) {
-                window.location.href = payRes.data.GatewayPageURL;
-            } else {
-                throw new Error('Failed to initiate payment');
-            }
+            const inv = res.data.invoice as { id: string; totalAmount?: unknown; payableAmount?: unknown };
+            const total =
+                Number(inv.payableAmount ?? inv.totalAmount ?? enrollTotal) || enrollTotal;
+            setCreatedInvoice({ id: inv.id, total });
+            setInvoiceDialogOpen(true);
+            setDeliveryOpen(false);
+            toast({
+                title: 'ইনভয়েস তৈরি হয়েছে',
+                description: 'নিচে ইনভয়েস দেখুন অথবা পেমেন্ট চালিয়ে যান।',
+                variant: 'success',
+            });
         } catch (e: any) {
-            const apiRes = e.response; // { success, message, data }
+            const apiRes = e.response;
             const msg = apiRes?.message || e.message || 'Enrollment failed';
             if (msg.includes('Already enrolled') || apiRes?.data?.enrollmentId) {
                 setAlreadyEnrolled(true);
@@ -133,6 +196,80 @@ export default function CourseDetailsPage() {
             }
         } finally {
             setEnrolling(false);
+        }
+    };
+
+    const handleEnrollClick = () => {
+        const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+        if (!userStr) {
+            redirectToLogin();
+            return;
+        }
+        if (!course) return;
+        if (needsDelivery) {
+            setDeliveryOpen(true);
+            return;
+        }
+        void performEnroll();
+    };
+
+    const submitDeliveryAndEnroll = () => {
+        const d: EnrollCourseDelivery = {
+            recipientName: delivery.recipientName.trim(),
+            phone: delivery.phone.trim(),
+            address: delivery.address.trim(),
+            city: delivery.city.trim() || undefined,
+            postalCode: delivery.postalCode.trim() || undefined,
+            notes: delivery.notes.trim() || undefined,
+        };
+        if (!d.recipientName || !d.phone || !d.address) {
+            toast({
+                title: 'তথ্য দিন',
+                description: 'নাম, মোবাইল ও ঠিকানা পূরণ করুন।',
+                variant: 'destructive',
+            });
+            return;
+        }
+        void performEnroll(d);
+    };
+
+    const openInvoicePdf = async () => {
+        if (!createdInvoice?.id) return;
+        try {
+            const res = await getInvoicePdfUrl(createdInvoice.id);
+            if (!res.success || !res.data?.pdfUrl) throw new Error(res.message || 'No PDF');
+            const path = res.data.pdfUrl.startsWith('http')
+                ? res.data.pdfUrl
+                : `${API_ORIGIN}${res.data.pdfUrl.startsWith('/') ? '' : '/'}${res.data.pdfUrl}`;
+            const fr = await fetch(path, { credentials: 'include' });
+            if (!fr.ok) throw new Error('PDF download failed');
+            const blob = await fr.blob();
+            const url = URL.createObjectURL(blob);
+            window.open(url, '_blank', 'noopener,noreferrer');
+        } catch (err) {
+            toast({
+                title: 'PDF',
+                description: err instanceof Error ? err.message : 'Could not open PDF',
+                variant: 'destructive',
+            });
+        }
+    };
+
+    const payInvoiceNow = async () => {
+        if (!createdInvoice?.id) return;
+        try {
+            const payRes = await initInvoicePayment(createdInvoice.id);
+            if (payRes.success && payRes.data?.GatewayPageURL) {
+                window.location.href = payRes.data.GatewayPageURL;
+            } else {
+                throw new Error('Failed to initiate payment');
+            }
+        } catch (e: any) {
+            toast({
+                title: 'পেমেন্ট',
+                description: e.message || 'গেটওয়ে খুলতে ব্যর্থ',
+                variant: 'destructive',
+            });
         }
     };
 
@@ -170,7 +307,6 @@ export default function CourseDetailsPage() {
 
     const contents = (course as any).contents || [];
     const syllabus = contents.filter((c: any) => c.type === 'SYLLABUS');
-    const courseBooks: CourseDetailCourseBook[] = course.courseBooks || [];
     const feeBreakdown = course.feeBreakdown;
     const outline = course.outline as any;
     const benefits = Array.isArray(outline?.benefits) ? outline.benefits : [
@@ -261,8 +397,14 @@ export default function CourseDetailsPage() {
                                     <div className="flex flex-col gap-1 max-w-[min(100%,280px)]">
                                         <span className="text-white/60 text-[10px] font-black uppercase tracking-widest">কোর্স ফি (টিউশন)</span>
                                         <span className="text-3xl font-black text-white leading-none">
-                                            ৳{Number(course.fee).toLocaleString()}
+                                            ৳{enrollTotal.toLocaleString()}
                                         </span>
+                                        {booksAddonTotal > 0 ? (
+                                            <span className="text-xs font-bold text-white/70">
+                                                (কোর্স ৳{Number(course.fee).toLocaleString()} + বই ৳
+                                                {booksAddonTotal.toLocaleString()})
+                                            </span>
+                                        ) : null}
                                         {feeBreakdown && feeBreakdown.linkedBooksTotal > 0 ? (
                                             <div className="mt-2 space-y-1 rounded-xl bg-black/30 px-3 py-2 border border-white/10">
                                                 <p className="text-[9px] font-black uppercase text-emerald-300/90 tracking-widest">
@@ -290,7 +432,7 @@ export default function CourseDetailsPage() {
                                         </Link>
                                     ) : (
                                         <button
-                                            onClick={handleEnroll}
+                                            onClick={handleEnrollClick}
                                             disabled={enrolling}
                                             className="px-8 py-4 bg-white text-slate-900 rounded-2xl font-black uppercase text-xs tracking-widest transition-all hover:scale-105 active:scale-95 shadow-xl shadow-white/10 disabled:opacity-70"
                                         >
@@ -338,16 +480,33 @@ export default function CourseDetailsPage() {
                                     <div>
                                         <h2 className="text-3xl font-black text-slate-900 tracking-tight">সুপারিশকৃত বই</h2>
                                         <p className="text-sm font-medium text-slate-500 mt-1">
-                                            অ্যাডমিন থেকে কোর্সে যুক্ত বই। বিনামূল্যে চিহ্নিত থাকলে কোর্সের সাথে জুড়ে দেওয়া হয়।
+                                            পেইড বই টিক দিলে ভর্তির ইনভয়েসে যুক্ত হবে। বিনামূল্যে চিহ্নিত বই কোর্সের সাথে অন্তর্ভুক্ত।
                                         </p>
                                     </div>
                                 </div>
                                 <div className="grid sm:grid-cols-2 gap-4">
                                     {courseBooks.map((cb) => (
-                                        <div
+                                        <label
                                             key={cb.id}
-                                            className="bg-white p-5 rounded-3xl border border-slate-100 flex gap-4 items-center hover:border-amber-100 transition-colors"
+                                            className={cn(
+                                                'bg-white p-5 rounded-3xl border flex gap-4 items-center transition-colors cursor-pointer',
+                                                cb.isFree
+                                                    ? 'border-slate-100 hover:border-amber-100'
+                                                    : selectedPaidBookIds.includes(cb.bookId)
+                                                      ? 'border-amber-400 ring-1 ring-amber-200'
+                                                      : 'border-slate-100 hover:border-amber-100'
+                                            )}
                                         >
+                                            {!cb.isFree ? (
+                                                <input
+                                                    type="checkbox"
+                                                    className="h-5 w-5 rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+                                                    checked={selectedPaidBookIds.includes(cb.bookId)}
+                                                    onChange={() => togglePaidBook(cb.bookId)}
+                                                />
+                                            ) : (
+                                                <span className="h-5 w-5 shrink-0 rounded border border-emerald-200 bg-emerald-50" />
+                                            )}
                                             {cb.book.thumbnailUrl ? (
                                                 <img
                                                     src={cb.book.thumbnailUrl}
@@ -370,7 +529,7 @@ export default function CourseDetailsPage() {
                                                     )}
                                                 </p>
                                             </div>
-                                        </div>
+                                        </label>
                                     ))}
                                 </div>
                             </section>
@@ -458,10 +617,17 @@ export default function CourseDetailsPage() {
                             </div>
 
                             <div className="mt-10 pt-10 border-t border-slate-50">
-                                <div className="flex items-center justify-between mb-8">
+                                <div className="flex items-center justify-between mb-2">
                                     <span className="font-black text-slate-500 uppercase text-xs tracking-widest">মোট ফি</span>
-                                    <span className="text-4xl font-black text-[#5C2D91]">৳{String(course.fee)}</span>
+                                    <span className="text-4xl font-black text-[#5C2D91]">৳{enrollTotal.toLocaleString()}</span>
                                 </div>
+                                {booksAddonTotal > 0 ? (
+                                    <p className="text-[10px] font-bold text-slate-400 mb-6 text-right uppercase tracking-wide">
+                                        কোর্স ৳{Number(course.fee).toLocaleString()} + বই ৳{booksAddonTotal.toLocaleString()}
+                                    </p>
+                                ) : (
+                                    <div className="mb-6" />
+                                )}
                                 {alreadyEnrolled ? (
                                     <Link
                                         href="/student/courses"
@@ -471,7 +637,7 @@ export default function CourseDetailsPage() {
                                     </Link>
                                 ) : (
                                     <button
-                                        onClick={handleEnroll}
+                                        onClick={handleEnrollClick}
                                         disabled={enrolling}
                                         className="w-full h-16 bg-[#5C2D91] text-white rounded-2xl font-black uppercase text-sm tracking-widest shadow-xl shadow-indigo-100 transition-all hover:bg-[#4A2475] active:scale-95 flex items-center justify-center gap-3 disabled:opacity-70"
                                     >
@@ -486,6 +652,106 @@ export default function CourseDetailsPage() {
                     </aside>
                 </div>
             </div>
+
+            <Dialog open={deliveryOpen} onOpenChange={setDeliveryOpen}>
+                <DialogContent className="max-w-md rounded-3xl">
+                    <DialogHeader>
+                        <DialogTitle className="font-black">অর্ডার তথ্য</DialogTitle>
+                    </DialogHeader>
+                    <p className="text-sm text-slate-600">
+                        {course.type === 'OFFLINE'
+                            ? 'অফলাইন কোর্সের জন্য যোগাযোগ ও ঠিকানা দিন। প্রিন্ট বই থাকলে ডেলিভারির জন্যও ব্যবহৃত হবে।'
+                            : 'প্রিন্ট বইয়ের ডেলিভারির জন্য ঠিকানা দিন।'}
+                    </p>
+                    <div className="grid gap-3 py-2">
+                        <div>
+                            <Label className="text-xs font-bold">পূর্ণ নাম</Label>
+                            <Input
+                                className="mt-1 rounded-xl"
+                                value={delivery.recipientName}
+                                onChange={(e) => setDelivery((d) => ({ ...d, recipientName: e.target.value }))}
+                            />
+                        </div>
+                        <div>
+                            <Label className="text-xs font-bold">মোবাইল</Label>
+                            <Input
+                                className="mt-1 rounded-xl"
+                                value={delivery.phone}
+                                onChange={(e) => setDelivery((d) => ({ ...d, phone: e.target.value }))}
+                            />
+                        </div>
+                        <div>
+                            <Label className="text-xs font-bold">ঠিকানা</Label>
+                            <Input
+                                className="mt-1 rounded-xl"
+                                value={delivery.address}
+                                onChange={(e) => setDelivery((d) => ({ ...d, address: e.target.value }))}
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                            <div>
+                                <Label className="text-xs font-bold">শহর (ঐচ্ছিক)</Label>
+                                <Input
+                                    className="mt-1 rounded-xl"
+                                    value={delivery.city}
+                                    onChange={(e) => setDelivery((d) => ({ ...d, city: e.target.value }))}
+                                />
+                            </div>
+                            <div>
+                                <Label className="text-xs font-bold">পোস্ট কোড</Label>
+                                <Input
+                                    className="mt-1 rounded-xl"
+                                    value={delivery.postalCode}
+                                    onChange={(e) => setDelivery((d) => ({ ...d, postalCode: e.target.value }))}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button type="button" variant="outline" onClick={() => setDeliveryOpen(false)}>
+                            বাতিল
+                        </Button>
+                        <Button type="button" onClick={submitDeliveryAndEnroll} disabled={enrolling}>
+                            {enrolling ? 'প্রসেসিং...' : 'ভর্তি চালিয়ে যান'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
+                <DialogContent className="max-w-md rounded-3xl">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 font-black">
+                            <Receipt className="h-5 w-5 text-indigo-600" />
+                            ইনভয়েস তৈরি হয়েছে
+                        </DialogTitle>
+                    </DialogHeader>
+                    {createdInvoice ? (
+                        <div className="space-y-3 text-sm text-slate-700">
+                            <p>
+                                <span className="font-bold text-slate-500">ইনভয়েস ID:</span>{' '}
+                                <span className="font-mono text-xs">{createdInvoice.id}</span>
+                            </p>
+                            <p>
+                                <span className="font-bold text-slate-500">মোট:</span> ৳
+                                {(createdInvoice.total ?? enrollTotal).toLocaleString()}
+                            </p>
+                            <p className="text-slate-500">
+                                পেমেন্ট করুন অথবা ইনভয়েস PDF দেখে রাখুন।
+                            </p>
+                        </div>
+                    ) : null}
+                    <DialogFooter className="flex-col gap-2 sm:flex-row">
+                        <Button type="button" variant="outline" className="gap-2" onClick={() => void openInvoicePdf()}>
+                            <Download className="h-4 w-4" />
+                            PDF দেখুন
+                        </Button>
+                        <Button type="button" className="gap-2 bg-[#5C2D91] hover:bg-[#4A2475]" onClick={() => void payInvoiceNow()}>
+                            পেমেন্ট করুন <ArrowRight className="h-4 w-4" />
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <Footer />
         </div>

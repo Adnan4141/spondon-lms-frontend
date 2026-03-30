@@ -10,6 +10,8 @@ export interface CourseContent {
   textBody?: string;
   isFree: boolean;
   sortOrder: number;
+  subjectTitle?: string | null;
+  chapterTitle?: string | null;
   topicTitle?: string;
   topicSortOrder?: number;
   durationMinutes?: number;
@@ -31,6 +33,8 @@ export interface CreateCourseContentDto {
   textBody?: string;
   isFree?: boolean;
   sortOrder?: number;
+  subjectTitle?: string;
+  chapterTitle?: string;
   topicTitle?: string;
   topicSortOrder?: number;
   durationMinutes?: number;
@@ -43,6 +47,8 @@ export interface UpdateCourseContentDto {
   textBody?: string;
   isFree?: boolean;
   sortOrder?: number;
+  subjectTitle?: string;
+  chapterTitle?: string;
   topicTitle?: string;
   topicSortOrder?: number;
   durationMinutes?: number;

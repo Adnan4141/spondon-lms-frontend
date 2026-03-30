@@ -66,6 +66,12 @@ export const DigitalLibrarySection: React.FC<Props> = ({ dynamicEbooks }) => {
             </div>
             <Button
               asChild
+              className="rounded-2xl bg-emerald-500 font-black uppercase text-[10px] tracking-widest text-white hover:bg-emerald-400"
+            >
+              <Link href="/books">সকল বই — ক্যাটালগ</Link>
+            </Button>
+            <Button
+              asChild
               variant="outline"
               className="rounded-2xl border-white/20 bg-white/5 text-white hover:bg-white/10"
             >
@@ -116,7 +122,7 @@ export const DigitalLibrarySection: React.FC<Props> = ({ dynamicEbooks }) => {
                     <div className="mt-auto pt-6 flex items-center justify-between border-t border-white/5 gap-3">
                       <div className="flex flex-col min-w-0">
                         <span className="text-emerald-400 font-black text-lg sm:text-xl md:text-2xl tracking-tighter">
-                          {book.price === 0 ? 'FREE' : `৳${book.price}`}
+                          {Number(book.price) <= 0 ? 'FREE' : `৳${Number(book.price).toLocaleString()}`}
                         </span>
                         <span className="text-[10px] font-bold text-slate-500 truncate">বিস্তারিত দেখুন</span>
                       </div>
@@ -135,17 +141,30 @@ export const DigitalLibrarySection: React.FC<Props> = ({ dynamicEbooks }) => {
         </motion.div>
 
         <div className="mt-24 text-center space-y-4">
-          <Button
-            asChild
-            variant="outline"
-            className="px-12 py-6 h-auto rounded-3xl border-white/10 text-black font-black uppercase text-xs tracking-[0.3em] hover:bg-white hover:text-slate-900 transition-all duration-500 group"
-          >
-            <Link href="/login?redirect=/student/books">
-              এক্সপ্লোর লাইব্রেরি <ArrowRight className="inline-block ml-3 h-4 w-4 transition-transform group-hover:translate-x-2" />
-            </Link>
-          </Button>
-          <p className="text-[11px] font-medium text-slate-500 max-w-md mx-auto">
-            লগইনের পর শিক্ষার্থী পোর্টালে সম্পূর্ণ তালিকা ও কেনাকাটা। অ্যাডমিনে বই বিক্রয়ে ইনভয়েস:{' '}
+          <div className="flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
+            <Button
+              asChild
+              className="px-10 py-6 h-auto rounded-3xl bg-white font-black uppercase text-xs tracking-[0.2em] text-slate-900 shadow-xl transition-all duration-500 hover:bg-emerald-400 hover:text-white group"
+            >
+              <Link href="/books">
+                পাবলিক ক্যাটালগ <ArrowRight className="inline-block ml-3 h-4 w-4 transition-transform group-hover:translate-x-2" />
+              </Link>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              className="px-10 py-6 h-auto rounded-3xl border-white/20 bg-white/5 font-black uppercase text-xs tracking-[0.2em] text-white hover:bg-white/10 group"
+            >
+              <Link href="/login?redirect=/student/books">
+                লগইন — আমার বই <ArrowRight className="inline-block ml-3 h-4 w-4 transition-transform group-hover:translate-x-2" />
+              </Link>
+            </Button>
+          </div>
+          <p className="text-[11px] font-medium text-slate-500 max-w-lg mx-auto leading-relaxed">
+            <Link href="/books" className="text-emerald-400 underline-offset-2 hover:underline">
+              /books
+            </Link>{' '}
+            থেকে ফিল্টারসহ সব বই দেখুন; কেনার জন্য লগইন করুন। অ্যাডমিনে বিক্রয়:{' '}
             <Link href="/admin/books/sales" className="text-emerald-400 underline-offset-2 hover:underline">
               Books → Sales
             </Link>
