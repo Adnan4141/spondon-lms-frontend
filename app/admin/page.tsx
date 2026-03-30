@@ -20,6 +20,7 @@ import {
    CalendarRange,
    Presentation,
    Building2,
+   MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getUsers } from '@/lib/api/users';
@@ -27,6 +28,7 @@ import { getCourses } from '@/lib/api/courses';
 import { getSystemStats, getRevenueSummary, getEnrollmentReport, type SystemStatsData, type RevenueSummaryResponse, type EnrollmentReportData } from '@/lib/api/reports';
 import { getBatches } from '@/lib/api/batches';
 import { getEnrollments, type Enrollment } from '@/lib/api/enrollments';
+import { getAllTestimonials } from '@/lib/api/testimonials';
 
 export default function AdminDashboard() {
    const router = useRouter();
@@ -56,7 +58,7 @@ export default function AdminDashboard() {
       let cancelled = false;
       (async () => {
          try {
-            const [tRes, cRes, statsRes, revRes, batchRes, enrollRes, enrollReportRes] = await Promise.all([
+            const [tRes, cRes, statsRes, revRes, batchRes, enrollRes, enrollReportRes, testiRes] = await Promise.all([
                getUsers({ role: 'TEACHER', status: 'ACTIVE', limit: 1 }),
                getCourses({ billingType: 'MONTHLY', status: 'ACTIVE', limit: 1 }),
                getSystemStats(),
@@ -64,8 +66,10 @@ export default function AdminDashboard() {
                getBatches({ status: 'ACTIVE', limit: 1 }),
                getEnrollments({ page: 1, limit: 6 }),
                getEnrollmentReport(),
+               getAllTestimonials({ approved: false }),
             ]);
             if (cancelled) return;
+            setPendingReviews(testiRes.success ? (testiRes.data?.length ?? 0) : 0);
             setTeacherTotal(tRes.pagination?.total ?? (tRes.data?.length ?? 0));
             setMonthlyCourseTotal(cRes.pagination?.total ?? (cRes.data?.length ?? 0));
             setStats(statsRes.data || null);
@@ -80,6 +84,7 @@ export default function AdminDashboard() {
                setActiveBatches(null);
                setRecentEnrollments([]);
                setPopularity([]);
+               setPendingReviews(null);
             }
          }
       })();
@@ -234,6 +239,32 @@ export default function AdminDashboard() {
                   <h2 className="text-lg font-black text-slate-900">Monthly billing</h2>
                   <p className="text-sm font-medium text-slate-500 leading-relaxed">
                      Run monthly invoice generation, preview enrollments, and jump to invoices.
+                  </p>
+               </div>
+            </Link>
+            <Link
+               href="/admin/testimonials"
+               className="group flex flex-col justify-between rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm transition-all hover:border-amber-200 hover:shadow-lg"
+            >
+               <div className="flex items-start justify-between gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
+                     <MessageSquare className="h-6 w-6" />
+                  </div>
+                  <span
+                     className={cn(
+                        'rounded-full px-3 py-1 text-xs font-black',
+                        pendingReviews && pendingReviews > 0
+                           ? 'bg-amber-100 text-amber-800'
+                           : 'bg-slate-100 text-slate-600'
+                     )}
+                  >
+                     {pendingReviews === null ? '—' : `${pendingReviews} pending`}
+                  </span>
+               </div>
+               <div className="mt-6 space-y-1">
+                  <h2 className="text-lg font-black text-slate-900">Student reviews</h2>
+                  <p className="text-sm font-medium text-slate-500 leading-relaxed">
+                     Approve course reviews submitted from the student dashboard before they appear on the site.
                   </p>
                </div>
             </Link>

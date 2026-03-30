@@ -52,6 +52,32 @@ export type BookPurchaseDelivery = {
   notes?: string;
 };
 
+export type BookAccessData = {
+  authenticated: boolean;
+  hasAccess: boolean;
+  canPurchase?: boolean;
+  isEbook: boolean;
+  isFreePrice?: boolean;
+  reason: string;
+  readUrl?: string | null;
+  sale?: { id: string; soldAt: string } | null;
+  delivery?: {
+    recipientName: string;
+    phone: string;
+    address: string;
+    city?: string | null;
+    postalCode?: string | null;
+    deliveryStatus?: string;
+    notes?: string | null;
+  } | null;
+  invoice?: { id: string; status: string; dueAmount: number } | null;
+};
+
+export async function getBookAccess(bookId: string, studentUserId?: string): Promise<ApiResponse<BookAccessData>> {
+  const q = studentUserId ? `?studentUserId=${encodeURIComponent(studentUserId)}` : '';
+  return apiRequest<ApiResponse<BookAccessData>>(`/student-portal/book-access/${encodeURIComponent(bookId)}${q}`);
+}
+
 export async function purchaseBook(data: {
   studentUserId: string;
   bookId: string;

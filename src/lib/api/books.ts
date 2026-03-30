@@ -13,6 +13,11 @@ export interface Book {
   thumbnailUrl?: string | null;
   createdAt: string;
   courseBooks?: CourseBook[];
+  collaborators?: Array<
+    BookCollaborator & {
+      user?: { id: string; fullName: string; email?: string; mobile?: string; profileImage?: string | null; role?: string };
+    }
+  >;
   _count?: {
     stocks?: number;
     saleItems?: number;
@@ -169,6 +174,30 @@ export async function getBookById(id: string): Promise<ApiResponse<Book>> {
   return apiRequest<ApiResponse<Book>>(`/books/${id}`);
 }
 
+/** Public catalog — no fileUrl; includes optional collaborators */
+export async function getPublicBook(id: string): Promise<ApiResponse<PublicBook>> {
+  return apiRequest<ApiResponse<PublicBook>>(`/books/public/${encodeURIComponent(id)}`);
+}
+
+export interface PublicBookCollaborator {
+  role: string;
+  user: { id: string; fullName: string; profileImage?: string | null };
+}
+
+export interface PublicBook {
+  id: string;
+  name: string;
+  sku: string;
+  price: number;
+  author?: string | null;
+  description?: string | null;
+  thumbnailUrl?: string | null;
+  isEbook: boolean;
+  createdAt: string;
+  courseBooks?: Array<{ isFree: boolean; course: { id: string; name: string; slug?: string | null } }>;
+  collaborators?: PublicBookCollaborator[];
+}
+
 export async function createBook(
   data: CreateBookDto,
   file?: File,
@@ -290,4 +319,11 @@ export async function addBookCollaborator(data: { bookId: string; userId: string
     method: 'POST',
     body: JSON.stringify(data),
   });
+}
+
+export async function removeBookCollaborator(bookId: string, userId: string): Promise<ApiResponse<{ message?: string }>> {
+  return apiRequest<ApiResponse<{ message?: string }>>(
+    `/books/collaborator/${encodeURIComponent(bookId)}/${encodeURIComponent(userId)}`,
+    { method: 'DELETE' }
+  );
 }

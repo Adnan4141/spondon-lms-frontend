@@ -14,6 +14,7 @@ export interface Testimonial {
 export interface TestimonialAdmin extends Testimonial {
   studentUserId?: string | null;
   courseId?: string | null;
+  student?: { id: string; fullName: string } | null;
   approved: boolean;
   sortOrder: number;
   createdAt: string;
@@ -23,8 +24,12 @@ export async function getPublicTestimonials(): Promise<{ success: boolean; data:
   return apiRequest('/testimonials/public');
 }
 
-export async function getAllTestimonials(): Promise<{ success: boolean; data: TestimonialAdmin[] }> {
-  return apiRequest('/testimonials');
+export async function getAllTestimonials(params?: {
+  approved?: boolean;
+}): Promise<{ success: boolean; data: TestimonialAdmin[] }> {
+  const q =
+    params?.approved === true ? '?approved=true' : params?.approved === false ? '?approved=false' : '';
+  return apiRequest(`/testimonials${q}`);
 }
 
 export async function createTestimonial(data: Partial<TestimonialAdmin>): Promise<{ success: boolean; data: TestimonialAdmin }> {

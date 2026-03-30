@@ -85,7 +85,7 @@ export const DigitalLibrarySection: React.FC<Props> = ({ dynamicEbooks }) => {
             <motion.div key={book.id} variants={fadeInUp} className="group relative h-full">
               <div className="absolute inset-0 bg-emerald-500/10 rounded-[48px] blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <Link
-                href={`/student/books/${book.id}`}
+                href={`/books/${book.id}`}
                 className="relative block h-full rounded-[48px] outline-none transition-all duration-500 focus-visible:ring-2 focus-visible:ring-emerald-400/90 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0F1C]"
               >
                 <div className="relative bg-[#111827]/80 backdrop-blur-md border border-white/[0.08] rounded-[48px] p-6 flex gap-6 items-center h-full transition-all duration-500 group-hover:border-emerald-500/40 group-hover:bg-[#161F31]">
@@ -155,3 +155,4 @@ export const DigitalLibrarySection: React.FC<Props> = ({ dynamicEbooks }) => {
     </section>
   );
 };
+/admin/books/page.tsx 

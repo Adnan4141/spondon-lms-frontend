@@ -48,10 +48,14 @@ export interface Invoice {
     fullName: string;
     email?: string | null;
     mobile: string;
+    studentProfile?: { registrationNumber?: string | null } | null;
   };
   branch?: {
     id: string;
     name: string;
+    address?: string | null;
+    phone?: string | null;
+    vatRegNo?: string | null;
   };
   items?: InvoiceItem[];
   payments?: Payment[];

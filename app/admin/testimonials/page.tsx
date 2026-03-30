@@ -43,14 +43,36 @@ export default function AdminTestimonialsPage() {
   }, [load]);
 
   const openForm = (existing?: TestimonialAdmin) => {
-    const initial = existing || { name: '', quote: '', info: '', rating: 5 } as Partial<TestimonialAdmin>;
+    const initial =
+      existing ||
+      ({
+        name: '',
+        quote: '',
+        info: '',
+        rating: 5,
+        courseId: '',
+        studentUserId: '',
+      } as Partial<TestimonialAdmin>);
     let form = { ...initial };
     openModal({
       title: existing ? 'Edit review' : 'Add review',
       className: 'sm:max-w-lg',
       content: (
         <div className="space-y-4">
-          <Input defaultValue={form.name} placeholder="Student name" onChange={(e) => (form = { ...form, name: e.target.value })} />
+          <div className="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-3 text-xs font-semibold text-indigo-700">
+            Reviews can only be submitted by enrolled students. Enter the student ID and course ID; backend will verify enrollment and keep the review pending until approved.
+          </div>
+          <Input
+            defaultValue={form.studentUserId || ''}
+            placeholder="Student user ID (required)"
+            onChange={(e) => (form = { ...form, studentUserId: e.target.value })}
+          />
+          <Input
+            defaultValue={form.courseId || ''}
+            placeholder="Course ID (required)"
+            onChange={(e) => (form = { ...form, courseId: e.target.value })}
+          />
+          <Input defaultValue={form.name} placeholder="Display name (optional)" onChange={(e) => (form = { ...form, name: e.target.value })} />
           <Input defaultValue={form.info || ''} placeholder="Institute / batch (optional)" onChange={(e) => (form = { ...form, info: e.target.value })} />
           <Input
             type="number"
@@ -65,7 +87,8 @@ export default function AdminTestimonialsPage() {
             <Button
               onClick={async () => {
                 try {
-                  if (!form.name || !form.quote) throw new Error('Name and quote required');
+                  if (!form.studentUserId || !form.courseId) throw new Error('Student ID and course ID are required');
+                  if (!form.quote?.trim()) throw new Error('Quote is required');
                   if (existing) await updateTestimonial(existing.id, form);
                   else await createTestimonial(form);
                   await load();
@@ -144,7 +167,8 @@ export default function AdminTestimonialsPage() {
         <Table>
           <TableHeader className="bg-slate-50">
             <TableRow>
-              <TableHead>Name</TableHead>
+              <TableHead>Student</TableHead>
+              <TableHead>Course</TableHead>
               <TableHead>Quote</TableHead>
               <TableHead>Rating</TableHead>
               <TableHead>Status</TableHead>
@@ -154,7 +178,18 @@ export default function AdminTestimonialsPage() {
           <TableBody>
             {testimonials.map((t) => (
               <TableRow key={t.id}>
-                <TableCell className="font-bold">{t.name}</TableCell>
+                <TableCell className="font-bold">
+                  <div className="flex flex-col">
+                    <span>{t.student?.fullName || t.name || 'Student'}</span>
+                    <span className="text-xs text-slate-400">{t.studentUserId || '—'}</span>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-col">
+                    <span className="font-semibold text-slate-700">{t.course?.name || '—'}</span>
+                    <span className="text-xs text-slate-400">{t.courseId || t.course?.id || ''}</span>
+                  </div>
+                </TableCell>
                 <TableCell className="max-w-xl">
                   <p className="text-sm text-slate-700 line-clamp-2">{t.quote}</p>
                   {t.info && <p className="text-xs text-slate-400 mt-1">{t.info}</p>}

@@ -455,8 +455,8 @@ export default function StudentCourseLearnPage() {
                       await loadReviews();
                       alert('রিভিউ পাঠানো হয়েছে। অনুমোদনের পর প্রকাশ হবে।');
                     } catch (err) {
-                      console.error(err);
-                      alert('রিভিউ পাঠানো যায়নি');
+                      const msg = err instanceof Error ? err.message : 'রিভিউ পাঠানো যায়নি';
+                      alert(msg);
                     } finally {
                       setReviewSubmitting(false);
                     }
