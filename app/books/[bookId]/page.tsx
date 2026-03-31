@@ -1,20 +1,10 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
-import {
-  ArrowLeft,
-  ArrowRight,
-  BookOpen,
-  Loader2,
-  Sparkles,
-  Truck,
-  Users,
-  FileText,
-  ExternalLink,
-} from 'lucide-react';
+import { ArrowLeft, Loader2, Users, Truck, ExternalLink, PieChart, Library } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { getPublicBook, type PublicBook } from '@/lib/api/books';
 import { getBranches } from '@/lib/api/branches';
 import { getBookAccess, purchaseBook, type BookAccessData } from '@/lib/api/student-portal';
@@ -32,6 +22,14 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { BookHeroSection } from '@/components/books/BookHeroSection';
+import { BookTabs, type BookTabId } from '@/components/books/BookTabs';
+import { BookOverviewSection } from '@/components/books/BookOverviewSection';
+import { BookContentsSection } from '@/components/books/BookContentsSection';
+import { BookReviewsPlaceholder } from '@/components/books/BookReviewsPlaceholder';
+import { Header } from '@/components/layout/Header';
+
+const BOOKMARK_KEY = 'spondon_bookmarked_books';
 
 type LocalUser = { id: string; role?: string; fullName?: string; mobile?: string };
 
@@ -45,6 +43,20 @@ function readUser(): LocalUser | null {
   }
 }
 
+function readBookmarkSet(): Set<string> {
+  try {
+    const raw = localStorage.getItem(BOOKMARK_KEY);
+    const arr = raw ? (JSON.parse(raw) as string[]) : [];
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writeBookmarkSet(ids: Set<string>) {
+  localStorage.setItem(BOOKMARK_KEY, JSON.stringify([...ids]));
+}
+
 export default function PublicBookDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -55,6 +67,8 @@ export default function PublicBookDetailPage() {
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<BookTabId>('overview');
+  const [bookmarked, setBookmarked] = useState(false);
 
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -67,10 +81,8 @@ export default function PublicBookDetailPage() {
   const [submitting, setSubmitting] = useState(false);
   const [purchaseHint, setPurchaseHint] = useState<string | null>(null);
 
-  const refreshAccess = useCallback(async () => {
-    const u = readUser();
-    const res = await getBookAccess(bookId, u?.id);
-    if (res.success && res.data) setAccess(res.data);
+  useEffect(() => {
+    setBookmarked(readBookmarkSet().has(bookId));
   }, [bookId]);
 
   useEffect(() => {
@@ -92,6 +104,11 @@ export default function PublicBookDetailPage() {
       }
     })();
   }, [bookId]);
+
+  const categoryLabel = useMemo(() => {
+    const first = book?.courseBooks?.[0]?.course?.name;
+    return first?.trim() || null;
+  }, [book]);
 
   const openCheckout = () => {
     setPurchaseHint(null);
@@ -116,7 +133,11 @@ export default function PublicBookDetailPage() {
 
   const pay = async () => {
     const u = readUser();
-    if (!u || !book) return;
+    if (!u?.id) {
+      router.replace(`/login?redirect=${encodeURIComponent(`/books/${bookId}`)}`);
+      return;
+    }
+    if (!book) return;
     if (String(u.role || '').toUpperCase() !== 'STUDENT') {
       setFormError('শুধুমাত্র শিক্ষার্থী অ্যাকাউন্ট দিয়ে কেনা যাবে।');
       return;
@@ -155,11 +176,24 @@ export default function PublicBookDetailPage() {
     }
   };
 
+  const toggleBookmark = () => {
+    const next = readBookmarkSet();
+    if (next.has(bookId)) next.delete(bookId);
+    else next.add(bookId);
+    writeBookmarkSet(next);
+    setBookmarked(next.has(bookId));
+  };
+
+  const onStartReading = () => {
+    const url = access?.readUrl;
+    if (url) window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   if (loadError) {
     return (
-      <div className="min-h-screen bg-[#060a12] text-white flex flex-col items-center justify-center px-6">
-        <p className="text-rose-400 font-semibold mb-4">{loadError}</p>
-        <Button asChild variant="outline" className="rounded-2xl border-white/20 text-white">
+      <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col items-center justify-center px-6">
+        <p className="text-rose-600 font-semibold mb-4">{loadError}</p>
+        <Button asChild variant="outline" className="rounded-xl border-slate-200">
           <Link href="/">হোম</Link>
         </Button>
       </div>
@@ -168,8 +202,8 @@ export default function PublicBookDetailPage() {
 
   if (loading || !book) {
     return (
-      <div className="min-h-screen bg-[#060a12] flex items-center justify-center text-slate-400">
-        <Loader2 className="h-10 w-10 animate-spin text-emerald-400" />
+      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center text-slate-400">
+        <Loader2 className="h-10 w-10 animate-spin text-indigo-500" />
       </div>
     );
   }
@@ -178,217 +212,199 @@ export default function PublicBookDetailPage() {
   const collaborators = book.collaborators || [];
   const readUrl = access?.readUrl || null;
   const showRead = Boolean(access?.hasAccess && book.isEbook && readUrl);
+  const showStudentLibraryLink = true;
 
   return (
-    <div className="min-h-screen bg-[#060a12] text-slate-100">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 h-[480px] w-[480px] rounded-full bg-emerald-500/15 blur-[120px]" />
-        <div className="absolute bottom-0 -left-20 h-[360px] w-[360px] rounded-full bg-indigo-600/20 blur-[100px]" />
+    <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-indigo-100">
+      <Header />
+
+      {/* Hero Section - Matching Course Detail Style */}
+      <div className="relative bg-[#0F172A] pt-32 pb-24 overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 blur-[120px] rounded-full pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/10 blur-[100px] rounded-full pointer-events-none" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:40px_40px] opacity-[0.05] pointer-events-none"></div>
+
+        <div className="max-w-7xl mx-auto px-6 lg:px-12 relative z-10">
+          <BookHeroSection
+            book={book}
+            bookId={bookId}
+            categoryLabel={categoryLabel}
+            isFree={isFree}
+            showRead={showRead}
+            readUrl={readUrl}
+            bookmarked={bookmarked}
+            onToggleBookmark={toggleBookmark}
+            onBuy={openCheckout}
+            purchaseHint={purchaseHint}
+            onStartReading={onStartReading}
+          />
+        </div>
       </div>
 
-      <header className="relative z-10 border-b border-white/10 bg-black/20 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 text-sm font-bold text-slate-400 transition hover:text-white"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            হোম
-          </Link>
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-emerald-400" />
-            <span className="text-xs font-black uppercase tracking-[0.25em] text-emerald-400/90">Digital library</span>
-          </div>
-          <Link
-            href="/login?redirect=/student/books"
-            className="text-sm font-bold text-white/80 hover:text-white"
-          >
-            শিক্ষার্থী লগইন
-          </Link>
-        </div>
-      </header>
-
-      <main className="relative z-10 mx-auto max-w-6xl px-6 py-12 lg:py-16">
-        <div className="grid gap-12 lg:grid-cols-2 lg:items-start">
-          <div className="relative aspect-[3/4] overflow-hidden rounded-[2rem] border border-white/10 bg-[#0f172a] shadow-2xl shadow-black/40">
-            <Image
-              src={book.thumbnailUrl || 'https://placehold.co/600x800?text=Book'}
-              alt={book.name}
-              fill
-              className="object-contain p-4"
-              unoptimized
-              priority
-            />
-            <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/80 to-transparent" />
-          </div>
-
-          <div className="space-y-8">
-            <div>
-              <Badge className="mb-3 rounded-full border-emerald-500/40 bg-emerald-500/10 text-emerald-300">
-                {book.isEbook ? 'ই-বুক' : 'প্রিন্ট / অফলাইন'}
-              </Badge>
-              <h1 className="text-3xl font-black leading-tight tracking-tight text-white sm:text-4xl lg:text-5xl">
-                {book.name}
-              </h1>
-              {book.author ? (
-                <p className="mt-2 text-sm font-bold text-slate-500">— {book.author}</p>
-              ) : null}
-              <p className="mt-4 text-base leading-relaxed text-slate-400">
-                {book.description || 'প্রিমিয়াম লার্নিং ম্যাটেরিয়াল।'}
-              </p>
+      {showStudentLibraryLink ? (
+        <div className="border-b border-slate-200 bg-gradient-to-r from-indigo-600 to-violet-700 text-white">
+          <div className="mx-auto flex max-w-7xl flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between lg:px-12">
+            <div className="flex items-center gap-3 text-sm font-bold text-indigo-100">
+              <Library className="h-5 w-5 shrink-0 text-white" />
+              <span>শিক্ষার্থী হিসেবে কেনা ই-বুক ও প্রিন্ট অর্ডার এক জায়গায় দেখুন।</span>
             </div>
+            <Link
+              href="/student/books#my-books"
+              className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-2.5 text-xs font-black uppercase tracking-widest text-indigo-700 shadow-lg transition-transform hover:scale-[1.02]"
+            >
+              আমার বই
+            </Link>
+          </div>
+        </div>
+      ) : null}
 
-            {collaborators.length > 0 ? (
-              <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-md">
-                <div className="mb-4 flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-indigo-300">
-                  <Users className="h-4 w-4" />
-                  সহযোগী দল
+      <main className="mx-auto max-w-7xl px-6 py-16 lg:px-12">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-16 items-start">
+          <div className="lg:col-span-2 space-y-12">
+            <div className="overflow-hidden rounded-[40px] border border-slate-100 bg-white shadow-sm">
+              <div className="border-b border-slate-50 px-8 pt-4">
+                <BookTabs active={activeTab} onChange={setActiveTab} />
+              </div>
+              <div className="p-10">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={activeTab}
+                    initial={{ opacity: 0, x: 10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    {activeTab === 'overview' && (
+                      <BookOverviewSection description={book.description} outline={book.outline} />
+                    )}
+                    {activeTab === 'contents' && <BookContentsSection outline={book.outline} />}
+                    {activeTab === 'reviews' && (
+                      <div className="py-10">
+                        <BookReviewsPlaceholder />
+                      </div>
+                    )}
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+            </div>
+          </div>
+
+          <aside className="space-y-8">
+            {collaborators.length > 0 && (
+              <div className="rounded-[40px] border border-slate-100 bg-white p-8 shadow-sm">
+                <div className="mb-6 flex items-center gap-3">
+                  <div className="p-2.5 rounded-2xl bg-indigo-50 text-indigo-600">
+                    <Users className="h-5 w-5" />
+                  </div>
+                  <h4 className="text-xl font-black tracking-tight text-slate-900">সহযোগী দল</h4>
                 </div>
-                <div className="flex flex-wrap gap-3">
+                <div className="space-y-4">
                   {collaborators.map((c) => (
                     <div
                       key={`${c.user.id}-${c.role}`}
-                      className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/30 px-4 py-3"
+                      className="group flex items-center gap-4 rounded-3xl border border-slate-50 bg-slate-50/50 p-4 transition-all hover:bg-white hover:shadow-md hover:border-indigo-100"
                     >
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-sm font-black text-white">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-indigo-100 text-sm font-black text-indigo-700">
                         {c.user.fullName?.charAt(0) || '?'}
                       </div>
-                      <div>
-                        <p className="font-bold text-white">{c.user.fullName}</p>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">{c.role}</p>
+                      <div className="min-w-0">
+                        <p className="truncate font-black text-slate-900">{c.user.fullName}</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{c.role}</p>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
-            ) : null}
+            )}
 
-            <div className="flex flex-wrap items-end gap-6 border-t border-white/10 pt-8">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-500">মূল্য</p>
-                <p className="mt-1 text-4xl font-black text-emerald-400">{isFree ? 'FREE' : `৳${book.price}`}</p>
-              </div>
-            </div>
-
-            {purchaseHint ? <p className="text-sm font-semibold text-rose-400">{purchaseHint}</p> : null}
-
-            {access?.reason === 'payment_pending' && access.invoice ? (
-              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
-                <p className="font-black text-amber-200">পেমেন্ট বাকি</p>
-                <p className="mt-1 text-amber-100/90">
+            {access?.reason === 'payment_pending' && access.invoice && (
+              <div className="rounded-[40px] border border-amber-100 bg-amber-50/50 p-8">
+                <div className="mb-4 flex items-center gap-3 text-amber-900">
+                  <PieChart className="h-5 w-5" />
+                  <h4 className="text-xl font-black">পেমেন্ট বাকি</h4>
+                </div>
+                <p className="text-sm font-bold text-amber-800 opacity-80">
                   ইনভয়েস স্ট্যাটাস: {access.invoice.status} · বাকি ৳{access.invoice.dueAmount}
                 </p>
-                <Button asChild className="mt-3 rounded-xl bg-amber-500 text-black hover:bg-amber-400">
+                <Button asChild className="mt-6 w-full h-14 rounded-2xl bg-amber-600 text-white hover:bg-amber-700 shadow-lg shadow-amber-200/50 transition-all active:scale-95">
                   <Link href="/student/payment">পেমেন্ট পোর্টাল</Link>
                 </Button>
               </div>
-            ) : null}
+            )}
 
-            {!book.isEbook && access?.reason === 'physical_purchase' && access.delivery ? (
-              <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/5 p-5">
-                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-emerald-300">
-                  <Truck className="h-4 w-4" />
-                  ডেলিভারি / বুকিং
+            {!book.isEbook && access?.reason === 'physical_purchase' && access.delivery && (
+              <div className="rounded-[40px] border border-emerald-100 bg-emerald-50/50 p-8">
+                <div className="mb-4 flex items-center gap-3 text-emerald-900">
+                  <Truck className="h-5 w-5" />
+                  <h4 className="text-xl font-black">ডেলিভারি ট্র্যাকিং</h4>
                 </div>
-                <p className="mt-2 font-bold text-white">{access.delivery.recipientName}</p>
-                <p className="text-sm text-slate-400">{access.delivery.phone}</p>
-                <p className="mt-2 text-sm text-slate-300">{access.delivery.address}</p>
-                {access.delivery.deliveryStatus ? (
-                  <Badge className="mt-3 bg-emerald-500/20 text-emerald-200">{access.delivery.deliveryStatus}</Badge>
-                ) : null}
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <p className="font-black text-slate-900">{access.delivery.recipientName}</p>
+                    <p className="text-sm font-bold text-slate-500">{access.delivery.phone}</p>
+                  </div>
+                  <p className="text-sm font-medium text-slate-600 leading-relaxed bg-white p-4 rounded-2xl border border-emerald-50">
+                    {access.delivery.address}
+                  </p>
+                  {access.delivery.deliveryStatus && (
+                    <Badge className="px-4 py-2 rounded-xl bg-emerald-600 text-white border-none shadow-md shadow-emerald-100 font-black text-[10px] uppercase tracking-widest">
+                      {access.delivery.deliveryStatus}
+                    </Badge>
+                  )}
+                </div>
               </div>
-            ) : null}
-
-            <div className="flex flex-wrap gap-3">
-              {showRead && readUrl ? (
-                <>
-                  <Button
-                    asChild
-                    className="h-12 rounded-2xl bg-emerald-500 px-8 font-black text-[#060a12] hover:bg-emerald-400"
-                  >
-                    <a href={readUrl} target="_blank" rel="noopener noreferrer">
-                      <FileText className="mr-2 h-4 w-4" />
-                      পড়ুন / PDF
-                    </a>
-                  </Button>
-                  <Button asChild variant="outline" className="h-12 rounded-2xl border-white/20 text-white">
-                    <a href={readUrl} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="mr-2 h-4 w-4" />
-                      নতুন ট্যাবে খুলুন
-                    </a>
-                  </Button>
-                </>
-              ) : null}
-
-              {book.isEbook && !isFree && !access?.hasAccess ? (
-                <Button
-                  onClick={openCheckout}
-                  className="h-12 rounded-2xl bg-white px-8 font-black text-[#060a12] hover:bg-emerald-400 hover:text-[#060a12]"
-                >
-                  পেমেন্ট করে কিনুন <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              ) : null}
-
-              {isFree && book.isEbook && !readUser()?.id ? (
-                <Button asChild variant="outline" className="h-12 rounded-2xl border-white/20 text-white">
-                  <Link href={`/login?redirect=${encodeURIComponent(`/books/${bookId}`)}`}>পড়তে লগইন করুন</Link>
-                </Button>
-              ) : null}
-
-              <Button asChild variant="ghost" className="h-12 rounded-2xl text-slate-400 hover:text-white">
-                <Link href="/student/books">
-                  <BookOpen className="mr-2 h-4 w-4" />
-                  পোর্টালের তালিকা
-                </Link>
-              </Button>
-            </div>
-          </div>
+            )}
+          </aside>
         </div>
       </main>
 
       <Dialog open={checkoutOpen} onOpenChange={setCheckoutOpen}>
-        <DialogContent className="max-w-lg rounded-3xl border-slate-200 bg-white text-slate-900">
+        <DialogContent className="max-w-lg rounded-[32px] border-white bg-white/90 backdrop-blur-xl text-slate-900 shadow-2xl ring-1 ring-slate-100">
           <DialogHeader>
-            <DialogTitle className="font-black">অনলাইন কেনাকাটা</DialogTitle>
-            <DialogDescription>{book.name}</DialogDescription>
+            <DialogTitle className="text-2xl font-black tracking-tight">অনলাইন কেনাকাটা</DialogTitle>
+            <DialogDescription className="font-bold text-indigo-600">{book.name}</DialogDescription>
           </DialogHeader>
-          {formError && <p className="text-sm text-rose-600">{formError}</p>}
-          <div className="grid gap-3">
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label>পূর্ণ নাম</Label>
-                <Input value={recipientName} onChange={(e) => setRecipientName(e.target.value)} className="rounded-xl" />
+          {formError && (
+            <div className="p-4 rounded-2xl bg-rose-50 border border-rose-100 text-rose-600 text-sm font-bold animate-shake">
+              {formError}
+            </div>
+          )}
+          <div className="grid gap-5">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">পূর্ণ নাম</Label>
+                <Input value={recipientName} onChange={(e) => setRecipientName(e.target.value)} className="h-14 rounded-2xl bg-slate-50/50 border-slate-100 focus:bg-white focus:ring-indigo-500/10 transition-all font-bold" />
               </div>
-              <div>
-                <Label>মোবাইল</Label>
-                <Input value={phone} onChange={(e) => setPhone(e.target.value)} className="rounded-xl" />
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">মোবাইল</Label>
+                <Input value={phone} onChange={(e) => setPhone(e.target.value)} className="h-14 rounded-2xl bg-slate-50/50 border-slate-100 focus:bg-white focus:ring-indigo-500/10 transition-all font-bold" />
               </div>
             </div>
-            <div>
-              <Label>ঠিকানা</Label>
-              <Textarea value={address} onChange={(e) => setAddress(e.target.value)} rows={3} className="rounded-xl" />
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">ঠিকানা</Label>
+              <Textarea value={address} onChange={(e) => setAddress(e.target.value)} rows={3} className="rounded-2xl bg-slate-50/50 border-slate-100 focus:bg-white focus:ring-indigo-500/10 transition-all font-bold" />
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label>শহর</Label>
-                <Input value={city} onChange={(e) => setCity(e.target.value)} className="rounded-xl" />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">শহর</Label>
+                <Input value={city} onChange={(e) => setCity(e.target.value)} className="h-14 rounded-2xl bg-slate-50/50 border-slate-100 focus:bg-white focus:ring-indigo-500/10 transition-all font-bold" />
               </div>
-              <div>
-                <Label>পোস্ট কোড</Label>
-                <Input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} className="rounded-xl" />
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">পোস্ট কোড</Label>
+                <Input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} className="h-14 rounded-2xl bg-slate-50/50 border-slate-100 focus:bg-white focus:ring-indigo-500/10 transition-all font-bold" />
               </div>
             </div>
-            <div>
-              <Label>নোট</Label>
-              <Input value={notes} onChange={(e) => setNotes(e.target.value)} className="rounded-xl" />
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">নোট</Label>
+              <Input value={notes} onChange={(e) => setNotes(e.target.value)} className="h-14 rounded-2xl bg-slate-50/50 border-slate-100 focus:bg-white focus:ring-indigo-500/10 transition-all font-bold" />
             </div>
           </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" className="rounded-xl" onClick={() => setCheckoutOpen(false)} disabled={submitting}>
+          <DialogFooter className="gap-3 mt-6">
+            <Button variant="outline" className="h-14 rounded-2xl px-8 border-slate-200 font-bold" onClick={() => setCheckoutOpen(false)} disabled={submitting}>
               বাতিল
             </Button>
-            <Button className="rounded-xl font-black" onClick={pay} disabled={submitting}>
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'পেমেন্টে যান'}
+            <Button className="h-14 rounded-2xl px-10 font-black bg-indigo-600 hover:bg-indigo-700 shadow-xl shadow-indigo-100 active:scale-95 transition-all" onClick={pay} disabled={submitting}>
+              {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : 'পেমেন্টে যান'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -14,6 +14,8 @@ export function isValidHttpUrl(input: string): boolean {
 
 export function resolveAttachmentUrl(fileUrl: string, apiOrigin: string): string {
   if (!fileUrl) return '';
+  if (fileUrl.startsWith('/uploads/')) return `${apiOrigin}${fileUrl}`;
+  if (fileUrl.startsWith('/images/')) return fileUrl; // served from Next.js public
   if (fileUrl.startsWith('/')) return `${apiOrigin}${fileUrl}`;
   return fileUrl;
 }

@@ -10,6 +10,8 @@ import {
   type UpdateUserPayload,
 } from '@/lib/api/users';
 import type { Branch } from '@/lib/api/branches';
+import { API_ORIGIN } from '@/lib/api';
+import { resolveAttachmentUrl } from '@/lib/attachment-url';
 import { useModalStore } from '@/store/modalStore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -21,12 +23,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Building2, User as UserIcon, Phone, Mail, Lock, Shield, ImagePlus } from 'lucide-react';
+import { Building2, User as UserIcon, Phone, Mail, Lock, Shield, ImagePlus, X, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const inputClass =
-  'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner outline-none';
-const sectionLabel = 'text-[11px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2 block px-1';
+  'h-14 rounded-2xl border-slate-100 bg-slate-50/50 px-4 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner outline-none';
+const sectionLabel = 'text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2.5 block px-1';
 
 const BD_MOBILE = /^01[3-9]\d{8}$/;
 
@@ -96,7 +98,7 @@ export function TeacherForm({ branches, teacher, lockedBranchId, onSuccess }: Te
       return;
     }
     if (password && password.length < 6) {
-      setError('Password must be at least 6 characters, or leave blank to auto-generate');
+      setError('Password must be at least 6 characters');
       return;
     }
 
@@ -131,7 +133,7 @@ export function TeacherForm({ branches, teacher, lockedBranchId, onSuccess }: Te
           }
         }
         await onSuccess();
-        toast({ title: 'Saved', description: 'Teacher updated.', variant: 'success' });
+        toast({ title: 'Success', description: 'Teacher updated.', variant: 'success' });
         closeModal();
       } else {
         const payload: CreateUserPayload = {
@@ -161,10 +163,10 @@ export function TeacherForm({ branches, teacher, lockedBranchId, onSuccess }: Te
         await onSuccess();
         const otp = (res.data as { oneTimePassword?: string }).oneTimePassword;
         toast({
-          title: 'Teacher created',
+          title: 'Success',
           description: otp
             ? `Share this one-time password with the teacher: ${otp}`
-            : 'Teacher account is ready.',
+            : 'New teacher account established.',
           variant: 'success',
         });
         closeModal();
@@ -177,194 +179,247 @@ export function TeacherForm({ branches, teacher, lockedBranchId, onSuccess }: Te
   };
 
   return (
-    <div className="flex max-h-[85vh] flex-col overflow-hidden text-slate-900">
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6 sm:px-8">
-        <div className="space-y-8">
-          <section className="space-y-4">
-            <div className="flex items-center gap-2">
-              <UserIcon className="h-4 w-4 text-indigo-600" />
-              <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Profile</h3>
+    <div className="flex max-h-[85vh] flex-col overflow-hidden text-slate-900 bg-white">
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-8 sm:px-10">
+        <div className="space-y-10">
+          
+          {/* Section: Profile */}
+          <section className="space-y-6">
+            <div className="flex items-center gap-2.5 px-1">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 shadow-sm border border-indigo-100/50">
+                <UserIcon className="h-4 w-4" />
+              </div>
+              <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-800">Profile</h3>
             </div>
-            <div className="space-y-2">
-              <label className={sectionLabel}>Full name</label>
-              <Input
-                className={inputClass}
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Teacher name"
-              />
+            
+            <div className="space-y-4">
+               <div className="space-y-2">
+                 <label className={sectionLabel}>Full name</label>
+                 <Input
+                   className={inputClass}
+                   value={fullName}
+                   onChange={(e) => setFullName(e.target.value)}
+                   placeholder="Teacher name"
+                 />
+               </div>
+
+               <div className="grid gap-6 sm:grid-cols-2">
+                 <div className="space-y-2">
+                   <label className={sectionLabel}>Phone (login)</label>
+                   <div className="relative">
+                     <Phone className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                     <Input
+                       className={cn(inputClass, 'pl-11')}
+                       value={mobile}
+                       onChange={(e) => setMobile(e.target.value)}
+                       placeholder="017XXXXXXXX"
+                       disabled={isEdit}
+                     />
+                   </div>
+                   {isEdit && (
+                     <p className="text-[9px] font-bold text-slate-400 px-2 flex items-center gap-1">
+                        <ShieldCheck className="h-3 w-3" /> System locked for security.
+                     </p>
+                   )}
+                 </div>
+                 
+                 <div className="space-y-2">
+                   <label className={sectionLabel}>Email</label>
+                   <div className="relative">
+                     <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                     <Input
+                       className={cn(inputClass, 'pl-11')}
+                       type="email"
+                       value={email}
+                       onChange={(e) => setEmail(e.target.value)}
+                       placeholder="institutional@email.com"
+                     />
+                   </div>
+                 </div>
+               </div>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <label className={sectionLabel}>Mobile (login)</label>
-                <div className="relative">
-                  <Phone className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <Input
-                    className={cn(inputClass, 'pl-11')}
-                    value={mobile}
-                    onChange={(e) => setMobile(e.target.value)}
-                    placeholder="01712345678"
-                    disabled={isEdit}
-                  />
+          </section>
+
+          {/* Section: Photo */}
+          <section className="space-y-6">
+             <div className="flex items-center gap-2.5 px-1">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-sky-50 text-sky-600 shadow-sm border border-sky-100/50">
+                   <ImagePlus className="h-4 w-4" />
                 </div>
-                {isEdit && (
-                  <p className="text-[10px] font-bold text-slate-400 px-1">Mobile cannot be changed here.</p>
+                <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-800">Photo</h3>
+             </div>
+             
+             <div className="rounded-[28px] border border-slate-100 bg-slate-50/30 p-6 space-y-6">
+                <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+                   <div className="relative group shrink-0">
+                      <div className="h-24 w-24 rounded-[28px] border-4 border-white bg-white shadow-xl shadow-slate-200/50 flex items-center justify-center overflow-hidden">
+                         {(photoPreview || photoUrl) ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={photoPreview || resolveAttachmentUrl(photoUrl, API_ORIGIN)}
+                              alt="Preview"
+                              className="h-full w-full object-cover"
+                            />
+                         ) : (
+                            <UserIcon className="h-10 w-10 text-slate-200" />
+                         )}
+                      </div>
+                      {(photoPreview || photoUrl) && (
+                         <button 
+                            onClick={() => {
+                               setPhotoFile(null);
+                               setPhotoPreview(null);
+                               setPhotoUrl('');
+                            }}
+                            className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-lg transition-transform hover:scale-110"
+                         >
+                            <X className="h-4 w-4" />
+                         </button>
+                      )}
+                   </div>
+                   
+                   <div className="flex-1 space-y-4">
+                      <label className="inline-flex cursor-pointer items-center justify-center gap-2.5 rounded-2xl bg-slate-900 px-6 py-3.5 text-sm font-black tracking-tight text-white transition-all hover:bg-indigo-600 shadow-lg shadow-slate-200">
+                         <ImagePlus className="h-4 w-4" />
+                         Upload Profile Image
+                         <input
+                           type="file"
+                           accept="image/*"
+                           className="sr-only"
+                           onChange={(e) => {
+                             const f = e.target.files?.[0];
+                             if (!f) return;
+                             setPhotoFile(f);
+                             setPhotoPreview(URL.createObjectURL(f));
+                           }}
+                         />
+                      </label>
+                      <p className="text-[10px] font-bold text-slate-400 leading-relaxed uppercase tracking-widest px-1">
+                         Tip: square JPG/PNG works best.
+                      </p>
+                   </div>
+                </div>
+
+                <div className="space-y-2">
+                   <label className={sectionLabel}>Image URL (optional)</label>
+                   <Input
+                     className={inputClass}
+                     value={photoUrl}
+                     onChange={(e) => setPhotoUrl(e.target.value)}
+                     placeholder="https://institutional-storage.com/photo.jpg"
+                     disabled={!!photoFile}
+                   />
+                </div>
+             </div>
+          </section>
+
+          {/* Section: Branch & Security */}
+          <div className="grid gap-10 lg:grid-cols-2">
+             <section className="space-y-6">
+                <div className="flex items-center gap-2.5 px-1">
+                   <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-50 text-violet-600 shadow-sm border border-violet-100/50">
+                      <Building2 className="h-4 w-4" />
+                   </div>
+                   <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-800">Branch</h3>
+                </div>
+                
+                {lockedBranchId ? (
+                   <div className="rounded-2xl border border-indigo-100 bg-indigo-50/30 px-5 py-4 flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600">
+                         <Building2 className="h-4 w-4" />
+                      </div>
+                      <p className="text-sm font-black text-indigo-900">
+                         {branches.find((b) => b.id === lockedBranchId)?.name || 'Branch Office'}
+                      </p>
+                   </div>
+                ) : (
+                  <div className="space-y-2">
+                     <label className={sectionLabel}>Branch</label>
+                     <Select value={branchId || 'none'} onValueChange={(v) => setBranchId(v === 'none' ? '' : v)}>
+                       <SelectTrigger className={cn(inputClass, 'h-14')}>
+                         <SelectValue placeholder="Select Institutional Node" />
+                       </SelectTrigger>
+                       <SelectContent className="rounded-2xl p-2 border-slate-100 shadow-2xl">
+                         <SelectItem value="none" className="rounded-xl font-bold">Not Assigned (Global)</SelectItem>
+                         {branches.map((b) => (
+                           <SelectItem key={b.id} value={b.id} className="rounded-xl font-bold">
+                             {b.name}
+                           </SelectItem>
+                         ))}
+                       </SelectContent>
+                     </Select>
+                   </div>
                 )}
-              </div>
-              <div className="space-y-2">
-                <label className={sectionLabel}>Email (optional)</label>
-                <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <Input
-                    className={cn(inputClass, 'pl-11')}
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@example.com"
-                  />
+             </section>
+
+             <section className="space-y-6">
+                <div className="flex items-center gap-2.5 px-1">
+                   <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 shadow-sm border border-emerald-100/50">
+                      <Lock className="h-4 w-4" />
+                   </div>
+                   <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-800">Password</h3>
                 </div>
-              </div>
-              <div className="space-y-2 sm:col-span-2">
-                <label className={sectionLabel}>Profile photo</label>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-                  <label className="flex cursor-pointer items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-600 transition-colors hover:border-indigo-300 hover:bg-indigo-50/30">
-                    <ImagePlus className="h-4 w-4 text-indigo-500" />
-                    Upload image
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="sr-only"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (!f) return;
-                        setPhotoFile(f);
-                        setPhotoPreview(URL.createObjectURL(f));
-                      }}
-                    />
-                  </label>
-                  {(photoPreview || photoUrl) && (
-                    <div className="flex items-center gap-3">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={photoPreview || photoUrl}
-                        alt=""
-                        className="h-16 w-16 rounded-2xl border border-slate-200 object-cover"
-                      />
-                      {photoFile ? (
-                        <button
-                          type="button"
-                          className="text-xs font-bold text-rose-600 hover:underline"
-                          onClick={() => {
-                            if (photoPreview) URL.revokeObjectURL(photoPreview);
-                            setPhotoFile(null);
-                            setPhotoPreview(null);
-                          }}
-                        >
-                          Remove upload
-                        </button>
-                      ) : null}
-                    </div>
+                
+                <div className="space-y-2">
+                  <label className={sectionLabel}>{isEdit ? 'New password' : 'Password (optional)'}</label>
+                  <Input
+                    className={inputClass}
+                    type="password"
+                    autoComplete="new-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder={isEdit ? '••••••••' : 'Leave empty for auto-generation'}
+                  />
+                  {!isEdit && (
+                    <p className="text-[9px] font-bold text-slate-400 px-2 leading-relaxed tracking-tight">
+                       Leave empty to auto-generate.
+                    </p>
                   )}
                 </div>
-                <p className="text-[10px] font-bold text-slate-400 px-1">Or paste an image URL:</p>
-                <Input
-                  className={inputClass}
-                  value={photoUrl}
-                  onChange={(e) => setPhotoUrl(e.target.value)}
-                  placeholder="https://…/photo.jpg"
-                  disabled={!!photoFile}
-                />
-              </div>
-            </div>
-          </section>
-
-          <section className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-violet-600" />
-              <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Branch</h3>
-            </div>
-            {lockedBranchId ? (
-              <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700">
-                {branches.find((b) => b.id === lockedBranchId)?.name || 'Your branch'}
-              </p>
-            ) : (
-              <div className="space-y-2">
-                <label className={sectionLabel}>Home branch</label>
-                <Select value={branchId || 'none'} onValueChange={(v) => setBranchId(v === 'none' ? '' : v)}>
-                  <SelectTrigger className={cn(inputClass, 'h-12')}>
-                    <SelectValue placeholder="Optional" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl">
-                    <SelectItem value="none">Not assigned</SelectItem>
-                    {branches.map((b) => (
-                      <SelectItem key={b.id} value={b.id}>
-                        {b.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </section>
-
-          <section className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Lock className="h-4 w-4 text-emerald-600" />
-              <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Password</h3>
-            </div>
-            <div className="space-y-2">
-              <label className={sectionLabel}>{isEdit ? 'New password (optional)' : 'Password (optional)'}</label>
-              <Input
-                className={inputClass}
-                type="password"
-                autoComplete="new-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={isEdit ? 'Leave blank to keep current' : 'Leave blank to auto-generate'}
-              />
-              {!isEdit && (
-                <p className="text-[10px] font-bold text-slate-500 px-1 leading-relaxed">
-                  If empty, the system creates a one-time password and shows it after save.
-                </p>
-              )}
-            </div>
-          </section>
+             </section>
+          </div>
 
           {isEdit && (
-            <section className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Shield className="h-4 w-4 text-amber-600" />
-                <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Access</h3>
-              </div>
-              <div className="space-y-2">
-                <label className={sectionLabel}>Status</label>
-                <Select value={status} onValueChange={setStatus}>
-                  <SelectTrigger className={cn(inputClass, 'h-12')}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl">
-                    <SelectItem value="ACTIVE">Active</SelectItem>
-                    <SelectItem value="BLOCKED">Blocked</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </section>
+             <section className="space-y-6">
+                <div className="flex items-center gap-2.5 px-1">
+                   <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-50 text-amber-600 shadow-sm border border-amber-100/50">
+                      <Shield className="h-4 w-4" />
+                   </div>
+                   <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-800">Status</h3>
+                </div>
+                
+                <div className="space-y-2">
+                   <label className={sectionLabel}>Status</label>
+                   <Select value={status} onValueChange={setStatus}>
+                     <SelectTrigger className={cn(inputClass, 'h-14')}>
+                       <SelectValue />
+                     </SelectTrigger>
+                     <SelectContent className="rounded-2xl p-2 border-slate-100 shadow-2xl">
+                       <SelectItem value="ACTIVE" className="rounded-xl font-bold text-emerald-600">Active Access</SelectItem>
+                       <SelectItem value="BLOCKED" className="rounded-xl font-bold text-rose-600">Restricted Access</SelectItem>
+                     </SelectContent>
+                   </Select>
+                </div>
+             </section>
           )}
 
           {error && (
-            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+            <div className="rounded-[20px] border border-rose-100 bg-rose-50 px-5 py-4 text-sm font-black text-rose-700 flex items-center gap-3 animate-in fade-in zoom-in duration-300">
+              <div className="h-6 w-6 rounded-lg bg-rose-100 flex items-center justify-center text-rose-600">
+                 <X className="h-3.5 w-3.5" />
+              </div>
               {error}
             </div>
           )}
         </div>
       </div>
 
-      <div className="shrink-0 border-t border-slate-100 bg-slate-50/80 px-6 py-4 sm:px-8">
-        <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+      <div className="shrink-0 border-t border-slate-50 bg-slate-50/50 px-8 py-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:justify-end">
           <Button
             type="button"
-            variant="outline"
-            className="h-12 rounded-2xl font-bold"
+            variant="ghost"
+            className="h-14 px-8 rounded-2xl font-black uppercase tracking-widest text-[11px] text-slate-400 hover:text-slate-600 transition-all"
             onClick={closeModal}
             disabled={submitting}
           >
@@ -372,11 +427,11 @@ export function TeacherForm({ branches, teacher, lockedBranchId, onSuccess }: Te
           </Button>
           <Button
             type="button"
-            className="h-12 rounded-2xl text-white bg-slate-900 font-bold hover:bg-indigo-600"
+            className="h-14 px-10 rounded-2xl text-white bg-slate-900 font-black tracking-tight hover:bg-indigo-600 transition-all shadow-xl shadow-slate-200 disabled:opacity-50"
             onClick={handleSubmit}
             disabled={submitting}
           >
-            {submitting ? 'Saving…' : isEdit ? 'Save changes' : 'Create teacher'}
+            {submitting ? 'Saving...' : isEdit ? 'Save changes' : 'Create teacher'}
           </Button>
         </div>
       </div>

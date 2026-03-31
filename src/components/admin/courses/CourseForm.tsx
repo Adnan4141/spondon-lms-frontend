@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { createCourse, updateCourse, getCourses, getCourseContents, deleteCourseContent, getAssociatedCourses, deleteAssociatedCourse, uploadCourseThumbnail } from '@/lib/api/courses';
+import { useState, useEffect, useMemo } from 'react';
+import { createCourse, updateCourse, getCourses, getCourseContents, deleteCourseContent, getAssociatedCourses, deleteAssociatedCourse, uploadCourseThumbnail, updateCourseContent } from '@/lib/api/courses';
 import { API_ORIGIN } from '@/lib/api';
+import { resolveAttachmentUrl } from '@/lib/attachment-url';
 import { useModalStore } from '@/store/modalStore';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -54,6 +55,13 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { CourseResourceForm } from './CourseResourceForm';
 import { CourseAssociationForm } from './CourseAssociationForm';
+import {
+  Dialog as SimpleDialog,
+  DialogContent as SimpleDialogContent,
+  DialogHeader as SimpleDialogHeader,
+  DialogTitle as SimpleDialogTitle,
+  DialogFooter as SimpleDialogFooter,
+} from '@/components/ui/dialog';
 
 const statusOptions: CourseStatus[] = ['ACTIVE', 'DISABLED', 'ARCHIVED'];
 const typeOptions: CourseType[] = ['ONLINE', 'OFFLINE'];
@@ -124,7 +132,9 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [thumbnailUploading, setThumbnailUploading] = useState(false);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+  // Start with all subjects/chapters expanded for easier editing
   const [expandedChapters, setExpandedChapters] = useState<Record<string, boolean>>({});
+  const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>>({});
   
   const [activeTab, setActiveTab] = useState<'basic' | 'content' | 'related'>('basic');
   const [resources, setResources] = useState<any[]>([]);
@@ -135,6 +145,10 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
   const [editingResource, setEditingResource] = useState<any>(null);
   const [addingToChapter, setAddingToChapter] = useState<string | null>(null);
   const [addingChapterOrder, setAddingChapterOrder] = useState<number | null>(null);
+  const [addingSubjectTitle, setAddingSubjectTitle] = useState<string | null>(null);
+  const [subjectRenaming, setSubjectRenaming] = useState(false);
+  const [renameModal, setRenameModal] = useState<{ open: boolean; subject: string }>({ open: false, subject: '' });
+  const [renameInput, setRenameInput] = useState('');
 
   const isEdit = !!course;
 
@@ -177,7 +191,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
         settledOptionEnabled: course.settledOptionEnabled,
       });
       if (course.thumbnail) {
-        const url = course.thumbnail.startsWith('/') ? `${API_ORIGIN}${course.thumbnail}` : course.thumbnail;
+        const url = resolveAttachmentUrl(course.thumbnail, API_ORIGIN);
         setThumbnailPreview(url);
       }
       fetchExtras();
@@ -199,14 +213,15 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
         setThumbnailUploading(true);
         const res = await uploadCourseThumbnail(course.id, file);
         if (res.success && res.data?.thumbnail) {
-          const url = res.data.thumbnail;
-          setForm((prev) => ({ ...prev, thumbnail: url }));
+          const stored = res.data.thumbnail;
+          const url = resolveAttachmentUrl(stored, API_ORIGIN);
+          setForm((prev) => ({ ...prev, thumbnail: stored }));
           setThumbnailPreview(url);
           toast({ title: 'Thumbnail uploaded', variant: 'success' });
         }
       } catch {
         toast({ title: 'Upload failed', variant: 'destructive' });
-        setThumbnailPreview(form.thumbnail || null);
+        setThumbnailPreview(form.thumbnail ? resolveAttachmentUrl(form.thumbnail, API_ORIGIN) : null);
       } finally {
         setThumbnailUploading(false);
       }
@@ -219,9 +234,87 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
     }
   };
 
-  const toggleChapter = (chapter: string) => {
-    setExpandedChapters((prev) => ({ ...prev, [chapter]: !prev[chapter] }));
+  const isSubjectOpen = (subjectKey: string) => expandedSubjects[subjectKey] === true;
+  const toggleSubject = (subjectKey: string) => {
+    setExpandedSubjects((prev) => ({
+      ...prev,
+      [subjectKey]: !isSubjectOpen(subjectKey),
+    }));
   };
+
+  const isChapterOpen = (chapterKey: string) => expandedChapters[chapterKey] === true;
+  const toggleChapter = (chapter: string) => {
+    setExpandedChapters((prev) => ({ ...prev, [chapter]: !isChapterOpen(chapter) }));
+  };
+
+  const startRename = (subject: string) => {
+    const current = subject === 'General' ? '' : subject;
+    setRenameInput(current);
+    setRenameModal({ open: true, subject });
+  };
+
+  const submitRename = async () => {
+    const oldSubject = renameModal.subject;
+    const oldKey = oldSubject === 'General' ? '' : oldSubject;
+    const trimmed = renameInput.trim();
+    if (trimmed === oldKey.trim()) {
+      setRenameModal({ open: false, subject: '' });
+      return;
+    }
+    try {
+      setSubjectRenaming(true);
+      const targets = resources.filter((r) => {
+        const s = (r.subjectTitle || '').trim();
+        return (s || '') === oldKey;
+      });
+      await Promise.all(
+        targets.map(async (r) => {
+          const fd = new FormData();
+          fd.append('subjectTitle', trimmed);
+          return updateCourseContent(r.id, fd);
+        })
+      );
+      toast({ title: 'Subject renamed', description: `${oldSubject || 'General'} → ${trimmed || 'General'}`, variant: 'success' });
+      await fetchExtras();
+    } catch (err) {
+      toast({ title: 'Rename failed', description: err instanceof Error ? err.message : 'Could not rename subject', variant: 'destructive' });
+    } finally {
+      setSubjectRenaming(false);
+      setRenameModal({ open: false, subject: '' });
+    }
+  };
+
+  const contentBySubject = useMemo(() => {
+    const chapters = resources.reduce<Record<string, typeof resources>>((acc, res) => {
+      const subject = (res.subjectTitle || '').trim() || 'General';
+      const chapter =
+        (res.chapterTitle || '').trim() || (res.topicTitle || '').trim() || 'Ungrouped';
+      const key = `${subject}:::${chapter}`;
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(res);
+      return acc;
+    }, {});
+
+    const sortedChapters = Object.entries(chapters).sort(([, a], [, b]) => {
+      const aOrder = a[0]?.topicSortOrder ?? 999;
+      const bOrder = b[0]?.topicSortOrder ?? 999;
+      const subA = (a[0]?.subjectTitle || '').trim() || 'General';
+      const subB = (b[0]?.subjectTitle || '').trim() || 'General';
+      const subCmp = subA.localeCompare(subB);
+      if (subCmp !== 0) return subCmp;
+      return aOrder - bOrder;
+    });
+
+    const subjectGroups = new Map<string, [string, typeof resources][]>();
+    for (const row of sortedChapters) {
+      const [compoundKey] = row;
+      const subjectPart = compoundKey.split(':::')[0] || 'General';
+      if (!subjectGroups.has(subjectPart)) subjectGroups.set(subjectPart, []);
+      subjectGroups.get(subjectPart)!.push(row);
+    }
+    const orderedSubjects = [...subjectGroups.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    return { sortedChapters, orderedSubjects };
+  }, [resources]);
 
   const handleSubmit = async () => {
     const parsedFee = Number(form.fee);
@@ -407,10 +500,12 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
               <label className={sectionLabel}>Course Thumbnail</label>
               <div className="flex items-start gap-4">
                 {/* Preview */}
-                {thumbnailPreview ? (
+                {(() => {
+                  const preview = thumbnailPreview || (form.thumbnail ? resolveAttachmentUrl(form.thumbnail, API_ORIGIN) : null);
+                  return preview ? (
                   <div className="relative shrink-0 group">
                     <img
-                      src={thumbnailPreview}
+                      src={preview}
                       alt="Thumbnail"
                       className="h-28 w-44 rounded-2xl border border-slate-200 object-cover shadow-inner"
                     />
@@ -422,7 +517,8 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                       ✕
                     </button>
                   </div>
-                ) : null}
+                  ) : null;
+                })()}
                 {/* Upload area */}
                 <label className="flex-1 cursor-pointer">
                   <div className={cn(
@@ -606,7 +702,13 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
             <div className="flex items-center justify-between">
                <h3 className="text-xl font-black tracking-tight">Course Content</h3>
                <Button
-                 onClick={() => { setEditingResource(null); setAddingToChapter(null); setAddingChapterOrder(null); setShowResourceForm(true); }}
+                 onClick={() => {
+                   setEditingResource(null);
+                   setAddingToChapter(null);
+                   setAddingChapterOrder(null);
+                   setAddingSubjectTitle(null);
+                   setShowResourceForm(true);
+                 }}
                  size="sm"
                  className="h-9 rounded-xl bg-slate-900 text-white hover:bg-black font-black uppercase tracking-widest text-[9px]"
                >
@@ -615,7 +717,18 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
             </div>
 
             {/* Content form dialog */}
-            <Dialog open={showResourceForm} onOpenChange={(open) => { if (!open) { setShowResourceForm(false); setEditingResource(null); setAddingToChapter(null); setAddingChapterOrder(null); } }}>
+            <Dialog
+              open={showResourceForm}
+              onOpenChange={(open) => {
+                if (!open) {
+                  setShowResourceForm(false);
+                  setEditingResource(null);
+                  setAddingToChapter(null);
+                  setAddingChapterOrder(null);
+                  setAddingSubjectTitle(null);
+                }
+              }}
+            >
               <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl p-0">
                 <DialogHeader className="px-6 pt-6 pb-0">
                   <DialogTitle className="text-lg font-black tracking-tight">
@@ -628,16 +741,18 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                 </DialogHeader>
                 <div className="px-6 pb-6">
                   <CourseResourceForm
-                    key={`${course.id}-${editingResource?.id ?? 'new'}-${addingToChapter ?? 'root'}`}
+                    key={`${course.id}-${editingResource?.id ?? 'new'}-${addingToChapter ?? 'root'}-${addingSubjectTitle ?? ''}`}
                     courseId={course.id}
                     resource={editingResource}
                     defaultSubjectTitle={
-                      addingToChapter
-                        ? (() => {
-                            const s = addingToChapter.split(':::')[0];
-                            return s === 'General' ? '' : s;
-                          })()
-                        : undefined
+                      addingSubjectTitle != null
+                        ? addingSubjectTitle || undefined
+                        : addingToChapter
+                          ? (() => {
+                              const s = addingToChapter.split(':::')[0];
+                              return s === 'General' ? '' : s;
+                            })()
+                          : undefined
                     }
                     defaultChapterTitle={
                       addingToChapter
@@ -650,153 +765,243 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                     }
                     defaultTopicTitle={undefined}
                     defaultTopicSortOrder={addingChapterOrder ?? undefined}
-                    onSuccess={() => { setShowResourceForm(false); setEditingResource(null); setAddingToChapter(null); setAddingChapterOrder(null); fetchExtras(); }}
-                    onCancel={() => { setShowResourceForm(false); setEditingResource(null); setAddingToChapter(null); setAddingChapterOrder(null); }}
+                    onSuccess={() => {
+                      setShowResourceForm(false);
+                      setEditingResource(null);
+                      setAddingToChapter(null);
+                      setAddingChapterOrder(null);
+                      setAddingSubjectTitle(null);
+                      fetchExtras();
+                    }}
+                    onCancel={() => {
+                      setShowResourceForm(false);
+                      setEditingResource(null);
+                      setAddingToChapter(null);
+                      setAddingChapterOrder(null);
+                      setAddingSubjectTitle(null);
+                    }}
                   />
                 </div>
               </DialogContent>
             </Dialog>
 
-            {/* Subject → chapter grouped content */}
-            {(() => {
-              const chapters = resources.reduce<Record<string, typeof resources>>((acc, res) => {
-                const subject = (res.subjectTitle || '').trim() || 'General';
-                const chapter =
-                  (res.chapterTitle || '').trim() || (res.topicTitle || '').trim() || 'Ungrouped';
-                const key = `${subject}:::${chapter}`;
-                if (!acc[key]) acc[key] = [];
-                acc[key].push(res);
-                return acc;
-              }, {});
+            {/* Subject (expand) → chapter → segment — matches student portal & details view */}
+            {contentBySubject.sortedChapters.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-slate-300">
+                <FileText className="h-12 w-12 mb-3" />
+                <p className="text-sm font-bold">No content yet</p>
+                <p className="text-xs mt-1">Click &quot;New Chapter&quot; to start building your course</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {contentBySubject.orderedSubjects.map(([subjectTitle, chapterRows]) => {
+                  const subjectKey = subjectTitle;
+                  const subOpen = isSubjectOpen(subjectKey);
+                  const segCount = chapterRows.reduce((n, [, items]) => n + items.length, 0);
+                  const displaySubject = subjectTitle === 'General' ? 'General (no subject)' : subjectTitle;
 
-              const sortedChapters = Object.entries(chapters).sort(([, a], [, b]) => {
-                const aOrder = a[0]?.topicSortOrder ?? 999;
-                const bOrder = b[0]?.topicSortOrder ?? 999;
-                const subA = (a[0]?.subjectTitle || '').trim() || 'General';
-                const subB = (b[0]?.subjectTitle || '').trim() || 'General';
-                const subCmp = subA.localeCompare(subB);
-                if (subCmp !== 0) return subCmp;
-                return aOrder - bOrder;
-              });
-
-              if (sortedChapters.length === 0) {
-                return (
-                  <div className="flex flex-col items-center justify-center py-16 text-slate-300">
-                    <FileText className="h-12 w-12 mb-3" />
-                    <p className="text-sm font-bold">No content yet</p>
-                    <p className="text-xs mt-1">Click &quot;New Chapter&quot; to start building your course</p>
-                  </div>
-                );
-              }
-
-              return (
-                <div className="space-y-3">
-                  {sortedChapters.map(([compoundKey, items], chapterIdx) => {
-                    const isExpanded = !!expandedChapters[compoundKey];
-                    const totalDuration = items.reduce((sum, r) => sum + (r.durationMinutes || 0), 0);
-                    const videoCount = items.filter((r: any) => r.type === 'VIDEO').length;
-                    const chapterOrder = items[0]?.topicSortOrder ?? chapterIdx;
-                    const subjectPart = compoundKey.split(':::')[0] || 'General';
-                    const chapterPart = compoundKey.split(':::')[1] || 'Ungrouped';
-                    const showSubject = subjectPart !== 'General';
-                    const chapterHeading =
-                      chapterPart === 'Ungrouped' && !showSubject ? 'General content' : chapterPart === 'Ungrouped' ? 'General' : chapterPart;
-
-                    return (
-                      <div key={compoundKey} className="rounded-2xl border border-slate-100 bg-white overflow-hidden">
-                        {/* Chapter header */}
+                  return (
+                    <div
+                      key={subjectKey}
+                      className="rounded-2xl border border-slate-200 bg-slate-50/40 overflow-hidden"
+                    >
+                      <div className="flex items-stretch gap-2 border-b border-slate-100 bg-white/80">
                         <button
                           type="button"
-                          onClick={() => toggleChapter(compoundKey)}
-                          className="flex w-full items-center gap-3 p-4 text-left hover:bg-slate-50/80 transition-colors"
+                          onClick={() => toggleSubject(subjectKey)}
+                          className="flex flex-1 items-center gap-3 p-4 text-left hover:bg-slate-50/80 transition-colors min-w-0"
                         >
-                          {isExpanded
-                            ? <ChevronDown className="h-4 w-4 text-indigo-500 shrink-0" />
-                            : <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />
-                          }
+                          {subOpen ? (
+                            <ChevronDown className="h-4 w-4 text-indigo-600 shrink-0" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />
+                          )}
                           <div className="flex-1 min-w-0">
-                            {showSubject ? (
-                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 truncate">{subjectPart}</p>
-                            ) : null}
-                            <h4 className="text-sm font-black text-slate-800 truncate">
-                              {chapterHeading}
+                            <h4 className="text-[11px] font-black uppercase tracking-widest text-indigo-600 truncate">
+                              Subject
                             </h4>
-                            <div className="flex items-center gap-3 mt-0.5">
-                              <span className="text-[10px] font-bold text-slate-400">
-                                {items.length} {items.length === 1 ? 'segment' : 'segments'}
-                              </span>
-                              {videoCount > 0 && (
-                                <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400">
-                                  <Play className="h-2.5 w-2.5" /> {videoCount} video{videoCount !== 1 ? 's' : ''}
-                                </span>
-                              )}
-                              {totalDuration > 0 && (
-                                <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400">
-                                  <Clock className="h-2.5 w-2.5" /> {totalDuration} min
-                                </span>
-                              )}
-                            </div>
+                            <p className="text-sm font-black text-slate-900 truncate">{displaySubject}</p>
+                            <p className="text-[10px] font-bold text-slate-400 mt-0.5">
+                              {chapterRows.length} {chapterRows.length === 1 ? 'chapter' : 'chapters'} · {segCount}{' '}
+                              {segCount === 1 ? 'segment' : 'segments'}
+                            </p>
                           </div>
-                          <Badge variant="outline" className="text-[8px] font-black uppercase shrink-0">
-                            Ch {chapterIdx + 1}
-                          </Badge>
                         </button>
-
-                        {/* Chapter content items */}
-                        {isExpanded && (
-                          <div className="border-t border-slate-50">
-                            {items
-                              .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-                              .map((res, idx) => (
-                              <div
-                                key={res.id}
-                                className="group flex items-center gap-3 px-4 py-3 hover:bg-indigo-50/40 transition-colors border-b border-slate-50 last:border-b-0"
-                              >
-                                <span className="text-[10px] font-black text-slate-300 w-5 text-center shrink-0">
-                                  {String(idx + 1).padStart(2, '0')}
-                                </span>
-                                <div className="h-8 w-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:text-indigo-600 shrink-0">
-                                  {getResourceIcon(res.type)}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <h5 className="text-[13px] font-bold text-slate-700 truncate">{res.title}</h5>
-                                  <div className="flex items-center gap-2 mt-0.5">
-                                    <Badge variant="outline" className="text-[7px] font-black uppercase">{res.type}</Badge>
-                                    {res.isFree && (
-                                      <Badge className="text-[7px] font-black uppercase bg-emerald-50 text-emerald-600 border-emerald-200">Free</Badge>
-                                    )}
-                                    {res.durationMinutes > 0 && (
-                                      <span className="text-[10px] font-bold text-slate-400">{res.durationMinutes} min</span>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                  <Button variant="outline" size="icon" className="h-7 w-7 rounded-lg border-slate-200" onClick={() => { setEditingResource(res); setAddingToChapter(null); setShowResourceForm(true); }}>
-                                    <Pencil className="h-3 w-3 text-amber-500" />
-                                  </Button>
-                                  <Button variant="outline" size="icon" className="h-7 w-7 rounded-lg border-slate-200 hover:bg-rose-50" onClick={async () => { if(confirm('Delete this segment?')){ await deleteCourseContent(res.id); fetchExtras(); } }}>
-                                    <Trash2 className="h-3 w-3 text-rose-500" />
-                                  </Button>
-                                </div>
-                              </div>
-                            ))}
-
-                            {/* Add segment button — opens modal */}
-                            <button
-                              type="button"
-                              onClick={() => { setEditingResource(null); setAddingToChapter(compoundKey); setAddingChapterOrder(chapterOrder); setShowResourceForm(true); }}
-                              className="flex w-full items-center justify-center gap-2 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 hover:bg-indigo-50/50 transition-colors border-t border-dashed border-slate-100"
-                            >
-                              <Plus className="h-3 w-3" /> Add Segment
-                            </button>
-                          </div>
-                        )}
+                        <div className="flex items-center pr-3">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-9 rounded-xl text-[9px] font-black uppercase shrink-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingResource(null);
+                              setAddingToChapter(null);
+                              setAddingChapterOrder(null);
+                              setAddingSubjectTitle(subjectTitle === 'General' ? '' : subjectTitle);
+                              setShowResourceForm(true);
+                            }}
+                          >
+                            <Plus className="mr-1 h-3 w-3" />
+                            Chapter
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="ml-2 h-9 rounded-xl text-[9px] font-black uppercase shrink-0 text-slate-500 hover:text-indigo-600"
+                            disabled={subjectRenaming}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              startRename(subjectTitle);
+                            }}
+                          >
+                            Rename
+                          </Button>
+                        </div>
                       </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
+
+                      {subOpen && (
+                        <div className="space-y-3 p-3 bg-white/60">
+                          {chapterRows.map(([compoundKey, items], chapterIdx) => {
+                            const isExpanded = isChapterOpen(compoundKey);
+                            const totalDuration = items.reduce((sum, r) => sum + (r.durationMinutes || 0), 0);
+                            const videoCount = items.filter((r: any) => r.type === 'VIDEO').length;
+                            const chapterOrder = items[0]?.topicSortOrder ?? chapterIdx;
+                            const chapterPart = compoundKey.split(':::')[1] || 'Ungrouped';
+                            const chapterHeading =
+                              chapterPart === 'Ungrouped' && subjectTitle === 'General'
+                                ? 'General content'
+                                : chapterPart === 'Ungrouped'
+                                  ? 'General'
+                                  : chapterPart;
+
+                            return (
+                              <div
+                                key={compoundKey}
+                                className="rounded-2xl border border-slate-100 bg-white overflow-hidden"
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => toggleChapter(compoundKey)}
+                                  className="flex w-full items-center gap-3 p-4 text-left hover:bg-slate-50/80 transition-colors"
+                                >
+                                  {isExpanded ? (
+                                    <ChevronDown className="h-4 w-4 text-indigo-500 shrink-0" />
+                                  ) : (
+                                    <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="text-sm font-black text-slate-800 truncate">{chapterHeading}</h4>
+                                    <div className="flex items-center gap-3 mt-0.5">
+                                      <span className="text-[10px] font-bold text-slate-400">
+                                        {items.length} {items.length === 1 ? 'segment' : 'segments'}
+                                      </span>
+                                      {videoCount > 0 && (
+                                        <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400">
+                                          <Play className="h-2.5 w-2.5" /> {videoCount} video
+                                          {videoCount !== 1 ? 's' : ''}
+                                        </span>
+                                      )}
+                                      {totalDuration > 0 && (
+                                        <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400">
+                                          <Clock className="h-2.5 w-2.5" /> {totalDuration} min
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <Badge variant="outline" className="text-[8px] font-black uppercase shrink-0">
+                                    Ch {chapterIdx + 1}
+                                  </Badge>
+                                </button>
+
+                                {isExpanded && (
+                                  <div className="border-t border-slate-50">
+                                    {items
+                                      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+                                      .map((res, idx) => (
+                                        <div
+                                          key={res.id}
+                                          className="group flex items-center gap-3 px-4 py-3 hover:bg-indigo-50/40 transition-colors border-b border-slate-50 last:border-b-0"
+                                        >
+                                          <span className="text-[10px] font-black text-slate-300 w-5 text-center shrink-0">
+                                            {String(idx + 1).padStart(2, '0')}
+                                          </span>
+                                          <div className="h-8 w-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:text-indigo-600 shrink-0">
+                                            {getResourceIcon(res.type)}
+                                          </div>
+                                          <div className="flex-1 min-w-0">
+                                            <h5 className="text-[13px] font-bold text-slate-700 truncate">{res.title}</h5>
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                              <Badge variant="outline" className="text-[7px] font-black uppercase">
+                                                {res.type}
+                                              </Badge>
+                                              {res.isFree && (
+                                                <Badge className="text-[7px] font-black uppercase bg-emerald-50 text-emerald-600 border-emerald-200">
+                                                  Free
+                                                </Badge>
+                                              )}
+                                              {res.durationMinutes > 0 && (
+                                                <span className="text-[10px] font-bold text-slate-400">
+                                                  {res.durationMinutes} min
+                                                </span>
+                                              )}
+                                            </div>
+                                          </div>
+                                          <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                            <Button
+                                              variant="outline"
+                                              size="icon"
+                                              className="h-7 w-7 rounded-lg border-slate-200"
+                                              onClick={() => {
+                                                setEditingResource(res);
+                                                setAddingToChapter(null);
+                                                setShowResourceForm(true);
+                                              }}
+                                            >
+                                              <Pencil className="h-3 w-3 text-amber-500" />
+                                            </Button>
+                                            <Button
+                                              variant="outline"
+                                              size="icon"
+                                              className="h-7 w-7 rounded-lg border-slate-200 hover:bg-rose-50"
+                                              onClick={async () => {
+                                                if (confirm('Delete this segment?')) {
+                                                  await deleteCourseContent(res.id);
+                                                  fetchExtras();
+                                                }
+                                              }}
+                                            >
+                                              <Trash2 className="h-3 w-3 text-rose-500" />
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      ))}
+
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingResource(null);
+                                        setAddingToChapter(compoundKey);
+                                        setAddingChapterOrder(chapterOrder);
+                                        setShowResourceForm(true);
+                                      }}
+                                      className="flex w-full items-center justify-center gap-2 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 hover:bg-indigo-50/50 transition-colors border-t border-dashed border-slate-100"
+                                    >
+                                      <Plus className="h-3 w-3" /> Add Segment
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -867,6 +1072,26 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
           </Button>
         </div>
       </div>
+
+      <SimpleDialog open={renameModal.open} onOpenChange={(open) => setRenameModal((prev) => ({ ...prev, open }))}>
+        <SimpleDialogContent className="sm:max-w-md">
+          <SimpleDialogHeader>
+            <SimpleDialogTitle className="text-lg font-black text-slate-900">Rename subject</SimpleDialogTitle>
+          </SimpleDialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-slate-600">Update the subject name. This applies to all chapters and segments under it.</p>
+            <Input
+              value={renameInput}
+              onChange={(e) => setRenameInput(e.target.value)}
+              placeholder="e.g., Physics"
+            />
+          </div>
+          <SimpleDialogFooter className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setRenameModal({ open: false, subject: '' })}>Cancel</Button>
+            <Button onClick={submitRename} disabled={subjectRenaming || !renameInput.trim()}>Save</Button>
+          </SimpleDialogFooter>
+        </SimpleDialogContent>
+      </SimpleDialog>
     </div>
   );
 }

@@ -3,6 +3,8 @@
 import React from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
+import { API_ORIGIN } from '@/lib/api';
+import { resolveAttachmentUrl } from '@/lib/attachment-url';
 
 interface Teacher {
   id: string;
@@ -48,7 +50,7 @@ export const TeachersSection: React.FC<Props> = ({ teachers }) => {
               <div className="relative w-full aspect-square bg-gradient-to-br from-indigo-100 to-purple-100">
                 {teacher.profileImage ? (
                   <Image
-                    src={teacher.profileImage}
+                    src={resolveAttachmentUrl(teacher.profileImage, API_ORIGIN)}
                     alt={teacher.fullName}
                     fill
                     className="object-cover group-hover:scale-105 transition-transform duration-300"

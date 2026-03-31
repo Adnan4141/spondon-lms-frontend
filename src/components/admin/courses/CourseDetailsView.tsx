@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { CourseDetails } from '@/types/course';
 import { Badge } from '@/components/ui/badge';
@@ -58,6 +58,7 @@ import { useToast } from '@/hooks/use-toast';
 import { CourseResourceForm } from './CourseResourceForm';
 import { CourseAssociationForm } from './CourseAssociationForm';
 import { CourseScheduleSection } from './CourseScheduleSection';
+import { buildCourseContentTree } from '@/lib/course-outline';
 
 interface CourseDetailsViewProps {
   course: CourseDetails;
@@ -93,8 +94,11 @@ export function CourseDetailsView({ course, onAfterMutation }: CourseDetailsView
   const [showAssociationForm, setShowAssociationForm] = useState(false);
   const [editingResource, setEditingResource] = useState<any>(null);
   const [expandedChapters, setExpandedChapters] = useState<Record<string, boolean>>({});
+const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>>({});
   const [addingToChapter, setAddingToChapter] = useState<string | null>(null);
   const [addingChapterOrder, setAddingChapterOrder] = useState<number | null>(null);
+  const [addingSubjectTitle, setAddingSubjectTitle] = useState<string | null>(null);
+  const [addingChapterTitle, setAddingChapterTitle] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [teacherPick, setTeacherPick] = useState('');
   const [teachersPool, setTeachersPool] = useState<{ id: string; fullName: string; email?: string }[]>([]);
@@ -240,12 +244,44 @@ export function CourseDetailsView({ course, onAfterMutation }: CourseDetailsView
     setExpandedChapters((prev) => ({ ...prev, [chapter]: !prev[chapter] }));
   };
 
+  const isSubjectExpanded = (subjectId: string) => expandedSubjects[subjectId] === true;
+
+  const toggleSubjectExpand = (subjectId: string) => {
+    setExpandedSubjects((prev) => ({
+      ...prev,
+      [subjectId]: !isSubjectExpanded(subjectId),
+    }));
+  };
+
   const closeResourceForm = () => {
     setShowResourceForm(false);
     setEditingResource(null);
     setAddingToChapter(null);
     setAddingChapterOrder(null);
+    setAddingSubjectTitle(null);
+    setAddingChapterTitle(null);
   };
+
+  const contentTree = useMemo(
+    () =>
+      buildCourseContentTree(
+        resources.map((r: any) => ({
+          id: r.id,
+          title: r.title,
+          type: r.type,
+          sortOrder: r.sortOrder ?? 0,
+          subjectTitle: r.subjectTitle,
+          chapterTitle: r.chapterTitle,
+          topicTitle: r.topicTitle,
+          topicSortOrder: r.topicSortOrder,
+          durationMinutes: r.durationMinutes,
+          isFree: r.isFree ?? false,
+        })),
+      ),
+    [resources],
+  );
+
+  const resById = useMemo(() => new Map(resources.map((r: any) => [r.id, r])), [resources]);
 
   const assignableTeachers = teachersPool.filter(
     (t) => !assignedTeachers.some((a) => a.teacher?.id === t.id)
@@ -551,19 +587,38 @@ export function CourseDetailsView({ course, onAfterMutation }: CourseDetailsView
 
         {activeTab === 'resources' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+            <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 text-sm text-slate-700">
+              <p className="font-black text-indigo-900 text-xs uppercase tracking-widest mb-1">
+                কোর্স → বিষয় → অধ্যায় → সেগমেন্ট
+              </p>
+              <p className="leading-relaxed">
+                <strong className="text-slate-900">Subject</strong> (প্রথম পত্র / দ্বিতীয় পত্র ইত্যাদি) ফিল্ডে মান দিন—শিক্ষার্থী পোর্টালে প্রথমে কোর্স, তারপর{' '}
+                <strong className="text-slate-900">বিষয় অনুযায়ী আলাদা রুট</strong> দেখবে। প্রতিটি বিষয়ের ভিতরে অধ্যায় ও সেগমেন্ট (ভিডিও, নোট, পিডিএফ) একই কাঠামোতে দেখায়।
+              </p>
+            </div>
             <div className="flex items-center justify-between">
                <div>
                   <h3 className="text-xl font-bold tracking-tight">Course Content</h3>
-                  <p className="text-sm text-slate-500 mt-1">Chapters, segments &amp; materials</p>
+                  <p className="text-sm text-slate-500 mt-1">বিষয় → অধ্যায় → সেগমেন্ট ও ম্যাটেরিয়াল</p>
                </div>
-               <Button onClick={() => { setEditingResource(null); setAddingToChapter(null); setAddingChapterOrder(null); setShowResourceForm(true); }} className="h-10 rounded-xl bg-slate-900 text-white font-bold text-xs hover:bg-slate-800">
-                  <Plus className="mr-2 h-4 w-4" /> New Chapter
+               <Button
+                  onClick={() => {
+                    setEditingResource(null);
+                    setAddingToChapter(null);
+                    setAddingChapterOrder(null);
+                    setAddingSubjectTitle(null);
+                    setAddingChapterTitle(null);
+                    setShowResourceForm(true);
+                  }}
+                  className="h-10 rounded-xl bg-slate-900 text-white font-bold text-xs hover:bg-slate-800"
+                >
+                  <Plus className="mr-2 h-4 w-4" /> New content
                </Button>
             </div>
 
             {/* Content form dialog */}
             <Dialog open={showResourceForm} onOpenChange={(open) => { if (!open) closeResourceForm(); }}>
-              <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl p-0">
+              <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl p-0">
                 <DialogHeader className="px-6 pt-6 pb-0">
                   <DialogTitle className="text-lg font-black tracking-tight">
                     {editingResource ? 'Edit Segment' : addingToChapter ? `Add Segment to "${addingToChapter}"` : 'Add New Content'}
@@ -571,9 +626,15 @@ export function CourseDetailsView({ course, onAfterMutation }: CourseDetailsView
                 </DialogHeader>
                 <div className="px-6 pb-6">
                   <CourseResourceForm
+                    key={
+                      editingResource?.id ??
+                      `new-${addingSubjectTitle ?? ''}-${addingChapterTitle ?? ''}-${addingToChapter ?? ''}-${addingChapterOrder ?? ''}`
+                    }
                     courseId={course.id}
                     resource={editingResource}
-                    defaultTopicTitle={addingToChapter === 'Ungrouped' ? '' : (addingToChapter ?? undefined)}
+                    defaultSubjectTitle={addingSubjectTitle ?? undefined}
+                    defaultChapterTitle={addingChapterTitle ?? undefined}
+                    defaultTopicTitle={addingToChapter === 'Ungrouped' ? '' : addingToChapter ?? undefined}
                     defaultTopicSortOrder={addingChapterOrder ?? undefined}
                     onSuccess={() => { closeResourceForm(); fetchData(); }}
                     onCancel={closeResourceForm}
@@ -582,136 +643,179 @@ export function CourseDetailsView({ course, onAfterMutation }: CourseDetailsView
               </DialogContent>
             </Dialog>
 
-            {/* Chapter-wise grouped content */}
-            {(() => {
-              const chapters = resources.reduce<Record<string, typeof resources>>((acc, res) => {
-                const key = res.topicTitle || 'Ungrouped';
-                if (!acc[key]) acc[key] = [];
-                acc[key].push(res);
-                return acc;
-              }, {});
+            {/* Subject → Chapter → Segment (aligned with student portal) */}
+            {contentTree.subjects.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-slate-300">
+                <FileText className="h-12 w-12 mb-3" />
+                <p className="text-sm font-bold">No content yet</p>
+                <p className="text-xs mt-1">Add materials with subject &amp; chapter fields to match the student view</p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {contentTree.subjects.map((sub, subIdx) => {
+                  const subOpen = isSubjectExpanded(sub.id);
+                  const segTotal = sub.chapters.reduce((n, ch) => n + ch.segments.length, 0);
+                  return (
+                  <div key={sub.id} className="rounded-2xl border border-slate-100 bg-white overflow-hidden shadow-sm">
+                    <button
+                      type="button"
+                      onClick={() => toggleSubjectExpand(sub.id)}
+                      className="flex w-full items-center gap-3 p-4 text-left hover:bg-slate-50/80 transition-colors"
+                    >
+                      {subOpen ? (
+                        <ChevronDown className="h-4 w-4 text-indigo-600 shrink-0" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-[11px] font-black uppercase tracking-widest text-indigo-600">
+                          Subject {subIdx + 1}
+                          <span className="ml-2 font-bold text-slate-400">· {sub.chapters.length} chapters</span>
+                        </h4>
+                        <p className="text-sm font-black text-slate-800 truncate">{sub.title}</p>
+                        <p className="text-[10px] font-bold text-slate-400 mt-0.5">
+                          {segTotal} {segTotal === 1 ? 'segment' : 'segments'} (video, PDF, note, …)
+                        </p>
+                      </div>
+                    </button>
+                    {subOpen && (
+                    <div className="space-y-3 border-t border-slate-50 p-3 bg-slate-50/40">
+                    {sub.chapters.map((ch, chapterIdx) => {
+                      const chapterKey = `${sub.id}::${ch.id}`;
+                      const isExpanded = expandedChapters[chapterKey] === true;
+                      const totalDuration = ch.segments.reduce((sum, s) => sum + (s.durationMinutes || 0), 0);
+                      const videoCount = ch.segments.filter((s) => s.type === 'VIDEO').length;
 
-              const sortedChapters = Object.entries(chapters).sort(([, a], [, b]) => {
-                const aOrder = a[0]?.topicSortOrder ?? 999;
-                const bOrder = b[0]?.topicSortOrder ?? 999;
-                return aOrder - bOrder;
-              });
+                      return (
+                        <div key={chapterKey} className="rounded-2xl border border-slate-100 bg-white overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => toggleChapter(chapterKey)}
+                            className="flex w-full items-center gap-3 p-4 text-left hover:bg-slate-50/80 transition-colors"
+                          >
+                            {isExpanded ? (
+                              <ChevronDown className="h-4 w-4 text-slate-900 shrink-0" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-sm font-black text-slate-800 truncate">{ch.title}</h4>
+                              <div className="flex items-center gap-3 mt-0.5">
+                                <span className="text-[10px] font-bold text-slate-400">
+                                  {ch.segments.length} {ch.segments.length === 1 ? 'segment' : 'segments'}
+                                </span>
+                                {videoCount > 0 && (
+                                  <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400">
+                                    <Play className="h-2.5 w-2.5" /> {videoCount} video{videoCount !== 1 ? 's' : ''}
+                                  </span>
+                                )}
+                                {totalDuration > 0 && (
+                                  <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400">
+                                    <Clock className="h-2.5 w-2.5" /> {totalDuration} min
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <Badge variant="outline" className="text-[8px] font-black uppercase shrink-0">
+                              Ch {chapterIdx + 1}
+                            </Badge>
+                          </button>
 
-              if (sortedChapters.length === 0) {
-                return (
-                  <div className="flex flex-col items-center justify-center py-16 text-slate-300">
-                    <FileText className="h-12 w-12 mb-3" />
-                    <p className="text-sm font-bold">No content yet</p>
-                    <p className="text-xs mt-1">Click &quot;New Chapter&quot; to start building your course</p>
+                          {isExpanded && (
+                            <div className="border-t border-slate-50">
+                              {ch.segments.map((seg, idx) => {
+                                const res = resById.get(seg.id);
+                                if (!res) return null;
+                                return (
+                                  <div
+                                    key={seg.id}
+                                    className="group flex items-center gap-3 px-4 py-3 hover:bg-slate-50/60 transition-colors border-b border-slate-50 last:border-b-0"
+                                  >
+                                    <span className="text-[10px] font-black text-slate-300 w-5 text-center shrink-0">
+                                      {String(idx + 1).padStart(2, '0')}
+                                    </span>
+                                    <div className="h-8 w-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:text-slate-900 shrink-0">
+                                      {getResourceIcon(res.type)}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <h5 className="text-[13px] font-bold text-slate-700 truncate">{res.title}</h5>
+                                      <div className="flex items-center gap-2 mt-0.5">
+                                        <Badge variant="outline" className="text-[7px] font-black uppercase">
+                                          {res.type}
+                                        </Badge>
+                                        {res.isFree && (
+                                          <Badge className="text-[7px] font-black uppercase bg-emerald-50 text-emerald-600 border-emerald-200">
+                                            Free
+                                          </Badge>
+                                        )}
+                                        {res.durationMinutes > 0 && (
+                                          <span className="text-[10px] font-bold text-slate-400">{res.durationMinutes} min</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                      {res.fileUrl && (
+                                        <Button
+                                          variant="outline"
+                                          size="icon"
+                                          className="h-7 w-7 rounded-lg border-slate-200"
+                                          onClick={() => window.open(res.fileUrl, '_blank')}
+                                        >
+                                          <ExternalLink className="h-3 w-3 text-slate-500" />
+                                        </Button>
+                                      )}
+                                      <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-7 w-7 rounded-lg border-slate-200"
+                                        onClick={() => {
+                                          setEditingResource(res);
+                                          setAddingToChapter(null);
+                                          setAddingSubjectTitle(null);
+                                          setAddingChapterTitle(null);
+                                          setShowResourceForm(true);
+                                        }}
+                                      >
+                                        <Pencil className="h-3 w-3 text-amber-500" />
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-7 w-7 rounded-lg border-slate-200 hover:bg-rose-50"
+                                        onClick={() => handleDeleteResource(res.id)}
+                                      >
+                                        <Trash2 className="h-3 w-3 text-rose-500" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingResource(null);
+                                  setAddingSubjectTitle(sub.title === 'Course' ? '' : sub.title);
+                                  setAddingChapterTitle(ch.title);
+                                  setAddingToChapter(ch.title);
+                                  setAddingChapterOrder(ch.sortOrder);
+                                  setShowResourceForm(true);
+                                }}
+                                className="flex w-full items-center justify-center gap-2 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 hover:bg-slate-50 transition-colors border-t border-dashed border-slate-100"
+                              >
+                                <Plus className="h-3 w-3" /> Add Segment
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                    </div>
+                    )}
                   </div>
                 );
-              }
-
-              return (
-                <div className="space-y-3">
-                  {sortedChapters.map(([chapterTitle, items], chapterIdx) => {
-                    const isExpanded = !!expandedChapters[chapterTitle];
-                    const totalDuration = items.reduce((sum, r) => sum + (r.durationMinutes || 0), 0);
-                    const videoCount = items.filter((r: any) => r.type === 'VIDEO').length;
-                    const chapterOrder = items[0]?.topicSortOrder ?? chapterIdx;
-
-                    return (
-                      <div key={chapterTitle} className="rounded-2xl border border-slate-100 bg-white overflow-hidden">
-                        {/* Chapter header */}
-                        <button
-                          type="button"
-                          onClick={() => toggleChapter(chapterTitle)}
-                          className="flex w-full items-center gap-3 p-4 text-left hover:bg-slate-50/80 transition-colors"
-                        >
-                          {isExpanded
-                            ? <ChevronDown className="h-4 w-4 text-slate-900 shrink-0" />
-                            : <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />
-                          }
-                          <div className="flex-1 min-w-0">
-                            <h4 className="text-sm font-black text-slate-800 truncate">
-                              {chapterTitle === 'Ungrouped' ? 'General Content' : chapterTitle}
-                            </h4>
-                            <div className="flex items-center gap-3 mt-0.5">
-                              <span className="text-[10px] font-bold text-slate-400">
-                                {items.length} {items.length === 1 ? 'segment' : 'segments'}
-                              </span>
-                              {videoCount > 0 && (
-                                <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400">
-                                  <Play className="h-2.5 w-2.5" /> {videoCount} video{videoCount !== 1 ? 's' : ''}
-                                </span>
-                              )}
-                              {totalDuration > 0 && (
-                                <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400">
-                                  <Clock className="h-2.5 w-2.5" /> {totalDuration} min
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <Badge variant="outline" className="text-[8px] font-black uppercase shrink-0">
-                            Ch {chapterIdx + 1}
-                          </Badge>
-                        </button>
-
-                        {/* Chapter content items */}
-                        {isExpanded && (
-                          <div className="border-t border-slate-50">
-                            {items
-                              .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-                              .map((res, idx) => (
-                              <div
-                                key={res.id}
-                                className="group flex items-center gap-3 px-4 py-3 hover:bg-slate-50/60 transition-colors border-b border-slate-50 last:border-b-0"
-                              >
-                                <span className="text-[10px] font-black text-slate-300 w-5 text-center shrink-0">
-                                  {String(idx + 1).padStart(2, '0')}
-                                </span>
-                                <div className="h-8 w-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:text-slate-900 shrink-0">
-                                  {getResourceIcon(res.type)}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <h5 className="text-[13px] font-bold text-slate-700 truncate">{res.title}</h5>
-                                  <div className="flex items-center gap-2 mt-0.5">
-                                    <Badge variant="outline" className="text-[7px] font-black uppercase">{res.type}</Badge>
-                                    {res.isFree && (
-                                      <Badge className="text-[7px] font-black uppercase bg-emerald-50 text-emerald-600 border-emerald-200">Free</Badge>
-                                    )}
-                                    {res.durationMinutes > 0 && (
-                                      <span className="text-[10px] font-bold text-slate-400">{res.durationMinutes} min</span>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                  {res.fileUrl && (
-                                    <Button variant="outline" size="icon" className="h-7 w-7 rounded-lg border-slate-200" onClick={() => window.open(res.fileUrl, '_blank')}>
-                                      <ExternalLink className="h-3 w-3 text-slate-500" />
-                                    </Button>
-                                  )}
-                                  <Button variant="outline" size="icon" className="h-7 w-7 rounded-lg border-slate-200" onClick={() => { setEditingResource(res); setAddingToChapter(null); setShowResourceForm(true); }}>
-                                    <Pencil className="h-3 w-3 text-amber-500" />
-                                  </Button>
-                                  <Button variant="outline" size="icon" className="h-7 w-7 rounded-lg border-slate-200 hover:bg-rose-50" onClick={() => handleDeleteResource(res.id)}>
-                                    <Trash2 className="h-3 w-3 text-rose-500" />
-                                  </Button>
-                                </div>
-                              </div>
-                            ))}
-
-                            {/* Add segment button — opens modal */}
-                            <button
-                              type="button"
-                              onClick={() => { setEditingResource(null); setAddingToChapter(chapterTitle); setAddingChapterOrder(chapterOrder); setShowResourceForm(true); }}
-                              className="flex w-full items-center justify-center gap-2 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 hover:bg-slate-50 transition-colors border-t border-dashed border-slate-100"
-                            >
-                              <Plus className="h-3 w-3" /> Add Segment
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
+                })}
+              </div>
+            )}
           </div>
         )}
 

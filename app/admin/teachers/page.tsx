@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getUsers, getUserById, updateUser, type User } from '@/lib/api/users';
 import { getBranches, type Branch } from '@/lib/api/branches';
+import { API_ORIGIN } from '@/lib/api';
+import { resolveAttachmentUrl } from '@/lib/attachment-url';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -26,6 +28,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { useModalStore } from '@/store/modalStore';
 import { TeacherForm } from '@/components/admin/teachers/TeacherForm';
+import { TeacherDetailsView } from '@/components/admin/teachers/TeacherDetailsView';
 import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
 import {
   GraduationCap,
@@ -36,6 +39,15 @@ import {
   Users,
   UserCheck,
   UserX,
+  Activity,
+  Building2,
+  Mail,
+  Phone,
+  ShieldCheck,
+  Ban,
+  MoreVertical,
+  ChevronRight,
+  Eye,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -117,8 +129,8 @@ export default function AdminTeachersPage() {
 
   const openCreate = () => {
     openModal({
-      title: 'Add teacher',
-      description: 'Creates a teacher login. Password optional — a one-time password can be generated.',
+      title: 'Add Teacher',
+      description: 'Create a new teacher account and assign them to a branch.',
       className: 'sm:max-w-5xl',
       content: (
         <TeacherForm
@@ -130,6 +142,24 @@ export default function AdminTeachersPage() {
     });
   };
 
+  const openView = async (id: string) => {
+    try {
+      const res = await getUserById(id);
+      if (!res.success || !res.data) {
+        toast({ title: 'Error', description: 'Failed to load teacher', variant: 'destructive' });
+        return;
+      }
+      openModal({
+        title: 'Teacher Profile',
+      description: 'Full teacher profile.',
+        className: 'sm:max-w-3xl',
+        content: <TeacherDetailsView teacher={res.data} />,
+      });
+    } catch {
+      toast({ title: 'Error', description: 'Failed to load teacher', variant: 'destructive' });
+    }
+  };
+
   const openEdit = async (id: string) => {
     try {
       const res = await getUserById(id);
@@ -138,9 +168,9 @@ export default function AdminTeachersPage() {
         return;
       }
       openModal({
-        title: 'Edit teacher',
-        description: 'Update profile, branch, or status.',
-        className: 'sm:max-w-lg',
+        title: 'Edit Teacher',
+        description: 'Update profile information, branch assignment, or account status.',
+        className: 'sm:max-w-5xl',
         content: (
           <TeacherForm
             branches={branches}
@@ -158,18 +188,18 @@ export default function AdminTeachersPage() {
   const setTeacherStatus = (id: string, status: 'ACTIVE' | 'BLOCKED', label: string) => {
     openModal({
       title: label,
-      description: status === 'BLOCKED' ? 'They will not be able to sign in.' : 'Restore access to the teacher app.',
+      description: status === 'BLOCKED' ? 'The teacher will no longer be able to sign in.' : 'The teacher will regain access to their portal.',
       className: 'sm:max-w-md',
       content: (
         <ConfirmationModal
-          title="Confirm"
-          description={status === 'BLOCKED' ? 'Block this teacher?' : 'Activate this teacher?'}
+          title="Confirm Status Change"
+          description={status === 'BLOCKED' ? 'Are you sure you want to block this teacher?' : 'Are you sure you want to activate this teacher?'}
           variant={status === 'BLOCKED' ? 'danger' : 'info'}
           onConfirm={async () => {
             try {
               await updateUser(id, { status });
               await load();
-              toast({ title: 'Updated', variant: 'success' });
+              toast({ title: 'Success', description: `Teacher status updated to ${status}`, variant: 'success' });
             } catch (e: unknown) {
               toast({
                 title: 'Error',
@@ -185,168 +215,260 @@ export default function AdminTeachersPage() {
 
   const isBranchAdmin = actorRole === 'BRANCH_ADMIN';
 
+  // Stats calculation
+  const totalTeachers = teachers.length;
+  const activeTeachers = teachers.filter(t => t.status === 'ACTIVE').length;
+  const blockedTeachers = teachers.filter(t => t.status === 'BLOCKED').length;
+  const uniqueBranches = new Set(teachers.map(t => t.branchId).filter(Boolean)).size;
+
   return (
-    <div className="space-y-8 pb-12 text-slate-900">
+    <div className="space-y-10 pb-12 text-slate-900">
       <Toaster toasts={toasts} removeToast={removeToast} />
 
-      <div className="rounded-[28px] border border-slate-200 bg-linear-to-br from-indigo-50/70 via-white to-sky-50/40 p-6 sm:p-8 shadow-sm">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-white/90 px-3 py-1 text-xs font-bold text-indigo-800">
+      {/* Premium Header */}
+      <div className="relative overflow-hidden rounded-[40px] border border-slate-200 bg-white p-8 lg:p-10 shadow-xl shadow-slate-200/30">
+        <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-indigo-50/50" />
+        <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-sky-50/50" />
+        
+        <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-4">
+            <div className="inline-flex items-center gap-2 rounded-xl bg-indigo-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 shadow-sm border border-indigo-100/50">
               <Users className="h-3.5 w-3.5" />
-              Teachers
+              Teacher Team
             </div>
-            <h1 className="text-2xl font-black tracking-tight sm:text-3xl">Manage teachers</h1>
-            <p className="max-w-2xl text-sm font-medium leading-relaxed text-slate-600">
-              Add teacher accounts, assign a branch, and control access. Assign courses under{' '}
-              <Link href="/admin/courses" className="font-bold text-indigo-600 hover:underline">
-                Courses
-              </Link>
-              .
-            </p>
+            <div>
+               <h1 className="text-3xl font-black tracking-tight sm:text-4xl text-slate-900">Teachers</h1>
+              
+            </div>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <Button
-              className="h-11 rounded-xl text-white bg-slate-900 font-bold hover:bg-indigo-600"
+              className="h-14 px-8 rounded-2xl text-white bg-slate-900 font-black tracking-tight hover:bg-indigo-600 transition-all hover:scale-[1.02] shadow-lg shadow-slate-200"
               onClick={openCreate}
             >
-              <Plus className="mr-2 h-4 w-4" />
-              Add teacher
+              <Plus className="mr-2 h-5 w-5" />
+              Add Teacher
             </Button>
-            <Button asChild variant="outline" className="h-11 rounded-xl font-bold border-slate-200">
-              <Link href="/teacher" className="gap-2">
-                <GraduationCap className="h-4 w-4" />
-                Teacher app
-              </Link>
-            </Button>
+          
           </div>
         </div>
       </div>
 
-      <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-center">
-          <div className="relative min-w-[200px] flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+    
+
+      {/* Filter Section */}
+      <section className="rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/30">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
+          <div className="relative min-w-[280px] flex-1">
+            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input
-              placeholder="Search name, phone, email…"
+              placeholder="Search by name, phone, or email…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="h-11 rounded-xl border-slate-200 pl-10 font-medium"
+              className="h-14 rounded-2xl border-slate-100 bg-slate-50/50 pl-12 text-base font-bold text-slate-700 focus:bg-white transition-all placeholder:text-slate-400 placeholder:font-medium"
             />
           </div>
-          <Select
-            value={statusFilter}
-            onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}
-          >
-            <SelectTrigger className="h-11 w-full rounded-xl sm:w-[160px]">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl">
-              <SelectItem value="all">All statuses</SelectItem>
-              <SelectItem value="ACTIVE">Active</SelectItem>
-              <SelectItem value="BLOCKED">Blocked</SelectItem>
-            </SelectContent>
-          </Select>
-          {!isBranchAdmin && (
-            <Select value={branchFilter} onValueChange={setBranchFilter}>
-              <SelectTrigger className="h-11 w-full rounded-xl sm:w-[200px]">
-                <SelectValue placeholder="Branch" />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl">
-                <SelectItem value="all">All branches</SelectItem>
-                {branches.map((b) => (
-                  <SelectItem key={b.id} value={b.id}>
-                    {b.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          <Button variant="outline" size="icon" className="h-11 w-11 rounded-xl shrink-0" onClick={load}>
-            <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
-          </Button>
+          
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+             <div className="flex items-center gap-2">
+                <Select
+                  value={statusFilter}
+                  onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}
+                >
+                  <SelectTrigger className="h-14 w-full rounded-2xl sm:w-[180px] border-slate-100 bg-slate-50/50 font-bold text-slate-700">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl border-slate-100 p-2">
+                    <SelectItem value="all" className="rounded-xl font-bold">Any status</SelectItem>
+                    <SelectItem value="ACTIVE" className="rounded-xl font-bold">Active</SelectItem>
+                    <SelectItem value="BLOCKED" className="rounded-xl font-bold">Blocked</SelectItem>
+                  </SelectContent>
+                </Select>
+             </div>
+
+             {!isBranchAdmin && (
+               <Select value={branchFilter} onValueChange={setBranchFilter}>
+                 <SelectTrigger className="h-14 w-full rounded-2xl sm:w-[220px] border-slate-100 bg-slate-50/50 font-bold text-slate-700">
+                   <SelectValue placeholder="Branch" />
+                 </SelectTrigger>
+                 <SelectContent className="rounded-2xl border-slate-100 p-2 max-h-[300px]">
+                   <SelectItem value="all" className="rounded-xl font-bold">All branches</SelectItem>
+                   {branches.map((b) => (
+                     <SelectItem key={b.id} value={b.id} className="rounded-xl font-bold">
+                       {b.name}
+                     </SelectItem>
+                   ))}
+                 </SelectContent>
+               </Select>
+             )}
+
+             <Button 
+               variant="outline" 
+               className="h-14 w-14 rounded-2xl shrink-0 border-slate-100 bg-slate-50/50 hover:bg-white hover:border-indigo-200 transition-all" 
+               onClick={load}
+             >
+               <RefreshCw className={cn('h-5 w-5 text-slate-500', loading && 'animate-spin')} />
+             </Button>
+          </div>
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-          <h2 className="text-sm font-black uppercase tracking-wider text-slate-500">Directory</h2>
-          <Badge variant="secondary" className="font-bold">
-            {loading ? '…' : filtered.length}
-          </Badge>
+      {/* Teachers Table */}
+      <section className="overflow-hidden rounded-[40px] border border-slate-100 bg-white shadow-2xl shadow-slate-200/40">
+        <div className="flex items-center justify-between border-b border-slate-50 px-8 py-7">
+          <div>
+            <h2 className="text-xl font-black tracking-tight text-slate-900">Teachers list</h2>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 flex items-center gap-1.5">
+               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+               Live list
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+             <Badge variant="secondary" className="bg-indigo-50 text-indigo-700 font-black rounded-full px-4 py-1.5 border-0 text-[11px] tracking-tight">
+               {loading ? 'Loading…' : `${filtered.length} teachers`}
+             </Badge>
+          </div>
         </div>
+        
         {loading ? (
-          <div className="p-16 text-center text-sm font-medium text-slate-500">Loading…</div>
+          <div className="flex flex-col items-center justify-center py-24 text-slate-400">
+             <RefreshCw className="h-10 w-10 animate-spin mb-4 opacity-20" />
+             <p className="text-sm font-black uppercase tracking-widest">Loading teachers</p>
+          </div>
         ) : filtered.length === 0 ? (
-          <div className="p-16 text-center text-sm font-medium text-slate-500">No teachers in this view.</div>
+          <div className="flex flex-col items-center justify-center py-24 text-slate-400">
+             <Users className="h-16 w-16 mb-4 opacity-10" />
+             <p className="text-lg font-black text-slate-300">No teachers found.</p>
+             <p className="text-sm font-medium mt-1">Change filters or search.</p>
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="font-bold">Name</TableHead>
-                  <TableHead className="font-bold">Mobile</TableHead>
-                  <TableHead className="font-bold">Email</TableHead>
-                  <TableHead className="font-bold">Branch</TableHead>
-                  <TableHead className="font-bold">Status</TableHead>
-                  <TableHead className="text-right font-bold">Actions</TableHead>
+                <TableRow className="hover:bg-transparent border-b border-slate-50">
+                  <TableHead className="h-14 px-8 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Teacher</TableHead>
+                  <TableHead className="h-14 px-6 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Contact</TableHead>
+                  <TableHead className="h-14 px-6 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Branch</TableHead>
+                  <TableHead className="h-14 px-6 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Status</TableHead>
+                  <TableHead className="h-14 px-8 text-right text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.map((t) => (
-                  <TableRow key={t.id}>
-                    <TableCell className="font-bold text-slate-900">{t.fullName}</TableCell>
-                    <TableCell className="font-mono text-sm text-slate-600">{t.mobile}</TableCell>
-                    <TableCell className="text-sm text-slate-600">{t.email || '—'}</TableCell>
-                    <TableCell className="text-sm text-slate-600">{t.branch?.name || '—'}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          'font-bold',
-                          t.status === 'ACTIVE'
-                            ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                            : 'border-rose-200 bg-rose-50 text-rose-800'
-                        )}
-                      >
-                        {t.status}
-                      </Badge>
+                  <TableRow key={t.id} className="group transition-all hover:bg-slate-50/50">
+                    <TableCell className="py-6 px-8">
+                       <div className="flex items-center gap-4">
+                          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] bg-gradient-to-br from-indigo-50 to-white text-indigo-600 font-black text-base shadow-sm border border-indigo-100 transition-transform group-hover:scale-110 group-hover:rotate-3 overflow-hidden">
+                             {t.profileImage ? (
+                               // eslint-disable-next-line @next/next/no-img-element
+                               <img
+                                 src={resolveAttachmentUrl(t.profileImage, API_ORIGIN)}
+                                 alt={t.fullName}
+                                 className="h-full w-full object-cover"
+                               />
+                             ) : (
+                               t.fullName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
+                             )}
+                          </div>
+                          <div className="cursor-pointer" onClick={() => openView(t.id)}>
+                             <p className="text-base font-black text-slate-900 group-hover:text-indigo-600 transition-colors">{t.fullName}</p>
+                             
+                          </div>
+                       </div>
                     </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
+                    <TableCell className="py-6 px-6">
+                       <div className="space-y-1.5">
+                          <div className="flex items-center gap-2.5 text-sm font-bold text-slate-600 group-hover:text-slate-900 transition-colors">
+                             <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-slate-100 text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-500 transition-colors">
+                                <Phone className="h-3 w-3" />
+                             </div>
+                             {t.mobile}
+                          </div>
+                          {t.email && (
+                             <div className="flex items-center gap-2.5 text-sm font-bold text-slate-600 group-hover:text-slate-900 transition-colors">
+                                <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-slate-100 text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-500 transition-colors">
+                                   <Mail className="h-3 w-3" />
+                                </div>
+                                {t.email}
+                             </div>
+                          )}
+                       </div>
+                    </TableCell>
+                    <TableCell className="py-6 px-6">
+                       <div className="flex items-center gap-2.5 text-sm font-black text-slate-700">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-50 text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-all">
+                             <Building2 className="h-4 w-4" />
+                          </div>
+                          {t.branch?.name || <span className="text-slate-300 font-bold uppercase tracking-widest text-[10px]">Unassigned</span>}
+                       </div>
+                    </TableCell>
+                    <TableCell className="py-6 px-6">
+                      <div className={cn(
+                        "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest border transition-all",
+                        t.status === 'ACTIVE'
+                          ? 'border-emerald-100 bg-emerald-50 text-emerald-700 group-hover:bg-emerald-100'
+                          : 'border-rose-100 bg-rose-50 text-rose-700 group-hover:bg-rose-100'
+                      )}>
+                        <div className={cn("h-1.5 w-1.5 rounded-full animate-pulse", t.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-rose-500')} />
+                        {t.status}
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-6 px-8 text-right">
+                      <div className="flex justify-end gap-2">
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="h-9 w-9 rounded-lg"
+                          className="h-10 w-10 rounded-xl bg-slate-50 text-slate-400 hover:bg-white hover:text-indigo-600 hover:shadow-md transition-all border border-transparent hover:border-indigo-100"
+                          onClick={() => openView(t.id)}
+                          title="View Profile"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-10 w-10 rounded-xl bg-slate-50 text-slate-400 hover:bg-white hover:text-indigo-600 hover:shadow-md transition-all border border-transparent hover:border-indigo-100"
                           onClick={() => openEdit(t.id)}
-                          title="Edit"
+                          title="Edit Profile"
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
+                        
                         {t.status === 'ACTIVE' ? (
                           <Button
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-9 w-9 rounded-lg text-rose-600"
-                            title="Block"
-                            onClick={() => setTeacherStatus(t.id, 'BLOCKED', 'Block teacher')}
+                            className="h-10 w-10 rounded-xl bg-slate-50 text-slate-400 hover:bg-rose-50 hover:text-rose-600 hover:shadow-md transition-all border border-transparent hover:border-rose-100"
+                            title="Block Access"
+                            onClick={() => setTeacherStatus(t.id, 'BLOCKED', 'Block Teacher Account')}
                           >
-                            <UserX className="h-4 w-4" />
+                            <Ban className="h-4 w-4" />
                           </Button>
                         ) : (
                           <Button
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-9 w-9 rounded-lg text-emerald-600"
-                            title="Activate"
-                            onClick={() => setTeacherStatus(t.id, 'ACTIVE', 'Activate teacher')}
+                            className="h-10 w-10 rounded-xl bg-slate-50 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 hover:shadow-md transition-all border border-transparent hover:border-emerald-100"
+                            title="Activate Access"
+                            onClick={() => setTeacherStatus(t.id, 'ACTIVE', 'Activate Teacher Account')}
                           >
                             <UserCheck className="h-4 w-4" />
                           </Button>
                         )}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-10 w-10 rounded-xl bg-slate-50 text-slate-400 hover:bg-white hover:text-slate-900 transition-all border border-transparent"
+                          title="More Options"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -355,6 +477,25 @@ export default function AdminTeachersPage() {
             </Table>
           </div>
         )}
+        
+        <div className="bg-slate-50/50 border-t border-slate-50 px-8 py-5 flex items-center justify-between">
+           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+              <Activity className="h-3 w-3" />
+              Showing {filtered.length} of {totalTeachers}
+           </p>
+           <div className="flex items-center gap-1">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mr-2">Pages</span>
+              <Button variant="ghost" size="sm" className="h-8 rounded-lg text-xs font-bold text-slate-500 hover:bg-white">
+                 <ChevronRight className="h-3 w-3 rotate-180" />
+              </Button>
+              <Button variant="ghost" size="sm" className="h-8 rounded-lg text-xs font-black bg-white shadow-sm border border-slate-100 text-indigo-600">
+                 1
+              </Button>
+              <Button variant="ghost" size="sm" className="h-8 rounded-lg text-xs font-bold text-slate-500 hover:bg-white">
+                 <ChevronRight className="h-3 w-3" />
+              </Button>
+           </div>
+        </div>
       </section>
     </div>
   );

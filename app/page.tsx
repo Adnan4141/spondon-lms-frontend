@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/dialog';
 import { getCourses } from '@/lib/api/courses';
 import { getPrograms } from '@/lib/api/programs';
-import { getBooks, Book } from '@/lib/api/books';
+import { getBooks, getPublicBooksCatalog, type Book, type PublicCatalogBook } from '@/lib/api/books';
 import { getSystemStats, SystemStatsData } from '@/lib/api/reports';
 import { getPublicTestimonials } from '@/lib/api/testimonials';
 import { getPublicPartners, Partner } from '@/lib/api/partners';
@@ -57,7 +57,7 @@ const testimonials: Testimonial[] = [
 export default function LandingPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [programs, setPrograms] = useState<Program[]>([]);
-  const [dynamicEbooks, setDynamicEbooks] = useState<Book[]>([]);
+  const [dynamicEbooks, setDynamicEbooks] = useState<PublicCatalogBook[]>([]);
   const [admissionBooks, setAdmissionBooks] = useState<Book[]>([]);
   const [systemStats, setSystemStats] = useState<SystemStatsData | null>(null);
   const [dynamicTestimonials, setDynamicTestimonials] = useState<Testimonial[]>([]);
@@ -76,22 +76,39 @@ export default function LandingPage() {
 
   useEffect(() => {
     async function loadData() {
+      const empty = { success: false as const, data: [] as never[] };
       try {
-        const [courseRes, programRes, ebookRes, bookRes, statsRes, testimonialRes, partnerRes, teacherRes] = await Promise.all([
-          getCourses({ limit: 6, websiteVisible: true, featured: true, status: 'ACTIVE' }),
-          getPrograms(),
-          getBooks({ isEbook: true, limit: 3 }),
-          getBooks({ isEbook: false, limit: 4 }),
-          getSystemStats(),
+        const results = await Promise.allSettled([
+          getCourses({ limit: 6, websiteVisible: true, featured: true, status: 'ACTIVE' }).catch(() => empty),
+          getPrograms().catch(() => empty),
+          getPublicBooksCatalog({ isEbook: true, limit: 6 }).catch(() => ({
+            success: false as const,
+            data: [] as PublicCatalogBook[],
+          })),
+          getBooks({ isEbook: false, limit: 4 }).catch(() => ({
+            success: false as const,
+            data: [] as PublicCatalogBook[],
+          })),
+          getSystemStats().catch(() => ({ success: false as const, data: null as null })),
           getPublicTestimonials().catch(() => ({ success: false, data: [] })),
           getPublicPartners().catch(() => ({ success: false, data: [] })),
           getPublicTeachers().catch(() => ({ success: false, data: [] })),
         ]);
+
+        const courseRes = results[0].status === 'fulfilled' ? results[0].value : empty;
+        const programRes = results[1].status === 'fulfilled' ? results[1].value : empty;
+        const ebookRes = results[2].status === 'fulfilled' ? results[2].value : { success: false, data: [] };
+        const bookRes = results[3].status === 'fulfilled' ? results[3].value : { success: false, data: [] };
+        const statsRes = results[4].status === 'fulfilled' ? results[4].value : { success: false, data: null };
+        const testimonialRes = results[5].status === 'fulfilled' ? results[5].value : { success: false, data: [] };
+        const partnerRes = results[6].status === 'fulfilled' ? results[6].value : { success: false, data: [] };
+        const teacherRes = results[7].status === 'fulfilled' ? results[7].value : { success: false, data: [] };
+
         if (courseRes.success) setCourses(courseRes.data || []);
         if (programRes.success) setPrograms(programRes.data || []);
         if (ebookRes.success) setDynamicEbooks(ebookRes.data || []);
         if (bookRes.success) setAdmissionBooks(bookRes.data || []);
-        if (statsRes.success) setSystemStats(statsRes.data);
+        if (statsRes.success && statsRes.data) setSystemStats(statsRes.data);
         if (testimonialRes.success && testimonialRes.data?.length) {
           setDynamicTestimonials(testimonialRes.data.map((t: any, i: number) => ({
             id: i + 1,
@@ -132,88 +149,123 @@ export default function LandingPage() {
       />
       <PaymentSection handleImageError={handleImageError} />
       <Dialog open={!!selectedPartner} onOpenChange={(open) => !open && setSelectedPartner(null)}>
-        <DialogContent className="sm:max-w-3xl overflow-hidden border-none p-0 bg-white/95 backdrop-blur-xl shadow-2xl">
-          <div className="relative h-32 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500">
-             <div className="absolute inset-0 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:20px_20px] opacity-20"></div>
-             <div className="absolute -bottom-12 left-8 p-1 rounded-2xl bg-white shadow-xl border border-slate-100">
+        <DialogContent className="sm:max-w-4xl overflow-hidden border-none p-0 bg-white/95 backdrop-blur-2xl shadow-[0_32px_64px_-15px_rgba(0,0,0,0.15)] rounded-3xl">
+          <div className="relative h-44 bg-[#f8fafc]">
+            <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/10 via-purple-600/5 to-transparent"></div>
+            <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:24px_24px] opacity-40"></div>
+            
+            <div className="absolute -bottom-16 left-10 p-1.5 rounded-[2.5rem] bg-white shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] border border-slate-100/50 backdrop-blur-sm">
+              <div className="relative h-32 w-32 rounded-[2.2rem] overflow-hidden bg-slate-50 flex items-center justify-center border border-slate-100">
                 {selectedPartner?.logo ? (
-                  <img src={resolveAttachmentUrl(selectedPartner.logo, API_ORIGIN)} alt={selectedPartner.name} className="h-24 w-24 object-contain rounded-xl" />
+                  <img 
+                    src={resolveAttachmentUrl(selectedPartner.logo, API_ORIGIN)} 
+                    alt={selectedPartner.name} 
+                    className="h-full w-full object-contain p-4 transition-transform duration-500 hover:scale-110" 
+                  />
                 ) : (
-                  <div className="h-24 w-24 bg-slate-50 rounded-xl flex items-center justify-center">
-                    <Globe className="h-10 w-10 text-slate-300" />
-                  </div>
+                  <Globe className="h-12 w-12 text-slate-300" />
                 )}
-             </div>
-          </div>
-          
-          <div className="pt-16 px-8 pb-8 space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                  {selectedPartner?.name}
-                  {selectedPartner?.type && (
-                    <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-bold uppercase tracking-wider">
-                      {selectedPartner.type}
-                    </span>
-                  )}
-                </h2>
-                <p className="text-slate-500 text-sm leading-relaxed max-w-xl">
-                  {selectedPartner?.description || 'আমাদের সম্মানিত পার্টনার প্রতিষ্ঠানের সাথে আপনার শেখার যাত্রা হোক আরও আনন্দদায়ক।'}
-                </p>
               </div>
-              
+            </div>
+
+            <div className="absolute top-6 right-10 flex gap-3">
               {selectedPartner?.websiteUrl && (
                 <a 
                   href={selectedPartner.websiteUrl} 
                   target="_blank" 
                   rel="noreferrer"
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-slate-200"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/80 hover:bg-white text-slate-900 rounded-2xl text-sm font-bold transition-all hover:shadow-xl hover:shadow-indigo-500/10 active:scale-95 border border-slate-200/50 backdrop-blur-md"
                 >
-                  <ExternalLink className="h-4 w-4" />
-                  ওয়েবসাইট দেখুন
+                  <ExternalLink className="h-4 w-4 text-indigo-600" />
+                  ওয়েবসাইট
                 </a>
               )}
             </div>
+          </div>
+          
+          <div className="pt-20 px-10 pb-10 space-y-10">
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                {selectedPartner?.type && (
+                  <span className="px-3 py-1 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-bold uppercase tracking-[0.15em] border border-indigo-100/50">
+                    {selectedPartner.type}
+                  </span>
+                )}
+                <div className="h-px flex-1 bg-gradient-to-r from-slate-100 to-transparent"></div>
+              </div>
+              
+              <div className="space-y-3">
+                <h2 className="text-4xl font-black text-slate-900 tracking-tight leading-tight">
+                  {selectedPartner?.name}
+                </h2>
+                <p className="text-slate-500 text-lg leading-relaxed max-w-2xl font-medium">
+                  {selectedPartner?.description || 'আমাদের সম্মানিত পার্টনার প্রতিষ্ঠানের সাথে আপনার শেখার যাত্রা হোক আরও আনন্দদায়ক।'}
+                </p>
+              </div>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 ring-1 ring-indigo-200">
-                    <GraduationCap className="h-4 w-4" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Courses Column */}
+              <div className="space-y-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-2xl bg-indigo-500 text-white shadow-lg shadow-indigo-200">
+                      <GraduationCap className="h-5 w-5" />
+                    </div>
+                    <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wider">প্রস্তাবিত কোর্সসমূহ</h4>
                   </div>
-                  <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">প্রস্তাবিত কোর্সসমূহ</h4>
+                  <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest bg-indigo-50 px-2 py-1 rounded-lg">Top Rated</span>
                 </div>
-                <div className="grid gap-3">
+                
+                <div className="space-y-3">
                   {courses.slice(0, 3).map((c) => (
-                    <div key={c.id} className="group relative rounded-2xl border border-slate-100 bg-slate-50/50 p-4 transition-all hover:bg-white hover:shadow-md hover:border-indigo-100 cursor-default">
-                      <div className="flex justify-between items-start">
-                        <div className="space-y-1">
-                          <p className="text-sm font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{c.name}</p>
-                          <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">{c.code}</p>
+                    <div 
+                      key={c.id} 
+                      className="group relative rounded-2xl border border-slate-100 bg-white p-5 transition-all duration-300 hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] hover:border-indigo-100 hover:-translate-y-1 cursor-default"
+                    >
+                      <div className="flex justify-between items-center">
+                        <div className="space-y-1.5">
+                          <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-[0.2em]">{c.code}</p>
+                          <p className="text-base font-bold text-slate-800 group-hover:text-indigo-600 transition-colors leading-snug">{c.name}</p>
                         </div>
-                        <Sparkles className="h-4 w-4 text-indigo-200 group-hover:text-indigo-400 transition-colors" />
+                        <div className="h-10 w-10 rounded-xl bg-slate-50 flex items-center justify-center group-hover:bg-indigo-50 transition-colors">
+                          <Sparkles className="h-5 w-5 text-slate-300 group-hover:text-indigo-400 transition-colors" />
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-rose-50 text-rose-600 ring-1 ring-rose-200">
-                    <BookOpen className="h-4 w-4" />
+              {/* Digital Products Column */}
+              <div className="space-y-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-2xl bg-rose-500 text-white shadow-lg shadow-rose-200">
+                      <BookOpen className="h-5 w-5" />
+                    </div>
+                    <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wider">ডিজিটাল প্রোডাক্ট</h4>
                   </div>
-                  <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">ডিজিটাল প্রোডাক্ট</h4>
+                  <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest bg-rose-50 px-2 py-1 rounded-lg">Popular</span>
                 </div>
-                <div className="grid gap-3">
+
+                <div className="space-y-3">
                   {dynamicEbooks.slice(0, 3).map((b) => (
-                    <div key={b.id} className="group relative rounded-2xl border border-slate-100 bg-slate-50/50 p-4 transition-all hover:bg-white hover:shadow-md hover:border-rose-100 cursor-default">
-                      <div className="flex justify-between items-start">
-                        <div className="space-y-1">
-                          <p className="text-sm font-bold text-slate-800 group-hover:text-rose-600 transition-colors">{b.name}</p>
-                          <p className="text-[10px] font-bold text-rose-500 uppercase">৳{b.price}</p>
+                    <div 
+                      key={b.id} 
+                      className="group relative rounded-2xl border border-slate-100 bg-white p-5 transition-all duration-300 hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] hover:border-rose-100 hover:-translate-y-1 cursor-default"
+                    >
+                      <div className="flex justify-between items-center">
+                        <div className="space-y-1.5">
+                          <p className="text-base font-bold text-slate-800 group-hover:text-rose-600 transition-colors leading-snug">{b.name}</p>
+                          <div className="flex items-center gap-2">
+                             <div className="h-1 w-1 rounded-full bg-rose-400"></div>
+                             <p className="text-[11px] font-black text-rose-500 uppercase tracking-wider">৳{b.price}</p>
+                          </div>
                         </div>
-                        <div className="h-1.5 w-1.5 rounded-full bg-rose-200 group-hover:scale-150 transition-transform" />
+                        <div className="h-10 w-10 rounded-xl bg-slate-50 flex items-center justify-center group-hover:bg-rose-50 transition-colors">
+                           <div className="h-2 w-2 rounded-full bg-rose-200 group-hover:scale-150 transition-transform duration-300" />
+                        </div>
                       </div>
                     </div>
                   ))}

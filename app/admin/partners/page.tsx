@@ -205,6 +205,7 @@ export default function AdminPartnersPage() {
               <TableHead className="px-8 py-4 font-black text-[10px] uppercase tracking-widest text-slate-400">Partner</TableHead>
               <TableHead className="py-4 font-black text-[10px] uppercase tracking-widest text-slate-400">Category</TableHead>
               <TableHead className="py-4 font-black text-[10px] uppercase tracking-widest text-slate-400">Website</TableHead>
+              <TableHead className="py-4 font-black text-[10px] uppercase tracking-widest text-slate-400">Collaborations</TableHead>
               <TableHead className="py-4 font-black text-[10px] uppercase tracking-widest text-slate-400">On homepage</TableHead>
               <TableHead className="px-8 py-4 text-right font-black text-[10px] uppercase tracking-widest text-slate-400">Actions</TableHead>
             </TableRow>
@@ -258,6 +259,13 @@ export default function AdminPartnersPage() {
                   )}
                 </TableCell>
                 <TableCell className="py-5">
+                  <span className="text-xs font-bold text-slate-600">
+                    {(p.partnerPrograms?.length ?? 0) + (p.partnerCourses?.length ?? 0) > 0
+                      ? `${p.partnerPrograms?.length ?? 0} prog · ${p.partnerCourses?.length ?? 0} course`
+                      : '—'}
+                  </span>
+                </TableCell>
+                <TableCell className="py-5">
                   <div className="flex items-center gap-3">
                     <Switch
                       checked={p.isActive}
@@ -293,7 +301,7 @@ export default function AdminPartnersPage() {
             ))}
             {!loading && filteredPartners.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="py-20 text-center">
+                <TableCell colSpan={6} className="py-20 text-center">
                   <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-[2rem] bg-slate-50 text-slate-200">
                     <Globe2 className="h-10 w-10" />
                   </div>

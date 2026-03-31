@@ -17,6 +17,7 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
     DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -167,14 +168,16 @@ export default function CourseDetailsPage() {
             const inv = res.data.invoice as { id: string; totalAmount?: unknown; payableAmount?: unknown };
             const total =
                 Number(inv.payableAmount ?? inv.totalAmount ?? enrollTotal) || enrollTotal;
-            setCreatedInvoice({ id: inv.id, total });
-            setInvoiceDialogOpen(true);
             setDeliveryOpen(false);
+            setCreatedInvoice({ id: inv.id, total });
             toast({
                 title: 'ইনভয়েস তৈরি হয়েছে',
-                description: 'নিচে ইনভয়েস দেখুন অথবা পেমেন্ট চালিয়ে যান।',
+                description: 'পরের উইন্ডোতে ইনভয়েস দেখুন — PDF বা পেমেন্ট বেছে নিন।',
                 variant: 'success',
             });
+            window.setTimeout(() => {
+                setInvoiceDialogOpen(true);
+            }, 120);
         } catch (e: any) {
             const apiRes = e.response;
             const msg = apiRes?.message || e.message || 'Enrollment failed';
@@ -719,12 +722,15 @@ export default function CourseDetailsPage() {
             </Dialog>
 
             <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
-                <DialogContent className="max-w-md rounded-3xl">
+                <DialogContent className="max-w-md rounded-3xl border-slate-200">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 font-black">
                             <Receipt className="h-5 w-5 text-indigo-600" />
                             ইনভয়েস তৈরি হয়েছে
                         </DialogTitle>
+                        <DialogDescription className="text-left text-base font-medium text-slate-600">
+                            ভর্তি সম্পন্ন হয়েছে। নিচের বোতামে PDF দেখুন বা অনলাইন পেমেন্ট চালিয়ে যান।
+                        </DialogDescription>
                     </DialogHeader>
                     {createdInvoice ? (
                         <div className="space-y-3 text-sm text-slate-700">

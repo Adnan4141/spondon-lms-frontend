@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
 import { BookMarked, ShoppingCart, Loader2, Star, Search, Filter } from 'lucide-react';
-import { getPortalBooks, purchaseBook } from '@/lib/api/student-portal';
+import { getPortalBooks, getMyBookPurchases, purchaseBook } from '@/lib/api/student-portal';
+import { MyBookPurchasesPanel, type MyBookPurchaseRow } from '@/components/student/MyBookPurchasesPanel';
 import { initInvoicePayment } from '@/lib/api/invoices';
 import type { Book } from '@/lib/api/books';
 import { getBranches } from '@/lib/api/branches';
@@ -23,6 +24,8 @@ import { Textarea } from '@/components/ui/textarea';
 
 export default function StudentBooksPage() {
   const [books, setBooks] = useState<Book[]>([]);
+  const [myPurchases, setMyPurchases] = useState<MyBookPurchaseRow[]>([]);
+  const [purchasesLoading, setPurchasesLoading] = useState(true);
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [purchasingId, setPurchasingId] = useState<string | null>(null);
@@ -38,13 +41,27 @@ export default function StudentBooksPage() {
   useEffect(() => {
     const fetch = async () => {
       try {
-        const [booksRes, branchesRes] = await Promise.all([getPortalBooks(), getBranches()]);
+        let uid: string | undefined;
+        try {
+          const raw = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+          uid = raw ? (JSON.parse(raw) as { id?: string }).id : undefined;
+        } catch {
+          uid = undefined;
+        }
+        const [booksRes, branchesRes, mineRes] = await Promise.all([
+          getPortalBooks(),
+          getBranches(),
+          uid ? getMyBookPurchases(uid) : Promise.resolve({ success: true as const, data: [] as MyBookPurchaseRow[] }),
+        ]);
         if (booksRes.success && booksRes.data) setBooks(booksRes.data);
         if (branchesRes.success && branchesRes.data) setBranches(branchesRes.data);
+        if (mineRes.success && mineRes.data) setMyPurchases(mineRes.data);
+        else setMyPurchases([]);
       } catch (e) {
         console.error(e);
       } finally {
         setLoading(false);
+        setPurchasesLoading(false);
       }
     };
     fetch();
@@ -109,7 +126,11 @@ export default function StudentBooksPage() {
         window.location.href = paymentRes.data.GatewayPageURL;
         return;
       }
-      throw new Error('Failed to initiate SSL payment');
+      setCheckoutBook(null);
+      const uid = user.id as string;
+      const mine = await getMyBookPurchases(uid);
+      if (mine.success && mine.data) setMyPurchases(mine.data);
+      throw new Error('গেটওয়ে খুলতে ব্যর্থ — অর্ডার তৈরি হয়েছে; পেমেন্ট পেজ থেকে শোধ করুন।');
     } catch (e: unknown) {
       setFormError(e instanceof Error ? e.message : 'কেনা ব্যর্থ');
     } finally {
@@ -130,9 +151,21 @@ export default function StudentBooksPage() {
 
   return (
     <div className="space-y-10">
+      <section id="my-books" className="scroll-mt-8 space-y-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-black tracking-tight text-slate-900">আমার বই ও অর্ডার</h2>
+            <p className="text-sm font-medium text-slate-500">
+              ই-বুক (অনলাইন) ও প্রিন্ট অর্ডারের অবস্থা, ইনভয়েস PDF।
+            </p>
+          </div>
+        </div>
+        <MyBookPurchasesPanel purchases={myPurchases} loading={purchasesLoading} />
+      </section>
+
       <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
         <div>
-          <h1 className="text-4xl font-black tracking-tight text-slate-900">বই</h1>
+          <h1 className="text-4xl font-black tracking-tight text-slate-900">বই কিনুন</h1>
           <p className="mt-2 text-lg font-medium text-slate-500">
             অনলাইন কেনাকাটায় ডেলিভারি ঠিকানা সংরক্ষিত হয়; পেমেন্ট SSL গেটওয়ে দিয়ে।
           </p>

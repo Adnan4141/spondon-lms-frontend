@@ -38,16 +38,27 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 
 type CourseRow = { id: string; name: string };
 type BranchRow = { id: string; name: string };
 type BatchRow = { id: string; name: string };
 
-function nextAttendanceStatus(current: string | null): AttendanceStatus {
-  if (!current || current === 'LATE') return 'PRESENT';
-  if (current === 'PRESENT') return 'ABSENT';
-  return 'LATE';
-}
+type AttendanceEditModalState = {
+  sessionId: string;
+  sessionDate: string;
+  studentUserId: string;
+  studentName: string;
+  currentStatus: string | null;
+};
 
 function StatusDot({ status }: { status: string | null }) {
   if (status === 'PRESENT') {
@@ -80,6 +91,15 @@ function sessionLabel(d: string) {
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
 
+function sessionDateFull(d: string) {
+  return new Date(d).toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
 export default function AttendanceSheetPage() {
   const { toast } = useToast();
 
@@ -99,6 +119,9 @@ export default function AttendanceSheetPage() {
   /** Mobile / tablet: 'cards' is easier to read; 'table' for wide matrix with horizontal scroll */
   const [layoutMode, setLayoutMode] = useState<'cards' | 'table'>('cards');
   const [editAttendance, setEditAttendance] = useState(true);
+  const [attendanceModal, setAttendanceModal] = useState<AttendanceEditModalState | null>(null);
+  const [modalStatus, setModalStatus] = useState<AttendanceStatus>('PRESENT');
+  const [modalSaving, setModalSaving] = useState(false);
 
   const loadFilters = async () => {
     try {
@@ -213,23 +236,39 @@ export default function AttendanceSheetPage() {
     });
   };
 
-  const handleCellAttendance = async (
+  const openAttendanceModal = (
     sessionId: string,
+    sessionDate: string,
     studentUserId: string,
     studentName: string,
     current: string | null
   ) => {
     if (!editAttendance) return;
-    const status = nextAttendanceStatus(current);
+    setModalStatus(current === 'ABSENT' ? 'ABSENT' : 'PRESENT');
+    setAttendanceModal({ sessionId, sessionDate, studentUserId, studentName, currentStatus: current });
+  };
+
+  const saveAttendanceFromModal = async () => {
+    if (!attendanceModal) return;
+    setModalSaving(true);
     try {
-      const res = await recordAttendance({ sessionId, studentUserId, status });
+      const res = await recordAttendance({
+        sessionId: attendanceModal.sessionId,
+        studentUserId: attendanceModal.studentUserId,
+        status: modalStatus,
+      });
       if (res.success && res.data) {
-        applyAttendancePatch(sessionId, studentUserId, {
+        applyAttendancePatch(attendanceModal.sessionId, attendanceModal.studentUserId, {
           id: res.data.id,
           status: res.data.status,
-          student: res.data.student || { id: studentUserId, fullName: studentName },
+          student:
+            res.data.student || {
+              id: attendanceModal.studentUserId,
+              fullName: attendanceModal.studentName,
+            },
         });
-        toast({ title: 'Attendance saved', description: `${status}`, variant: 'success' });
+        toast({ title: 'Attendance saved', description: modalStatus, variant: 'success' });
+        setAttendanceModal(null);
       } else {
         toast({
           title: 'Could not save',
@@ -243,6 +282,8 @@ export default function AttendanceSheetPage() {
         description: err instanceof Error ? err.message : 'Request failed',
         variant: 'destructive',
       });
+    } finally {
+      setModalSaving(false);
     }
   };
 
@@ -296,9 +337,7 @@ export default function AttendanceSheetPage() {
                 Academic records
               </Badge>
               <h1 className="text-2xl font-black tracking-tight sm:text-3xl md:text-4xl">Attendance sheet</h1>
-              <p className="max-w-xl text-sm font-medium text-slate-400 sm:text-base">
-                Filter by course, branch, and batch. Print a signed matrix or review on mobile with the card layout.
-              </p>
+             
             </div>
             <div className="flex flex-wrap items-center gap-3">
               {sheetData ? (
@@ -490,6 +529,7 @@ export default function AttendanceSheetPage() {
                 </button>
               </div>
             </div>
+            {/* Scroll help removed; rely on native scrollbars/trackpad */}
           </div>
 
           {/* Mobile / default cards */}
@@ -499,61 +539,66 @@ export default function AttendanceSheetPage() {
               layoutMode === 'table' && 'hidden'
             )}
           >
-            {sheetData.enrollments.map((enrollment) => (
-              <article
-                key={enrollment.id}
-                className="rounded-2xl border border-slate-100 bg-slate-50/40 p-4 shadow-sm ring-1 ring-slate-100/80"
-              >
-                <div className="mb-3 flex items-center gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-sm font-black text-indigo-600 shadow-inner ring-1 ring-slate-100">
-                    {enrollment.student.fullName.charAt(0)}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-black text-slate-900">{enrollment.student.fullName}</p>
-                    <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                      {enrollment.batch?.name || 'No batch'} · {enrollment.student.mobile}
-                    </p>
-                  </div>
-                </div>
-                {sheetData.sessions.length === 0 ? (
-                  <p className="text-sm text-slate-400">No sessions in range.</p>
-                ) : (
-                  <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                    {sheetData.sessions.map((session) => {
-                      const record = session.attendanceRecords.find((r) => r.studentUserId === enrollment.student.id);
-                      const st = record?.status ?? null;
-                      return (
-                        <li
-                          key={session.id}
-                          className="flex items-center justify-between gap-2 rounded-xl border border-slate-200/80 bg-white px-3 py-2"
-                        >
-                          <span className="min-w-0 text-[11px] font-bold text-slate-600">
-                            <Calendar className="mb-0.5 inline h-3 w-3 text-indigo-400" />{' '}
-                            {sessionLabel(session.sessionDate)}
-                          </span>
-                          <button
-                            type="button"
-                            disabled={!editAttendance}
-                            title={editAttendance ? 'Tap to cycle P → A → L' : 'Enable editing in the header'}
-                            onClick={() =>
-                              handleCellAttendance(
-                                session.id,
-                                enrollment.student.id,
-                                enrollment.student.fullName,
-                                st
-                              )
-                            }
-                            className="shrink-0 rounded-lg disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            <StatusDot status={st} />
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </article>
-            ))}
+            <div className="max-h-[70vh] overflow-y-auto pr-1">
+              <div className="space-y-3">
+                {sheetData.enrollments.map((enrollment) => (
+                  <article
+                    key={enrollment.id}
+                    className="rounded-2xl border border-slate-100 bg-slate-50/40 p-4 shadow-sm ring-1 ring-slate-100/80"
+                  >
+                    <div className="mb-3 flex items-center gap-3">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-sm font-black text-indigo-600 shadow-inner ring-1 ring-slate-100">
+                        {enrollment.student.fullName.charAt(0)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-black text-slate-900">{enrollment.student.fullName}</p>
+                        <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                          {enrollment.batch?.name || 'No batch'} · {enrollment.student.mobile}
+                        </p>
+                      </div>
+                    </div>
+                    {sheetData.sessions.length === 0 ? (
+                      <p className="text-sm text-slate-400">No sessions in range.</p>
+                    ) : (
+                      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                        {sheetData.sessions.map((session) => {
+                          const record = session.attendanceRecords.find((r) => r.studentUserId === enrollment.student.id);
+                          const st = record?.status ?? null;
+                          return (
+                            <li
+                              key={session.id}
+                              className="flex items-center justify-between gap-2 rounded-xl border border-slate-200/80 bg-white px-3 py-2"
+                            >
+                              <span className="min-w-0 text-[11px] font-bold text-slate-600">
+                                <Calendar className="mb-0.5 inline h-3 w-3 text-indigo-400" />{' '}
+                                {sessionLabel(session.sessionDate)}
+                              </span>
+                              <button
+                                type="button"
+                                disabled={!editAttendance}
+                                title={editAttendance ? 'Set attendance' : 'Enable editing in the header'}
+                                onClick={() =>
+                                  openAttendanceModal(
+                                    session.id,
+                                    session.sessionDate,
+                                    enrollment.student.id,
+                                    enrollment.student.fullName,
+                                    st
+                                  )
+                                }
+                                className="shrink-0 rounded-lg disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                <StatusDot status={st} />
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </article>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* Tablet: optional table when user picks table */}
@@ -566,7 +611,7 @@ export default function AttendanceSheetPage() {
             <p className="mb-2 px-2 text-center text-[10px] font-bold uppercase tracking-widest text-slate-400">
               Scroll horizontally for all sessions
             </p>
-            <div className="relative -mx-2 overflow-x-auto overscroll-x-contain px-2 pb-2 [scrollbar-width:thin]">
+            <div className="relative -mx-2 overflow-x-auto overflow-y-auto overscroll-x-contain px-2 pb-2 [scrollbar-width:thin] max-h-[70vh] scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100 dark:scrollbar-thumb-slate-500 dark:scrollbar-track-slate-800">
               <div className="pointer-events-none absolute bottom-0 left-0 top-0 z-[1] w-8 bg-gradient-to-r from-white to-transparent print:hidden" />
               <div className="pointer-events-none absolute bottom-0 right-0 top-0 z-[1] w-8 bg-gradient-to-l from-white to-transparent print:hidden" />
               <table className="w-max min-w-full border-collapse text-left text-sm">
@@ -599,10 +644,11 @@ export default function AttendanceSheetPage() {
                             <button
                               type="button"
                               disabled={!editAttendance}
-                              title={editAttendance ? 'Cycle P → A → L' : 'Enable editing in the header'}
+                              title={editAttendance ? 'Set attendance' : 'Enable editing in the header'}
                               onClick={() =>
-                                handleCellAttendance(
+                                openAttendanceModal(
                                   session.id,
+                                  session.sessionDate,
                                   enrollment.student.id,
                                   enrollment.student.fullName,
                                   record?.status ?? null
@@ -623,7 +669,7 @@ export default function AttendanceSheetPage() {
           </div>
 
           {/* Desktop matrix */}
-          <div className="hidden overflow-x-auto lg:block print:block">
+          <div className="hidden overflow-x-auto overflow-y-auto max-h-[75vh] lg:block print:block scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100 dark:scrollbar-thumb-slate-500 dark:scrollbar-track-slate-800">
             <table className="w-full min-w-[640px] border-collapse text-left">
               <thead className="border-b border-slate-200 bg-slate-50 print:bg-white">
                 <tr>
@@ -669,10 +715,11 @@ export default function AttendanceSheetPage() {
                           <button
                             type="button"
                             disabled={!editAttendance}
-                            title={editAttendance ? 'Cycle P → A → L' : 'Enable editing in the header'}
+                            title={editAttendance ? 'Set attendance' : 'Enable editing in the header'}
                             onClick={() =>
-                              handleCellAttendance(
+                              openAttendanceModal(
                                 session.id,
+                                session.sessionDate,
                                 enrollment.student.id,
                                 enrollment.student.fullName,
                                 record?.status ?? null
@@ -735,6 +782,82 @@ export default function AttendanceSheetPage() {
           ) : null}
         </section>
       )}
+
+      <Dialog
+        open={!!attendanceModal}
+        onOpenChange={(open) => {
+          if (!open) setAttendanceModal(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md rounded-3xl border-slate-200">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black tracking-tight">Edit attendance</DialogTitle>
+            <DialogDescription className="text-sm text-slate-500">
+              Choose present or absent for this class session.
+            </DialogDescription>
+          </DialogHeader>
+          {attendanceModal ? (
+            <div className="space-y-5 py-2">
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  Session date
+                </Label>
+                <p className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900">
+                  {sessionDateFull(attendanceModal.sessionDate)}
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  Student
+                </Label>
+                <p className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900">
+                  {attendanceModal.studentName}
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  Status
+                </Label>
+                <Select
+                  value={modalStatus}
+                  onValueChange={(v) => setModalStatus(v as AttendanceStatus)}
+                >
+                  <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/80 font-semibold">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl">
+                    <SelectItem value="PRESENT" className="font-semibold">
+                      Present
+                    </SelectItem>
+                    <SelectItem value="ABSENT" className="font-semibold">
+                      Absent
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          ) : null}
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-2xl font-bold"
+              onClick={() => setAttendanceModal(null)}
+              disabled={modalSaving}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="rounded-2xl bg-slate-900 font-bold hover:bg-indigo-600"
+              onClick={() => void saveAttendanceFromModal()}
+              disabled={modalSaving || !attendanceModal}
+            >
+              {modalSaving ? 'Saving…' : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

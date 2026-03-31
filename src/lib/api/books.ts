@@ -170,6 +170,28 @@ export async function getBooks(params?: {
   return apiRequest<ApiResponse<Book[]>>(`/books${query ? `?${query}` : ''}`);
 }
 
+/** Marketing-safe catalog (no admin-only fields) */
+export async function getPublicBooksCatalog(params?: {
+  isEbook?: boolean;
+  limit?: number;
+}): Promise<ApiResponse<PublicCatalogBook[]>> {
+  const queryParams = new URLSearchParams();
+  if (params?.isEbook !== undefined) queryParams.append('isEbook', String(params.isEbook));
+  if (params?.limit) queryParams.append('limit', String(params.limit));
+  const query = queryParams.toString();
+  return apiRequest<ApiResponse<PublicCatalogBook[]>>(`/books/public-list${query ? `?${query}` : ''}`);
+}
+
+export interface PublicCatalogBook {
+  id: string;
+  name: string;
+  author?: string | null;
+  price: number;
+  thumbnailUrl?: string | null;
+  isEbook: boolean;
+  description?: string | null;
+}
+
 export async function getBookById(id: string): Promise<ApiResponse<Book>> {
   return apiRequest<ApiResponse<Book>>(`/books/${id}`);
 }
@@ -184,6 +206,41 @@ export interface PublicBookCollaborator {
   user: { id: string; fullName: string; profileImage?: string | null };
 }
 
+export interface BookOutlineSegment {
+  id: string;
+  title: string;
+  type: string;
+  sortOrder: number;
+  durationMinutes: number | null;
+  isFree: boolean;
+  topicTitle: string | null;
+}
+
+export interface BookOutlineChapter {
+  id: string;
+  title: string;
+  sortOrder: number;
+  segments: BookOutlineSegment[];
+}
+
+export interface BookOutlineSubject {
+  id: string;
+  title: string;
+  sortOrder: number;
+  chapters: BookOutlineChapter[];
+}
+
+export interface BookContentOutline {
+  totals: {
+    subjects: number;
+    chapters: number;
+    segments: number;
+    videos: number;
+    notes: number;
+  };
+  subjects: BookOutlineSubject[];
+}
+
 export interface PublicBook {
   id: string;
   name: string;
@@ -196,6 +253,7 @@ export interface PublicBook {
   createdAt: string;
   courseBooks?: Array<{ isFree: boolean; course: { id: string; name: string; slug?: string | null } }>;
   collaborators?: PublicBookCollaborator[];
+  outline?: BookContentOutline;
 }
 
 export async function createBook(

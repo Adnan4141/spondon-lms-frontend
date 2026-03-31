@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { BookOpen, GraduationCap, Award, ArrowRight, Clock, Star, TrendingUp } from 'lucide-react';
+import { BookOpen, BookMarked, GraduationCap, Award, ArrowRight, Clock, Star } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { getMyCourses } from '@/lib/api/student-portal';
+import { getMyCourses, getMyBookPurchases } from '@/lib/api/student-portal';
+import { MyBookPurchasesPanel, type MyBookPurchaseRow } from '@/components/student/MyBookPurchasesPanel';
 
 export default function StudentDashboardPage() {
-  const [stats, setStats] = useState({ myCourses: 0, results: 0, hoursLearned: 0, rank: 0 });
+  const [stats, setStats] = useState({ myCourses: 0, myBooks: 0, results: 0, hoursLearned: 0 });
   const [user, setUser] = useState<{ fullName?: string } | null>(null);
+  const [myPurchases, setMyPurchases] = useState<MyBookPurchaseRow[]>([]);
+  const [purchasesLoading, setPurchasesLoading] = useState(true);
 
   useEffect(() => {
     const u = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
@@ -20,8 +23,23 @@ export default function StudentDashboardPage() {
           getMyCourses(parsed.id).then((r) => {
             if (r.success && r.data) setStats((s) => ({ ...s, myCourses: r.data!.length }));
           }).catch(() => {});
+          getMyBookPurchases(parsed.id)
+            .then((r) => {
+              if (r.success && r.data) {
+                setMyPurchases(r.data);
+                setStats((s) => ({ ...s, myBooks: r.data!.length }));
+              }
+            })
+            .catch(() => {})
+            .finally(() => setPurchasesLoading(false));
+        } else {
+          setPurchasesLoading(false);
         }
-      } catch {}
+      } catch {
+        setPurchasesLoading(false);
+      }
+    } else {
+      setPurchasesLoading(false);
     }
   }, []);
 
@@ -37,9 +55,12 @@ export default function StudentDashboardPage() {
             <p className="text-indigo-100 text-lg font-medium max-w-md">
               কোর্স দেখুন, রুটিন মেনে চলুন।
             </p>
-            <div className="flex gap-4 pt-4">
+            <div className="flex flex-wrap gap-4 pt-4">
               <Link href="/student/courses" className="px-6 py-3 bg-white text-indigo-600 rounded-2xl font-bold text-sm hover:bg-indigo-50 transition-colors shadow-lg">
                 আমার কোর্স দেখুন
+              </Link>
+              <Link href="/student/books#my-books" className="px-6 py-3 bg-white/15 text-white border border-white/25 rounded-2xl font-bold text-sm hover:bg-white/25 transition-colors backdrop-blur-sm">
+                আমার বই
               </Link>
               <Link href="/student/routine" className="px-6 py-3 bg-indigo-500/30 text-white border border-indigo-400/30 rounded-2xl font-bold text-sm hover:bg-indigo-500/40 transition-colors backdrop-blur-sm">
                 রুটিন দেখুন
@@ -63,9 +84,9 @@ export default function StudentDashboardPage() {
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {[
           { label: 'কোর্স', value: stats.myCourses, icon: BookOpen, color: 'indigo', href: '/student/courses' },
+          { label: 'বই অর্ডার', value: stats.myBooks, icon: BookMarked, color: 'violet', href: '/student/books#my-books' },
           { label: 'সময়', value: stats.hoursLearned, icon: Clock, color: 'emerald' },
           { label: 'ফলাফল', value: stats.results, icon: Award, color: 'amber', href: '/student/results' },
-          { label: 'র‍্যাংক', value: stats.rank, icon: TrendingUp, color: 'rose' },
         ].map((item, idx) => (
           <Card key={idx} className="group relative overflow-hidden rounded-3xl border-none bg-white p-1 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] transition-all duration-500">
             <CardContent className="p-6">
@@ -86,6 +107,30 @@ export default function StudentDashboardPage() {
           </Card>
         ))}
       </div>
+
+      <section className="space-y-4 rounded-[2rem] border border-slate-100 bg-white p-6 shadow-sm sm:p-8">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-2xl font-black text-slate-900">আমার বই ও অর্ডার</h2>
+          <Link
+            href="/student/books#my-books"
+            className="text-sm font-bold text-indigo-600 hover:text-indigo-800"
+          >
+            সব দেখুন →
+          </Link>
+        </div>
+        <MyBookPurchasesPanel
+          purchases={myPurchases.slice(0, 3)}
+          loading={purchasesLoading}
+          compact
+        />
+        {myPurchases.length > 3 ? (
+          <p className="text-center text-sm font-bold text-slate-500">
+            <Link href="/student/books#my-books" className="text-indigo-600 hover:underline">
+              আরও {myPurchases.length - 3} টি অর্ডার
+            </Link>
+          </p>
+        ) : null}
+      </section>
 
       <div className="grid gap-8 lg:grid-cols-3">
         {/* Quick Actions */}

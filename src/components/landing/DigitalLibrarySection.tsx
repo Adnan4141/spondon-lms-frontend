@@ -4,12 +4,12 @@ import { motion } from 'framer-motion';
 import React from 'react';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
-import { Book } from '@/lib/api/books';
+import type { PublicCatalogBook } from '@/lib/api/books';
 import { staggerContainer, fadeInUp } from '@/lib/animations/landing';
 import { Button } from '@/components/ui/button';
 
 interface Props {
-  dynamicEbooks: Book[];
+  dynamicEbooks: PublicCatalogBook[];
 }
 
 export const DigitalLibrarySection: React.FC<Props> = ({ dynamicEbooks }) => {
@@ -87,6 +87,17 @@ export const DigitalLibrarySection: React.FC<Props> = ({ dynamicEbooks }) => {
           variants={staggerContainer}
           className="grid md:grid-cols-2 lg:grid-cols-3 gap-10"
         >
+          {dynamicEbooks.length === 0 ? (
+            <div className="col-span-full rounded-[40px] border border-white/10 bg-white/[0.04] px-8 py-16 text-center backdrop-blur-md">
+              <p className="text-lg font-black text-white">ই-বুক শীঘ্রই যুক্ত হবে</p>
+              <p className="mt-2 text-sm font-medium text-slate-500 max-w-md mx-auto">
+                ক্যাটালগ লোড হচ্ছে না বা এখনও কোনো ই-বুক নেই।{' '}
+                <Link href="/books" className="text-emerald-400 underline-offset-2 hover:underline">
+                  সকল বই দেখুন
+                </Link>
+              </p>
+            </div>
+          ) : null}
           {dynamicEbooks.map((book) => (
             <motion.div key={book.id} variants={fadeInUp} className="group relative h-full">
               <div className="absolute inset-0 bg-emerald-500/10 rounded-[48px] blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -122,7 +133,7 @@ export const DigitalLibrarySection: React.FC<Props> = ({ dynamicEbooks }) => {
                     <div className="mt-auto pt-6 flex items-center justify-between border-t border-white/5 gap-3">
                       <div className="flex flex-col min-w-0">
                         <span className="text-emerald-400 font-black text-lg sm:text-xl md:text-2xl tracking-tighter">
-                          {Number(book.price) <= 0 ? 'FREE' : `৳${Number(book.price).toLocaleString()}`}
+                          {Number(book.price) <= 0 ? 'FREE' : `৳${Number(book.price || 0).toLocaleString()}`}
                         </span>
                         <span className="text-[10px] font-bold text-slate-500 truncate">বিস্তারিত দেখুন</span>
                       </div>

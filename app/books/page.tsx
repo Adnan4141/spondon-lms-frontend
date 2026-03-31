@@ -1,15 +1,28 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { getBooks, type Book } from '@/lib/api/books';
-import { Search, SlidersHorizontal, X, Filter, Check, BookOpen } from 'lucide-react';
+import { Search, SlidersHorizontal, X, Filter, Check, BookOpen, ShoppingBag } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+
+function readCatalogUser(): { id?: string; role?: string } | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem('user');
+    return raw ? (JSON.parse(raw) as { id?: string; role?: string }) : null;
+  } catch {
+    return null;
+  }
+}
 
 export default function BooksCatalogPage() {
+  const router = useRouter();
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -62,6 +75,17 @@ export default function BooksCatalogPage() {
     setPriceBand('all');
   };
 
+  const handleBuyClick = (bookId: string, e: MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const u = readCatalogUser();
+    if (!u?.id) {
+      router.push(`/login?redirect=${encodeURIComponent(`/books/${bookId}`)}`);
+      return;
+    }
+    router.push(`/books/${bookId}`);
+  };
+
   const FilterSection = ({
     title,
     options,
@@ -84,7 +108,7 @@ export default function BooksCatalogPage() {
             className={cn(
               'flex cursor-pointer items-center justify-between rounded-xl border px-4 py-3 text-left transition-all duration-300 group',
               value === opt.id
-                ? 'border-[#5C2D91]/20 bg-[#5C2D91]/5 font-bold text-[#5C2D91]'
+                ? 'border-indigo-500/20 bg-indigo-500/5 font-bold text-indigo-600'
                 : 'border-slate-100 bg-white text-slate-600 hover:border-slate-300'
             )}
           >
@@ -92,7 +116,7 @@ export default function BooksCatalogPage() {
             <div
               className={cn(
                 'flex h-5 w-5 items-center justify-center rounded-full border transition-all',
-                value === opt.id ? 'border-[#5C2D91] bg-[#5C2D91]' : 'border-slate-200 group-hover:border-slate-400'
+                value === opt.id ? 'border-indigo-600 bg-indigo-600' : 'border-slate-200 group-hover:border-slate-400'
               )}
             >
               {value === opt.id && <Check className="h-3 w-3 text-white" />}
@@ -104,82 +128,96 @@ export default function BooksCatalogPage() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-indigo-100">
+    <div className="min-h-screen bg-[#FDFDFF] text-slate-900 selection:bg-indigo-100">
       <Header />
 
-      <div className="relative overflow-hidden bg-[#0F172A] pb-20 pt-32">
-        <div className="absolute right-0 top-0 h-96 w-96 rounded-full bg-emerald-500/10 blur-[120px]" />
-        <div className="absolute bottom-0 left-0 h-64 w-64 rounded-full bg-indigo-500/10 blur-[100px]" />
-        <div className="relative z-10 mx-auto max-w-7xl px-6 text-center lg:px-12">
-          <motion.span
+      {/* Hero Header - Compact Version of Courses Style */}
+      <div className="bg-[#0F172A] pt-24 pb-16 relative overflow-hidden">
+        {/* Background Decorative Elements */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 blur-[120px] rounded-full pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-500/10 blur-[100px] rounded-full pointer-events-none" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:40px_40px] opacity-[0.05] pointer-events-none"></div>
+
+        <div className="relative z-10 mx-auto max-w-7xl px-6 lg:px-12 text-center">
+          <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             className="mb-4 inline-block rounded-full border border-white/10 bg-white/5 px-4 py-1 text-[10px] font-black uppercase tracking-[0.3em] text-indigo-300"
           >
             Digital library
-          </motion.span>
+          </motion.div>
           <motion.h1
-            initial={{ opacity: 0, y: 16 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05 }}
-            className="text-4xl font-black tracking-tight text-white sm:text-5xl"
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            className="text-4xl md:text-5xl font-black text-white mb-4 tracking-tighter"
           >
-            সকল বই
+            আমাদের সকল <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">বইসমূহ</span>
           </motion.h1>
-          <p className="mx-auto mt-4 max-w-xl text-sm font-medium text-slate-400 sm:text-base">
-            ই-বুক ও প্রিন্ট — ফিল্টার করে খুঁজে নিন। বিস্তারিত ও কেনার জন্য বই কার্ডে ক্লিক করুন।
-          </p>
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1, duration: 0.6 }}
+            className="mx-auto max-w-2xl text-slate-400 text-base font-medium leading-relaxed"
+          >
+            আপনার পছন্দের ই-বুক এবং প্রিন্ট ভার্সন খুঁজে নিন। বিস্তারিত ও কেনার জন্য বই কার্ডে ক্লিক করুন।
+          </motion.p>
         </div>
       </div>
 
       <div className="mx-auto max-w-7xl px-6 py-12 lg:px-12">
-        <div className="flex flex-col gap-10 lg:flex-row lg:gap-12">
-          <aside className="hidden w-full shrink-0 lg:block lg:w-72">
+        <div className="flex flex-col lg:flex-row gap-10 lg:gap-12">
+          {/* Sidebar Filters - Desktop */}
+          <aside className="hidden w-full shrink-0 lg:block lg:w-80">
             <div className="sticky top-28 space-y-2 rounded-[32px] border border-slate-100 bg-white p-8 shadow-sm">
-              <div className="mb-6 flex items-center gap-2 text-slate-900">
-                <Filter className="h-5 w-5 text-indigo-600" />
-                <h3 className="text-lg font-black">ফিল্টার</h3>
+              <div className="mb-6 flex items-center justify-between border-b border-slate-50 pb-4">
+                <div className="flex items-center gap-2">
+                  <Filter className="h-5 w-5 text-indigo-600" />
+                  <h3 className="text-lg font-black">ফিল্টার</h3>
+                </div>
+                <button
+                  onClick={clearFilters}
+                  className="text-xs font-bold text-rose-500 hover:underline cursor-pointer"
+                >
+                  Clear All
+                </button>
               </div>
+              
               <FilterSection
                 title="ফরম্যাট"
                 value={format}
                 onChange={setFormat}
                 options={[
-                  { id: 'all', label: 'সকল' },
+                  { id: 'all', label: 'সকল ফরম্যাট' },
                   { id: 'ebook', label: 'ই-বুক' },
-                  { id: 'print', label: 'প্রিন্ট' },
+                  { id: 'print', label: 'প্রিন্ট কপি' },
                 ]}
               />
+              
               <FilterSection
                 title="মূল্য"
                 value={priceBand}
                 onChange={setPriceBand}
                 options={[
-                  { id: 'all', label: 'সকল' },
-                  { id: 'free', label: 'বিনামূল্যে / ৳০' },
+                  { id: 'all', label: 'সকল মূল্য' },
+                  { id: 'free', label: 'বিনামূল্যে' },
                   { id: 'paid', label: 'পেইড' },
                 ]}
               />
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 py-3 text-xs font-black uppercase tracking-widest text-slate-500 transition-colors hover:bg-slate-50"
-              >
-                <X className="h-3.5 w-3.5" /> রিসেট
-              </button>
             </div>
           </aside>
 
+          {/* Main Content */}
           <div className="min-w-0 flex-1">
             <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center">
-              <div className="relative flex-1">
-                <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+              <div className="relative flex-1 group">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                 <input
                   type="search"
-                  placeholder="নাম, SKU, লেখক…"
+                  placeholder="বইয়ের নাম, লেখক লিখে খুঁজুন..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-14 w-full rounded-2xl border border-slate-200 bg-white pl-12 pr-4 font-bold text-slate-900 shadow-sm outline-none ring-indigo-500/0 transition-all focus:border-indigo-300 focus:ring-4 focus:ring-indigo-500/10"
+                  className="h-14 w-full rounded-2xl border border-slate-200 bg-white pl-12 pr-4 font-bold text-slate-900 shadow-sm outline-none transition-all focus:border-indigo-300 focus:ring-4 focus:ring-indigo-500/5 placeholder:text-slate-300"
                 />
               </div>
               <button
@@ -187,54 +225,84 @@ export default function BooksCatalogPage() {
                 className="flex h-14 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 font-black text-slate-700 shadow-sm lg:hidden"
                 onClick={() => setMobileFilterOpen(true)}
               >
-                <SlidersHorizontal className="h-5 w-5" />
+                <SlidersHorizontal className="h-5 w-5 text-indigo-600" />
                 ফিল্টার
               </button>
             </div>
 
             {loading ? (
-              <div className="flex justify-center py-24">
-                <div className="h-12 w-12 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
+              <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                {[1, 2, 3, 4, 5, 6].map(i => (
+                  <div key={i} className="bg-white animate-pulse border border-slate-100 shadow-sm h-[350px] rounded-[28px]" />
+                ))}
               </div>
             ) : filtered.length === 0 ? (
               <div className="rounded-[32px] border border-dashed border-slate-200 bg-white py-20 text-center">
                 <BookOpen className="mx-auto mb-4 h-12 w-12 text-slate-300" />
                 <p className="font-bold text-slate-600">কোনো বই মেলেনি।</p>
-                <p className="mt-2 text-sm text-slate-400">ফিল্টার বা সার্চ পরিবর্তন করে আবার চেষ্টা করুন।</p>
+                <button onClick={clearFilters} className="mt-4 text-indigo-600 font-bold hover:underline">ফিল্টার ক্লিয়ার করুন</button>
               </div>
             ) : (
               <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-                {filtered.map((b) => (
-                  <Link
+                {filtered.map((b, idx) => (
+                  <motion.div
                     key={b.id}
-                    href={`/books/${b.id}`}
-                    className="group flex flex-col overflow-hidden rounded-[28px] border border-slate-100 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-indigo-100 hover:shadow-lg"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: (idx % 3) * 0.05 }}
                   >
-                    <div className="relative aspect-[4/3] bg-slate-100">
-                      {b.thumbnailUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={b.thumbnailUrl} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="flex h-full items-center justify-center text-slate-300">
-                          <BookOpen className="h-14 w-14" />
+                    <div className="group flex h-full flex-col overflow-hidden rounded-[28px] border border-slate-100 bg-white shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+                      <Link href={`/books/${b.id}`} className="block flex-1 min-h-0">
+                        <div className="relative aspect-[4/5] bg-slate-50 overflow-hidden">
+                          {b.thumbnailUrl ? (
+                            <img
+                              src={b.thumbnailUrl}
+                              alt={b.name}
+                              className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
+                            />
+                          ) : (
+                            <div className="flex h-full items-center justify-center text-slate-200">
+                              <BookOpen className="h-12 w-12" />
+                            </div>
+                          )}
+                          <span className="absolute right-3 top-3 rounded-full bg-black/60 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-white backdrop-blur shadow-sm">
+                            {b.isEbook ? 'ই-বুক' : 'প্রিন্ট'}
+                          </span>
                         </div>
-                      )}
-                      <span className="absolute right-3 top-3 rounded-full bg-black/60 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-white backdrop-blur">
-                        {b.isEbook ? 'ই-বুক' : 'প্রিন্ট'}
-                      </span>
+                        <div className="flex flex-1 flex-col p-6 pb-4">
+                          <h3 className="line-clamp-2 text-lg font-black text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug">
+                            {b.name}
+                          </h3>
+                          {b.author && (
+                            <p className="mt-1 text-sm font-semibold text-slate-400">{b.author}</p>
+                          )}
+                        </div>
+                      </Link>
+                      <div className="mt-auto flex items-center justify-between gap-3 border-t border-slate-50 px-6 pb-6 pt-2">
+                        <p className="text-xl font-black text-indigo-600">
+                          ৳{Number(b.price).toLocaleString()}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-10 rounded-xl border-slate-200 font-bold text-slate-700"
+                            onClick={(e) => handleBuyClick(b.id, e)}
+                          >
+                            <ShoppingBag className="mr-1.5 h-4 w-4" />
+                            কিনুন
+                          </Button>
+                          <Link
+                            href={`/books/${b.id}`}
+                            className="inline-flex h-10 items-center rounded-xl bg-slate-900 px-4 text-xs font-black uppercase tracking-wider text-white transition-colors hover:bg-indigo-600"
+                          >
+                            বিস্তারিত
+                          </Link>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex flex-1 flex-col p-6">
-                      <h3 className="line-clamp-2 text-lg font-black text-slate-900 group-hover:text-indigo-700">
-                        {b.name}
-                      </h3>
-                      {b.author ? (
-                        <p className="mt-1 text-sm font-semibold text-slate-500">{b.author}</p>
-                      ) : null}
-                      <p className="mt-4 text-2xl font-black text-[#5C2D91]">
-                        ৳{Number(b.price).toLocaleString()}
-                      </p>
-                    </div>
-                  </Link>
+                  </motion.div>
                 ))}
               </div>
             )}
@@ -244,24 +312,24 @@ export default function BooksCatalogPage() {
 
       <AnimatePresence>
         {mobileFilterOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex flex-col bg-slate-900/40 backdrop-blur-sm lg:hidden"
-            onClick={() => setMobileFilterOpen(false)}
-          >
+          <>
             <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 28 }}
-              className="mt-auto max-h-[85vh] overflow-y-auto rounded-t-[32px] bg-white p-6"
-              onClick={(e) => e.stopPropagation()}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMobileFilterOpen(false)}
+              className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm lg:hidden cursor-pointer"
+            />
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed inset-y-0 right-0 z-[110] flex w-[85%] max-w-sm flex-col bg-white p-8 lg:hidden shadow-2xl overflow-y-auto"
             >
-              <div className="mb-6 flex items-center justify-between">
-                <h3 className="text-lg font-black">ফিল্টার</h3>
-                <button type="button" onClick={() => setMobileFilterOpen(false)} className="rounded-full p-2 hover:bg-slate-100">
+              <div className="mb-8 flex items-center justify-between border-b border-slate-50 pb-4">
+                <h3 className="text-2xl font-black text-slate-900">ফিল্টার</h3>
+                <button type="button" onClick={() => setMobileFilterOpen(false)} className="rounded-full p-2 bg-slate-100 text-slate-500 hover:bg-rose-50 hover:text-rose-500 transition-all">
                   <X className="h-5 w-5" />
                 </button>
               </div>
@@ -270,9 +338,9 @@ export default function BooksCatalogPage() {
                 value={format}
                 onChange={setFormat}
                 options={[
-                  { id: 'all', label: 'সকল' },
+                  { id: 'all', label: 'সকল ফরম্যাট' },
                   { id: 'ebook', label: 'ই-বুক' },
-                  { id: 'print', label: 'প্রিন্ট' },
+                  { id: 'print', label: 'প্রিন্ট কপি' },
                 ]}
               />
               <FilterSection
@@ -280,23 +348,30 @@ export default function BooksCatalogPage() {
                 value={priceBand}
                 onChange={setPriceBand}
                 options={[
-                  { id: 'all', label: 'সকল' },
+                  { id: 'all', label: 'সকল মূল্য' },
                   { id: 'free', label: 'বিনামূল্যে' },
                   { id: 'paid', label: 'পেইড' },
                 ]}
               />
-              <button
-                type="button"
-                onClick={() => {
-                  clearFilters();
-                  setMobileFilterOpen(false);
-                }}
-                className="w-full rounded-2xl border border-slate-200 py-4 text-sm font-black uppercase tracking-widest"
-              >
-                রিসেট ও বন্ধ
-              </button>
+              <div className="mt-auto space-y-3 pt-10">
+                <button
+                  onClick={() => setMobileFilterOpen(false)}
+                  className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase text-sm tracking-widest shadow-xl shadow-indigo-100"
+                >
+                  ফলাফল দেখুন
+                </button>
+                <button
+                  onClick={() => {
+                    clearFilters();
+                    setMobileFilterOpen(false);
+                  }}
+                  className="w-full py-4 border border-slate-200 text-slate-600 rounded-2xl font-black uppercase text-sm tracking-widest hover:bg-slate-50 transition-all"
+                >
+                  রিসেট করুন
+                </button>
+              </div>
             </motion.div>
-          </motion.div>
+          </>
         )}
       </AnimatePresence>
 

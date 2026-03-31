@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -28,7 +29,11 @@ import { useModalStore } from '@/store/modalStore';
 import { getCourses, type Course } from '@/lib/api/courses';
 import { getBranches, type Branch } from '@/lib/api/branches';
 import { getPrograms, getProgramById, type Program } from '@/lib/api/programs';
-import { offlineAdmission, type PaymentMethodType } from '@/lib/api/enrollments';
+import {
+  offlineAdmission,
+  getEnrollments,
+  type PaymentMethodType,
+} from '@/lib/api/enrollments';
 import {
   AlertTriangle,
   Check,
@@ -86,6 +91,9 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
   const [loadingCourses, setLoadingCourses] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** courseIds with an enrollment row at the selected branch (any status — DB unique prevents duplicate). */
+  const [enrolledCourseIds, setEnrolledCourseIds] = useState<string[]>([]);
+  const [loadingEnrollments, setLoadingEnrollments] = useState(false);
 
   const [branchId, setBranchId] = useState(defaultBranchId || '');
   const defaultMonth = () => new Date().toISOString().slice(0, 7);
@@ -119,6 +127,42 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
   }, []);
 
   useEffect(() => {
+    if (!studentId || !branchId) {
+      setEnrolledCourseIds([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoadingEnrollments(true);
+        const res = await getEnrollments({
+          studentUserId: studentId,
+          branchId,
+          limit: 500,
+        });
+        if (cancelled) return;
+        const ids =
+          res.success && res.data
+            ? [...new Set(res.data.map((e) => e.courseId))]
+            : [];
+        setEnrolledCourseIds(ids);
+      } catch {
+        if (!cancelled) setEnrolledCourseIds([]);
+      } finally {
+        if (!cancelled) setLoadingEnrollments(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [studentId, branchId]);
+
+  useEffect(() => {
+    setProgramSelectedIds((prev) => prev.filter((id) => !enrolledCourseIds.includes(id)));
+    setMonthlySelectedIds((prev) => prev.filter((id) => !enrolledCourseIds.includes(id)));
+  }, [enrolledCourseIds]);
+
+  useEffect(() => {
     const loadProgramCourses = async () => {
       if (!programId) {
         setProgramCourses([]);
@@ -131,7 +175,8 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
         if (res.success && res.data?.courses) {
           const list = res.data.courses as Course[];
           setProgramCourses(list);
-          setProgramSelectedIds(list.map((c) => c.id));
+          const blocked = new Set(enrolledCourseIds);
+          setProgramSelectedIds(list.map((c) => c.id).filter((id) => !blocked.has(id)));
         } else {
           setProgramCourses([]);
           setProgramSelectedIds([]);
@@ -143,7 +188,7 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
       }
     };
     loadProgramCourses();
-  }, [programId]);
+  }, [programId, enrolledCourseIds]);
 
   const resolveSelectedIds = (): string[] => {
     if (enrollmentMode === 'monthly') return monthlySelectedIds;
@@ -165,6 +210,18 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
     );
   }, [monthlyCoursesAll, monthlySearch]);
 
+  const enrolledSet = useMemo(() => new Set(enrolledCourseIds), [enrolledCourseIds]);
+
+  const programSelectableIds = useMemo(
+    () => programCourses.map((c) => c.id).filter((id) => !enrolledSet.has(id)),
+    [programCourses, enrolledSet],
+  );
+
+  const monthlyVisibleSelectableIds = useMemo(
+    () => monthlyCoursesFiltered.map((c) => c.id).filter((id) => !enrolledSet.has(id)),
+    [monthlyCoursesFiltered, enrolledSet],
+  );
+
   const courseMap = useMemo(() => {
     const m = new Map<string, Course>();
     programCourses.forEach((c) => m.set(c.id, c));
@@ -173,27 +230,32 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
   }, [programCourses, allCourses]);
 
   const toggleProgramCourse = (courseId: string) => {
+    if (enrolledSet.has(courseId)) return;
     setProgramSelectedIds((prev) =>
       prev.includes(courseId) ? prev.filter((id) => id !== courseId) : [...prev, courseId],
     );
   };
 
   const toggleAllProgram = () => {
-    if (programSelectedIds.length === programCourses.length && programCourses.length > 0) {
-      setProgramSelectedIds([]);
+    const selectableIds = programSelectableIds;
+    if (selectableIds.length === 0) return;
+    const allPicked = selectableIds.every((id) => programSelectedIds.includes(id));
+    if (allPicked) {
+      setProgramSelectedIds((prev) => prev.filter((id) => !selectableIds.includes(id)));
     } else {
-      setProgramSelectedIds(programCourses.map((c) => c.id));
+      setProgramSelectedIds((prev) => [...new Set([...prev.filter((id) => !selectableIds.includes(id)), ...selectableIds])]);
     }
   };
 
   const toggleMonthlyCourse = (courseId: string) => {
+    if (enrolledSet.has(courseId)) return;
     setMonthlySelectedIds((prev) =>
       prev.includes(courseId) ? prev.filter((id) => id !== courseId) : [...prev, courseId],
     );
   };
 
   const toggleAllMonthlyVisible = () => {
-    const visibleIds = monthlyCoursesFiltered.map((c) => c.id);
+    const visibleIds = monthlyVisibleSelectableIds;
     const allPicked = visibleIds.length > 0 && visibleIds.every((id) => monthlySelectedIds.includes(id));
     if (allPicked) {
       setMonthlySelectedIds((prev) => prev.filter((id) => !visibleIds.includes(id)));
@@ -279,6 +341,12 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
       );
       return false;
     }
+    if (sel.some((id) => enrolledSet.has(id))) {
+      setError(
+        'Some selected courses are already enrolled at this branch. Deselect them or pick another branch.',
+      );
+      return false;
+    }
     const needsMonth = sel.some((id) => courseMap.get(id)?.billingType === 'MONTHLY');
     if (needsMonth && !/^\d{4}-\d{2}$/.test(billingStartMonth.trim())) {
       setError('Billing month (YYYY-MM) is required for monthly courses.');
@@ -345,6 +413,10 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
   const handleSubmit = async () => {
     if (!validateStep2()) return;
     const sel = resolveSelectedIds();
+    if (sel.some((id) => enrolledSet.has(id))) {
+      setError('Selection includes courses already enrolled at this branch. Go back to step 1 and adjust.');
+      return;
+    }
     const monthYm = billingStartMonth.trim();
     const nextDueIso = nextPaymentDueDate
       ? new Date(`${nextPaymentDueDate}T12:00:00`).toISOString()
@@ -361,6 +433,7 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
     try {
       setSubmitting(true);
       setError(null);
+      let pdfOpened = 0;
       for (const courseId of sel) {
         const c = courseMap.get(courseId);
         const disc = discMap[courseId] ?? 0;
@@ -380,10 +453,18 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
           nextPaymentDueDate: nextDueIso,
         });
         if (!adm.success) throw new Error(adm.message || 'Admission failed');
+        const pdfUrl = adm.data?.pdfUrl;
+        if (pdfUrl) {
+          const delay = pdfOpened * 200;
+          pdfOpened += 1;
+          window.setTimeout(() => {
+            window.open(pdfUrl, '_blank', 'noopener,noreferrer');
+          }, delay);
+        }
       }
       toast({
         title: 'Done',
-        description: `${sel.length} course(s) enrolled. Invoice PDFs were generated.`,
+        description: `${sel.length} course(s) enrolled. ${pdfOpened > 0 ? 'Invoice PDFs opened in new tab(s).' : 'Invoice PDFs were generated.'}`,
         variant: 'success',
       });
       closeModal();
@@ -443,8 +524,9 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
                   <h3 className="text-xs font-black uppercase tracking-widest text-slate-800">How to pick courses</h3>
                   <p className="text-[10px] font-bold text-slate-500">
                     Program: choose a program and tick multiple courses. Monthly: search and select any monthly-billing courses.
-                    Each course row shows <strong>Online</strong> or <strong>Offline</strong> — how the course is delivered (not
-                    payment timing).
+                    After you pick a <strong>branch</strong>, courses this student already has at that branch show as{' '}
+                    <strong>Already enrolled</strong> and cannot be selected. Each row&apos;s Online / Offline badge is delivery
+                    mode, not payment timing.
                   </p>
                 </div>
               </div>
@@ -504,10 +586,12 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
                     size="sm"
                     className="h-8 rounded-lg text-[10px] font-black uppercase"
                     onClick={toggleAllMonthlyVisible}
-                    disabled={monthlyCoursesFiltered.length === 0}
+                    disabled={
+                      monthlyCoursesFiltered.length === 0 || monthlyVisibleSelectableIds.length === 0
+                    }
                   >
-                    {monthlyCoursesFiltered.length > 0 &&
-                    monthlyCoursesFiltered.every((c) => monthlySelectedIds.includes(c.id))
+                    {monthlyVisibleSelectableIds.length > 0 &&
+                    monthlyVisibleSelectableIds.every((id) => monthlySelectedIds.includes(id))
                       ? 'Deselect listed'
                       : 'Select all listed'}
                   </Button>
@@ -520,21 +604,38 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
                   ) : (
                     monthlyCoursesFiltered.map((course) => {
                       const isSelected = monthlySelectedIds.includes(course.id);
+                      const alreadyEnrolled = enrolledSet.has(course.id);
                       return (
                         <button
                           key={course.id}
                           type="button"
+                          disabled={alreadyEnrolled}
                           onClick={() => toggleMonthlyCourse(course.id)}
                           className={cn(
                             'flex w-full items-center justify-between rounded-2xl border p-4 text-left transition-all',
-                            isSelected ? 'border-indigo-200 bg-indigo-50/50' : 'border-slate-100 hover:border-slate-200',
+                            alreadyEnrolled && 'cursor-not-allowed opacity-75',
+                            isSelected && !alreadyEnrolled
+                              ? 'border-indigo-200 bg-indigo-50/50'
+                              : !alreadyEnrolled && 'border-slate-100 hover:border-slate-200',
+                            alreadyEnrolled && 'border-amber-100 bg-amber-50/40',
                           )}
                         >
                           <div className="flex items-center gap-3 min-w-0">
-                            <Checkbox checked={isSelected} className="pointer-events-none shrink-0" />
+                            <Checkbox
+                              checked={isSelected}
+                              disabled={alreadyEnrolled}
+                              className="pointer-events-none shrink-0"
+                            />
                             <BookOpen className="h-5 w-5 shrink-0 text-slate-400" />
                             <div className="min-w-0">
-                              <p className="truncate font-black text-slate-800">{course.name}</p>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="truncate font-black text-slate-800">{course.name}</p>
+                                {alreadyEnrolled ? (
+                                  <Badge variant="secondary" className="text-[9px] font-black uppercase">
+                                    Already enrolled
+                                  </Badge>
+                                ) : null}
+                              </div>
                               <div className="mt-1 flex flex-wrap items-center gap-1.5">
                                 <CourseDeliveryBadge type={course.type} />
                                 <p className="text-[10px] font-bold text-slate-400">
@@ -543,7 +644,9 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
                               </div>
                             </div>
                           </div>
-                          {isSelected ? <Check className="h-5 w-5 shrink-0 text-indigo-600" /> : null}
+                          {isSelected && !alreadyEnrolled ? (
+                            <Check className="h-5 w-5 shrink-0 text-indigo-600" />
+                          ) : null}
                         </button>
                       );
                     })
@@ -596,29 +699,48 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
                         size="sm"
                         className="rounded-lg text-[10px] font-black uppercase"
                         onClick={toggleAllProgram}
+                        disabled={programCourses.length === 0 || programSelectableIds.length === 0}
                       >
-                        {programSelectedIds.length === programCourses.length && programCourses.length > 0
+                        {programSelectableIds.length > 0 &&
+                        programSelectableIds.every((id) => programSelectedIds.includes(id))
                           ? 'Deselect all'
                           : 'Select all'}
                       </Button>
                     </div>
                     {programCourses.map((course) => {
                       const isSelected = programSelectedIds.includes(course.id);
+                      const alreadyEnrolled = enrolledSet.has(course.id);
                       return (
                         <button
                           key={course.id}
                           type="button"
+                          disabled={alreadyEnrolled}
                           onClick={() => toggleProgramCourse(course.id)}
                           className={cn(
                             'flex w-full items-center justify-between rounded-2xl border p-4 text-left transition-all',
-                            isSelected ? 'border-indigo-200 bg-indigo-50/50' : 'border-slate-100 hover:border-slate-200',
+                            alreadyEnrolled && 'cursor-not-allowed opacity-75',
+                            isSelected && !alreadyEnrolled
+                              ? 'border-indigo-200 bg-indigo-50/50'
+                              : !alreadyEnrolled && 'border-slate-100 hover:border-slate-200',
+                            alreadyEnrolled && 'border-amber-100 bg-amber-50/40',
                           )}
                         >
-                          <div className="flex items-center gap-3">
-                            <Checkbox checked={isSelected} className="pointer-events-none" />
-                            <BookOpen className="h-5 w-5 text-slate-400" />
-                            <div>
-                              <p className="font-black text-slate-800">{course.name}</p>
+                          <div className="flex items-center gap-3 min-w-0">
+                            <Checkbox
+                              checked={isSelected}
+                              disabled={alreadyEnrolled}
+                              className="pointer-events-none shrink-0"
+                            />
+                            <BookOpen className="h-5 w-5 shrink-0 text-slate-400" />
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="font-black text-slate-800">{course.name}</p>
+                                {alreadyEnrolled ? (
+                                  <Badge variant="secondary" className="text-[9px] font-black uppercase">
+                                    Already enrolled
+                                  </Badge>
+                                ) : null}
+                              </div>
                               <div className="mt-1 flex flex-wrap items-center gap-1.5">
                                 <CourseDeliveryBadge type={course.type} />
                                 <p className="text-[10px] font-bold text-slate-400">
@@ -627,7 +749,9 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
                               </div>
                             </div>
                           </div>
-                          {isSelected ? <Check className="h-5 w-5 text-indigo-600" /> : null}
+                          {isSelected && !alreadyEnrolled ? (
+                            <Check className="h-5 w-5 shrink-0 text-indigo-600" />
+                          ) : null}
                         </button>
                       );
                     })}
@@ -651,6 +775,19 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
                     ))}
                   </SelectContent>
                 </Select>
+                {branchId ? (
+                  loadingEnrollments ? (
+                    <p className="text-[10px] font-bold text-slate-400">Loading enrollments for this branch…</p>
+                  ) : (
+                    <p className="text-[10px] font-bold text-slate-500">
+                      {enrolledCourseIds.length > 0
+                        ? `${enrolledCourseIds.length} course(s) already linked at this branch — those rows are disabled above.`
+                        : 'No existing course enrollments at this branch for this student.'}
+                    </p>
+                  )
+                ) : (
+                  <p className="text-[10px] font-bold text-slate-400">Choose a branch to detect duplicate enrollments.</p>
+                )}
               </div>
               <div className="space-y-2">
                 <label className={sectionLabel}>Billing month (monthly courses)</label>

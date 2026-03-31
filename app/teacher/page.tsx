@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getCourses } from '@/lib/api/courses';
+import { API_ORIGIN } from '@/lib/api';
 import { getDoubtThreads, DoubtThread } from '@/lib/api/doubts';
 import { getRoutineSlots, RoutineSlot } from '@/lib/api/routine';
 import { getEnrollments } from '@/lib/api/enrollments';
@@ -148,7 +149,11 @@ export default function TeacherDashboardPage() {
               {photoUrl ? (
                 <>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={photoUrl} alt={displayName} className="h-full w-full object-cover" />
+                  <img
+                    src={photoUrl.startsWith('/') ? `${API_ORIGIN}${photoUrl}` : photoUrl}
+                    alt={displayName}
+                    className="h-full w-full object-cover"
+                  />
                 </>
               ) : (
                 displayName.slice(0, 1)

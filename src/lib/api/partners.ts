@@ -9,10 +9,20 @@ export interface Partner {
   type?: string | null;
 }
 
+export interface PartnerLinkedProgram {
+  program: { id: string; name: string };
+}
+
+export interface PartnerLinkedCourse {
+  course: { id: string; name: string; slug?: string | null };
+}
+
 export interface PartnerAdmin extends Partner {
   isActive: boolean;
   sortOrder: number;
   createdAt: string;
+  partnerPrograms?: PartnerLinkedProgram[];
+  partnerCourses?: PartnerLinkedCourse[];
 }
 
 export async function getPublicPartners(): Promise<{ success: boolean; data: Partner[] }> {

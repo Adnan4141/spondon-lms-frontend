@@ -173,7 +173,7 @@ export default function CoursesPage() {
         openModal({
           title: 'Course Details',
           description: 'View course details.',
-          className: 'sm:max-w-4xl',
+          className: 'sm:max-w-6xl max-h-[92vh] overflow-y-auto',
           content: (
             <CourseDetailsView
               course={response.data as CourseDetails}
@@ -197,7 +197,7 @@ export default function CoursesPage() {
         openModal({
           title: 'Update Course',
           description: 'Modify course structure, pricing, or status.',
-          className: 'sm:max-w-4xl',
+          className: 'sm:max-w-6xl max-h-[92vh] overflow-y-auto',
           content: <CourseForm programs={programs} course={response.data as CourseDetails} onSuccess={loadCourses} />,
         });
       }
@@ -210,7 +210,7 @@ export default function CoursesPage() {
         openModal({
           title: 'Create Course',
           description: 'Add a new course.',
-      className: 'sm:max-w-4xl',
+      className: 'sm:max-w-5xl max-h-[92vh] overflow-y-auto',
       content: <CourseForm programs={programs} onSuccess={loadCourses} />,
     });
   };
@@ -310,6 +310,10 @@ export default function CoursesPage() {
           <div>
             <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Course Registry</h2>
             <p className="mt-0.5 text-base font-bold text-indigo-500">Live system database</p>
+            <p className="mt-2 max-w-2xl text-xs font-medium leading-relaxed text-slate-500">
+              Student view: <strong className="text-slate-700">Course → Subjects (routes)</strong> → Chapters → Segments. Manage subjects in each course&apos;s{' '}
+              <strong className="text-slate-700">Course Content</strong> tab (Subject field on every resource).
+            </p>
           </div>
           <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />

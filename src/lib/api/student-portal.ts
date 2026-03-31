@@ -1,6 +1,7 @@
 import { apiRequest, API_BASE_URL } from '../api';
 import type { ApiResponse, StudentResults } from '@/types/academic';
 import type { Book } from './books';
+import type { MyBookPurchaseRow } from '@/components/student/MyBookPurchasesPanel';
 
 export async function getMyCourses(studentUserId: string): Promise<ApiResponse<any[]>> {
   return apiRequest<ApiResponse<any[]>>(`/student-portal/my-courses/${studentUserId}`);
@@ -16,6 +17,14 @@ export async function checkEnrollment(studentUserId: string, courseId: string): 
 
 export async function getPortalBooks(): Promise<ApiResponse<Book[]>> {
   return apiRequest<ApiResponse<Book[]>>('/student-portal/all-books');
+}
+
+export async function getMyBookPurchases(
+  studentUserId: string
+): Promise<ApiResponse<MyBookPurchaseRow[]>> {
+  return apiRequest<ApiResponse<MyBookPurchaseRow[]>>(
+    `/student-portal/my-book-purchases/${encodeURIComponent(studentUserId)}`
+  );
 }
 
 export async function getRoutine(studentUserId: string): Promise<ApiResponse<any[]>> {

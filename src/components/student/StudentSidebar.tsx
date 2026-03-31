@@ -16,11 +16,13 @@ import {
   LogOut,
   ChevronRight,
   BookOpenCheck,
+  UserCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const menuItems = [
   { title: 'হোম', href: '/student', icon: LayoutDashboard },
+  { title: 'প্রোফাইল', href: '/student/profile', icon: UserCircle },
   { title: 'আমার কোর্স', href: '/student/courses', icon: BookOpen },
   { title: 'সকল কোর্স', href: '/student/all-courses', icon: GraduationCap },
   { title: 'পরীক্ষা', href: '/student/exams', icon: BookOpenCheck },

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,7 +17,10 @@ import {
   updatePartner,
   type PartnerAdmin,
 } from '@/lib/api/partners';
-import { Globe2, Upload, Sparkles } from 'lucide-react';
+import { getPrograms } from '@/lib/api/programs';
+import { getCourses } from '@/lib/api/courses';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Globe2, Upload, Sparkles, GraduationCap, BookOpen } from 'lucide-react';
 
 const PARTNER_TYPES = [
   'MEDIA',
@@ -72,6 +75,40 @@ export function PartnerAdminForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [programOptions, setProgramOptions] = useState<{ id: string; name: string }[]>([]);
+  const [courseOptions, setCourseOptions] = useState<{ id: string; name: string }[]>([]);
+  const [selectedProgramIds, setSelectedProgramIds] = useState<Set<string>>(new Set());
+  const [selectedCourseIds, setSelectedCourseIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const p = new Set<string>();
+    const c = new Set<string>();
+    existing?.partnerPrograms?.forEach((x) => p.add(x.program.id));
+    existing?.partnerCourses?.forEach((x) => c.add(x.course.id));
+    setSelectedProgramIds(p);
+    setSelectedCourseIds(c);
+  }, [existing?.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [pr, cr] = await Promise.all([
+          getPrograms(),
+          getCourses({ limit: 500 }),
+        ]);
+        if (cancelled) return;
+        if (pr.success && pr.data) setProgramOptions(pr.data.map((x) => ({ id: x.id, name: x.name })));
+        if (cr.success && cr.data) setCourseOptions(cr.data.map((x) => ({ id: x.id, name: x.name })));
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const resolvedType =
     typePreset === 'CUSTOM' ? typeCustom.trim() : typePreset;
 
@@ -95,6 +132,9 @@ export function PartnerAdminForm({
       fd.append('isActive', String(isActive));
 
       if (logoFile) fd.append('logo', logoFile);
+
+      fd.append('programIds', JSON.stringify([...selectedProgramIds]));
+      fd.append('courseIds', JSON.stringify([...selectedCourseIds]));
 
       if (existing) {
         await updatePartner(existing.id, fd);
@@ -251,6 +291,71 @@ export function PartnerAdminForm({
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
+            <div className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-indigo-600">
+              <GraduationCap className="h-4 w-4" />
+              Programs (collaboration)
+            </div>
+            <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
+              {programOptions.length === 0 ? (
+                <p className="text-xs text-slate-400">No programs loaded</p>
+              ) : (
+                programOptions.map((prog) => (
+                  <label
+                    key={prog.id}
+                    className="flex cursor-pointer items-center gap-3 rounded-lg border border-transparent px-2 py-2 hover:bg-white"
+                  >
+                    <Checkbox
+                      checked={selectedProgramIds.has(prog.id)}
+                      onCheckedChange={(checked) => {
+                        setSelectedProgramIds((prev) => {
+                          const next = new Set(prev);
+                          if (checked) next.add(prog.id);
+                          else next.delete(prog.id);
+                          return next;
+                        });
+                      }}
+                    />
+                    <span className="text-sm font-medium text-slate-800">{prog.name}</span>
+                  </label>
+                ))
+              )}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
+            <div className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-indigo-600">
+              <BookOpen className="h-4 w-4" />
+              Courses (collaboration)
+            </div>
+            <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
+              {courseOptions.length === 0 ? (
+                <p className="text-xs text-slate-400">No courses loaded</p>
+              ) : (
+                courseOptions.map((c) => (
+                  <label
+                    key={c.id}
+                    className="flex cursor-pointer items-center gap-3 rounded-lg border border-transparent px-2 py-2 hover:bg-white"
+                  >
+                    <Checkbox
+                      checked={selectedCourseIds.has(c.id)}
+                      onCheckedChange={(checked) => {
+                        setSelectedCourseIds((prev) => {
+                          const next = new Set(prev);
+                          if (checked) next.add(c.id);
+                          else next.delete(c.id);
+                          return next;
+                        });
+                      }}
+                    />
+                    <span className="text-sm font-medium text-slate-800">{c.name}</span>
+                  </label>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
