@@ -40,6 +40,12 @@ export const getOptionLabel = (label: string, lang: Lang): string => {
 export const getExamUiStrings = (lang: Lang) => {
   if (lang === 'en') {
     return {
+      loading: 'Loading exam...',
+      loginToTakeExam: 'Please log in to take the exam',
+      startFailed: 'Failed to start the exam',
+      submitting: 'Submitting your paper...',
+      examSubmitted: 'Exam submitted',
+      examCompleted: 'Exam completed!',
       submit: 'Submit',
       submitConfirmTitle: 'Submit this exam?',
       submitConfirmGoBack: 'Go back',
@@ -63,9 +69,19 @@ export const getExamUiStrings = (lang: Lang) => {
       flagged: 'Flagged',
       lastSaved: 'Last saved',
       sectionTab: 'Section',
+      backToExamList: 'Back to exam list',
+      scoreLabel: 'Your score',
+      solutionsLabel: 'Solution Sheet',
+      explanationLabel: 'Explanation',
     };
   }
   return {
+    loading: 'পরীক্ষা লোড হচ্ছে...',
+    loginToTakeExam: 'পরীক্ষা দিতে লগইন করুন',
+    startFailed: 'পরীক্ষা শুরু করা যায়নি',
+    submitting: 'উত্তরপত্র জমা হচ্ছে...',
+    examSubmitted: 'পরীক্ষা জমা হয়েছে',
+    examCompleted: 'পরীক্ষা সম্পন্ন!',
     submit: 'জমা দিন',
     submitConfirmTitle: 'পরীক্ষা জমা দিবেন?',
     submitConfirmGoBack: 'ফিরে যান',
@@ -89,5 +105,9 @@ export const getExamUiStrings = (lang: Lang) => {
     flagged: 'পতাকা দেওয়া',
     lastSaved: 'সর্বশেষ সংরক্ষণ',
     sectionTab: 'অংশ',
+    backToExamList: 'পরীক্ষা তালিকায় ফিরুন',
+    scoreLabel: 'আপনার স্কোর',
+    solutionsLabel: 'সমাধান পত্র',
+    explanationLabel: 'ব্যাখ্যা',
   };
 };
