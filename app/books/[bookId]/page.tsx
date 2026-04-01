@@ -242,37 +242,43 @@ export default function PublicBookDetailPage() {
       </div>
 
       {showStudentLibraryLink ? (
-        <div className="border-b border-slate-200 bg-gradient-to-r from-indigo-600 to-violet-700 text-white">
-          <div className="mx-auto flex max-w-7xl flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between lg:px-12">
-            <div className="flex items-center gap-3 text-sm font-bold text-indigo-100">
-              <Library className="h-5 w-5 shrink-0 text-white" />
-              <span>শিক্ষার্থী হিসেবে কেনা ই-বুক ও প্রিন্ট অর্ডার এক জায়গায় দেখুন।</span>
+        <div className="relative border-b border-indigo-500/20 bg-[#0F172A] py-6">
+          <div className="absolute inset-0 bg-gradient-to-r from-indigo-600/10 via-transparent to-violet-600/10" />
+          <div className="mx-auto flex max-w-7xl flex-col gap-6 px-6 sm:flex-row sm:items-center sm:justify-between lg:px-12 relative z-10">
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-500/20 text-indigo-400 ring-1 ring-indigo-500/30">
+                <Library className="h-6 w-6" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-black text-white">আপনার নিজস্ব লাইব্রেরি</p>
+                <p className="text-xs font-bold text-slate-400">কেনা ই-বুক ও প্রিন্ট অর্ডার এক জায়গায় দেখুন।</p>
+              </div>
             </div>
             <Link
               href="/student/books#my-books"
-              className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-2.5 text-xs font-black uppercase tracking-widest text-indigo-700 shadow-lg transition-transform hover:scale-[1.02]"
+              className="inline-flex items-center justify-center rounded-2xl bg-indigo-600 px-8 py-3.5 text-xs font-black uppercase tracking-widest text-white shadow-xl shadow-indigo-500/20 transition-all hover:bg-indigo-700 hover:scale-[1.02] active:scale-95"
             >
-              আমার বই
+              আমার বই সংগ্রহ
             </Link>
           </div>
         </div>
       ) : null}
 
-      <main className="mx-auto max-w-7xl px-6 py-16 lg:px-12">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-16 items-start">
-          <div className="lg:col-span-2 space-y-12">
-            <div className="overflow-hidden rounded-[40px] border border-slate-100 bg-white shadow-sm">
-              <div className="border-b border-slate-50 px-8 pt-4">
+      <main className="mx-auto max-w-7xl px-6 py-20 lg:px-12">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-16 items-start">
+          <div className="space-y-12">
+            <div className="rounded-[48px] border border-slate-200/60 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+              <div className="border-b border-slate-100 px-10 pt-6">
                 <BookTabs active={activeTab} onChange={setActiveTab} />
               </div>
-              <div className="p-10">
+              <div className="p-12">
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={activeTab}
-                    initial={{ opacity: 0, x: 10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -10 }}
-                    transition={{ duration: 0.3 }}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.4, ease: "easeOut" }}
                   >
                     {activeTab === 'overview' && (
                       <BookOverviewSection description={book.description} outline={book.outline} />
@@ -289,27 +295,30 @@ export default function PublicBookDetailPage() {
             </div>
           </div>
 
-          <aside className="space-y-8">
+          <aside className="space-y-10 sticky top-32">
             {collaborators.length > 0 && (
-              <div className="rounded-[40px] border border-slate-100 bg-white p-8 shadow-sm">
-                <div className="mb-6 flex items-center gap-3">
-                  <div className="p-2.5 rounded-2xl bg-indigo-50 text-indigo-600">
-                    <Users className="h-5 w-5" />
+              <div className="rounded-[40px] border border-slate-200/60 bg-white p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+                <div className="mb-8 flex items-center gap-4">
+                  <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100">
+                    <Users className="h-6 w-6" />
                   </div>
-                  <h4 className="text-xl font-black tracking-tight text-slate-900">সহযোগী দল</h4>
+                  <h4 className="text-2xl font-black tracking-tight text-slate-900">সহযোগী দল</h4>
                 </div>
-                <div className="space-y-4">
+                <div className="space-y-6">
                   {collaborators.map((c) => (
                     <div
                       key={`${c.user.id}-${c.role}`}
-                      className="group flex items-center gap-4 rounded-3xl border border-slate-50 bg-slate-50/50 p-4 transition-all hover:bg-white hover:shadow-md hover:border-indigo-100"
+                      className="group flex items-center gap-5"
                     >
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-indigo-100 text-sm font-black text-indigo-700">
+                      <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-lg font-black text-slate-600 transition-all group-hover:bg-indigo-600 group-hover:text-white group-hover:rotate-6">
                         {c.user.fullName?.charAt(0) || '?'}
+                        <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-white border-2 border-indigo-50 flex items-center justify-center">
+                           <div className="h-2 w-2 rounded-full bg-indigo-500"></div>
+                        </div>
                       </div>
                       <div className="min-w-0">
-                        <p className="truncate font-black text-slate-900">{c.user.fullName}</p>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{c.role}</p>
+                        <p className="truncate font-black text-slate-900 group-hover:text-indigo-600 transition-colors">{c.user.fullName}</p>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-0.5">{c.role}</p>
                       </div>
                     </div>
                   ))}
@@ -318,42 +327,67 @@ export default function PublicBookDetailPage() {
             )}
 
             {access?.reason === 'payment_pending' && access.invoice && (
-              <div className="rounded-[40px] border border-amber-100 bg-amber-50/50 p-8">
-                <div className="mb-4 flex items-center gap-3 text-amber-900">
-                  <PieChart className="h-5 w-5" />
-                  <h4 className="text-xl font-black">পেমেন্ট বাকি</h4>
+              <div className="rounded-[40px] border border-amber-200 bg-gradient-to-b from-amber-50 to-white p-10 shadow-xl shadow-amber-900/5">
+                <div className="mb-6 flex items-center gap-4 text-amber-900">
+                  <div className="p-3 rounded-2xl bg-amber-100 ring-1 ring-amber-200">
+                    <PieChart className="h-6 w-6" />
+                  </div>
+                  <h4 className="text-2xl font-black">পেমেন্ট বাকি</h4>
                 </div>
-                <p className="text-sm font-bold text-amber-800 opacity-80">
-                  ইনভয়েস স্ট্যাটাস: {access.invoice.status} · বাকি ৳{access.invoice.dueAmount}
-                </p>
-                <Button asChild className="mt-6 w-full h-14 rounded-2xl bg-amber-600 text-white hover:bg-amber-700 shadow-lg shadow-amber-200/50 transition-all active:scale-95">
-                  <Link href="/student/payment">পেমেন্ট পোর্টাল</Link>
+                <div className="space-y-2">
+                  <p className="text-sm font-bold text-amber-800">বাকি ৳{access.invoice.dueAmount}</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-amber-600/60">ইনভয়েস: {access.invoice.status}</p>
+                </div>
+                <Button asChild className="mt-8 w-full h-16 rounded-2xl bg-amber-600 text-white hover:bg-amber-700 shadow-lg shadow-amber-200 transition-all active:scale-95 font-black">
+                  <Link href="/student/payment">পেমেন্ট সম্পন্ন করুন</Link>
                 </Button>
               </div>
             )}
 
             {!book.isEbook && access?.reason === 'physical_purchase' && access.delivery && (
-              <div className="rounded-[40px] border border-emerald-100 bg-emerald-50/50 p-8">
-                <div className="mb-4 flex items-center gap-3 text-emerald-900">
-                  <Truck className="h-5 w-5" />
-                  <h4 className="text-xl font-black">ডেলিভারি ট্র্যাকিং</h4>
+              <div className="rounded-[40px] border border-emerald-200 bg-gradient-to-b from-emerald-50 to-white p-10 shadow-xl shadow-emerald-900/5">
+                <div className="mb-6 flex items-center gap-4 text-emerald-900">
+                  <div className="p-3 rounded-2xl bg-emerald-100 ring-1 ring-emerald-200">
+                    <Truck className="h-6 w-6" />
+                  </div>
+                  <h4 className="text-2xl font-black">ডেলিভারি ট্র্যাকিং</h4>
                 </div>
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <div className="space-y-1">
-                    <p className="font-black text-slate-900">{access.delivery.recipientName}</p>
+                    <p className="font-black text-slate-900 text-lg">{access.delivery.recipientName}</p>
                     <p className="text-sm font-bold text-slate-500">{access.delivery.phone}</p>
                   </div>
-                  <p className="text-sm font-medium text-slate-600 leading-relaxed bg-white p-4 rounded-2xl border border-emerald-50">
-                    {access.delivery.address}
-                  </p>
+                  <div className="bg-white/80 backdrop-blur-sm p-6 rounded-3xl border border-emerald-100 shadow-sm">
+                    <p className="text-sm font-bold text-slate-600 leading-relaxed">
+                      {access.delivery.address}
+                    </p>
+                  </div>
                   {access.delivery.deliveryStatus && (
-                    <Badge className="px-4 py-2 rounded-xl bg-emerald-600 text-white border-none shadow-md shadow-emerald-100 font-black text-[10px] uppercase tracking-widest">
-                      {access.delivery.deliveryStatus}
-                    </Badge>
+                    <div className="flex items-center gap-3 bg-emerald-600 text-white px-6 py-4 rounded-2xl shadow-lg shadow-emerald-200">
+                       <div className="h-2 w-2 rounded-full bg-white animate-ping"></div>
+                       <span className="text-xs font-black uppercase tracking-widest">{access.delivery.deliveryStatus}</span>
+                    </div>
                   )}
                 </div>
               </div>
             )}
+
+            <div className="rounded-[40px] border border-indigo-100 bg-indigo-50/30 p-10">
+               <h5 className="text-sm font-black text-indigo-900 mb-4">কেন আমাদের বই?</h5>
+               <ul className="space-y-4">
+                  {[
+                    'বিশেষজ্ঞদের দ্বারা রচিত',
+                    'সর্বশেষ সিলেবাস ভিত্তিক',
+                    'সহজ ও প্রাঞ্জল ভাষা',
+                    'প্রচুর উদাহরণ ও অনুশীলন'
+                  ].map((item, i) => (
+                    <li key={i} className="flex items-center gap-3 text-xs font-bold text-indigo-700">
+                       <CheckCircle2 className="h-4 w-4 shrink-0" />
+                       {item}
+                    </li>
+                  ))}
+               </ul>
+            </div>
           </aside>
         </div>
       </main>

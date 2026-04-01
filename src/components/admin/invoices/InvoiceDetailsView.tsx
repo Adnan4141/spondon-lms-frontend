@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Invoice } from '@/types/invoice';
 import { initInvoicePayment, getInvoicePdfUrl } from '@/lib/api/invoices';
 import { API_ORIGIN } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { SpondonPaperInvoice } from '@/components/admin/invoices/SpondonPaperInvoice';
 import { 
   User, 
   Building2, 
@@ -60,95 +61,22 @@ async function fetchPdfAsObjectUrl(apiPdfPath: string): Promise<string> {
   return URL.createObjectURL(blob);
 }
 
-function SpondonPaperInvoice({ invoice }: { invoice: Invoice }) {
-  const lastPayment = [...(invoice.payments || [])].sort(
-    (a, b) => new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime()
-  )[0];
-  const regNo = invoice.student?.studentProfile?.registrationNumber || '—';
-  const fmt = (n: number | string) =>
-    new Intl.NumberFormat('en-BD', { maximumFractionDigits: 0 }).format(Number(n));
-
-  return (
-    <div className="mx-auto max-w-[640px] rounded-sm border border-slate-300 bg-white p-8 text-slate-900 shadow-sm print:shadow-none">
-      <p className="text-lg font-bold">Spondon</p>
-      <p className="text-xs text-slate-600">{invoice.branch?.vatRegNo ? `VAT reg. no: ${invoice.branch.vatRegNo}` : 'VAT reg. no:'}</p>
-      {invoice.branch?.name ? <p className="text-sm font-semibold">{invoice.branch.name}</p> : null}
-      {invoice.branch?.address ? <p className="whitespace-pre-wrap text-xs text-slate-700">{invoice.branch.address}</p> : null}
-      {invoice.branch?.phone ? <p className="text-xs text-slate-600">Phone: {invoice.branch.phone}</p> : null}
-      <div className="my-4 border-t border-slate-300" />
-      <p className="text-base font-bold">Invoice</p>
-      <p className="text-xs text-slate-800">Invoice ID: {invoice.id}</p>
-      {invoice.month ? <p className="text-xs text-slate-800">Billing month: {invoice.month}</p> : null}
-      <p className="text-xs text-slate-800">Branch: {invoice.branch?.name || '—'}</p>
-      <p className="text-xs text-slate-800">Status: {invoice.status}</p>
-      {lastPayment ? (
-        <p className="text-xs text-slate-800">
-          Payment date: {new Date(lastPayment.paidAt).toLocaleString('en-GB')}
-        </p>
-      ) : null}
-      <p className="mt-3 text-sm font-semibold">{invoice.student?.fullName}</p>
-      <p className="text-xs text-slate-800">Registration no: {regNo}</p>
-      <p className="text-xs text-slate-800">Mobile: {invoice.student?.mobile || '—'}</p>
-      <div className="my-4 border-t border-slate-300" />
-      <div className="grid grid-cols-12 gap-1 border-b border-slate-800 pb-1 text-[10px] font-bold uppercase">
-        <span className="col-span-5">Course / Item</span>
-        <span className="col-span-2">Qty</span>
-        <span className="col-span-2 text-right">Unit</span>
-        <span className="col-span-3 text-right">Fee (BDT)</span>
-      </div>
-      {(invoice.items || []).map((item) => (
-        <div key={item.id} className="grid grid-cols-12 gap-1 border-b border-slate-200 py-2 text-xs">
-          <span className="col-span-5 font-medium">{item.title}</span>
-          <span className="col-span-2 text-slate-600">{item.qty}</span>
-          <span className="col-span-2 text-right text-slate-600">{fmt(item.unitPrice)}</span>
-          <span className="col-span-3 text-right font-semibold">{fmt(item.lineTotal)}</span>
-        </div>
-      ))}
-      <div className="mt-4 space-y-1 text-xs">
-        <div className="flex justify-between font-semibold">
-          <span>Total (VAT included)</span>
-          <span>{fmt(invoice.totalAmount)}</span>
-        </div>
-        <div className="flex justify-between">
-          <span>Paid amount</span>
-          <span>{fmt(invoice.paidAmount)}</span>
-        </div>
-        <div className="flex justify-between font-bold">
-          <span>Balance due</span>
-          <span>{fmt(invoice.dueAmount)}</span>
-        </div>
-      </div>
-      {lastPayment ? (
-        <div className="mt-4 border-t border-slate-200 pt-3 text-xs text-slate-700">
-          <p className="font-bold">Payment information</p>
-          <p>Payment branch: {invoice.branch?.name || '—'}</p>
-          <p>Payment method: {String(lastPayment.method).toLowerCase()}</p>
-          {lastPayment.receivedBy?.fullName ? (
-            <p>Payment received by: {lastPayment.receivedBy.fullName}</p>
-          ) : null}
-        </div>
-      ) : null}
-      <p className="mt-6 text-[10px] text-slate-500">Thank you for your payment.</p>
-      <p className="text-[10px] text-slate-500">This invoice is system generated, no signature is required.</p>
-    </div>
-  );
-}
-
 export function InvoiceDetailsView({ invoice }: InvoiceDetailsViewProps) {
   const { toast } = useToast();
   const [paying, setPaying] = useState(false);
   const [panel, setPanel] = useState<'details' | 'pdf'>('details');
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const dueAmount = Number(invoice.dueAmount);
 
-  useEffect(() => {
-    return () => {
-      if (pdfUrl?.startsWith('blob:')) URL.revokeObjectURL(pdfUrl);
-    };
-  }, [pdfUrl]);
-
   const loadPdfAndShow = async () => {
+    setPanel('pdf');
+  };
+
+  const openPdfNewTab = async () => {
+    window.open(`/admin/invoices/${invoice.id}/print`, '_blank', 'noopener,noreferrer');
+  };
+
+  const downloadPdf = async () => {
     try {
       setPdfLoading(true);
       const res = await getInvoicePdfUrl(invoice.id);
@@ -161,34 +89,16 @@ export function InvoiceDetailsView({ invoice }: InvoiceDetailsViewProps) {
         return;
       }
       const objectUrl = await fetchPdfAsObjectUrl(res.data.pdfUrl);
-      setPdfUrl(objectUrl);
-      setPanel('pdf');
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = `invoice-${invoice.id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
     } catch (e) {
       console.error(e);
-      toast({ title: 'PDF error', description: 'Could not load invoice PDF.', variant: 'destructive' });
-    } finally {
-      setPdfLoading(false);
-    }
-  };
-
-  const openPdfNewTab = async () => {
-    try {
-      setPdfLoading(true);
-      const res = await getInvoicePdfUrl(invoice.id);
-      if (res.success && res.data?.pdfUrl) {
-        const objectUrl = await fetchPdfAsObjectUrl(res.data.pdfUrl);
-        window.open(objectUrl, '_blank', 'noopener,noreferrer');
-        setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
-      } else {
-        toast({
-          title: 'PDF unavailable',
-          description: res.message || 'Could not generate invoice PDF.',
-          variant: 'destructive',
-        });
-      }
-    } catch (e) {
-      console.error(e);
-      toast({ title: 'PDF error', description: 'Could not open invoice PDF.', variant: 'destructive' });
+      toast({ title: 'PDF error', description: 'Could not download invoice PDF.', variant: 'destructive' });
     } finally {
       setPdfLoading(false);
     }
@@ -216,7 +126,7 @@ export function InvoiceDetailsView({ invoice }: InvoiceDetailsViewProps) {
     }).format(Number(amount))}`;
   };
 
-  if (panel === 'pdf' && pdfUrl) {
+  if (panel === 'pdf') {
     return (
       <div className="flex flex-col bg-white text-slate-900">
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3">
@@ -225,8 +135,6 @@ export function InvoiceDetailsView({ invoice }: InvoiceDetailsViewProps) {
             variant="outline"
             className="h-10 gap-2 rounded-xl font-bold"
             onClick={() => {
-              if (pdfUrl?.startsWith('blob:')) URL.revokeObjectURL(pdfUrl);
-              setPdfUrl(null);
               setPanel('details');
             }}
           >
@@ -237,26 +145,23 @@ export function InvoiceDetailsView({ invoice }: InvoiceDetailsViewProps) {
             type="button"
             variant="secondary"
             className="h-10 gap-2 rounded-xl font-bold"
-            onClick={() => window.open(pdfUrl, '_blank', 'noopener,noreferrer')}
+            onClick={openPdfNewTab}
           >
             <ExternalLink className="h-4 w-4" />
-            Open in new tab
+            Open print view
           </Button>
-          <a
-            href={pdfUrl}
-            download
+          <button
+            type="button"
+            onClick={downloadPdf}
             className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-800 hover:bg-slate-50"
           >
             <Download className="h-4 w-4" />
             Download
-          </a>
+          </button>
         </div>
-        <iframe
-          title="Invoice PDF"
-          src={pdfUrl}
-          className="w-full shrink-0 rounded-b-xl border-0 bg-slate-100"
-          style={{ height: 'min(72vh, 640px)' }}
-        />
+        <div className="max-h-[72vh] overflow-auto rounded-b-xl bg-slate-100 p-6">
+          <SpondonPaperInvoice invoice={invoice} />
+        </div>
       </div>
     );
   }
@@ -277,16 +182,16 @@ export function InvoiceDetailsView({ invoice }: InvoiceDetailsViewProps) {
             disabled={pdfLoading}
           >
             <FileText className="h-4 w-4" />
-            {pdfLoading ? 'Loading…' : 'View PDF'}
+            View print
           </Button>
           <Button
             type="button"
             className="h-10 gap-2 rounded-xl bg-slate-900 font-bold text-white hover:bg-slate-800 hover:text-white"
-            onClick={openPdfNewTab}
+            onClick={downloadPdf}
             disabled={pdfLoading}
           >
             <Download className="h-4 w-4" />
-            Download PDF
+            {pdfLoading ? 'Preparing…' : 'Download PDF'}
           </Button>
         </div>
         {/* Header Hero Card */}

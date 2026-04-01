@@ -68,6 +68,13 @@ import { PassageForm } from '@/components/admin/questions/PassageForm';
 import { QuestionForm } from '@/components/admin/questions/QuestionForm';
 import { CqForm } from '@/components/admin/questions/CqForm';
 import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
 const difficultyOptions: (Difficulty | 'all')[] = ['all', 'EASY', 'MEDIUM', 'HARD'];
@@ -674,36 +681,91 @@ export default function QuestionsPage() {
           </div>
         </div>
       </div>
-      {/* Copy to Folder Modal */}
-      {copyModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setCopyModalOpen(false)}>
-          <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl space-y-6" onClick={e => e.stopPropagation()}>
-            <div>
-              <h3 className="text-lg font-black text-slate-900">Copy {selectedQuestionIds.size} Question(s)</h3>
-              <p className="text-sm text-slate-500 mt-1">Select target folder to copy the question(s) to.</p>
+      <Dialog
+        open={copyModalOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCopyModalOpen(false);
+            setCopyTargetFolderId('');
+          }
+        }}
+      >
+        <DialogContent
+          showCloseButton
+          className={cn(
+            'flex max-h-[92vh] w-full max-w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-[32px] border border-slate-200 bg-white p-0 text-slate-900 shadow-2xl sm:max-w-md',
+          )}
+        >
+          <DialogHeader className="relative shrink-0 border-b border-slate-100 bg-slate-50/50 px-8 pb-6 pt-8">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.05),transparent_40%)]" />
+            <div className="relative flex items-start gap-3 pr-10">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-indigo-100/50 bg-indigo-50">
+                <Copy className="h-5 w-5 text-indigo-600" />
+              </div>
+              <div className="min-w-0 text-left">
+                <DialogTitle className="text-2xl font-black tracking-tight text-slate-900">
+                  Copy Question{selectedQuestionIds.size > 1 ? 's' : ''}
+                </DialogTitle>
+                <DialogDescription className="mt-1 text-base font-medium text-slate-500">
+                  Select a target folder to duplicate the {selectedQuestionIds.size} selected question
+                  {selectedQuestionIds.size > 1 ? 's' : ''}.
+                </DialogDescription>
+              </div>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-slate-700">Target Folder</label>
+          </DialogHeader>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6 no-scrollbar">
+            <div className="space-y-3 rounded-[20px] border border-slate-100/50 bg-slate-50/50 p-4 sm:p-6">
+              <label className="ml-1 text-xs font-black uppercase tracking-wider text-slate-500">
+                Destination folder
+              </label>
               <Select value={copyTargetFolderId} onValueChange={setCopyTargetFolderId}>
-                <SelectTrigger className="h-10 rounded-xl">
-                  <SelectValue placeholder="Select folder..." />
+                <SelectTrigger className="h-12 rounded-[14px] border-slate-200 bg-white font-bold text-slate-700 shadow-sm transition-all focus:border-indigo-500 focus:ring-indigo-500/20">
+                  <SelectValue placeholder="Choose folder…" />
                 </SelectTrigger>
-                <SelectContent className="max-h-60">
-                  {allFoldersFlat.map(f => (
-                    <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                <SelectContent
+                  position="popper"
+                  sideOffset={4}
+                  className="z-[200] max-h-[min(50vh,320px)] w-[var(--radix-select-trigger-width)] overflow-hidden rounded-[16px] border-slate-100 p-1 shadow-xl"
+                >
+                  {allFoldersFlat.map((f) => (
+                    <SelectItem
+                      key={f.id}
+                      value={f.id}
+                      className="mb-0.5 cursor-pointer rounded-[10px] px-3 py-2.5 font-bold last:mb-0 focus:bg-indigo-50 focus:text-indigo-700"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Folder className="h-4 w-4 text-slate-400" />
+                        {f.name}
+                      </div>
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex justify-end gap-3">
-              <Button variant="outline" className="rounded-xl font-bold" onClick={() => { setCopyModalOpen(false); setCopyTargetFolderId(''); }}>Cancel</Button>
-              <Button className="rounded-xl font-bold bg-slate-900 text-white hover:bg-slate-800" disabled={!copyTargetFolderId} onClick={executeCopy}>
-                <Copy className="mr-2 h-4 w-4" /> Copy
-              </Button>
-            </div>
           </div>
-        </div>
-      )}
+
+          <div className="flex shrink-0 items-center justify-end gap-3 border-t border-slate-100 bg-white px-8 py-5">
+            <Button
+              variant="ghost"
+              className="h-11 rounded-[14px] px-6 font-bold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
+              onClick={() => {
+                setCopyModalOpen(false);
+                setCopyTargetFolderId('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="h-11 rounded-[14px] bg-slate-900 px-6 font-bold text-white shadow-md shadow-slate-900/10 transition-all hover:bg-slate-800 active:scale-[0.98]"
+              disabled={!copyTargetFolderId}
+              onClick={executeCopy}
+            >
+              Confirm Copy
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <Toaster toasts={toasts} removeToast={removeToast} />
     </div>
   );

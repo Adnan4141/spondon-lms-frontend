@@ -1,8 +1,9 @@
 'use client';
 
-import { BookOpen, Layers, ListVideo, FileText } from 'lucide-react';
+import { BookOpen, Layers, ListVideo, FileText, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { BookContentOutline } from '@/lib/api/books';
+import { motion } from 'framer-motion';
 
 interface BookOverviewSectionProps {
   description: string | null | undefined;
@@ -13,38 +14,54 @@ export function BookOverviewSection({ description, outline }: BookOverviewSectio
   const totals = outline?.totals;
 
   return (
-    <div className="space-y-12 py-4">
-      <div className="space-y-6">
-        <h2 className="text-2xl font-black text-slate-900 tracking-tight">বিস্তারিত বিবরণ</h2>
+    <div className="space-y-16 py-4">
+      <div className="space-y-8">
+        <div className="flex items-center gap-4">
+          <div className="h-10 w-2 rounded-full bg-indigo-600"></div>
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight">বিস্তারিত বিবরণ</h2>
+        </div>
         <div className="prose prose-slate max-w-none">
-          <p className="whitespace-pre-wrap text-lg leading-relaxed text-slate-500 font-medium">
-            {description?.trim() || 'এই সংস্করণে কোর্স কন্টেন্টের সাথে সামঞ্জস্যপূর্ণ ডিজিটাল রিসোর্স।'}
+          <p className="whitespace-pre-wrap text-xl leading-[1.8] text-slate-500 font-medium">
+            {description?.trim() || 'এই সংস্করণে কোর্স কন্টেন্টের সাথে সামঞ্জস্যপূর্ণ ডিজিটাল রিসোর্স এবং বিস্তারিত গাইডলাইন অন্তর্ভুক্ত রয়েছে যা শিক্ষার্থীদের প্রস্তুতিতে সহায়ক হবে।'}
           </p>
         </div>
       </div>
 
       {totals && totals.segments > 0 && (
-        <div className="space-y-6">
-          <div className="flex items-center gap-3">
-             <div className="h-px flex-1 bg-slate-100"></div>
-             <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">রিসোর্স হাইলাইট</h3>
-             <div className="h-px flex-1 bg-slate-100"></div>
+        <div className="space-y-10">
+          <div className="flex items-center gap-6">
+             <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 shrink-0">রিসোর্স হাইলাইট</h3>
+             <div className="h-px flex-1 bg-gradient-to-r from-slate-200 to-transparent"></div>
           </div>
           
-          <div className="grid gap-6 grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
             {[
-              { label: 'বিষয়', value: totals.subjects, icon: Layers, color: 'bg-indigo-50 text-indigo-600' },
-              { label: 'অধ্যায়', value: totals.chapters, icon: BookOpen, color: 'bg-emerald-50 text-emerald-600' },
-              { label: 'ভিডিও', value: totals.videos, icon: ListVideo, color: 'bg-rose-50 text-rose-600' },
-              { label: 'নোট / পিডিএফ', value: totals.notes, icon: FileText, color: 'bg-amber-50 text-amber-600' },
+              { label: 'বিষয়', value: totals.subjects, icon: Layers, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-100' },
+              { label: 'অধ্যায়', value: totals.chapters, icon: BookOpen, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
+              { label: 'ভিডিও', value: totals.videos, icon: ListVideo, color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-100' },
+              { label: 'নোট / পিডিএফ', value: totals.notes, icon: FileText, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-100' },
             ].map((stat, i) => (
-              <div key={i} className="group rounded-[32px] border border-slate-50 bg-slate-50/30 p-8 transition-all hover:bg-white hover:shadow-xl hover:shadow-slate-200/50 hover:border-indigo-100">
-                <div className={cn("h-12 w-12 rounded-2xl flex items-center justify-center mb-6 transition-transform group-hover:scale-110", stat.color)}>
-                  <stat.icon className="h-6 w-6" />
+              <motion.div 
+                key={i}
+                whileHover={{ y: -8 }}
+                className={cn(
+                  "group relative rounded-[40px] border bg-white p-10 transition-all hover:shadow-2xl hover:shadow-slate-200/50",
+                  stat.border
+                )}
+              >
+                <div className={cn("h-16 w-16 rounded-[24px] flex items-center justify-center mb-8 transition-transform group-hover:scale-110", stat.bg)}>
+                  <stat.icon className={cn("h-8 w-8", stat.color)} />
                 </div>
-                <p className="text-3xl font-black text-slate-900 mb-1">{stat.value}</p>
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
-              </div>
+                <div className="space-y-1">
+                  <p className="text-4xl font-black text-slate-900">{stat.value}</p>
+                  <p className="text-xs font-black uppercase tracking-[0.15em] text-slate-400">{stat.label}</p>
+                </div>
+                
+                {/* Decorative element */}
+                <div className="absolute top-8 right-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                   <CheckCircle2 className={cn("h-5 w-5", stat.color)} />
+                </div>
+              </motion.div>
             ))}
           </div>
         </div>

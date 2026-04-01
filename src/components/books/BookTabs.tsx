@@ -21,28 +21,29 @@ export function BookTabs({ active, onChange, sticky = true }: BookTabsProps) {
   return (
     <div
       className={cn(
-        'z-20 bg-white/80 backdrop-blur-xl',
+        'z-20 bg-white/90 backdrop-blur-xl',
         sticky && 'sticky top-0',
       )}
     >
-      <nav className="flex items-center gap-8 overflow-x-auto py-4 scrollbar-hide" aria-label="Book sections">
+      <nav className="flex items-center gap-10 overflow-x-auto py-6 scrollbar-hide" aria-label="Book sections">
         {tabs.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => onChange(t.id)}
             className={cn(
-              'relative shrink-0 py-2 text-sm font-black uppercase tracking-widest transition-all duration-300',
+              'relative shrink-0 text-sm font-black uppercase tracking-[0.2em] transition-all duration-300',
               active === t.id
                 ? 'text-indigo-600'
                 : 'text-slate-400 hover:text-slate-600',
             )}
           >
-            {t.label}
+            <span className="relative z-10">{t.label}</span>
             {active === t.id && (
               <motion.div
                 layoutId="activeTab"
-                className="absolute -bottom-4 left-0 right-0 h-1 rounded-full bg-indigo-600 shadow-[0_4px_12px_rgba(79,70,229,0.4)]"
+                className="absolute -bottom-[25px] left-0 right-0 h-1.5 rounded-full bg-indigo-600 shadow-[0_4px_20px_rgba(79,70,229,0.5)]"
+                transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
               />
             )}
           </button>
