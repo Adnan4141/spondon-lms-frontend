@@ -47,10 +47,27 @@ export interface StudentAcademicRecord {
   createdAt: string;
 }
 
+/** Centrally published marks from ResultBatch / ExamResult (student portal). */
+export interface OfficialExamResult {
+  id: string;
+  examId: string;
+  studentId: string;
+  rollNo: string;
+  marks: number | string;
+  totalMarks: number | string;
+  percentage: number | string;
+  passFail?: string;
+  batchApprovalStatus: string;
+  submittedAt?: string;
+  exam?: { id: string; title: string; courseId: string };
+  resultBatch?: { id: string; approvalStatus: string };
+}
+
 export interface StudentResults {
   onlineAttempts: OnlineExamAttempt[];
   offlineResults: OfflineExamResult[];
   academicRecords: StudentAcademicRecord[];
+  officialExamResults?: OfficialExamResult[];
 }
 
 export interface ApiResponse<T> {

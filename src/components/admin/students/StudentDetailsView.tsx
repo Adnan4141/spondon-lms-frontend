@@ -97,7 +97,7 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
   const profile = student.studentProfile;
   const { toast } = useToast();
   const { openModal } = useModalStore();
-  const [enrollments, setEnrollments] = useState<EnrollmentType[]>(student.enrollments || []);
+  const [enrollments, setEnrollments] = useState<EnrollmentType[]>(() => student.enrollments ?? []);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [loadingEnrollments, setLoadingEnrollments] = useState(false);
   const [invoices, setInvoices] = useState<Invoice[]>([]);

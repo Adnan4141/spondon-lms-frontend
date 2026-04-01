@@ -1,5 +1,12 @@
 // Exam types based on Prisma schema
 export type ExamType = 'PRACTICE' | 'SCHEDULED' | 'MODEL' | 'TALENT_HUNT' | 'UNIVERSITY';
+export type ExamEngineType =
+  | 'REGULAR'
+  | 'COMPETITIVE'
+  | 'MULTI_SUBJECT'
+  | 'UNIVERSITY_SPECIAL'
+  | 'TALENT_HUNT'
+  | 'OMR_BOOK';
 export type ExamMode = 'ONLINE' | 'OFFLINE' | 'WRITTEN';
 export type ExamStatus = 'DRAFT' | 'PUBLISHED' | 'CLOSED';
 
@@ -34,6 +41,8 @@ export interface ExamQuestion {
   marks: number;
   negativeMarks?: number | null;
   orderIndex: number;
+  sectionKey?: string | null;
+  subjectCourseId?: string | null;
   question?: {
     id: string;
     prompt: string;
@@ -65,6 +74,13 @@ export interface ExamAttempt {
   };
 }
 
+export interface ExamCourseLink {
+  id: string;
+  examId: string;
+  courseId: string;
+  course?: Course;
+}
+
 export interface Exam {
   id: string;
   courseId: string;
@@ -72,6 +88,7 @@ export interface Exam {
   batchId?: string | null;
   title: string;
   type: ExamType;
+  examEngine?: ExamEngineType;
   mode: ExamMode;
   startAt?: string | null;
   endAt?: string | null;
@@ -82,7 +99,14 @@ export interface Exam {
   pdfUrl?: string | null;
   solveSheetUrl?: string | null;
   showLeaderboard?: boolean;
+  showPercentile?: boolean;
+  universityName?: string | null;
+  totalSets?: number | null;
+  omrQuestionCount?: number | null;
+  omrOptionCount?: number | null;
+  omrGeneratedUrl?: string | null;
   language?: string;
+  examCourses?: ExamCourseLink[];
   solveSheetVisibility?: string | null;
   solveSheetScheduledAt?: string | null;
   createdAt: string;
@@ -101,6 +125,18 @@ export interface Exam {
   hasInProgress?: boolean;
 }
 
+/** Row from GET /exams/:id/leaderboard */
+export interface ExamLeaderboardRow {
+  rank: number;
+  studentUserId: string;
+  fullName: string;
+  registrationNumber?: string | null;
+  obtainedMarks: number | null;
+  totalMarks: number | null;
+  submittedAt?: string | null;
+  percentile?: number;
+}
+
 /** Safe exam summary for students (from GET /exams/:id/student-view). */
 export interface ExamStudentView {
   id: string;
@@ -108,6 +144,9 @@ export interface ExamStudentView {
   mode: ExamMode;
   status: ExamStatus;
   type: ExamType;
+  examEngine?: ExamEngineType;
+  showLeaderboard?: boolean;
+  showPercentile?: boolean;
   startAt?: string | null;
   endAt?: string | null;
   durationMinutes?: number | null;
@@ -123,16 +162,26 @@ export interface ExamStudentView {
   course?: Course;
   branch?: Branch;
   batch?: Batch | null;
+  /** Extra linked courses (primary is `courseId` / `course`) — for multi-course exams & leaderboard scope. */
+  examCourses?: { courseId: string; course?: { id: string; name: string; code: string } }[];
   _count?: { sets: number };
 }
 
 export interface CreateExamDto {
+  /** When set, backend enforces CourseTeacher assignment (teacher flows). */
+  teacherUserId?: string;
   courseId: string;
   branchId: string;
   batchId?: string;
   title: string;
   type: ExamType;
   mode: ExamMode;
+  examEngine?: ExamEngineType;
+  showPercentile?: boolean;
+  universityName?: string | null;
+  totalSets?: number | null;
+  omrQuestionCount?: number | null;
+  omrOptionCount?: number | null;
   startAt?: string;
   endAt?: string;
   durationMinutes?: number;
@@ -146,12 +195,20 @@ export interface CreateExamDto {
 }
 
 export interface UpdateExamDto {
+  teacherUserId?: string;
   courseId?: string;
   branchId?: string;
   batchId?: string;
   title?: string;
   type?: ExamType;
   mode?: ExamMode;
+  examEngine?: ExamEngineType;
+  showPercentile?: boolean;
+  universityName?: string | null;
+  totalSets?: number | null;
+  omrQuestionCount?: number | null;
+  omrOptionCount?: number | null;
+  omrGeneratedUrl?: string | null;
   startAt?: string;
   endAt?: string;
   durationMinutes?: number;
@@ -163,11 +220,30 @@ export interface UpdateExamDto {
   solveSheetScheduledAt?: string;
 }
 
+export type ExamFlowKind = 'MCQ_ONLY' | 'WRITTEN_ONLY' | 'MIXED';
+
+export interface ExamSectionBlock {
+  key: string;
+  label: string;
+  questionIndices: number[];
+}
+
 export interface StartAttemptResponse {
   attempt: { id: string; startedAt: string; status: string };
-  exam: { id: string; title: string; durationMinutes: number | null; type: ExamType; mode: ExamMode; language?: string | null };
+  exam: {
+    id: string;
+    title: string;
+    durationMinutes: number | null;
+    type: ExamType;
+    examEngine?: ExamEngineType;
+    mode: ExamMode;
+    language?: string | null;
+    settings?: { proctorStrict?: boolean; [k: string]: unknown } | null;
+  };
   setName: string;
   questions: ExamQuestion[];
+  sections?: ExamSectionBlock[];
+  examFlow?: ExamFlowKind;
   totalMarks: number;
   answeredMap: Record<string, any>;
 }
@@ -175,7 +251,15 @@ export interface StartAttemptResponse {
 export interface AttemptResultResponse {
   attempt: { id: string; status: string; startedAt: string; submittedAt: string | null; totalMarks: number | null; obtainedMarks: number | null };
   student: { id: string; fullName: string };
-  exam: { id: string; title: string; type: ExamType; showLeaderboard: boolean; language?: string | null };
+  exam: {
+    id: string;
+    title: string;
+    type: ExamType;
+    examEngine?: ExamEngineType;
+    showLeaderboard: boolean;
+    showPercentile?: boolean;
+    language?: string | null;
+  };
   questions: ExamQuestion[];
   showSolutions: boolean;
 }

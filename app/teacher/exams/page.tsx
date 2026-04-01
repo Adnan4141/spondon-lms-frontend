@@ -155,13 +155,13 @@ export default function TeacherExamsPage() {
 
   const handleViewExam = async (examId: string) => {
     try {
-      const res = await getExamById(examId);
+      const res = await getExamById(examId, { teacherUserId: userId ?? undefined });
       if (res.success && res.data) {
         openModal({
           title: 'Exam Details',
           description: 'Questions, PDFs, offline results, leaderboard.',
           className: 'sm:max-w-5xl w-[min(100vw-2rem,56rem)] max-h-[92vh]',
-          content: <ExamDetailsView exam={res.data} />,
+          content: <ExamDetailsView exam={res.data} actingTeacherUserId={userId} />,
         });
       }
     } catch (err) {
@@ -171,13 +171,21 @@ export default function TeacherExamsPage() {
 
   const handleEditExam = async (examId: string) => {
     try {
-      const res = await getExamById(examId);
+      const res = await getExamById(examId, { teacherUserId: userId ?? undefined });
       if (res.success && res.data) {
         openModal({
           title: 'Update Exam',
           description: 'Refine exam scheduling and access rules.',
           className: 'sm:max-w-6xl w-[min(100vw-2rem,72rem)] max-h-[92vh]',
-          content: <ExamForm courses={courses} branches={branches} exam={res.data} onSuccess={loadExams} />,
+          content: (
+            <ExamForm
+              courses={courses}
+              branches={branches}
+              exam={res.data}
+              onSuccess={loadExams}
+              actingTeacherUserId={userId}
+            />
+          ),
         });
       }
     } catch (err) {
@@ -190,7 +198,7 @@ export default function TeacherExamsPage() {
           title: 'Create Exam',
           description: 'Online (browser) or offline (hall PDF + OMR / Excel).',
           className: 'sm:max-w-6xl w-[min(100vw-2rem,72rem)] max-h-[92vh]',
-          content: <ExamForm courses={courses} branches={branches} onSuccess={loadExams} />,
+          content: <ExamForm courses={courses} branches={branches} onSuccess={loadExams} actingTeacherUserId={userId} />,
         });
   };
 

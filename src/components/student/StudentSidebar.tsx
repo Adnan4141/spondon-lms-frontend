@@ -17,6 +17,7 @@ import {
   ChevronRight,
   BookOpenCheck,
   UserCircle,
+  ScrollText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -30,6 +31,7 @@ const menuItems = [
   { title: 'কমিউনিটি', href: '/student/community', icon: MessageSquare },
   { title: 'প্রশ্ন', href: '/student/doubts', icon: HelpCircle },
   { title: 'ফলাফল', href: '/student/results', icon: Award },
+  { title: 'একাডেমিক রেকর্ড', href: '/student/academic-record', icon: ScrollText },
   { title: 'রুটিন', href: '/student/routine', icon: Calendar },
   { title: 'পেমেন্ট', href: '/student/payment', icon: CreditCard },
 ];

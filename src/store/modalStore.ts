@@ -21,14 +21,14 @@ export const useModalStore = create<ModalState>((set) => ({
   className: '',
   stack: [],
   openModal: ({ content, title, description, className }) =>
-    set({
+    set((state) => ({
       isOpen: true,
       content,
       title,
       description,
       className,
-      stack: (prev) => [...prev, { content, title, description, className }],
-    }),
+      stack: [...state.stack, { content, title, description, className }],
+    })),
   closeModal: () =>
     set({
       isOpen: false,

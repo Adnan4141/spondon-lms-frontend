@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getStudentExams } from '@/lib/api/exams';
-import type { Exam } from '@/types/exam';
+import type { Exam, ExamEngineType } from '@/types/exam';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -30,6 +30,23 @@ function getTypeBadgeClass(type: string) {
     case 'TALENT_HUNT': return 'bg-pink-50 text-pink-700 border-pink-100';
     case 'UNIVERSITY': return 'bg-indigo-50 text-indigo-700 border-indigo-100';
     default: return 'bg-slate-50 text-slate-600 border-slate-200';
+  }
+}
+
+function getEngineBadgeClass(engine?: ExamEngineType) {
+  switch (engine) {
+    case 'COMPETITIVE':
+      return 'bg-rose-50 text-rose-800 border-rose-200';
+    case 'MULTI_SUBJECT':
+      return 'bg-cyan-50 text-cyan-800 border-cyan-200';
+    case 'UNIVERSITY_SPECIAL':
+      return 'bg-indigo-50 text-indigo-800 border-indigo-200';
+    case 'TALENT_HUNT':
+      return 'bg-fuchsia-50 text-fuchsia-800 border-fuchsia-200';
+    case 'OMR_BOOK':
+      return 'bg-teal-50 text-teal-800 border-teal-200';
+    default:
+      return 'bg-slate-50 text-slate-600 border-slate-200';
   }
 }
 
@@ -139,6 +156,17 @@ export default function StudentExamsPage() {
                     <Badge variant="outline" className={cn('rounded-lg text-[9px] font-black uppercase px-2 py-0.5', getTypeBadgeClass(exam.type))}>
                       {exam.type.replace('_', ' ')}
                     </Badge>
+                    {exam.examEngine && exam.examEngine !== 'REGULAR' ? (
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          'rounded-lg text-[9px] font-black uppercase px-2 py-0.5',
+                          getEngineBadgeClass(exam.examEngine),
+                        )}
+                      >
+                        {exam.examEngine.replace(/_/g, ' ')}
+                      </Badge>
+                    ) : null}
                     <Badge variant="outline" className="rounded-lg text-[9px] font-black uppercase px-2 py-0.5 bg-orange-50 text-orange-800 border-orange-200">
                       OFFLINE
                     </Badge>
@@ -159,7 +187,7 @@ export default function StudentExamsPage() {
                       </span>
                     ) : null}
                   </div>
-                  <div className="mt-4 pt-4 border-t border-amber-200/80">
+                  <div className="mt-4 pt-4 border-t border-amber-200/80 flex flex-col gap-2">
                     <Button
                       className="w-full h-10 rounded-xl font-black uppercase tracking-widest text-[10px] bg-amber-600 hover:bg-amber-700 text-white"
                       onClick={(e) => {
@@ -170,6 +198,19 @@ export default function StudentExamsPage() {
                       <Download className="h-3.5 w-3.5 mr-2" />
                       {lang === 'en' ? 'Instructions & PDF' : 'নির্দেশনা ও PDF'}
                     </Button>
+                    {exam.showLeaderboard ? (
+                      <Button
+                        variant="outline"
+                        className="w-full h-9 rounded-xl font-black uppercase tracking-widest text-[10px] border-amber-300 text-amber-900 hover:bg-amber-100"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/student/leaderboard/${exam.id}`);
+                        }}
+                      >
+                        <Trophy className="h-3.5 w-3.5 mr-2" />
+                        {lang === 'en' ? 'Leaderboard' : 'লিডারবোর্ড'}
+                      </Button>
+                    ) : null}
                   </div>
                 </div>
               );
@@ -203,10 +244,21 @@ export default function StudentExamsPage() {
                     </div>
                   )}
                   
-                  <div className="flex items-center gap-2 mb-3">
+                  <div className="flex items-center gap-2 mb-3 flex-wrap">
                     <Badge variant="outline" className={cn("rounded-lg text-[9px] font-black uppercase px-2 py-0.5", getTypeBadgeClass(exam.type))}>
                       {exam.type.replace('_', ' ')}
                     </Badge>
+                    {exam.examEngine && exam.examEngine !== 'REGULAR' ? (
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          'rounded-lg text-[9px] font-black uppercase px-2 py-0.5',
+                          getEngineBadgeClass(exam.examEngine),
+                        )}
+                      >
+                        {exam.examEngine.replace(/_/g, ' ')}
+                      </Badge>
+                    ) : null}
                     <Badge variant="outline" className="rounded-lg text-[9px] font-black uppercase px-2 py-0.5 bg-cyan-50 text-cyan-700 border-cyan-100">
                       ONLINE
                     </Badge>
@@ -233,7 +285,7 @@ export default function StudentExamsPage() {
                     )}
                   </div>
 
-                  <div className="mt-4 pt-4 border-t border-slate-100">
+                  <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col gap-2">
                     <Button
                       className={cn(
                         "w-full h-10 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all",
@@ -252,6 +304,19 @@ export default function StudentExamsPage() {
                         <><Play className="h-3.5 w-3.5 mr-2" /> {lang === 'en' ? 'Start exam' : 'পরীক্ষা শুরু করুন'}</>
                       )}
                     </Button>
+                    {exam.showLeaderboard ? (
+                      <Button
+                        variant="outline"
+                        className="w-full h-9 rounded-xl font-black uppercase tracking-widest text-[10px]"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/student/leaderboard/${exam.id}`);
+                        }}
+                      >
+                        <Trophy className="h-3.5 w-3.5 mr-2" />
+                        {lang === 'en' ? 'Leaderboard' : 'লিডারবোর্ড'}
+                      </Button>
+                    ) : null}
                   </div>
                 </div>
               );
@@ -279,10 +344,23 @@ export default function StudentExamsPage() {
                   className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-all cursor-pointer"
                   onClick={() => router.push(`/student/exams/${exam.id}`)}
                 >
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="outline" className={cn("rounded-lg text-[9px] font-black uppercase px-2 py-0.5", getTypeBadgeClass(exam.type))}>
                       {exam.type.replace('_', ' ')}
                     </Badge>
+                    {exam.examEngine && exam.examEngine !== 'REGULAR' ? (
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          'rounded-lg text-[9px] font-black uppercase px-2 py-0.5',
+                          getEngineBadgeClass(exam.examEngine),
+                        )}
+                      >
+                        {exam.examEngine.replace(/_/g, ' ')}
+                      </Badge>
+                    ) : null}
+                    </div>
                     {percentage != null && (
                       <span className={cn(
                         "text-sm font-black",
@@ -310,7 +388,7 @@ export default function StudentExamsPage() {
                     </div>
                   )}
 
-                  <div className="mt-4 pt-4 border-t border-slate-100">
+                  <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col gap-2">
                     <Button
                       variant="outline"
                       className="w-full h-9 rounded-xl font-bold text-xs text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-all"
@@ -321,6 +399,18 @@ export default function StudentExamsPage() {
                     >
                       <FileText className="h-3.5 w-3.5 mr-2" /> {lang === 'en' ? 'View results' : 'ফলাফল দেখুন'}
                     </Button>
+                    {exam.showLeaderboard ? (
+                      <Button
+                        variant="outline"
+                        className="w-full h-9 rounded-xl font-bold text-xs text-amber-700 border-amber-200 hover:bg-amber-50"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/student/leaderboard/${exam.id}`);
+                        }}
+                      >
+                        <Trophy className="h-3.5 w-3.5 mr-2" /> {lang === 'en' ? 'Leaderboard' : 'লিডারবোর্ড'}
+                      </Button>
+                    ) : null}
                   </div>
                 </div>
               );

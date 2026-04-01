@@ -7,6 +7,7 @@ import { API_ORIGIN } from '@/lib/api';
 import { getDoubtThreads, DoubtThread } from '@/lib/api/doubts';
 import { getRoutineSlots, RoutineSlot } from '@/lib/api/routine';
 import { getEnrollments } from '@/lib/api/enrollments';
+import { getExams } from '@/lib/api/exams';
 import { updateUser } from '@/lib/api/users';
 import type { Course } from '@/types/course';
 import {
@@ -38,6 +39,7 @@ export default function TeacherDashboardPage() {
   const [doubts, setDoubts] = useState<DoubtThread[]>([]);
   const [routine, setRoutine] = useState<RoutineSlot[]>([]);
   const [studentCount, setStudentCount] = useState<number>(0);
+  const [examStats, setExamStats] = useState<{ draft: number; published: number } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -60,17 +62,27 @@ export default function TeacherDashboardPage() {
     }
     try {
       setLoading(true);
-      const [courseRes, doubtRes, routineRes, studentRes] = await Promise.all([
+      const [courseRes, doubtRes, routineRes, studentRes, examRes] = await Promise.all([
         getCourses({ teacherUserId: userId, limit: 100 }),
         getDoubtThreads({ teacherUserId: userId, status: 'OPEN' }),
         getRoutineSlots({ teacherUserId: userId, isActive: true }),
         getEnrollments({ teacherUserId: userId, limit: 1 }),
+        getExams({ teacherUserId: userId, limit: 500 }),
       ]);
 
       if (courseRes.success && courseRes.data) setCourses(courseRes.data);
       if (doubtRes.success && doubtRes.data) setDoubts(doubtRes.data);
       if (routineRes.success && routineRes.data) setRoutine(routineRes.data);
       if (studentRes.success && studentRes.pagination) setStudentCount(studentRes.pagination.total);
+      if (examRes.success && examRes.data) {
+        const list = examRes.data;
+        setExamStats({
+          draft: list.filter((e) => e.status === 'DRAFT').length,
+          published: list.filter((e) => e.status === 'PUBLISHED').length,
+        });
+      } else {
+        setExamStats(null);
+      }
     } catch (err) {
       console.error('Failed to load dashboard data', err);
     } finally {
@@ -187,6 +199,29 @@ export default function TeacherDashboardPage() {
           </Button>
         </div>
       </header>
+
+      <section className="flex flex-col gap-4 rounded-[2rem] border border-violet-100 bg-gradient-to-r from-violet-50/80 to-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-violet-600">Assessment center</p>
+          <p className="mt-1 text-lg font-black text-slate-900">
+            {loading
+              ? '…'
+              : examStats
+                ? `${examStats.published} published · ${examStats.draft} drafts`
+                : 'No exam data'}
+          </p>
+          <p className="mt-1 text-sm font-medium text-slate-500">Create papers from blueprints and manage sets from your exam manager.</p>
+        </div>
+        <Button
+          asChild
+          className="h-12 shrink-0 rounded-2xl bg-violet-600 px-8 font-black uppercase tracking-widest text-[10px] text-white shadow-lg shadow-violet-100 hover:bg-violet-700"
+        >
+          <Link href="/teacher/exams">
+            <ClipboardList className="mr-2 h-4 w-4" />
+            Exams
+          </Link>
+        </Button>
+      </section>
 
       <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {[

@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Users, Truck, ExternalLink, PieChart, Library } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2, Users, Truck, ExternalLink, PieChart, Library, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getPublicBook, type PublicBook } from '@/lib/api/books';
 import { getBranches } from '@/lib/api/branches';

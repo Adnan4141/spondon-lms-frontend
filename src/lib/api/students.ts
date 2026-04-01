@@ -31,6 +31,21 @@ export async function getStudentById(id: string): Promise<ApiResponse<Student>> 
   return apiRequest<ApiResponse<Student>>(`/users/${id}`);
 }
 
+export type StudentLookupMatch = {
+  id: string;
+  fullName: string;
+  mobile: string;
+  registrationNumber?: string | null;
+  matchedBy: 'id' | 'registrationNumber' | 'mobile';
+};
+
+/** Resolve student user id from internal id, registration number, or BD mobile. */
+export async function lookupStudentUser(q: string): Promise<ApiResponse<StudentLookupMatch>> {
+  return apiRequest<ApiResponse<StudentLookupMatch>>(
+    `/users/lookup/student?q=${encodeURIComponent(q.trim())}`,
+  );
+}
+
 export async function createStudent(
   data: CreateStudentDto,
 ): Promise<ApiResponse<StudentCreatedWithCredentials>> {

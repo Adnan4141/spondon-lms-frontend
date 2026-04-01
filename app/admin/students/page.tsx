@@ -5,6 +5,7 @@ import {
   getStudents,
   deleteStudent,
   getStudentById,
+  lookupStudentUser,
   bulkImportStudents,
   type Student,
 } from '@/lib/api/students';
@@ -60,6 +61,8 @@ export default function StudentsPage() {
   const [institutes, setInstitutes] = useState<Institute[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [quickLookup, setQuickLookup] = useState('');
+  const [quickLookupLoading, setQuickLookupLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [branchFilter, setBranchFilter] = useState<string>('all');
 
@@ -125,12 +128,22 @@ export default function StudentsPage() {
     try {
       const res = await getStudentById(studentId);
       if (res.success && res.data) {
+        if (res.data.role !== 'STUDENT') {
+          toast({
+            title: 'Not a student',
+            description: 'That account is not a student. Use user ID, registration no., or student mobile.',
+            variant: 'destructive',
+          });
+          return;
+        }
         openModal({
           title: 'Student Details',
           description: "See this student's info.",
           className: 'sm:max-w-5xl max-h-[92vh] flex flex-col overflow-hidden',
           content: <StudentDetailsView student={res.data} />,
         });
+      } else {
+        toast({ title: 'Error', description: res.message || 'Student not found', variant: 'destructive' });
       }
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to load student details', variant: 'destructive' });
@@ -141,15 +154,58 @@ export default function StudentsPage() {
     try {
       const res = await getStudentById(studentId);
       if (res.success && res.data) {
+        if (res.data.role !== 'STUDENT') {
+          toast({
+            title: 'Not a student',
+            description: 'That account is not a student.',
+            variant: 'destructive',
+          });
+          return;
+        }
         openModal({
           title: 'Edit Student',
           description: 'Update student information.',
           className: 'sm:max-w-5xl',
           content: <StudentForm branches={branches} institutes={institutes} student={res.data} onSuccess={loadStudents} />,
         });
+      } else {
+        toast({ title: 'Error', description: res.message || 'Student not found', variant: 'destructive' });
       }
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to load student for editing', variant: 'destructive' });
+    }
+  };
+
+  const handleQuickOpenStudent = async () => {
+    const raw = quickLookup.trim();
+    if (!raw) {
+      toast({ title: 'Enter a value', description: 'User ID, registration no., or mobile', variant: 'destructive' });
+      return;
+    }
+    try {
+      setQuickLookupLoading(true);
+      let resolvedId = raw;
+      try {
+        const lookup = await lookupStudentUser(raw);
+        if (lookup.success && lookup.data?.id) {
+          resolvedId = lookup.data.id;
+          if (lookup.data.matchedBy !== 'id') {
+            const via =
+              lookup.data.matchedBy === 'registrationNumber' ? 'registration no.' : 'mobile';
+            toast({
+              title: 'Matched',
+              description: `${lookup.data.fullName} (${via})`,
+              variant: 'success',
+            });
+          }
+        }
+      } catch {
+        resolvedId = raw;
+      }
+      await handleViewStudent(resolvedId);
+      setQuickLookup('');
+    } finally {
+      setQuickLookupLoading(false);
     }
   };
 
@@ -201,11 +257,17 @@ export default function StudentsPage() {
       ),
     });
   };
- console.log(students)
- 
   const filteredStudents = students.filter((s) => {
     const q = searchQuery.toLowerCase();
-    return !q || s.fullName.toLowerCase().includes(q) || s.email?.toLowerCase().includes(q) || s.mobile.toLowerCase().includes(q);
+    const reg = (s.studentProfile?.registrationNumber ?? '').toLowerCase();
+    return (
+      !q ||
+      s.fullName.toLowerCase().includes(q) ||
+      s.email?.toLowerCase().includes(q) ||
+      s.mobile.toLowerCase().includes(q) ||
+      reg.includes(q) ||
+      s.id.toLowerCase().includes(q)
+    );
   });
 
   return (
@@ -218,7 +280,7 @@ export default function StudentsPage() {
               <div className="relative group">
                 <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
                 <input
-                  placeholder="Search by name, email, or phone..."
+                  placeholder="Search name, email, phone, reg #, or user id…"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="h-12 w-full rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner outline-none"
@@ -252,6 +314,25 @@ export default function StudentsPage() {
                 ))}
               </SelectContent>
             </Select>
+
+            <div className="flex min-w-[220px] max-w-xs flex-1 items-center gap-2">
+              <Input
+                placeholder="Open: id, roll, mobile…"
+                value={quickLookup}
+                onChange={(e) => setQuickLookup(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleQuickOpenStudent()}
+                className="h-12 rounded-2xl border-slate-200 bg-white text-sm font-bold shadow-sm"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 shrink-0 rounded-2xl border-slate-200 px-4 text-[10px] font-black uppercase tracking-widest"
+                disabled={quickLookupLoading}
+                onClick={handleQuickOpenStudent}
+              >
+                Open
+              </Button>
+            </div>
 
             <Button variant="outline" className="h-12 w-12 rounded-2xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-all shadow-sm" onClick={loadStudents}>
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />

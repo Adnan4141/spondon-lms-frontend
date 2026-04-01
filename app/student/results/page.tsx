@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Award, Download, FileText, Loader2, TrendingUp, CheckCircle2, AlertCircle } from 'lucide-react';
 import { getStudentResults } from '@/lib/api/student-portal';
-import type { StudentResults, OnlineExamAttempt } from '@/types/academic';
+import type { StudentResults, OnlineExamAttempt, OfficialExamResult } from '@/types/academic';
 import { getExamPdfDownloadUrl } from '@/lib/api/exams';
 
 interface OfflineResult {
@@ -33,7 +34,11 @@ export default function StudentResultsPage() {
       try {
         const user = JSON.parse(userStr);
         const res = await getStudentResults(user.id);
-        if (res.success && res.data) setData(res.data);
+        if (res.success && res.data) {
+          setData(res.data);
+        } else if (!res.success) {
+          setError(res.message || 'ফলাফল লোড ব্যর্থ');
+        }
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : 'ফলাফল লোড ব্যর্থ');
       } finally {
@@ -69,7 +74,15 @@ export default function StudentResultsPage() {
   const attempts = data?.onlineAttempts ?? [];
   const offlineResults: OfflineResult[] = (data?.offlineResults as OfflineResult[]) ?? [];
   const academicRecords = (data?.academicRecords as any[]) ?? [];
-  const hasResults = attempts.length > 0 || offlineResults.length > 0 || academicRecords.length > 0;
+  const officialExamResults: OfficialExamResult[] = data?.officialExamResults ?? [];
+  const visibleOfficial = officialExamResults.filter(
+    (r) => r.batchApprovalStatus === 'APPROVED_BY_CENTRAL',
+  );
+  const hasResults =
+    attempts.length > 0 ||
+    offlineResults.length > 0 ||
+    academicRecords.length > 0 ||
+    visibleOfficial.length > 0;
 
   return (
     <div className="space-y-10">
@@ -93,11 +106,58 @@ export default function StudentResultsPage() {
           </div>
           <h3 className="text-2xl font-black text-slate-900 mb-2">কোনো ফলাফল নেই</h3>
           <p className="text-slate-500 font-medium max-w-sm mx-auto">
-            পরীক্ষা দিলে এখানে দেখা যাবে
+            অনলাইন পরীক্ষা শেষ করলে চেষ্টার ফল এখানে দেখা যাবে। অফিসিয়াল নম্বর কেন্দ্রীয় অনুমোদনের পর দেখাবে।
           </p>
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
+            <Link
+              href="/student/exams"
+              className="rounded-2xl bg-indigo-600 px-6 py-3 text-sm font-black text-white shadow-lg hover:bg-indigo-700"
+            >
+              পরীক্ষা দেখুন
+            </Link>
+            <Link
+              href="/student/academic-record"
+              className="rounded-2xl border border-slate-200 bg-white px-6 py-3 text-sm font-black text-slate-700 hover:bg-slate-50"
+            >
+              একাডেমিক রেকর্ড
+            </Link>
+          </div>
         </Card>
       ) : (
         <div className="grid gap-10">
+          {visibleOfficial.length > 0 && (
+            <div className="space-y-6">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
+                  <Award className="h-5 w-5" />
+                </div>
+                <h2 className="text-2xl font-black text-slate-900 tracking-tight">অফিসিয়াল ফলাফল</h2>
+              </div>
+              <div className="grid gap-6">
+                {visibleOfficial.map((r) => (
+                  <Card
+                    key={r.id}
+                    className="overflow-hidden rounded-[2rem] border-none bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)]"
+                  >
+                    <CardContent className="p-8">
+                      <h3 className="text-xl font-black text-slate-900">{r.exam?.title ?? 'পরীক্ষা'}</h3>
+                      <p className="mt-2 text-sm font-bold text-slate-400">
+                        রোল: {r.rollNo} · কেন্দ্রীয় অনুমোদন
+                      </p>
+                      <div className="mt-6 flex items-baseline gap-2">
+                        <span className="text-4xl font-black text-violet-600">{Number(r.marks)}</span>
+                        <span className="text-xl font-bold text-slate-400">/ {Number(r.totalMarks)}</span>
+                        <span className="ml-4 rounded-full bg-violet-50 px-4 py-1 text-sm font-black text-violet-800">
+                          {Number(r.percentage).toFixed(1)}%
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
           {attempts.length > 0 && (
             <div className="space-y-6">
               <div className="flex items-center gap-3">

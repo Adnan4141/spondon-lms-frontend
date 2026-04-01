@@ -28,6 +28,7 @@ import {
   CalendarRange,
   Presentation,
   Globe,
+  ListChecks,
 } from 'lucide-react';
 
 type MenuItem = {
@@ -75,6 +76,13 @@ function buildMenuSections(role: string | null): { label: string; items: MenuIte
     { title: 'Questions', href: '/admin/questions', icon: HelpCircle, color: 'text-amber-500', bg: 'bg-amber-50' },
     { title: 'Exams', href: '/admin/exams', icon: ClipboardList, color: 'text-emerald-500', bg: 'bg-emerald-50' },
     { title: 'Exam Results', href: '/admin/exam-results', icon: Award, color: 'text-amber-500', bg: 'bg-amber-50' },
+    {
+      title: 'Result approvals',
+      href: '/admin/results/approvals',
+      icon: ListChecks,
+      color: 'text-teal-600',
+      bg: 'bg-teal-50',
+    },
     { title: 'Books', href: '/admin/books', icon: BookOpen, color: 'text-blue-500', bg: 'bg-blue-50' },
     { title: 'Students', href: '/admin/students', icon: Users, color: 'text-violet-500', bg: 'bg-violet-50' },
     { title: 'Branches', href: '/admin/branches', icon: Building2, color: 'text-red-500', bg: 'bg-red-50' },

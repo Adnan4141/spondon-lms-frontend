@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { getStudentById } from '@/lib/api/students';
+import { getStudentById, lookupStudentUser } from '@/lib/api/students';
 import { getStudentResults } from '@/lib/api/student-portal';
 import type { Student } from '@/types/student';
-import type { StudentResults } from '@/types/academic';
+import type { OfficialExamResult, StudentResults } from '@/types/academic';
+import { AcademicRecordsExplorer } from '@/components/admin/academic-records/AcademicRecordsExplorer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -52,10 +53,11 @@ export default function AcademicRecordsPage() {
   const [results, setResults] = useState<StudentResults | null>(null);
 
   const handleLoadRecords = async () => {
-    if (!studentIdInput.trim()) {
+    const raw = studentIdInput.trim();
+    if (!raw) {
       toast({
         title: 'Error',
-        description: 'Please enter a Student User ID',
+        description: 'Enter user ID, registration number, or mobile',
         variant: 'destructive',
       });
       return;
@@ -66,13 +68,35 @@ export default function AcademicRecordsPage() {
       setStudent(null);
       setResults(null);
 
+      let resolvedId = raw;
+      try {
+        const lookup = await lookupStudentUser(raw);
+        if (lookup.success && lookup.data?.id) {
+          resolvedId = lookup.data.id;
+          if (lookup.data.matchedBy !== 'id') {
+            const label =
+              lookup.data.matchedBy === 'registrationNumber' ? 'registration no.' : 'mobile';
+            toast({
+              title: 'Student matched',
+              description: `${lookup.data.fullName} — via ${label}`,
+              variant: 'success',
+            });
+          }
+        }
+      } catch {
+        resolvedId = raw;
+      }
+
       const [studentResp, resultsResp] = await Promise.all([
-        getStudentById(studentIdInput.trim()),
-        getStudentResults(studentIdInput.trim()),
+        getStudentById(resolvedId),
+        getStudentResults(resolvedId),
       ]);
 
       if (!studentResp.success || !studentResp.data) {
         throw new Error(studentResp.message || 'Failed to load student');
+      }
+      if (studentResp.data.role !== 'STUDENT') {
+        throw new Error('This user is not a student. Use a student account, registration no., or mobile.');
       }
       setStudent(studentResp.data);
 
@@ -150,6 +174,7 @@ export default function AcademicRecordsPage() {
   const onlineAttempts = results?.onlineAttempts || [];
   const offlineResults = results?.offlineResults || [];
   const academicRecords = results?.academicRecords || [];
+  const officialExamResults: OfficialExamResult[] = results?.officialExamResults ?? [];
 
   return (
     <div className="space-y-8 text-slate-900">
@@ -157,11 +182,13 @@ export default function AcademicRecordsPage() {
       <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-end gap-4">
           <div className="min-w-[300px] flex-1">
-            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2 block px-1">Student Identifier</label>
+            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2 block px-1">
+              Student lookup
+            </label>
             <div className="relative group">
               <User className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
               <Input
-                placeholder="Enter Student User ID (e.g., AH-1024)..."
+                placeholder="User ID, registration no., or mobile (01XXXXXXXXX)…"
                 value={studentIdInput}
                 onChange={(e) => setStudentIdInput(e.target.value)}
                 className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
@@ -202,8 +229,16 @@ export default function AcademicRecordsPage() {
               </div>
               <div>
                 <h2 className="text-xl font-black text-slate-900">{student.fullName}</h2>
-                <div className="flex items-center gap-3 mt-1 text-base font-bold text-slate-400">
+                <div className="flex flex-wrap items-center gap-3 mt-1 text-base font-bold text-slate-400">
                   <span>{student.mobile}</span>
+                  {student.studentProfile?.registrationNumber ? (
+                    <>
+                      <div className="h-1 w-1 rounded-full bg-slate-200" />
+                      <span className="font-mono text-sm text-slate-600">
+                        Reg: {student.studentProfile.registrationNumber}
+                      </span>
+                    </>
+                  ) : null}
                   {student.email && (
                     <>
                       <div className="h-1 w-1 rounded-full bg-slate-200" />
@@ -233,6 +268,16 @@ export default function AcademicRecordsPage() {
           </div>
         </section>
       )}
+
+      {student ? (
+        <AcademicRecordsExplorer
+          studentUserId={student.id}
+          enrollmentCourses={student.enrollments?.map((e) => ({
+            id: e.courseId,
+            name: e.course?.name ?? e.courseId,
+          }))}
+        />
+      ) : null}
 
       {results && (
         <div className="space-y-10">
@@ -304,6 +349,73 @@ export default function AcademicRecordsPage() {
               </div>
             )}
           </section>
+
+          {/* Official exam results (ResultBatch / ExamResult) */}
+          {officialExamResults.length > 0 ? (
+            <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/30">
+              <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
+                <div>
+                  <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">
+                    Official results (batches)
+                  </h2>
+                  <p className="mt-0.5 text-base font-bold text-violet-600">
+                    Published via result batches (branch → central)
+                  </p>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-slate-50/50">
+                    <TableRow className="hover:bg-transparent border-b border-slate-100">
+                      <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">
+                        Exam
+                      </TableHead>
+                      <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">
+                        Roll
+                      </TableHead>
+                      <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">
+                        Status
+                      </TableHead>
+                      <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">
+                        Score
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {officialExamResults.map((r) => (
+                      <TableRow key={r.id} className="border-slate-100">
+                        <TableCell className="px-8 py-4 font-bold text-slate-900">
+                          {r.exam?.title ?? r.examId}
+                        </TableCell>
+                        <TableCell className="font-mono text-sm font-black text-violet-600">{r.rollNo}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              'rounded-lg text-[9px] font-black uppercase',
+                              r.batchApprovalStatus === 'APPROVED_BY_CENTRAL'
+                                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                                : 'border-slate-200 bg-slate-50 text-slate-600',
+                            )}
+                          >
+                            {r.batchApprovalStatus.replace(/_/g, ' ')}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="px-8 text-right">
+                          <span className="text-base font-black text-slate-900">
+                            {Number(r.marks).toFixed(1)} / {Number(r.totalMarks).toFixed(1)}
+                          </span>
+                          <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
+                            {Number(r.percentage).toFixed(1)}%
+                          </p>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </section>
+          ) : null}
 
           {/* Offline Results Table */}
           <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/30">

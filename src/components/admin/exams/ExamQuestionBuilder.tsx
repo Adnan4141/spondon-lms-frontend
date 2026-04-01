@@ -1,11 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  addQuestionsToSet, 
-  removeQuestionFromSet, 
-  createExamSet, 
-  deleteExamSet 
+import {
+  addQuestionsToSet,
+  removeQuestionFromSet,
+  createExamSet,
+  deleteExamSet,
+  getExams,
+  getExamById,
+  importQuestionsFromExamSet,
 } from '@/lib/api/exams';
 import { getQuestionFolders } from '@/lib/api/question-bank';
 import { Button } from '@/components/ui/button';
@@ -19,24 +22,35 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  Plus, 
-  Trash2, 
-  RefreshCw, 
-  Layers, 
-  Settings2, 
-  Dice5, 
-  CheckCircle2, 
+import {
+  Plus,
+  Trash2,
+  RefreshCw,
+  Layers,
+  Settings2,
+  Dice5,
+  CheckCircle2,
   Folder,
   ChevronRight,
   FileText,
   Split,
-  Printer
+  Printer,
+  ClipboardPaste,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useModalStore } from '@/store/modalStore';
 import { OfflineExamSheet } from './OfflineExamSheet';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import type { Exam } from '@/types/exam';
 
 interface ExamQuestionBuilderProps {
   examId: string;
@@ -62,6 +76,15 @@ export function ExamQuestionBuilder({ examId, exam, sets, onRefresh }: ExamQuest
   const [mcqPassageCount, setMcqPassageCount] = useState<number>(0);
   const [marks, setMarks] = useState(1);
 
+  const [importOpen, setImportOpen] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
+  const [branchExams, setBranchExams] = useState<Exam[]>([]);
+  const [importSourceExamId, setImportSourceExamId] = useState('');
+  const [importSourceExam, setImportSourceExam] = useState<Exam | null>(null);
+  const [importSourceSetId, setImportSourceSetId] = useState('');
+  const [importPickAll, setImportPickAll] = useState(true);
+  const [importSelectedQids, setImportSelectedQids] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     const loadFolders = async () => {
       const res = await getQuestionFolders();
@@ -69,6 +92,104 @@ export function ExamQuestionBuilder({ examId, exam, sets, onRefresh }: ExamQuest
     };
     loadFolders();
   }, []);
+
+  useEffect(() => {
+    if (!importOpen) return;
+    (async () => {
+      const res = await getExams({
+        ...(exam?.branchId ? { branchId: exam.branchId } : {}),
+        limit: 400,
+      });
+      if (res.success && res.data) {
+        setBranchExams(res.data.filter((e) => e.id !== examId));
+      }
+    })();
+  }, [importOpen, exam?.branchId, examId]);
+
+  useEffect(() => {
+    if (!importSourceExamId) {
+      setImportSourceExam(null);
+      return;
+    }
+    (async () => {
+      const res = await getExamById(importSourceExamId);
+      if (res.success && res.data) setImportSourceExam(res.data);
+      else setImportSourceExam(null);
+    })();
+  }, [importSourceExamId]);
+
+  useEffect(() => {
+    if (!importSourceSetId || !importSourceExam?.sets) return;
+    const st = importSourceExam.sets.find((s: { id: string }) => s.id === importSourceSetId);
+    const qids = (st?.questions || []).map((q) => q.questionId).filter(Boolean);
+    setImportPickAll(true);
+    setImportSelectedQids(new Set(qids));
+  }, [importSourceSetId, importSourceExam]);
+
+  const openImportDialog = () => {
+    setImportSourceExamId('');
+    setImportSourceExam(null);
+    setImportSourceSetId('');
+    setImportPickAll(true);
+    setImportSelectedQids(new Set());
+    setImportOpen(true);
+  };
+
+  const sourceSetQuestions =
+    importSourceExam?.sets?.find((s: { id: string }) => s.id === importSourceSetId)?.questions || [];
+
+  const toggleImportQuestion = (qid: string) => {
+    setImportPickAll(false);
+    setImportSelectedQids((prev) => {
+      const next = new Set(prev);
+      if (next.has(qid)) next.delete(qid);
+      else next.add(qid);
+      return next;
+    });
+  };
+
+  const handleImportFromExam = async () => {
+    if (!selectedSetId || !importSourceExamId || !importSourceSetId) {
+      toast({
+        title: 'Missing fields',
+        description: 'Choose source exam and set',
+        variant: 'destructive',
+      });
+      return;
+    }
+    const questionIds = importPickAll ? undefined : [...importSelectedQids];
+    if (!importPickAll && questionIds.length === 0) {
+      toast({ title: 'No questions', description: 'Select at least one question', variant: 'destructive' });
+      return;
+    }
+    try {
+      setImportLoading(true);
+      const res = await importQuestionsFromExamSet(examId, selectedSetId, {
+        sourceExamId: importSourceExamId,
+        sourceSetId: importSourceSetId,
+        questionIds,
+      });
+      if (res.success) {
+        toast({
+          title: 'Imported',
+          description: res.message || `${res.data?.added ?? 0} added`,
+          variant: 'success',
+        });
+        setImportOpen(false);
+        onRefresh();
+      } else {
+        toast({ title: 'Error', description: res.message || 'Import failed', variant: 'destructive' });
+      }
+    } catch (err: unknown) {
+      toast({
+        title: 'Error',
+        description: err instanceof Error ? err.message : 'Import failed',
+        variant: 'destructive',
+      });
+    } finally {
+      setImportLoading(false);
+    }
+  };
 
   const handleCreateSet = async () => {
     if (!newSetName.trim()) return;
@@ -218,7 +339,8 @@ export function ExamQuestionBuilder({ examId, exam, sets, onRefresh }: ExamQuest
             {selectedSetId ? (
               <>
                 <div className="rounded-[32px] border border-indigo-100 bg-indigo-50/20 p-8 shadow-sm">
-                   <div className="flex items-center gap-4 mb-8">
+                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
+                      <div className="flex items-center gap-4">
                       <div className="h-12 w-12 rounded-[20px] bg-indigo-600 flex items-center justify-center text-white shadow-lg">
                          <Settings2 className="h-6 w-6" />
                       </div>
@@ -226,6 +348,16 @@ export function ExamQuestionBuilder({ examId, exam, sets, onRefresh }: ExamQuest
                          <h2 className="text-xl font-black text-slate-900 tracking-tight">Question Integration Protocol</h2>
                          <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Active Target: {currentSet?.name}</p>
                       </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-11 shrink-0 rounded-2xl border-indigo-200 bg-white font-black text-[10px] uppercase tracking-widest text-indigo-700 hover:bg-indigo-50"
+                        onClick={openImportDialog}
+                      >
+                        <ClipboardPaste className="mr-2 h-4 w-4" />
+                        Import from exam
+                      </Button>
                    </div>
 
                    <div className="grid gap-6 sm:grid-cols-2">
@@ -443,6 +575,104 @@ export function ExamQuestionBuilder({ examId, exam, sets, onRefresh }: ExamQuest
             )}
          </div>
       </div>
+
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Import questions from another exam</DialogTitle>
+            <DialogDescription>
+              Copies question links (same question bank IDs) into the active set <strong>{currentSet?.name}</strong>.
+              Same branch only. Duplicates in the target set are skipped.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Source exam</Label>
+              <Select value={importSourceExamId} onValueChange={setImportSourceExamId}>
+                <SelectTrigger className="rounded-xl font-bold">
+                  <SelectValue placeholder="Select exam" />
+                </SelectTrigger>
+                <SelectContent className="max-h-64">
+                  {branchExams.map((e) => (
+                    <SelectItem key={e.id} value={e.id} className="font-medium">
+                      {e.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Source set</Label>
+              <Select
+                value={importSourceSetId}
+                onValueChange={setImportSourceSetId}
+                disabled={!importSourceExam?.sets?.length}
+              >
+                <SelectTrigger className="rounded-xl font-bold">
+                  <SelectValue placeholder={importSourceExamId ? 'Select set' : 'Pick an exam first'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {(importSourceExam?.sets || []).map((s: { id: string; name: string }) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {importSourceSetId && sourceSetQuestions.length > 0 ? (
+              <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/80 p-3">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="import-all"
+                    checked={importPickAll}
+                    onCheckedChange={(c) => {
+                      const on = c === true;
+                      setImportPickAll(on);
+                      if (on) {
+                        const qids = sourceSetQuestions.map((q) => q.questionId).filter(Boolean);
+                        setImportSelectedQids(new Set(qids));
+                      }
+                    }}
+                  />
+                  <label htmlFor="import-all" className="text-sm font-bold text-slate-700 cursor-pointer">
+                    Import entire set ({sourceSetQuestions.length} questions)
+                  </label>
+                </div>
+                {!importPickAll ? (
+                  <div className="max-h-48 space-y-2 overflow-y-auto border-t border-slate-200 pt-3 mt-2">
+                    {sourceSetQuestions.map((eq) => {
+                      const label =
+                        eq.question?.prompt?.replace(/<[^>]+>/g, '').slice(0, 80) || eq.questionId;
+                      return (
+                        <div key={eq.id} className="flex items-start gap-2">
+                          <Checkbox
+                            checked={importSelectedQids.has(eq.questionId)}
+                            onCheckedChange={() => toggleImportQuestion(eq.questionId)}
+                          />
+                          <span className="text-xs font-medium text-slate-600 leading-snug">{label}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setImportOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={importLoading || !importSourceExamId || !importSourceSetId}
+              onClick={handleImportFromExam}
+            >
+              {importLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : 'Import'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

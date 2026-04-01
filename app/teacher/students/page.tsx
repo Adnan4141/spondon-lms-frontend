@@ -5,7 +5,7 @@ import { getEnrollments, Enrollment } from '@/lib/api/enrollments';
 import { getCourses } from '@/lib/api/courses';
 import { getBatches } from '@/lib/api/batches';
 import type { Course } from '@/types/course';
-import type { Batch } from '@/types/batch';
+import type { Batch } from '@/lib/api/batches';
 import { 
   Users, 
   Search, 

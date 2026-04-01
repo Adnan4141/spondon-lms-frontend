@@ -10,6 +10,8 @@ export interface User {
   status: string;
   profileImage?: string | null;
   branchId?: string;
+  createdAt?: string;
+  updatedAt?: string;
   branch?: {
     id: string;
     name: string;

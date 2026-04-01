@@ -2,7 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { createExam, updateExam } from '@/lib/api/exams';
-import { type Exam, type ExamType, type ExamMode, type ExamStatus, type CreateExamDto, type UpdateExamDto } from '@/types/exam';
+import {
+  type Exam,
+  type ExamType,
+  type ExamEngineType,
+  type ExamMode,
+  type ExamStatus,
+  type CreateExamDto,
+  type UpdateExamDto,
+} from '@/types/exam';
 import { getBatches, type Batch } from '@/lib/api/batches';
 import { useModalStore } from '@/store/modalStore';
 import { useToast } from '@/hooks/use-toast';
@@ -24,6 +32,14 @@ import { Calendar, Clock, BookOpen, MapPin, Layers, Settings2, ShieldCheck, Acti
 import { cn } from '@/lib/utils';
 
 const examTypeOptions: ExamType[] = ['PRACTICE', 'SCHEDULED', 'MODEL', 'TALENT_HUNT', 'UNIVERSITY'];
+const examEngineOptions: ExamEngineType[] = [
+  'REGULAR',
+  'COMPETITIVE',
+  'MULTI_SUBJECT',
+  'UNIVERSITY_SPECIAL',
+  'TALENT_HUNT',
+  'OMR_BOOK',
+];
 const examModeOptions: ExamMode[] = ['ONLINE', 'OFFLINE', 'WRITTEN'];
 const examStatusOptions: ExamStatus[] = ['DRAFT', 'PUBLISHED', 'CLOSED'];
 const solveSheetOptions = [
@@ -41,9 +57,11 @@ interface ExamFormProps {
   branches: Branch[];
   exam?: Exam | null;
   onSuccess: () => Promise<void>;
+  /** Passed from teacher UI so the API can enforce assignment scope. */
+  actingTeacherUserId?: string | null;
 }
 
-export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) {
+export function ExamForm({ courses, branches, exam, onSuccess, actingTeacherUserId }: ExamFormProps) {
   const { closeModal } = useModalStore();
   const { toast } = useToast();
   const [form, setForm] = useState<CreateExamDto>({
@@ -52,6 +70,7 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
     batchId: undefined,
     title: '',
     type: 'PRACTICE',
+    examEngine: 'REGULAR',
     mode: 'ONLINE',
     startAt: '',
     endAt: '',
@@ -60,6 +79,11 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
     status: 'DRAFT',
     settings: {},
     showLeaderboard: false,
+    showPercentile: false,
+    universityName: undefined,
+    totalSets: undefined,
+    omrQuestionCount: undefined,
+    omrOptionCount: undefined,
     solveSheetVisibility: 'HIDDEN',
     solveSheetScheduledAt: undefined,
     language: 'bn',
@@ -78,6 +102,7 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
         batchId: exam.batchId || undefined,
         title: exam.title,
         type: exam.type,
+        examEngine: exam.examEngine ?? 'REGULAR',
         mode: exam.mode,
         startAt: exam.startAt ? new Date(exam.startAt).toISOString().slice(0, 16) : '',
         endAt: exam.endAt ? new Date(exam.endAt).toISOString().slice(0, 16) : '',
@@ -86,6 +111,11 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
         status: exam.status,
         settings: exam.settings || {},
         showLeaderboard: exam.showLeaderboard ?? false,
+        showPercentile: exam.showPercentile ?? false,
+        universityName: exam.universityName ?? undefined,
+        totalSets: exam.totalSets ?? undefined,
+        omrQuestionCount: exam.omrQuestionCount ?? undefined,
+        omrOptionCount: exam.omrOptionCount ?? undefined,
         solveSheetVisibility: exam.solveSheetVisibility || 'HIDDEN',
         solveSheetScheduledAt: exam.solveSheetScheduledAt ? new Date(exam.solveSheetScheduledAt).toISOString().slice(0, 16) : undefined,
         language: exam.language || 'bn',
@@ -124,6 +154,7 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
         endAt: form.endAt || undefined,
         solveSheetScheduledAt: form.solveSheetVisibility === 'SCHEDULED' && form.solveSheetScheduledAt ? form.solveSheetScheduledAt : undefined,
       };
+      if (actingTeacherUserId) payload.teacherUserId = actingTeacherUserId;
 
       if (isEdit && exam) {
         await updateExam(exam.id, payload as UpdateExamDto);
@@ -260,6 +291,93 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
                   onCheckedChange={(v) => setForm((p) => ({ ...p, showLeaderboard: v }))}
                 />
               </div>
+
+              {(form.examEngine === 'COMPETITIVE' || form.showPercentile) && (
+                <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/50 px-5 py-4">
+                  <div className="flex items-center gap-3">
+                    <Activity className="h-5 w-5 text-violet-500" />
+                    <div>
+                      <span className="text-sm font-black text-slate-700">Percentile</span>
+                      <p className="text-xs text-slate-400">Show percentile on leaderboard (competitive style)</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={form.showPercentile ?? false}
+                    onCheckedChange={(v) => setForm((p) => ({ ...p, showPercentile: v }))}
+                  />
+                </div>
+              )}
+
+              {form.examEngine === 'UNIVERSITY_SPECIAL' && (
+                <div className="space-y-2">
+                  <label className={sectionLabel}>University name</label>
+                  <Input
+                    className={inputClass}
+                    value={form.universityName ?? ''}
+                    onChange={(e) => setForm((p) => ({ ...p, universityName: e.target.value || undefined }))}
+                    placeholder="e.g., DU / BUET"
+                  />
+                </div>
+              )}
+
+              {(form.examEngine === 'TALENT_HUNT' ||
+                form.examEngine === 'MULTI_SUBJECT' ||
+                form.examEngine === 'OMR_BOOK') && (
+                <div className="space-y-2">
+                  <label className={sectionLabel}>Total sets (optional)</label>
+                  <Input
+                    type="number"
+                    className={inputClass}
+                    value={form.totalSets ?? ''}
+                    onChange={(e) =>
+                      setForm((p) => ({
+                        ...p,
+                        totalSets: e.target.value ? Number(e.target.value) : undefined,
+                      }))
+                    }
+                    placeholder="e.g., 4"
+                    min={1}
+                  />
+                </div>
+              )}
+
+              {form.examEngine === 'OMR_BOOK' && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className={sectionLabel}>OMR question count</label>
+                    <Input
+                      type="number"
+                      className={inputClass}
+                      value={form.omrQuestionCount ?? ''}
+                      onChange={(e) =>
+                        setForm((p) => ({
+                          ...p,
+                          omrQuestionCount: e.target.value ? Number(e.target.value) : undefined,
+                        }))
+                      }
+                      placeholder="Override / default from sets"
+                      min={1}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className={sectionLabel}>Options per question</label>
+                    <Input
+                      type="number"
+                      className={inputClass}
+                      value={form.omrOptionCount ?? ''}
+                      onChange={(e) =>
+                        setForm((p) => ({
+                          ...p,
+                          omrOptionCount: e.target.value ? Number(e.target.value) : undefined,
+                        }))
+                      }
+                      placeholder="Default 4"
+                      min={2}
+                      max={10}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -326,6 +444,35 @@ export function ExamForm({ courses, branches, exam, onSuccess }: ExamFormProps) 
                          </SelectContent>
                       </Select>
                    </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className={sectionLabel}>Exam engine</label>
+                  <Select
+                    value={form.examEngine || 'REGULAR'}
+                    onValueChange={(v) => {
+                      const next = v as ExamEngineType;
+                      setForm((p) => ({
+                        ...p,
+                        examEngine: next,
+                        showPercentile: next === 'COMPETITIVE' ? true : p.showPercentile,
+                      }));
+                    }}
+                  >
+                    <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
+                      {examEngineOptions.map((o) => (
+                        <SelectItem key={o} value={o} className="font-bold text-xs uppercase py-3">
+                          {o.replace(/_/g, ' ')}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] font-medium leading-relaxed text-slate-400">
+                    Legacy <strong className="text-slate-500">Type</strong> above is kept for filters; engine drives scoring, OMR, and leaderboard behaviour.
+                  </p>
                 </div>
 
                 <div className="space-y-2">

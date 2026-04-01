@@ -237,7 +237,7 @@ export default function QuestionsPage() {
       });
     } else if (activeTab === 'SINGLE') {
       openModal({
-        title: 'Add Single Question',
+        title: 'Add Short Question',
         description: 'Create a short / open-ended question.',
         className: 'sm:max-w-5xl',
         content: <SingleQuestionForm folders={folders} initialFolderId={folderId} onSuccess={loadQuestions} />,
@@ -333,7 +333,7 @@ export default function QuestionsPage() {
             { id: 'MCQ', label: 'MCQs' },
             { id: 'COMBINED', label: 'Combined MCQs' },
             { id: 'CQ', label: 'Creative Questions (CQ)' },
-            { id: 'SINGLE', label: 'Single Questions' },
+            { id: 'SINGLE', label: 'Short Questions' },
           ].map((tab) => (
             <div key={tab.id}>
               <button
@@ -384,7 +384,7 @@ export default function QuestionsPage() {
               </Button>
               <Button onClick={handlePrimaryCreateAction} className="h-10 rounded-xl bg-slate-900 text-white font-bold hover:bg-slate-800 shadow-sm">
                 <Plus className="mr-2 h-4 w-4" />
-                {activeTab === 'CQ' ? 'New CQ' : activeTab === 'MCQ' ? 'New MCQ' : activeTab === 'SINGLE' ? 'New Single Question' : 'New Combined MCQ'}
+                {activeTab === 'CQ' ? 'New CQ' : activeTab === 'MCQ' ? 'New MCQ' : activeTab === 'SINGLE' ? 'New Short Question' : 'New Combined MCQ'}
               </Button>
             </div>
           </div>
@@ -658,7 +658,7 @@ export default function QuestionsPage() {
                                           ? 'bg-amber-50 text-amber-700 border-amber-100'
                                           : 'bg-indigo-50 text-indigo-700 border-indigo-100'
                                       )}>
-                                        {isSingleQ ? 'SINGLE' : q.type}
+                                        {isSingleQ ? 'SHORT' : q.type}
                                       </Badge>
                                     </TableCell>
                                     <TableCell className="py-4 text-center text-sm font-bold text-slate-700">

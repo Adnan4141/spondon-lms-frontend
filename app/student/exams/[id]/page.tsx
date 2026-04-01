@@ -2,34 +2,12 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import {
-  startExamAttempt,
-  saveExamAnswer,
-  submitExamAttempt,
-  getAttemptResult,
-  getExamStudentView,
-  getExamPdfDownloadUrl,
-} from '@/lib/api/exams';
+import { startExamAttempt, getAttemptResult, getExamStudentView, getExamPdfDownloadUrl } from '@/lib/api/exams';
 import type { StartAttemptResponse, AttemptResultResponse, ExamStudentView } from '@/types/exam';
+import { ExamTakingView } from '@/components/student/exam-window/ExamTakingView';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Timer,
-  ChevronLeft,
-  ChevronRight,
-  Send,
-  AlertTriangle,
-  CheckCircle2,
-  Loader2,
-  Flag,
-  Eye,
-  Trophy,
-  XCircle,
-  Building2,
-  Download,
-  FileText,
-  PenLine,
-} from 'lucide-react';
+import { Timer, AlertTriangle, CheckCircle2, Loader2, Eye, Trophy, XCircle, Building2, Download, FileText, PenLine } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type Phase = 'loading' | 'offline' | 'exam' | 'submitting' | 'result';
@@ -596,6 +574,19 @@ export default function StudentExamTakingPage() {
                   </div>
                 )}
               </div>
+
+              {result.exam.showLeaderboard ? (
+                <div className="flex justify-center">
+                  <Button
+                    variant="outline"
+                    className="h-11 rounded-2xl border-amber-200 bg-amber-50/80 font-black uppercase tracking-widest text-[10px] text-amber-900 hover:bg-amber-100"
+                    onClick={() => router.push(`/student/leaderboard/${examId}`)}
+                  >
+                    <Trophy className="mr-2 h-4 w-4" />
+                    {resultLang === 'en' ? 'Leaderboard' : 'লিডারবোর্ড'}
+                  </Button>
+                </div>
+              ) : null}
 
               {/* Show questions with solutions */}
               {result.showSolutions && result.questions.length > 0 && (

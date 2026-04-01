@@ -11,6 +11,27 @@ export async function getStudentResults(studentUserId: string): Promise<ApiRespo
   return apiRequest<ApiResponse<StudentResults>>(`/student-portal/results/${studentUserId}`);
 }
 
+export async function getAcademicRecordSummary(
+  studentUserId: string,
+  courseId?: string,
+): Promise<
+  ApiResponse<{
+    records: unknown[];
+    computedSummaries: Array<{
+      courseId: string;
+      course: { id: string; name: string; code: string } | null;
+      totalExams: number;
+      avgPercentage: number;
+      bestPercentage: number;
+      worstPercentage: number;
+      source: string;
+    }>;
+  }>
+> {
+  const q = courseId ? `?courseId=${encodeURIComponent(courseId)}` : '';
+  return apiRequest(`/student-portal/academic-record/${encodeURIComponent(studentUserId)}${q}`);
+}
+
 export async function checkEnrollment(studentUserId: string, courseId: string): Promise<ApiResponse<{ enrolled: boolean; enrollmentId?: string }>> {
   return apiRequest<ApiResponse<{ enrolled: boolean; enrollmentId?: string }>>(`/student-portal/check-enrollment/${studentUserId}/${encodeURIComponent(courseId)}`);
 }

@@ -81,7 +81,15 @@ export function TeacherDetailsView({ teacher }: TeacherDetailsViewProps) {
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Calendar className="h-4 w-4 text-slate-300" />
-                    <span>Joined {new Date(teacher.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
+                    <span>
+                      Joined{' '}
+                      {teacher.createdAt
+                        ? new Date(teacher.createdAt).toLocaleDateString('en-US', {
+                            month: 'short',
+                            year: 'numeric',
+                          })
+                        : '—'}
+                    </span>
                   </div>
                 </div>
               </div>

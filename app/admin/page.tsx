@@ -102,12 +102,14 @@ export default function AdminDashboard() {
             ? '—'
             : new Intl.NumberFormat('en-BD', { style: 'currency', currency: 'BDT', maximumFractionDigits: 0 }).format(Number(val));
 
+      type KpiTrend = 'up' | 'down';
+
       return [
          {
             label: 'Total Students',
             value: formatNumber(stats?.students),
             change: 'live',
-            trend: 'up' as const,
+            trend: 'up' satisfies KpiTrend,
             icon: Users,
             gradient: 'from-indigo-600 to-violet-600',
          },
@@ -115,7 +117,7 @@ export default function AdminDashboard() {
             label: 'Monthly Income',
             value: formatCurrency(revenue?.totals.totalAmount),
             change: revenue ? `${revenue.totals.totalTransactions} tx` : '—',
-            trend: 'up' as const,
+            trend: 'up' satisfies KpiTrend,
             icon: Wallet,
             gradient: 'from-emerald-500 to-teal-600',
          },
@@ -123,7 +125,7 @@ export default function AdminDashboard() {
             label: 'Active Teachers',
             value: formatNumber(stats?.teachers),
             change: '',
-            trend: 'up' as const,
+            trend: 'up' satisfies KpiTrend,
             icon: Activity,
             gradient: 'from-rose-500 to-pink-600',
          },
@@ -131,7 +133,7 @@ export default function AdminDashboard() {
             label: 'Active Batches',
             value: formatNumber(activeBatches),
             change: '',
-            trend: 'up' as const,
+            trend: 'up' satisfies KpiTrend,
             icon: Target,
             gradient: 'from-amber-500 to-orange-600',
          },

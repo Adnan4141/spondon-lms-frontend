@@ -1,4 +1,7 @@
 // Student types based on Prisma schema
+import type { Enrollment } from '@/lib/api/enrollments';
+
+export type { Enrollment };
 export type UserRole = 'SUPER_ADMIN' | 'BRANCH_ADMIN' | 'ACCOUNTS' | 'TEACHER' | 'STUDENT' | 'MODERATOR';
 export type UserStatus = 'ACTIVE' | 'BLOCKED';
 export type InstituteType = 'SCHOOL' | 'COLLEGE' | 'UNIVERSITY';
@@ -45,36 +48,7 @@ export interface StudentProfile {
   institute?: Institute | null;
 }
 
-export interface Enrollment {
-  id: string;
-  studentUserId: string;
-  courseId: string;
-  batchId?: string | null;
-  branchId: string;
-  status: string;
-  billingStartMonth?: string | null;
-  createdAt: string;
-  updatedAt: string;
-  course?: {
-    id: string;
-    name: string;
-    code: string;
-    type?: string;
-    fee?: number | string;
-    billingType?: string;
-    program?: {
-      id: string;
-      name: string;
-    };
-  };
-  batch?: {
-    id: string;
-    name: string;
-  } | null;
-}
-
 export interface Student {
-  registrationNumber: ReactNode;
   id: string;
   fullName: string;
   email?: string | null;
