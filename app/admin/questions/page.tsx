@@ -693,62 +693,107 @@ export default function QuestionsPage() {
         <DialogContent
           showCloseButton
           className={cn(
-            'flex max-h-[92vh] w-full max-w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-[32px] border border-slate-200 bg-white p-0 text-slate-900 shadow-2xl sm:max-w-md',
+            'flex max-h-[92vh] w-full max-w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-[32px] border border-slate-200/90 bg-white p-0 text-slate-900 shadow-[0_24px_80px_-12px_rgba(15,23,42,0.25)] sm:max-w-3xl',
           )}
         >
-          <DialogHeader className="relative shrink-0 border-b border-slate-100 bg-slate-50/50 px-8 pb-6 pt-8">
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.05),transparent_40%)]" />
-            <div className="relative flex items-start gap-3 pr-10">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-indigo-100/50 bg-indigo-50">
-                <Copy className="h-5 w-5 text-indigo-600" />
+          <DialogHeader className="relative shrink-0 overflow-hidden border-b border-slate-100/90 bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 px-8 pb-6 pt-8">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_100%_-20%,rgba(99,102,241,0.12),transparent_50%)]" />
+            <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-indigo-400/10 blur-2xl" />
+            <div className="relative flex items-start gap-4 pr-10">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-indigo-200/60 bg-gradient-to-br from-indigo-50 to-white shadow-sm shadow-indigo-500/5 ring-1 ring-white">
+                <Copy className="h-6 w-6 text-indigo-600" strokeWidth={2} />
               </div>
-              <div className="min-w-0 text-left">
-                <DialogTitle className="text-2xl font-black tracking-tight text-slate-900">
-                  Copy Question{selectedQuestionIds.size > 1 ? 's' : ''}
+              <div className="min-w-0 flex-1 space-y-2 text-left">
+                <div className="inline-flex items-center rounded-full border border-indigo-100 bg-indigo-50/80 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.2em] text-indigo-700">
+                  Question bank
+                </div>
+                <DialogTitle className="text-2xl font-black tracking-tight text-slate-900 sm:text-[1.65rem]">
+                  Copy question{selectedQuestionIds.size > 1 ? 's' : ''}
                 </DialogTitle>
-                <DialogDescription className="mt-1 text-base font-medium text-slate-500">
-                  Select a target folder to duplicate the {selectedQuestionIds.size} selected question
-                  {selectedQuestionIds.size > 1 ? 's' : ''}.
+                <DialogDescription className="text-[15px] font-medium leading-relaxed text-slate-600">
+                  Duplicate{' '}
+                  <span className="font-bold text-slate-800">
+                    {selectedQuestionIds.size} question{selectedQuestionIds.size > 1 ? 's' : ''}
+                  </span>{' '}
+                  into another folder. The originals stay untouched.
                 </DialogDescription>
               </div>
             </div>
           </DialogHeader>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6 no-scrollbar">
-            <div className="space-y-3 rounded-[20px] border border-slate-100/50 bg-slate-50/50 p-4 sm:p-6">
-              <label className="ml-1 text-xs font-black uppercase tracking-wider text-slate-500">
-                Destination folder
-              </label>
-              <Select value={copyTargetFolderId} onValueChange={setCopyTargetFolderId}>
-                <SelectTrigger className="h-12 rounded-[14px] border-slate-200 bg-white font-bold text-slate-700 shadow-sm transition-all focus:border-indigo-500 focus:ring-indigo-500/20">
-                  <SelectValue placeholder="Choose folder…" />
-                </SelectTrigger>
-                <SelectContent
-                  position="popper"
-                  sideOffset={4}
-                  className="z-[200] max-h-[min(50vh,320px)] w-[var(--radix-select-trigger-width)] overflow-hidden rounded-[16px] border-slate-100 p-1 shadow-xl"
-                >
-                  {allFoldersFlat.map((f) => (
-                    <SelectItem
-                      key={f.id}
-                      value={f.id}
-                      className="mb-0.5 cursor-pointer rounded-[10px] px-3 py-2.5 font-bold last:mb-0 focus:bg-indigo-50 focus:text-indigo-700"
+          <div className="min-h-0 flex-1 overflow-y-auto px-8 py-7 no-scrollbar">
+            <div className="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-gradient-to-b from-slate-50/90 to-white p-1 shadow-inner shadow-slate-200/40">
+              <div className="rounded-[14px] bg-white/90 p-5 sm:p-6">
+                <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-[0.22em] text-indigo-600/90">
+                      Destination
+                    </p>
+                    <label
+                      htmlFor="copy-destination-folder"
+                      className="text-lg font-black tracking-tight text-slate-900"
                     >
-                      <div className="flex items-center gap-2.5">
-                        <Folder className="h-4 w-4 text-slate-400" />
-                        {f.name}
+                      Target folder
+                    </label>
+                  </div>
+                  <p className="text-xs font-semibold text-slate-400">
+                    {allFoldersFlat.length} folder{allFoldersFlat.length === 1 ? '' : 's'} available
+                  </p>
+                </div>
+                <Select
+                  value={copyTargetFolderId || undefined}
+                  onValueChange={setCopyTargetFolderId}
+                >
+                  <SelectTrigger
+                    id="copy-destination-folder"
+                    className="h-14 w-full rounded-2xl border-2 border-slate-200/90 bg-slate-50/50 px-4 text-left text-base font-bold text-slate-800 shadow-sm transition-all hover:border-slate-300 hover:bg-white focus:border-indigo-500/70 focus:ring-4 focus:ring-indigo-500/[0.12] focus:outline-none data-[placeholder]:font-semibold data-[placeholder]:text-slate-400 [&_svg]:size-5 [&_svg]:text-indigo-500/70"
+                  >
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-100/80 text-indigo-700">
+                        <Folder className="h-4 w-4" strokeWidth={2} />
+                      </span>
+                      <SelectValue placeholder="Choose a folder…" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent
+                    position="popper"
+                    sideOffset={10}
+                    align="start"
+                    className="z-200 w-[var(--radix-select-trigger-width)] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-1.5 shadow-[0_16px_48px_-8px_rgba(15,23,42,0.22)] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+                  >
+                    {allFoldersFlat.length === 0 ? (
+                      <div className="px-4 py-8 text-center text-sm font-semibold text-slate-400">
+                        No folders yet. Create one first.
                       </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    ) : (
+                      allFoldersFlat.map((f) => (
+                        <SelectItem
+                          key={f.id}
+                          value={f.id}
+                          className="group mb-0.5 cursor-pointer rounded-xl py-3 pl-3 pr-10 text-[15px] font-bold text-slate-800 last:mb-0 focus:bg-transparent focus:text-slate-900 data-[highlighted]:bg-gradient-to-r data-[highlighted]:from-indigo-50 data-[highlighted]:to-violet-50/80 data-[highlighted]:text-indigo-950"
+                        >
+                          <span className="flex min-w-0 items-center gap-3">
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200/80 bg-slate-50 text-slate-500 transition-colors group-data-[highlighted]:border-indigo-200 group-data-[highlighted]:bg-white group-data-[highlighted]:text-indigo-600">
+                              <Folder className="h-4 w-4" strokeWidth={2} />
+                            </span>
+                            <span className="truncate">{f.name}</span>
+                          </span>
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                <p className="mt-3 text-xs font-medium leading-relaxed text-slate-500">
+                  Copies appear as new drafts in the chosen folder. You can edit them after copying.
+                </p>
+              </div>
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center justify-end gap-3 border-t border-slate-100 bg-white px-8 py-5">
+          <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-slate-100 bg-slate-50/30 px-8 py-5 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
             <Button
               variant="ghost"
-              className="h-11 rounded-[14px] px-6 font-bold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
+              className="h-12 rounded-2xl px-7 font-bold text-slate-600 transition-colors hover:bg-white hover:text-slate-900"
               onClick={() => {
                 setCopyModalOpen(false);
                 setCopyTargetFolderId('');
@@ -757,10 +802,11 @@ export default function QuestionsPage() {
               Cancel
             </Button>
             <Button
-              className="h-11 rounded-[14px] bg-slate-900 px-6 font-bold text-white shadow-md shadow-slate-900/10 transition-all hover:bg-slate-800 active:scale-[0.98]"
+              className="h-12 rounded-2xl bg-gradient-to-r from-slate-900 to-slate-800 px-8 font-bold text-white shadow-lg shadow-slate-900/20 transition-all hover:from-slate-800 hover:to-slate-700 disabled:opacity-40"
               disabled={!copyTargetFolderId}
               onClick={executeCopy}
             >
+              <Copy className="mr-2 h-4 w-4 opacity-90" />
               Confirm Copy
             </Button>
           </div>

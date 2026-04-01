@@ -1,6 +1,6 @@
 // Exam types based on Prisma schema
 export type ExamType = 'PRACTICE' | 'SCHEDULED' | 'MODEL' | 'TALENT_HUNT' | 'UNIVERSITY';
-export type ExamMode = 'ONLINE' | 'OFFLINE';
+export type ExamMode = 'ONLINE' | 'OFFLINE' | 'WRITTEN';
 export type ExamStatus = 'DRAFT' | 'PUBLISHED' | 'CLOSED';
 
 export interface Course {
@@ -191,4 +191,60 @@ export interface ApiResponse<T> {
     total: number;
     pages: number;
   };
+}
+
+export interface WrittenEvaluation {
+  id: string;
+  attemptId: string;
+  answerId?: string;
+  subPartKey?: string | null;  // null = whole question; 'a'|'b'|'c'|'d' = CQ sub-part
+  marksAwarded?: number | null;
+  remarks?: string | null;
+  teacherUserId: string;
+  evaluatedAt: string;
+}
+
+export interface WrittenAttemptSummary {
+  id: string;
+  student: { id: string; fullName: string; mobile: string };
+  status: string;
+  startedAt: string;
+  submittedAt?: string | null;
+  totalMarks?: number | null;
+  obtainedMarks?: number | null;
+  evaluationStatus: 'PENDING' | 'PARTIAL' | 'EVALUATED';
+  totalAwarded: number;
+}
+
+export interface WrittenAttemptDetail {
+  attempt: {
+    id: string;
+    status: string;
+    startedAt: string;
+    submittedAt?: string | null;
+    totalMarks?: number | null;
+    obtainedMarks?: number | null;
+  };
+  student: { id: string; fullName: string; mobile: string };
+  exam: { id: string; title: string };
+  questions: WrittenQuestionWithAnswer[];
+}
+
+export interface WrittenQuestionWithAnswer {
+  examQuestionId: string;
+  questionId: string;
+  marks: number;
+  orderIndex: number;
+  question: {
+    id: string;
+    type: string;
+    prompt: string;
+    meta?: any;
+  };
+  studentAnswer?: {
+    id: string;
+    answer: Record<string, string>;  // { text: 'answer' } for single; { a: '...', b: '...' } for CQ
+    obtainedMarks?: number | null;
+    evaluations: WrittenEvaluation[];
+  } | null;
 }

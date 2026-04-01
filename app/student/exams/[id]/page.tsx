@@ -216,6 +216,11 @@ export default function StudentExamTakingPage() {
           return;
         }
 
+        if (viewRes.data.mode === 'WRITTEN') {
+          router.replace(`/student/exams/${examId}/written`);
+          return;
+        }
+
         const res = await startExamAttempt(examId, user.id);
         if (res.success && res.data) {
           setAttemptData(res.data);

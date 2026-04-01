@@ -24,7 +24,7 @@ import { Calendar, Clock, BookOpen, MapPin, Layers, Settings2, ShieldCheck, Acti
 import { cn } from '@/lib/utils';
 
 const examTypeOptions: ExamType[] = ['PRACTICE', 'SCHEDULED', 'MODEL', 'TALENT_HUNT', 'UNIVERSITY'];
-const examModeOptions: ExamMode[] = ['ONLINE', 'OFFLINE'];
+const examModeOptions: ExamMode[] = ['ONLINE', 'OFFLINE', 'WRITTEN'];
 const examStatusOptions: ExamStatus[] = ['DRAFT', 'PUBLISHED', 'CLOSED'];
 const solveSheetOptions = [
   { value: 'HIDDEN', label: 'Hidden' },

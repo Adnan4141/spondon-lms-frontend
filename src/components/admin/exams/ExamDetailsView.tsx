@@ -44,6 +44,7 @@ import {
 import { useState, useEffect, useMemo } from 'react';
 import { ExamQuestionBuilder } from './ExamQuestionBuilder';
 import { ExamLeaderboard } from './ExamLeaderboard';
+import { WrittenEvaluationPanel } from './WrittenEvaluationPanel';
 
 interface ExamDetailsViewProps {
   exam: Exam;
@@ -111,7 +112,7 @@ function SectionCard({
 }
 
 export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
-  const [activeTab, setActiveTab] = useState<'info' | 'questions' | 'leaderboard'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'questions' | 'leaderboard' | 'evaluate'>('info');
   const [exam, setExam] = useState(initialExam);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [solveSheetLoading, setSolveSheetLoading] = useState(false);
@@ -227,10 +228,11 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
     }
   };
 
-  const tabs = [
-    { id: 'info' as const, label: 'Overview', icon: Info },
-    { id: 'questions' as const, label: 'Questions & sets', icon: FileSearch },
-    { id: 'leaderboard' as const, label: 'Leaderboard', icon: Trophy },
+  const tabs: { id: 'info' | 'questions' | 'leaderboard' | 'evaluate'; label: string; icon: typeof Info }[] = [
+    { id: 'info', label: 'Overview', icon: Info },
+    { id: 'questions', label: 'Questions & sets', icon: FileSearch },
+    { id: 'leaderboard', label: 'Leaderboard', icon: Trophy },
+    ...(exam.mode === 'WRITTEN' ? [{ id: 'evaluate' as const, label: 'Evaluate', icon: PencilLine }] : []),
   ];
 
   const startLabel = formatDateTime(exam.startAt) ?? 'No start — open when published';
@@ -686,6 +688,10 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
           ) : activeTab === 'leaderboard' ? (
             <div className="rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
               <ExamLeaderboard examId={exam.id} showLeaderboard={exam.showLeaderboard} />
+            </div>
+          ) : activeTab === 'evaluate' ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <WrittenEvaluationPanel examId={exam.id} teacherUserId="admin" />
             </div>
           ) : (
             <ExamQuestionBuilder examId={exam.id} exam={exam} sets={exam.sets || []} onRefresh={fetchExamData} />

@@ -393,54 +393,118 @@ export default function PublicBookDetailPage() {
       </main>
 
       <Dialog open={checkoutOpen} onOpenChange={setCheckoutOpen}>
-        <DialogContent className="max-w-lg rounded-[32px] border-white bg-white/90 backdrop-blur-xl text-slate-900 shadow-2xl ring-1 ring-slate-100">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-black tracking-tight">অনলাইন কেনাকাটা</DialogTitle>
-            <DialogDescription className="font-bold text-indigo-600">{book.name}</DialogDescription>
-          </DialogHeader>
-          {formError && (
-            <div className="p-4 rounded-2xl bg-rose-50 border border-rose-100 text-rose-600 text-sm font-bold animate-shake">
-              {formError}
-            </div>
-          )}
-          <div className="grid gap-5">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">পূর্ণ নাম</Label>
-                <Input value={recipientName} onChange={(e) => setRecipientName(e.target.value)} className="h-14 rounded-2xl bg-slate-50/50 border-slate-100 focus:bg-white focus:ring-indigo-500/10 transition-all font-bold" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">মোবাইল</Label>
-                <Input value={phone} onChange={(e) => setPhone(e.target.value)} className="h-14 rounded-2xl bg-slate-50/50 border-slate-100 focus:bg-white focus:ring-indigo-500/10 transition-all font-bold" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">ঠিকানা</Label>
-              <Textarea value={address} onChange={(e) => setAddress(e.target.value)} rows={3} className="rounded-2xl bg-slate-50/50 border-slate-100 focus:bg-white focus:ring-indigo-500/10 transition-all font-bold" />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">শহর</Label>
-                <Input value={city} onChange={(e) => setCity(e.target.value)} className="h-14 rounded-2xl bg-slate-50/50 border-slate-100 focus:bg-white focus:ring-indigo-500/10 transition-all font-bold" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">পোস্ট কোড</Label>
-                <Input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} className="h-14 rounded-2xl bg-slate-50/50 border-slate-100 focus:bg-white focus:ring-indigo-500/10 transition-all font-bold" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">নোট</Label>
-              <Input value={notes} onChange={(e) => setNotes(e.target.value)} className="h-14 rounded-2xl bg-slate-50/50 border-slate-100 focus:bg-white focus:ring-indigo-500/10 transition-all font-bold" />
-            </div>
+        <DialogContent className="max-w-xl rounded-[40px] border-white/20 bg-white/95 backdrop-blur-2xl text-slate-900 shadow-[0_32px_64px_rgba(0,0,0,0.15)] ring-1 ring-slate-200/50 p-0 overflow-hidden">
+          <div className="bg-gradient-to-r from-indigo-600 to-violet-700 px-10 py-10 text-white">
+            <DialogHeader>
+              <DialogTitle className="text-3xl font-black tracking-tight text-white mb-2">শিপিং তথ্য</DialogTitle>
+              <DialogDescription className="text-indigo-100 font-bold text-base opacity-90 leading-relaxed">
+                বইটি আপনার ঠিকানায় পৌঁছে দিতে নিচের তথ্যগুলো সঠিকভাবে পূরণ করুন। <br/>
+                <span className="inline-block mt-2 px-3 py-1 rounded-full bg-white/20 text-xs font-black uppercase tracking-widest">{book.name}</span>
+              </DialogDescription>
+            </DialogHeader>
           </div>
-          <DialogFooter className="gap-3 mt-6">
-            <Button variant="outline" className="h-14 rounded-2xl px-8 border-slate-200 font-bold" onClick={() => setCheckoutOpen(false)} disabled={submitting}>
-              বাতিল
-            </Button>
-            <Button className="h-14 rounded-2xl px-10 font-black bg-indigo-600 hover:bg-indigo-700 shadow-xl shadow-indigo-100 active:scale-95 transition-all" onClick={pay} disabled={submitting}>
-              {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : 'পেমেন্টে যান'}
-            </Button>
-          </DialogFooter>
+
+          <div className="p-10 space-y-8">
+            {formError && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="p-5 rounded-2xl bg-rose-50 border border-rose-100 text-rose-600 text-sm font-bold flex items-center gap-3"
+              >
+                <div className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
+                {formError}
+              </motion.div>
+            )}
+
+            <div className="grid gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="space-y-2.5">
+                  <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">প্রাপকের নাম</Label>
+                  <Input 
+                    value={recipientName} 
+                    onChange={(e) => setRecipientName(e.target.value)} 
+                    placeholder="আপনার নাম লিখুন"
+                    className="h-16 rounded-2xl bg-slate-50 border-slate-200 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all font-bold px-6 text-lg" 
+                  />
+                </div>
+                <div className="space-y-2.5">
+                  <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">মোবাইল নম্বর</Label>
+                  <Input 
+                    value={phone} 
+                    onChange={(e) => setPhone(e.target.value)} 
+                    placeholder="০১৭XXXXXXXX"
+                    className="h-16 rounded-2xl bg-slate-50 border-slate-200 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all font-bold px-6 text-lg" 
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2.5">
+                <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">পূর্ণ ঠিকানা</Label>
+                <Textarea 
+                  value={address} 
+                  onChange={(e) => setAddress(e.target.value)} 
+                  placeholder="গ্রাম/রাস্তা, পোস্ট অফিস, উপজেলা"
+                  rows={3} 
+                  className="rounded-2xl bg-slate-50 border-slate-200 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all font-bold px-6 py-4 text-lg resize-none" 
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2.5">
+                  <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">শহর</Label>
+                  <Input 
+                    value={city} 
+                    onChange={(e) => setCity(e.target.value)} 
+                    placeholder="শহরের নাম"
+                    className="h-16 rounded-2xl bg-slate-50 border-slate-200 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all font-bold px-6 text-lg" 
+                  />
+                </div>
+                <div className="space-y-2.5">
+                  <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">পোস্ট কোড</Label>
+                  <Input 
+                    value={postalCode} 
+                    onChange={(e) => setPostalCode(e.target.value)} 
+                    placeholder="১২৩৪"
+                    className="h-16 rounded-2xl bg-slate-50 border-slate-200 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all font-bold px-6 text-lg" 
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2.5">
+                <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">অতিরিক্ত নোট (ঐচ্ছিক)</Label>
+                <Input 
+                  value={notes} 
+                  onChange={(e) => setNotes(e.target.value)} 
+                  placeholder="যেমন: বাড়ির পাশে বড় আম গাছ"
+                  className="h-16 rounded-2xl bg-slate-50 border-slate-200 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all font-bold px-6 text-lg" 
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="gap-4 pt-4">
+              <Button 
+                variant="outline" 
+                className="h-16 flex-1 rounded-2xl border-slate-200 font-bold text-slate-600 hover:bg-slate-50" 
+                onClick={() => setCheckoutOpen(false)} 
+                disabled={submitting}
+              >
+                বাতিল
+              </Button>
+              <Button 
+                className="h-16 flex-[2] rounded-2xl font-black bg-indigo-600 hover:bg-indigo-700 shadow-xl shadow-indigo-200 active:scale-[0.98] transition-all text-lg group" 
+                onClick={pay} 
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                ) : (
+                  <>
+                    পেমেন্টে যান <ArrowRight className="ml-3 h-5 w-5 transition-transform group-hover:translate-x-1" />
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

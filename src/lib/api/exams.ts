@@ -151,3 +151,32 @@ export async function submitExamAttempt(examId: string, data: { studentUserId: s
 export async function getAttemptResult(attemptId: string): Promise<ApiResponse<AttemptResultResponse>> {
   return apiRequest<ApiResponse<AttemptResultResponse>>(`/exams/attempts/${attemptId}/result`);
 }
+
+// Written Exam Evaluation APIs
+export async function listWrittenAttempts(examId: string): Promise<ApiResponse<any[]>> {
+  return apiRequest<ApiResponse<any[]>>(`/exams/${examId}/written-attempts`);
+}
+
+export async function getWrittenAttempt(examId: string, attemptId: string): Promise<ApiResponse<any>> {
+  return apiRequest<ApiResponse<any>>(`/exams/${examId}/written-attempts/${attemptId}`);
+}
+
+export async function saveWrittenEvaluation(data: {
+  attemptId: string;
+  answerId: string;
+  subPartKey?: string;
+  marksAwarded: number;
+  remarks?: string;
+  teacherUserId: string;
+}): Promise<ApiResponse<any>> {
+  return apiRequest<ApiResponse<any>>('/exams/written-evaluations', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function finalizeWrittenEvaluation(examId: string, attemptId: string): Promise<ApiResponse<any>> {
+  return apiRequest<ApiResponse<any>>(`/exams/${examId}/written-attempts/${attemptId}/finalize`, {
+    method: 'POST',
+  });
+}
