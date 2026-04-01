@@ -59,7 +59,7 @@ export function CqForm({ folders, question, initialFolderId, onSuccess }: CqForm
     folderId: initialFolderId || '',
     prompt: '',
     explanation: '',
-    difficulty: undefined as Difficulty | undefined,
+    difficulty: 'EASY' as Difficulty | undefined,
     year: undefined as number | undefined,
     tags: '',
   });

@@ -62,7 +62,7 @@ export function QuestionForm({
     type: initialType || 'MCQ',
     mcqType: initialMcqType || 'SINGLE',
     passageId: initialPassageId || undefined,
-    difficulty: undefined,
+    difficulty: 'EASY' as Difficulty | undefined,
     year: undefined,
     prompt: '',
     explanation: '',

@@ -4,7 +4,6 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   getQuestionFolders,
   getQuestions,
-  getQuestionById,
   deleteQuestion,
   getPassages,
   deleteQuestionFolder,
@@ -47,17 +46,10 @@ import {
   RefreshCw,
   Search,
   CheckCircle2,
-  Database,
-  LayoutGrid,
-  FileSearch,
-  Wand2,
   Home,
   ChevronRight,
-  MoreVertical,
   FolderPlus,
   Trash2,
-  ArrowRight,
-  ArrowLeft,
   Copy,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -67,6 +59,7 @@ import { FolderForm } from '@/components/admin/questions/FolderForm';
 import { PassageForm } from '@/components/admin/questions/PassageForm';
 import { QuestionForm } from '@/components/admin/questions/QuestionForm';
 import { CqForm } from '@/components/admin/questions/CqForm';
+import { SingleQuestionForm } from '@/components/admin/questions/SingleQuestionForm';
 import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
 import {
   Dialog,
@@ -97,7 +90,7 @@ export default function QuestionsPage() {
 
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'MCQ' | 'COMBINED' | 'CQ'>('MCQ');
+  const [activeTab, setActiveTab] = useState<'MCQ' | 'COMBINED' | 'CQ' | 'SINGLE'>('MCQ');
 
   const [activeFolderId, setActiveFolderId] = useState<string | undefined>(undefined);
   const [difficultyFilter, setDifficultyFilter] = useState<Difficulty | 'all'>('all');
@@ -125,7 +118,8 @@ export default function QuestionsPage() {
     try {
       setLoading(true);
       const difficulty = difficultyFilter === 'all' ? undefined : difficultyFilter;
-      const typeStr = activeTab === 'CQ' ? 'CQ' : 'MCQ';
+      // SINGLE tab shares CQ type but we load all CQs and filter client-side
+      const typeStr = (activeTab === 'CQ' || activeTab === 'SINGLE') ? 'CQ' : 'MCQ';
       const res = await getQuestions(
         activeFolderId || 'null',
         typeStr,
@@ -137,7 +131,7 @@ export default function QuestionsPage() {
         undefined
       );
       if (res.success && res.data) setQuestions(res.data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
     } finally { setLoading(false); }
   }, [activeFolderId, activeTab, difficultyFilter]);
@@ -241,6 +235,13 @@ export default function QuestionsPage() {
         className: 'sm:max-w-6xl',
         content: <CqForm folders={folders} initialFolderId={folderId} onSuccess={loadQuestions} />,
       });
+    } else if (activeTab === 'SINGLE') {
+      openModal({
+        title: 'Add Single Question',
+        description: 'Create a short / open-ended question.',
+        className: 'sm:max-w-5xl',
+        content: <SingleQuestionForm folders={folders} initialFolderId={folderId} onSuccess={loadQuestions} />,
+      });
     } else if (activeTab === 'MCQ') {
       openModal({
         title: 'Add MCQ',
@@ -309,8 +310,16 @@ export default function QuestionsPage() {
   const allFoldersFlat = folders.filter(f => f.id !== activeFolderId);
 
   const filteredQuestions = questions.filter(q => {
-    if (q.type !== (activeTab === 'CQ' ? 'CQ' : 'MCQ')) return false;
-    if (activeTab === 'MCQ' && q.mcqType === 'PASSAGE_CHILD') return false;
+    const meta = q.meta as { isSingle?: boolean } | null;
+    if (activeTab === 'SINGLE') {
+      // Single questions: CQ type with isSingle flag
+      if (q.type !== 'CQ' || !meta?.isSingle) return false;
+    } else if (activeTab === 'CQ') {
+      // CQ: type CQ but NOT single
+      if (q.type !== 'CQ' || meta?.isSingle) return false;
+    } else if (activeTab === 'MCQ') {
+      if (q.type !== 'MCQ' || q.mcqType === 'PASSAGE_CHILD') return false;
+    }
     const qry = searchQuery.toLowerCase();
     return !qry || q.prompt.toLowerCase().includes(qry) || q.explanation?.toLowerCase().includes(qry);
   });
@@ -323,11 +332,12 @@ export default function QuestionsPage() {
           {[
             { id: 'MCQ', label: 'MCQs' },
             { id: 'COMBINED', label: 'Combined MCQs' },
-            { id: 'CQ', label: 'Creative Questions' },
+            { id: 'CQ', label: 'Creative Questions (CQ)' },
+            { id: 'SINGLE', label: 'Single Questions' },
           ].map((tab) => (
             <div key={tab.id}>
               <button
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => setActiveTab(tab.id as 'MCQ' | 'COMBINED' | 'CQ' | 'SINGLE')}
                 className={cn(
                   "w-full text-left px-5 py-3 rounded-2xl text-sm font-bold transition-all",
                   activeTab === tab.id ? "bg-indigo-50 text-indigo-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
@@ -374,7 +384,7 @@ export default function QuestionsPage() {
               </Button>
               <Button onClick={handlePrimaryCreateAction} className="h-10 rounded-xl bg-slate-900 text-white font-bold hover:bg-slate-800 shadow-sm">
                 <Plus className="mr-2 h-4 w-4" />
-                {activeTab === 'CQ' ? 'New CQ' : activeTab === 'MCQ' ? 'New MCQ' : 'New Combined MCQ'}
+                {activeTab === 'CQ' ? 'New CQ' : activeTab === 'MCQ' ? 'New MCQ' : activeTab === 'SINGLE' ? 'New Single Question' : 'New Combined MCQ'}
               </Button>
             </div>
           </div>
@@ -587,7 +597,9 @@ export default function QuestionsPage() {
                           <TableBody>
 
                             {/* Questions Data */}
-                            {filteredQuestions.map((q) => {
+                             {filteredQuestions.map((q) => {
+                              const qMeta = q.meta as { isSingle?: boolean; marks?: number; answer?: string; totalMarks?: number; parts?: unknown[] } | null;
+                              const isSingleQ = !!qMeta?.isSingle;
                               return (
                                 <React.Fragment key={q.id}>
                                   <TableRow className="group border-b border-slate-100 transition-colors hover:bg-slate-50/50">
@@ -597,7 +609,8 @@ export default function QuestionsPage() {
                                     <TableCell className="py-4 max-w-[400px]">
                                       <div className="flex items-start gap-4">
                                         <div className="flex flex-col gap-1 flex-1">
-                                          <div className="prose prose-sm font-medium text-slate-800 leading-snug break-words" dangerouslySetInnerHTML={{ __html: stripHtml(q.prompt).substring(0, 150) + (stripHtml(q.prompt).length > 150 ? '...' : '') }} />
+                                          <div className="prose prose-sm font-medium text-slate-800 leading-snug wrap-break-word" dangerouslySetInnerHTML={{ __html: stripHtml(q.prompt).substring(0, 150) + (stripHtml(q.prompt).length > 150 ? '...' : '') }} />
+                                          {/* MCQ options */}
                                           {q.options && q.options.length > 0 && (
                                             <div className="grid grid-cols-2 gap-2 mt-2">
                                               {q.options.map(opt => (
@@ -609,9 +622,10 @@ export default function QuestionsPage() {
                                               ))}
                                             </div>
                                           )}
-                                          {q.type === 'CQ' && q.meta && Array.isArray((q.meta as any).parts) && (q.meta as any).parts.length > 0 && (
+                                          {/* CQ sub-parts */}
+                                          {q.type === 'CQ' && !isSingleQ && qMeta && Array.isArray(qMeta.parts) && qMeta.parts.length > 0 && (
                                             <div className="flex flex-wrap gap-2 mt-2">
-                                              {(q.meta as any).parts.map((part: any, pi: number) => (
+                                              {(qMeta.parts as { label?: string; marks?: number; knowledgeLevel?: string }[]).map((part, pi) => (
                                                 <div key={pi} className="flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1">
                                                   <span className="h-5 w-5 rounded-md bg-slate-900 text-white flex items-center justify-center text-[9px] font-black">{part.label}</span>
                                                   <span className="text-[10px] font-bold text-indigo-600">{part.marks}m</span>
@@ -619,6 +633,12 @@ export default function QuestionsPage() {
                                                 </div>
                                               ))}
                                             </div>
+                                          )}
+                                          {/* Single question answer preview */}
+                                          {isSingleQ && qMeta?.answer && (
+                                            <p className="text-xs font-medium text-emerald-700 mt-1 line-clamp-1">
+                                              <span className="font-black">Ans:</span> {stripHtml(qMeta.answer).substring(0, 80)}{stripHtml(qMeta.answer).length > 80 ? '…' : ''}
+                                            </p>
                                           )}
                                         </div>
                                       </div>
@@ -630,10 +650,19 @@ export default function QuestionsPage() {
                                       </div>
                                     </TableCell>
                                     <TableCell className="py-4">
-                                      <Badge className="bg-indigo-50 text-indigo-700 border-indigo-100 font-bold text-[10px] uppercase shadow-none">{q.type}</Badge>
+                                      <Badge className={cn(
+                                        'font-bold text-[10px] uppercase shadow-none',
+                                        isSingleQ
+                                          ? 'bg-violet-50 text-violet-700 border-violet-100'
+                                          : q.type === 'CQ'
+                                          ? 'bg-amber-50 text-amber-700 border-amber-100'
+                                          : 'bg-indigo-50 text-indigo-700 border-indigo-100'
+                                      )}>
+                                        {isSingleQ ? 'SINGLE' : q.type}
+                                      </Badge>
                                     </TableCell>
                                     <TableCell className="py-4 text-center text-sm font-bold text-slate-700">
-                                      {q.type === 'CQ' && q.meta && (q.meta as any).totalMarks ? (q.meta as any).totalMarks : '1.0'}
+                                      {isSingleQ ? (qMeta?.marks ?? '—') : q.type === 'CQ' && qMeta?.totalMarks ? qMeta.totalMarks : '1.0'}
                                     </TableCell>
                                     <TableCell className="py-4 text-right">
                                       <div className="flex justify-end gap-1" onClick={e => e.stopPropagation()}>
@@ -641,7 +670,15 @@ export default function QuestionsPage() {
                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-indigo-600" onClick={() => {
                                           const res = questions.find(question => question.id === q.id);
                                           if (res) {
-                                            if (res.type === 'CQ') {
+                                            const resMeta = res.meta as { isSingle?: boolean } | null;
+                                            if (resMeta?.isSingle) {
+                                              openModal({
+                                                title: 'Update Single Question',
+                                                description: 'Modify the short question.',
+                                                className: 'sm:max-w-5xl',
+                                                content: <SingleQuestionForm folders={folders} question={res} onSuccess={loadQuestions} />,
+                                              });
+                                            } else if (res.type === 'CQ') {
                                               openModal({
                                                 title: 'Update CQ',
                                                 description: 'Modify creative question and sub-parts.',
