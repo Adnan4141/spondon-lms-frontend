@@ -17,6 +17,7 @@ export async function getExams(params?: {
   batchId?: string;
   status?: string;
   mode?: string;
+  teacherUserId?: string;
   page?: number;
   limit?: number;
 }): Promise<ApiResponse<Exam[]>> {
@@ -26,6 +27,7 @@ export async function getExams(params?: {
   if (params?.batchId) queryParams.append('batchId', params.batchId);
   if (params?.status) queryParams.append('status', params.status);
   if (params?.mode) queryParams.append('mode', params.mode);
+  if (params?.teacherUserId) queryParams.append('teacherUserId', params.teacherUserId);
   if (params?.page) queryParams.append('page', String(params.page));
   if (params?.limit) queryParams.append('limit', String(params.limit));
 
@@ -91,8 +93,9 @@ export async function addQuestionsToSet(data: {
 }
 
 export async function removeQuestionFromSet(id: string): Promise<ApiResponse<void>> {
-  return apiRequest<ApiResponse<void>>(`/exams/sets/questions/${id}`, {
+  return apiRequest<ApiResponse<void>>(`/exams/sets/questions/${encodeURIComponent(id)}`, {
     method: 'DELETE',
+    cache: 'no-store',
   });
 }
 

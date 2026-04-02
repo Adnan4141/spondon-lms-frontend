@@ -63,7 +63,7 @@ export function FolderForm({ courses, folders, folder, initialParentId, onSucces
       
       const payload: CreateQuestionFolderDto = {
         name: form.name.trim(),
-        courseId: form.courseId || undefined,
+        courseId: form.courseId.trim() ? form.courseId.trim() : null,
         parentFolderId: form.parentFolderId || undefined,
       };
 

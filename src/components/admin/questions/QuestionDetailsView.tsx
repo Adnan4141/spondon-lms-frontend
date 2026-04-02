@@ -20,7 +20,7 @@ interface QuestionDetailsViewProps {
 
 export function QuestionDetailsView({ question }: QuestionDetailsViewProps) {
   return (
-    <div className="flex flex-col h-full bg-white text-slate-900">
+    <div className="flex flex-col h-full  bg-white text-slate-900">
       <div className="flex-1 overflow-y-auto px-8 py-8 no-scrollbar">
         {/* Header Hero */}
         <div className="relative overflow-hidden rounded-[32px] border border-slate-200 bg-slate-50/50 p-8 shadow-sm mb-10">

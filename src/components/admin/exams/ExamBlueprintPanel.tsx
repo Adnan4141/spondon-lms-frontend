@@ -101,7 +101,7 @@ export function ExamBlueprintPanel({
     const v = await runValidate();
     const blueprint = buildBlueprint();
     if (!v?.valid) {
-      toast({ title: 'Fix blueprint errors first', variant: 'destructive' });
+      toast({ title: 'Fix the errors above first', variant: 'destructive' });
       return;
     }
     if (existingSetCount > 0) {
@@ -158,10 +158,9 @@ export function ExamBlueprintPanel({
             <Sparkles className="h-5 w-5 text-indigo-600" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-slate-900 tracking-tight">Blueprint paper generator</h3>
+            <h3 className="text-sm font-semibold text-slate-900 tracking-tight">Auto-build question sets</h3>
             <p className="text-sm text-slate-500 mt-1 max-w-xl">
-              Define subjects (courses), MCQ split, CQ or Short counts, and number of sets A/B/… Replaces all sets when you
-              generate.
+              Pick courses, MCQ numbers (passage vs single), written (CQ or short), and how many sets (A, B, …). This replaces all current sets when you build.
             </p>
           </div>
         </div>
@@ -325,7 +324,7 @@ export function ExamBlueprintPanel({
             ) : (
               <AlertCircle className="h-4 w-4 text-rose-600" />
             )}
-            {lastValidation.valid ? 'Blueprint structure OK' : 'Fix errors before generating'}
+            {lastValidation.valid ? 'Plan looks good' : 'Fix errors before building'}
           </div>
           {lastValidation.errors.length > 0 ? (
             <ul className="list-disc pl-5 text-rose-800 space-y-1">
@@ -346,7 +345,7 @@ export function ExamBlueprintPanel({
 
       <div className="flex flex-wrap gap-3">
         <Button type="button" variant="outline" className="rounded-xl" disabled={validating} onClick={() => runValidate()}>
-          {validating ? 'Checking…' : 'Validate now'}
+          {validating ? 'Checking…' : 'Check plan'}
         </Button>
         <Button
           type="button"
@@ -354,7 +353,7 @@ export function ExamBlueprintPanel({
           disabled={generating || (lastValidation && !lastValidation.valid)}
           onClick={handleGenerate}
         >
-          {generating ? 'Generating…' : 'Generate paper'}
+          {generating ? 'Building…' : 'Build question sets'}
         </Button>
       </div>
     </section>

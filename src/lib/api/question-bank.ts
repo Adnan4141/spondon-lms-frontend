@@ -10,6 +10,7 @@ import type {
   UpdateQuestionDto,
   CopyQuestionDto,
   BulkCopyQuestionsDto,
+  BulkDeleteQuestionsDto,
 } from '@/types/question';
 
 export async function getQuestionFolders(
@@ -93,8 +94,9 @@ export async function updateQuestion(id: string, data: UpdateQuestionDto): Promi
 }
 
 export async function deleteQuestion(id: string): Promise<ApiResponse<void>> {
-  return apiRequest<ApiResponse<void>>(`/question-bank/questions/${id}`, {
+  return apiRequest<ApiResponse<void>>(`/question-bank/questions/${encodeURIComponent(id)}`, {
     method: 'DELETE',
+    cache: 'no-store',
   });
 }
 
@@ -109,6 +111,16 @@ export async function bulkCopyQuestions(data: BulkCopyQuestionsDto): Promise<Api
   return apiRequest<ApiResponse<Question[]>>('/question-bank/questions/bulk-copy', {
     method: 'POST',
     body: JSON.stringify(data),
+  });
+}
+
+export async function bulkDeleteQuestions(
+  data: BulkDeleteQuestionsDto,
+): Promise<ApiResponse<{ deleted: number }>> {
+  return apiRequest<ApiResponse<{ deleted: number }>>('/question-bank/questions/bulk-delete', {
+    method: 'POST',
+    body: JSON.stringify(data),
+    cache: 'no-store',
   });
 }
 
@@ -190,6 +202,16 @@ export async function updatePassage(
 export async function deletePassage(id: string): Promise<ApiResponse<void>> {
   return apiRequest<ApiResponse<void>>(`/question-bank/passages/${id}`, {
     method: 'DELETE',
+  });
+}
+
+export async function copyPassage(
+  passageId: string,
+  targetFolderId: string,
+): Promise<ApiResponse<McqPassage>> {
+  return apiRequest<ApiResponse<McqPassage>>(`/question-bank/passages/${encodeURIComponent(passageId)}/copy`, {
+    method: 'POST',
+    body: JSON.stringify({ targetFolderId }),
   });
 }
 

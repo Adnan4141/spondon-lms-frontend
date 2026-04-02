@@ -11,6 +11,7 @@ export async function apiRequest<T>(
 
   const response = await fetch(url, {
     ...options,
+    credentials: options.credentials ?? 'include',
     headers: {
       // Only set JSON content type when not sending FormData
       ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
@@ -19,9 +20,30 @@ export async function apiRequest<T>(
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Request failed' }));
-    throw new Error(error.message || `HTTP error! status: ${response.status}`);
+    const raw = await response.text();
+    let msg = '';
+    if (raw) {
+      try {
+        const body = JSON.parse(raw) as { message?: string; error?: unknown };
+        if (body && typeof body === 'object') {
+          msg = String(
+            body.message ||
+              (typeof body.error === 'string' ? body.error : ''),
+          ).trim();
+        }
+      } catch {
+        const snippet = raw.replace(/\s+/g, ' ').trim().slice(0, 200);
+        msg = snippet;
+      }
+    }
+    throw new Error(msg || `Something went wrong (${response.status}). Try again.`);
   }
 
-  return response.json();
+  const text = await response.text();
+  if (!text) return {} as T;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return {} as T;
+  }
 }

@@ -64,14 +64,14 @@ export interface McqPassage {
 }
 
 export interface CreateQuestionFolderDto {
-  courseId?: string;
+  courseId?: string | null;
   name: string;
   parentFolderId?: string;
 }
 
 export interface UpdateQuestionFolderDto {
   name?: string;
-  courseId?: string;
+  courseId?: string | null;
   parentFolderId?: string;
 }
 
@@ -115,6 +115,10 @@ export interface CopyQuestionDto {
 export interface BulkCopyQuestionsDto {
   questionIds: string[];
   targetFolderId: string;
+}
+
+export interface BulkDeleteQuestionsDto {
+  questionIds: string[];
 }
 
 export interface ApiResponse<T> {

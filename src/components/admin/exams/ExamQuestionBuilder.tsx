@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   addQuestionsToSet,
   removeQuestionFromSet,
@@ -9,11 +9,15 @@ import {
   getExams,
   getExamById,
   importQuestionsFromExamSet,
+  generateSetPdf,
+  getExamPdfDownloadUrl,
 } from '@/lib/api/exams';
 import { getQuestionFolders } from '@/lib/api/question-bank';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -21,26 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
-import {
-  Plus,
-  Trash2,
-  RefreshCw,
-  Layers,
-  Settings2,
-  Dice5,
-  CheckCircle2,
-  Folder,
-  ChevronRight,
-  FileText,
-  Split,
-  Printer,
-  ClipboardPaste,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
-import { useModalStore } from '@/store/modalStore';
-import { OfflineExamSheet } from './OfflineExamSheet';
 import {
   Dialog,
   DialogContent,
@@ -49,626 +33,566 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Checkbox } from '@/components/ui/checkbox';
-import type { Exam } from '@/types/exam';
+import { useToast } from '@/hooks/use-toast';
+import { Trash2, Printer, Loader2, FolderInput } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import type { Exam, ExamSet, ExamQuestion } from '@/types/exam';
+import type { QuestionFolder } from '@/types/question';
+import { OfflineExamSheet } from './OfflineExamSheet';
 
-interface ExamQuestionBuilderProps {
+export interface ExamQuestionBuilderProps {
   examId: string;
-  exam?: any;
-  sets: any[];
-  onRefresh: () => void;
+  exam: Exam;
+  sets: ExamSet[];
+  onRefresh: () => void | Promise<void>;
+}
+
+function stripHtml(html: string | undefined): string {
+  return (html ?? '').replace(/<[^>]+>/g, '').trim();
 }
 
 export function ExamQuestionBuilder({ examId, exam, sets, onRefresh }: ExamQuestionBuilderProps) {
   const { toast } = useToast();
-  const { openModal, closeModal } = useModalStore();
-  const [folders, setFolders] = useState<any[]>([]);
-  const [selectedSetId, setSelectedSetId] = useState(sets[0]?.id || '');
-  const [newSetName, setNewSetName] = useState('');
-  const [loading, setLoading] = useState(false);
 
-  // Question Adding State
+  const [folders, setFolders] = useState<QuestionFolder[]>([]);
+  const [selectedSetId, setSelectedSetId] = useState<string>(sets[0]?.id ?? '');
+  const [newSetName, setNewSetName] = useState('');
+
   const [folderId, setFolderId] = useState('');
   const [useDistribution, setUseDistribution] = useState(false);
-  const [count, setCount] = useState<number>(0); 
+  const [count, setCount] = useState<number>(0);
   const [cqCount, setCqCount] = useState<number>(0);
   const [mcqSingleCount, setMcqSingleCount] = useState<number>(0);
   const [mcqPassageCount, setMcqPassageCount] = useState<number>(0);
   const [marks, setMarks] = useState(1);
 
+  const [pdfLoadingSetId, setPdfLoadingSetId] = useState<string | null>(null);
+  const [offlineSheetSet, setOfflineSheetSet] = useState<ExamSet | null>(null);
+
   const [importOpen, setImportOpen] = useState(false);
-  const [importLoading, setImportLoading] = useState(false);
-  const [branchExams, setBranchExams] = useState<Exam[]>([]);
-  const [importSourceExamId, setImportSourceExamId] = useState('');
-  const [importSourceExam, setImportSourceExam] = useState<Exam | null>(null);
-  const [importSourceSetId, setImportSourceSetId] = useState('');
-  const [importPickAll, setImportPickAll] = useState(true);
-  const [importSelectedQids, setImportSelectedQids] = useState<Set<string>>(new Set());
+  const [importBusy, setImportBusy] = useState(false);
+  const [otherExams, setOtherExams] = useState<Exam[]>([]);
+  const [sourceExamId, setSourceExamId] = useState('');
+  const [sourceExamDetail, setSourceExamDetail] = useState<Exam | null>(null);
+  const [sourceSetId, setSourceSetId] = useState('');
+  const [importSelectedIds, setImportSelectedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    const loadFolders = async () => {
-      const res = await getQuestionFolders();
+    getQuestionFolders(exam.courseId || undefined).then((res) => {
       if (res.success) setFolders(res.data || []);
-    };
-    loadFolders();
-  }, []);
-
-  useEffect(() => {
-    if (!importOpen) return;
-    (async () => {
-      const res = await getExams({
-        ...(exam?.branchId ? { branchId: exam.branchId } : {}),
-        limit: 400,
-      });
-      if (res.success && res.data) {
-        setBranchExams(res.data.filter((e) => e.id !== examId));
-      }
-    })();
-  }, [importOpen, exam?.branchId, examId]);
-
-  useEffect(() => {
-    if (!importSourceExamId) {
-      setImportSourceExam(null);
-      return;
-    }
-    (async () => {
-      const res = await getExamById(importSourceExamId);
-      if (res.success && res.data) setImportSourceExam(res.data);
-      else setImportSourceExam(null);
-    })();
-  }, [importSourceExamId]);
-
-  useEffect(() => {
-    if (!importSourceSetId || !importSourceExam?.sets) return;
-    const st = importSourceExam.sets.find((s: { id: string }) => s.id === importSourceSetId);
-    const qids = (st?.questions || []).map((q) => q.questionId).filter(Boolean);
-    setImportPickAll(true);
-    setImportSelectedQids(new Set(qids));
-  }, [importSourceSetId, importSourceExam]);
-
-  const openImportDialog = () => {
-    setImportSourceExamId('');
-    setImportSourceExam(null);
-    setImportSourceSetId('');
-    setImportPickAll(true);
-    setImportSelectedQids(new Set());
-    setImportOpen(true);
-  };
-
-  const sourceSetQuestions =
-    importSourceExam?.sets?.find((s: { id: string }) => s.id === importSourceSetId)?.questions || [];
-
-  const toggleImportQuestion = (qid: string) => {
-    setImportPickAll(false);
-    setImportSelectedQids((prev) => {
-      const next = new Set(prev);
-      if (next.has(qid)) next.delete(qid);
-      else next.add(qid);
-      return next;
     });
-  };
+  }, [exam.courseId]);
 
-  const handleImportFromExam = async () => {
-    if (!selectedSetId || !importSourceExamId || !importSourceSetId) {
-      toast({
-        title: 'Missing fields',
-        description: 'Choose source exam and set',
-        variant: 'destructive',
-      });
-      return;
-    }
-    const questionIds = importPickAll ? undefined : [...importSelectedQids];
-    if (!importPickAll && questionIds.length === 0) {
-      toast({ title: 'No questions', description: 'Select at least one question', variant: 'destructive' });
-      return;
-    }
-    try {
-      setImportLoading(true);
-      const res = await importQuestionsFromExamSet(examId, selectedSetId, {
-        sourceExamId: importSourceExamId,
-        sourceSetId: importSourceSetId,
-        questionIds,
-      });
-      if (res.success) {
-        toast({
-          title: 'Imported',
-          description: res.message || `${res.data?.added ?? 0} added`,
-          variant: 'success',
-        });
-        setImportOpen(false);
-        onRefresh();
-      } else {
-        toast({ title: 'Error', description: res.message || 'Import failed', variant: 'destructive' });
-      }
-    } catch (err: unknown) {
-      toast({
-        title: 'Error',
-        description: err instanceof Error ? err.message : 'Import failed',
-        variant: 'destructive',
-      });
-    } finally {
-      setImportLoading(false);
-    }
-  };
+  useEffect(() => {
+    const ids = new Set(sets.map((s) => s.id));
+    if (selectedSetId && ids.has(selectedSetId)) return;
+    setSelectedSetId(sets[0]?.id ?? '');
+  }, [sets, selectedSetId]);
+
+  const refresh = useCallback(async () => {
+    await onRefresh();
+  }, [onRefresh]);
 
   const handleCreateSet = async () => {
     if (!newSetName.trim()) return;
-    try {
-      setLoading(true);
-      const res = await createExamSet({ examId, name: newSetName.trim() });
-      if (res.success) {
-        toast({ title: 'Set Created', description: 'New question set initialized' });
-        setNewSetName('');
-        onRefresh();
-      }
-    } catch (err: any) {
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
-    } finally {
-      setLoading(false);
+    const res = await createExamSet({ examId, name: newSetName.trim() });
+    if (res.success) {
+      toast({ title: 'Set created' });
+      setNewSetName('');
+      await refresh();
+    } else {
+      toast({ title: 'Could not create set', description: res.message, variant: 'destructive' });
     }
   };
 
   const handleAddQuestions = async () => {
     if (!selectedSetId || !folderId) {
-      toast({ title: 'Parameters Missing', description: 'Please select a target set and source folder', variant: 'destructive' });
+      toast({ title: 'Select a set and folder', variant: 'destructive' });
       return;
     }
 
+    const res = await addQuestionsToSet({
+      examSetId: selectedSetId,
+      folderId,
+      count: !useDistribution ? count : undefined,
+      cqCount: useDistribution ? cqCount : undefined,
+      mcqSingleCount: useDistribution ? mcqSingleCount : undefined,
+      mcqPassageCount: useDistribution ? mcqPassageCount : undefined,
+      marks,
+    });
+
+    if (res.success) {
+      toast({ title: 'Questions added' });
+      await refresh();
+    } else {
+      toast({ title: 'Could not add questions', description: res.message, variant: 'destructive' });
+    }
+  };
+
+  const handleRemove = async (id: string) => {
+    if (
+      !window.confirm(
+        'Remove this question from the current set? The question remains in the question bank.',
+      )
+    ) {
+      return;
+    }
     try {
-      setLoading(true);
-      const res = await addQuestionsToSet({
-        examSetId: selectedSetId,
-        folderId,
-        count: !useDistribution && count > 0 ? count : undefined,
-        cqCount: useDistribution ? cqCount : undefined,
-        mcqSingleCount: useDistribution ? mcqSingleCount : undefined,
-        mcqPassageCount: useDistribution ? mcqPassageCount : undefined,
-        marks
+      const res = await removeQuestionFromSet(id);
+      if (res.success) {
+        toast({ title: 'Removed from set', description: 'The question was removed from this exam set.' });
+        await refresh();
+      } else {
+        toast({
+          title: 'Could not remove question',
+          description: res.message || 'Unknown error',
+          variant: 'destructive',
+        });
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Something went wrong';
+      toast({
+        title: 'Could not remove question',
+        description: message,
+        variant: 'destructive',
       });
-
-      if (res.success) {
-        toast({ title: 'Sequence Synchronized', description: res.message, variant: 'success' });
-        onRefresh();
-      }
-    } catch (err: any) {
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
-    } finally {
-      setLoading(false);
     }
   };
 
-  const handleRemoveQuestion = async (eqId: string) => {
+  const handleDeleteSet = async (e: React.MouseEvent, setId: string, name: string) => {
+    e.stopPropagation();
+    if (!window.confirm(`Delete set "${name}"? Questions in this set will be unlinked.`)) return;
+    const res = await deleteExamSet(setId);
+    if (res.success) {
+      toast({ title: 'Set deleted' });
+      if (selectedSetId === setId) setSelectedSetId('');
+      await refresh();
+    } else {
+      toast({ title: 'Could not delete set', description: res.message, variant: 'destructive' });
+    }
+  };
+
+  const handlePrintSet = async (e: React.MouseEvent, set: ExamSet) => {
+    e.stopPropagation();
+    if (exam.mode === 'OFFLINE') {
+      setOfflineSheetSet(set);
+      return;
+    }
+    setPdfLoadingSetId(set.id);
     try {
-      const res = await removeQuestionFromSet(eqId);
-      if (res.success) {
-        toast({ title: 'Removed', description: 'Question detached from set' });
-        onRefresh();
+      const res = await generateSetPdf(examId, set.id, 2);
+      if (res.success && res.data?.pdfUrl) {
+        window.open(getExamPdfDownloadUrl(res.data.pdfUrl), '_blank', 'noopener,noreferrer');
+        toast({ title: 'PDF ready' });
+      } else {
+        toast({
+          title: 'Could not generate PDF',
+          description: res.message,
+          variant: 'destructive',
+        });
       }
-    } catch (err: any) {
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setPdfLoadingSetId(null);
     }
   };
 
-  const handleExportSet = (set: any) => {
-    openModal({
-      title: exam?.mode === 'OFFLINE' ? 'Offline / hall question paper' : 'Print preview (PDF)',
-      description: 'MCQ + written (CQ) layout · download PDF for students or print.',
-      className: 'sm:max-w-[960px] w-[min(100vw-2rem,960px)] max-h-[92vh]',
-      content: <OfflineExamSheet exam={exam} set={set} onClose={closeModal} />,
+  const openImport = async () => {
+    setImportOpen(true);
+    setSourceExamId('');
+    setSourceExamDetail(null);
+    setSourceSetId('');
+    setImportSelectedIds(new Set());
+    const res = await getExams({ courseId: exam.courseId, limit: 80 });
+    if (res.success && res.data) {
+      setOtherExams(res.data.filter((x) => x.id !== examId));
+    } else {
+      setOtherExams([]);
+    }
+  };
+
+  const onSourceExamChange = async (id: string) => {
+    setSourceExamId(id);
+    setSourceSetId('');
+    setImportSelectedIds(new Set());
+    if (!id) {
+      setSourceExamDetail(null);
+      return;
+    }
+    const res = await getExamById(id);
+    if (res.success && res.data) {
+      setSourceExamDetail(res.data);
+    } else {
+      setSourceExamDetail(null);
+      toast({ title: 'Could not load exam', description: res.message, variant: 'destructive' });
+    }
+  };
+
+  const sourceQuestions = useMemo(() => {
+    const s = sourceExamDetail?.sets?.find((x) => x.id === sourceSetId);
+    return s?.questions ?? [];
+  }, [sourceExamDetail, sourceSetId]);
+
+  const setImportIdChecked = (qid: string, checked: boolean) => {
+    setImportSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(qid);
+      else next.delete(qid);
+      return next;
     });
   };
 
-  const currentSet = sets.find(s => s.id === selectedSetId);
-
-  const countTypes = (set: { questions?: { question?: { type?: string } }[] }) => {
-    const qs = set.questions || [];
-    let mcq = 0;
-    let cq = 0;
-    for (const eq of qs) {
-      const t = eq.question?.type;
-      if (t === 'CQ') cq += 1;
-      else mcq += 1;
+  const runImport = async () => {
+    if (!selectedSetId || !sourceExamId || !sourceSetId) {
+      toast({ title: 'Select source exam and set', variant: 'destructive' });
+      return;
     }
-    return { mcq, cq, total: qs.length };
+    setImportBusy(true);
+    try {
+      const ids = importSelectedIds.size ? Array.from(importSelectedIds) : undefined;
+      const res = await importQuestionsFromExamSet(examId, selectedSetId, {
+        sourceExamId,
+        sourceSetId,
+        questionIds: ids,
+      });
+      if (res.success && res.data) {
+        toast({
+          title: 'Import finished',
+          description: `Added ${res.data.added}, skipped ${res.data.skipped}.`,
+        });
+        setImportOpen(false);
+        await refresh();
+      } else {
+        toast({ title: 'Import failed', description: res.message, variant: 'destructive' });
+      }
+    } finally {
+      setImportBusy(false);
+    }
   };
 
+  const currentSet = sets.find((s) => s.id === selectedSetId);
+  const sortedQuestions = useMemo(() => {
+    const list = [...(currentSet?.questions ?? [])];
+    list.sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+    return list;
+  }, [currentSet?.questions]);
+
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-10">
-      {exam?.mode === 'OFFLINE' && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50/60 px-5 py-4 text-sm font-bold text-amber-900">
-          <span className="font-black uppercase tracking-widest text-[10px] text-amber-700 mr-2">Offline exam</span>
-          Students see this exam in the portal with hall instructions and can download the question PDF (after you generate it from Exam info). MCQ sheets can be OMR-scanned or marks imported via Excel; written (CQ) answers are graded in-centre or via teacher evaluation.
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="font-semibold">Question sets</h2>
+          <Button type="button" variant="outline" size="sm" onClick={openImport} disabled={!selectedSetId}>
+            <FolderInput className="mr-1.5 h-4 w-4" />
+            Import
+          </Button>
         </div>
-      )}
 
-      {/* Set Management Area */}
-      <div className="grid gap-8 lg:grid-cols-3">
-         <div className="lg:col-span-1 space-y-6">
-            <div className="rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm">
-               <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-indigo-600 mb-4 flex items-center gap-2">
-                  <Layers className="h-4 w-4" /> Set Registry
-               </h3>
-               <div className="space-y-3">
-                  {sets.map(s => (
-                    <div key={s.id} className="group relative">
-                      <button
-                        onClick={() => setSelectedSetId(s.id)}
-                        className={cn(
-                          "w-full flex items-center justify-between p-4 rounded-2xl border transition-all text-left",
-                          selectedSetId === s.id ? "bg-indigo-600 border-indigo-600 text-white shadow-xl shadow-indigo-100" : "bg-slate-50 border-slate-100 text-slate-600 hover:bg-white hover:border-indigo-200"
-                        )}
-                      >
-                         <span className="font-bold text-sm truncate pr-10">{s.name}</span>
-                         <Badge variant="outline" className={cn("text-[9px] font-black", selectedSetId === s.id ? "bg-white/20 text-white border-white/30" : "bg-white text-slate-400")}>
-                            {(() => {
-                              const c = countTypes(s);
-                              return c.total ? `${c.mcq} MCQ · ${c.cq} written` : '0 Q';
-                            })()}
-                         </Badge>
-                      </button>
-                      <div className="absolute right-12 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                         <Button 
-                           variant="ghost" 
-                           size="icon" 
-                           className={cn("h-8 w-8 rounded-lg", selectedSetId === s.id ? "text-white hover:bg-white/10" : "text-indigo-600 hover:bg-indigo-50")}
-                           onClick={(e) => { e.stopPropagation(); handleExportSet(s); }}
-                         >
-                            <Printer className="h-4 w-4" />
-                         </Button>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  <div className="pt-4 border-t border-slate-100 mt-4 space-y-3">
-                     <Input 
-                        placeholder="New Set Identity..." 
-                        value={newSetName} 
-                        onChange={e => setNewSetName(e.target.value)}
-                        className="h-10 rounded-xl border-slate-200 font-bold text-xs"
-                     />
-                     <Button onClick={handleCreateSet} disabled={loading || !newSetName} className="w-full h-10 rounded-xl bg-slate-900 text-white font-black uppercase tracking-widest text-[10px] shadow-lg">
-                        <Plus className="mr-2 h-3.5 w-3.5" /> Initialize Set
-                     </Button>
+        <div className="space-y-2">
+          {sets.length === 0 ? (
+            <p className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
+              No sets yet. Create one below.
+            </p>
+          ) : (
+            sets.map((s) => {
+              const active = s.id === selectedSetId;
+              return (
+                <div
+                  key={s.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedSetId(s.id)}
+                  onKeyDown={(ev) => {
+                    if (ev.key === 'Enter' || ev.key === ' ') {
+                      ev.preventDefault();
+                      setSelectedSetId(s.id);
+                    }
+                  }}
+                  className={cn(
+                    'flex cursor-pointer items-center justify-between gap-2 rounded-xl border p-3 transition-colors',
+                    active ? 'bg-indigo-600 text-white' : 'bg-card hover:bg-muted/50',
+                  )}
+                >
+                  <span className="min-w-0 flex-1 truncate font-medium">{s.name}</span>
+                  <div className="flex shrink-0 items-center gap-0.5">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className={cn(active && 'text-white hover:bg-white/15')}
+                      title={exam.mode === 'OFFLINE' ? 'Offline sheet' : 'Download PDF'}
+                      disabled={pdfLoadingSetId === s.id}
+                      onClick={(e) => handlePrintSet(e, s)}
+                    >
+                      {pdfLoadingSetId === s.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Printer className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className={cn(active && 'text-white hover:bg-white/15')}
+                      title="Delete set"
+                      onClick={(e) => handleDeleteSet(e, s.id, s.name)}
+                    >
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </Button>
                   </div>
-               </div>
-            </div>
-         </div>
-
-         {/* Question Integration Engine */}
-         <div className="lg:col-span-2 space-y-6">
-            {selectedSetId ? (
-              <>
-                <div className="rounded-[32px] border border-indigo-100 bg-indigo-50/20 p-8 shadow-sm">
-                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
-                      <div className="flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-[20px] bg-indigo-600 flex items-center justify-center text-white shadow-lg">
-                         <Settings2 className="h-6 w-6" />
-                      </div>
-                      <div>
-                         <h2 className="text-xl font-black text-slate-900 tracking-tight">Question Integration Protocol</h2>
-                         <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Active Target: {currentSet?.name}</p>
-                      </div>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="h-11 shrink-0 rounded-2xl border-indigo-200 bg-white font-black text-[10px] uppercase tracking-widest text-indigo-700 hover:bg-indigo-50"
-                        onClick={openImportDialog}
-                      >
-                        <ClipboardPaste className="mr-2 h-4 w-4" />
-                        Import from exam
-                      </Button>
-                   </div>
-
-                   <div className="grid gap-6 sm:grid-cols-2">
-                      <div className="space-y-2">
-                         <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Source Repository</Label>
-                         <Select value={folderId} onValueChange={setFolderId}>
-                            <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-white font-bold shadow-inner">
-                               <SelectValue placeholder="Select Folder" />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-2xl shadow-xl max-h-[300px]">
-                               {folders.map(f => <SelectItem key={f.id} value={f.id} className="font-bold py-3">{f.name}</SelectItem>)}
-                            </SelectContent>
-                         </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                         <div className="flex items-center justify-between px-1 mb-1">
-                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Selection Logic</Label>
-                            <button 
-                              onClick={() => setUseDistribution(!useDistribution)}
-                              className="flex items-center gap-1 text-[9px] font-black uppercase text-indigo-600 hover:text-indigo-800 transition-colors"
-                            >
-                               {useDistribution ? <RefreshCw className="h-3 w-3" /> : <Split className="h-3 w-3" />}
-                               {useDistribution ? "Bulk Mode" : "Granular Mode"}
-                            </button>
-                         </div>
-                         {!useDistribution ? (
-                           <div className="grid grid-cols-2 gap-3">
-                              <Input 
-                                 type="number" 
-                                 placeholder="All" 
-                                 value={count || ''} 
-                                 onChange={e => setCount(parseInt(e.target.value) || 0)}
-                                 className="h-12 rounded-2xl border-slate-200 bg-white font-bold shadow-inner"
-                              />
-                              <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4">
-                                 {count > 0 ? (
-                                   <div className="flex items-center gap-2 text-[10px] font-black text-amber-600 uppercase italic">
-                                      <Dice5 className="h-3 w-3" /> Random
-                                   </div>
-                                 ) : (
-                                   <div className="flex items-center gap-2 text-[10px] font-black text-emerald-600 uppercase italic">
-                                      <CheckCircle2 className="h-3 w-3" /> Select All
-                                   </div>
-                                 )}
-                              </div>
-                           </div>
-                         ) : (
-                           <div className="grid grid-cols-3 gap-2">
-                              <div className="space-y-1">
-                                 <Input type="number" placeholder="CQ" value={cqCount || ''} onChange={e => setCqCount(parseInt(e.target.value) || 0)} className="h-10 rounded-xl border-slate-200 bg-white text-center font-bold text-xs" />
-                                 <p className="text-[8px] font-black text-center text-slate-400 uppercase tracking-tighter">CQ</p>
-                              </div>
-                              <div className="space-y-1">
-                                 <Input type="number" placeholder="Single" value={mcqSingleCount || ''} onChange={e => setMcqSingleCount(parseInt(e.target.value) || 0)} className="h-10 rounded-xl border-slate-200 bg-white text-center font-bold text-xs" />
-                                 <p className="text-[8px] font-black text-center text-slate-400 uppercase tracking-tighter">Single MCQ</p>
-                              </div>
-                              <div className="space-y-1">
-                                 <Input type="number" placeholder="Combined" value={mcqPassageCount || ''} onChange={e => setMcqPassageCount(parseInt(e.target.value) || 0)} className="h-10 rounded-xl border-slate-200 bg-white text-center font-bold text-xs" />
-                                 <p className="text-[8px] font-black text-center text-slate-400 uppercase tracking-tighter">Combined MCQ</p>
-                              </div>
-                           </div>
-                         )}
-                      </div>
-
-                      <div className="space-y-2">
-                         <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Assigned Marks</Label>
-                         <Input 
-                            type="number" 
-                            step="0.5" 
-                            value={marks} 
-                            onChange={e => setMarks(parseFloat(e.target.value) || 1)}
-                            className="h-12 rounded-2xl border-slate-200 bg-white font-bold shadow-inner"
-                         />
-                      </div>
-
-                      <div className="flex items-end">
-                         <Button onClick={handleAddQuestions} disabled={loading || !folderId} className="w-full h-12 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase tracking-[0.2em] text-[10px] shadow-xl shadow-indigo-100 transition-all hover:scale-[1.02]">
-                            {loading ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-                            Execute Integration
-                         </Button>
-                      </div>
-                   </div>
                 </div>
+              );
+            })
+          )}
+        </div>
 
-                {/* Current Set Questions */}
-                <div className="rounded-[32px] border border-slate-200 bg-white overflow-hidden shadow-xl shadow-slate-200/20">
-                   <div className="px-8 py-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                      <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Integrated Inquiry Registry</h3>
-                      <Badge variant="outline" className="bg-white text-indigo-600 font-black">{currentSet?.questions?.length || 0} Identified</Badge>
-                   </div>
-                   <div className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto no-scrollbar">
-                      {(() => {
-                        const questions = currentSet?.questions || [];
-                        // Group questions: standalone items + passage blocks
-                        const rendered: React.ReactNode[] = [];
-                        const seenPassageIds = new Set<string>();
-                        let questionNumber = 0;
-
-                        for (let i = 0; i < questions.length; i++) {
-                          const eq = questions[i];
-                          const passageId = eq.question?.passageId;
-
-                          if (passageId && !seenPassageIds.has(passageId)) {
-                            // First encounter of this passage — render passage block + all children
-                            seenPassageIds.add(passageId);
-                            const passageContent = eq.question?.passage?.content;
-                            const children = questions.filter((q: any) => q.question?.passageId === passageId);
-
-                            rendered.push(
-                              <div key={`passage-${passageId}`} className="border-b border-slate-100">
-                                {/* Passage Header */}
-                                <div className="p-6 bg-indigo-50/40 border-b border-indigo-100/60">
-                                  <div className="flex items-center gap-4">
-                                    <div className="h-10 w-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-sm shrink-0">
-                                      <Layers className="h-5 w-5" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-2 mb-1">
-                                        <Badge className="text-[8px] font-black uppercase bg-indigo-100 text-indigo-700 border-indigo-200">Combined MCQ Passage</Badge>
-                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{children.length} Questions</span>
-                                      </div>
-                                      {passageContent && (
-                                        <p className="text-sm font-medium text-indigo-900 line-clamp-2">
-                                          {passageContent.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ')}
-                                        </p>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Child Questions */}
-                                {children.map((child: any) => {
-                                  questionNumber++;
-                                  return (
-                                    <div key={child.id} className="group p-5 pl-14 flex items-center justify-between transition-all hover:bg-indigo-50/20 border-l-4 border-indigo-200 ml-6">
-                                      <div className="flex items-center gap-4">
-                                        <span className="text-sm font-black text-indigo-400 w-6">{questionNumber}.</span>
-                                        <div className="h-8 w-8 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center shrink-0">
-                                          <FileText className="h-4 w-4" />
-                                        </div>
-                                        <div className="space-y-0.5">
-                                          <p className="text-sm font-bold text-slate-700 line-clamp-1">
-                                            {child.question?.prompt?.replace(/<[^>]+>/g, '')}
-                                          </p>
-                                          <div className="flex items-center gap-3">
-                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Weight: {child.marks} Points</span>
-                                            <span className="h-1 w-1 rounded-full bg-slate-200" />
-                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Index: {child.orderIndex}</span>
-                                          </div>
-                                        </div>
-                                      </div>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-9 w-9 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl opacity-0 group-hover:opacity-100 transition-all"
-                                        onClick={() => handleRemoveQuestion(child.id)}
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            );
-                          } else if (!passageId) {
-                            // Standalone question (Single MCQ or CQ)
-                            questionNumber++;
-                            rendered.push(
-                              <div key={eq.id} className="group p-6 flex items-center justify-between transition-all hover:bg-slate-50">
-                                <div className="flex items-center gap-5">
-                                  <span className="text-sm font-black text-slate-300 w-6">{questionNumber}.</span>
-                                  <div className="h-10 w-10 rounded-xl bg-slate-100 text-slate-400 group-hover:text-indigo-600 flex items-center justify-center shadow-sm transition-colors">
-                                    <FileText className="h-5 w-5" />
-                                  </div>
-                                  <div className="space-y-0.5">
-                                    <p className="text-base font-bold text-slate-800 line-clamp-1">
-                                      {eq.question?.prompt?.replace(/<[^>]+>/g, '')}
-                                    </p>
-                                    <div className="flex items-center gap-3">
-                                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Weight: {eq.marks} Points</span>
-                                      <Badge variant="outline" className="text-[8px] font-black uppercase bg-white text-slate-500 border-slate-200">{eq.question?.type}</Badge>
-                                      <span className="h-1 w-1 rounded-full bg-slate-200" />
-                                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Index: {eq.orderIndex}</span>
-                                    </div>
-                                  </div>
-                                </div>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-9 w-9 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl opacity-0 group-hover:opacity-100 transition-all"
-                                  onClick={() => handleRemoveQuestion(eq.id)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            );
-                          }
-                          // If passageId is already seen, skip (already rendered as part of the passage block)
-                        }
-
-                        if (rendered.length === 0) {
-                          return <div className="p-20 text-center text-[10px] font-black uppercase tracking-[0.3em] text-slate-300 italic">No inquiries linked to this set protocol.</div>;
-                        }
-                        return rendered;
-                      })()}
-                   </div>
-                </div>
-              </>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center p-20 rounded-[40px] border-2 border-dashed border-slate-100 bg-slate-50/30 text-center">
-                 <Layers className="h-12 w-12 text-slate-200 mb-4" />
-                 <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Select or initialize a question set to activate protocol.</p>
-              </div>
-            )}
-         </div>
+        <div className="space-y-2 border-t pt-4">
+          <Label className="text-xs text-muted-foreground">New set</Label>
+          <Input
+            placeholder="Set name"
+            value={newSetName}
+            onChange={(e) => setNewSetName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleCreateSet()}
+          />
+          <Button type="button" onClick={handleCreateSet} className="w-full">
+            Create set
+          </Button>
+        </div>
       </div>
 
+      <div className="space-y-6 lg:col-span-2">
+        <div className="space-y-4 rounded-xl border p-6">
+          <h2 className="font-semibold">Add from question bank</h2>
+
+          <div className="space-y-2">
+            <Label>Folder</Label>
+            <Select value={folderId} onValueChange={setFolderId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select folder" />
+              </SelectTrigger>
+              <SelectContent>
+                {folders.map((f) => (
+                  <SelectItem key={f.id} value={f.id}>
+                    {f.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant={!useDistribution ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setUseDistribution(false)}
+            >
+              Random count
+            </Button>
+            <Button
+              type="button"
+              variant={useDistribution ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setUseDistribution(true)}
+            >
+              By type
+            </Button>
+          </div>
+
+          {!useDistribution ? (
+            <Input
+              type="number"
+              min={0}
+              placeholder="How many questions"
+              value={Number.isNaN(count) ? '' : count || ''}
+              onChange={(e) => setCount(e.target.value === '' ? 0 : +e.target.value)}
+            />
+          ) : (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <div className="space-y-1">
+                <Label className="text-xs">CQ</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="0"
+                  value={cqCount || ''}
+                  onChange={(e) => setCqCount(e.target.value === '' ? 0 : +e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">MCQ</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="0"
+                  value={mcqSingleCount || ''}
+                  onChange={(e) => setMcqSingleCount(e.target.value === '' ? 0 : +e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Passage</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="0"
+                  value={mcqPassageCount || ''}
+                  onChange={(e) => setMcqPassageCount(e.target.value === '' ? 0 : +e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label>Marks per question</Label>
+            <Input
+              type="number"
+              min={0}
+              step={0.5}
+              value={marks}
+              onChange={(e) => setMarks(+e.target.value)}
+            />
+          </div>
+
+          <Button type="button" onClick={handleAddQuestions} className="w-full" disabled={!selectedSetId}>
+            Add questions
+          </Button>
+        </div>
+
+        <div className="overflow-hidden rounded-xl border">
+          <div className="border-b bg-muted/30 px-4 py-3 font-semibold">
+            Questions {currentSet ? `· ${currentSet.name}` : ''}
+          </div>
+
+          {sortedQuestions.length ? (
+            <ul className="divide-y">
+              {sortedQuestions.map((q: ExamQuestion, i: number) => (
+                <li
+                  key={q.id}
+                  className="flex items-start justify-between gap-3 px-4 py-3 hover:bg-muted/30"
+                >
+                  <div className="flex min-w-0 flex-1 gap-3">
+                    <span className="shrink-0 tabular-nums text-muted-foreground">{i + 1}</span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium leading-snug">{stripHtml(q.question?.prompt)}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span>
+                          {q.question?.type} · {q.marks} marks
+                        </span>
+                        {q.sectionKey ? (
+                          <Badge variant="secondary" className="text-[10px] font-normal">
+                            {q.sectionKey}
+                          </Badge>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="shrink-0"
+                    onClick={() => handleRemove(q.id)}
+                    title="Remove from set"
+                  >
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="px-4 py-12 text-center text-sm text-muted-foreground">
+              {selectedSetId ? 'No questions in this set yet.' : 'Select or create a set.'}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {offlineSheetSet ? (
+        <OfflineExamSheet exam={exam} set={offlineSheetSet} onClose={() => setOfflineSheetSet(null)} />
+      ) : null}
+
       <Dialog open={importOpen} onOpenChange={setImportOpen}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Import questions from another exam</DialogTitle>
             <DialogDescription>
-              Copies question links (same question bank IDs) into the active set <strong>{currentSet?.name}</strong>.
-              Same branch only. Duplicates in the target set are skipped.
+              Copies into the currently selected set: <strong>{currentSet?.name ?? '—'}</strong>. Leave none
+              checked to import all from the source set.
             </DialogDescription>
           </DialogHeader>
+
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Source exam</Label>
-              <Select value={importSourceExamId} onValueChange={setImportSourceExamId}>
-                <SelectTrigger className="rounded-xl font-bold">
-                  <SelectValue placeholder="Select exam" />
-                </SelectTrigger>
-                <SelectContent className="max-h-64">
-                  {branchExams.map((e) => (
-                    <SelectItem key={e.id} value={e.id} className="font-medium">
-                      {e.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Source set</Label>
-              <Select
-                value={importSourceSetId}
-                onValueChange={setImportSourceSetId}
-                disabled={!importSourceExam?.sets?.length}
-              >
-                <SelectTrigger className="rounded-xl font-bold">
-                  <SelectValue placeholder={importSourceExamId ? 'Select set' : 'Pick an exam first'} />
+              <Label>Source exam</Label>
+              <Select value={sourceExamId} onValueChange={onSourceExamChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose exam" />
                 </SelectTrigger>
                 <SelectContent>
-                  {(importSourceExam?.sets || []).map((s: { id: string; name: string }) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
+                  {otherExams.map((ex) => (
+                    <SelectItem key={ex.id} value={ex.id}>
+                      {ex.title}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            {importSourceSetId && sourceSetQuestions.length > 0 ? (
-              <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/80 p-3">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="import-all"
-                    checked={importPickAll}
-                    onCheckedChange={(c) => {
-                      const on = c === true;
-                      setImportPickAll(on);
-                      if (on) {
-                        const qids = sourceSetQuestions.map((q) => q.questionId).filter(Boolean);
-                        setImportSelectedQids(new Set(qids));
-                      }
-                    }}
-                  />
-                  <label htmlFor="import-all" className="text-sm font-bold text-slate-700 cursor-pointer">
-                    Import entire set ({sourceSetQuestions.length} questions)
-                  </label>
+
+            {sourceExamDetail ? (
+              <div className="space-y-2">
+                <Label>Source set</Label>
+                <Select value={sourceSetId} onValueChange={setSourceSetId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose set" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(sourceExamDetail.sets ?? []).map((st) => (
+                      <SelectItem key={st.id} value={st.id}>
+                        {st.name} ({st.questions?.length ?? 0})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
+
+            {sourceQuestions.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Optional: pick specific questions (otherwise all in the set are considered).
+                </p>
+                <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border p-2">
+                  {sourceQuestions.map((eq) => {
+                    const qid = eq.questionId;
+                    return (
+                      <label
+                        key={eq.id}
+                        className="flex cursor-pointer items-start gap-2 rounded px-1 py-1 text-sm hover:bg-muted/50"
+                      >
+                        <Checkbox
+                          checked={importSelectedIds.has(qid)}
+                          onCheckedChange={(c) => setImportIdChecked(qid, c === true)}
+                        />
+                        <span className="line-clamp-2">{stripHtml(eq.question?.prompt)}</span>
+                      </label>
+                    );
+                  })}
                 </div>
-                {!importPickAll ? (
-                  <div className="max-h-48 space-y-2 overflow-y-auto border-t border-slate-200 pt-3 mt-2">
-                    {sourceSetQuestions.map((eq) => {
-                      const label =
-                        eq.question?.prompt?.replace(/<[^>]+>/g, '').slice(0, 80) || eq.questionId;
-                      return (
-                        <div key={eq.id} className="flex items-start gap-2">
-                          <Checkbox
-                            checked={importSelectedQids.has(eq.questionId)}
-                            onCheckedChange={() => toggleImportQuestion(eq.questionId)}
-                          />
-                          <span className="text-xs font-medium text-slate-600 leading-snug">{label}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : null}
               </div>
             ) : null}
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
+
+          <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setImportOpen(false)}>
               Cancel
             </Button>
             <Button
               type="button"
-              disabled={importLoading || !importSourceExamId || !importSourceSetId}
-              onClick={handleImportFromExam}
+              onClick={runImport}
+              disabled={importBusy || !sourceExamId || !sourceSetId || !selectedSetId}
             >
-              {importLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : 'Import'}
+              {importBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Import
             </Button>
           </DialogFooter>
         </DialogContent>

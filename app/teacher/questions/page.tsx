@@ -175,6 +175,42 @@ export default function TeacherQuestionsPage() {
     });
   };
 
+  const handleDeleteQuestion = useCallback(
+    async (id: string, list: 'questions' | 'passages') => {
+      if (
+        !window.confirm(
+          'Delete this question permanently? It will be removed from all exam sets that use it, and matching answers in student attempts will be removed.',
+        )
+      ) {
+        return;
+      }
+      try {
+        const res = await deleteQuestion(id);
+        if (res.success) {
+          toast({
+            title: 'Question deleted',
+            description: 'The question was removed from the bank and unlinked from exams.',
+          });
+          if (list === 'passages') await loadPassages();
+          else await loadQuestions();
+        } else {
+          toast({
+            title: 'Could not delete question',
+            description: res.message || 'Unknown error',
+            variant: 'destructive',
+          });
+        }
+      } catch (err: unknown) {
+        toast({
+          title: 'Could not delete question',
+          description: err instanceof Error ? err.message : 'Something went wrong',
+          variant: 'destructive',
+        });
+      }
+    },
+    [toast, loadQuestions, loadPassages],
+  );
+
   const getBreadcrumbs = () => {
     const crumbs: QuestionFolder[] = [];
     let currentId = activeFolderId;
@@ -549,7 +585,7 @@ export default function TeacherQuestionsPage() {
                                             }}><Edit className="h-3.5 w-3.5" /></Button>
                                             <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-rose-600" onClick={(e) => {
                                               e.stopPropagation();
-                                              deleteQuestion(cq.id).then(() => loadPassages());
+                                              void handleDeleteQuestion(cq.id, 'passages');
                                             }}><Trash2 className="h-3.5 w-3.5" /></Button>
                                           </div>
                                         </div>
@@ -663,7 +699,7 @@ export default function TeacherQuestionsPage() {
                                             }
                                           }
                                         }}><Edit className="h-4 w-4" /></Button>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-rose-600" onClick={() => deleteQuestion(q.id).then(() => loadQuestions())}><Trash2 className="h-4 w-4" /></Button>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-rose-600" onClick={() => void handleDeleteQuestion(q.id, 'questions')}><Trash2 className="h-4 w-4" /></Button>
                                       </div>
                                     </TableCell>
                                   </TableRow>

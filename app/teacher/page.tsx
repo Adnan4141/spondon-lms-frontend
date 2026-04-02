@@ -210,7 +210,7 @@ export default function TeacherDashboardPage() {
                 ? `${examStats.published} published · ${examStats.draft} drafts`
                 : 'No exam data'}
           </p>
-          <p className="mt-1 text-sm font-medium text-slate-500">Create papers from blueprints and manage sets from your exam manager.</p>
+          <p className="mt-1 text-sm font-medium text-slate-500">Build question sets from a plan and manage exams in one place.</p>
         </div>
         <Button
           asChild
