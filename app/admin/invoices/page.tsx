@@ -55,6 +55,7 @@ import { Toaster } from '@/components/ui/toast';
 import { useModalStore } from '@/store/modalStore';
 import { InvoiceForm } from '@/components/admin/invoices/InvoiceForm';
 import { InvoiceDetailsView } from '@/components/admin/invoices/InvoiceDetailsView';
+import { RecordPaymentDialog } from '@/components/admin/invoices/RecordPaymentDialog';
 import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
 import { generateMonthlyInvoices } from '@/lib/api/invoices';
 import { MonthPicker } from '@/components/ui/month-picker';
@@ -225,6 +226,22 @@ export default function InvoicesPage() {
         />
       ),
     });
+  };
+
+  const handleRecordPayment = async (invoiceId: string) => {
+    try {
+      const res = await getInvoiceById(invoiceId);
+      if (res.success && res.data) {
+        openModal({
+          title: 'Record Manual Payment',
+          description: `Record a payment for ${res.data.month || 'this invoice'}.`,
+          className: 'sm:max-w-lg',
+          content: <RecordPaymentDialog invoice={res.data} onSuccess={loadInvoices} />,
+        });
+      }
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to load invoice', variant: 'destructive' });
+    }
   };
 
   const handleDeleteInvoice = async (invoiceId: string) => {
@@ -430,6 +447,16 @@ export default function InvoicesPage() {
                           >
                             Edit
                           </Button>
+                          {Number(i.dueAmount) > 0 && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 rounded-xl border-emerald-200 bg-white px-4 text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-all shadow-sm"
+                              onClick={() => handleRecordPayment(i.id)}
+                            >
+                              Pay
+                            </Button>
+                          )}
                           <Button
                             variant="outline"
                             size="sm"

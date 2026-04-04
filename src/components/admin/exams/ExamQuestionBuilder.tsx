@@ -34,7 +34,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Trash2, Printer, Loader2, FolderInput } from 'lucide-react';
+import { Trash2, Printer, Loader2, FolderInput, Wand2, PencilLine } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Exam, ExamSet, ExamQuestion } from '@/types/exam';
 import type { QuestionFolder } from '@/types/question';
@@ -69,6 +69,11 @@ export function ExamQuestionBuilder({ examId, exam, sets, onRefresh }: ExamQuest
   const [pdfLoadingSetId, setPdfLoadingSetId] = useState<string | null>(null);
   const [offlineSheetSet, setOfflineSheetSet] = useState<ExamSet | null>(null);
 
+  const [shuffleQuestions, setShuffleQuestions] = useState(false);
+  const [autoSetCount, setAutoSetCount] = useState<number>(1);
+
+  const [builderMode, setBuilderMode] = useState<'manual' | 'auto'>('manual');
+
   const [importOpen, setImportOpen] = useState(false);
   const [importBusy, setImportBusy] = useState(false);
   const [otherExams, setOtherExams] = useState<Exam[]>([]);
@@ -93,6 +98,17 @@ export function ExamQuestionBuilder({ examId, exam, sets, onRefresh }: ExamQuest
     await onRefresh();
   }, [onRefresh]);
 
+  const requestedCount = useDistribution
+    ? cqCount + mcqSingleCount + mcqPassageCount
+    : count;
+  const canAddQuestions =
+    Boolean(selectedSetId) &&
+    Boolean(folderId) &&
+    Number.isFinite(marks) &&
+    marks > 0 &&
+    Number.isFinite(requestedCount) &&
+    requestedCount > 0;
+
   const handleCreateSet = async () => {
     if (!newSetName.trim()) return;
     const res = await createExamSet({ examId, name: newSetName.trim() });
@@ -111,10 +127,26 @@ export function ExamQuestionBuilder({ examId, exam, sets, onRefresh }: ExamQuest
       return;
     }
 
+    if (!Number.isFinite(marks) || marks <= 0) {
+      toast({ title: 'Enter valid marks', description: 'Marks per question must be greater than 0.', variant: 'destructive' });
+      return;
+    }
+
+    if (!Number.isFinite(requestedCount) || requestedCount <= 0) {
+      toast({
+        title: 'Enter question count',
+        description: useDistribution ? 'Set at least one type count.' : 'Question count must be greater than 0.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const res = await addQuestionsToSet({
       examSetId: selectedSetId,
       folderId,
       count: !useDistribution ? count : undefined,
+      shuffleQuestions: builderMode === 'auto' ? shuffleQuestions : false,
+      autoSetCount: builderMode === 'auto' ? Math.max(1, autoSetCount) : 1,
       cqCount: useDistribution ? cqCount : undefined,
       mcqSingleCount: useDistribution ? mcqSingleCount : undefined,
       mcqPassageCount: useDistribution ? mcqPassageCount : undefined,
@@ -122,7 +154,18 @@ export function ExamQuestionBuilder({ examId, exam, sets, onRefresh }: ExamQuest
     });
 
     if (res.success) {
-      toast({ title: 'Questions added' });
+      const added = res.data?.addedCount ?? 0;
+      const skipped = res.data?.skippedDuplicates ?? 0;
+      const generatedSetCount = res.data?.generatedSetCount ?? 1;
+      toast({
+        title: 'Questions processed',
+        description:
+          generatedSetCount > 1
+            ? `Generated ${generatedSetCount} sets · added ${added}, skipped ${skipped} duplicate(s).`
+            : skipped > 0
+              ? `Added ${added}, skipped ${skipped} duplicate(s).`
+              : `Added ${added} question(s).`,
+      });
       await refresh();
     } else {
       toast({ title: 'Could not add questions', description: res.message, variant: 'destructive' });
@@ -361,100 +404,216 @@ export function ExamQuestionBuilder({ examId, exam, sets, onRefresh }: ExamQuest
       </div>
 
       <div className="space-y-6 lg:col-span-2">
-        <div className="space-y-4 rounded-xl border p-6">
-          <h2 className="font-semibold">Add from question bank</h2>
 
-          <div className="space-y-2">
-            <Label>Folder</Label>
+        {/* ── Mode toggle ─────────────────────────────────────────────── */}
+        <div className="grid grid-cols-2 overflow-hidden rounded-xl border border-slate-200 shadow-sm">
+          <button
+            type="button"
+            onClick={() => setBuilderMode('manual')}
+            className={cn(
+              'flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold transition-colors',
+              builderMode === 'manual'
+                ? 'bg-indigo-600 text-white'
+                : 'bg-white text-slate-500 hover:bg-slate-50',
+            )}
+          >
+            <PencilLine className="h-4 w-4 shrink-0" />
+            Manual — add to set
+          </button>
+          <button
+            type="button"
+            onClick={() => setBuilderMode('auto')}
+            className={cn(
+              'flex items-center justify-center gap-2 border-l border-slate-200 px-4 py-3 text-sm font-semibold transition-colors',
+              builderMode === 'auto'
+                ? 'bg-indigo-600 text-white border-indigo-600'
+                : 'bg-white text-slate-500 hover:bg-slate-50',
+            )}
+          >
+            <Wand2 className="h-4 w-4 shrink-0" />
+            Auto-generate N sets
+          </button>
+        </div>
+
+        {/* ── Shared folder + count inputs ────────────────────────────── */}
+        <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+
+          {builderMode === 'manual' ? (
+            <div>
+              <h2 className="mb-1 font-semibold text-slate-800">Add to selected set</h2>
+              <p className="text-xs text-slate-400">
+                Questions are appended to{' '}
+                <span className="font-bold text-indigo-600">{currentSet?.name ?? '—'}</span>.
+              </p>
+            </div>
+          ) : (
+            <div>
+              <h2 className="mb-1 font-semibold text-slate-800">Auto-generate N sets</h2>
+              <p className="text-xs text-slate-400">
+                Picks the same question pool and distributes it into{' '}
+                <span className="font-bold text-indigo-600">{Math.max(1, autoSetCount)} set{autoSetCount > 1 ? 's' : ''}</span>{' '}
+                starting from <span className="font-bold text-indigo-600">{currentSet?.name ?? '—'}</span>.
+                {autoSetCount > 1 && ' Additional sets are named automatically (B, C, D…).'}
+              </p>
+            </div>
+          )}
+
+          {/* Folder */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Question folder</Label>
             <Select value={folderId} onValueChange={setFolderId}>
-              <SelectTrigger>
+              <SelectTrigger className="rounded-lg border-slate-200">
                 <SelectValue placeholder="Select folder" />
               </SelectTrigger>
               <SelectContent>
                 {folders.map((f) => (
-                  <SelectItem key={f.id} value={f.id}>
-                    {f.name}
-                  </SelectItem>
+                  <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant={!useDistribution ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setUseDistribution(false)}
-            >
-              Random count
-            </Button>
-            <Button
-              type="button"
-              variant={useDistribution ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setUseDistribution(true)}
-            >
-              By type
-            </Button>
+          {/* Count mode toggle */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Pick method</Label>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant={!useDistribution ? 'default' : 'outline'}
+                size="sm"
+                className="rounded-lg"
+                onClick={() => setUseDistribution(false)}
+              >
+                Random count
+              </Button>
+              <Button
+                type="button"
+                variant={useDistribution ? 'default' : 'outline'}
+                size="sm"
+                className="rounded-lg"
+                onClick={() => setUseDistribution(true)}
+              >
+                By type
+              </Button>
+            </div>
           </div>
 
+          {/* Count inputs */}
           {!useDistribution ? (
-            <Input
-              type="number"
-              min={0}
-              placeholder="How many questions"
-              value={Number.isNaN(count) ? '' : count || ''}
-              onChange={(e) => setCount(e.target.value === '' ? 0 : +e.target.value)}
-            />
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">How many questions</Label>
+              <Input
+                type="number"
+                min={0}
+                placeholder="e.g. 30"
+                value={Number.isNaN(count) ? '' : count || ''}
+                onChange={(e) => setCount(e.target.value === '' ? 0 : +e.target.value)}
+                className="rounded-lg border-slate-200"
+              />
+            </div>
           ) : (
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              <div className="space-y-1">
-                <Label className="text-xs">CQ</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  placeholder="0"
-                  value={cqCount || ''}
-                  onChange={(e) => setCqCount(e.target.value === '' ? 0 : +e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">MCQ</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  placeholder="0"
-                  value={mcqSingleCount || ''}
-                  onChange={(e) => setMcqSingleCount(e.target.value === '' ? 0 : +e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Passage</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  placeholder="0"
-                  value={mcqPassageCount || ''}
-                  onChange={(e) => setMcqPassageCount(e.target.value === '' ? 0 : +e.target.value)}
-                />
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Question distribution</Label>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-slate-400">CQ</Label>
+                  <Input type="number" min={0} placeholder="0" value={cqCount || ''}
+                    onChange={(e) => setCqCount(e.target.value === '' ? 0 : +e.target.value)}
+                    className="rounded-lg border-slate-200" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-slate-400">MCQ single</Label>
+                  <Input type="number" min={0} placeholder="0" value={mcqSingleCount || ''}
+                    onChange={(e) => setMcqSingleCount(e.target.value === '' ? 0 : +e.target.value)}
+                    className="rounded-lg border-slate-200" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-slate-400">Passage</Label>
+                  <Input type="number" min={0} placeholder="0" value={mcqPassageCount || ''}
+                    onChange={(e) => setMcqPassageCount(e.target.value === '' ? 0 : +e.target.value)}
+                    className="rounded-lg border-slate-200" />
+                </div>
               </div>
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label>Marks per question</Label>
+          {/* Marks */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Marks per question</Label>
             <Input
               type="number"
               min={0}
               step={0.5}
               value={marks}
               onChange={(e) => setMarks(+e.target.value)}
+              className="rounded-lg border-slate-200"
             />
           </div>
 
-          <Button type="button" onClick={handleAddQuestions} className="w-full" disabled={!selectedSetId}>
-            Add questions
+          {/* Auto-mode only: N sets + shuffle */}
+          {builderMode === 'auto' && (
+            <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-4 space-y-4">
+              <h3 className="text-xs font-black uppercase tracking-widest text-indigo-500">Auto-generate options</h3>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Number of sets (N)
+                </Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={26}
+                  placeholder="e.g. 3"
+                  value={autoSetCount || ''}
+                  onChange={(e) => setAutoSetCount(e.target.value === '' ? 1 : Math.max(1, Math.min(26, +e.target.value)))}
+                  className="rounded-lg border-indigo-200 bg-white"
+                />
+                <p className="text-[10px] text-slate-400">
+                  Creates sets named <span className="font-semibold">{currentSet?.name ?? 'Set'}</span>,{' '}
+                  <span className="font-semibold">{currentSet?.name ?? 'Set'} B</span>,{' '}
+                  <span className="font-semibold">{currentSet?.name ?? 'Set'} C</span>… (max 26)
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-indigo-100 bg-white px-3 py-2.5">
+                <div>
+                  <p className="text-sm font-semibold text-slate-700">Shuffle per set</p>
+                  <p className="text-[11px] text-slate-400">Each set gets a unique question order</p>
+                </div>
+                <Checkbox
+                  checked={shuffleQuestions}
+                  onCheckedChange={(v) => setShuffleQuestions(!!v)}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Summary pill */}
+          <div className="flex items-center justify-between rounded-lg bg-slate-50 border border-slate-100 px-3 py-2 text-xs text-slate-500">
+            <span>
+              {builderMode === 'auto'
+                ? `${Math.max(1, autoSetCount)} set${autoSetCount > 1 ? 's' : ''} × ${Math.max(0, requestedCount)} question${requestedCount !== 1 ? 's' : ''}`
+                : `${Math.max(0, requestedCount)} question${requestedCount !== 1 ? 's' : ''} → ${currentSet?.name ?? '—'}`}
+            </span>
+            <span className="font-semibold text-slate-400">
+              {marks} mark{marks !== 1 ? 's' : ''} each
+            </span>
+          </div>
+
+          <Button
+            type="button"
+            onClick={handleAddQuestions}
+            className={cn(
+              'w-full font-semibold',
+              builderMode === 'auto'
+                ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                : '',
+            )}
+            disabled={!canAddQuestions}
+          >
+            {builderMode === 'auto'
+              ? <><Wand2 className="mr-2 h-4 w-4" />Generate {Math.max(1, autoSetCount)} set{autoSetCount > 1 ? 's' : ''}</>
+              : <><PencilLine className="mr-2 h-4 w-4" />Add to {currentSet?.name ?? 'set'}</>}
           </Button>
         </div>
 

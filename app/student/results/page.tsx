@@ -17,6 +17,17 @@ interface OfflineResult {
   meritPosition?: number;
 }
 
+function canShowSolveSheet(exam?: OnlineExamAttempt['exam']): boolean {
+  if (!exam?.solveSheetUrl) return false;
+  const vis = exam.solveSheetVisibility;
+  if (vis === 'HIDDEN') return false;
+  if (vis === 'IMMEDIATELY') return true;
+  if (vis === 'SCHEDULED' && exam.solveSheetScheduledAt) {
+    return new Date() >= new Date(exam.solveSheetScheduledAt);
+  }
+  return true;
+}
+
 export default function StudentResultsPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<StudentResults | null>(null);
@@ -198,15 +209,15 @@ export default function StudentResultsPage() {
                               </p>
                            </div>
                            
-                           {attempt.exam?.solveSheetUrl && (
+                           {canShowSolveSheet(attempt.exam) && (
                              <a
-                               href={getExamPdfDownloadUrl(attempt.exam.solveSheetUrl)}
+                               href={getExamPdfDownloadUrl(attempt.exam!.solveSheetUrl!)}
                                target="_blank"
                                rel="noopener noreferrer"
                                className="flex items-center gap-2 px-6 py-4 rounded-2xl bg-slate-900 text-white font-black text-sm hover:bg-indigo-600 transition-all shadow-xl shadow-slate-200"
                              >
                                <Download className="h-4 w-4" />
-                               উত্তরপত্র
+                               সমাধান দেখুন
                              </a>
                            )}
                         </div>

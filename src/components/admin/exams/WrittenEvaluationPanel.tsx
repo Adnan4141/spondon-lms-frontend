@@ -6,7 +6,8 @@ import type { WrittenAttemptSummary, WrittenAttemptDetail, WrittenQuestionWithAn
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, User, CheckCircle, Clock, AlertCircle, Save, Lock } from 'lucide-react';
+import { API_ORIGIN } from '@/lib/api';
+import { ChevronLeft, User, CheckCircle, Clock, AlertCircle, Save, Lock, Image as ImageIcon, ZoomIn, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface WrittenEvaluationPanelProps {
@@ -33,6 +34,9 @@ export function WrittenEvaluationPanel({ examId, teacherUserId }: WrittenEvaluat
 
   // Local eval state: { [answerId_subPartKey]: { marks, remarks } }
   const [evalMap, setEvalMap] = useState<Record<string, { marks: string; remarks: string }>>({});
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  const getScanFullUrl = (url: string) => url.startsWith('http') ? url : `${API_ORIGIN}${url}`;
 
   const loadAttempts = useCallback(async () => {
     setLoading(true);
@@ -174,6 +178,44 @@ export function WrittenEvaluationPanel({ examId, teacherUserId }: WrittenEvaluat
                 <div className="px-6 py-4 space-y-4">
                   <div className="text-sm font-medium text-slate-800 leading-relaxed" dangerouslySetInnerHTML={{ __html: q.question.prompt }} />
 
+                  {/* Scan images (from offline answer sheet upload) */}
+                  {(() => {
+                    const scanUrls = Array.isArray(ans?.scanUrls) ? ans.scanUrls : [];
+                    if (scanUrls.length === 0) return null;
+                    return (
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+                          <ImageIcon className="h-3 w-3" /> Scanned answer sheets ({scanUrls.length})
+                        </p>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                          {scanUrls.map((url, si) => {
+                            const fullUrl = getScanFullUrl(url);
+                            const isPdf = url.endsWith('.pdf');
+                            return (
+                              <button
+                                key={si}
+                                type="button"
+                                onClick={() => setPreviewUrl(fullUrl)}
+                                className="relative group rounded-xl border border-slate-200 overflow-hidden bg-slate-50 hover:border-indigo-300 transition-all"
+                              >
+                                {isPdf ? (
+                                  <div className="h-24 flex items-center justify-center text-slate-400">
+                                    <span className="text-xs font-bold">PDF</span>
+                                  </div>
+                                ) : (
+                                  <img src={fullUrl} alt={`Scan ${si + 1}`} className="h-24 w-full object-cover" />
+                                )}
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                  <ZoomIn className="h-4 w-4 text-white" />
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   {isCQ ? (
                     <div className="space-y-4">
                       {CQ_PARTS.map(part => {
@@ -252,6 +294,29 @@ export function WrittenEvaluationPanel({ examId, teacherUserId }: WrittenEvaluat
             );
           })}
         </div>
+
+        {/* Image preview lightbox */}
+        {previewUrl && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+            onClick={() => setPreviewUrl(null)}
+          >
+            <div className="relative max-w-4xl max-h-[90vh] w-full" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-white shadow-lg flex items-center justify-center text-slate-600 hover:text-rose-600 z-10"
+                onClick={() => setPreviewUrl(null)}
+              >
+                <X className="h-4 w-4" />
+              </button>
+              {previewUrl.endsWith('.pdf') ? (
+                <iframe src={previewUrl} className="w-full h-[85vh] rounded-2xl bg-white" />
+              ) : (
+                <img src={previewUrl} alt="Preview" className="w-full max-h-[85vh] object-contain rounded-2xl bg-white" />
+              )}
+            </div>
+          </div>
+        )}
       </div>
     );
   }

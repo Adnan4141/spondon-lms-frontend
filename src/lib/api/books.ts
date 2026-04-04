@@ -385,3 +385,33 @@ export async function removeBookCollaborator(bookId: string, userId: string): Pr
     { method: 'DELETE' }
   );
 }
+
+export interface OnlineOrder extends BookSale {
+  invoice?: { id: string; status: string; paidAmount?: number; dueAmount?: number } | null;
+}
+
+export async function getOnlineOrders(params?: {
+  deliveryStatus?: string;
+  page?: number;
+  limit?: number;
+}): Promise<ApiResponse<OnlineOrder[]>> {
+  const q = new URLSearchParams();
+  if (params?.deliveryStatus) q.append('deliveryStatus', params.deliveryStatus);
+  if (params?.page) q.append('page', String(params.page));
+  if (params?.limit) q.append('limit', String(params.limit));
+  const qs = q.toString();
+  return apiRequest<ApiResponse<OnlineOrder[]>>(`/books/orders/online${qs ? `?${qs}` : ''}`);
+}
+
+export type DeliveryStatus = 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
+
+export async function updateDeliveryStatus(saleId: string, data: {
+  deliveryStatus: DeliveryStatus;
+  trackingNumber?: string;
+  notes?: string;
+}): Promise<ApiResponse<BookSaleDelivery>> {
+  return apiRequest<ApiResponse<BookSaleDelivery>>(`/books/delivery/${encodeURIComponent(saleId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}

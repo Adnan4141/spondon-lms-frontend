@@ -1,25 +1,40 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { getAcademicRecordSummary } from '@/lib/api/student-portal';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, AlertCircle, ScrollText, TrendingUp } from 'lucide-react';
+import { Loader2, AlertCircle, ScrollText, TrendingUp, Award, BookOpen, BarChart3, Filter } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+interface CourseSummary {
+  courseId: string;
+  course: { id: string; name: string; code: string } | null;
+  totalExams: number;
+  avgPercentage: number;
+  bestPercentage: number;
+  worstPercentage: number;
+  source?: string;
+}
+
+interface AcademicRecord {
+  id: string;
+  recordType: string;
+  score?: number | null;
+  grade?: string | null;
+  remarks?: string | null;
+  courseId?: string | null;
+  examId?: string | null;
+  createdAt: string;
+  course?: { id: string; name: string; code: string } | null;
+}
 
 export default function StudentAcademicRecordPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
-  const [summaries, setSummaries] = useState<
-    Array<{
-      courseId: string;
-      course: { id: string; name: string; code: string } | null;
-      totalExams: number;
-      avgPercentage: number;
-      bestPercentage: number;
-      worstPercentage: number;
-    }>
-  >([]);
-  const [records, setRecords] = useState<unknown[]>([]);
+  const [summaries, setSummaries] = useState<CourseSummary[]>([]);
+  const [records, setRecords] = useState<AcademicRecord[]>([]);
+  const [courseFilter, setCourseFilter] = useState<string>('all');
 
   useEffect(() => {
     const run = async () => {
@@ -33,10 +48,10 @@ export default function StudentAcademicRecordPage() {
         const user = JSON.parse(userStr);
         const res = await getAcademicRecordSummary(user.id);
         if (res.success && res.data) {
-          setSummaries(res.data.computedSummaries ?? []);
-          setRecords(res.data.records ?? []);
+          setSummaries((res.data.computedSummaries ?? []) as CourseSummary[]);
+          setRecords((res.data.records ?? []) as AcademicRecord[]);
         } else if (!res.success) {
-          setErr(res.message || 'ডেটা লোড করা যায়নি');
+          setErr(res.message || 'ডেটা লোড করা যায়নি');
         }
       } catch (e: unknown) {
         setErr(e instanceof Error ? e.message : 'লোড ব্যর্থ');
@@ -47,10 +62,38 @@ export default function StudentAcademicRecordPage() {
     run();
   }, []);
 
+  const overallStats = useMemo(() => {
+    if (summaries.length === 0) return null;
+    const totalExams = summaries.reduce((a, s) => a + s.totalExams, 0);
+    const weightedAvg = summaries.reduce((a, s) => a + s.avgPercentage * s.totalExams, 0) / (totalExams || 1);
+    const best = summaries.reduce((b, s) => (s.bestPercentage > b.bestPercentage ? s : b), summaries[0]);
+    return { totalExams, avg: weightedAvg.toFixed(1), bestCourse: best.course?.name ?? best.courseId, bestPct: best.bestPercentage };
+  }, [summaries]);
+
+  const filteredSummaries = useMemo(() => {
+    if (courseFilter === 'all') return summaries;
+    return summaries.filter(s => s.courseId === courseFilter);
+  }, [summaries, courseFilter]);
+
+  const filteredRecords = useMemo(() => {
+    if (courseFilter === 'all') return records;
+    return records.filter(r => r.courseId === courseFilter);
+  }, [records, courseFilter]);
+
+  const courseOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    summaries.forEach(s => { if (s.course) map.set(s.courseId, s.course.name); });
+    records.forEach(r => { if (r.course && r.courseId) map.set(r.courseId, r.course.name); });
+    return Array.from(map.entries());
+  }, [summaries, records]);
+
   if (loading) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
-        <Loader2 className="h-12 w-12 animate-spin text-indigo-600" />
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-12 w-12 animate-spin text-indigo-600" />
+          <p className="text-slate-500 font-bold animate-pulse">লোড হচ্ছে...</p>
+        </div>
       </div>
     );
   }
@@ -69,22 +112,25 @@ export default function StudentAcademicRecordPage() {
     );
   }
 
+  const hasData = summaries.length > 0 || records.length > 0;
+
   return (
     <div className="space-y-10">
+      {/* Header */}
       <div>
         <h1 className="text-3xl font-black text-slate-900">একাডেমিক রেকর্ড</h1>
         <p className="mt-2 font-medium text-slate-500">
-          অনলাইন পরীক্ষা, লিংক করা কোর্সের পরীক্ষা ও কেন্দ্রীয়ভাবে অনুমোদিত ফল থেকে কোর্সভিত্তিক সারাংশ
+          অনলাইন পরীক্ষা, লিংক করা কোর্সের পরীক্ষা ও কেন্দ্রীয়ভাবে অনুমোদিত ফল থেকে কোর্সভিত্তিক সারাংশ
         </p>
       </div>
 
-      {summaries.length === 0 && records.length === 0 ? (
+      {!hasData ? (
         <Card className="rounded-[2rem] border-dashed border-slate-200 bg-slate-50/80">
           <CardContent className="flex flex-col items-center py-16 text-center">
             <ScrollText className="mb-4 h-14 w-14 text-slate-300" />
             <p className="text-lg font-bold text-slate-600">এখনও কোনো ডেটা নেই</p>
             <p className="mt-2 max-w-md text-sm text-slate-500">
-              অনলাইন পরীক্ষা দিন বা অফিসিয়াল ফল প্রকাশিত হলে এখানে গড় ও সেরা ফল দেখা যাবে।
+              অনলাইন পরীক্ষা দিন বা অফিসিয়াল ফল প্রকাশিত হলে এখানে গড় ও সেরা ফল দেখা যাবে।
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <Link
@@ -104,37 +150,121 @@ export default function StudentAcademicRecordPage() {
         </Card>
       ) : (
         <>
-          {summaries.length > 0 ? (
+          {/* Overall stats banner */}
+          {overallStats && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50 to-white p-5">
+                <div className="flex items-center gap-2 mb-2">
+                  <BarChart3 className="h-4 w-4 text-indigo-600" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600">মোট পরীক্ষা</span>
+                </div>
+                <p className="text-3xl font-black text-slate-900 tabular-nums">{overallStats.totalExams}</p>
+              </div>
+              <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white p-5">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="h-4 w-4 text-emerald-600" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">গড় %</span>
+                </div>
+                <p className="text-3xl font-black text-slate-900 tabular-nums">{overallStats.avg}%</p>
+              </div>
+              <div className="rounded-2xl border border-amber-100 bg-gradient-to-br from-amber-50 to-white p-5">
+                <div className="flex items-center gap-2 mb-2">
+                  <Award className="h-4 w-4 text-amber-600" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-amber-600">সেরা ফল</span>
+                </div>
+                <p className="text-3xl font-black text-slate-900 tabular-nums">{overallStats.bestPct}%</p>
+              </div>
+              <div className="rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50 to-white p-5">
+                <div className="flex items-center gap-2 mb-2">
+                  <BookOpen className="h-4 w-4 text-violet-600" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-violet-600">সেরা কোর্স</span>
+                </div>
+                <p className="text-lg font-black text-slate-900 truncate">{overallStats.bestCourse}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Course filter */}
+          {courseOptions.length > 1 && (
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-slate-400" />
+              <div className="flex items-center gap-1 rounded-xl bg-slate-100/80 p-1">
+                <button
+                  type="button"
+                  onClick={() => setCourseFilter('all')}
+                  className={cn(
+                    'rounded-lg px-3 py-1.5 text-xs font-bold transition-all',
+                    courseFilter === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  )}
+                >
+                  সব
+                </button>
+                {courseOptions.map(([id, name]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setCourseFilter(id)}
+                    className={cn(
+                      'rounded-lg px-3 py-1.5 text-xs font-bold transition-all truncate max-w-32',
+                      courseFilter === id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                    )}
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Course summaries */}
+          {filteredSummaries.length > 0 && (
             <section className="space-y-4">
               <h2 className="flex items-center gap-2 text-xl font-black text-slate-900">
                 <TrendingUp className="h-6 w-6 text-emerald-600" />
-                কোর্স অনুযায়ী
+                কোর্স অনুযায়ী
               </h2>
               <div className="grid gap-4 sm:grid-cols-2">
-                {summaries.map((s) => (
-                  <Card
-                    key={s.courseId}
-                    className="overflow-hidden rounded-2xl border-slate-100 shadow-sm"
-                  >
+                {filteredSummaries.map((s) => (
+                  <Card key={s.courseId} className="overflow-hidden rounded-2xl border-slate-100 shadow-sm hover:shadow-md transition-shadow">
                     <CardContent className="p-6">
-                      <h3 className="text-lg font-black text-slate-900">
-                        {s.course?.name ?? s.courseId}
-                      </h3>
-                      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                        {s.totalExams} টি পরীক্ষা
-                      </p>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="text-lg font-black text-slate-900">{s.course?.name ?? s.courseId}</h3>
+                          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                            {s.totalExams} টি পরীক্ষা{s.source ? ` · ${s.source}` : ''}
+                          </p>
+                        </div>
+                        <div className="h-12 w-12 rounded-xl bg-indigo-50 flex items-center justify-center">
+                          <span className="text-lg font-black text-indigo-600">{s.avgPercentage}%</span>
+                        </div>
+                      </div>
+
+                      {/* Progress bar */}
+                      <div className="mt-4 space-y-1.5">
+                        <div className="flex justify-between text-[10px] font-bold text-slate-400">
+                          <span>গড় {s.avgPercentage}%</span>
+                          <span>সেরা {s.bestPercentage}%</span>
+                        </div>
+                        <div className="h-2.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-emerald-500 transition-all"
+                            style={{ width: `${Math.min(100, s.avgPercentage)}%` }}
+                          />
+                        </div>
+                      </div>
+
                       <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-                        <div className="rounded-xl bg-slate-50 py-3">
-                          <p className="text-[10px] font-bold text-slate-400">গড়</p>
-                          <p className="text-lg font-black text-indigo-600">{s.avgPercentage}%</p>
+                        <div className="rounded-xl bg-slate-50 py-2.5">
+                          <p className="text-[10px] font-bold text-slate-400">গড়</p>
+                          <p className="text-base font-black text-indigo-600">{s.avgPercentage}%</p>
                         </div>
-                        <div className="rounded-xl bg-emerald-50 py-3">
+                        <div className="rounded-xl bg-emerald-50 py-2.5">
                           <p className="text-[10px] font-bold text-emerald-600">সেরা</p>
-                          <p className="text-lg font-black text-emerald-800">{s.bestPercentage}%</p>
+                          <p className="text-base font-black text-emerald-800">{s.bestPercentage}%</p>
                         </div>
-                        <div className="rounded-xl bg-amber-50 py-3">
+                        <div className="rounded-xl bg-amber-50 py-2.5">
                           <p className="text-[10px] font-bold text-amber-700">সর্বনিম্ন</p>
-                          <p className="text-lg font-black text-amber-900">{s.worstPercentage}%</p>
+                          <p className="text-base font-black text-amber-900">{s.worstPercentage}%</p>
                         </div>
                       </div>
                     </CardContent>
@@ -142,21 +272,61 @@ export default function StudentAcademicRecordPage() {
                 ))}
               </div>
             </section>
-          ) : null}
+          )}
 
-          {records.length > 0 ? (
+          {/* Records list */}
+          {filteredRecords.length > 0 && (
             <section className="space-y-4">
               <h2 className="text-xl font-black text-slate-900">সংরক্ষিত রেকর্ড</h2>
-              <ul className="space-y-2 rounded-2xl border border-slate-200 bg-white p-4">
-                {records.map((r: any, i: number) => (
-                  <li key={r.id ?? i} className="border-b border-slate-100 py-3 last:border-0">
-                    <p className="font-bold text-slate-800">{r.recordType ?? 'Record'}</p>
-                    {r.course && <p className="text-sm text-slate-500">{r.course.name}</p>}
-                  </li>
-                ))}
-              </ul>
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className="max-h-[60vh] overflow-auto">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-slate-50 text-left text-[10px] font-black uppercase tracking-widest text-slate-500">
+                      <tr className="border-b border-slate-100">
+                        <th className="px-4 py-3">ধরন</th>
+                        <th className="px-4 py-3">কোর্স</th>
+                        <th className="px-4 py-3 text-right">নম্বর</th>
+                        <th className="px-4 py-3">গ্রেড</th>
+                        <th className="px-4 py-3">মন্তব্য</th>
+                        <th className="px-4 py-3">তারিখ</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredRecords.map((r) => (
+                        <tr key={r.id} className="bg-white hover:bg-slate-50/80">
+                          <td className="px-4 py-3">
+                            <span className={cn(
+                              'inline-flex rounded-lg px-2 py-0.5 text-[10px] font-black uppercase',
+                              r.recordType === 'ONLINE_EXAM' ? 'bg-indigo-50 text-indigo-700' :
+                              r.recordType === 'OFFLINE_EXAM' ? 'bg-amber-50 text-amber-700' :
+                              'bg-slate-100 text-slate-600'
+                            )}>
+                              {r.recordType.replace(/_/g, ' ')}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 font-semibold text-slate-800">{r.course?.name ?? '—'}</td>
+                          <td className="px-4 py-3 text-right font-black tabular-nums text-slate-900">
+                            {r.score != null ? Number(r.score) : '—'}
+                          </td>
+                          <td className="px-4 py-3">
+                            {r.grade ? (
+                              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-violet-50 text-xs font-black text-violet-700">
+                                {r.grade}
+                              </span>
+                            ) : '—'}
+                          </td>
+                          <td className="px-4 py-3 text-slate-500 text-xs">{r.remarks ?? '—'}</td>
+                          <td className="px-4 py-3 text-slate-400 text-xs tabular-nums">
+                            {new Date(r.createdAt).toLocaleDateString('bn-BD')}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </section>
-          ) : null}
+          )}
         </>
       )}
     </div>

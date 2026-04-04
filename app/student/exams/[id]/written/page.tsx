@@ -5,15 +5,68 @@ import { useParams, useRouter } from 'next/navigation';
 import { startExamAttempt, saveExamAnswer, submitExamAttempt } from '@/lib/api/exams';
 import type { StartAttemptResponse } from '@/types/exam';
 import { Button } from '@/components/ui/button';
-import { Clock, Send, ChevronDown, ChevronUp, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Clock, Send, ChevronDown, ChevronUp, CheckCircle2, AlertCircle, PenLine } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const STUDENT_USER_ID_KEY = 'studentUserId'; // from localStorage / session
 const CQ_PARTS = ['a', 'b', 'c', 'd'] as const;
+const BN_CQ_LABELS: Record<string, string> = { a: '\u0995', b: '\u0996', c: '\u0997', d: '\u0998' };
+
+type Lang = 'bn' | 'en';
+
+const UI_STRINGS = {
+  bn: {
+    writtenExam: '\u09b2\u09bf\u0996\u09bf\u09a4 \u09aa\u09b0\u09c0\u0995\u09cd\u09b7\u09be',
+    submit: '\u099c\u09ae\u09be \u09a6\u09bf\u09a8',
+    submitting: '\u099c\u09ae\u09be \u09b9\u099a\u09cd\u099b\u09c7...',
+    submitted: '\u099c\u09ae\u09be \u09b8\u09ab\u09b2!',
+    submittedDesc: '\u0986\u09aa\u09a8\u09be\u09b0 \u09b2\u09bf\u0996\u09bf\u09a4 \u09aa\u09b0\u09c0\u0995\u09cd\u09b7\u09be \u09b8\u09ab\u09b2\u09ad\u09be\u09ac\u09c7 \u099c\u09ae\u09be \u09b9\u09af\u09bc\u09c7\u099b\u09c7\u0964 \u09b6\u09bf\u0995\u09cd\u09b7\u0995 \u09ae\u09c2\u09b2\u09cd\u09af\u09be\u09af\u09bc\u09a8 \u0995\u09b0\u09b2\u09c7 \u09ab\u09b2\u09be\u09ab\u09b2 \u09a6\u09c7\u0996\u09a4\u09c7 \u09aa\u09be\u09b0\u09ac\u09c7\u09a8\u0964',
+    backToExams: '\u09aa\u09b0\u09c0\u0995\u09cd\u09b7\u09be\u09b0 \u09a4\u09be\u09b2\u09bf\u0995\u09be\u09af\u09bc',
+    confirmTitle: '\u09aa\u09b0\u09c0\u0995\u09cd\u09b7\u09be \u099c\u09ae\u09be \u09a6\u09bf\u09a4\u09c7 \u099a\u09be\u09a8?',
+    confirmDesc: '\u099c\u09ae\u09be \u09a6\u09c7\u0993\u09af\u09bc\u09be\u09b0 \u09aa\u09b0 \u0986\u09b0 \u0989\u09a4\u09cd\u09a4\u09b0 \u09aa\u09b0\u09bf\u09ac\u09b0\u09cd\u09a4\u09a8 \u0995\u09b0\u09be \u09af\u09be\u09ac\u09c7 \u09a8\u09be\u0964',
+    cancel: '\u09ac\u09be\u09a4\u09bf\u09b2',
+    yesSubmit: '\u09b9\u09cd\u09af\u09be\u0981, \u099c\u09ae\u09be \u09a6\u09bf\u09a8',
+    notLoggedIn: '\u09aa\u09b0\u09c0\u0995\u09cd\u09b7\u09be \u09a6\u09bf\u09a4\u09c7 \u09b2\u0997\u0987\u09a8 \u0995\u09b0\u09c1\u09a8',
+    goBack: '\u09ab\u09bf\u09b0\u09c7 \u09af\u09be\u09a8',
+    answered: '\u0989\u09a4\u09cd\u09a4\u09b0 \u09a6\u09c7\u0993\u09af\u09bc\u09be \u09b9\u09af\u09bc\u09c7\u099b\u09c7',
+    marks: '\u09a8\u09ae\u09cd\u09ac\u09b0',
+    writeAnswer: '\u0986\u09aa\u09a8\u09be\u09b0 \u0989\u09a4\u09cd\u09a4\u09b0 \u09b2\u09bf\u0996\u09c1\u09a8...',
+    writePartAnswer: (p: string) => `(${BN_CQ_LABELS[p] || p}) \u098f\u09b0 \u0989\u09a4\u09cd\u09a4\u09b0 \u09b2\u09bf\u0996\u09c1\u09a8...`,
+    yourAnswer: '\u0986\u09aa\u09a8\u09be\u09b0 \u0989\u09a4\u09cd\u09a4\u09b0',
+    autoSaved: '\u0985\u099f\u09cb-\u09b8\u09c7\u09ad \u09b9\u09af\u09bc\u09c7\u099b\u09c7',
+    words: '\u09b6\u09ac\u09cd\u09a6',
+    progress: (done: number, total: number) => `${done}/${total} \u099f\u09bf \u0989\u09a4\u09cd\u09a4\u09b0 \u09a6\u09c7\u0993\u09af\u09bc\u09be \u09b9\u09af\u09bc\u09c7\u099b\u09c7`,
+  },
+  en: {
+    writtenExam: 'Written Exam',
+    submit: 'Submit',
+    submitting: 'Submitting...',
+    submitted: 'Submitted!',
+    submittedDesc: 'Your written exam has been submitted successfully. Results will be available after your teacher evaluates your answers.',
+    backToExams: 'Back to Exams',
+    confirmTitle: 'Submit exam?',
+    confirmDesc: 'You cannot change your answers after submission.',
+    cancel: 'Cancel',
+    yesSubmit: 'Yes, Submit',
+    notLoggedIn: 'Please log in to take the exam',
+    goBack: 'Go Back',
+    answered: 'Answered',
+    marks: 'marks',
+    writeAnswer: 'Write your answer here...',
+    writePartAnswer: (p: string) => `Write your answer for part (${p})...`,
+    yourAnswer: 'Your Answer',
+    autoSaved: 'Auto-saved',
+    words: 'words',
+    progress: (done: number, total: number) => `${done}/${total} answered`,
+  },
+};
 
 function getStudentUserId(): string {
   if (typeof window === 'undefined') return '';
-  return localStorage.getItem(STUDENT_USER_ID_KEY) ?? '';
+  try {
+    const u = localStorage.getItem('user');
+    if (u) return JSON.parse(u).id || '';
+  } catch {}
+  return '';
 }
 
 export default function WrittenExamPage() {
@@ -124,6 +177,15 @@ export default function WrittenExamPage() {
     setSubmitted(true);
   };
 
+  const lang: Lang = examData?.exam?.language === 'en' ? 'en' : 'bn';
+  const ui = UI_STRINGS[lang];
+
+  // Count answered questions
+  const answeredCount = examData ? examData.questions.filter(eq =>
+    answers[eq.questionId] && Object.values(answers[eq.questionId]).some(v => v.trim())
+  ).length : 0;
+  const totalQuestions = examData?.questions.length ?? 0;
+
   // ─── Submitted ───────────────────────────────────────────────────────────
   if (submitted) {
     return (
@@ -133,11 +195,11 @@ export default function WrittenExamPage() {
             <CheckCircle2 className="h-9 w-9 text-emerald-600" />
           </div>
           <div>
-            <h1 className="text-xl font-black text-slate-900 mb-2">Submitted!</h1>
-            <p className="text-sm text-slate-500">Your written exam has been submitted successfully. Results will be available after your teacher evaluates your answers.</p>
+            <h1 className="text-xl font-black text-slate-900 mb-2">{ui.submitted}</h1>
+            <p className="text-sm text-slate-500">{ui.submittedDesc}</p>
           </div>
           <Button className="w-full h-12 rounded-2xl bg-indigo-600 text-white font-black" onClick={() => router.push('/student/exams')}>
-            Back to Exams
+            {ui.backToExams}
           </Button>
         </div>
       </div>
@@ -147,7 +209,10 @@ export default function WrittenExamPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+          <p className="text-sm font-bold text-slate-400 animate-pulse">{lang === 'bn' ? 'লোড হচ্ছে...' : 'Loading...'}</p>
+        </div>
       </div>
     );
   }
@@ -157,8 +222,8 @@ export default function WrittenExamPage() {
       <div className="min-h-screen flex items-center justify-center p-6">
         <div className="text-center space-y-3">
           <AlertCircle className="h-10 w-10 text-rose-500 mx-auto" />
-          <p className="font-black text-slate-800">{error ?? 'Exam not found'}</p>
-          <Button variant="outline" className="rounded-2xl" onClick={() => router.push('/student/exams')}>Go Back</Button>
+          <p className="font-black text-slate-800">{error ?? (lang === 'bn' ? 'পরীক্ষা পাওয়া যায়নি' : 'Exam not found')}</p>
+          <Button variant="outline" className="rounded-2xl" onClick={() => router.push('/student/exams')}>{ui.goBack}</Button>
         </div>
       </div>
     );
@@ -172,57 +237,82 @@ export default function WrittenExamPage() {
       <div className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm">
         <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Written Exam</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-violet-600 flex items-center gap-1">
+              <PenLine className="h-3 w-3" /> {ui.writtenExam}
+            </p>
             <h1 className="text-base font-black text-slate-900 truncate">{exam.title}</h1>
           </div>
-          <div className="flex items-center gap-4 shrink-0">
+          <div className="flex items-center gap-3 shrink-0">
+            <span className="text-[10px] font-bold text-slate-400 hidden sm:block">
+              {ui.progress(answeredCount, totalQuestions)}
+            </span>
             {timeLeft !== null && (
               <div className={cn(
                 'flex items-center gap-2 rounded-2xl px-4 py-2 font-black text-sm',
-                timeLeft < 300 ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-slate-100 text-slate-700'
+                timeLeft < 300 ? 'bg-rose-50 text-rose-700 border border-rose-200 animate-pulse' : 'bg-slate-100 text-slate-700'
               )}>
                 <Clock className="h-4 w-4" />
                 {formatTime(timeLeft)}
               </div>
             )}
             <Button
-              className="h-10 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs px-5"
+              className="h-10 rounded-2xl bg-violet-600 hover:bg-violet-700 text-white font-black text-xs px-5"
               onClick={() => setShowConfirm(true)}
             >
-              <Send className="h-3.5 w-3.5 mr-1.5" /> Submit
+              <Send className="h-3.5 w-3.5 mr-1.5" /> {ui.submit}
             </Button>
           </div>
         </div>
       </div>
 
+      {/* Progress bar */}
+      <div className="max-w-3xl mx-auto px-6 pt-6">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="flex-1 h-2 rounded-full bg-slate-200 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-violet-500 transition-all duration-500"
+              style={{ width: `${totalQuestions > 0 ? (answeredCount / totalQuestions) * 100 : 0}%` }}
+            />
+          </div>
+          <span className="text-xs font-bold text-slate-500 shrink-0">{ui.progress(answeredCount, totalQuestions)}</span>
+        </div>
+      </div>
+
       {/* Questions */}
-      <div className="max-w-3xl mx-auto px-6 py-8 space-y-4">
+      <div className="max-w-3xl mx-auto px-6 py-6 space-y-4">
         {questions.map((eq, qi) => {
           const qType = eq.question?.type;
           const isCQ = qType === 'CQ';
           const isExpanded = expandedQ[eq.questionId] ?? false;
-          const meta = eq.question?.meta as { parts?: Record<string, number> } | undefined;
+          const meta = eq.question?.meta as { parts?: Record<string, number>; banglaLabel?: string } | undefined;
           const parts = meta?.parts;
+          const hasAnswer = answers[eq.questionId] && Object.values(answers[eq.questionId]).some(v => v.trim());
 
           return (
-            <div key={eq.questionId} className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div key={eq.questionId} className={cn(
+              'rounded-2xl border bg-white shadow-sm overflow-hidden transition-all',
+              hasAnswer ? 'border-emerald-200' : 'border-slate-200',
+            )}>
               {/* Question header */}
               <button
                 type="button"
                 className="w-full flex items-center gap-4 px-6 py-4 text-left hover:bg-slate-50/80 transition-colors"
                 onClick={() => setExpandedQ(p => ({ ...p, [eq.questionId]: !isExpanded }))}
               >
-                <span className="h-8 w-8 rounded-xl bg-indigo-600 text-white text-xs font-black flex items-center justify-center shrink-0">{qi + 1}</span>
+                <span className={cn(
+                  'h-8 w-8 rounded-xl text-white text-xs font-black flex items-center justify-center shrink-0',
+                  hasAnswer ? 'bg-emerald-500' : 'bg-violet-600'
+                )}>{qi + 1}</span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <span className={cn(
                       'text-[9px] font-black uppercase px-2 py-0.5 rounded-lg border',
                       isCQ ? 'border-violet-200 text-violet-700 bg-violet-50' : 'border-blue-200 text-blue-700 bg-blue-50'
-                    )}>{isCQ ? 'CQ' : 'Single'}</span>
-                    <span className="text-xs text-slate-400">{Number(eq.marks)} marks</span>
-                    {answers[eq.questionId] && Object.values(answers[eq.questionId]).some(v => v.trim()) && (
+                    )}>{isCQ ? (lang === 'bn' ? 'সৃজনশীল' : 'CQ') : (lang === 'bn' ? 'লিখিত' : 'Written')}</span>
+                    <span className="text-xs text-slate-400">{Number(eq.marks)} {ui.marks}</span>
+                    {hasAnswer && (
                       <span className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
-                        <CheckCircle2 className="h-3 w-3" /> Answered
+                        <CheckCircle2 className="h-3 w-3" /> {ui.answered}
                       </span>
                     )}
                   </div>
@@ -234,24 +324,39 @@ export default function WrittenExamPage() {
               {/* Answer area */}
               {isExpanded && (
                 <div className="border-t border-slate-100 px-6 pb-6 pt-4 space-y-4">
-                  <div className="text-sm text-slate-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: eq.question?.prompt ?? '' }} />
+                  <div className="prose prose-sm max-w-none text-slate-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: eq.question?.prompt ?? '' }} />
+
+                  {/* Passage / stimulus if present */}
+                  {eq.question?.passage?.content && (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-amber-700 mb-2">{lang === 'bn' ? 'উদ্দীপক' : 'Stimulus'}</p>
+                      <div className="prose prose-sm max-w-none text-slate-700" dangerouslySetInnerHTML={{ __html: eq.question.passage.content }} />
+                    </div>
+                  )}
 
                   {isCQ ? (
                     <div className="space-y-4">
                       {CQ_PARTS.map(part => {
                         const maxM = parts?.[part];
                         if (!maxM) return null;
+                        const partLabel = lang === 'bn' ? BN_CQ_LABELS[part] || part : part;
+                        const wordCount = (answers[eq.questionId]?.[part] ?? '').trim().split(/\s+/).filter(Boolean).length;
                         return (
                           <div key={part} className="space-y-2">
-                            <label className="text-xs font-black uppercase text-slate-500 block">
-                              ({part}) — {maxM} marks
-                            </label>
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs font-black text-slate-600 block">
+                                ({partLabel}) — {maxM} {ui.marks}
+                              </label>
+                              {wordCount > 0 && (
+                                <span className="text-[10px] font-medium text-slate-400">{wordCount} {ui.words}</span>
+                              )}
+                            </div>
                             <textarea
                               rows={4}
                               value={answers[eq.questionId]?.[part] ?? ''}
                               onChange={e => onAnswerChange(eq.questionId, part, e.target.value)}
-                              placeholder={`Write your answer for part (${part})…`}
-                              className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:bg-white transition-all resize-none"
+                              placeholder={ui.writePartAnswer(part)}
+                              className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-300 focus:bg-white transition-all resize-y min-h-[100px]"
                             />
                           </div>
                         );
@@ -259,13 +364,19 @@ export default function WrittenExamPage() {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      <label className="text-xs font-black uppercase text-slate-500 block">Your Answer</label>
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-black text-slate-600 block">{ui.yourAnswer}</label>
+                        {(() => {
+                          const wc = (answers[eq.questionId]?.['text'] ?? '').trim().split(/\s+/).filter(Boolean).length;
+                          return wc > 0 ? <span className="text-[10px] font-medium text-slate-400">{wc} {ui.words}</span> : null;
+                        })()}
+                      </div>
                       <textarea
                         rows={6}
                         value={answers[eq.questionId]?.['text'] ?? ''}
                         onChange={e => onAnswerChange(eq.questionId, 'text', e.target.value)}
-                        placeholder="Write your answer here…"
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:bg-white transition-all resize-none"
+                        placeholder={ui.writeAnswer}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-300 focus:bg-white transition-all resize-y min-h-[140px]"
                       />
                     </div>
                   )}
@@ -284,13 +395,14 @@ export default function WrittenExamPage() {
               <div className="h-12 w-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
                 <Send className="h-6 w-6 text-amber-600" />
               </div>
-              <h2 className="font-black text-slate-900 text-lg">Submit exam?</h2>
-              <p className="text-sm text-slate-500 mt-1">You cannot change your answers after submission.</p>
+              <h2 className="font-black text-slate-900 text-lg">{ui.confirmTitle}</h2>
+              <p className="text-sm text-slate-500 mt-1">{ui.confirmDesc}</p>
+              <p className="text-xs font-bold text-violet-600 mt-2">{ui.progress(answeredCount, totalQuestions)}</p>
             </div>
             <div className="flex gap-3">
-              <Button variant="outline" className="flex-1 rounded-2xl font-black" onClick={() => setShowConfirm(false)}>Cancel</Button>
-              <Button className="flex-1 rounded-2xl bg-indigo-600 text-white font-black" onClick={handleSubmit} disabled={submitting}>
-                {submitting ? 'Submitting…' : 'Yes, Submit'}
+              <Button variant="outline" className="flex-1 rounded-2xl font-black" onClick={() => setShowConfirm(false)}>{ui.cancel}</Button>
+              <Button className="flex-1 rounded-2xl bg-violet-600 text-white font-black" onClick={handleSubmit} disabled={submitting}>
+                {submitting ? ui.submitting : ui.yesSubmit}
               </Button>
             </div>
           </div>

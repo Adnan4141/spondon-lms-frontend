@@ -11,11 +11,9 @@ import {
   type CreateExamDto,
   type UpdateExamDto,
 } from '@/types/exam';
-import { getBatches, type Batch } from '@/lib/api/batches';
 import { useModalStore } from '@/store/modalStore';
 import { useToast } from '@/hooks/use-toast';
 import type { Course } from '@/types/course';
-import type { Branch } from '@/lib/api/branches';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -27,8 +25,7 @@ import {
 } from '@/components/ui/select';
 import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { Switch } from '@/components/ui/switch';
-import { format } from 'date-fns';
-import { Calendar, Clock, BookOpen, MapPin, Layers, Settings2, ShieldCheck, Activity, Trophy, FileText, Eye } from 'lucide-react';
+import { Calendar, Clock, BookOpen, Layers, Settings2, ShieldCheck, Activity, Trophy, FileText, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const examTypeOptions: ExamType[] = ['PRACTICE', 'SCHEDULED', 'MODEL', 'TALENT_HUNT', 'UNIVERSITY'];
@@ -54,19 +51,19 @@ const sectionLabel = 'text-[11px] font-black uppercase tracking-[0.25em] text-sl
 
 interface ExamFormProps {
   courses: Course[];
-  branches: Branch[];
+  branches?: unknown;
   exam?: Exam | null;
   onSuccess: () => Promise<void>;
   /** Passed from teacher UI so the API can enforce assignment scope. */
   actingTeacherUserId?: string | null;
 }
 
-export function ExamForm({ courses, branches, exam, onSuccess, actingTeacherUserId }: ExamFormProps) {
+export function ExamForm({ courses, exam, onSuccess, actingTeacherUserId }: ExamFormProps) {
   const { closeModal } = useModalStore();
   const { toast } = useToast();
   const [form, setForm] = useState<CreateExamDto>({
     courseId: '',
-    branchId: '',
+    branchId: undefined,
     batchId: undefined,
     title: '',
     type: 'PRACTICE',
@@ -88,7 +85,6 @@ export function ExamForm({ courses, branches, exam, onSuccess, actingTeacherUser
     solveSheetScheduledAt: undefined,
     language: 'bn',
   });
-  const [batches, setBatches] = useState<Batch[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -98,14 +94,14 @@ export function ExamForm({ courses, branches, exam, onSuccess, actingTeacherUser
     if (exam) {
       setForm({
         courseId: exam.courseId,
-        branchId: exam.branchId,
+        branchId: exam.branchId || undefined,
         batchId: exam.batchId || undefined,
         title: exam.title,
         type: exam.type,
         examEngine: exam.examEngine ?? 'REGULAR',
         mode: exam.mode,
-        startAt: exam.startAt ? new Date(exam.startAt).toISOString().slice(0, 16) : '',
-        endAt: exam.endAt ? new Date(exam.endAt).toISOString().slice(0, 16) : '',
+        startAt: exam.startAt ? new Date(exam.startAt).toISOString() : '',
+        endAt: exam.endAt ? new Date(exam.endAt).toISOString() : '',
         durationMinutes: exam.durationMinutes || undefined,
         allowedAttempts: exam.allowedAttempts,
         status: exam.status,
@@ -123,23 +119,9 @@ export function ExamForm({ courses, branches, exam, onSuccess, actingTeacherUser
     }
   }, [exam]);
 
-  useEffect(() => {
-    const loadBatches = async () => {
-      if (form.courseId && form.branchId) {
-        try {
-          const res = await getBatches({ courseId: form.courseId, branchId: form.branchId });
-          if (res.success && res.data) setBatches(res.data);
-        } catch (err) { console.error(err); }
-      } else {
-        setBatches([]);
-      }
-    };
-    loadBatches();
-  }, [form.courseId, form.branchId]);
-
   const handleSubmit = async () => {
-    if (!form.title.trim() || !form.courseId || !form.branchId) {
-      setError('Title, Course, and Branch are required.');
+    if (!form.title.trim() || !form.courseId) {
+      setError('Title and Course are required.');
       return;
     }
 
@@ -320,11 +302,9 @@ export function ExamForm({ courses, branches, exam, onSuccess, actingTeacherUser
                 </div>
               )}
 
-              {(form.examEngine === 'TALENT_HUNT' ||
-                form.examEngine === 'MULTI_SUBJECT' ||
-                form.examEngine === 'OMR_BOOK') && (
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <label className={sectionLabel}>Total sets (optional)</label>
+                  <label className={sectionLabel}><Layers className="inline h-3 w-3 mr-1" /> Total Sets</label>
                   <Input
                     type="number"
                     className={inputClass}
@@ -335,9 +315,54 @@ export function ExamForm({ courses, branches, exam, onSuccess, actingTeacherUser
                         totalSets: e.target.value ? Number(e.target.value) : undefined,
                       }))
                     }
-                    placeholder="e.g., 4"
+                    placeholder="e.g., 4 (unlimited)"
                     min={1}
                   />
+                  <p className="text-[10px] font-medium text-slate-400">No upper limit — enter any number of sets.</p>
+                </div>
+                <div className="space-y-2">
+                  <label className={sectionLabel}><Settings2 className="inline h-3 w-3 mr-1" /> Marks per Question</label>
+                  <Input
+                    type="number"
+                    className={inputClass}
+                    value={(form.settings as any)?.marksPerQuestion ?? ''}
+                    onChange={(e) =>
+                      setForm((p) => ({
+                        ...p,
+                        settings: {
+                          ...(p.settings as any),
+                          marksPerQuestion: e.target.value ? Number(e.target.value) : undefined,
+                        },
+                      }))
+                    }
+                    placeholder="Default 1"
+                    min={0}
+                    step={0.5}
+                  />
+                </div>
+              </div>
+
+              {(form.mode === 'ONLINE' || form.examEngine === 'COMPETITIVE') && (
+                <div className="space-y-2">
+                  <label className={sectionLabel}>Negative Marking (per wrong MCQ)</label>
+                  <Input
+                    type="number"
+                    className={inputClass}
+                    value={(form.settings as any)?.negativeMarking ?? ''}
+                    onChange={(e) =>
+                      setForm((p) => ({
+                        ...p,
+                        settings: {
+                          ...(p.settings as any),
+                          negativeMarking: e.target.value ? Number(e.target.value) : undefined,
+                        },
+                      }))
+                    }
+                    placeholder="0 (no penalty)"
+                    min={0}
+                    step={0.25}
+                  />
+                  <p className="text-[10px] font-medium text-slate-400">Leave 0 for no negative marking. Common: 0.25, 0.5</p>
                 </div>
               )}
 
@@ -396,34 +421,6 @@ export function ExamForm({ courses, branches, exam, onSuccess, actingTeacherUser
                    </Select>
                 </div>
 
-                <div className="space-y-2">
-                   <label className={sectionLabel}><MapPin className="inline h-3 w-3 mr-1" /> Branch</label>
-                   <Select value={form.branchId} onValueChange={(v) => setForm((p) => ({ ...p, branchId: v, batchId: undefined }))}>
-                      <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
-                         <SelectValue placeholder="Select Branch" />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                         {branches.map(b => <SelectItem key={b.id} value={b.id} className="text-sm font-medium">{b.name}</SelectItem>)}
-                      </SelectContent>
-                   </Select>
-                </div>
-
-                <div className="space-y-2">
-                   <label className={sectionLabel}><Layers className="inline h-3 w-3 mr-1" /> Batch</label>
-                   <Select 
-                     value={form.batchId || 'all'} 
-                     onValueChange={(v) => setForm((p) => ({ ...p, batchId: v === 'all' ? undefined : v }))}
-                     disabled={!form.courseId || !form.branchId}
-                   >
-                      <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
-                         <SelectValue placeholder="All Batches" />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                         <SelectItem value="all" className="text-sm font-medium">All Batches</SelectItem>
-                         {batches.map(b => <SelectItem key={b.id} value={b.id} className="text-sm font-medium">{b.name}</SelectItem>)}
-                      </SelectContent>
-                   </Select>
-                </div>
 
                 <div className="grid grid-cols-2 gap-4">
                    <div className="space-y-2">
@@ -492,9 +489,11 @@ export function ExamForm({ courses, branches, exam, onSuccess, actingTeacherUser
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400 mb-2">Exam Setup Guide</p>
                 <ul className="space-y-2 text-sm font-medium text-slate-300">
                   <li>• <strong className="text-white">ONLINE</strong> — Browser exam: MCQ auto-graded; CQ (written) typed and pending teacher marks</li>
-                  <li>• <strong className="text-white">OFFLINE</strong> — Hall exam: PDF includes MCQ + written parts; portal shows download + instructions</li>
+                  <li>• <strong className="text-white">OFFLINE</strong> — Hall exam: PDF download; teacher uploads scanned answer sheets</li>
+                  <li>• <strong className="text-white">WRITTEN</strong> — Online written: students type answers; teacher evaluates per question</li>
                   <li>• <strong className="text-white">TALENT HUNT</strong> — Multiple sets, mixed subjects</li>
                   <li>• <strong className="text-white">UNIVERSITY</strong> — Model test style sets</li>
+                  <li>• <strong className="text-white">Sets</strong> — Unlimited N sets supported (A-Z, then Set 1, Set 2…)</li>
                 </ul>
              </div>
           </div>

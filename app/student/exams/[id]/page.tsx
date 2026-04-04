@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { startExamAttempt, getAttemptResult, getExamStudentView, getExamPdfDownloadUrl } from '@/lib/api/exams';
 import type { StartAttemptResponse, AttemptResultResponse, ExamStudentView } from '@/types/exam';
 import { ExamTakingView } from '@/components/student/exam-window/ExamTakingView';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Timer, AlertTriangle, CheckCircle2, Loader2, Eye, Trophy, XCircle, Building2, Download, FileText, PenLine } from 'lucide-react';
+import { Timer, AlertTriangle, CheckCircle2, Loader2, Eye, Trophy, XCircle, Building2, Download, FileText, PenLine, CalendarClock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 import {
@@ -17,7 +17,7 @@ import {
   type Lang,
 } from '@/components/student/exam-window/examUiCopy';
 
-type Phase = 'loading' | 'offline' | 'exam' | 'result';
+type Phase = 'loading' | 'waiting' | 'offline' | 'exam' | 'result';
 
 export default function StudentExamTakingPage() {
   const router = useRouter();
@@ -31,6 +31,8 @@ export default function StudentExamTakingPage() {
 
   const [attemptData, setAttemptData] = useState<StartAttemptResponse | null>(null);
   const [result, setResult] = useState<AttemptResultResponse | null>(null);
+  const [countdown, setCountdown] = useState('');
+  const waitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const shellLang: Lang = examMeta?.language === 'en' ? 'en' : 'bn';
   const baseUi = getExamUiStrings(shellLang);
@@ -64,6 +66,12 @@ export default function StudentExamTakingPage() {
           return;
         }
 
+        // Check if startAt is in the future — show waiting screen
+        if (viewRes.data.startAt && new Date(viewRes.data.startAt) > new Date()) {
+          setPhase('waiting');
+          return;
+        }
+
         const res = await startExamAttempt(examId, user.id);
         if (res.success && res.data) {
           setAttemptData(res.data);
@@ -77,6 +85,76 @@ export default function StudentExamTakingPage() {
     };
     run();
   }, [examId, router]);
+
+  // Countdown ticker for waiting phase
+  useEffect(() => {
+    if (phase !== 'waiting' || !examMeta?.startAt) return;
+    const tick = () => {
+      const diff = new Date(examMeta.startAt!).getTime() - Date.now();
+      if (diff <= 0) {
+        setCountdown('');
+        // Auto-start when time arrives
+        startExamAttempt(examId, userId).then((res) => {
+          if (res.success && res.data) {
+            setAttemptData(res.data);
+            setPhase('exam');
+          } else {
+            setError(res.message || 'পরীক্ষা শুরু করা যায়নি');
+            setPhase('loading');
+          }
+        });
+        return;
+      }
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      setCountdown(
+        h > 0
+          ? `${h} ঘণ্টা ${String(m).padStart(2, '0')} মিনিট ${String(s).padStart(2, '0')} সেকেন্ড`
+          : `${m} মিনিট ${String(s).padStart(2, '0')} সেকেন্ড`,
+      );
+      waitTimerRef.current = setTimeout(tick, 1000);
+    };
+    tick();
+    return () => { if (waitTimerRef.current) clearTimeout(waitTimerRef.current); };
+  }, [phase, examMeta, examId, userId]);
+
+  // Waiting — exam not started yet
+  if (phase === 'waiting' && examMeta) {
+    const startDate = new Date(examMeta.startAt!);
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-white">
+        <div className="text-center space-y-6 max-w-md px-6">
+          <div className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-indigo-100 mx-auto">
+            <CalendarClock className="h-10 w-10 text-indigo-600" />
+          </div>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-400 mb-1">আসন্ন পরীক্ষা</p>
+            <h1 className="text-2xl font-black text-slate-900">{examMeta.title}</h1>
+          </div>
+          <div className="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-6">
+            <p className="text-xs font-bold text-slate-500 mb-1">পরীক্ষা শুরু হবে</p>
+            <p className="text-base font-black text-indigo-800">
+              {startDate.toLocaleString('bn-BD', { dateStyle: 'full', timeStyle: 'short' })}
+            </p>
+          </div>
+          {countdown && (
+            <div className="rounded-2xl bg-slate-900 text-white px-8 py-5">
+              <p className="text-[9px] font-black uppercase tracking-[0.25em] text-slate-400 mb-1">বাকি সময়</p>
+              <p className="text-2xl font-black tabular-nums">{countdown}</p>
+            </div>
+          )}
+          <p className="text-sm font-medium text-slate-500">নির্ধারিত সময়ে স্বয়ংক্রিয়ভাবে পরীক্ষা শুরু হবে।</p>
+          <button
+            onClick={() => router.push('/student/exams')}
+            className="text-sm font-bold text-indigo-600 underline underline-offset-2"
+          >
+            পরীক্ষার তালিকায় ফিরুন
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Loading state
   if (phase === 'loading') {

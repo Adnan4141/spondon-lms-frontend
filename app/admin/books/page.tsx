@@ -415,6 +415,14 @@ export default function BooksPage() {
               Sales History
             </Button>
             <Button
+              variant="outline"
+              className="h-12 rounded-2xl border-slate-200 bg-white px-6 font-black uppercase tracking-widest text-[10px] text-violet-600 hover:bg-violet-50 transition-all shadow-sm border-violet-200"
+              onClick={() => window.location.href = '/admin/books/orders'}
+            >
+              <ArrowRight className="mr-2 h-4 w-4" />
+              Online Orders
+            </Button>
+            <Button
               className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95"
               onClick={() => setCreateDialogOpen(true)}
             >

@@ -78,6 +78,23 @@ export async function generateMonthlyInvoices(body?: {
   });
 }
 
+export type PaymentMethod = 'CASH' | 'BKASH' | 'BANK' | 'GATEWAY';
+
+export interface CreatePaymentDto {
+  invoiceId: string;
+  method: PaymentMethod;
+  amount: number;
+  trxId?: string;
+  receivedByUserId?: string;
+}
+
+export async function createPayment(data: CreatePaymentDto): Promise<ApiResponse<unknown>> {
+  return apiRequest<ApiResponse<unknown>>('/payments', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
 export async function cancelMonthlyEnrollment(
   enrollmentId: string,
   body?: { reason?: string; settleInvoices?: boolean }

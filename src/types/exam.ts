@@ -84,7 +84,7 @@ export interface ExamCourseLink {
 export interface Exam {
   id: string;
   courseId: string;
-  branchId: string;
+  branchId?: string | null;
   batchId?: string | null;
   title: string;
   type: ExamType;
@@ -330,5 +330,6 @@ export interface WrittenQuestionWithAnswer {
     answer: Record<string, string>;  // { text: 'answer' } for single; { a: '...', b: '...' } for CQ
     obtainedMarks?: number | null;
     evaluations: WrittenEvaluation[];
+    scanUrls?: string[] | null;
   } | null;
 }

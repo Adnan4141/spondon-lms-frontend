@@ -160,7 +160,7 @@ export function ExamBlueprintPanel({
           <div>
             <h3 className="text-sm font-semibold text-slate-900 tracking-tight">Auto-build question sets</h3>
             <p className="text-sm text-slate-500 mt-1 max-w-xl">
-              Pick courses, MCQ numbers (passage vs single), written (CQ or short), and how many sets (A, B, …). This replaces all current sets when you build.
+              Pick courses, MCQ numbers (passage vs single), written (CQ or short), and any number of sets. This replaces all current sets when you build.
             </p>
           </div>
         </div>
@@ -172,14 +172,13 @@ export function ExamBlueprintPanel({
 
       <div className="grid gap-4 sm:grid-cols-3 mb-6">
         <div>
-          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Sets (max 26)</label>
+          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Number of Sets</label>
           <Input
             type="number"
             min={1}
-            max={26}
             className="h-11 rounded-xl"
             value={sets}
-            onChange={(e) => setSets(Math.min(26, Math.max(1, Number(e.target.value) || 1)))}
+            onChange={(e) => setSets(Math.max(1, Number(e.target.value) || 1))}
           />
         </div>
         <div>

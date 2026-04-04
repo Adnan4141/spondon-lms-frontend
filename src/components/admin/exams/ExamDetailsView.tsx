@@ -54,6 +54,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { ExamQuestionBuilder } from './ExamQuestionBuilder';
 import { ExamLeaderboard } from './ExamLeaderboard';
 import { WrittenEvaluationPanel } from './WrittenEvaluationPanel';
+import { AnswerSheetUploadPanel } from './AnswerSheetUploadPanel';
 import { ExamCoursesPanel } from './ExamCoursesPanel';
 import { OmrSheetPreview } from './OmrSheetPreview';
 import { OmrGradingPanel } from './OmrGradingPanel';
@@ -164,7 +165,8 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
     | 'results'
     | 'merit'
     | 'leaderboard'
-    | 'evaluate';
+    | 'evaluate'
+    | 'answer-sheets';
 
   const [activeTab, setActiveTab] = useState<TabId>('info');
   const [exam, setExam] = useState(initialExam);
@@ -346,6 +348,9 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
     ...(exam.mode === 'WRITTEN'
       ? [{ id: 'evaluate' as const, label: 'Evaluate', icon: PencilLine }]
       : []),
+    ...(exam.mode === 'OFFLINE'
+      ? [{ id: 'answer-sheets' as const, label: 'Answer Sheets', icon: FileSearch }]
+      : []),
   ];
 
   const startLabel = formatDateTime(exam.startAt) ?? 'Open when published';
@@ -449,11 +454,13 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
                             {exam.course?.name ?? '—'}
                           </span>
                         </span>
-                        <span className="inline-flex items-center gap-1.5">
-                          <MapPin className="h-3.5 w-3.5 text-rose-500 shrink-0" />
-                          {exam.branch?.name ?? '—'}
-                        </span>
-                        {exam.batch?.name ? (
+                        {!(exam.mode === 'ONLINE' && !exam.branchId) ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            <MapPin className="h-3.5 w-3.5 text-rose-500 shrink-0" />
+                            {exam.branch?.name ?? '—'}
+                          </span>
+                        ) : null}
+                        {!(exam.mode === 'ONLINE' && !exam.branchId) && exam.batch?.name ? (
                           <span className="inline-flex items-center gap-1.5">
                             <Layers className="h-3.5 w-3.5 text-amber-500 shrink-0" />
                             {exam.batch.name}
@@ -971,6 +978,11 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
           ) : activeTab === 'evaluate' ? (
             <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <WrittenEvaluationPanel examId={exam.id} teacherUserId="admin" />
+            </div>
+
+          ) : activeTab === 'answer-sheets' ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <AnswerSheetUploadPanel examId={exam.id} />
             </div>
 
           ) : (

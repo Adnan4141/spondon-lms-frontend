@@ -298,57 +298,102 @@ export function ExamTakingView({
   const ui = getExamUiStrings(currentLang);
 
   const activeSectionIdx = sections.findIndex((s) => s.questionIndices.includes(currentIndex));
+  const [showNav, setShowNav] = useState(false);
+  const progressPct = totalQuestions > 0 ? (answeredCount / totalQuestions) * 100 : 0;
+
+  // Keyboard shortcuts: 1-4 for options, left/right for nav
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return;
+      if (e.key === 'ArrowLeft' && currentIndex > 0) setCurrentIndex(p => p - 1);
+      if (e.key === 'ArrowRight' && currentIndex < totalQuestions - 1) setCurrentIndex(p => p + 1);
+      const opts = currentQ?.question?.options;
+      if (opts && opts.length > 0) {
+        const num = parseInt(e.key);
+        if (num >= 1 && num <= opts.length) {
+          handleSelectOption(currentQ.questionId, opts[num - 1].id);
+        }
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [currentIndex, totalQuestions, currentQ, handleSelectOption]);
 
   return (
     <div className="fixed inset-0 z-50 flex bg-white">
-      <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between bg-white border-b border-slate-200 px-6 py-3 shadow-sm">
-        <div className="flex items-center gap-4 min-w-0">
-          <h1 className="text-lg font-black text-slate-900 truncate max-w-[300px]">{attemptData.exam.title}</h1>
-          <Badge variant="outline" className="text-[9px] font-black uppercase shrink-0">
-            {attemptData.setName}
-          </Badge>
-          {examFlow === 'MIXED' ? (
-            <Badge variant="outline" className="text-[9px] font-black uppercase shrink-0 border-violet-200 text-violet-700">
-              Mixed
-            </Badge>
-          ) : null}
-        </div>
-
-        <div className="flex items-center gap-4 shrink-0">
-          {lastSavedAt ? (
-            <span className="text-[10px] font-bold text-slate-400 hidden sm:inline">
-              {ui.lastSaved}: {new Date(lastSavedAt).toLocaleTimeString()}
-            </span>
-          ) : null}
-          {timeLeft !== null && (
-            <div
-              className={cn(
-                'flex items-center gap-2 rounded-xl px-4 py-2 font-mono text-lg font-black',
-                isTimeLow ? 'bg-rose-50 text-rose-600 animate-pulse' : 'bg-slate-100 text-slate-700',
-              )}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-slate-200 shadow-sm">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              type="button"
+              className="lg:hidden h-9 w-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50"
+              onClick={() => setShowNav(p => !p)}
             >
-              <Timer className="h-4 w-4" />
-              {formatTime(timeLeft)}
-            </div>
-          )}
-          <div className="flex items-center gap-2 rounded-xl bg-indigo-50 px-4 py-2">
-            <CheckCircle2 className="h-4 w-4 text-indigo-500" />
-            <span className="text-sm font-black text-indigo-700">
-              {answeredCount}/{totalQuestions}
-            </span>
+              <span className="text-xs font-black">{currentIndex + 1}</span>
+            </button>
+            <h1 className="text-base sm:text-lg font-black text-slate-900 truncate max-w-[200px] sm:max-w-[300px]">{attemptData.exam.title}</h1>
+            <Badge variant="outline" className="text-[9px] font-black uppercase shrink-0 hidden sm:inline-flex">
+              {attemptData.setName}
+            </Badge>
+            {examFlow === 'MIXED' ? (
+              <Badge variant="outline" className="text-[9px] font-black uppercase shrink-0 border-violet-200 text-violet-700 hidden sm:inline-flex">
+                Mixed
+              </Badge>
+            ) : null}
           </div>
-          <Button
-            className="h-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-wider text-[10px] px-6"
-            onClick={() => setShowSubmitConfirm(true)}
-            disabled={submitting}
-          >
-            <Send className="h-3.5 w-3.5 mr-2" /> {ui.submit}
-          </Button>
+
+          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+            {lastSavedAt ? (
+              <span className="text-[10px] font-bold text-slate-400 hidden md:inline">
+                {ui.lastSaved}: {new Date(lastSavedAt).toLocaleTimeString()}
+              </span>
+            ) : null}
+            {timeLeft !== null && (
+              <div
+                className={cn(
+                  'flex items-center gap-2 rounded-xl px-3 sm:px-4 py-2 font-mono text-sm sm:text-lg font-black',
+                  isTimeLow ? 'bg-rose-50 text-rose-600 animate-pulse' : 'bg-slate-100 text-slate-700',
+                )}
+              >
+                <Timer className="h-4 w-4" />
+                {formatTime(timeLeft)}
+              </div>
+            )}
+            <div className="flex items-center gap-2 rounded-xl bg-indigo-50 px-3 sm:px-4 py-2">
+              <CheckCircle2 className="h-4 w-4 text-indigo-500" />
+              <span className="text-xs sm:text-sm font-black text-indigo-700">
+                {answeredCount}/{totalQuestions}
+              </span>
+            </div>
+            <Button
+              className="h-9 sm:h-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-wider text-[10px] px-4 sm:px-6"
+              onClick={() => setShowSubmitConfirm(true)}
+              disabled={submitting}
+            >
+              <Send className="h-3.5 w-3.5 sm:mr-2" />
+              <span className="hidden sm:inline">{ui.submit}</span>
+            </Button>
+          </div>
+        </div>
+        {/* Progress bar */}
+        <div className="h-1 bg-slate-100">
+          <div
+            className="h-full bg-indigo-500 transition-all duration-500"
+            style={{ width: `${progressPct}%` }}
+          />
         </div>
       </div>
 
-      <div className="flex flex-1 pt-[60px]">
-        <div className="w-64 border-r border-slate-200 bg-slate-50 p-4 overflow-y-auto">
+      <div className="flex flex-1 pt-[65px]">
+        {/* Mobile nav overlay */}
+        {showNav && (
+          <div className="fixed inset-0 z-[55] bg-black/30 lg:hidden" onClick={() => setShowNav(false)} />
+        )}
+        <div className={cn(
+          'w-64 border-r border-slate-200 bg-slate-50 p-4 overflow-y-auto shrink-0 transition-transform duration-200',
+          'fixed lg:relative inset-y-0 left-0 z-[56] pt-[70px] lg:pt-0',
+          showNav ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
+        )}>
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3">{ui.questionNavigation}</p>
           <div className="grid grid-cols-5 gap-2">
             {questions.map((q, idx) => {
@@ -619,7 +664,9 @@ export function ExamTakingView({
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-white/90">
           <div className="flex flex-col items-center gap-4">
             <Loader2 className="h-14 w-14 animate-spin text-indigo-600" />
-            <p className="text-lg font-bold text-slate-600">Submitting…</p>
+            <p className="text-lg font-bold text-slate-600">
+              {examBaseLang === 'bn' ? '\u099c\u09ae\u09be \u09b9\u099a\u09cd\u099b\u09c7...' : 'Submitting\u2026'}
+            </p>
           </div>
         </div>
       ) : null}

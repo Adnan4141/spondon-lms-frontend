@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { BookOpen, ArrowRight, Layers, ListVideo, Star } from 'lucide-react';
+import { BookOpen, ArrowRight, Layers, ListVideo, Star, FileText, Download } from 'lucide-react';
 import { getCourseContentsWithProgress } from '@/lib/api/student-portal';
 import { getCourseById } from '@/lib/api/courses';
 import type { CourseDetails } from '@/types/course';
@@ -18,6 +18,7 @@ interface ContentItem {
   id: string;
   type: string;
   title: string;
+  fileUrl?: string | null;
   subjectTitle?: string | null;
   chapterTitle?: string | null;
   topicTitle?: string;
@@ -112,6 +113,12 @@ export default function StudentCourseHubPage() {
     }));
   }, [contents]);
 
+  const syllabusItems = useMemo(() => {
+    return contents.filter((c) => c.type === 'SYLLABUS');
+  }, [contents]);
+
+  const API_ORIGIN = process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/?$/, '') || 'http://localhost:5000';
+
   const courseProgress = useMemo(() => {
     const videos = contents.filter((c) => c.type === 'VIDEO');
     if (!videos.length) return 0;
@@ -164,10 +171,49 @@ export default function StudentCourseHubPage() {
         </div>
       </div>
 
+      {syllabusItems.length > 0 && (
+        <div>
+          <h2 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-2">
+            <FileText className="h-5 w-5 text-emerald-500" />
+            সিলেবাস
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {syllabusItems.map((item) => {
+              const url = item.fileUrl
+                ? item.fileUrl.startsWith('http') ? item.fileUrl : `${API_ORIGIN}${item.fileUrl}`
+                : null;
+              return (
+                <div
+                  key={item.id}
+                  className="rounded-2xl border border-emerald-100 bg-emerald-50/30 p-5 flex items-start gap-4"
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-bold text-slate-900 line-clamp-2">{item.title}</h3>
+                    {url && (
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition-colors"
+                      >
+                        <Download className="h-3.5 w-3.5" /> ডাউনলোড
+                      </a>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div>
         <h2 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-2">
           <Layers className="h-5 w-5 text-indigo-500" />
-          বিষয়সমূহ
+          বিষয়সমূহ
         </h2>
         {subjectRows.length === 0 ? (
           <Card className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50">

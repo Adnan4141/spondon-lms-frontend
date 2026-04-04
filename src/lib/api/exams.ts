@@ -80,13 +80,41 @@ export async function addQuestionsToSet(data: {
   questionIds?: string[];
   folderId?: string;
   count?: number;
+  shuffleQuestions?: boolean;
+  autoSetCount?: number;
   cqCount?: number;
   mcqSingleCount?: number;
   mcqPassageCount?: number;
   marks?: number;
   negativeMarks?: number;
-}): Promise<ApiResponse<any>> {
-  return apiRequest<ApiResponse<any>>('/exams/sets/questions', {
+}): Promise<
+  ApiResponse<{
+    addedCount: number;
+    skippedDuplicates?: number;
+    generatedSetCount?: number;
+    generatedSetNames?: string[];
+    perSet?: Array<{
+      setId: string;
+      setName: string;
+      addedCount: number;
+      skippedDuplicates: number;
+    }>;
+  }>
+> {
+  return apiRequest<
+    ApiResponse<{
+      addedCount: number;
+      skippedDuplicates?: number;
+      generatedSetCount?: number;
+      generatedSetNames?: string[];
+      perSet?: Array<{
+        setId: string;
+        setName: string;
+        addedCount: number;
+        skippedDuplicates: number;
+      }>;
+    }>
+  >('/exams/sets/questions', {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -257,6 +285,41 @@ export async function finalizeWrittenEvaluation(examId: string, attemptId: strin
   return apiRequest<ApiResponse<any>>(`/exams/${examId}/written-attempts/${attemptId}/finalize`, {
     method: 'POST',
   });
+}
+
+// Offline Answer Sheet Upload APIs
+export async function uploadAnswerSheet(
+  examId: string,
+  data: { attemptId: string; questionId: string; files: File[] },
+): Promise<ApiResponse<{ answerId: string; scanUrls: string[] }>> {
+  const formData = new FormData();
+  formData.append('attemptId', data.attemptId);
+  formData.append('questionId', data.questionId);
+  data.files.forEach((f) => formData.append('files', f));
+  return apiRequest<ApiResponse<{ answerId: string; scanUrls: string[] }>>(
+    `/exams/${examId}/answer-sheets/upload`,
+    { method: 'POST', body: formData },
+  );
+}
+
+export async function removeAnswerSheetScan(
+  examId: string,
+  data: { attemptId: string; questionId: string; scanUrl: string },
+): Promise<ApiResponse<{ scanUrls: string[] }>> {
+  return apiRequest<ApiResponse<{ scanUrls: string[] }>>(
+    `/exams/${examId}/answer-sheets/remove-scan`,
+    { method: 'POST', body: JSON.stringify(data) },
+  );
+}
+
+export async function createOfflineAttempt(
+  examId: string,
+  studentUserId: string,
+): Promise<ApiResponse<{ attemptId: string }>> {
+  return apiRequest<ApiResponse<{ attemptId: string }>>(
+    `/exams/${examId}/offline-attempts`,
+    { method: 'POST', body: JSON.stringify({ studentUserId }) },
+  );
 }
 
 export async function getExamCourseLinks(examId: string): Promise<ApiResponse<ExamCourseLink[]>> {
