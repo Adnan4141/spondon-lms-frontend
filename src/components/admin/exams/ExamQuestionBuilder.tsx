@@ -69,7 +69,6 @@ export function ExamQuestionBuilder({ examId, exam, sets, onRefresh }: ExamQuest
   const [pdfLoadingSetId, setPdfLoadingSetId] = useState<string | null>(null);
   const [offlineSheetSet, setOfflineSheetSet] = useState<ExamSet | null>(null);
 
-  const [shuffleQuestions, setShuffleQuestions] = useState(false);
   const [autoSetCount, setAutoSetCount] = useState<number>(1);
 
   const [builderMode, setBuilderMode] = useState<'manual' | 'auto'>('manual');
@@ -101,8 +100,17 @@ export function ExamQuestionBuilder({ examId, exam, sets, onRefresh }: ExamQuest
   const requestedCount = useDistribution
     ? cqCount + mcqSingleCount + mcqPassageCount
     : count;
+  const defaultBaseSetName = useMemo(() => {
+    const used = new Set((sets || []).map((s) => s.name?.trim()).filter(Boolean));
+    for (let i = 0; i < 26; i++) {
+      const candidate = String.fromCharCode(65 + i); // A, B, C...
+      if (!used.has(candidate)) return candidate;
+    }
+    return `Set ${sets.length + 1}`;
+  }, [sets]);
+
   const canAddQuestions =
-    Boolean(selectedSetId) &&
+    (builderMode === 'auto' || Boolean(selectedSetId)) &&
     Boolean(folderId) &&
     Number.isFinite(marks) &&
     marks > 0 &&
@@ -122,8 +130,8 @@ export function ExamQuestionBuilder({ examId, exam, sets, onRefresh }: ExamQuest
   };
 
   const handleAddQuestions = async () => {
-    if (!selectedSetId || !folderId) {
-      toast({ title: 'Select a set and folder', variant: 'destructive' });
+    if (!folderId) {
+      toast({ title: 'Select a folder', variant: 'destructive' });
       return;
     }
 
@@ -141,11 +149,27 @@ export function ExamQuestionBuilder({ examId, exam, sets, onRefresh }: ExamQuest
       return;
     }
 
+    let baseSetId = selectedSetId;
+    // In auto mode, allow generating sets without pre-selecting: create a base set on the fly
+    if (builderMode === 'auto' && !baseSetId) {
+      const createRes = await createExamSet({ examId, name: defaultBaseSetName });
+      if (!createRes.success || !createRes.data?.id) {
+        toast({ title: 'Could not create base set', description: createRes.message, variant: 'destructive' });
+        return;
+      }
+      baseSetId = createRes.data.id;
+      setSelectedSetId(baseSetId);
+    }
+
+    if (!baseSetId) {
+      toast({ title: 'Select or create a set', variant: 'destructive' });
+      return;
+    }
+
     const res = await addQuestionsToSet({
-      examSetId: selectedSetId,
+      examSetId: baseSetId,
       folderId,
       count: !useDistribution ? count : undefined,
-      shuffleQuestions: builderMode === 'auto' ? shuffleQuestions : false,
       autoSetCount: builderMode === 'auto' ? Math.max(1, autoSetCount) : 1,
       cqCount: useDistribution ? cqCount : undefined,
       mcqSingleCount: useDistribution ? mcqSingleCount : undefined,
@@ -397,7 +421,7 @@ export function ExamQuestionBuilder({ examId, exam, sets, onRefresh }: ExamQuest
             onChange={(e) => setNewSetName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleCreateSet()}
           />
-          <Button type="button" onClick={handleCreateSet} className="w-full">
+          <Button type="button" onClick={handleCreateSet} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white">
             Create set
           </Button>
         </div>
@@ -414,7 +438,7 @@ export function ExamQuestionBuilder({ examId, exam, sets, onRefresh }: ExamQuest
               'flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold transition-colors',
               builderMode === 'manual'
                 ? 'bg-indigo-600 text-white'
-                : 'bg-white text-slate-500 hover:bg-slate-50',
+                : 'bg-slate-600 text-white hover:bg-slate-700',
             )}
           >
             <PencilLine className="h-4 w-4 shrink-0" />
@@ -427,7 +451,7 @@ export function ExamQuestionBuilder({ examId, exam, sets, onRefresh }: ExamQuest
               'flex items-center justify-center gap-2 border-l border-slate-200 px-4 py-3 text-sm font-semibold transition-colors',
               builderMode === 'auto'
                 ? 'bg-indigo-600 text-white border-indigo-600'
-                : 'bg-white text-slate-500 hover:bg-slate-50',
+                : 'bg-slate-600 text-white hover:bg-slate-700',
             )}
           >
             <Wand2 className="h-4 w-4 shrink-0" />
@@ -452,8 +476,7 @@ export function ExamQuestionBuilder({ examId, exam, sets, onRefresh }: ExamQuest
               <p className="text-xs text-slate-400">
                 Picks the same question pool and distributes it into{' '}
                 <span className="font-bold text-indigo-600">{Math.max(1, autoSetCount)} set{autoSetCount > 1 ? 's' : ''}</span>{' '}
-                starting from <span className="font-bold text-indigo-600">{currentSet?.name ?? '—'}</span>.
-                {autoSetCount > 1 && ' Additional sets are named automatically (B, C, D…).'}
+                with single-letter names (A, B, C…). Skips existing letters.
               </p>
             </div>
           )}
@@ -479,18 +502,18 @@ export function ExamQuestionBuilder({ examId, exam, sets, onRefresh }: ExamQuest
             <div className="flex gap-2">
               <Button
                 type="button"
-                variant={!useDistribution ? 'default' : 'outline'}
+                variant="default"
                 size="sm"
-                className="rounded-lg"
+                className={cn('rounded-lg text-white', !useDistribution ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-slate-600 hover:bg-slate-700')}
                 onClick={() => setUseDistribution(false)}
               >
                 Random count
               </Button>
               <Button
                 type="button"
-                variant={useDistribution ? 'default' : 'outline'}
+                variant="default"
                 size="sm"
-                className="rounded-lg"
+                className={cn('rounded-lg text-white', useDistribution ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-slate-600 hover:bg-slate-700')}
                 onClick={() => setUseDistribution(true)}
               >
                 By type
@@ -550,7 +573,7 @@ export function ExamQuestionBuilder({ examId, exam, sets, onRefresh }: ExamQuest
             />
           </div>
 
-          {/* Auto-mode only: N sets + shuffle */}
+          {/* Auto-mode only: N sets */}
           {builderMode === 'auto' && (
             <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-4 space-y-4">
               <h3 className="text-xs font-black uppercase tracking-widest text-indigo-500">Auto-generate options</h3>
@@ -569,21 +592,15 @@ export function ExamQuestionBuilder({ examId, exam, sets, onRefresh }: ExamQuest
                   className="rounded-lg border-indigo-200 bg-white"
                 />
                 <p className="text-[10px] text-slate-400">
-                  Creates sets named <span className="font-semibold">{currentSet?.name ?? 'Set'}</span>,{' '}
-                  <span className="font-semibold">{currentSet?.name ?? 'Set'} B</span>,{' '}
-                  <span className="font-semibold">{currentSet?.name ?? 'Set'} C</span>… (max 26)
+                  Creates sets named <span className="font-semibold">A</span>,{' '}
+                  <span className="font-semibold">B</span>,{' '}
+                  <span className="font-semibold">C</span>… (max 26). Skips existing letters.
                 </p>
               </div>
 
-              <div className="flex items-center justify-between rounded-lg border border-indigo-100 bg-white px-3 py-2.5">
-                <div>
-                  <p className="text-sm font-semibold text-slate-700">Shuffle per set</p>
-                  <p className="text-[11px] text-slate-400">Each set gets a unique question order</p>
-                </div>
-                <Checkbox
-                  checked={shuffleQuestions}
-                  onCheckedChange={(v) => setShuffleQuestions(!!v)}
-                />
+              <div className="rounded-lg border border-indigo-100 bg-white px-3 py-2.5">
+                <p className="text-xs font-semibold text-slate-700">✨ Questions are automatically shuffled per set</p>
+                <p className="mt-0.5 text-[11px] text-slate-400">Each set gets a unique randomized question order</p>
               </div>
             </div>
           )}
@@ -607,7 +624,7 @@ export function ExamQuestionBuilder({ examId, exam, sets, onRefresh }: ExamQuest
               'w-full font-semibold',
               builderMode === 'auto'
                 ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                : '',
+                : 'bg-indigo-600 hover:bg-indigo-700 text-white',
             )}
             disabled={!canAddQuestions}
           >
@@ -742,13 +759,14 @@ export function ExamQuestionBuilder({ examId, exam, sets, onRefresh }: ExamQuest
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setImportOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => setImportOpen(false)} className="text-white bg-slate-600 hover:bg-slate-700 border-slate-600">
               Cancel
             </Button>
             <Button
               type="button"
               onClick={runImport}
               disabled={importBusy || !sourceExamId || !sourceSetId || !selectedSetId}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
             >
               {importBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Import

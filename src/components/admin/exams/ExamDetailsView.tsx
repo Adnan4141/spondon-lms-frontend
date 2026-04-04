@@ -3,7 +3,6 @@
 import type { ComponentType, ReactNode } from 'react';
 import { Exam } from '@/types/exam';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
   Calendar,
@@ -199,6 +198,14 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
     return { mcq, cq, total: mcq + cq };
   }, [exam.sets]);
 
+  const setsCount = useMemo(() => {
+    return (exam.sets?.length ?? exam._count?.sets ?? 0);
+  }, [exam.sets, exam._count]);
+
+  const attemptsCount = useMemo(() => {
+    return (exam._count?.attempts ?? (exam.attempts?.length ?? 0));
+  }, [exam._count, exam.attempts]);
+
   // ── OMR / offline state ──────────────────────────────────────────────────
 
   const [omrScans, setOmrScans] = useState<OmrScan[]>([]);
@@ -367,6 +374,14 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const on = activeTab === tab.id;
+            const count =
+              tab.id === 'questions'
+                ? setsCount
+                : tab.id === 'results'
+                ? attemptsCount
+                : tab.id === 'omr'
+                ? omrScans.length
+                : undefined;
             return (
               <button
                 key={tab.id}
@@ -381,6 +396,16 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
               >
                 <Icon className="h-3.5 w-3.5 shrink-0" />
                 {tab.label}
+                {typeof count === 'number' ? (
+                  <span
+                    className={cn(
+                      'ml-1.5 inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-semibold tabular-nums',
+                      on ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700',
+                    )}
+                  >
+                    {count}
+                  </span>
+                ) : null}
               </button>
             );
           })}
@@ -399,7 +424,7 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
               {/* Hero card */}
               <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                 {/* Header */}
-                <div className="bg-gradient-to-br from-indigo-50 via-white to-violet-50 px-5 py-5 sm:px-6">
+                <div className="bg-linear-to-br from-indigo-50 via-white to-violet-50 px-5 py-5 sm:px-6">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     {/* Left: title + meta */}
                     <div className="min-w-0 space-y-2.5">
