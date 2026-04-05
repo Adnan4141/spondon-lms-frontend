@@ -373,10 +373,37 @@ export async function unlinkBookFromCourse(courseId: string, bookId: string): Pr
   });
 }
 
-export async function addBookCollaborator(data: { bookId: string; userId: string; role: string }): Promise<ApiResponse<BookCollaborator>> {
+export async function addBookCollaborator(data: {
+  bookId: string;
+  userId: string;
+  role: string;
+  revenueSharePercent?: number;
+}): Promise<ApiResponse<BookCollaborator>> {
   return apiRequest<ApiResponse<BookCollaborator>>('/books/collaborator', {
     method: 'POST',
     body: JSON.stringify(data),
+  });
+}
+
+export type BulkCollaboratorItem = {
+  userId: string;
+  role: string;
+  revenueSharePercent?: number;
+};
+
+export type BulkCollaboratorResult = {
+  success: boolean;
+  message: string;
+  data: { userId: string; success: boolean; error?: string }[];
+};
+
+export async function addBookCollaboratorsBulk(
+  bookId: string,
+  collaborators: BulkCollaboratorItem[],
+): Promise<ApiResponse<BulkCollaboratorResult>> {
+  return apiRequest<ApiResponse<BulkCollaboratorResult>>(`/books/${encodeURIComponent(bookId)}/collaborators/bulk`, {
+    method: 'POST',
+    body: JSON.stringify({ collaborators }),
   });
 }
 

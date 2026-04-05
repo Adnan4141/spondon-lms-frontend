@@ -20,7 +20,8 @@ import {
 import { getPrograms } from '@/lib/api/programs';
 import { getCourses } from '@/lib/api/courses';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Globe2, Upload, Sparkles, GraduationCap, BookOpen } from 'lucide-react';
+import { getBooks } from '@/lib/api/books';
+import { Globe2, Upload, Sparkles, GraduationCap, BookOpen, Library } from 'lucide-react';
 
 const PARTNER_TYPES = [
   'MEDIA',
@@ -79,27 +80,35 @@ export function PartnerAdminForm({
   const [courseOptions, setCourseOptions] = useState<{ id: string; name: string }[]>([]);
   const [selectedProgramIds, setSelectedProgramIds] = useState<Set<string>>(new Set());
   const [selectedCourseIds, setSelectedCourseIds] = useState<Set<string>>(new Set());
+  const [selectedBookIds, setSelectedBookIds] = useState<Set<string>>(new Set());
+  const [bookOptions, setBookOptions] = useState<{ id: string; name: string; sku: string }[]>([]);
+  const [revenueSharePercent, setRevenueSharePercent] = useState<string>(String(existing?.revenueSharePercent ?? ''));
 
   useEffect(() => {
     const p = new Set<string>();
     const c = new Set<string>();
     existing?.partnerPrograms?.forEach((x) => p.add(x.program.id));
     existing?.partnerCourses?.forEach((x) => c.add(x.course.id));
+    const bk = new Set<string>();
+    existing?.partnerBooks?.forEach((x) => bk.add(x.bookId));
     setSelectedProgramIds(p);
     setSelectedCourseIds(c);
+    setSelectedBookIds(bk);
   }, [existing?.id]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [pr, cr] = await Promise.all([
+        const [pr, cr, br] = await Promise.all([
           getPrograms(),
           getCourses({ limit: 500 }),
+          getBooks({ limit: 500 }),
         ]);
         if (cancelled) return;
         if (pr.success && pr.data) setProgramOptions(pr.data.map((x) => ({ id: x.id, name: x.name })));
         if (cr.success && cr.data) setCourseOptions(cr.data.map((x) => ({ id: x.id, name: x.name })));
+        if (br.success && br.data) setBookOptions(br.data.map((x) => ({ id: x.id, name: x.name, sku: x.sku })));
       } catch {
         /* ignore */
       }
@@ -135,6 +144,8 @@ export function PartnerAdminForm({
 
       fd.append('programIds', JSON.stringify([...selectedProgramIds]));
       fd.append('courseIds', JSON.stringify([...selectedCourseIds]));
+      fd.append('bookIds', JSON.stringify([...selectedBookIds]));
+      if (revenueSharePercent.trim()) fd.append('revenueSharePercent', revenueSharePercent.trim());
 
       if (existing) {
         await updatePartner(existing.id, fd);
@@ -293,7 +304,23 @@ export function PartnerAdminForm({
           />
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
+        {/* REVENUE SHARE */}
+        <div>
+          <label className="text-xs font-semibold text-slate-700">Revenue Share (%)</label>
+          <Input
+            type="number"
+            min="0"
+            max="100"
+            step="0.01"
+            className="mt-1 h-12 rounded-xl border-slate-200 focus:ring-2 focus:ring-indigo-400"
+            placeholder="e.g. 15 (optional)"
+            value={revenueSharePercent}
+            onChange={(e) => setRevenueSharePercent(e.target.value)}
+          />
+          <p className="text-xs text-slate-400 mt-1">Optional. Defines partner's share of book/course revenue.</p>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-3">
           <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
             <div className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-indigo-600">
               <GraduationCap className="h-4 w-4" />
@@ -356,11 +383,47 @@ export function PartnerAdminForm({
               )}
             </div>
           </div>
+
+          {/* Books */}
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
+            <div className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-indigo-600">
+              <Library className="h-4 w-4" />
+              Books (collaboration)
+            </div>
+            <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
+              {bookOptions.length === 0 ? (
+                <p className="text-xs text-slate-400">No books loaded</p>
+              ) : (
+                bookOptions.map((b) => (
+                  <label
+                    key={b.id}
+                    className="flex cursor-pointer items-center gap-3 rounded-lg border border-transparent px-2 py-2 hover:bg-white"
+                  >
+                    <Checkbox
+                      checked={selectedBookIds.has(b.id)}
+                      onCheckedChange={(checked) => {
+                        setSelectedBookIds((prev) => {
+                          const next = new Set(prev);
+                          if (checked) next.add(b.id);
+                          else next.delete(b.id);
+                          return next;
+                        });
+                      }}
+                    />
+                    <div className="min-w-0">
+                      <span className="text-sm font-medium text-slate-800 truncate block">{b.name}</span>
+                      <span className="text-[10px] text-slate-400 font-mono">{b.sku}</span>
+                    </div>
+                  </label>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
       {/* ACTION BAR */}
-      <div className="fixed bottom-0 left-0 w-full bg-white/90 backdrop-blur border-t border-slate-200 p-4 flex justify-end gap-3 z-50">
+      <div className="sticky bottom-0 bg-white/90 backdrop-blur border-t border-slate-200 p-4 flex justify-end gap-3 z-10 mt-8">
         <Button
           variant="ghost"
           onClick={onCancel}

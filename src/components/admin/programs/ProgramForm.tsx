@@ -155,7 +155,7 @@ export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
       <div className="flex-1 min-h-0 overflow-y-auto px-8 py-8 no-scrollbar">
         <div className="space-y-8">
           <div className="space-y-2">
-            <label className={sectionLabel}>Program Identity</label>
+            <label className={sectionLabel}>Program name</label>
             <Input
               className={inputClass}
               value={form.name}
@@ -165,7 +165,7 @@ export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
           </div>
 
           <div className="space-y-2">
-            <label className={sectionLabel}>Program thumbnail</label>
+            <label className={sectionLabel}>Program image (optional)</label>
             <div className="flex items-start gap-4">
               {thumbnailPreview ? (
                 <div className="relative shrink-0 group">
@@ -197,7 +197,7 @@ export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
                     <>
                       <Upload className="h-8 w-8 text-slate-300" />
                       <span className="text-sm font-bold text-slate-500">
-                        {thumbnailPreview ? 'Change image' : 'Upload cover image'}
+                        {thumbnailPreview ? 'Change image' : 'Upload program image'}
                       </span>
                       <span className="text-[10px] text-slate-400">
                         JPEG, PNG, WebP · max 5MB
@@ -218,12 +218,12 @@ export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
           </div>
 
           <div className="space-y-2">
-            <label className={sectionLabel}>Description & Scope</label>
+            <label className={sectionLabel}>Description (optional)</label>
             <textarea
               value={form.description}
               onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
               rows={8}
-              placeholder="Outline the program objectives and academic goals..."
+              placeholder="Write a short description of this program..."
               className={textareaClass}
             />
           </div>
@@ -244,14 +244,14 @@ export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
             className="flex-1 h-12 rounded-2xl border-slate-200 bg-white font-black uppercase tracking-[0.2em] text-[11px] text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-all"
             onClick={closeModal}
           >
-            Discard
+            Cancel
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={submitting}
-            className="flex-[2] h-12 rounded-2xl bg-slate-900 font-black uppercase tracking-[0.2em] text-[11px] text-white shadow-xl shadow-slate-200 hover:bg-indigo-600 hover:scale-[1.02] active:scale-95 transition-all"
+            className="flex-2 h-12 rounded-2xl bg-slate-900 font-black uppercase tracking-[0.2em] text-[11px] text-white shadow-xl shadow-slate-200 hover:bg-indigo-600 hover:scale-[1.02] active:scale-95 transition-all"
           >
-            {submitting ? 'Processing...' : isEdit ? 'Update Changes' : 'Launch Program'}
+            {submitting ? 'Saving...' : isEdit ? 'Save changes' : 'Create program'}
           </Button>
         </div>
       </div>

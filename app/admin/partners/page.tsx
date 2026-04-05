@@ -17,8 +17,15 @@ import { Toaster } from '@/components/ui/toast';
 import { useModalStore } from '@/store/modalStore';
 import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
 import { PartnerAdminForm } from '@/components/admin/partners/PartnerAdminForm';
-import { deletePartner, getAllPartners, patchPartner, type PartnerAdmin } from '@/lib/api/partners';
+import { deletePartner, getAllPartners, patchPartner, getPartnerRevenueSummary, type PartnerAdmin, type PartnerRevenueSummary } from '@/lib/api/partners';
 import { API_ORIGIN } from '@/lib/api';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Pencil,
   Plus,
@@ -31,6 +38,7 @@ import {
   Link2,
   ExternalLink,
   Search,
+  BarChart3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -50,6 +58,10 @@ export default function AdminPartnersPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [revenuePartner, setRevenuePartner] = useState<PartnerAdmin | null>(null);
+  const [revenueSummary, setRevenueSummary] = useState<PartnerRevenueSummary | null>(null);
+  const [revenueLoading, setRevenueLoading] = useState(false);
+  const [showRevenueDialog, setShowRevenueDialog] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -260,8 +272,12 @@ export default function AdminPartnersPage() {
                 </TableCell>
                 <TableCell className="py-5">
                   <span className="text-xs font-bold text-slate-600">
-                    {(p.partnerPrograms?.length ?? 0) + (p.partnerCourses?.length ?? 0) > 0
-                      ? `${p.partnerPrograms?.length ?? 0} prog · ${p.partnerCourses?.length ?? 0} course`
+                    {(p.partnerPrograms?.length ?? 0) + (p.partnerCourses?.length ?? 0) + (p.partnerBooks?.length ?? 0) > 0
+                      ? [
+                          p.partnerPrograms?.length ? `${p.partnerPrograms.length} prog` : '',
+                          p.partnerCourses?.length ? `${p.partnerCourses.length} course` : '',
+                          p.partnerBooks?.length ? `${p.partnerBooks.length} book` : '',
+                        ].filter(Boolean).join(' · ')
                       : '—'}
                   </span>
                 </TableCell>
@@ -279,6 +295,25 @@ export default function AdminPartnersPage() {
                 </TableCell>
                 <TableCell className="px-8 py-5 text-right">
                   <div className="flex justify-end gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-9 rounded-xl border-slate-200 bg-white px-3 text-[10px] font-black uppercase tracking-widest text-emerald-600 shadow-sm transition-all hover:border-emerald-600 hover:bg-emerald-600 hover:text-white"
+                      onClick={async () => {
+                        setRevenuePartner(p);
+                        setRevenueSummary(null);
+                        setShowRevenueDialog(true);
+                        setRevenueLoading(true);
+                        try {
+                          const res = await getPartnerRevenueSummary(p.id);
+                          if (res.success && res.data) setRevenueSummary(res.data);
+                        } finally {
+                          setRevenueLoading(false);
+                        }
+                      }}
+                    >
+                      <BarChart3 className="mr-1 h-3.5 w-3.5" /> Revenue
+                    </Button>
                     <Button
                       size="sm"
                       variant="outline"
@@ -312,6 +347,45 @@ export default function AdminPartnersPage() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Partner Revenue Summary Dialog */}
+      <Dialog open={showRevenueDialog} onOpenChange={setShowRevenueDialog}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Revenue Summary — {revenuePartner?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            {revenueLoading ? (
+              <p className="text-sm text-muted-foreground text-center py-6">Loading...</p>
+            ) : revenueSummary ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-xl bg-slate-50 border p-3">
+                    <p className="text-xs text-slate-500">Gross Course & Book Revenue</p>
+                    <p className="text-lg font-bold">৳{Number(revenueSummary.totalSales || 0).toLocaleString()}</p>
+                  </div>
+                  <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-3">
+                    <p className="text-xs text-slate-500">Partner Share ({revenueSummary.revenueSharePercent ?? 0}%)</p>
+                    <p className="text-lg font-bold text-emerald-700">৳{Number(revenueSummary.partnerShare).toLocaleString()}</p>
+                  </div>
+                </div>
+                <div className="flex gap-4">
+                  <p className="text-xs text-slate-500">{revenueSummary.courseCount} associated course(s)</p>
+                  <p className="text-xs text-slate-500">{revenueSummary.bookCount} associated book(s)</p>
+                </div>
+                <p className="text-xs text-slate-400">
+                  Period: {revenueSummary.from ? new Date(revenueSummary.from).toLocaleDateString() : 'All time'} – {revenueSummary.to ? new Date(revenueSummary.to).toLocaleDateString() : 'now'}
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500 text-center py-4">No revenue data.</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRevenueDialog(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

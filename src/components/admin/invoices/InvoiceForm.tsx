@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { z } from 'zod';
 import { createInvoice, updateInvoice } from '@/lib/api/invoices';
 import { useModalStore } from '@/store/modalStore';
 import { useToast } from '@/hooks/use-toast';
@@ -26,8 +27,57 @@ const inputClass =
   'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
 const sectionLabel = 'text-[11px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2 block px-1';
 
-const itemTypeOptions: InvoiceItemType[] = ['COURSE', 'BOOK', 'FEE', 'OTHER'];
-const statusOptions: InvoiceStatus[] = ['DRAFT', 'ISSUED', 'PAID', 'PARTIAL', 'CANCELLED', 'SETTLED'];
+// Keep these in sync with backend Prisma enums InvoiceItemType and InvoiceStatus
+const itemTypeOptions: InvoiceItemType[] = ['COURSE', 'BOOK', 'FEE', 'ADMISSION_FEE', 'OTHER'];
+const statusOptions: InvoiceStatus[] = ['DRAFT', 'ISSUED', 'PAID', 'PARTIAL', 'CANCELLED'];
+
+const invoiceItemSchema = z.object({
+  type: z.enum(itemTypeOptions),
+  title: z
+    .string()
+    .trim()
+    .min(1, 'Each item needs a title.'),
+  qty: z
+    .number()
+    .min(1, 'Quantity must be at least 1.'),
+  unitPrice: z
+    .number()
+    .min(0, 'Unit price cannot be negative.'),
+});
+
+const invoiceCreateSchema = z.object({
+  studentUserId: z
+    .string()
+    .min(1, 'Select a student.'),
+  branchId: z
+    .string()
+    .min(1, 'Select a branch.'),
+  month: z.string().optional(),
+  status: z.enum(statusOptions),
+  discountAmount: z
+    .number()
+    .min(0, 'Discount cannot be negative.')
+    .optional(),
+  scholarshipAmount: z
+    .number()
+    .min(0, 'Scholarship cannot be negative.')
+    .optional(),
+  items: z
+    .array(invoiceItemSchema)
+    .min(1, 'Add at least one item to the invoice.'),
+});
+
+const invoiceUpdateSchema = z.object({
+  status: z.enum(statusOptions),
+  discountAmount: z
+    .number()
+    .min(0, 'Discount cannot be negative.')
+    .optional(),
+  scholarshipAmount: z
+    .number()
+    .min(0, 'Scholarship cannot be negative.')
+    .optional(),
+});
 
 interface InvoiceFormProps {
   branches: Branch[];
@@ -93,37 +143,73 @@ export function InvoiceForm({ branches, students, invoice, onSuccess }: InvoiceF
   };
 
   const handleSubmit = async () => {
-    if (!isEdit && (!form.studentUserId || !form.branchId || items.length === 0)) {
-      setError('Student, branch, and at least one item are required.');
+    if (isEdit && invoice) {
+      const payload: UpdateInvoiceDto = {
+        status: form.status,
+        discountAmount: form.discountAmount,
+        scholarshipAmount: form.scholarshipAmount,
+      };
+
+      const parsed = invoiceUpdateSchema.safeParse(payload);
+      if (!parsed.success) {
+        const message = parsed.error.issues.map((i) => i.message).join(' ');
+        setError(message);
+        return;
+      }
+
+      try {
+        setSubmitting(true);
+        setError(null);
+        await updateInvoice(invoice.id, parsed.data);
+
+        toast({
+          title: 'Success',
+          description: 'Invoice updated successfully.',
+          variant: 'success',
+        });
+
+        closeModal();
+        await onSuccess();
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Processing failed';
+        setError(msg);
+        toast({ title: 'Error', description: msg, variant: 'destructive' });
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
+    const createPayload: CreateInvoiceDto = {
+      ...form,
+      items,
+    };
+
+    const parsed = invoiceCreateSchema.safeParse(createPayload);
+    if (!parsed.success) {
+      const message = parsed.error.issues.map((i) => i.message).join(' ');
+      setError(message);
       return;
     }
 
     try {
       setSubmitting(true);
       setError(null);
-      
-      if (isEdit && invoice) {
-        const payload: UpdateInvoiceDto = {
-          status: form.status,
-          discountAmount: form.discountAmount,
-          scholarshipAmount: form.scholarshipAmount,
-        };
-        await updateInvoice(invoice.id, payload);
-      } else {
-        await createInvoice({ ...form, items });
-      }
-      
+
+      await createInvoice(parsed.data);
+
       toast({
         title: 'Success',
-        description: `Invoice ${isEdit ? 'updated' : 'initialized'} successfully`,
+        description: 'Invoice created successfully.',
         variant: 'success',
       });
-      
+
       closeModal();
       await onSuccess();
-    } catch (err: any) {
-      setError(err.message || 'Processing failed');
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Processing failed';
+      setError(msg);
+      toast({ title: 'Error', description: msg, variant: 'destructive' });
     } finally {
       setSubmitting(false);
     }

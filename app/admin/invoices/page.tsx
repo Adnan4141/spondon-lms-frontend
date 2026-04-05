@@ -61,7 +61,7 @@ import { generateMonthlyInvoices } from '@/lib/api/invoices';
 import { MonthPicker } from '@/components/ui/month-picker';
 import { cn } from '@/lib/utils';
 
-const statusOptions: (InvoiceStatus | 'all')[] = ['all', 'DRAFT', 'ISSUED', 'PAID', 'PARTIAL', 'CANCELLED', 'SETTLED'];
+const statusOptions: (InvoiceStatus | 'all')[] = ['all', 'DRAFT', 'ISSUED', 'PAID', 'PARTIAL', 'CANCELLED'];
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -73,7 +73,6 @@ function getStatusBadgeClass(status: string) {
   if (status === 'PARTIAL') return 'bg-amber-50 text-amber-700 border-amber-100 font-black';
   if (status === 'ISSUED') return 'bg-blue-50 text-blue-700 border-blue-100 font-black';
   if (status === 'CANCELLED') return 'bg-rose-50 text-rose-700 border-rose-100 font-black';
-  if (status === 'SETTLED') return 'bg-indigo-50 text-indigo-700 border-indigo-100 font-black';
   return 'bg-slate-50 text-slate-600 border-slate-200 font-black';
 }
 

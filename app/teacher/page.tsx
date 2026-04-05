@@ -291,7 +291,7 @@ export default function TeacherDashboardPage() {
                       </div>
                       <h4 className="mt-1 truncate text-lg font-black text-slate-900">{slot.course?.name}</h4>
                       <p className="truncate text-xs font-bold text-slate-500">
-                        {slot.batch?.name} {slot.room ? `• Room: ${slot.room}` : ''}
+                        {slot.batch?.name}
                       </p>
                     </div>
                     <Button size="sm" variant="ghost" className="rounded-xl font-black text-[10px] uppercase tracking-widest text-indigo-600 hover:bg-indigo-50" asChild>

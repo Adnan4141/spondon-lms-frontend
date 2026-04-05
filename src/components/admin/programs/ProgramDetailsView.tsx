@@ -160,8 +160,8 @@ export function ProgramDetailsView({ program: initialProgram }: ProgramDetailsVi
                   <p className="text-sm font-medium text-slate-400 uppercase tracking-widest mt-1">Manage courses associated with this program</p>
                </div>
                {!showLinkForm && (
-                 <Button onClick={() => setShowLinkForm(true)} className="h-10 rounded-xl bg-slate-900 font-black uppercase tracking-widest text-[10px]">
-                    <Plus className="mr-2 h-4 w-4" /> Embed Course
+                 <Button onClick={() => setShowLinkForm(true)} className="h-10 text-white rounded-xl bg-slate-900 font-black uppercase tracking-widest text-[10px]">
+                    <Plus className="mr-2 h-4 w-4 text-white" /> Embed Course
                  </Button>
                )}
             </div>

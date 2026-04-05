@@ -80,8 +80,8 @@ export default function ProgramsPage() {
       const response = await getProgramById(programId);
       if (response.success && response.data) {
         openModal({
-          title: 'Program Details',
-          description: 'View program details.',
+          title: 'Program details',
+          description: 'See basic info about this program.',
           className: 'sm:max-w-4xl',
           content: <ProgramDetailsView program={response.data} />,
         });
@@ -96,8 +96,8 @@ export default function ProgramsPage() {
       const response = await getProgramById(programId);
       if (response.success && response.data) {
         openModal({
-          title: 'Update Program',
-          description: 'Modify program identity and description.',
+          title: 'Edit program',
+          description: 'Change the name, description or image.',
           className: 'sm:max-w-2xl',
           content: <ProgramForm program={response.data} onSuccess={loadPrograms} />,
         });
@@ -108,9 +108,9 @@ export default function ProgramsPage() {
   };
 
   const handleCreateProgram = () => {
-        openModal({
-          title: 'Create Program',
-          description: 'Add a new program.',
+    openModal({
+      title: 'Add program',
+      description: 'Create a new program for your courses.',
       className: 'sm:max-w-2xl',
       content: <ProgramForm onSuccess={loadPrograms} />,
     });
@@ -118,13 +118,13 @@ export default function ProgramsPage() {
 
   const handleDeleteProgram = async (id: string) => {
     openModal({
-      title: 'Program Deletion',
-      description: 'Are you sure you want to permanently remove this academic program? All associated course linkages will be impacted.',
+      title: 'Delete program',
+      description: 'This will delete the program. Courses themselves will not be removed.',
       className: 'sm:max-w-xl',
       content: (
         <ConfirmationModal
-          title="Confirm Deletion"
-          description="Permanently purging this program from the institutional registry."
+          title="Confirm delete"
+          description="This action cannot be undone."
           variant="danger"
           onConfirm={async () => {
             try {

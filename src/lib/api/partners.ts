@@ -17,12 +17,19 @@ export interface PartnerLinkedCourse {
   course: { id: string; name: string; slug?: string | null };
 }
 
+export interface PartnerLinkedBook {
+  bookId: string;
+  book: { id: string; name: string; sku: string };
+}
+
 export interface PartnerAdmin extends Partner {
   isActive: boolean;
   sortOrder: number;
+  revenueSharePercent?: number | null;
   createdAt: string;
   partnerPrograms?: PartnerLinkedProgram[];
   partnerCourses?: PartnerLinkedCourse[];
+  partnerBooks?: PartnerLinkedBook[];
 }
 
 export async function getPublicPartners(): Promise<{ success: boolean; data: Partner[] }> {
@@ -60,4 +67,27 @@ export async function patchPartner(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
+}
+
+export interface PartnerRevenueSummary {
+  partnerId: string;
+  partnerName: string;
+  revenueSharePercent: number | null;
+  from: string | null;
+  to: string | null;
+  totalSales: number;
+  partnerShare: number;
+  courseCount: number;
+  bookCount: number;
+}
+
+export async function getPartnerRevenueSummary(
+  partnerId: string,
+  params?: { from?: string; to?: string },
+): Promise<{ success: boolean; data?: PartnerRevenueSummary; message?: string }> {
+  const q = new URLSearchParams();
+  if (params?.from) q.append('from', params.from);
+  if (params?.to) q.append('to', params.to);
+  const qs = q.toString();
+  return apiRequest(`/partners/${encodeURIComponent(partnerId)}/revenue${qs ? `?${qs}` : ''}`);
 }

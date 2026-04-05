@@ -29,6 +29,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
   Table,
   TableBody,
   TableCell,
@@ -271,23 +277,23 @@ export function QuestionsPageInner({ initialTab = 'MCQ' as QuestionTabId }) {
     }
   }
 
-  const handlePrimaryCreateAction = () => {
+  const handleCreateAction = (tab: QuestionTabId) => {
     const folderId = activeFolderId;
-    if (activeTab === 'CQ') {
+    if (tab === 'CQ') {
       openModal({
         title: 'Add CQ',
         description: 'Create a creative question with sub-parts.',
         className: 'sm:max-w-6xl',
         content: <CqForm folders={folders} initialFolderId={folderId} onSuccess={loadQuestions} />,
       });
-    } else if (activeTab === 'SINGLE') {
+    } else if (tab === 'SINGLE') {
       openModal({
         title: 'Add Short Question',
         description: 'Create a short / open-ended question.',
         className: 'sm:max-w-5xl',
         content: <SingleQuestionForm folders={folders} initialFolderId={folderId} onSuccess={loadQuestions} />,
       });
-    } else if (activeTab === 'MCQ') {
+    } else if (tab === 'MCQ') {
       openModal({
         title: 'Add MCQ',
         description: 'Create a multiple choice question.',
@@ -371,30 +377,9 @@ export function QuestionsPageInner({ initialTab = 'MCQ' as QuestionTabId }) {
 
   return (
     <div className="space-y-8 text-slate-900">
-      <div className="flex flex-col lg:flex-row gap-8 min-h-[70vh]">
-        {/* Sidebar */}
-        <aside className="w-full lg:w-64 shrink-0 space-y-2">
-          {[
-            { id: 'MCQ', label: 'MCQs' },
-            { id: 'COMBINED', label: 'Combined MCQs' },
-            { id: 'CQ', label: 'Creative Questions (CQ)' },
-            { id: 'SINGLE', label: 'Short Questions' },
-          ].map((tab) => (
-            <div key={tab.id}>
-              <button
-                onClick={() => setActiveTab(tab.id as QuestionTabId)}
-                className={cn(
-                  "w-full text-left px-5 py-3 rounded-2xl text-sm font-bold transition-all",
-                  activeTab === tab.id ? "bg-indigo-50 text-indigo-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                )}
-              >
-                {tab.label}
-              </button>
-            </div>
-          ))}
-        </aside>
+      <div className="flex flex-col gap-8 min-h-[70vh]">
         {/* Content */}
-        <div className="flex-1 min-w-0 space-y-6">
+        <div className="flex-1 min-w-0 space-y-6 w-full">
           {/* Breadcrumbs and Actions */}
           <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-3xl border border-slate-200/60 shadow-sm">
             <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
@@ -426,23 +411,65 @@ export function QuestionsPageInner({ initialTab = 'MCQ' as QuestionTabId }) {
               <Button variant="outline" onClick={handleCreateFolder} className="h-10 rounded-xl bg-white border-slate-200 text-slate-700 font-bold hover:bg-slate-50 shadow-sm">
                 <FolderPlus className="mr-2 h-4 w-4" /> New folder
               </Button>
-              <Button onClick={handlePrimaryCreateAction} className="h-10 rounded-xl bg-slate-900 text-white font-bold hover:bg-slate-800 shadow-sm">
-                <Plus className="mr-2 h-4 w-4" />
-                {activeTab === 'CQ' ? 'New CQ' : activeTab === 'MCQ' ? 'New MCQ' : activeTab === 'SINGLE' ? 'New Short Question' : 'New Combined MCQ'}
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button className="h-10 rounded-xl bg-slate-900 text-white font-bold hover:bg-slate-800 shadow-sm px-4">
+                    <Plus className="mr-2 h-4 w-4" />
+                    New Question
+                    <ChevronDown className="ml-2 h-4 w-4 opacity-70" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 rounded-xl border-slate-200/60 shadow-sm p-1">
+                  <DropdownMenuItem onClick={() => handleCreateAction('MCQ')} className="font-medium cursor-pointer rounded-lg px-3 py-2.5 text-slate-700 focus:bg-slate-50 focus:text-slate-900">
+                    <div className="flex flex-col">
+                      <span>Multiple Choice (MCQ)</span>
+                      <span className="text-xs text-slate-400 font-normal mt-0.5">Single question with options</span>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleCreateAction('COMBINED')} className="font-medium cursor-pointer rounded-lg px-3 py-2.5 text-slate-700 focus:bg-slate-50 focus:text-slate-900">
+                    <div className="flex flex-col">
+                      <span>Combined MCQ</span>
+                      <span className="text-xs text-slate-400 font-normal mt-0.5">A passage with linked MCQs</span>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleCreateAction('CQ')} className="font-medium cursor-pointer rounded-lg px-3 py-2.5 text-slate-700 focus:bg-slate-50 focus:text-slate-900">
+                    <div className="flex flex-col">
+                      <span>Creative Question (CQ)</span>
+                      <span className="text-xs text-slate-400 font-normal mt-0.5">Stimulus with sub-parts</span>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleCreateAction('SINGLE')} className="font-medium cursor-pointer rounded-lg px-3 py-2.5 text-slate-700 focus:bg-slate-50 focus:text-slate-900">
+                    <div className="flex flex-col">
+                      <span>Short Question</span>
+                      <span className="text-xs text-slate-400 font-normal mt-0.5">Open-ended text answer</span>
+                    </div>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
           {/* Toolbar */}
           <div className="flex flex-wrap items-center gap-4 bg-white p-3 rounded-2xl border border-slate-200/60 shadow-sm">
-            <div className="relative flex-1 min-w-[300px]">
+            <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
-                placeholder="Search by name or question prompt..."
+                placeholder="Search by name or question..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="h-10 pl-9 border-none bg-slate-50/50 rounded-xl focus-visible:ring-0 focus-visible:ring-offset-0 text-sm font-medium"
               />
             </div>
+            <Select value={activeTab} onValueChange={(v) => setActiveTab(v as QuestionTabId)}>
+              <SelectTrigger className="h-10 w-[220px] border-none bg-slate-50/50 rounded-xl text-sm font-medium">
+                <SelectValue placeholder="Question Type" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border-slate-200/60 shadow-sm">
+                <SelectItem value="MCQ" className="rounded-lg">Multiple Choice (MCQ)</SelectItem>
+                <SelectItem value="COMBINED" className="rounded-lg">Combined MCQs</SelectItem>
+                <SelectItem value="CQ" className="rounded-lg">Creative Questions (CQ)</SelectItem>
+                <SelectItem value="SINGLE" className="rounded-lg">Short Questions</SelectItem>
+              </SelectContent>
+            </Select>
             <Select value={difficultyFilter} onValueChange={(v) => setDifficultyFilter(v as any)}>
               <SelectTrigger className="h-10 w-[140px] border-none bg-slate-50/50 rounded-xl text-sm font-medium">
                 <SelectValue placeholder="Difficulty" />
@@ -608,7 +635,15 @@ export function QuestionsPageInner({ initialTab = 'MCQ' as QuestionTabId }) {
                         );
                       })}
                       {currentFolderSubfolders.length === 0 && passages.length === 0 && (
-                        <div className="py-20 text-center text-slate-400 text-sm font-medium">Directory is empty.</div>
+                        <div className="py-20 flex flex-col items-center justify-center space-y-4">
+                          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-50 border border-slate-100 text-slate-300">
+                            <Search className="h-6 w-6" />
+                          </div>
+                          <div className="text-center space-y-1">
+                            <p className="text-slate-600 font-bold">No questions found</p>
+                            <p className="text-slate-400 text-sm font-medium">This directory is empty or nothing matches your search.</p>
+                          </div>
+                        </div>
                       )}
                     </div>
                   ) : (
@@ -859,7 +894,15 @@ export function QuestionsPageInner({ initialTab = 'MCQ' as QuestionTabId }) {
                       </>
                       )}
                       {currentFolderSubfolders.length === 0 && filteredQuestions.length === 0 && (
-                        <div className="py-20 text-center text-slate-400 text-sm font-medium">Directory is empty.</div>
+                        <div className="py-20 flex flex-col items-center justify-center space-y-4">
+                          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-50 border border-slate-100 text-slate-300">
+                            <Search className="h-6 w-6" />
+                          </div>
+                          <div className="text-center space-y-1">
+                            <p className="text-slate-600 font-bold">No questions found</p>
+                            <p className="text-slate-400 text-sm font-medium">This directory is empty or nothing matches your search.</p>
+                          </div>
+                        </div>
                       )}
                     </>
                   )}

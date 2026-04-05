@@ -82,7 +82,7 @@ export function LinkCourseForm({ programId, onSuccess, onCancel }: LinkCourseFor
           disabled={loading || !selectedCourseId}
           className="flex-1 h-12 rounded-2xl bg-slate-900 hover:bg-indigo-600 text-white font-black uppercase tracking-widest text-xs shadow-lg transition-all"
         >
-          <Link2 className="mr-2 h-4 w-4" />
+          <Link2 className="mr-2 h-4 w-4 text-white" />
           {loading ? 'Embedding...' : 'Embed Course'}
         </Button>
         <Button 

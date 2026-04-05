@@ -1,4 +1,4 @@
-import { apiRequest } from '../api';
+import { API_BASE_URL, apiRequest } from '../api';
 
 export interface RoutineSlot {
   id: string;
@@ -11,7 +11,6 @@ export interface RoutineSlot {
   endTime: string;
   topic?: string;
   teacherUserId?: string;
-  room?: string;
   mode: string;
   isActive: boolean;
   course?: { id: string; name: string; code: string };
@@ -26,7 +25,7 @@ export interface ApiResponse<T> {
   message?: string;
 }
 
-export async function getRoutineSlots(params?: {
+export type RoutineFilters = {
   branchId?: string;
   programId?: string;
   courseId?: string;
@@ -35,7 +34,9 @@ export async function getRoutineSlots(params?: {
   dayOfWeek?: number;
   isActive?: boolean;
   mode?: string;
-}): Promise<ApiResponse<RoutineSlot[]>> {
+};
+
+function buildRoutineQuery(params?: RoutineFilters): string {
   const q = new URLSearchParams();
   if (params?.branchId) q.append('branchId', params.branchId);
   if (params?.programId) q.append('programId', params.programId);
@@ -45,9 +46,35 @@ export async function getRoutineSlots(params?: {
   if (params?.dayOfWeek !== undefined) q.append('dayOfWeek', String(params.dayOfWeek));
   if (params?.isActive !== undefined) q.append('isActive', String(params.isActive));
   if (params?.mode) q.append('mode', params.mode);
-  
-  const query = q.toString();
+  return q.toString();
+}
+
+export async function getRoutineSlots(params?: RoutineFilters): Promise<ApiResponse<RoutineSlot[]>> {
+  const query = buildRoutineQuery(params);
   return apiRequest<ApiResponse<RoutineSlot[]>>(`/routine${query ? `?${query}` : ''}`);
+}
+
+export type RoutineExportPdfParams = RoutineFilters & {
+  format?: 'list' | 'weekly-range';
+  startDate?: string;
+  endDate?: string;
+};
+
+export function getRoutineExportPdfUrl(params?: RoutineExportPdfParams): string {
+  const q = new URLSearchParams();
+  if (params?.branchId) q.append('branchId', params.branchId);
+  if (params?.programId) q.append('programId', params.programId);
+  if (params?.courseId) q.append('courseId', params.courseId);
+  if (params?.batchId) q.append('batchId', params.batchId);
+  if (params?.teacherUserId) q.append('teacherUserId', params.teacherUserId);
+  if (params?.dayOfWeek !== undefined) q.append('dayOfWeek', String(params.dayOfWeek));
+  if (params?.isActive !== undefined) q.append('isActive', String(params.isActive));
+  if (params?.mode) q.append('mode', params.mode);
+  if (params?.format) q.append('format', params.format);
+  if (params?.startDate) q.append('startDate', params.startDate);
+  if (params?.endDate) q.append('endDate', params.endDate);
+  const query = q.toString();
+  return `${API_BASE_URL}/routine/export/pdf${query ? `?${query}` : ''}`;
 }
 
 export async function generateRoutineCalendar(params: {
@@ -70,7 +97,9 @@ export async function generateRoutineCalendar(params: {
   return apiRequest<ApiResponse<unknown>>(`/routine/generate?${query}`);
 }
 
-export type CreateRoutineSlotData = Omit<RoutineSlot, 'id' | 'course' | 'batch' | 'branch' | 'teacher'>;
+export type CreateRoutineSlotData = Omit<RoutineSlot, 'id' | 'course' | 'batch' | 'branch' | 'teacher'> & {
+  room?: never; // room is removed — never pass it
+};
 
 export async function createRoutineSlot(data: CreateRoutineSlotData): Promise<ApiResponse<RoutineSlot>> {
   return apiRequest<ApiResponse<RoutineSlot>>('/routine', {

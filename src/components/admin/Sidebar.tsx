@@ -124,6 +124,7 @@ function buildMenuSections(role: string | null): { label: string; items: MenuIte
       label: 'Administrative',
       items: [
         { title: 'Monthly billing', href: '/admin/monthly-billing', icon: CalendarRange, color: 'text-violet-600', bg: 'bg-violet-50' },
+        { title: 'Payouts', href: '/admin/payouts', icon: CreditCard, color: 'text-green-600', bg: 'bg-green-50' },
         { title: 'SMS Console', href: '/admin/sms', icon: MessageSquare, color: 'text-emerald-500', bg: 'bg-emerald-50' },
         { title: 'Reports', href: '/admin/reports', icon: BarChart3, color: 'text-teal-500', bg: 'bg-teal-50' },
         { title: 'Settings', href: '/admin/settings', icon: Settings, color: 'text-slate-500', bg: 'bg-slate-50' },

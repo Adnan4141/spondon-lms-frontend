@@ -11,12 +11,18 @@ import {
   unlinkBookFromCourse,
   addBookCollaborator,
   removeBookCollaborator,
+  getCollaboratorRevenue,
+  updateCollaboratorRevShare,
+  addBookCollaboratorsBulk,
   type Book,
   type CreateBookDto,
   type UpdateBookDto,
+  type CollaboratorRevenueSummary,
+  type BulkCollaboratorItem,
 } from '@/lib/api/books';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -41,6 +47,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   BookOpen,
   Download,
@@ -60,6 +67,7 @@ import {
   Warehouse,
   Database,
   CheckCircle2,
+  ChevronsUpDown,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
@@ -108,8 +116,27 @@ export default function BooksPage() {
 
   // Collab state
   const [selectedUserId, setSelectedUserId] = useState<string>('');
+  const [collabUserSearch, setCollabUserSearch] = useState('');
+  const [collabUserPopoverOpen, setCollabUserPopoverOpen] = useState(false);
   const [collabRole, setCollabRole] = useState<string>('EDITOR');
+  const [collabRevenueShare, setCollabRevenueShare] = useState<string>('');
   const [collabSubmitting, setCollabSubmitting] = useState(false);
+
+  // Bulk collab state
+  const [bulkQueue, setBulkQueue] = useState<BulkCollaboratorItem[]>([]);
+  const [bulkUserSearch, setBulkUserSearch] = useState('');
+  const [bulkUserPopoverOpen, setBulkUserPopoverOpen] = useState(false);
+  const [bulkUserId, setBulkUserId] = useState('');
+  const [bulkRole, setBulkRole] = useState('EDITOR');
+  const [bulkRevShare, setBulkRevShare] = useState('');
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
+
+  // Revenue share state
+  const [revShareEdits, setRevShareEdits] = useState<Record<string, string>>({});
+  const [revShareSaving, setRevShareSaving] = useState<Record<string, boolean>>({});
+  const [revenueSummary, setRevenueSummary] = useState<CollaboratorRevenueSummary | null>(null);
+  const [revenueSummaryLoading, setRevenueSummaryLoading] = useState(false);
+  const [showRevenueDialog, setShowRevenueDialog] = useState(false);
 
   // Forms
   const [createForm, setCreateForm] = useState<CreateBookDto>({
@@ -268,18 +295,51 @@ export default function BooksPage() {
     if (!bookDetails || !selectedUserId) return;
     try {
       setCollabSubmitting(true);
+      const share = collabRevenueShare.trim() ? Number(collabRevenueShare) : undefined;
+      if (share !== undefined && (Number.isNaN(share) || share <= 0 || share > 100)) {
+        toast({ title: 'Error', description: 'Revenue share must be between 0 and 100', variant: 'destructive' });
+        return;
+      }
       await addBookCollaborator({
         bookId: bookDetails.id,
         userId: selectedUserId,
-        role: collabRole
+        role: collabRole,
+        revenueSharePercent: share,
       });
       toast({ title: 'Success', description: 'Collaborator added', variant: 'success' });
       setSelectedUserId('');
+      setCollabUserSearch('');
+      setCollabRevenueShare('');
       await fetchBookDetails(bookDetails.id);
     } catch (err) {
       toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
     } finally {
       setCollabSubmitting(false);
+    }
+  };
+
+  const handleBulkSubmit = async () => {
+    if (!bookDetails || bulkQueue.length === 0) return;
+    setBulkSubmitting(true);
+    try {
+      const res = await addBookCollaboratorsBulk(bookDetails.id, bulkQueue);
+      const result = res?.data;
+      const added = result?.data?.filter((r) => r.success).length ?? 0;
+      const failed = result?.data?.filter((r) => !r.success).length ?? 0;
+      toast({
+        title: added > 0 ? 'Bulk Add Complete' : 'Bulk Add Failed',
+        description: `${added} added${failed > 0 ? `, ${failed} failed` : ''}`,
+        variant: added > 0 ? 'success' : 'destructive',
+      });
+      setBulkQueue([]);
+      setBulkUserId('');
+      setBulkUserSearch('');
+      setBulkRevShare('');
+      await fetchBookDetails(bookDetails.id);
+    } catch (err) {
+      toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
+    } finally {
+      setBulkSubmitting(false);
     }
   };
 
@@ -968,16 +1028,77 @@ export default function BooksPage() {
           <div className="px-10 py-8 space-y-6">
             {bookDetails?.collaborators && bookDetails.collaborators.length > 0 ? (
               <div className="space-y-3 rounded-3xl border border-slate-100 bg-gradient-to-br from-slate-50 to-indigo-50/30 p-5">
-                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-500">Current team</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-500">Current team</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs rounded-xl"
+                    onClick={async () => {
+                      if (!bookDetails) return;
+                      setRevenueSummaryLoading(true);
+                      setShowRevenueDialog(true);
+                      try {
+                        const res = await getCollaboratorRevenue(bookDetails.id);
+                        if (res.success && res.data) setRevenueSummary(res.data);
+                      } finally {
+                        setRevenueSummaryLoading(false);
+                      }
+                    }}
+                  >
+                    Revenue Summary
+                  </Button>
+                </div>
                 <ul className="space-y-2">
                   {(bookDetails.collaborators as any[]).map((c) => (
                     <li
                       key={c.id}
-                      className="flex items-center justify-between gap-3 rounded-2xl border border-white/80 bg-white/90 px-4 py-3 shadow-sm"
+                      className="flex items-start justify-between gap-3 rounded-2xl border border-white/80 bg-white/90 px-4 py-3 shadow-sm"
                     >
-                      <div>
+                      <div className="flex-1">
                         <p className="font-bold text-slate-900">{c.user?.fullName || c.userId}</p>
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{c.role}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <input
+                            type="number"
+                            min="0.01"
+                            max="100"
+                            step="0.01"
+                            placeholder="Revenue % (e.g. 20)"
+                            className="w-36 h-8 rounded-xl border border-slate-200 px-3 text-sm"
+                            value={revShareEdits[c.id] ?? (c.revenueSharePercent != null ? String(c.revenueSharePercent) : '')}
+                            onChange={(e) => setRevShareEdits((prev) => ({ ...prev, [c.id]: e.target.value }))}
+                          />
+                          <span className="text-xs text-slate-500">%</span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs rounded-xl"
+                            disabled={revShareSaving[c.id] || !revShareEdits[c.id]}
+                            onClick={async () => {
+                              if (!bookDetails || !revShareEdits[c.id]) return;
+                              const pct = parseFloat(revShareEdits[c.id]);
+                              if (isNaN(pct)) return;
+                              setRevShareSaving((s) => ({ ...s, [c.id]: true }));
+                              try {
+                                const res = await updateCollaboratorRevShare(bookDetails.id, c.userId, pct);
+                                if (res.success) {
+                                  toast({ title: 'Saved', description: `Revenue share set to ${pct}%`, variant: 'success' });
+                                  await fetchBookDetails(bookDetails.id);
+                                  setRevShareEdits((prev) => { const n = { ...prev }; delete n[c.id]; return n; });
+                                } else {
+                                  toast({ title: 'Error', description: res.message ?? 'Failed', variant: 'destructive' });
+                                }
+                              } catch (err) {
+                                toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
+                              } finally {
+                                setRevShareSaving((s) => ({ ...s, [c.id]: false }));
+                              }
+                            }}
+                          >
+                            {revShareSaving[c.id] ? 'Saving...' : 'Set %'}
+                          </Button>
+                        </div>
                       </div>
                       <Button
                         type="button"
@@ -1000,46 +1121,288 @@ export default function BooksPage() {
                     </li>
                   ))}
                 </ul>
+                {(() => {
+                  const totalPct = (bookDetails.collaborators as any[]).reduce((s: number, c: any) => s + Number(c.revenueSharePercent ?? 0), 0);
+                  return (
+                    <p className={`text-xs font-bold px-1 ${totalPct > 100 ? 'text-red-600' : 'text-slate-500'}`}>
+                      Total allocated: {totalPct.toFixed(2)}% {totalPct > 100 ? '⚠️ Exceeds 100%' : totalPct === 100 ? '✓ Fully allocated' : `(${(100 - totalPct).toFixed(2)}% remaining)`}
+                    </p>
+                  );
+                })()}
               </div>
             ) : null}
-            <div className="space-y-3">
-              <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 px-1">Select Staff Member</label>
-              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                <SelectTrigger className="h-14 rounded-2xl border-slate-200 bg-slate-50/30 px-5 font-bold text-slate-700 border-2">
-                  <SelectValue placeholder="Identify user account..." />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-2xl p-2">
-                  {users.filter(u => u.role !== 'STUDENT').map(u => (
-                    <SelectItem key={u.id} value={u.id} className="rounded-xl py-3 font-bold">{u.fullName} ({u.role})</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-3">
-              <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 px-1">Role</label>
-              <Select value={collabRole} onValueChange={setCollabRole}>
-                <SelectTrigger className="h-14 rounded-2xl border-slate-200 bg-slate-50/30 px-5 font-bold text-slate-700 border-2">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-2xl p-2">
-                  <SelectItem value="UPLOADER" className="rounded-xl py-3 font-bold">Uploader (File Management)</SelectItem>
-                  <SelectItem value="EDITOR" className="rounded-xl py-3 font-bold">Editor (Full Metadata Control)</SelectItem>
-                  <SelectItem value="VIEWER" className="rounded-xl py-3 font-bold">Viewer (ReadOnly Audit)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+
+            {/* Single / Bulk tabs */}
+            <Tabs defaultValue="single">
+              <TabsList className="grid grid-cols-2 w-full mb-4">
+                <TabsTrigger value="single">Add One</TabsTrigger>
+                <TabsTrigger value="bulk">Bulk Add</TabsTrigger>
+              </TabsList>
+
+              {/* Single add */}
+              <TabsContent value="single" className="space-y-4">
+                <div className="space-y-3">
+                  <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 px-1">Select Staff Member</label>
+                  <Popover open={collabUserPopoverOpen} onOpenChange={setCollabUserPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="h-14 w-full justify-between rounded-2xl border-slate-200 bg-slate-50/30 px-5 font-bold text-slate-700 border-2"
+                      >
+                        <span className={cn('truncate', !selectedUserId && 'text-slate-400')}>
+                          {selectedUserId
+                            ? (users.find((u) => u.id === selectedUserId)?.fullName || 'Selected user')
+                            : 'Identify user account...'}
+                        </span>
+                        <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-(--radix-popover-trigger-width) rounded-2xl border-slate-200 bg-white shadow-2xl p-2" align="start">
+                      <div className="space-y-2">
+                        <Input
+                          placeholder="Search by name, email, or mobile..."
+                          value={collabUserSearch}
+                          onChange={(e) => setCollabUserSearch(e.target.value)}
+                          className="h-10 rounded-xl"
+                        />
+                        <div className="max-h-56 overflow-y-auto space-y-1 pr-1">
+                          {users
+                            .filter((u) => u.role !== 'STUDENT' && u.status === 'ACTIVE')
+                            .filter((u) => {
+                              const q = collabUserSearch.toLowerCase().trim();
+                              if (!q) return true;
+                              return (
+                                (u.fullName || '').toLowerCase().includes(q) ||
+                                (u.email || '').toLowerCase().includes(q) ||
+                                (u.mobile || '').toLowerCase().includes(q)
+                              );
+                            })
+                            .map((u) => (
+                              <button
+                                key={u.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedUserId(u.id);
+                                  setCollabUserPopoverOpen(false);
+                                }}
+                                className={cn(
+                                  'w-full rounded-xl px-3 py-2 text-left hover:bg-slate-100',
+                                  selectedUserId === u.id && 'bg-indigo-50 text-indigo-700'
+                                )}
+                              >
+                                <p className="font-bold text-sm">{u.fullName}</p>
+                                <p className="text-xs text-slate-500">{u.role} · {u.email || u.mobile || 'No contact'}</p>
+                              </button>
+                            ))}
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="space-y-3">
+                  <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 px-1">Revenue Share (%)</label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={collabRevenueShare}
+                    onChange={(e) => setCollabRevenueShare(e.target.value)}
+                    placeholder="e.g. 20"
+                    className="h-14 rounded-2xl border-slate-200 bg-slate-50/30 px-5 font-bold text-slate-700 border-2"
+                  />
+                  <p className="text-xs text-slate-500 px-1">Optional now. You can also set per collaborator later from the list.</p>
+                </div>
+                <div className="space-y-3">
+                  <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 px-1">Role</label>
+                  <Select value={collabRole} onValueChange={setCollabRole}>
+                    <SelectTrigger className="h-14 rounded-2xl border-slate-200 bg-slate-50/30 px-5 font-bold text-slate-700 border-2">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-2xl p-2">
+                      <SelectItem value="UPLOADER" className="rounded-xl py-3 font-bold">Uploader (File Management)</SelectItem>
+                      <SelectItem value="EDITOR" className="rounded-xl py-3 font-bold">Editor (Full Metadata Control)</SelectItem>
+                      <SelectItem value="VIEWER" className="rounded-xl py-3 font-bold">Viewer (ReadOnly Audit)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex justify-end pt-2">
+                  <Button
+                    className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white hover:bg-emerald-600 transition-all disabled:opacity-50"
+                    onClick={handleCollabSubmit}
+                    disabled={collabSubmitting || !selectedUserId}
+                  >
+                    {collabSubmitting ? 'Saving...' : 'Add Collaborator'}
+                  </Button>
+                </div>
+              </TabsContent>
+
+              {/* Bulk add */}
+              <TabsContent value="bulk" className="space-y-4">
+                <div className="flex gap-2">
+                  <Popover open={bulkUserPopoverOpen} onOpenChange={setBulkUserPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="flex-1 justify-between h-10 rounded-xl font-medium">
+                        <span className={cn('truncate', !bulkUserId && 'text-slate-400')}>
+                          {bulkUserId ? users.find((u) => u.id === bulkUserId)?.fullName || 'User' : 'Select user...'}
+                        </span>
+                        <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64 rounded-xl p-2" align="start">
+                      <Input
+                        placeholder="Search..."
+                        value={bulkUserSearch}
+                        onChange={(e) => setBulkUserSearch(e.target.value)}
+                        className="mb-2 h-9 rounded-lg"
+                      />
+                      <div className="max-h-48 overflow-y-auto space-y-0.5">
+                        {users
+                          .filter((u) => u.role !== 'STUDENT' && u.status === 'ACTIVE')
+                          .filter((u) => {
+                            const q = bulkUserSearch.toLowerCase().trim();
+                            if (!q) return true;
+                            return (u.fullName || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
+                          })
+                          .map((u) => (
+                            <button
+                              key={u.id}
+                              type="button"
+                              onClick={() => { setBulkUserId(u.id); setBulkUserPopoverOpen(false); }}
+                              className={cn('w-full rounded-lg px-3 py-1.5 text-left text-sm hover:bg-slate-100', bulkUserId === u.id && 'bg-indigo-50')}
+                            >
+                              <p className="font-bold truncate">{u.fullName}</p>
+                              <p className="text-[10px] text-slate-400">{u.role}</p>
+                            </button>
+                          ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                  <Select value={bulkRole} onValueChange={setBulkRole}>
+                    <SelectTrigger className="w-32 h-10 rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="UPLOADER">Uploader</SelectItem>
+                      <SelectItem value="EDITOR">Editor</SelectItem>
+                      <SelectItem value="VIEWER">Viewer</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="number" min="0" max="100" placeholder="Rev%"
+                    value={bulkRevShare}
+                    onChange={(e) => setBulkRevShare(e.target.value)}
+                    className="w-20 h-10 rounded-xl text-center"
+                  />
+                  <Button
+                    size="sm"
+                    className="h-10 px-3 rounded-xl"
+                    disabled={!bulkUserId || bulkQueue.some((q) => q.userId === bulkUserId)}
+                    onClick={() => {
+                      if (!bulkUserId) return;
+                      setBulkQueue((prev) => [...prev, {
+                        userId: bulkUserId,
+                        role: bulkRole,
+                        revenueSharePercent: bulkRevShare ? Number(bulkRevShare) : undefined,
+                      }]);
+                      setBulkUserId('');
+                      setBulkUserSearch('');
+                      setBulkRevShare('');
+                    }}
+                  >
+                    + Add
+                  </Button>
+                </div>
+
+                {bulkQueue.length > 0 ? (
+                  <div className="space-y-1.5 rounded-2xl border border-slate-100 bg-slate-50 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Queue ({bulkQueue.length})</p>
+                    {bulkQueue.map((item, idx) => {
+                      const u = users.find((u) => u.id === item.userId);
+                      return (
+                        <div key={item.userId} className="flex items-center justify-between rounded-xl bg-white border border-slate-100 px-3 py-2">
+                          <div>
+                            <p className="text-sm font-bold">{u?.fullName ?? item.userId}</p>
+                            <p className="text-[10px] text-slate-400">{item.role}{item.revenueSharePercent ? ` · ${item.revenueSharePercent}%` : ''}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setBulkQueue((prev) => prev.filter((_, i) => i !== idx))}
+                            className="text-slate-400 hover:text-red-500 text-xs px-2 py-1 rounded-lg hover:bg-red-50"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      );
+                    })}
+                    <div className="flex justify-end pt-1">
+                      <Button
+                        className="h-10 rounded-xl bg-emerald-600 px-6 text-sm font-black text-white hover:bg-emerald-700 disabled:opacity-50"
+                        onClick={handleBulkSubmit}
+                        disabled={bulkSubmitting}
+                      >
+                        {bulkSubmitting ? 'Saving...' : `Submit All (${bulkQueue.length})`}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400 text-center py-4">Queue is empty. Add users above to batch-add collaborators.</p>
+                )}
+              </TabsContent>
+            </Tabs>
           </div>
-          <DialogFooter className="px-10 py-8 shrink-0 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
+          <DialogFooter className="px-10 py-5 shrink-0 bg-slate-50/50 border-t border-slate-100">
             <Button variant="ghost" className="rounded-2xl px-8 font-black uppercase tracking-widest text-[11px] text-slate-400 hover:text-slate-600 transition-all" onClick={() => setCollabDialogOpen(false)}>
-              Discard
+              Close
             </Button>
-            <Button 
-              className="h-14 rounded-2xl bg-slate-900 px-10 font-black uppercase tracking-widest text-[11px] text-white shadow-xl shadow-slate-200 transition-all hover:bg-emerald-600 hover:scale-[1.02] active:scale-95 disabled:opacity-50"
-              onClick={handleCollabSubmit} 
-              disabled={collabSubmitting}
-            >
-              {collabSubmitting ? 'Saving...' : 'Save'}
-            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Revenue Summary Dialog */}
+      <Dialog open={showRevenueDialog} onOpenChange={setShowRevenueDialog}>
+        <DialogContent className="sm:max-w-lg rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Book Collaborator Revenue Summary</DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            {revenueSummaryLoading ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">Loading...</p>
+            ) : revenueSummary ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-xl bg-slate-50 p-3 border">
+                    <p className="text-xs text-slate-500">Net Revenue</p>
+                    <p className="text-lg font-bold">৳{revenueSummary.netRevenue.toLocaleString()}</p>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 p-3 border">
+                    <p className="text-xs text-slate-500">Total Payable</p>
+                    <p className="text-lg font-bold text-emerald-600">৳{revenueSummary.totalPayable.toLocaleString()}</p>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-500">{revenueSummary.invoiceItemCount} invoice item(s) counted</p>
+                <div className="space-y-2">
+                  {revenueSummary.collaborators.map((c) => (
+                    <div key={c.collaboratorId} className="flex items-center justify-between rounded-xl border p-3">
+                      <div>
+                        <p className="font-semibold text-sm">{c.user.fullName}</p>
+                        <p className="text-xs text-slate-500">{c.role} · {c.revenueSharePercent}%</p>
+                      </div>
+                      <p className="font-bold text-emerald-600">৳{c.payableAmount.toLocaleString()}</p>
+                    </div>
+                  ))}
+                </div>
+                {revenueSummary.collaborators.length === 0 && (
+                  <p className="text-sm text-slate-500 text-center py-2">No collaborators with revenue share set.</p>
+                )}
+                <p className="text-xs text-slate-400">Total allocated: {revenueSummary.totalAllocatedPercent}%</p>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500 text-center py-4">No revenue data available.</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRevenueDialog(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

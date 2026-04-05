@@ -1,5 +1,5 @@
-export type InvoiceStatus = 'DRAFT' | 'ISSUED' | 'PAID' | 'PARTIAL' | 'CANCELLED' | 'SETTLED';
-export type InvoiceItemType = 'COURSE' | 'BOOK' | 'FEE' | 'OTHER';
+export type InvoiceStatus = 'DRAFT' | 'ISSUED' | 'PAID' | 'PARTIAL' | 'CANCELLED';
+export type InvoiceItemType = 'COURSE' | 'BOOK' | 'FEE' | 'ADMISSION_FEE' | 'OTHER';
 
 export interface InvoiceItem {
   id: string;
