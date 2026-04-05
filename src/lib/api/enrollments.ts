@@ -156,10 +156,18 @@ export async function bulkChangeBranch(data: {
 
 export type PaymentMethodType = 'CASH' | 'BKASH' | 'BANK' | 'GATEWAY';
 
+export interface OfflineAdmissionCourseLine {
+  courseId: string;
+  batchId?: string | null;
+}
+
 export interface OfflineAdmissionDto {
   studentUserId: string;
-  courseId: string;
+  /** Single course (legacy). Ignored if `courses` is non-empty. */
+  courseId?: string;
   batchId?: string;
+  /** Multiple courses → one invoice with all lines. */
+  courses?: OfflineAdmissionCourseLine[];
   branchId: string;
   billingStartMonth?: string;
   paymentMethod?: PaymentMethodType;
@@ -181,6 +189,7 @@ export interface OfflineAdmissionDto {
 
 export interface OfflineAdmissionResult {
   enrollment: Enrollment;
+  enrollments?: Enrollment[];
   invoice: {
     id: string;
     dueAmount: number | string;

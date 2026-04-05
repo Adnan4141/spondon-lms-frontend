@@ -421,50 +421,36 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
     const nextDueIso = nextPaymentDueDate
       ? new Date(`${nextPaymentDueDate}T12:00:00`).toISOString()
       : undefined;
-    const feeFn = (id: string) => Number(courseMap.get(id)?.fee) || 0;
     const discTotal = Number(totalDiscountAmount) || 0;
     const scholTotal = Number(totalScholarshipAmount) || 0;
     const payTotal = Number(totalPaymentAmount) || 0;
-    const discMap = distributeProportionalByFee(sel, feeFn, discTotal);
-    const scholMap = distributeProportionalByFee(sel, feeFn, scholTotal);
-    const payMap = distributeProportionalByFee(sel, feeFn, payTotal);
     const refShared = discountReference.trim();
+    const needsMonth = sel.some((id) => courseMap.get(id)?.billingType === 'MONTHLY');
 
     try {
       setSubmitting(true);
       setError(null);
-      let pdfOpened = 0;
-      for (const courseId of sel) {
-        const c = courseMap.get(courseId);
-        const disc = discMap[courseId] ?? 0;
-        const schol = scholMap[courseId] ?? 0;
-        const paid = payMap[courseId] ?? 0;
-        const adm = await offlineAdmission({
-          studentUserId: studentId,
-          courseId,
-          branchId,
-          billingStartMonth: c?.billingType === 'MONTHLY' ? monthYm || undefined : undefined,
-          paymentMethod,
-          paymentAmount: paid,
-          paymentTrxId: paid > 0 && paymentMethod !== 'CASH' ? paymentTrxId.trim() || undefined : undefined,
-          discountAmount: disc > 0 ? disc : undefined,
-          discountReference: disc > 0 ? refShared || undefined : undefined,
-          scholarshipAmount: schol > 0 ? schol : undefined,
-          nextPaymentDueDate: nextDueIso,
-        });
-        if (!adm.success) throw new Error(adm.message || 'Admission failed');
-        const pdfUrl = adm.data?.pdfUrl;
-        if (pdfUrl) {
-          const delay = pdfOpened * 200;
-          pdfOpened += 1;
-          window.setTimeout(() => {
-            window.open(pdfUrl, '_blank', 'noopener,noreferrer');
-          }, delay);
-        }
+      const adm = await offlineAdmission({
+        studentUserId: studentId,
+        branchId,
+        courses: sel.map((courseId) => ({ courseId })),
+        billingStartMonth: needsMonth ? monthYm || undefined : undefined,
+        paymentMethod,
+        paymentAmount: payTotal,
+        paymentTrxId: payTotal > 0 && paymentMethod !== 'CASH' ? paymentTrxId.trim() || undefined : undefined,
+        discountAmount: discTotal > 0 ? discTotal : undefined,
+        discountReference: discTotal > 0 ? refShared || undefined : undefined,
+        scholarshipAmount: scholTotal > 0 ? scholTotal : undefined,
+        nextPaymentDueDate: nextDueIso,
+      });
+      if (!adm.success) throw new Error(adm.message || 'Admission failed');
+      const pdfUrl = adm.data?.pdfUrl;
+      if (pdfUrl) {
+        window.open(pdfUrl, '_blank', 'noopener,noreferrer');
       }
       toast({
         title: 'Done',
-        description: `${sel.length} course(s) enrolled. ${pdfOpened > 0 ? 'Invoice PDFs opened in new tab(s).' : 'Invoice PDFs were generated.'}`,
+        description: `${sel.length} course(s) enrolled on one invoice.${pdfUrl ? ' PDF opened in a new tab.' : ''}`,
         variant: 'success',
       });
       closeModal();

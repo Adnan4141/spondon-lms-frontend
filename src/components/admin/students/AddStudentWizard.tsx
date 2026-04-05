@@ -384,59 +384,59 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
         ? new Date(`${nextPaymentDueDate}T12:00:00`).toISOString()
         : undefined;
 
-      const results: Array<{ courseName: string; pdfUrl: string | null; dueAmount: number; nextDue?: string }> = [];
-
-      const feeFn = (id: string) => Number(courseById.get(id)?.fee) || 0;
-      const discMap = distributeProportionalByFee(selectedCourseIds, feeFn, Number(totalDiscountAmount) || 0);
-      const scholMap = distributeProportionalByFee(selectedCourseIds, feeFn, Number(totalScholarshipAmount) || 0);
-      const payMap = distributeProportionalByFee(selectedCourseIds, feeFn, Number(totalPaymentAmount) || 0);
+      const discTotal = Number(totalDiscountAmount) || 0;
+      const scholTotal = Number(totalScholarshipAmount) || 0;
+      const payTotal = Number(totalPaymentAmount) || 0;
       const refTrim = discountReference.trim();
+      const needsMonth = selectedCourseIds.some((id) => courseById.get(id)?.billingType === 'MONTHLY');
 
-      for (const courseId of selectedCourseIds) {
-        const c = courseById.get(courseId);
-        const disc = discMap[courseId] ?? 0;
-        const schol = scholMap[courseId] ?? 0;
-        const paid = payMap[courseId] ?? 0;
+      const adm = await offlineAdmission({
+        studentUserId,
+        branchId: branchForEnroll,
+        courses: selectedCourseIds.map((courseId) => ({ courseId })),
+        billingStartMonth: needsMonth ? monthYm || undefined : undefined,
+        paymentMethod,
+        paymentAmount: payTotal,
+        paymentTrxId: payTotal > 0 && paymentMethod !== 'CASH' ? paymentTrxId.trim() || undefined : undefined,
+        discountAmount: discTotal > 0 ? discTotal : undefined,
+        discountReference: discTotal > 0 ? refTrim : undefined,
+        scholarshipAmount: scholTotal > 0 ? scholTotal : undefined,
+        nextPaymentDueDate: nextDueIso,
+      });
 
-        const adm = await offlineAdmission({
-          studentUserId,
-          courseId,
-          branchId: branchForEnroll,
-          billingStartMonth: c?.billingType === 'MONTHLY' ? monthYm || undefined : undefined,
-          paymentMethod,
-          paymentAmount: paid,
-          paymentTrxId: paid > 0 && paymentMethod !== 'CASH' ? paymentTrxId.trim() || undefined : undefined,
-          discountAmount: disc > 0 ? disc : undefined,
-          discountReference: disc > 0 ? refTrim : undefined,
-          scholarshipAmount: schol > 0 ? schol : undefined,
-          nextPaymentDueDate: nextDueIso,
-        });
+      if (!adm.success || !adm.data) {
+        throw new Error(adm.message || 'Admission failed');
+      }
 
-        if (!adm.success || !adm.data) {
-          throw new Error(adm.message || `Admission failed for ${c?.name || courseId}`);
-        }
+      const dueNum = Number(adm.data.invoice.dueAmount);
+      const nextDueRaw = adm.data.invoice.nextPaymentDueDate;
+      const nextDueStr = nextDueRaw
+        ? format(new Date(nextDueRaw), 'dd MMM yyyy')
+        : nextPaymentDueDate
+          ? format(parseDateInput(nextPaymentDueDate)!, 'dd MMM yyyy')
+          : undefined;
 
-        const dueNum = Number(adm.data.invoice.dueAmount);
-        const nextDueRaw = adm.data.invoice.nextPaymentDueDate;
-        const nextDueStr = nextDueRaw
-          ? format(new Date(nextDueRaw), 'dd MMM yyyy')
-          : nextPaymentDueDate
-            ? format(parseDateInput(nextPaymentDueDate)!, 'dd MMM yyyy')
-            : undefined;
-
-        results.push({
-          courseName: c?.name || 'Course',
+      const courseLabels = selectedCourseIds
+        .map((id) => courseById.get(id)?.name)
+        .filter(Boolean)
+        .join(', ');
+      const results = [
+        {
+          courseName:
+            selectedCourseIds.length > 1
+              ? `${selectedCourseIds.length} courses — ${courseLabels || 'combined invoice'}`
+              : courseLabels || 'Course',
           pdfUrl: adm.data.pdfUrl,
           dueAmount: Number.isFinite(dueNum) ? dueNum : 0,
           nextDue: nextDueStr,
-        });
-      }
+        },
+      ];
 
       setDone({ roll, oneTimePassword: otp, results });
 
       toast({
         title: 'Admission complete',
-        description: `${results.length} course(s) enrolled with invoice(s).`,
+        description: `${selectedCourseIds.length} course(s) enrolled — one combined invoice.`,
         variant: 'success',
       });
       await onSuccess();
@@ -456,7 +456,7 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
           <div className="rounded-3xl border border-emerald-100 bg-emerald-50/40 p-6 space-y-4">
             <h3 className="text-sm font-black uppercase tracking-[0.2em] text-emerald-800">Admission complete</h3>
             <p className="text-sm text-slate-600">
-              Save roll and one-time password. Student logs in with mobile + password. Invoice PDFs are generated for each course.
+              Save roll and one-time password. Student logs in with mobile + password. One invoice PDF lists all enrolled courses.
             </p>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-2xl bg-white border border-slate-100 p-4">
@@ -473,7 +473,7 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
               ) : null}
             </div>
             <div className="space-y-3">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Invoices by course</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Invoice</p>
               {done.results.map((r, i) => (
                 <div key={i} className="rounded-2xl border border-slate-100 bg-white p-4 space-y-2">
                   <p className="text-sm font-black text-slate-800">{r.courseName}</p>
