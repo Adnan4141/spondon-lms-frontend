@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Student } from '@/types/student';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,24 +16,18 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { CourseDeliveryBadge } from '@/lib/course-delivery';
 import {
-  User,
   Phone,
   Mail,
   MapPin,
   Building2,
-  Calendar,
   GraduationCap,
-  History,
   HeartPulse,
   MoreVertical,
   Activity,
   CheckCircle2,
-  BookOpenCheck,
   Plus,
-  Trash2,
   Ban,
   Layers,
-  ArrowRight,
   ShieldCheck,
   LayoutDashboard,
   Contact,
@@ -44,22 +38,22 @@ import {
   Smartphone,
   Receipt,
   ExternalLink,
+  Tag,
 } from 'lucide-react';
 import {
   getEnrollments,
   getEnrollmentById,
-  updateEnrollment,
-  deleteEnrollment,
   settleEnrollment,
   type Enrollment as EnrollmentType,
-  type EnrollmentStatusType,
 } from '@/lib/api/enrollments';
 import { useToast } from '@/hooks/use-toast';
 import { useModalStore } from '@/store/modalStore';
 import { EnrollmentForm } from '@/components/admin/enrollments/EnrollmentForm';
 import { EnrollmentDetailsView } from '@/components/admin/enrollments/EnrollmentDetailsView';
+import { EnrollmentCancelModal } from '@/components/admin/enrollments/EnrollmentCancelModal';
 import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
 import { AddEnrollmentForm } from '@/components/admin/students/AddEnrollmentForm';
+import { BenefitManager } from '@/components/admin/students/BenefitManager';
 import { getInvoices, getInvoiceById } from '@/lib/api/invoices';
 import type { Invoice } from '@/types/invoice';
 import { InvoiceDetailsView } from '@/components/admin/invoices/InvoiceDetailsView';
@@ -99,24 +93,20 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
   const { openModal } = useModalStore();
   const [enrollments, setEnrollments] = useState<EnrollmentType[]>(() => student.enrollments ?? []);
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [loadingEnrollments, setLoadingEnrollments] = useState(false);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [studentTab, setStudentTab] = useState('overview');
 
-  const loadEnrollments = async () => {
+  const loadEnrollments = useCallback(async () => {
     try {
-      setLoadingEnrollments(true);
       const res = await getEnrollments({ studentUserId: student.id, limit: 300 });
       if (res.success && res.data) setEnrollments(res.data);
-    } catch (err) {
+    } catch {
       toast({ title: 'Error', description: 'Could not load enrollments', variant: 'destructive' });
-    } finally {
-      setLoadingEnrollments(false);
     }
-  };
+  }, [student.id, toast]);
 
-  const loadInvoices = async () => {
+  const loadInvoices = useCallback(async () => {
     try {
       setLoadingInvoices(true);
       const res = await getInvoices({ studentUserId: student.id, limit: 100 });
@@ -126,12 +116,12 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
     } finally {
       setLoadingInvoices(false);
     }
-  };
+  }, [student.id, toast]);
 
   useEffect(() => {
     loadEnrollments();
     loadInvoices();
-  }, [student.id]);
+  }, [loadEnrollments, loadInvoices]);
 
   const programEnrollmentCounts = useMemo(() => {
     const m = new Map<string, number>();
@@ -209,6 +199,7 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
           <EnrollmentDetailsView
             enrollment={res.data}
             onRequestSettle={() => handleSettleEnrollmentModal(enrollment.id)}
+            onRequestDelete={() => handleDeleteEnrollment(enrollment)}
             onAfterMutation={refreshEnrollmentsAndBilling}
           />
         ),
@@ -256,49 +247,16 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
     }
   };
 
-  const handleCancelEnrollment = (enrollment: EnrollmentType) => {
-    openModal({
-      title: 'Cancel enrollment',
-      description: `Cancel ${enrollment.course?.name}?`,
-      className: 'sm:max-w-xl',
-      content: (
-        <ConfirmationModal
-          title="Confirm cancel"
-          description="This will mark the enrollment as cancelled."
-          variant="danger"
-          onConfirm={async () => {
-            try {
-              await updateEnrollment(enrollment.id, { status: 'CANCELLED' as EnrollmentStatusType });
-              toast({ title: 'Cancelled', description: 'Enrollment cancelled', variant: 'success' });
-              await refreshEnrollmentsAndBilling();
-            } catch (err: any) {
-              toast({ title: 'Error', description: err.message || 'Failed to cancel', variant: 'destructive' });
-            }
-          }}
-        />
-      ),
-    });
-  };
-
   const handleDeleteEnrollment = (enrollment: EnrollmentType) => {
     openModal({
       title: 'Remove enrollment',
-      description: `Remove ${enrollment.course?.name}? This cannot be undone.`,
-      className: 'sm:max-w-xl',
+      description: enrollment.course?.name,
+      className: 'sm:max-w-2xl',
       content: (
-        <ConfirmationModal
-          title="Confirm remove"
-          description="Delete this enrollment permanently?"
-          variant="danger"
-          onConfirm={async () => {
-            try {
-              await deleteEnrollment(enrollment.id);
-              toast({ title: 'Removed', description: 'Enrollment removed', variant: 'success' });
-              await refreshEnrollmentsAndBilling();
-            } catch (err: any) {
-              toast({ title: 'Error', description: err.message || 'Failed to remove', variant: 'destructive' });
-            }
-          }}
+        <EnrollmentCancelModal
+          enrollmentId={enrollment.id}
+          enrollmentName={enrollment.course?.name}
+          onSuccess={refreshEnrollmentsAndBilling}
         />
       ),
     });
@@ -407,6 +365,7 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                 { label: 'Overview', value: 'overview', icon: LayoutDashboard },
                 { label: 'Profile', value: 'identity', icon: Contact },
                 { label: 'Courses', value: 'courses', icon: GraduationCap },
+                { label: 'Discounts', value: 'discounts', icon: Tag },
                 { label: 'Payments', value: 'payments', icon: Wallet },
               ].map((tab) => (
                 <TabsTrigger
@@ -649,7 +608,7 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                 
                 <div className="flex flex-wrap items-center gap-4">
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="h-12 w-[180px] rounded-2xl border-slate-200 bg-white text-sm font-black uppercase tracking-widest shadow-sm">
+                    <SelectTrigger className="h-12 w-45 rounded-2xl border-slate-200 bg-white text-sm font-black uppercase tracking-widest shadow-sm">
                       <SelectValue placeholder="Status Filter" />
                     </SelectTrigger>
                     <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-2xl">
@@ -765,13 +724,9 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                                   <DropdownMenuItem className="cursor-pointer text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-lg px-3 py-2" onClick={() => handleEditEnrollment(c)}>
                                     Edit
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem className="cursor-pointer text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-lg px-3 py-2" onClick={() => handleCancelEnrollment(c)}>
-                                    <Ban className="h-3 w-3 mr-2" />
-                                    Cancel
-                                  </DropdownMenuItem>
                                   <DropdownMenuItem className="cursor-pointer text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-lg px-3 py-2" onClick={() => handleDeleteEnrollment(c)}>
-                                    <Trash2 className="h-3 w-3 mr-2" />
-                                    Remove
+                                    <Ban className="h-3 w-3 mr-2" />
+                                    Cancel / Remove
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
@@ -783,6 +738,14 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                   ))
                 )}
               </div>
+            </TabsContent>
+
+            <TabsContent value="discounts" className="m-0 space-y-8">
+              <BenefitManager
+                studentId={student.id}
+                enrollments={enrollments}
+                onChanged={refreshEnrollmentsAndBilling}
+              />
             </TabsContent>
 
             <TabsContent value="payments" className="m-0 space-y-8">
@@ -837,7 +800,7 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                 </div>
               ) : (
                 <div className="overflow-x-auto rounded-2xl border border-slate-200">
-                  <table className="w-full min-w-[720px] text-left text-sm">
+                  <table className="w-full min-w-180 text-left text-sm">
                     <thead className="border-b border-slate-100 bg-slate-50/80 text-[10px] font-black uppercase tracking-widest text-slate-500">
                       <tr>
                         <th className="px-4 py-3">Invoice</th>
@@ -854,13 +817,39 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                     <tbody className="divide-y divide-slate-100">
                       {invoices.map((inv) => (
                         <tr key={inv.id} className="bg-white hover:bg-slate-50/50">
-                          <td className="px-4 py-3 font-mono text-xs font-bold text-indigo-700">{inv.id.slice(0, 10)}…</td>
+                          <td className="px-4 py-3">
+                            <div className="space-y-1">
+                              <p className="font-mono text-xs font-bold text-indigo-700">{inv.id.slice(0, 10)}…</p>
+                              {inv.replacedInvoice ? (
+                                <p className="text-[10px] font-bold text-slate-400">
+                                  Replacement for {inv.replacedInvoice.id.slice(0, 8)}…
+                                </p>
+                              ) : null}
+                              {inv.replacement ? (
+                                <p className="text-[10px] font-bold text-slate-400">
+                                  Replaced by {inv.replacement.id.slice(0, 8)}…
+                                </p>
+                              ) : null}
+                            </div>
+                          </td>
                           <td className="px-4 py-3 text-xs font-bold text-slate-600">{inv.branch?.name || '—'}</td>
                           <td className="px-4 py-3 text-xs font-bold text-slate-600">{inv.month || '—'}</td>
                           <td className="px-4 py-3">
-                            <Badge variant="outline" className="text-[9px] font-black uppercase">
-                              {inv.status}
-                            </Badge>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant="outline" className="text-[9px] font-black uppercase">
+                                {inv.status}
+                              </Badge>
+                              {inv.replacedInvoice ? (
+                                <Badge variant="outline" className="border-indigo-200 bg-indigo-50 text-[9px] font-black uppercase text-indigo-700">
+                                  Replacement
+                                </Badge>
+                              ) : null}
+                              {inv.replacement ? (
+                                <Badge variant="outline" className="border-slate-200 bg-slate-50 text-[9px] font-black uppercase text-slate-600">
+                                  Historical
+                                </Badge>
+                              ) : null}
+                            </div>
                           </td>
                           <td className="px-4 py-3 text-right font-bold text-slate-800">৳{money(inv.payableAmount)}</td>
                           <td className="px-4 py-3 text-right font-bold text-emerald-700">৳{money(inv.paidAmount)}</td>

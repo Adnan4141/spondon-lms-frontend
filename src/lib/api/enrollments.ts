@@ -127,6 +127,26 @@ export async function settleEnrollment(id: string): Promise<ApiResponse<void>> {
   });
 }
 
+export interface CancelPreviewInvoice {
+  invoiceId: string;
+  month: string;
+  isOnlyCourse: boolean;
+  before: { total: number; discount: number; scholarship: number; payable: number; due: number };
+  after: { total: number; discount: number; scholarship: number; payable: number; due: number };
+}
+
+export interface CancelPreviewData {
+  enrollmentId: string;
+  courseName: string;
+  isMonthly: boolean;
+  affectedInvoices: CancelPreviewInvoice[];
+  benefitsToEnd: { id: string; type: string; mode: string; value: number }[];
+}
+
+export async function getCancelPreview(id: string): Promise<ApiResponse<CancelPreviewData>> {
+  return apiRequest<ApiResponse<CancelPreviewData>>(`/enrollments/${id}/cancel-preview`);
+}
+
 export async function bulkChangeBatch(data: {
   courseId: string;
   branchId?: string;

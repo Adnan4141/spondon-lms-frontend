@@ -31,6 +31,7 @@ export interface Invoice {
   id: string;
   studentUserId: string;
   branchId: string;
+  replacedInvoiceId?: string | null;
   month?: string | null;
   status: InvoiceStatus;
   totalAmount: number | string;
@@ -57,6 +58,14 @@ export interface Invoice {
     phone?: string | null;
     vatRegNo?: string | null;
   };
+  replacedInvoice?: {
+    id: string;
+    status: string;
+  } | null;
+  replacement?: {
+    id: string;
+    status: string;
+  } | null;
   items?: InvoiceItem[];
   payments?: Payment[];
   _count?: {

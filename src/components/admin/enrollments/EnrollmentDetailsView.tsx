@@ -30,6 +30,8 @@ export interface EnrollmentDetailsViewProps {
   enrollment: Enrollment;
   /** Opens parent confirmation / flow to settle outstanding invoices for this enrollment. */
   onRequestSettle?: () => void;
+  /** Opens the cancel/remove flow (preview modal) for this enrollment. */
+  onRequestDelete?: () => void;
   /** Called after successful monthly cancel or inline settle (if used). */
   onAfterMutation?: () => void | Promise<void>;
 }
@@ -46,6 +48,7 @@ function getStatusBadgeClass(status: string) {
 export function EnrollmentDetailsView({
   enrollment,
   onRequestSettle,
+  onRequestDelete,
   onAfterMutation,
 }: EnrollmentDetailsViewProps) {
   const { toast } = useToast();
@@ -230,6 +233,29 @@ export function EnrollmentDetailsView({
             <p className="text-xs font-medium text-slate-500">
               Confirms then marks unpaid course-line invoices for this enrollment as paid (same as enrollments list).
             </p>
+          </div>
+        )}
+
+        {!isMonthly && isActive && onRequestDelete && (
+          <div className="mt-8 space-y-4 rounded-2xl border border-rose-200 bg-rose-50/30 p-5">
+            <h3 className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-rose-800">
+              <Ban className="h-4 w-4" />
+              Cancel enrollment
+            </h3>
+            <p className="text-sm font-medium text-slate-700">
+              Permanently removes this enrollment, ends course-scoped benefits from the current month,
+              and redistributes any remaining discount &amp; scholarship across other active courses on
+              open invoices.
+            </p>
+            <Button
+              type="button"
+              variant="destructive"
+              className="h-11 rounded-xl font-bold"
+              onClick={onRequestDelete}
+            >
+              <Ban className="mr-2 h-4 w-4" />
+              Cancel &amp; remove enrollment…
+            </Button>
           </div>
         )}
 
