@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Calendar, Clock, BookOpen, MapPin, ChevronRight } from 'lucide-react';
+import { Calendar, Clock, BookOpen, MapPin, ChevronRight, Download } from 'lucide-react';
 import { getRoutine } from '@/lib/api/student-portal';
+import { Button } from '@/components/ui/button';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAYS_BN = ['রবি', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহস্পতি', 'শুক্র', 'শনি'];
@@ -67,6 +68,13 @@ export default function StudentRoutinePage() {
           <p className="text-slate-500 font-medium mt-2 text-lg">সাপ্তাহিক ক্লাসের সময়</p>
         </div>
         <div className="flex items-center gap-3">
+          <Button
+            onClick={() => window.print()}
+            className="h-11 rounded-2xl bg-indigo-600 text-white font-bold hover:bg-indigo-700"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Download PDF
+          </Button>
           <div className="px-5 py-3 rounded-2xl bg-white border border-slate-100 shadow-sm flex items-center gap-3">
             <Calendar className="h-5 w-5 text-indigo-600" />
             <span className="text-sm font-black text-slate-900">

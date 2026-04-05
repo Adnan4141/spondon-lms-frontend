@@ -69,3 +69,25 @@ export async function generateRoutineCalendar(params: {
   const query = q.toString();
   return apiRequest<ApiResponse<unknown>>(`/routine/generate?${query}`);
 }
+
+export type CreateRoutineSlotData = Omit<RoutineSlot, 'id' | 'course' | 'batch' | 'branch' | 'teacher'>;
+
+export async function createRoutineSlot(data: CreateRoutineSlotData): Promise<ApiResponse<RoutineSlot>> {
+  return apiRequest<ApiResponse<RoutineSlot>>('/routine', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateRoutineSlot(id: string, data: Partial<CreateRoutineSlotData>): Promise<ApiResponse<RoutineSlot>> {
+  return apiRequest<ApiResponse<RoutineSlot>>(`/routine/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteRoutineSlot(id: string): Promise<ApiResponse<{ message?: string }>> {
+  return apiRequest<ApiResponse<{ message?: string }>>(`/routine/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+}

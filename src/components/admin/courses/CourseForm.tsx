@@ -96,6 +96,8 @@ type FormState = {
   websiteVisible: boolean;
   enrollmentVisible: boolean;
   settledOptionEnabled: boolean;
+  admissionFeeEnabled: boolean;
+  admissionFee: string;
 };
 
 const defaultForm: FormState = {
@@ -116,6 +118,8 @@ const defaultForm: FormState = {
   websiteVisible: true,
   enrollmentVisible: true,
   settledOptionEnabled: false,
+  admissionFeeEnabled: false,
+  admissionFee: '',
 };
 
 interface CourseFormProps {
@@ -189,6 +193,8 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
         websiteVisible: course.websiteVisible,
         enrollmentVisible: course.enrollmentVisible !== false,
         settledOptionEnabled: course.settledOptionEnabled,
+        admissionFeeEnabled: course.admissionFeeEnabled ?? false,
+        admissionFee: course.admissionFee != null ? String(course.admissionFee) : '',
       });
       if (course.thumbnail) {
         const url = resolveAttachmentUrl(course.thumbnail, API_ORIGIN);
@@ -359,6 +365,8 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
       websiteVisible: form.websiteVisible,
       enrollmentVisible: form.enrollmentVisible,
       settledOptionEnabled: form.settledOptionEnabled,
+      admissionFeeEnabled: form.admissionFeeEnabled,
+      ...(form.admissionFee.trim() ? { admissionFee: Number(form.admissionFee) } : { admissionFee: null }),
     };
 
     try {
@@ -693,6 +701,31 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                   Settle course option (admin can mark all dues paid, cancel enrollments, remove from student portal)
                 </span>
               </label>
+              <label className="flex items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/40 px-4 py-3 transition-all hover:bg-white hover:shadow-md cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={form.admissionFeeEnabled}
+                  onChange={(e) => setForm((prev) => ({ ...prev, admissionFeeEnabled: e.target.checked }))}
+                  className={checkboxClass()}
+                />
+                <span className="text-[11px] font-black uppercase tracking-widest text-emerald-800 group-hover:text-emerald-900 transition-colors">
+                  Charge Admission Fee
+                </span>
+              </label>
+              {form.admissionFeeEnabled && (
+                <div className="sm:col-span-2">
+                  <Label className="text-xs font-black uppercase tracking-widest text-slate-500">Admission Fee Amount (৳)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.admissionFee}
+                    onChange={(e) => setForm((prev) => ({ ...prev, admissionFee: e.target.value }))}
+                    placeholder="e.g. 500"
+                    className="mt-1"
+                  />
+                </div>
+              )}
             </div>
           </div>
         )}

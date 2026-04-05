@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useMemo } from 'react';
+import ExcelJS from 'exceljs';
 import {
   getAttendanceSheet,
   recordAttendance,
@@ -313,6 +314,60 @@ export default function AttendanceSheetPage() {
     toast({ title: 'CSV exported', variant: 'success' });
   };
 
+  const handleExportXlsx = async () => {
+    if (!sheetData) return;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Attendance');
+
+    // Header row
+    const headers = ['Student', 'Mobile', 'Batch', ...sheetData.sessions.map((s) => sessionLabel(s.sessionDate))];
+    const headerRow = ws.addRow(headers);
+    headerRow.eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
+      cell.alignment = { horizontal: 'center' };
+    });
+
+    // Data rows
+    for (const enr of sheetData.enrollments) {
+      const cells = sheetData.sessions.map((sess) => {
+        const r = sess.attendanceRecords.find((x) => x.studentUserId === enr.student.id);
+        return r?.status || '';
+      });
+      const row = ws.addRow([enr.student.fullName, enr.student.mobile, enr.batch?.name || '', ...cells]);
+      cells.forEach((status, i) => {
+        const cell = row.getCell(4 + i);
+        if (status === 'PRESENT') {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } };
+        } else if (status === 'ABSENT') {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
+        } else if (status === 'LATE') {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+        }
+      });
+    }
+
+    // Auto-width columns
+    ws.columns.forEach((col) => {
+      let maxLen = 10;
+      col.eachCell?.({ includeEmpty: true }, (cell) => {
+        const len = String(cell.value ?? '').length;
+        if (len > maxLen) maxLen = len;
+      });
+      col.width = Math.min(maxLen + 2, 30);
+    });
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `attendance-${sheetData.course.code}-${Date.now()}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: 'Excel exported', variant: 'success' });
+  };
+
   if (fetchingFilters) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center px-4">
@@ -357,6 +412,13 @@ export default function AttendanceSheetPage() {
                   >
                     <Download className="mr-2 h-4 w-4" />
                     Export CSV
+                  </Button>
+                  <Button
+                    onClick={handleExportXlsx}
+                    className="h-11 rounded-2xl bg-emerald-500 font-bold text-white hover:bg-emerald-600 sm:h-12"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Export Excel
                   </Button>
                   <Button
                     onClick={handlePrint}

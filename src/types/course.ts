@@ -58,6 +58,8 @@ export interface Course {
   admissionStatus: AdmissionStatus;
   status: CourseStatus;
   settledOptionEnabled: boolean;
+  admissionFeeEnabled: boolean;
+  admissionFee?: number | null;
   createdAt: string;
   updatedAt: string;
   program?: Program;
@@ -86,6 +88,8 @@ export interface CreateCourseDto {
   admissionStatus?: AdmissionStatus;
   status?: CourseStatus;
   settledOptionEnabled?: boolean;
+  admissionFeeEnabled?: boolean;
+  admissionFee?: number | null;
 }
 
 export interface UpdateCourseDto {
@@ -107,6 +111,8 @@ export interface UpdateCourseDto {
   admissionStatus?: AdmissionStatus;
   status?: CourseStatus;
   settledOptionEnabled?: boolean;
+  admissionFeeEnabled?: boolean;
+  admissionFee?: number | null;
 }
 
 export interface CourseDetailBatch {

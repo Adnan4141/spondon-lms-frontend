@@ -78,6 +78,16 @@ export async function generateMonthlyInvoices(body?: {
   });
 }
 
+export async function generateAdvanceInvoices(body: {
+  studentUserId: string;
+  months: number;
+}): Promise<ApiResponse<{ studentUserId: string; months: number; invoicesCreated: number; errors: string[] }>> {
+  return apiRequest('/invoices/monthly/advance', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
 export type PaymentMethod = 'CASH' | 'BKASH' | 'BANK' | 'GATEWAY';
 
 export interface CreatePaymentDto {

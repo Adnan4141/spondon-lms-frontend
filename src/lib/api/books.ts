@@ -37,6 +37,7 @@ export interface BookCollaborator {
   bookId: string;
   userId: string;
   role: 'UPLOADER' | 'EDITOR' | 'VIEWER' | string;
+  revenueSharePercent?: number | null;
   createdAt: string;
 }
 
@@ -414,4 +415,51 @@ export async function updateDeliveryStatus(saleId: string, data: {
     method: 'PATCH',
     body: JSON.stringify(data),
   });
+}
+
+export interface CollaboratorRevenueItem {
+  collaboratorId: string;
+  userId: string;
+  user: { id: string; fullName: string; email: string; mobile?: string | null };
+  role: string;
+  revenueSharePercent: number;
+  netRevenue: number;
+  payableAmount: number;
+}
+
+export interface CollaboratorRevenueSummary {
+  bookId: string;
+  period: { from: string | null; to: string | null };
+  netRevenue: number;
+  totalAllocatedPercent: number;
+  totalPayable: number;
+  collaborators: CollaboratorRevenueItem[];
+  invoiceItemCount: number;
+}
+
+export async function getCollaboratorRevenue(
+  bookId: string,
+  params?: { from?: string; to?: string },
+): Promise<ApiResponse<CollaboratorRevenueSummary>> {
+  const q = new URLSearchParams();
+  if (params?.from) q.append('from', params.from);
+  if (params?.to) q.append('to', params.to);
+  const qs = q.toString();
+  return apiRequest<ApiResponse<CollaboratorRevenueSummary>>(
+    `/books/${encodeURIComponent(bookId)}/collaborator-revenue${qs ? `?${qs}` : ''}`,
+  );
+}
+
+export async function updateCollaboratorRevShare(
+  bookId: string,
+  userId: string,
+  revenueSharePercent: number,
+): Promise<ApiResponse<BookCollaborator>> {
+  return apiRequest<ApiResponse<BookCollaborator>>(
+    `/books/${encodeURIComponent(bookId)}/collaborator/${encodeURIComponent(userId)}/revshare`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ revenueSharePercent }),
+    },
+  );
 }

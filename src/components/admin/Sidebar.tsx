@@ -29,6 +29,10 @@ import {
   Presentation,
   Globe,
   ListChecks,
+  Package,
+  Layers,
+  PenLine,
+  TextCursorInput,
 } from 'lucide-react';
 
 type MenuItem = {
@@ -72,57 +76,59 @@ function buildMenuSections(role: string | null): { label: string; items: MenuIte
   const managementItems: MenuItem[] = [
     { title: 'Teachers', href: '/admin/teachers', icon: Presentation, color: 'text-cyan-600', bg: 'bg-cyan-50' },
     { title: 'Partners', href: '/admin/partners', icon: Globe, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { title: 'Reviews', href: '/admin/testimonials', icon: MessageSquare, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-    { title: 'Questions', href: '/admin/questions', icon: HelpCircle, color: 'text-amber-500', bg: 'bg-amber-50' },
-    { title: 'Exams', href: '/admin/exams', icon: ClipboardList, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-    { title: 'Exam Results', href: '/admin/exam-results', icon: Award, color: 'text-amber-500', bg: 'bg-amber-50' },
-    {
-      title: 'Result approvals',
-      href: '/admin/results/approvals',
-      icon: ListChecks,
-      color: 'text-teal-600',
-      bg: 'bg-teal-50',
-    },
-    { title: 'Books', href: '/admin/books', icon: BookOpen, color: 'text-blue-500', bg: 'bg-blue-50' },
-    { title: 'Students', href: '/admin/students', icon: Users, color: 'text-violet-500', bg: 'bg-violet-50' },
     { title: 'Branches', href: '/admin/branches', icon: Building2, color: 'text-red-500', bg: 'bg-red-50' },
     { title: 'Institutes', href: '/admin/institutes', icon: School, color: 'text-rose-500', bg: 'bg-rose-50' },
+    { title: 'Reviews', href: '/admin/testimonials', icon: MessageSquare, color: 'text-indigo-600', bg: 'bg-indigo-50' },
   ].filter((item) => !(isBranchAdmin && item.href === '/admin/branches'));
 
   return [
     { label: 'Overview', items: overviewItems },
     {
-      label: 'Academic',
+      label: 'Student',
       items: [
-        { title: 'Courses', href: '/admin/courses', icon: BookOpen, color: 'text-indigo-500', bg: 'bg-indigo-50' },
-        { title: 'Programs', href: '/admin/programs', icon: GraduationCap, color: 'text-rose-500', bg: 'bg-rose-50' },
-        { title: 'Batches', href: '/admin/batches', icon: Calendar, color: 'text-sky-500', bg: 'bg-sky-50' },
-        {
-          title: 'Attendance Sheet',
-          href: '/admin/academic-records/attendance-sheet',
-          icon: ClipboardList,
-          color: 'text-emerald-500',
-          bg: 'bg-emerald-50',
-        },
+        { title: 'Enrollments', href: '/admin/enrollments', icon: FileText, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+        { title: 'Invoices', href: '/admin/invoices', icon: CreditCard, color: 'text-orange-500', bg: 'bg-orange-50' },
+        { title: 'Students', href: '/admin/students', icon: Users, color: 'text-violet-500', bg: 'bg-violet-50' },
         { title: 'Academic', href: '/admin/academic-records', icon: BarChart3, color: 'text-lime-500', bg: 'bg-lime-50' },
+      ],
+    },
+    {
+      label: 'Course',
+      items: [
+        { title: 'Programs', href: '/admin/programs', icon: GraduationCap, color: 'text-rose-500', bg: 'bg-rose-50' },
+        { title: 'Courses', href: '/admin/courses', icon: BookOpen, color: 'text-indigo-500', bg: 'bg-indigo-50' },
+        { title: 'Batches', href: '/admin/batches', icon: Calendar, color: 'text-sky-500', bg: 'bg-sky-50' },
+        { title: 'Routine', href: '/admin/routine', icon: CalendarRange, color: 'text-teal-500', bg: 'bg-teal-50' },
+        { title: 'Attendance Sheet', href: '/admin/academic-records/attendance-sheet', icon: ClipboardList, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+      ],
+    },
+    {
+      label: 'Question System',
+      items: [
+        { title: 'MCQ', href: '/admin/questions/mcq', icon: HelpCircle, color: 'text-amber-500', bg: 'bg-amber-50' },
+        { title: 'Combined MCQ', href: '/admin/questions/combined', icon: Layers, color: 'text-orange-500', bg: 'bg-orange-50' },
+        { title: 'CQ', href: '/admin/questions/cq', icon: PenLine, color: 'text-rose-500', bg: 'bg-rose-50' },
+        { title: 'Short Questions', href: '/admin/questions/short', icon: TextCursorInput, color: 'text-teal-500', bg: 'bg-teal-50' },
+      ],
+    },
+    {
+      label: 'Exam',
+      items: [
+        { title: 'Exam Setup', href: '/admin/exams', icon: ClipboardList, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+        { title: 'Exam Results', href: '/admin/exam-results', icon: Award, color: 'text-amber-500', bg: 'bg-amber-50' },
+        { title: 'Result Approvals', href: '/admin/results/approvals', icon: ListChecks, color: 'text-teal-600', bg: 'bg-teal-50' },
       ],
     },
     { label: 'Management', items: managementItems },
     {
       label: 'Administrative',
       items: [
-        { title: 'Enrollments', href: '/admin/enrollments', icon: FileText, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-        {
-          title: 'Monthly billing',
-          href: '/admin/monthly-billing',
-          icon: CalendarRange,
-          color: 'text-violet-600',
-          bg: 'bg-violet-50',
-        },
-        { title: 'Invoices', href: '/admin/invoices', icon: CreditCard, color: 'text-orange-500', bg: 'bg-orange-50' },
+        { title: 'Monthly billing', href: '/admin/monthly-billing', icon: CalendarRange, color: 'text-violet-600', bg: 'bg-violet-50' },
         { title: 'SMS Console', href: '/admin/sms', icon: MessageSquare, color: 'text-emerald-500', bg: 'bg-emerald-50' },
         { title: 'Reports', href: '/admin/reports', icon: BarChart3, color: 'text-teal-500', bg: 'bg-teal-50' },
         { title: 'Settings', href: '/admin/settings', icon: Settings, color: 'text-slate-500', bg: 'bg-slate-50' },
+        { title: 'Inventory', href: '/admin/inventory', icon: Package, color: 'text-amber-600', bg: 'bg-amber-50' },
+        { title: 'Books', href: '/admin/books', icon: BookOpen, color: 'text-blue-500', bg: 'bg-blue-50' },
       ],
     },
   ];
