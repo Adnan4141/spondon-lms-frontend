@@ -13,6 +13,6 @@ export interface Testimonial {
   quote: string;
   name: string;
   info: string;
-  videoThumb: string;
-  videoLabel: string;
+  thumbnailUrl?: string;
+  rating?: number;
 }

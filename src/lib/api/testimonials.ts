@@ -39,10 +39,22 @@ export async function createTestimonial(data: Partial<TestimonialAdmin>): Promis
   });
 }
 
-export async function updateTestimonial(id: string, data: Partial<TestimonialAdmin>): Promise<{ success: boolean; data: TestimonialAdmin }> {
+export async function createAdminTestimonial(
+  data: Partial<TestimonialAdmin> | FormData,
+): Promise<{ success: boolean; data: TestimonialAdmin }> {
+  return apiRequest('/testimonials/admin', {
+    method: 'POST',
+    body: data instanceof FormData ? data : JSON.stringify(data),
+  });
+}
+
+export async function updateTestimonial(
+  id: string,
+  data: Partial<TestimonialAdmin> | FormData,
+): Promise<{ success: boolean; data: TestimonialAdmin }> {
   return apiRequest(`/testimonials/${id}`, {
     method: 'PUT',
-    body: JSON.stringify(data),
+    body: data instanceof FormData ? data : JSON.stringify(data),
   });
 }
 

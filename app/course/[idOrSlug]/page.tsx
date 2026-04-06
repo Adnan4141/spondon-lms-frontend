@@ -329,8 +329,8 @@ export default function CourseDetailsPage() {
                 <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 blur-[120px] rounded-full" />
                 <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/10 blur-[100px] rounded-full" />
 
-                <div className="max-w-7xl mx-auto px-6 lg:px-12 relative z-10">
-                    <div className="grid lg:grid-cols-2 gap-16 items-center">
+                <div className="max-w-7xl  flex items-center justify-center mx-auto px-6 lg:px-12 relative z-10">
+                    <div className="gap-16 items-center">
                         <motion.div
                             initial={{ opacity: 0, x: -20 }}
                             animate={{ opacity: 1, x: 0 }}
@@ -352,99 +352,11 @@ export default function CourseDetailsPage() {
                                 dangerouslySetInnerHTML={{ __html: course.description || 'আপনার স্বপ্ন পূরণের যাত্রায় আমরা আছি আপনার পাশে। মানসম্মত শিক্ষা এবং সঠিক নির্দেশনায় গড়ে তুলুন আপনার ভবিষ্যৎ।' }}
                             />
 
-                            <div className="flex flex-wrap gap-6 mb-12">
-                                <div className="flex items-center gap-3">
-                                    <div className="h-10 w-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-indigo-400">
-                                        <Users size={20} />
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-[10px] font-black text-slate-500 uppercase">এনরোলড</span>
-                                        <span className="text-sm font-bold text-white">৫০০+ শিক্ষার্থী</span>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <div className="h-10 w-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-emerald-400">
-                                        <Clock size={20} />
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-[10px] font-black text-slate-500 uppercase">সময়কাল</span>
-                                        <span className="text-sm font-bold text-white">০৬ মাস</span>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <div className="h-10 w-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-amber-400">
-                                        <Calendar size={20} />
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-[10px] font-black text-slate-500 uppercase">ভর্তি চলছে</span>
-                                        <span className="text-sm font-bold text-white">জুলাই ব্যাচ</span>
-                                    </div>
-                                </div>
-                            </div>
+                         
+
                         </motion.div>
 
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ duration: 0.5, delay: 0.2 }}
-                            className="relative"
-                        >
-                            <div className="relative aspect-video rounded-[40px] overflow-hidden border-8 border-white/5 shadow-2xl">
-                                <img
-                                    src={course.thumbnail || 'https://placehold.co/800x450/5C2D91/white?text=Course+Thumbnail'}
-                                    alt={course.name}
-                                    className="w-full h-full object-cover"
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                                <div className="absolute bottom-8 left-8 right-8 flex flex-col sm:flex-row sm:items-end gap-6 justify-between">
-                                    <div className="flex flex-col gap-1 max-w-[min(100%,280px)]">
-                                        <span className="text-white/60 text-[10px] font-black uppercase tracking-widest">কোর্স ফি (টিউশন)</span>
-                                        <span className="text-3xl font-black text-white leading-none">
-                                            ৳{enrollTotal.toLocaleString()}
-                                        </span>
-                                        {booksAddonTotal > 0 ? (
-                                            <span className="text-xs font-bold text-white/70">
-                                                (কোর্স ৳{Number(course.fee).toLocaleString()} + বই ৳
-                                                {booksAddonTotal.toLocaleString()})
-                                            </span>
-                                        ) : null}
-                                        {feeBreakdown && feeBreakdown.linkedBooksTotal > 0 ? (
-                                            <div className="mt-2 space-y-1 rounded-xl bg-black/30 px-3 py-2 border border-white/10">
-                                                <p className="text-[9px] font-black uppercase text-emerald-300/90 tracking-widest">
-                                                    + লিঙ্ক করা বই (আলাদা)
-                                                </p>
-                                                <p className="text-lg font-black text-emerald-300">
-                                                    ৳{Number(feeBreakdown.linkedBooksTotal).toLocaleString()}
-                                                </p>
-                                                <p className="text-[9px] font-bold text-white/50 uppercase">সর্বমোট (কোর্স + বই)</p>
-                                                <p className="text-base font-black text-white">
-                                                    ৳{Number(feeBreakdown.totalWithPaidBooks).toLocaleString()}
-                                                </p>
-                                                <p className="text-[10px] text-white/45 font-medium leading-snug pt-1">
-                                                    ভর্তির পেমেন্টে সাধারণত শুধু কোর্স ফি; বই আলাদা কিনতে হতে পারে।
-                                                </p>
-                                            </div>
-                                        ) : null}
-                                    </div>
-                                    {alreadyEnrolled ? (
-                                        <Link
-                                            href="/student/courses"
-                                            className="inline-flex items-center gap-2 px-8 py-4 bg-emerald-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest transition-all hover:scale-105 active:scale-95 shadow-xl shadow-emerald-500/30"
-                                        >
-                                            <CheckCircle2 size={18} /> আমার কোর্স দেখুন
-                                        </Link>
-                                    ) : (
-                                        <button
-                                            onClick={handleEnrollClick}
-                                            disabled={enrolling}
-                                            className="px-8 py-4 bg-white text-slate-900 rounded-2xl font-black uppercase text-xs tracking-widest transition-all hover:scale-105 active:scale-95 shadow-xl shadow-white/10 disabled:opacity-70"
-                                        >
-                                            {enrolling ? 'প্রসেসিং...' : 'ভর্তি হোন'}
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        </motion.div>
+                      
                     </div>
                 </div>
             </div>

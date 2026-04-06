@@ -1,10 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useState, useMemo } from 'react';
+import Image from 'next/image';
+import { useCallback, useEffect, useState, useMemo, type ComponentProps } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Table,
   TableBody,
@@ -19,12 +21,15 @@ import { useModalStore } from '@/store/modalStore';
 import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
 import {
   approveTestimonial,
-  createTestimonial,
+  createAdminTestimonial,
   deleteTestimonial,
   getAllTestimonials,
   updateTestimonial,
   type TestimonialAdmin,
 } from '@/lib/api/testimonials';
+import { getUsers, type User as AppUser } from '@/lib/api/users';
+import { getCourses } from '@/lib/api/courses';
+import { getBatches, type Batch } from '@/lib/api/batches';
 import {
   Pencil,
   Plus,
@@ -34,8 +39,8 @@ import {
   MessageSquare,
   Star,
   Search,
-  Clock,
-  CheckCircle,
+  Check,
+  ChevronsUpDown,
   MoreVertical,
   Quote,
   Activity,
@@ -43,6 +48,107 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { API_ORIGIN } from '@/lib/api';
+import { resolveAttachmentUrl } from '@/lib/attachment-url';
+
+type InputFieldProps = {
+  label: string;
+  required?: boolean;
+} & ComponentProps<typeof Input>;
+
+const InputField = ({ label, required, className, ...props }: InputFieldProps) => (
+  <div className="space-y-2">
+    <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">
+      {label} {required && <span className="text-red-500">*</span>}
+    </label>
+    <Input
+      {...props}
+      className={cn('h-11 rounded-xl border-slate-200 bg-slate-50 focus:bg-white', className)}
+    />
+  </div>
+);
+
+type SearchSelectOption = {
+  id: string;
+  label: string;
+};
+
+type SearchSelectFieldProps = {
+  label: string;
+  placeholder: string;
+  options: SearchSelectOption[];
+  defaultValue?: string;
+  onValueChange: (input: string, selected?: SearchSelectOption) => void;
+};
+
+const SearchSelectField = ({
+  label,
+  placeholder,
+  options,
+  defaultValue,
+  onValueChange,
+}: SearchSelectFieldProps) => {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState(defaultValue || '');
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return options.slice(0, 40);
+    return options.filter((o) => o.label.toLowerCase().includes(q)).slice(0, 40);
+  }, [options, query]);
+
+  return (
+    <div className="space-y-2">
+      <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">{label}</label>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 w-full rounded-xl border-slate-200 bg-slate-50 px-3 justify-between font-medium text-slate-700 hover:bg-white"
+          >
+            <span className="truncate text-left">{query || placeholder}</span>
+            <ChevronsUpDown className="h-4 w-4 text-slate-400" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-(--radix-popover-trigger-width) p-2 rounded-xl">
+          <Input
+            value={query}
+            placeholder={placeholder}
+            className="h-10 rounded-lg"
+            onChange={(e) => {
+              const value = e.target.value;
+              setQuery(value);
+              onValueChange(value);
+            }}
+          />
+          <div className="mt-2 max-h-56 overflow-auto space-y-1">
+            {filtered.length === 0 ? (
+              <div className="px-2 py-2 text-xs font-medium text-slate-400">No results</div>
+            ) : (
+              filtered.map((opt) => (
+                <Button
+                  key={opt.id}
+                  type="button"
+                  variant="ghost"
+                  className="w-full justify-start rounded-lg px-2 h-9 text-sm"
+                  onClick={() => {
+                    setQuery(opt.label);
+                    onValueChange(opt.label, opt);
+                    setOpen(false);
+                  }}
+                >
+                  <Check className="mr-2 h-4 w-4 text-emerald-600" />
+                  <span className="truncate">{opt.label}</span>
+                </Button>
+              ))
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+};
 
 export default function AdminTestimonialsPage() {
   const { toast, toasts, removeToast } = useToast();
@@ -51,6 +157,9 @@ export default function AdminTestimonialsPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'published'>('all');
+  const [students, setStudents] = useState<AppUser[]>([]);
+  const [courses, setCourses] = useState<Array<{ id: string; name: string; code?: string | null }>>([]);
+  const [batches, setBatches] = useState<Batch[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -68,16 +177,33 @@ export default function AdminTestimonialsPage() {
     load();
   }, [load]);
 
-  const stats = useMemo(() => {
-    const total = testimonials.length;
-    const pending = testimonials.filter((t) => !t.approved).length;
-    const published = total - pending;
-    const avgRating = total > 0 
-      ? (testimonials.reduce((acc, t) => acc + (t.rating || 0), 0) / total).toFixed(1) 
-      : '0.0';
-    
-    return { total, pending, published, avgRating };
-  }, [testimonials]);
+  useEffect(() => {
+    async function loadLookups() {
+      try {
+        const [studentRes, courseRes, batchRes] = await Promise.all([
+          getUsers({ role: 'STUDENT', status: 'ACTIVE', limit: 300 }),
+          getCourses({ status: 'ACTIVE', limit: 300 }),
+          getBatches({ status: 'ACTIVE', limit: 400 }),
+        ]);
+
+        if (studentRes.success) setStudents(studentRes.data || []);
+        if (courseRes.success) {
+          setCourses(
+            (courseRes.data || []).map((c: { id: string; name: string; code?: string | null }) => ({
+              id: c.id,
+              name: c.name,
+              code: c.code || null,
+            }))
+          );
+        }
+        if (batchRes.success) setBatches(batchRes.data || []);
+      } catch {
+        // Keep form usable even if lookups fail.
+      }
+    }
+
+    loadLookups();
+  }, []);
 
   const filteredTestimonials = useMemo(() => {
     return testimonials.filter((t) => {
@@ -96,121 +222,228 @@ export default function AdminTestimonialsPage() {
   }, [testimonials, searchQuery, filterStatus]);
 
   const openForm = (existing?: TestimonialAdmin) => {
-    let formData = existing 
-      ? { ...existing } 
-      : { name: '', quote: '', info: '', rating: 5, courseId: '', studentUserId: '' };
+    const formData = existing
+      ? { ...existing }
+      : {
+          name: '',
+          quote: '',
+          info: '',
+          rating: 5,
+          courseId: '',
+          studentUserId: '',
+          videoUrl: '',
+          thumbnailUrl: '',
+          sortOrder: 0,
+        };
+    let thumbnailFile: File | null = null;
+    let lastAutoBatchValue = '';
 
     openModal({
       title: existing ? 'Edit Testimonial' : 'Create Testimonial',
-      description: 'Testimonials are tied to student enrollments and course IDs.',
-      className: 'sm:max-w-2xl',
+      description: 'Manage quote, image, video, and publish order for landing page testimonials.',
+      className: 'sm:max-w-5xl p-0 overflow-hidden',
       content: (
-        <div className="space-y-6 py-4">
-          {!existing && (
-            <div className="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4 text-xs font-bold text-indigo-700 leading-relaxed">
-              <div className="flex gap-2 items-start">
-                <Activity className="h-4 w-4 shrink-0 mt-0.5" />
-                <p>Manual entry requires valid Student & Course IDs. Backend validation ensures student is enrolled before allowing public visibility.</p>
-              </div>
-            </div>
-          )}
+        <div className="space-y-8 p-6 sm:p-8 lg:p-10 bg-white">
+  {!existing && (
+    <div className="flex gap-3 items-start rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm font-medium text-indigo-700">
+      <Activity className="h-5 w-5 mt-0.5 shrink-0" />
+      <p>
+        Create a testimonial manually. You can attach a thumbnail or use an external image/video.
+      </p>
+    </div>
+  )}
 
-          <div className="grid gap-6 sm:grid-cols-2">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Student User ID</label>
-              <Input
-                defaultValue={formData.studentUserId || ''}
-                placeholder="e.g. user_2n..."
-                className="h-12 rounded-xl border-slate-100 bg-slate-50/50 font-bold"
-                onChange={(e) => (formData.studentUserId = e.target.value)}
-                disabled={!!existing}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Course ID</label>
-              <Input
-                defaultValue={formData.courseId || ''}
-                placeholder="e.g. course_8x..."
-                className="h-12 rounded-xl border-slate-100 bg-slate-50/50 font-bold"
-                onChange={(e) => (formData.courseId = e.target.value)}
-                disabled={!!existing}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Display Name (Override)</label>
-              <Input 
-                defaultValue={formData.name || ''} 
-                placeholder="Student's name" 
-                className="h-12 rounded-xl border-slate-100 bg-slate-50/50 font-bold"
-                onChange={(e) => (formData.name = e.target.value)} 
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Batch / Info</label>
-              <Input 
-                defaultValue={formData.info || ''} 
-                placeholder="e.g. HSC 2024 Batch" 
-                className="h-12 rounded-xl border-slate-100 bg-slate-50/50 font-bold"
-                onChange={(e) => (formData.info = e.target.value)} 
-              />
-            </div>
-            <div className="space-y-2 sm:col-span-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Star Rating (1-5)</label>
-              <div className="flex items-center gap-4 bg-slate-50/50 border border-slate-100 rounded-xl px-4 h-12">
-                 {[1, 2, 3, 4, 5].map((star) => (
-                   <button 
-                    key={star} 
-                    type="button"
-                    onClick={() => {
-                      formData.rating = star;
-                      // Force a re-render if needed, but since it's a modal with internal state tracking
-                      // this is a bit tricky without a proper component. Using defaultValue/onChange for simplicity here.
-                      // In a real refactor, we'd make this a proper sub-component.
-                    }}
-                    className="hover:scale-110 transition-transform"
-                   >
-                     <Star className="h-5 w-5 text-amber-400 fill-amber-400" />
-                   </button>
-                 ))}
-                 <span className="ml-auto font-black text-slate-900">Recommended: 5</span>
-              </div>
-            </div>
-          </div>
+  {/* ---------------- STUDENT INFO ---------------- */}
+  <div className="space-y-5 rounded-2xl border border-slate-100 bg-slate-50/40 p-5 sm:p-6">
+    <h3 className="text-sm font-black tracking-wide text-slate-700 uppercase">
+      Student Info
+    </h3>
 
-          <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">The Testimonial Quote</label>
-            <Textarea 
-              defaultValue={formData.quote} 
-              placeholder="What did the student say?" 
-              className="rounded-2xl border-slate-100 bg-slate-50/50 font-medium leading-relaxed min-h-[120px]"
-              onChange={(e) => (formData.quote = e.target.value)} 
-            />
-          </div>
+    <div className="grid gap-5 sm:grid-cols-2">
+      <SearchSelectField
+        label="Student"
+        placeholder="Search student by name/mobile"
+        options={students.map((s) => ({ id: s.id, label: `${s.fullName} (${s.mobile})` }))}
+        defaultValue={
+          students.find((s) => s.id === formData.studentUserId)
+            ? `${students.find((s) => s.id === formData.studentUserId)?.fullName} (${students.find((s) => s.id === formData.studentUserId)?.mobile})`
+            : (formData.studentUserId || '')
+        }
+        onValueChange={(input, selected) => {
+          formData.studentUserId = selected?.id || input.trim();
+          if (selected) {
+            const matched = students.find((s) => s.id === selected.id);
+            if (matched) {
+              formData.name = matched.fullName;
+              const displayNameInput = document.getElementById('testimonial-display-name') as HTMLInputElement | null;
+              if (displayNameInput) displayNameInput.value = matched.fullName;
+            }
+          }
+        }}
+      />
 
-          <div className="flex justify-end gap-3 pt-4">
-            <Button variant="ghost" className="h-12 rounded-xl font-bold" onClick={closeModal}>Cancel</Button>
-            <Button
-              className="h-12 px-8 rounded-xl bg-slate-900 text-white font-black hover:bg-indigo-600 shadow-lg shadow-slate-200"
-              onClick={async () => {
-                try {
-                  if (!formData.studentUserId || !formData.courseId) throw new Error('Student ID and course ID are required');
-                  if (!formData.quote?.trim()) throw new Error('Quote is required');
-                  
-                  if (existing) await updateTestimonial(existing.id, formData);
-                  else await createTestimonial(formData);
-                  
-                  await load();
-                  toast({ title: existing ? 'Review Updated' : 'Review Created', variant: 'success' });
-                  closeModal();
-                } catch (err) {
-                  toast({ title: 'Save failed', description: (err as Error).message, variant: 'destructive' });
-                }
-              }}
-            >
-              {existing ? 'Save Changes' : 'Publish Review'}
-            </Button>
-          </div>
+      <SearchSelectField
+        label="Course"
+        placeholder="Search course by name/code"
+        options={courses.map((c) => ({ id: c.id, label: `${c.name}${c.code ? ` (${c.code})` : ''}` }))}
+        defaultValue={
+          courses.find((c) => c.id === formData.courseId)
+            ? `${courses.find((c) => c.id === formData.courseId)?.name}${courses.find((c) => c.id === formData.courseId)?.code ? ` (${courses.find((c) => c.id === formData.courseId)?.code})` : ''}`
+            : (formData.courseId || '')
+        }
+        onValueChange={(input, selected) => {
+          formData.courseId = selected?.id || input.trim();
+        }}
+      />
+
+      <InputField id="testimonial-display-name" label="Display Name" required placeholder="Student name" onChange={(e)=>formData.name=e.target.value} defaultValue={formData.name}/>
+
+      <SearchSelectField
+        label="Batch (Searchable)"
+        placeholder="Search batch name"
+        options={batches.map((b) => ({ id: b.id, label: `${b.name}${b.course?.name ? ` - ${b.course.name}` : ''}` }))}
+        onValueChange={(_input, selected) => {
+          if (!selected) return;
+          const batch = batches.find((b) => b.id === selected.id);
+          if (!batch) return;
+
+          const infoInput = document.getElementById('testimonial-info') as HTMLInputElement | null;
+          if (infoInput) {
+            const current = infoInput.value.trim();
+            if (!current || current === lastAutoBatchValue) {
+              infoInput.value = batch.name;
+              formData.info = batch.name;
+              lastAutoBatchValue = batch.name;
+            }
+          }
+        }}
+      />
+
+      <InputField id="testimonial-info" label="Batch / Info" placeholder="HSC 2024" onChange={(e)=>formData.info=e.target.value} defaultValue={formData.info}/>
+    </div>
+  </div>
+
+  {/* ---------------- CONTENT ---------------- */}
+  <div className="space-y-5 rounded-2xl border border-slate-100 bg-slate-50/40 p-5 sm:p-6">
+    <h3 className="text-sm font-black tracking-wide text-slate-700 uppercase">
+      Content
+    </h3>
+
+    {/* Rating */}
+    <div className="space-y-2">
+      <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Rating</label>
+      <div className="flex items-center gap-2 bg-slate-50 border rounded-xl px-4 h-12">
+        {[1,2,3,4,5].map((star)=>(
+          <button
+            key={star}
+            type="button"
+            onClick={()=> formData.rating = star}
+            className={`transition ${formData.rating >= star ? 'scale-110' : 'opacity-40'}`}
+          >
+            <Star className="h-5 w-5 text-amber-400 fill-amber-400"/>
+          </button>
+        ))}
+        <span className="ml-auto text-xs font-bold text-slate-500">
+          {formData.rating || 5}/5
+        </span>
+      </div>
+    </div>
+
+    {/* Quote */}
+    <div className="space-y-2">
+      <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Testimonial</label>
+      <Textarea
+        defaultValue={formData.quote}
+        placeholder="What did the student say?"
+        className="min-h-32 rounded-xl"
+        onChange={(e)=>formData.quote = e.target.value}
+      />
+    </div>
+  </div>
+
+  {/* ---------------- MEDIA ---------------- */}
+  <div className="space-y-5 rounded-2xl border border-slate-100 bg-slate-50/40 p-5 sm:p-6">
+    <h3 className="text-sm font-black tracking-wide text-slate-700 uppercase">
+      Media
+    </h3>
+
+    <div className="grid gap-5 sm:grid-cols-2">
+      <InputField label="Video URL" placeholder="https://youtube.com/..." onChange={(e)=>formData.videoUrl=e.target.value} defaultValue={formData.videoUrl}/>
+      <InputField type="number" label="Sort Order" onChange={(e)=>formData.sortOrder=Number(e.target.value)} defaultValue={formData.sortOrder || 0}/>
+    </div>
+
+    <InputField label="Thumbnail URL" placeholder="https://... or /uploads/..." onChange={(e)=>formData.thumbnailUrl=e.target.value} defaultValue={formData.thumbnailUrl}/>
+
+    {/* Upload */}
+    <div className="space-y-3">
+      <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Upload Thumbnail</label>
+      <Input
+        type="file"
+        accept="image/*"
+        className="h-11 rounded-xl border-slate-200 bg-slate-50 focus:bg-white"
+        onChange={(e)=> thumbnailFile = e.target.files?.[0] || null}
+      />
+
+      {(formData.thumbnailUrl || existing?.thumbnailUrl) && (
+        <div className="relative w-28 h-28 rounded-xl overflow-hidden border bg-slate-100">
+          <Image
+            src={resolveAttachmentUrl(formData.thumbnailUrl || existing?.thumbnailUrl || '', API_ORIGIN)}
+            alt="Thumbnail preview"
+            fill
+            unoptimized
+            className="w-full h-full object-cover"
+          />
         </div>
+      )}
+    </div>
+  </div>
+
+  {/* ---------------- ACTIONS ---------------- */}
+  <div className="flex justify-between items-center pt-6 border-t border-slate-200/80">
+    <Button variant="ghost" onClick={closeModal}>
+      Cancel
+    </Button>
+
+    <Button
+      className="px-6 h-12 rounded-xl bg-slate-900 text-white font-bold hover:bg-indigo-600"
+      onClick={async () => {
+        try {
+          if (!formData.name?.trim()) throw new Error('Display name required');
+          if (!formData.quote?.trim()) throw new Error('Quote required');
+
+          const payload = new FormData();
+          Object.entries({
+            name: formData.name,
+            quote: formData.quote,
+            info: formData.info,
+            rating: formData.rating || 5,
+            sortOrder: formData.sortOrder || 0,
+            studentUserId: formData.studentUserId,
+            courseId: formData.courseId,
+            videoUrl: formData.videoUrl || '',
+            thumbnailUrl: formData.thumbnailUrl || ''
+          }).forEach(([k,v]) => v && payload.append(k, String(v)));
+
+          if (thumbnailFile) payload.append('thumbnail', thumbnailFile);
+
+          if (existing) {
+            await updateTestimonial(existing.id, payload);
+          } else {
+            await createAdminTestimonial(payload);
+          }
+
+          await load();
+          toast({ title: existing ? 'Updated' : 'Created', variant: 'success' });
+          closeModal();
+        } catch (err) {
+          toast({ title: 'Error', description: (err as Error).message, variant: 'destructive' });
+        }
+      }}
+    >
+      {existing ? 'Save Changes' : 'Publish Review'}
+    </Button>
+  </div>
+</div>
       ),
     });
   };
@@ -266,16 +499,10 @@ export default function AdminTestimonialsPage() {
         
         <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
           <div className="space-y-4">
-            <div className="inline-flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-amber-600 shadow-sm border border-amber-100/50">
-              <Star className="h-3.5 w-3.5 fill-amber-500" />
-              Social Proof
-            </div>
+            
             <div>
                <h1 className="text-3xl font-black tracking-tight sm:text-4xl text-slate-900">Student Testimonials</h1>
-               <p className="mt-3 max-w-2xl text-base font-medium leading-relaxed text-slate-500">
-                 Manage student feedback and public reviews. Approved testimonials appear on your 
-                 homepage and increase conversion rates for prospective students.
-               </p>
+              
             </div>
           </div>
           
@@ -294,45 +521,12 @@ export default function AdminTestimonialsPage() {
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-         {[
-            { label: 'Total Reviews', value: stats.total, icon: MessageSquare, gradient: 'from-indigo-600 to-indigo-500', trend: 'Global Feed' },
-            { label: 'Avg. Rating', value: stats.avgRating, icon: Star, gradient: 'from-amber-500 to-amber-400', trend: 'Satisfaction' },
-            { label: 'Published', value: stats.published, icon: CheckCircle, gradient: 'from-emerald-500 to-emerald-400', trend: 'Live Status' },
-            { label: 'Pending', value: stats.pending, icon: Clock, gradient: 'from-rose-500 to-rose-400', trend: 'Awaiting Action' },
-         ].map((kpi) => {
-            const Icon = kpi.icon;
-            return (
-               <div key={kpi.label} className="group relative flex flex-col justify-between overflow-hidden rounded-[32px] border border-slate-100 bg-white p-7 shadow-xl shadow-slate-200/40 transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:border-indigo-100">
-                  <div className="flex items-center justify-between">
-                     <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg transition-transform group-hover:scale-110", kpi.gradient)}>
-                        <Icon className="h-6 w-6" />
-                     </div>
-                     <div className="flex items-center gap-1 rounded-full bg-slate-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-slate-400 border border-slate-100">
-                        {kpi.trend}
-                     </div>
-                  </div>
 
-                  <div className="mt-8">
-                     <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">{kpi.label}</p>
-                     <h3 className="mt-1 text-4xl font-black text-slate-900">{loading ? '—' : kpi.value}</h3>
-                  </div>
-                  
-                  <div className="mt-6 flex items-end gap-1 h-8 opacity-5 group-hover:opacity-10 transition-opacity">
-                     {[40, 70, 45, 90, 65, 80, 50, 100].map((h, i) => (
-                        <div key={i} className="flex-1 rounded-t-sm bg-indigo-500" style={{ height: `${h}%` }} />
-                     ))}
-                  </div>
-               </div>
-            );
-         })}
-      </section>
 
       {/* Filter Section */}
       <section className="rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/30">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
-          <div className="relative min-w-[280px] flex-1">
+          <div className="relative min-w-70 flex-1">
             <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input
               placeholder="Search by student name, course or quote content…"
@@ -350,7 +544,7 @@ export default function AdminTestimonialsPage() {
              ].map((btn) => (
                <button
                  key={btn.id}
-                 onClick={() => setFilterStatus(btn.id as any)}
+                 onClick={() => setFilterStatus(btn.id as 'all' | 'published' | 'pending')}
                  className={cn(
                    "px-6 py-2.5 rounded-xl text-sm font-black transition-all",
                    filterStatus === btn.id 
@@ -408,8 +602,18 @@ export default function AdminTestimonialsPage() {
                   <TableRow key={t.id} className="group transition-all hover:bg-slate-50/50">
                     <TableCell className="py-8 px-8">
                        <div className="flex items-center gap-4">
-                          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] bg-gradient-to-br from-indigo-50 to-white text-indigo-600 font-black text-base shadow-sm border border-indigo-100 transition-transform group-hover:scale-110 group-hover:rotate-3">
-                             {(t.student?.fullName || t.name || 'S').charAt(0)}
+                          <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-4xl bg-linear-to-br from-indigo-50 to-white text-indigo-600 font-black text-base shadow-sm border border-indigo-100 transition-transform group-hover:scale-110 group-hover:rotate-3">
+                                 {t.thumbnailUrl ? (
+                                   <Image
+                                     src={resolveAttachmentUrl(t.thumbnailUrl, API_ORIGIN)}
+                                     alt={t.name || 'Review thumbnail'}
+                                     fill
+                                     unoptimized
+                                     className="h-full w-full object-cover"
+                                   />
+                                 ) : (
+                                   (t.student?.fullName || t.name || 'S').charAt(0)
+                                 )}
                           </div>
                           <div>
                              <p className="text-base font-black text-slate-900 group-hover:text-indigo-600 transition-colors">
@@ -423,7 +627,7 @@ export default function AdminTestimonialsPage() {
                        </div>
                     </TableCell>
                     <TableCell className="py-8 px-6">
-                       <div className="space-y-1.5 max-w-[200px]">
+                       <div className="space-y-1.5 max-w-50">
                           <div className="flex items-center gap-2 text-sm font-black text-slate-700">
                              <BookOpen className="h-3.5 w-3.5 text-indigo-400" />
                              <span className="truncate">{t.course?.name || 'General Feedback'}</span>
@@ -437,7 +641,7 @@ export default function AdminTestimonialsPage() {
                        <div className="relative max-w-md">
                           <Quote className="absolute -left-4 -top-2 h-8 w-8 text-indigo-50/80 -z-10" />
                           <p className="text-sm font-medium leading-relaxed text-slate-600 italic line-clamp-2">
-                             "{t.quote}"
+                              &ldquo;{t.quote}&rdquo;
                           </p>
                           <div className="flex items-center gap-0.5 mt-2">
                              {[...Array(5)].map((_, i) => (

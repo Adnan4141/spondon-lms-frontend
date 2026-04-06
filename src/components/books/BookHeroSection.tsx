@@ -204,21 +204,7 @@ export function BookHeroSection({
             </button>
           </div>
 
-          <div className="flex items-center gap-6 text-sm font-bold text-slate-500">
-            <div className="flex -space-x-3">
-               {[1,2,3,4].map(i => (
-                 <div key={i} className="h-10 w-10 rounded-full border-4 border-[#0F172A] bg-slate-800 flex items-center justify-center text-[10px] font-black text-slate-400 shadow-xl">
-                   {i}
-                 </div>
-               ))}
-               <div className="h-10 w-10 rounded-full border-4 border-[#0F172A] bg-indigo-600 flex items-center justify-center text-[10px] font-black text-white shadow-xl">
-                 +99
-               </div>
-            </div>
-            <p className="max-w-[200px] leading-tight">
-              <span className="text-white">১০০০+ শিক্ষার্থী</span> এই বইটি সংগ্রহ করেছেন
-            </p>
-          </div>
+    
         </div>
       </div>
     </div>

@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, Loader2, Users, Truck, ExternalLink, PieChart, Library, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, Loader2, Users, Truck, PieChart, Library, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getPublicBook, type PublicBook } from '@/lib/api/books';
 import { getBranches } from '@/lib/api/branches';
@@ -21,7 +21,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
 import { BookHeroSection } from '@/components/books/BookHeroSection';
 import { BookTabs, type BookTabId } from '@/components/books/BookTabs';
 import { BookOverviewSection } from '@/components/books/BookOverviewSection';
@@ -61,6 +60,7 @@ export default function PublicBookDetailPage() {
   const params = useParams();
   const router = useRouter();
   const bookId = params.bookId as string;
+  const [currentUser, setCurrentUser] = useState<LocalUser | null>(null);
 
   const [book, setBook] = useState<PublicBook | null>(null);
   const [access, setAccess] = useState<BookAccessData | null>(null);
@@ -82,6 +82,19 @@ export default function PublicBookDetailPage() {
   const [purchaseHint, setPurchaseHint] = useState<string | null>(null);
 
   useEffect(() => {
+    setCurrentUser(readUser());
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'user') {
+        setCurrentUser(readUser());
+      }
+    };
+
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
+  useEffect(() => {
     setBookmarked(readBookmarkSet().has(bookId));
   }, [bookId]);
 
@@ -94,8 +107,7 @@ export default function PublicBookDetailPage() {
         if (bookRes.success && bookRes.data) setBook(bookRes.data);
         else setLoadError('বই পাওয়া যায়নি।');
         if (branchRes.success) setBranches(branchRes.data || []);
-        const u = readUser();
-        const accRes = await getBookAccess(bookId, u?.id);
+        const accRes = await getBookAccess(bookId, currentUser?.id);
         if (accRes.success && accRes.data) setAccess(accRes.data);
       } catch {
         setLoadError('লোড ব্যর্থ।');
@@ -103,16 +115,19 @@ export default function PublicBookDetailPage() {
         setLoading(false);
       }
     })();
-  }, [bookId]);
+  }, [bookId, currentUser?.id]);
 
   const categoryLabel = useMemo(() => {
     const first = book?.courseBooks?.[0]?.course?.name;
     return first?.trim() || null;
   }, [book]);
 
+  const isLoggedIn = Boolean(currentUser?.id);
+  const isStudent = String(currentUser?.role || '').toUpperCase() === 'STUDENT';
+
   const openCheckout = () => {
     setPurchaseHint(null);
-    const u = readUser();
+    const u = currentUser || readUser();
     if (!u?.id) {
       router.replace(`/login?redirect=${encodeURIComponent(`/books/${bookId}`)}`);
       return;
@@ -132,7 +147,7 @@ export default function PublicBookDetailPage() {
   };
 
   const pay = async () => {
-    const u = readUser();
+    const u = currentUser || readUser();
     if (!u?.id) {
       router.replace(`/login?redirect=${encodeURIComponent(`/books/${bookId}`)}`);
       return;
@@ -212,7 +227,7 @@ export default function PublicBookDetailPage() {
   const collaborators = book.collaborators || [];
   const readUrl = access?.readUrl || null;
   const showRead = Boolean(access?.hasAccess && book.isEbook && readUrl);
-  const showStudentLibraryLink = true;
+  const showStudentLibraryLink = isStudent;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-indigo-100">
@@ -222,7 +237,7 @@ export default function PublicBookDetailPage() {
       <div className="relative bg-[#0F172A] pt-32 pb-24 overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 blur-[120px] rounded-full pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/10 blur-[100px] rounded-full pointer-events-none" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:40px_40px] opacity-[0.05] pointer-events-none"></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(#ffffff_1px,transparent_1px)] bg-size-[40px_40px] opacity-[0.05] pointer-events-none"></div>
 
         <div className="max-w-7xl mx-auto px-6 lg:px-12 relative z-10">
           <BookHeroSection
@@ -243,7 +258,7 @@ export default function PublicBookDetailPage() {
 
       {showStudentLibraryLink ? (
         <div className="relative border-b border-indigo-500/20 bg-[#0F172A] py-6">
-          <div className="absolute inset-0 bg-gradient-to-r from-indigo-600/10 via-transparent to-violet-600/10" />
+          <div className="absolute inset-0 bg-linear-to-r from-indigo-600/10 via-transparent to-violet-600/10" />
           <div className="mx-auto flex max-w-7xl flex-col gap-6 px-6 sm:flex-row sm:items-center sm:justify-between lg:px-12 relative z-10">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-500/20 text-indigo-400 ring-1 ring-indigo-500/30">
@@ -296,6 +311,29 @@ export default function PublicBookDetailPage() {
           </div>
 
           <aside className="space-y-10 sticky top-32">
+            {!isLoggedIn && (
+              <div className="rounded-[40px] border border-indigo-200 bg-linear-to-b from-indigo-50 to-white p-10 shadow-xl shadow-indigo-900/5">
+                <h4 className="text-xl font-black text-indigo-900">ছাত্র অ্যাকাউন্ট প্রয়োজন</h4>
+                <p className="mt-3 text-sm font-medium text-slate-600 leading-relaxed">
+                  কেনা, পেমেন্ট স্ট্যাটাস এবং বই লাইব্রেরি দেখতে লগইন করুন।
+                </p>
+                <Button asChild className="mt-6 h-14 w-full rounded-2xl bg-indigo-600 hover:bg-indigo-700 font-black">
+                  <Link href={`/login?redirect=${encodeURIComponent(`/books/${bookId}`)}`}>
+                    লগইন করুন <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+            )}
+
+            {isLoggedIn && !isStudent && (
+              <div className="rounded-[40px] border border-amber-200 bg-linear-to-b from-amber-50 to-white p-10 shadow-xl shadow-amber-900/5">
+                <h4 className="text-xl font-black text-amber-900">এই অ্যাকাউন্টে কেনা যাবে না</h4>
+                <p className="mt-3 text-sm font-medium text-slate-600 leading-relaxed">
+                  শুধুমাত্র শিক্ষার্থী অ্যাকাউন্ট দিয়ে বই কেনা, পেমেন্ট ও লাইব্রেরি ফিচার ব্যবহার করা যাবে।
+                </p>
+              </div>
+            )}
+
             {collaborators.length > 0 && (
               <div className="rounded-[40px] border border-slate-200/60 bg-white p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
                 <div className="mb-8 flex items-center gap-4">
@@ -326,8 +364,8 @@ export default function PublicBookDetailPage() {
               </div>
             )}
 
-            {access?.reason === 'payment_pending' && access.invoice && (
-              <div className="rounded-[40px] border border-amber-200 bg-gradient-to-b from-amber-50 to-white p-10 shadow-xl shadow-amber-900/5">
+            {isStudent && access?.reason === 'payment_pending' && access.invoice && (
+              <div className="rounded-[40px] border border-amber-200 bg-linear-to-b from-amber-50 to-white p-10 shadow-xl shadow-amber-900/5">
                 <div className="mb-6 flex items-center gap-4 text-amber-900">
                   <div className="p-3 rounded-2xl bg-amber-100 ring-1 ring-amber-200">
                     <PieChart className="h-6 w-6" />
@@ -344,8 +382,8 @@ export default function PublicBookDetailPage() {
               </div>
             )}
 
-            {!book.isEbook && access?.reason === 'physical_purchase' && access.delivery && (
-              <div className="rounded-[40px] border border-emerald-200 bg-gradient-to-b from-emerald-50 to-white p-10 shadow-xl shadow-emerald-900/5">
+            {isStudent && !book.isEbook && access?.reason === 'physical_purchase' && access.delivery && (
+              <div className="rounded-[40px] border border-emerald-200 bg-linear-to-b from-emerald-50 to-white p-10 shadow-xl shadow-emerald-900/5">
                 <div className="mb-6 flex items-center gap-4 text-emerald-900">
                   <div className="p-3 rounded-2xl bg-emerald-100 ring-1 ring-emerald-200">
                     <Truck className="h-6 w-6" />
@@ -394,7 +432,7 @@ export default function PublicBookDetailPage() {
 
       <Dialog open={checkoutOpen} onOpenChange={setCheckoutOpen}>
         <DialogContent className="max-w-xl rounded-[40px] border-white/20 bg-white/95 backdrop-blur-2xl text-slate-900 shadow-[0_32px_64px_rgba(0,0,0,0.15)] ring-1 ring-slate-200/50 p-0 overflow-hidden">
-          <div className="bg-gradient-to-r from-indigo-600 to-violet-700 px-10 py-10 text-white">
+          <div className="bg-linear-to-r from-indigo-600 to-violet-700 px-10 py-10 text-white">
             <DialogHeader>
               <DialogTitle className="text-3xl font-black tracking-tight text-white mb-2">শিপিং তথ্য</DialogTitle>
               <DialogDescription className="text-indigo-100 font-bold text-base opacity-90 leading-relaxed">
@@ -491,7 +529,7 @@ export default function PublicBookDetailPage() {
                 বাতিল
               </Button>
               <Button 
-                className="h-16 flex-[2] rounded-2xl font-black bg-indigo-600 hover:bg-indigo-700 shadow-xl shadow-indigo-200 active:scale-[0.98] transition-all text-lg group" 
+                className="h-16 flex-2 rounded-2xl font-black bg-indigo-600 hover:bg-indigo-700 shadow-xl shadow-indigo-200 active:scale-[0.98] transition-all text-lg group"
                 onClick={pay} 
                 disabled={submitting}
               >
