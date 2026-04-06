@@ -74,7 +74,7 @@ export default function LandingPage() {
         const results = await Promise.allSettled([
           getCourses({ limit: 6, websiteVisible: true, featured: true, status: 'ACTIVE' }).catch(() => empty),
           getPrograms().catch(() => empty),
-          getPublicBooksCatalog({ isEbook: true, limit: 6 }).catch(() => ({
+          getPublicBooksCatalog({ limit: 6 }).catch(() => ({
             success: false as const,
             data: [] as PublicCatalogBook[],
           })),

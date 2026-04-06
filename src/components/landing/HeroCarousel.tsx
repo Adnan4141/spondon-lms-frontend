@@ -69,7 +69,7 @@ export const HeroCarousel: React.FC = () => {
   const scrollNext = useCallback(() => emblaApi && emblaApi.scrollNext(), [emblaApi]);
 
   return (
-    <section className="relative w-full h-[420px] sm:h-[500px] md:h-[600px] lg:h-[700px] xl:h-[800px] overflow-hidden bg-slate-900">
+    <section className="relative w-full h-[320px] sm:h-[500px] md:h-[600px] lg:h-[700px] xl:h-[800px] overflow-hidden bg-slate-900">
       <div className="overflow-hidden h-full touch-pan-y" ref={emblaRef}>
         <div className="flex h-full">
           {carouselItems.map((item, index) => (
@@ -81,7 +81,7 @@ export const HeroCarousel: React.FC = () => {
                   alt={item.title}
                   fill
                   sizes="100vw"
-                  className="object-contain md:object-cover object-center"
+                  className="  md:object-contain md:object-cover object-center"
                   priority={index === 0}
                 />
               </div>

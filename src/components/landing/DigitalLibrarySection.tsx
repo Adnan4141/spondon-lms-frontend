@@ -36,11 +36,11 @@ export const DigitalLibrarySection: React.FC<Props> = ({ dynamicEbooks }) => {
             whileInView={{ opacity: 1 }}
             className="inline-block px-4 py-1.5 sm:px-5 sm:py-2 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em]"
           >
-            E-Learning Resource
+            Learning Resource
           </motion.span>
           <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-black text-white leading-tight tracking-tighter">
-            স্মার্ট ডিজিটাল{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">লাইব্রেরি</span>
+            স্মার্ট বইয়ের{' '}
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">কালেকশন</span>
           </h2>
     
         </div>
@@ -80,9 +80,9 @@ export const DigitalLibrarySection: React.FC<Props> = ({ dynamicEbooks }) => {
         >
           {dynamicEbooks.length === 0 ? (
             <div className="col-span-full rounded-[40px] border border-white/10 bg-white/[0.04] px-8 py-16 text-center backdrop-blur-md">
-              <p className="text-lg font-black text-white">ই-বুক শীঘ্রই যুক্ত হবে</p>
+              <p className="text-lg font-black text-white">বই শীঘ্রই যুক্ত হবে</p>
               <p className="mt-2 text-sm font-medium text-slate-500 max-w-md mx-auto">
-                ক্যাটালগ লোড হচ্ছে না বা এখনও কোনো ই-বুক নেই।{' '}
+                ক্যাটালগ লোড হচ্ছে না বা এখনও কোনো বই নেই।{' '}
                 <Link href="/books" className="text-emerald-400 underline-offset-2 hover:underline">
                   সকল বই দেখুন
                 </Link>
@@ -112,13 +112,13 @@ export const DigitalLibrarySection: React.FC<Props> = ({ dynamicEbooks }) => {
                     <div className="space-y-4">
                       <div className="flex items-center gap-2">
                         <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10B981]" />
-                        <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Digital Book</span>
+                        <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Online / Offline Book</span>
                       </div>
                       <h4 className="font-black text-white text-base sm:text-lg leading-tight group-hover:text-emerald-400 transition-colors line-clamp-2">
                         {book.name}
                       </h4>
                       <p className="text-slate-400 text-[11px] leading-relaxed line-clamp-2 font-medium">
-                        {book.description || 'রম্বস পাবলিকেশনসের আধুনিক ডিজিটাল রিসোর্স।'}
+                        {book.description || 'রম্বস পাবলিকেশনসের অনলাইন ও অফলাইন বই সংগ্রহ।'}
                       </p>
                     </div>
                     <div className="mt-auto pt-6 flex items-center justify-between border-t border-white/5 gap-3">
