@@ -25,7 +25,6 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 
 function readCatalogUser(): { id?: string; role?: string } | null {
   if (typeof window === "undefined") return null;
@@ -359,20 +358,18 @@ export default function BooksCatalogPage() {
                           )}
 
                           {/* CTA */}
-                          <div className="mt-auto pt-4 flex items-center gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="flex-1 h-10 rounded-xl border-slate-200 text-slate-700 text-xs sm:text-sm"
+                          <div className="mt-auto pt-4">
+                            <button
+                              type="button"
                               onClick={(e) => handleBuyClick(b.id, e)}
+                              className="relative w-full group/btn overflow-hidden h-12 rounded-xl bg-slate-900 transition-all duration-300 cursor-pointer"
                             >
-                              <ShoppingBag className="h-4 w-4 mr-1" />
-                              কিনুন
-                            </Button>
-
-                            <span className="flex items-center justify-center h-10 w-10 rounded-xl bg-slate-900 text-white group-hover:bg-indigo-600 transition">
-                              <ArrowRight className="h-4 w-4" />
-                            </span>
+                              <div className="absolute inset-0 bg-linear-to-r from-indigo-600 to-emerald-500 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300" />
+                              <div className="relative flex items-center justify-center gap-2 text-white font-black uppercase text-[10px] tracking-widest">
+                                <ShoppingBag className="h-4 w-4" />
+                                কিনুন <ArrowRight className="h-4 w-4 group-hover/btn:translate-x-1 transition-transform" />
+                              </div>
+                            </button>
                           </div>
                         </div>
                       </div>

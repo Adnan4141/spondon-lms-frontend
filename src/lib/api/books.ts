@@ -6,6 +6,7 @@ export interface Book {
   name: string;
   sku: string;
   price: number;
+  mrp?: number | null;
   author?: string | null;
   description?: string | null;
   isEbook: boolean;
@@ -111,6 +112,7 @@ export interface CreateBookDto {
   name: string;
   sku: string;
   price: number;
+  mrp?: number;
   author?: string;
   description?: string;
   isEbook?: boolean;
@@ -122,6 +124,7 @@ export interface UpdateBookDto {
   name?: string;
   sku?: string;
   price?: number;
+  mrp?: number;
   author?: string;
   description?: string;
   isEbook?: boolean;
@@ -247,6 +250,7 @@ export interface PublicBook {
   name: string;
   sku: string;
   price: number;
+  mrp?: number | null;
   author?: string | null;
   description?: string | null;
   thumbnailUrl?: string | null;
@@ -266,6 +270,7 @@ export async function createBook(
   formData.append('name', data.name);
   formData.append('sku', data.sku);
   formData.append('price', String(data.price));
+  if (data.mrp !== undefined) formData.append('mrp', String(data.mrp));
   if (data.author) formData.append('author', data.author);
   if (data.description) formData.append('description', data.description);
   if (data.isEbook !== undefined) formData.append('isEbook', String(data.isEbook));
@@ -291,6 +296,7 @@ export async function updateBook(
   if (data.name) formData.append('name', data.name);
   if (data.sku) formData.append('sku', data.sku);
   if (data.price !== undefined) formData.append('price', String(data.price));
+  if (data.mrp !== undefined) formData.append('mrp', String(data.mrp));
   if (data.author) formData.append('author', data.author);
   if (data.description) formData.append('description', data.description);
   if (data.isEbook !== undefined) formData.append('isEbook', String(data.isEbook));

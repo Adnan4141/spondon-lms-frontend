@@ -143,6 +143,7 @@ export default function BooksPage() {
     name: '',
     sku: '',
     price: 0,
+    mrp: undefined,
     author: '',
     description: '',
     isEbook: false,
@@ -153,6 +154,7 @@ export default function BooksPage() {
     name: '',
     sku: '',
     price: 0,
+    mrp: undefined,
     author: '',
     description: '',
     isEbook: false,
@@ -216,6 +218,7 @@ export default function BooksPage() {
           name: book.name,
           sku: book.sku,
           price: Number(book.price),
+          mrp: book.mrp ? Number(book.mrp) : undefined,
           author: book.author || '',
           description: book.description || '',
           isEbook: book.isEbook,
@@ -355,7 +358,7 @@ export default function BooksPage() {
       await createBook({ ...createForm }, createFile || undefined, createThumbnail || undefined);
       setCreateDialogOpen(false);
       setCreateForm({
-        name: '', sku: '', price: 0, author: '', description: '', isEbook: false, fileUrl: '', thumbnailUrl: '',
+        name: '', sku: '', price: 0, mrp: undefined, author: '', description: '', isEbook: false, fileUrl: '', thumbnailUrl: '',
       });
       setCreateFile(null);
       setCreateThumbnail(null);
@@ -705,6 +708,22 @@ export default function BooksPage() {
                 </div>
               </div>
 
+              <div className="grid gap-8 sm:grid-cols-2">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 px-1">
+                    <ShoppingBag className="h-3.5 w-3.5 text-slate-400" />
+                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">MRP / Original Price (BDT) <span className="normal-case font-medium">— optional, for strikethrough</span></label>
+                  </div>
+                  <Input
+                    type="number"
+                    className="h-14 rounded-2xl border-slate-200 bg-slate-50/30 px-5 text-base font-black text-slate-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all border-2"
+                    value={createForm.mrp ?? ''}
+                    onChange={(e) => setCreateForm((prev) => ({ ...prev, mrp: e.target.value ? Number(e.target.value) : undefined }))}
+                    placeholder="e.g. 500"
+                  />
+                </div>
+              </div>
+
               <div className="space-y-3">
                 <div className="flex items-center gap-2 px-1">
                   <BookOpen className="h-3.5 w-3.5 text-indigo-500" />
@@ -855,6 +874,22 @@ export default function BooksPage() {
                       className="h-14 rounded-2xl border-slate-200 bg-slate-50/30 px-5 text-base font-black text-amber-600 focus:bg-white focus:ring-4 focus:ring-amber-500/10 transition-all border-2"
                       value={editForm.price}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, price: Number(e.target.value) }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-8 sm:grid-cols-2">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 px-1">
+                      <ShoppingBag className="h-3.5 w-3.5 text-slate-400" />
+                      <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">MRP / Original Price (BDT) <span className="normal-case font-medium">— optional, for strikethrough</span></label>
+                    </div>
+                    <Input
+                      type="number"
+                      className="h-14 rounded-2xl border-slate-200 bg-slate-50/30 px-5 text-base font-black text-slate-500 focus:bg-white focus:ring-4 focus:ring-amber-500/10 transition-all border-2"
+                      value={editForm.mrp ?? ''}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, mrp: e.target.value ? Number(e.target.value) : undefined }))}
+                      placeholder="e.g. 500"
                     />
                   </div>
                 </div>

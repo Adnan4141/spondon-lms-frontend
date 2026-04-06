@@ -121,8 +121,8 @@ export function BookHeroSection({
                 <p className="text-5xl font-black text-white">
                   {isFree ? 'FREE' : `৳${Number(book.price).toLocaleString()}`}
                 </p>
-                {!isFree && (
-                   <p className="text-xl text-slate-500 line-through font-bold opacity-50">৳{(Number(book.price) * 1.2).toFixed(0)}</p>
+                {!isFree && book.mrp && Number(book.mrp) > Number(book.price) && (
+                   <p className="text-xl text-slate-500 line-through font-bold opacity-50">৳{Number(book.mrp).toLocaleString()}</p>
                 )}
               </div>
             </div>
