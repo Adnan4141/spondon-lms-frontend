@@ -317,7 +317,7 @@ export default function PublicBookDetailPage() {
                 <p className="mt-3 text-sm font-medium text-slate-600 leading-relaxed">
                   কেনা, পেমেন্ট স্ট্যাটাস এবং বই লাইব্রেরি দেখতে লগইন করুন।
                 </p>
-                <Button asChild className="mt-6 h-14 w-full rounded-2xl bg-indigo-600 hover:bg-indigo-700 font-black">
+                <Button asChild className="mt-6 h-14 w-full rounded-2xl text-white bg-indigo-600 hover:bg-indigo-700 font-black">
                   <Link href={`/login?redirect=${encodeURIComponent(`/books/${bookId}`)}`}>
                     লগইন করুন <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
@@ -410,22 +410,7 @@ export default function PublicBookDetailPage() {
               </div>
             )}
 
-            <div className="rounded-[40px] border border-indigo-100 bg-indigo-50/30 p-10">
-               <h5 className="text-sm font-black text-indigo-900 mb-4">কেন আমাদের বই?</h5>
-               <ul className="space-y-4">
-                  {[
-                    'বিশেষজ্ঞদের দ্বারা রচিত',
-                    'সর্বশেষ সিলেবাস ভিত্তিক',
-                    'সহজ ও প্রাঞ্জল ভাষা',
-                    'প্রচুর উদাহরণ ও অনুশীলন'
-                  ].map((item, i) => (
-                    <li key={i} className="flex items-center gap-3 text-xs font-bold text-indigo-700">
-                       <CheckCircle2 className="h-4 w-4 shrink-0" />
-                       {item}
-                    </li>
-                  ))}
-               </ul>
-            </div>
+           
           </aside>
         </div>
       </main>

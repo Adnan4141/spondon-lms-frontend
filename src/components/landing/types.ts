@@ -13,6 +13,7 @@ export interface Testimonial {
   quote: string;
   name: string;
   info: string;
+  instituteName?: string;
   thumbnailUrl?: string;
   rating?: number;
 }

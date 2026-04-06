@@ -52,7 +52,7 @@ export const TrustSection: React.FC<Props> = ({
                 {trustFeatures.map((item, i) => (
                   <div
                     key={i}
-                    className="bg-white border border-slate-100 rounded-[2rem] p-5 shadow-sm hover:shadow-md transition-all duration-300 group hover:-translate-y-1"
+                    className="bg-white border flex flex-col items-center justify-center border-slate-100 rounded-[2rem] p-5 shadow-sm hover:shadow-md transition-all duration-300 group hover:-translate-y-1"
                   >
                     <div className={cn("text-2xl w-12 h-12 rounded-2xl flex items-center justify-center mb-4 transition-transform group-hover:scale-110", item.bg)}>
                       {item.icon}

@@ -34,7 +34,7 @@ export function BookContentsSection({ outline }: BookContentsSectionProps) {
     } else {
       setExpanded(new Set());
     }
-  }, [activeSubjectId, chapters]);
+  }, [activeSubjectId]);
 
   const toggle = (chapterId: string) => {
     setExpanded((prev) => {

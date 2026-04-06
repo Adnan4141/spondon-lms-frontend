@@ -108,6 +108,7 @@ export default function LandingPage() {
             quote: t.quote,
             name: t.name,
             info: t.info || '',
+            instituteName: t.institute || '',
             thumbnailUrl: t.thumbnailUrl ? resolveAttachmentUrl(t.thumbnailUrl, API_ORIGIN) : undefined,
             rating: t.rating ?? 5,
           })));

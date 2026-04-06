@@ -59,14 +59,7 @@ export const StudentReviewTestimonialSection: React.FC<Props> = ({
                     </span>
                   </div>
                 )}
-                {/* Subtle bottom gradient with name */}
-                <div className="absolute inset-0 bg-linear-to-t from-black/40 via-transparent to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8 text-white">
-                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/70">Student Review</p>
-                  <p className="mt-1 text-lg font-black leading-snug">
-                    {activeTestimonial?.name}
-                  </p>
-                </div>
+              
               </motion.div>
             </AnimatePresence>
           </div>
@@ -116,11 +109,18 @@ export const StudentReviewTestimonialSection: React.FC<Props> = ({
                     <p className="text-lg font-black text-slate-900 leading-none">
                       {activeTestimonial?.name}
                     </p>
-                    {activeTestimonial?.info && (
-                      <p className="text-sm font-bold text-slate-400 mt-1">
-                        {activeTestimonial.info}
-                      </p>
-                    )}
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                      {activeTestimonial?.instituteName && (
+                        <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-bold text-indigo-600">
+                          {activeTestimonial.instituteName}
+                        </span>
+                      )}
+                      {activeTestimonial?.info && (
+                        <span className="text-xs font-semibold text-slate-400">
+                          {activeTestimonial.info}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex gap-2">

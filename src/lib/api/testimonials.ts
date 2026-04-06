@@ -3,6 +3,7 @@ import { apiRequest } from '../api';
 export interface Testimonial {
   id: string;
   name: string;
+  institute?: string | null;
   info?: string | null;
   quote: string;
   rating?: number | null;

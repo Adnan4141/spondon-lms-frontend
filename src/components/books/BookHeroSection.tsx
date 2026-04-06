@@ -75,16 +75,7 @@ export function BookHeroSection({
             </div>
           </motion.div>
 
-          {/* Floating Badge */}
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.5 }}
-            className="absolute -top-4 -right-4 h-20 w-20 rounded-full bg-indigo-600 flex flex-col items-center justify-center text-white shadow-xl shadow-indigo-500/40 border-4 border-[#0F172A] z-20"
-          >
-            <Star className="h-5 w-5 fill-current text-amber-300" />
-            <span className="text-[10px] font-black uppercase tracking-tighter">Bestseller</span>
-          </motion.div>
+
         </div>
 
         {/* Book Details */}

@@ -1,20 +1,36 @@
-'use client';
+"use client";
 
-import React, { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Header } from '@/components/layout/Header';
-import { Footer } from '@/components/layout/Footer';
-import { getBooks, type Book } from '@/lib/api/books';
-import { Search, SlidersHorizontal, X, Filter, Check, BookOpen, ShoppingBag, ArrowRight } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type MouseEvent,
+} from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { Header } from "@/components/layout/Header";
+import { Footer } from "@/components/layout/Footer";
+import { getBooks, type Book } from "@/lib/api/books";
+import { getCourses } from "@/lib/api/courses";
+import type { Course } from "@/types/course";
+import {
+  Search,
+  X,
+  Check,
+  BookOpen,
+  ShoppingBag,
+  ArrowRight,
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 function readCatalogUser(): { id?: string; role?: string } | null {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem('user');
+    const raw = localStorage.getItem("user");
     return raw ? (JSON.parse(raw) as { id?: string; role?: string }) : null;
   } catch {
     return null;
@@ -25,17 +41,23 @@ export default function BooksCatalogPage() {
   const router = useRouter();
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [format, setFormat] = useState<string>('all');
-  const [priceBand, setPriceBand] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [format, setFormat] = useState<string>("all");
+  const [priceBand, setPriceBand] = useState<string>("all");
+  const [selectedCourse, setSelectedCourse] = useState<string>("all");
+  const [courses, setCourses] = useState<Course[]>([]);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await getBooks({ limit: 200, page: 1 });
-      if (res.success && res.data) setBooks(res.data);
+      const [booksRes, coursesRes] = await Promise.all([
+        getBooks({ limit: 200, page: 1 }),
+        getCourses({ limit: 200 }),
+      ]);
+      if (booksRes.success && booksRes.data) setBooks(booksRes.data);
       else setBooks([]);
+      if (coursesRes.success && coursesRes.data) setCourses(coursesRes.data);
     } catch {
       setBooks([]);
     } finally {
@@ -47,11 +69,20 @@ export default function BooksCatalogPage() {
     load();
   }, [load]);
 
+  const courseFilterOptions = useMemo(() => {
+    const bookCourseIds = new Set(
+      books.flatMap((b) => (b.courseBooks ?? []).map((cb) => cb.courseId)),
+    );
+    return courses
+      .filter((c) => bookCourseIds.has(c.id))
+      .map((c) => ({ id: c.id, label: c.name }));
+  }, [books, courses]);
+
   const filtered = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
     return books.filter((b) => {
-      const desc = (b.description || '').toLowerCase();
-      const author = (b.author || '').toLowerCase();
+      const desc = (b.description || "").toLowerCase();
+      const author = (b.author || "").toLowerCase();
       const matchQ =
         !q ||
         b.name.toLowerCase().includes(q) ||
@@ -59,20 +90,26 @@ export default function BooksCatalogPage() {
         desc.includes(q) ||
         author.includes(q);
       const matchFmt =
-        format === 'all' || (format === 'ebook' && b.isEbook) || (format === 'print' && !b.isEbook);
+        format === "all" ||
+        (format === "ebook" && b.isEbook) ||
+        (format === "print" && !b.isEbook);
       const p = Number(b.price);
       const matchPrice =
-        priceBand === 'all' ||
-        (priceBand === 'free' && p <= 0) ||
-        (priceBand === 'paid' && p > 0);
-      return matchQ && matchFmt && matchPrice;
+        priceBand === "all" ||
+        (priceBand === "free" && p <= 0) ||
+        (priceBand === "paid" && p > 0);
+      const matchCourse =
+        selectedCourse === "all" ||
+        (b.courseBooks ?? []).some((cb) => cb.courseId === selectedCourse);
+      return matchQ && matchFmt && matchPrice && matchCourse;
     });
-  }, [books, searchQuery, format, priceBand]);
+  }, [books, searchQuery, format, priceBand, selectedCourse]);
 
   const clearFilters = () => {
-    setSearchQuery('');
-    setFormat('all');
-    setPriceBand('all');
+    setSearchQuery("");
+    setFormat("all");
+    setPriceBand("all");
+    setSelectedCourse("all");
   };
 
   const handleBuyClick = (bookId: string, e: MouseEvent<HTMLButtonElement>) => {
@@ -98,7 +135,9 @@ export default function BooksCatalogPage() {
     onChange: (v: string) => void;
   }) => (
     <div className="mb-8 space-y-4">
-      <h4 className="mb-4 text-sm font-black uppercase tracking-widest text-slate-400">{title}</h4>
+      <h4 className="mb-4 text-sm font-black uppercase tracking-widest text-slate-400">
+        {title}
+      </h4>
       <div className="flex flex-col gap-2">
         {options.map((opt) => (
           <button
@@ -106,17 +145,19 @@ export default function BooksCatalogPage() {
             type="button"
             onClick={() => onChange(opt.id)}
             className={cn(
-              'flex cursor-pointer items-center justify-between rounded-xl border px-4 py-3 text-left transition-all duration-300 group',
+              "flex cursor-pointer items-center justify-between rounded-xl border px-4 py-3 text-left transition-all duration-300 group",
               value === opt.id
-                ? 'border-indigo-500/20 bg-indigo-500/5 font-bold text-indigo-600'
-                : 'border-slate-100 bg-white text-slate-600 hover:border-slate-300'
+                ? "border-indigo-500/20 bg-indigo-500/5 font-bold text-indigo-600"
+                : "border-slate-100 bg-white text-slate-600 hover:border-slate-300",
             )}
           >
             <span className="text-sm">{opt.label}</span>
             <div
               className={cn(
-                'flex h-5 w-5 items-center justify-center rounded-full border transition-all',
-                value === opt.id ? 'border-indigo-600 bg-indigo-600' : 'border-slate-200 group-hover:border-slate-400'
+                "flex h-5 w-5 items-center justify-center rounded-full border transition-all",
+                value === opt.id
+                  ? "border-indigo-600 bg-indigo-600"
+                  : "border-slate-200 group-hover:border-slate-400",
               )}
             >
               {value === opt.id && <Check className="h-3 w-3 text-white" />}
@@ -136,7 +177,7 @@ export default function BooksCatalogPage() {
         {/* Background Decorative Elements */}
         <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 blur-[120px] rounded-full pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-500/10 blur-[100px] rounded-full pointer-events-none" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:40px_40px] opacity-[0.05] pointer-events-none"></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(#ffffff_1px,transparent_1px)] bg-size-[40px_40px] opacity-[0.05] pointer-events-none"></div>
 
         <div className="relative z-10 mx-auto max-w-7xl px-6 lg:px-12 text-center">
           <motion.div
@@ -152,15 +193,19 @@ export default function BooksCatalogPage() {
             transition={{ duration: 0.6, ease: "easeOut" }}
             className="text-4xl md:text-5xl font-black text-white mb-4 tracking-tighter"
           >
-            আমাদের সকল <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">বইসমূহ</span>
+            আমাদের সকল{" "}
+            <span className="text-transparent bg-clip-text bg-linear-to-r from-emerald-400 to-cyan-400">
+              বইসমূহ
+            </span>
           </motion.h1>
-          <motion.p 
+          <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1, duration: 0.6 }}
             className="mx-auto max-w-2xl text-slate-400 text-base font-medium leading-relaxed"
           >
-            আপনার পছন্দের ই-বুক এবং প্রিন্ট ভার্সন খুঁজে নিন। বিস্তারিত ও কেনার জন্য বই কার্ডে ক্লিক করুন।
+            আপনার পছন্দের ই-বুক এবং প্রিন্ট ভার্সন খুঁজে নিন। বিস্তারিত ও কেনার
+            জন্য বই কার্ডে ক্লিক করুন।
           </motion.p>
         </div>
       </div>
@@ -172,7 +217,6 @@ export default function BooksCatalogPage() {
             <div className="sticky top-28 space-y-2 rounded-[32px] border border-slate-100 bg-white p-8 shadow-sm">
               <div className="mb-6 flex items-center justify-between border-b border-slate-50 pb-4">
                 <div className="flex items-center gap-2">
-               
                   <h3 className="text-lg font-black">ফিল্টার</h3>
                 </div>
                 <button
@@ -182,28 +226,40 @@ export default function BooksCatalogPage() {
                   Clear All
                 </button>
               </div>
-              
+
               <FilterSection
                 title="ফরম্যাট"
                 value={format}
                 onChange={setFormat}
                 options={[
-                  { id: 'all', label: 'সকল ফরম্যাট' },
-                  { id: 'ebook', label: 'ই-বুক' },
-                  { id: 'print', label: 'প্রিন্ট কপি' },
+                  { id: "all", label: "সকল ফরম্যাট" },
+                  { id: "ebook", label: "ই-বুক" },
+                  { id: "print", label: "প্রিন্ট কপি" },
                 ]}
               />
-              
+
               <FilterSection
                 title="মূল্য"
                 value={priceBand}
                 onChange={setPriceBand}
                 options={[
-                  { id: 'all', label: 'সকল মূল্য' },
-                  { id: 'free', label: 'বিনামূল্যে' },
-                  { id: 'paid', label: 'পেইড' },
+                  { id: "all", label: "সকল মূল্য" },
+                  { id: "free", label: "বিনামূল্যে" },
+                  { id: "paid", label: "পেইড" },
                 ]}
               />
+
+              {courseFilterOptions.length > 0 && (
+                <FilterSection
+                  title="কোর্স অনুযায়ী"
+                  value={selectedCourse}
+                  onChange={setSelectedCourse}
+                  options={[
+                    { id: "all", label: "সকল কোর্স" },
+                    ...courseFilterOptions,
+                  ]}
+                />
+              )}
             </div>
           </aside>
 
@@ -225,98 +281,103 @@ export default function BooksCatalogPage() {
                 className="flex h-14 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 font-black text-slate-700 shadow-sm lg:hidden"
                 onClick={() => setMobileFilterOpen(true)}
               >
-          
                 ফিল্টার
               </button>
             </div>
 
             {loading ? (
               <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-                {[1, 2, 3, 4, 5, 6].map(i => (
-                  <div key={i} className="bg-white animate-pulse border border-slate-100 shadow-sm h-[350px] rounded-[28px]" />
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <div
+                    key={i}
+                    className="bg-white animate-pulse border border-slate-100 shadow-sm h-87.5 rounded-[28px]"
+                  />
                 ))}
               </div>
             ) : filtered.length === 0 ? (
               <div className="rounded-[32px] border border-dashed border-slate-200 bg-white py-20 text-center">
                 <BookOpen className="mx-auto mb-4 h-12 w-12 text-slate-300" />
                 <p className="font-bold text-slate-600">কোনো বই মেলেনি।</p>
-                <button onClick={clearFilters} className="mt-4 text-indigo-600 font-bold hover:underline">ফিল্টার ক্লিয়ার করুন</button>
+                <button
+                  onClick={clearFilters}
+                  className="mt-4 text-indigo-600 font-bold hover:underline"
+                >
+                  ফিল্টার ক্লিয়ার করুন
+                </button>
               </div>
             ) : (
               <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
                 {filtered.map((b, idx) => (
-               <motion.div
-  key={b.id}
-  initial={{ opacity: 0, y: 20 }}
-  animate={{ opacity: 1, y: 0 }}
-  transition={{ delay: (idx % 4) * 0.05 }}
->
-  <Link href={`/books/${b.id}`} className="block h-full">
-    <div className="group relative flex h-full flex-col overflow-hidden rounded-3xl bg-white border border-slate-200/70 shadow-[0_10px_30px_rgba(0,0,0,0.04)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_50px_rgba(0,0,0,0.08)]">
+                  <motion.div
+                    key={b.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: (idx % 4) * 0.05 }}
+                  >
+                    <Link href={`/books/${b.id}`} className="block h-full">
+                      <div className="group relative flex h-full flex-col overflow-hidden rounded-3xl bg-white border border-slate-200/70 shadow-[0_10px_30px_rgba(0,0,0,0.04)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_50px_rgba(0,0,0,0.08)]">
+                        {/* IMAGE */}
+                        <div className="relative h-[250px]   overflow-hidden bg-slate-100">
+                          {b.thumbnailUrl ? (
+                            <Image
+                              src={b.thumbnailUrl}
+                              alt={b.name}
+                              fill
+                              className="  object-cover transition-transform duration-700 group-hover:scale-105"
+                          
+                            />
+                          ) : (
+                            <div className="flex h-full items-center justify-center text-slate-300">
+                              <BookOpen className="h-10 w-10" />
+                            </div>
+                          )}
 
-      {/* IMAGE */}
-      <div className="relative aspect-[4/5] overflow-hidden bg-slate-100">
+                          {/* Gradient overlay */}
+                          <div className="absolute inset-0 bg-linear-to-t from-black/30 via-transparent to-transparent opacity-60" />
 
-        {b.thumbnailUrl ? (
-          <img
-            src={b.thumbnailUrl}
-            alt={b.name}
-            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-slate-300">
-            <BookOpen className="h-10 w-10" />
-          </div>
-        )}
+                          {/* Format badge */}
+                          <span className="absolute top-3 left-3 rounded-full bg-white/90 backdrop-blur px-3 py-1 text-[10px] font-bold text-slate-700 shadow-sm">
+                            {b.isEbook ? "ই-বুক" : "প্রিন্ট"}
+                          </span>
 
-        {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent opacity-60" />
+                          {/* Price floating */}
+                          <div className="absolute bottom-3 right-3 rounded-xl bg-white/90 backdrop-blur px-3 py-1.5 text-sm font-black text-indigo-600 shadow">
+                            ৳{Number(b.price).toLocaleString()}
+                          </div>
+                        </div>
 
-        {/* Format badge */}
-        <span className="absolute top-3 left-3 rounded-full bg-white/90 backdrop-blur px-3 py-1 text-[10px] font-bold text-slate-700 shadow-sm">
-          {b.isEbook ? 'ই-বুক' : 'প্রিন্ট'}
-        </span>
+                        {/* CONTENT */}
+                        <div className="flex flex-1 flex-col p-4 sm:p-5">
+                          <h3 className="line-clamp-2 text-base sm:text-lg font-bold text-slate-900 leading-snug group-hover:text-indigo-600 transition">
+                            {b.name}
+                          </h3>
 
-        {/* Price floating */}
-        <div className="absolute bottom-3 right-3 rounded-xl bg-white/90 backdrop-blur px-3 py-1.5 text-sm font-black text-indigo-600 shadow">
-          ৳{Number(b.price).toLocaleString()}
-        </div>
-      </div>
+                          {b.author && (
+                            <p className="mt-1 text-xs sm:text-sm text-slate-500 font-medium">
+                              {b.author}
+                            </p>
+                          )}
 
-      {/* CONTENT */}
-      <div className="flex flex-1 flex-col p-4 sm:p-5">
+                          {/* CTA */}
+                          <div className="mt-auto pt-4 flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="flex-1 h-10 rounded-xl border-slate-200 text-slate-700 text-xs sm:text-sm"
+                              onClick={(e) => handleBuyClick(b.id, e)}
+                            >
+                              <ShoppingBag className="h-4 w-4 mr-1" />
+                              কিনুন
+                            </Button>
 
-        <h3 className="line-clamp-2 text-base sm:text-lg font-bold text-slate-900 leading-snug group-hover:text-indigo-600 transition">
-          {b.name}
-        </h3>
-
-        {b.author && (
-          <p className="mt-1 text-xs sm:text-sm text-slate-500 font-medium">
-            {b.author}
-          </p>
-        )}
-
-        {/* CTA */}
-        <div className="mt-auto pt-4 flex items-center gap-2">
-
-          <Button
-            size="sm"
-            variant="outline"
-            className="flex-1 h-10 rounded-xl border-slate-200 text-slate-700 text-xs sm:text-sm"
-            onClick={(e) => handleBuyClick(b.id, e)}
-          >
-            <ShoppingBag className="h-4 w-4 mr-1" />
-            কিনুন
-          </Button>
-
-          <span className="flex items-center justify-center h-10 w-10 rounded-xl bg-slate-900 text-white group-hover:bg-indigo-600 transition">
-            <ArrowRight className="h-4 w-4" />
-          </span>
-        </div>
-      </div>
-    </div>
-  </Link>
-</motion.div>
+                            <span className="flex items-center justify-center h-10 w-10 rounded-xl bg-slate-900 text-white group-hover:bg-indigo-600 transition">
+                              <ArrowRight className="h-4 w-4" />
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  </motion.div>
                 ))}
               </div>
             )}
@@ -332,18 +393,22 @@ export default function BooksCatalogPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setMobileFilterOpen(false)}
-              className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm lg:hidden cursor-pointer"
+              className="fixed inset-0 z-100 bg-slate-900/60 backdrop-blur-sm lg:hidden cursor-pointer"
             />
             <motion.div
-              initial={{ x: '100%' }}
+              initial={{ x: "100%" }}
               animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 right-0 z-[110] flex w-[85%] max-w-sm flex-col bg-white p-8 lg:hidden shadow-2xl overflow-y-auto"
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed inset-y-0 right-0 z-110 flex w-[85%] max-w-sm flex-col bg-white p-8 lg:hidden shadow-2xl overflow-y-auto"
             >
               <div className="mb-8 flex items-center justify-between border-b border-slate-50 pb-4">
                 <h3 className="text-2xl font-black text-slate-900">ফিল্টার</h3>
-                <button type="button" onClick={() => setMobileFilterOpen(false)} className="rounded-full p-2 bg-slate-100 text-slate-500 hover:bg-rose-50 hover:text-rose-500 transition-all">
+                <button
+                  type="button"
+                  onClick={() => setMobileFilterOpen(false)}
+                  className="rounded-full p-2 bg-slate-100 text-slate-500 hover:bg-rose-50 hover:text-rose-500 transition-all"
+                >
                   <X className="h-5 w-5" />
                 </button>
               </div>
@@ -352,9 +417,9 @@ export default function BooksCatalogPage() {
                 value={format}
                 onChange={setFormat}
                 options={[
-                  { id: 'all', label: 'সকল ফরম্যাট' },
-                  { id: 'ebook', label: 'ই-বুক' },
-                  { id: 'print', label: 'প্রিন্ট কপি' },
+                  { id: "all", label: "সকল ফরম্যাট" },
+                  { id: "ebook", label: "ই-বুক" },
+                  { id: "print", label: "প্রিন্ট কপি" },
                 ]}
               />
               <FilterSection
@@ -362,11 +427,22 @@ export default function BooksCatalogPage() {
                 value={priceBand}
                 onChange={setPriceBand}
                 options={[
-                  { id: 'all', label: 'সকল মূল্য' },
-                  { id: 'free', label: 'বিনামূল্যে' },
-                  { id: 'paid', label: 'পেইড' },
+                  { id: "all", label: "সকল মূল্য" },
+                  { id: "free", label: "বিনামূল্যে" },
+                  { id: "paid", label: "পেইড" },
                 ]}
               />
+              {courseFilterOptions.length > 0 && (
+                <FilterSection
+                  title="কোর্স অনুযায়ী"
+                  value={selectedCourse}
+                  onChange={setSelectedCourse}
+                  options={[
+                    { id: "all", label: "সকল কোর্স" },
+                    ...courseFilterOptions,
+                  ]}
+                />
+              )}
               <div className="mt-auto space-y-3 pt-10">
                 <button
                   onClick={() => setMobileFilterOpen(false)}

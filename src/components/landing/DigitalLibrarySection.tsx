@@ -42,17 +42,14 @@ export const DigitalLibrarySection: React.FC<Props> = ({ dynamicEbooks }) => {
             স্মার্ট ডিজিটাল{' '}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">লাইব্রেরি</span>
           </h2>
-          <p className="text-slate-400 font-medium text-sm sm:text-base md:text-lg max-w-2xl mx-auto">
-            বইয়ে ক্লিক করে বিস্তারিত পেজে যান — সেখান থেকে পেমেন্ট শুরু করুন। SSL পেমেন্টের পর অ্যাকাউন্টে অ্যাক্সেস। ডেলিভারি তথ্য কেনার সময়
-            সংরক্ষিত হয়।
-          </p>
+    
         </div>
 
         <div className="flex flex-col md:flex-row items-center justify-between mb-16 gap-6 p-8 bg-white/[0.03] backdrop-blur-3xl rounded-[40px] border border-white/[0.1] shadow-2xl">
           <div className="flex items-center gap-4 sm:gap-5">
             <div className="h-10 sm:h-14 w-1.5 bg-emerald-500 rounded-full shadow-[0_0_20px_#10B981]" />
             <div>
-              <h3 className="text-lg sm:text-xl md:text-2xl font-black text-white tracking-tight">সবগুলো ই-বুক</h3>
+              <h3 className="text-lg sm:text-xl md:text-2xl font-black text-white tracking-tight">সব বুকগুলো</h3>
               <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em] mt-1">বিস্তারিত ও কেনাকাটা</p>
             </div>
           </div>

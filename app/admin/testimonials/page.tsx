@@ -81,6 +81,11 @@ type SearchSelectFieldProps = {
   onValueChange: (input: string, selected?: SearchSelectOption) => void;
 };
 
+type RatingFieldProps = {
+  defaultValue?: number | null;
+  onChange: (value: number) => void;
+};
+
 const SearchSelectField = ({
   label,
   placeholder,
@@ -90,6 +95,7 @@ const SearchSelectField = ({
 }: SearchSelectFieldProps) => {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState(defaultValue || '');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -107,7 +113,7 @@ const SearchSelectField = ({
             variant="outline"
             className="h-11 w-full rounded-xl border-slate-200 bg-slate-50 px-3 justify-between font-medium text-slate-700 hover:bg-white"
           >
-            <span className="truncate text-left">{query || placeholder}</span>
+            <span className="truncate text-left">{query || <span className="text-slate-400 font-normal">{placeholder}</span>}</span>
             <ChevronsUpDown className="h-4 w-4 text-slate-400" />
           </Button>
         </PopoverTrigger>
@@ -119,6 +125,7 @@ const SearchSelectField = ({
             onChange={(e) => {
               const value = e.target.value;
               setQuery(value);
+              setSelectedId(null);
               onValueChange(value);
             }}
           />
@@ -126,26 +133,59 @@ const SearchSelectField = ({
             {filtered.length === 0 ? (
               <div className="px-2 py-2 text-xs font-medium text-slate-400">No results</div>
             ) : (
-              filtered.map((opt) => (
-                <Button
-                  key={opt.id}
-                  type="button"
-                  variant="ghost"
-                  className="w-full justify-start rounded-lg px-2 h-9 text-sm"
-                  onClick={() => {
-                    setQuery(opt.label);
-                    onValueChange(opt.label, opt);
-                    setOpen(false);
-                  }}
-                >
-                  <Check className="mr-2 h-4 w-4 text-emerald-600" />
-                  <span className="truncate">{opt.label}</span>
-                </Button>
-              ))
+              filtered.map((opt) => {
+                const isSelected = opt.id === selectedId;
+                return (
+                  <Button
+                    key={opt.id}
+                    type="button"
+                    variant="ghost"
+                    className={cn(
+                      'w-full justify-start rounded-lg px-2 h-9 text-sm',
+                      isSelected && 'bg-indigo-50 text-indigo-700 font-bold',
+                    )}
+                    onClick={() => {
+                      setQuery(opt.label);
+                      setSelectedId(opt.id);
+                      onValueChange(opt.label, opt);
+                      setOpen(false);
+                    }}
+                  >
+                    <Check className={cn('mr-2 h-4 w-4', isSelected ? 'text-emerald-600' : 'text-transparent')} />
+                    <span className="truncate">{opt.label}</span>
+                  </Button>
+                );
+              })
             )}
           </div>
         </PopoverContent>
       </Popover>
+    </div>
+  );
+};
+
+const RatingField = ({ defaultValue = 5, onChange }: RatingFieldProps) => {
+  const [rating, setRating] = useState(defaultValue || 5);
+
+  return (
+    <div className="space-y-2">
+      <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Rating</label>
+      <div className="flex items-center gap-2 rounded-xl border bg-slate-50 px-4 h-12">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <button
+            key={star}
+            type="button"
+            onClick={() => {
+              setRating(star);
+              onChange(star);
+            }}
+            className={cn('transition', rating >= star ? 'scale-110' : 'opacity-40')}
+          >
+            <Star className="h-5 w-5 fill-amber-400 text-amber-400" />
+          </button>
+        ))}
+        <span className="ml-auto text-xs font-bold text-slate-500">{rating}/5</span>
+      </div>
     </div>
   );
 };
@@ -227,11 +267,11 @@ export default function AdminTestimonialsPage() {
       : {
           name: '',
           quote: '',
+          institute: '',
           info: '',
           rating: 5,
           courseId: '',
           studentUserId: '',
-          videoUrl: '',
           thumbnailUrl: '',
           sortOrder: 0,
         };
@@ -298,6 +338,13 @@ export default function AdminTestimonialsPage() {
 
       <InputField id="testimonial-display-name" label="Display Name" required placeholder="Student name" onChange={(e)=>formData.name=e.target.value} defaultValue={formData.name}/>
 
+      <InputField
+        label="Institute Name"
+        placeholder="e.g. Dhaka College, Notre Dame College"
+        defaultValue={formData.institute || ''}
+        onChange={(e) => (formData.institute = e.target.value)}
+      />
+
       <SearchSelectField
         label="Batch (Searchable)"
         placeholder="Search batch name"
@@ -329,25 +376,12 @@ export default function AdminTestimonialsPage() {
       Content
     </h3>
 
-    {/* Rating */}
-    <div className="space-y-2">
-      <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Rating</label>
-      <div className="flex items-center gap-2 bg-slate-50 border rounded-xl px-4 h-12">
-        {[1,2,3,4,5].map((star)=>(
-          <button
-            key={star}
-            type="button"
-            onClick={()=> formData.rating = star}
-            className={`transition ${formData.rating >= star ? 'scale-110' : 'opacity-40'}`}
-          >
-            <Star className="h-5 w-5 text-amber-400 fill-amber-400"/>
-          </button>
-        ))}
-        <span className="ml-auto text-xs font-bold text-slate-500">
-          {formData.rating || 5}/5
-        </span>
-      </div>
-    </div>
+    <RatingField
+      defaultValue={formData.rating}
+      onChange={(value) => {
+        formData.rating = value;
+      }}
+    />
 
     {/* Quote */}
     <div className="space-y-2">
@@ -368,7 +402,6 @@ export default function AdminTestimonialsPage() {
     </h3>
 
     <div className="grid gap-5 sm:grid-cols-2">
-      <InputField label="Video URL" placeholder="https://youtube.com/..." onChange={(e)=>formData.videoUrl=e.target.value} defaultValue={formData.videoUrl}/>
       <InputField type="number" label="Sort Order" onChange={(e)=>formData.sortOrder=Number(e.target.value)} defaultValue={formData.sortOrder || 0}/>
     </div>
 
@@ -415,12 +448,12 @@ export default function AdminTestimonialsPage() {
           Object.entries({
             name: formData.name,
             quote: formData.quote,
+            institute: formData.institute || '',
             info: formData.info,
             rating: formData.rating || 5,
             sortOrder: formData.sortOrder || 0,
             studentUserId: formData.studentUserId,
             courseId: formData.courseId,
-            videoUrl: formData.videoUrl || '',
             thumbnailUrl: formData.thumbnailUrl || ''
           }).forEach(([k,v]) => v && payload.append(k, String(v)));
 
@@ -632,6 +665,9 @@ export default function AdminTestimonialsPage() {
                              <BookOpen className="h-3.5 w-3.5 text-indigo-400" />
                              <span className="truncate">{t.course?.name || 'General Feedback'}</span>
                           </div>
+                          {t.institute && (
+                             <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider pl-5">{t.institute}</p>
+                          )}
                           {t.info && (
                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider pl-5">{t.info}</p>
                           )}
