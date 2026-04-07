@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { TimeHmSelect } from '@/components/admin/routine/TimeHmSelect';
 import {
   Dialog,
   DialogContent,
@@ -61,6 +62,8 @@ type Props = {
   onClose: () => void;
   onSave: (data: SlotFormData) => Promise<void>;
   editingSlot?: GridSlot | null;
+  /** Teacher-only: no batch/course; teacher required; opens on Teacher step. */
+  variant?: 'default' | 'teacherOnly';
   batches: BatchOption[];
   teachers: TeacherOption[];
   slotCounts?: Record<string, number>;
@@ -120,6 +123,7 @@ export function SlotWizard({
   onClose,
   onSave,
   editingSlot,
+  variant = 'default',
   batches,
   teachers,
   slotCounts = {},
@@ -156,7 +160,24 @@ export function SlotWizard({
       return;
     }
 
-    // Check for saved draft
+    if (variant === 'teacherOnly') {
+      const base = EMPTY_FORM();
+      base.batchId = '';
+      base.courseId = '';
+      base.branchId = '';
+      if (initialDay !== undefined) base.dayOfWeek = initialDay;
+      if (initialTime) {
+        base.startTime = initialTime;
+        const [h, m] = initialTime.split(':').map(Number);
+        const endMin = h * 60 + m + 60;
+        base.endTime = `${String(Math.floor(endMin / 60)).padStart(2, '0')}:${String(endMin % 60).padStart(2, '0')}`;
+      }
+      setForm(base);
+      setStep(2);
+      return;
+    }
+
+    // Check for saved draft (default flow only)
     try {
       const raw = localStorage.getItem(DRAFT_KEY);
       if (raw) {
@@ -177,15 +198,15 @@ export function SlotWizard({
     }
     setForm(base);
     setStep(1);
-  }, [open, editingSlot, initialDay, initialTime]);
+  }, [open, editingSlot, initialDay, initialTime, variant]);
 
   // Auto-save draft on every form change
   useEffect(() => {
-    if (!open || editingSlot) return;
+    if (!open || editingSlot || variant === 'teacherOnly') return;
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify(form));
     } catch { /* ignore */ }
-  }, [form, open, editingSlot]);
+  }, [form, open, editingSlot, variant]);
 
   const handleClose = () => {
     onClose();
@@ -196,6 +217,10 @@ export function SlotWizard({
   };
 
   const handleSave = async () => {
+    if (variant === 'teacherOnly' && !form.teacherUserId) {
+      setSaveError('Select a teacher for a teacher-only slot.');
+      return;
+    }
     setSaving(true);
     setSaveError('');
     try {
@@ -214,6 +239,9 @@ export function SlotWizard({
 
   const canAdvance = (currentStep: number) => {
     if (currentStep === 1) return true; // batch optional
+    if (currentStep === 2 && variant === 'teacherOnly') {
+      return !!form.teacherUserId;
+    }
     if (currentStep === 3) {
       return (
         !!form.startTime &&
@@ -226,10 +254,10 @@ export function SlotWizard({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>
-            {editingSlot ? 'Edit Routine Slot' : 'New Routine Slot'}
+            {editingSlot ? 'Update routine slot' : variant === 'teacherOnly' ? 'New teacher-only slot' : 'New routine slot'}
           </DialogTitle>
         </DialogHeader>
 
@@ -271,6 +299,11 @@ export function SlotWizard({
           {/* Step 1: Class */}
           {step === 1 && (
             <div className="space-y-4">
+              {variant === 'teacherOnly' && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  Teacher-only slot: no class or batch. Use the next step to pick the teacher, then set day and time.
+                </div>
+              )}
               <div>
                 <Label className="text-xs font-bold text-slate-600">Select Batch</Label>
                 <Select
@@ -331,8 +364,8 @@ export function SlotWizard({
 
               <div>
                 <Label className="text-xs font-bold text-slate-600">Topic (optional)</Label>
-                <Input
-                  className="mt-1"
+                <Textarea
+                  className="mt-1 min-h-[80px] resize-y"
                   placeholder="e.g. Chapter 3 — Algebra"
                   value={form.topic}
                   onChange={(e) => setForm((f) => ({ ...f, topic: e.target.value }))}
@@ -344,15 +377,22 @@ export function SlotWizard({
           {/* Step 2: Teacher */}
           {step === 2 && (
             <div className="space-y-4">
+              {variant === 'teacherOnly' && (
+                <div className="rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-xs text-teal-900">
+                  No batch is assigned. Choose the teacher for this slot (required).
+                </div>
+              )}
               <div>
-                <Label className="text-xs font-bold text-slate-600">Teacher (optional — can leave unassigned)</Label>
+                <Label className="text-xs font-bold text-slate-600">
+                  {variant === 'teacherOnly' ? 'Teacher *' : 'Teacher (optional — can leave unassigned)'}
+                </Label>
                 <div className="mt-1">
                   <TeacherCombobox
                     teachers={teachers}
                     value={form.teacherUserId}
                     onSelect={(id) => setForm((f) => ({ ...f, teacherUserId: id }))}
-                    placeholder="None (unassigned)"
-                    allowClear
+                    placeholder={variant === 'teacherOnly' ? 'Select teacher' : 'None (unassigned)'}
+                    allowClear={variant !== 'teacherOnly'}
                     slotCounts={slotCounts}
                   />
                 </div>
@@ -398,24 +438,16 @@ export function SlotWizard({
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs font-bold text-slate-600">Start Time *</Label>
-                  <Input
-                    type="time"
-                    className="mt-1"
-                    value={form.startTime}
-                    onChange={(e) => setForm((f) => ({ ...f, startTime: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs font-bold text-slate-600">End Time *</Label>
-                  <Input
-                    type="time"
-                    className="mt-1"
-                    value={form.endTime}
-                    onChange={(e) => setForm((f) => ({ ...f, endTime: e.target.value }))}
-                  />
-                </div>
+                <TimeHmSelect
+                  label="Start Time *"
+                  value={form.startTime}
+                  onChange={(v) => setForm((f) => ({ ...f, startTime: v }))}
+                />
+                <TimeHmSelect
+                  label="End Time *"
+                  value={form.endTime}
+                  onChange={(v) => setForm((f) => ({ ...f, endTime: v }))}
+                />
               </div>
 
               {form.endTime && form.startTime && form.endTime <= form.startTime && (
@@ -440,9 +472,9 @@ export function SlotWizard({
                 {[
                   ['Day', DAY_NAMES[form.dayOfWeek]],
                   ['Time', `${form.startTime} – ${form.endTime}`],
-                  ['Batch', selectedBatch?.name || '—'],
+                  ['Batch', variant === 'teacherOnly' && !selectedBatch ? 'Teacher-only' : selectedBatch?.name || '—'],
                   ['Course', selectedBatch?.course?.name || '—'],
-                  ['Teacher', selectedTeacher?.fullName || 'Unassigned'],
+                  ['Teacher', selectedTeacher?.fullName || (variant === 'teacherOnly' ? '(required)' : 'Unassigned')],
                   ['Mode', form.mode],
                   ['Topic', form.topic || '—'],
                 ].map(([label, value]) => (
@@ -469,7 +501,11 @@ export function SlotWizard({
                 <p className="text-sm font-bold text-slate-900">
                   {DAY_NAMES[form.dayOfWeek]}, {form.startTime}–{form.endTime}
                 </p>
-                <p className="text-sm text-slate-600">{selectedBatch?.course?.name || selectedBatch?.name || 'No batch'}</p>
+                <p className="text-sm text-slate-600">
+                  {variant === 'teacherOnly' && !selectedBatch
+                    ? 'Teacher-only (no batch)'
+                    : selectedBatch?.course?.name || selectedBatch?.name || 'No batch'}
+                </p>
                 {selectedTeacher && <p className="text-sm text-slate-500">{selectedTeacher.fullName}</p>}
               </div>
 
@@ -505,7 +541,7 @@ export function SlotWizard({
 
           {step < 5 ? (
             <Button
-              className="gap-2"
+              className="gap-2 text-white hover:text-white focus-visible:text-white"
               onClick={() => setStep((s) => s + 1)}
               disabled={!canAdvance(step)}
             >
@@ -514,9 +550,9 @@ export function SlotWizard({
             </Button>
           ) : (
             <Button
-              className="gap-2 bg-teal-600 hover:bg-teal-700"
+              className="gap-2 bg-teal-600 text-white hover:bg-teal-700 hover:text-white focus-visible:text-white"
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || (variant === 'teacherOnly' && !form.teacherUserId)}
             >
               {saving ? 'Saving...' : editingSlot ? 'Update Slot' : 'Create Slot'}
             </Button>

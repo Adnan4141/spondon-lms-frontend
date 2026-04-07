@@ -42,12 +42,14 @@ import {
   Layers,
   MapPin,
   BookOpen,
+  LayoutGrid,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { useModalStore } from '@/store/modalStore';
 import { BatchForm } from '@/components/admin/batches/BatchForm';
 import { BatchDetailsView } from '@/components/admin/batches/BatchDetailsView';
+import { BatchRoutineModal } from '@/components/admin/batches/BatchRoutineModal';
 import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
 import { cn } from '@/lib/utils';
 
@@ -139,6 +141,30 @@ export default function BatchesPage() {
       }
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to load batch details', variant: 'destructive' });
+    }
+  };
+
+  const handleRoutineBatch = async (id: string) => {
+    try {
+      const response = await getBatchById(id);
+      if (response.success && response.data) {
+        const b = response.data;
+        openModal({
+          title: 'Batch routine',
+          description: 'Weekly template slots linked to this batch.',
+          className: 'sm:max-w-3xl',
+          content: (
+            <BatchRoutineModal
+              batchId={b.id}
+              batchName={b.name}
+              courseName={b.course?.name}
+              branchId={b.branchId}
+            />
+          ),
+        });
+      }
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to open routine', variant: 'destructive' });
     }
   };
 
@@ -330,7 +356,7 @@ export default function BatchesPage() {
                        </div>
                     </TableCell>
                     <TableCell className="px-8 py-5">
-                       <div className="flex justify-center gap-2">
+                       <div className="flex flex-wrap justify-center gap-2">
                           <Button
                             variant="outline"
                             size="sm"
@@ -338,6 +364,15 @@ export default function BatchesPage() {
                             onClick={() => handleViewBatch(batch.id)}
                           >
                             View
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-10 gap-1.5 rounded-xl border-slate-200 bg-white px-3 text-xs font-black uppercase tracking-widest text-slate-600 hover:bg-teal-600 hover:text-white hover:border-teal-600 transition-all shadow-sm"
+                            onClick={() => handleRoutineBatch(batch.id)}
+                          >
+                            <LayoutGrid className="h-3.5 w-3.5" />
+                            Routine
                           </Button>
                           <Button
                             variant="outline"

@@ -55,6 +55,16 @@ export async function getAttendanceSheet(params: {
 
 export type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE';
 
+export async function bulkRecordAttendance(payload: {
+  sessionId: string;
+  records: { studentUserId: string; status: AttendanceStatus }[];
+}): Promise<ApiResponse<{ count: number }>> {
+  return apiRequest<ApiResponse<{ count: number }>>('/classes/attendance/bulk', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function recordAttendance(payload: {
   sessionId: string;
   studentUserId: string;

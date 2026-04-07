@@ -5,6 +5,7 @@ import ExcelJS from 'exceljs';
 import {
   getAttendanceSheet,
   recordAttendance,
+  bulkRecordAttendance,
   type AttendanceSheet,
   type AttendanceStatus,
 } from '@/lib/api/attendance';
@@ -35,6 +36,8 @@ import {
   GraduationCap,
   Building2,
   Layers,
+  CheckSquare,
+  BarChart3,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -48,6 +51,16 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 type CourseRow = { id: string; name: string };
 type BranchRow = { id: string; name: string };
@@ -123,6 +136,10 @@ export default function AttendanceSheetPage() {
   const [attendanceModal, setAttendanceModal] = useState<AttendanceEditModalState | null>(null);
   const [modalStatus, setModalStatus] = useState<AttendanceStatus>('PRESENT');
   const [modalSaving, setModalSaving] = useState(false);
+  const [activeSheetTab, setActiveSheetTab] = useState<'matrix' | 'summary'>('matrix');
+  const [sessionRangeStart, setSessionRangeStart] = useState<Date | undefined>(undefined);
+  const [sessionRangeEnd, setSessionRangeEnd] = useState<Date | undefined>(undefined);
+  const [bulkMarkingSession, setBulkMarkingSession] = useState<string | null>(null);
 
   const loadFilters = async () => {
     try {
@@ -162,6 +179,73 @@ export default function AttendanceSheetPage() {
     if (filters.batchId === 'all') return 'All batches';
     return batches.find((b) => b.id === filters.batchId)?.name ?? '—';
   }, [filters.batchId, batches]);
+
+  const filteredSessions = useMemo(() => {
+    if (!sheetData) return [];
+    return sheetData.sessions.filter((s) => {
+      const d = new Date(s.sessionDate);
+      if (sessionRangeStart && d < sessionRangeStart) return false;
+      if (sessionRangeEnd) {
+        const endDay = new Date(sessionRangeEnd);
+        endDay.setHours(23, 59, 59, 999);
+        if (d > endDay) return false;
+      }
+      return true;
+    });
+  }, [sheetData, sessionRangeStart, sessionRangeEnd]);
+
+  const handleBulkPresent = async (sessionId: string) => {
+    if (!sheetData) return;
+    setBulkMarkingSession(sessionId);
+    try {
+      const records = sheetData.enrollments.map((enr) => ({
+        studentUserId: enr.student.id,
+        status: 'PRESENT' as AttendanceStatus,
+      }));
+      const res = await bulkRecordAttendance({ sessionId, records });
+      if (res.success) {
+        setSheetData((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            sessions: prev.sessions.map((s) => {
+              if (s.id !== sessionId) return s;
+              const updatedRecords = prev.enrollments.map((enr) => {
+                const existing = s.attendanceRecords.find((r) => r.studentUserId === enr.student.id);
+                return existing
+                  ? { ...existing, status: 'PRESENT' }
+                  : { id: `bulk-${enr.student.id}`, studentUserId: enr.student.id, status: 'PRESENT', student: { id: enr.student.id, fullName: enr.student.fullName } };
+              });
+              return { ...s, attendanceRecords: updatedRecords };
+            }),
+          };
+        });
+        toast({ title: 'All present', description: `Marked ${records.length} students present.`, variant: 'success' });
+      } else {
+        toast({ title: 'Error', description: (res as { message?: string }).message ?? 'Bulk mark failed', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Bulk mark failed', variant: 'destructive' });
+    } finally {
+      setBulkMarkingSession(null);
+    }
+  };
+
+  const studentSummary = useMemo(() => {
+    if (!sheetData) return [];
+    return sheetData.enrollments.map((enr) => {
+      let present = 0, absent = 0, late = 0;
+      for (const s of filteredSessions) {
+        const r = s.attendanceRecords.find((x) => x.studentUserId === enr.student.id);
+        if (r?.status === 'PRESENT') present++;
+        else if (r?.status === 'ABSENT') absent++;
+        else if (r?.status === 'LATE') late++;
+      }
+      const total = filteredSessions.length;
+      const rate = total > 0 ? Math.round(((present + late) / total) * 100) : null;
+      return { id: enr.student.id, name: enr.student.fullName, mobile: enr.student.mobile, batch: enr.batch?.name ?? '—', present, absent, late, total, rate };
+    });
+  }, [sheetData, filteredSessions]);
 
   const handleGenerateSheet = async () => {
     if (!filters.courseId) {
@@ -520,6 +604,37 @@ export default function AttendanceSheetPage() {
       </section>
 
       {sheetData ? (
+        <>
+        {/* Session date range filter */}
+        <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-[28px] sm:p-5 print:hidden">
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+              <Calendar className="h-4 w-4" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sessions from</label>
+              <DatePicker date={sessionRangeStart} setDate={setSessionRangeStart} placeholder="Any start" className="h-10 rounded-xl" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sessions to</label>
+              <DatePicker date={sessionRangeEnd} setDate={setSessionRangeEnd} placeholder="Any end" className="h-10 rounded-xl" />
+            </div>
+            {(sessionRangeStart || sessionRangeEnd) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-10 rounded-xl font-semibold text-slate-500"
+                onClick={() => { setSessionRangeStart(undefined); setSessionRangeEnd(undefined); }}
+              >
+                Clear filter
+              </Button>
+            )}
+            <Badge variant="outline" className="ml-auto rounded-xl px-3 py-1.5 text-xs font-bold">
+              {filteredSessions.length} / {sheetData.sessions.length} sessions shown
+            </Badge>
+          </div>
+        </section>
+
         <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-lg shadow-slate-200/40 print:rounded-none print:border-0 print:shadow-none">
           {/* Print header */}
           <div className="hidden print:block print:border-b-2 print:border-slate-900 print:p-8">
@@ -559,14 +674,25 @@ export default function AttendanceSheetPage() {
               <div className="min-w-0">
                 <h3 className="truncate text-lg font-black text-slate-900 sm:text-xl">{sheetData.course.name}</h3>
                 <p className="text-xs font-semibold text-slate-500">
-                  {sheetData.enrollments.length} students · {sheetData.sessions.length} sessions · {branchName} ·{' '}
+                  {sheetData.enrollments.length} students · {filteredSessions.length} sessions shown · {branchName} ·{' '}
                   {batchName}
                 </p>
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2 lg:hidden">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 sm:mr-1">View</span>
-              <div className="flex rounded-2xl border border-slate-200 bg-white p-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <Tabs value={activeSheetTab} onValueChange={(v) => setActiveSheetTab(v as 'matrix' | 'summary')} className="print:hidden">
+                <TabsList className="h-9 rounded-xl bg-slate-100">
+                  <TabsTrigger value="matrix" className="rounded-lg px-3 text-xs font-bold">
+                    <Table2 className="mr-1.5 h-3.5 w-3.5" />
+                    Matrix
+                  </TabsTrigger>
+                  <TabsTrigger value="summary" className="rounded-lg px-3 text-xs font-bold">
+                    <BarChart3 className="mr-1.5 h-3.5 w-3.5" />
+                    Summary
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <div className="flex rounded-2xl border border-slate-200 bg-white p-1 lg:hidden">
                 <button
                   type="button"
                   onClick={() => setLayoutMode('cards')}
@@ -591,8 +717,9 @@ export default function AttendanceSheetPage() {
                 </button>
               </div>
             </div>
-            {/* Scroll help removed; rely on native scrollbars/trackpad */}
           </div>
+
+          {activeSheetTab === 'matrix' ? (<>
 
           {/* Mobile / default cards */}
           <div
@@ -619,11 +746,11 @@ export default function AttendanceSheetPage() {
                         </p>
                       </div>
                     </div>
-                    {sheetData.sessions.length === 0 ? (
+                    {filteredSessions.length === 0 ? (
                       <p className="text-sm text-slate-400">No sessions in range.</p>
                     ) : (
                       <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                        {sheetData.sessions.map((session) => {
+                        {filteredSessions.map((session) => {
                           const record = session.attendanceRecords.find((r) => r.studentUserId === enrollment.student.id);
                           const st = record?.status ?? null;
                           return (
@@ -682,7 +809,7 @@ export default function AttendanceSheetPage() {
                     <th className="sticky left-0 z-20 min-w-[160px] max-w-[200px] bg-slate-50 px-3 py-3 text-[10px] font-black uppercase tracking-wider text-slate-500 shadow-[4px_0_12px_-6px_rgba(15,23,42,0.15)]">
                       Student
                     </th>
-                    {sheetData.sessions.map((session) => (
+                    {filteredSessions.map((session) => (
                       <th
                         key={session.id}
                         className="min-w-[76px] px-2 py-3 text-center text-[9px] font-black uppercase tracking-wide text-slate-500"
@@ -699,7 +826,7 @@ export default function AttendanceSheetPage() {
                         <p className="truncate font-bold text-slate-800">{enrollment.student.fullName}</p>
                         <p className="truncate text-[10px] text-slate-400">{enrollment.batch?.name || '—'}</p>
                       </td>
-                      {sheetData.sessions.map((session) => {
+                      {filteredSessions.map((session) => {
                         const record = session.attendanceRecords.find((r) => r.studentUserId === enrollment.student.id);
                         return (
                           <td key={session.id} className="px-2 py-3 text-center">
@@ -738,7 +865,7 @@ export default function AttendanceSheetPage() {
                   <th className="sticky left-0 z-20 min-w-[220px] bg-slate-50 px-4 py-4 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 shadow-[6px_0_16px_-8px_rgba(15,23,42,0.2)] print:static print:shadow-none">
                     Student
                   </th>
-                  {sheetData.sessions.map((session) => (
+                  {filteredSessions.map((session) => (
                     <th
                       key={session.id}
                       className="min-w-[96px] border-l border-slate-100 px-3 py-4 text-center text-[10px] font-black uppercase tracking-wide text-slate-500"
@@ -746,10 +873,26 @@ export default function AttendanceSheetPage() {
                       <div className="flex flex-col items-center gap-1">
                         <Calendar className="h-3.5 w-3.5 text-indigo-400" />
                         <span>{sessionLabel(session.sessionDate)}</span>
+                        {editAttendance && (
+                          <button
+                            type="button"
+                            title="Mark all present"
+                            disabled={bulkMarkingSession === session.id}
+                            onClick={() => void handleBulkPresent(session.id)}
+                            className="mt-0.5 flex items-center gap-0.5 rounded-md bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 print:hidden"
+                          >
+                            {bulkMarkingSession === session.id ? (
+                              <RefreshCw className="h-2.5 w-2.5 animate-spin" />
+                            ) : (
+                              <CheckSquare className="h-2.5 w-2.5" />
+                            )}
+                            All ✓
+                          </button>
+                        )}
                       </div>
                     </th>
                   ))}
-                  {sheetData.sessions.length === 0 && (
+                  {filteredSessions.length === 0 && (
                     <th className="px-8 py-10 text-center text-xs font-bold text-slate-400">No sessions</th>
                   )}
                 </tr>
@@ -770,7 +913,7 @@ export default function AttendanceSheetPage() {
                         </div>
                       </div>
                     </td>
-                    {sheetData.sessions.map((session) => {
+                    {filteredSessions.map((session) => {
                       const record = session.attendanceRecords.find((r) => r.studentUserId === enrollment.student.id);
                       return (
                         <td key={session.id} className="border-l border-slate-100 px-3 py-4 text-center">
@@ -816,7 +959,68 @@ export default function AttendanceSheetPage() {
               End of attendance registry
             </p>
           </footer>
+
+          </>) : (
+          /* ─── Summary tab ──────────────────────────────────────────── */
+          <div className="p-4 sm:p-6">
+            <div className="mb-4 flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-indigo-500" />
+              <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Student attendance summary</h3>
+              <Badge variant="outline" className="ml-auto rounded-xl px-3 text-xs">
+                {filteredSessions.length} session{filteredSessions.length !== 1 ? 's' : ''}
+              </Badge>
+            </div>
+            <div className="overflow-auto rounded-2xl border border-slate-200">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50">
+                    <TableHead className="font-black">Student</TableHead>
+                    <TableHead className="font-black">Batch</TableHead>
+                    <TableHead className="text-center font-black text-emerald-700">Present</TableHead>
+                    <TableHead className="text-center font-black text-rose-700">Absent</TableHead>
+                    <TableHead className="text-center font-black text-amber-700">Late</TableHead>
+                    <TableHead className="text-center font-black">Total</TableHead>
+                    <TableHead className="text-center font-black">Rate</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {studentSummary.map((s) => (
+                    <TableRow key={s.id} className="hover:bg-slate-50/60">
+                      <TableCell className="font-bold text-slate-800">
+                        <div>
+                          <p className="truncate">{s.name}</p>
+                          <p className="text-[10px] text-slate-400">{s.mobile}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-slate-600">{s.batch}</TableCell>
+                      <TableCell className="text-center font-bold text-emerald-700">{s.present}</TableCell>
+                      <TableCell className="text-center font-bold text-rose-700">{s.absent}</TableCell>
+                      <TableCell className="text-center font-bold text-amber-700">{s.late}</TableCell>
+                      <TableCell className="text-center text-slate-600">{s.total}</TableCell>
+                      <TableCell className="text-center">
+                        {s.rate !== null ? (
+                          <Badge
+                            className={cn(
+                              'rounded-xl font-bold',
+                              s.rate >= 75 ? 'bg-emerald-100 text-emerald-800' :
+                              s.rate >= 50 ? 'bg-amber-100 text-amber-800' :
+                              'bg-rose-100 text-rose-800'
+                            )}
+                          >
+                            {s.rate}%
+                          </Badge>
+                        ) : '—'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+          )}
+
         </section>
+        </>
       ) : (
         <section className="flex flex-col items-center justify-center gap-6 rounded-3xl border-2 border-dashed border-slate-200 bg-gradient-to-b from-slate-50/80 to-white px-6 py-16 text-center sm:rounded-[32px] sm:py-20 print:hidden">
           <div className="flex h-20 w-20 items-center justify-center rounded-3xl border border-slate-200 bg-white shadow-lg shadow-slate-200/40">

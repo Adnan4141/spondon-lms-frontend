@@ -33,7 +33,36 @@ import {
   ScanLine,
   ClipboardCheck,
   BarChart3,
+  Eye,
+  RefreshCw,
+  ExternalLink,
+  ListChecks,
 } from 'lucide-react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { getExamById, regenerateExamPdf, regenerateSolveSheet, getExamPdfDownloadUrl } from '@/lib/api/exams';
 import {
   getOmrScans,
@@ -45,7 +74,8 @@ import {
   rejectOfflineResult,
   type OmrScan,
 } from '@/lib/api/exam-results';
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useToast } from '@/hooks/use-toast';
 import { ExamQuestionBuilder } from './ExamQuestionBuilder';
 import { ExamLeaderboard } from './ExamLeaderboard';
 import { WrittenEvaluationPanel } from './WrittenEvaluationPanel';
@@ -121,6 +151,7 @@ function SectionCard({
 }
 
 export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<
     'info' | 'courses' | 'omr' | 'questions' | 'results' | 'merit' | 'leaderboard' | 'evaluate'
   >('info');
@@ -158,6 +189,8 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
   const [excelImporting, setExcelImporting] = useState(false);
   const [offlineResults, setOfflineResults] = useState<Array<{ id: string; rollNo: string; approvalStatus: string; obtainedMarks?: number; totalMarks?: number }>>([]);
   const [selectedOmrPreview, setSelectedOmrPreview] = useState<{ url: string; fileName: string } | null>(null);
+  const omrFileInputRef = useRef<HTMLInputElement>(null);
+  const excelFileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchExamData = async () => {
     const res = await getExamById(exam.id);
@@ -187,20 +220,28 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
   const handleApproveResult = async (id: string) => {
     try {
       const res = await approveOfflineResult(id);
-      if (res.success)
+      if (res.success) {
         setOfflineResults((prev) => prev.map((r) => (r.id === id ? { ...r, approvalStatus: 'APPROVED' } : r)));
+        toast({ title: 'Approved', description: 'Result has been approved.', variant: 'success' });
+      } else {
+        toast({ title: 'Error', description: (res as { message?: string }).message ?? 'Approval failed', variant: 'destructive' });
+      }
     } catch (e) {
-      alert((e as Error).message);
+      toast({ title: 'Error', description: (e as Error).message, variant: 'destructive' });
     }
   };
 
   const handleRejectResult = async (id: string) => {
     try {
       const res = await rejectOfflineResult(id);
-      if (res.success)
+      if (res.success) {
         setOfflineResults((prev) => prev.map((r) => (r.id === id ? { ...r, approvalStatus: 'REJECTED' } : r)));
+        toast({ title: 'Rejected', description: 'Result has been rejected.', variant: 'default' });
+      } else {
+        toast({ title: 'Error', description: (res as { message?: string }).message ?? 'Rejection failed', variant: 'destructive' });
+      }
     } catch (e) {
-      alert((e as Error).message);
+      toast({ title: 'Error', description: (e as Error).message, variant: 'destructive' });
     }
   };
 
@@ -238,10 +279,13 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
     try {
       const res = await importOfflineResults(exam.id, file);
       if (res.success && res.data) {
-        alert(`Imported ${res.data.count} results successfully.`);
+        toast({ title: 'Import successful', description: `${res.data.count} result${res.data.count !== 1 ? 's' : ''} imported.`, variant: 'success' });
+        getOfflineResults(exam.id).then((r) => r.success && r.data && setOfflineResults(r.data));
+      } else {
+        toast({ title: 'Import failed', description: (res as { message?: string }).message ?? 'Unknown error', variant: 'destructive' });
       }
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Import failed');
+      toast({ title: 'Import failed', description: err instanceof Error ? err.message : 'Import failed', variant: 'destructive' });
     } finally {
       setExcelImporting(false);
       e.target.value = '';
@@ -525,86 +569,188 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
                 </SectionCard>
               </div>
 
-              {(exam.sets && exam.sets.length > 0) || exam.mode === 'OFFLINE' ? (
+           {(exam.sets && exam.sets.length > 0) || exam.mode === 'OFFLINE' ? (
                 <SectionCard
                   title="PDFs & sets"
                   description="Generate hall papers and solution sheets. Sets are also managed under the Questions tab."
                   icon={FileText}
                 >
-                  <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-auto justify-start gap-3 rounded-xl border-slate-200 py-3 px-4 text-left font-normal hover:bg-indigo-50/50 hover:border-indigo-200"
-                      onClick={exam.pdfUrl ? () => window.open(getExamPdfDownloadUrl(exam.pdfUrl!), '_blank') : handleRegeneratePdf}
-                      disabled={pdfLoading}
-                    >
-                      <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700">
-                        <Download className="h-5 w-5" />
-                      </span>
-                      <span>
-                        <span className="block text-sm font-semibold text-slate-900">
-                          {pdfLoading
-                            ? 'Working…'
-                            : exam.pdfUrl
-                              ? sheetLang === 'en'
-                                ? 'Open exam PDF'
-                                : 'পরীক্ষার PDF'
-                              : sheetLang === 'en'
-                                ? 'Generate exam PDF'
-                                : 'PDF তৈরি করুন'}
+                  {/* Document cards */}
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {/* Exam paper card */}
+                    <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50/40 p-4">
+                      <div className="flex items-start gap-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700">
+                          <FileText className="h-5 w-5" />
                         </span>
-                        <span className="block text-xs text-slate-500 mt-0.5">
-                          {exam.pdfUrl ? 'Download or print for students' : 'Creates from current sets'}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-slate-900">
+                            {sheetLang === 'en' ? 'Exam paper' : 'পরীক্ষার পেপার'}
+                          </p>
+                          <p className="mt-0.5 text-xs text-slate-500">Hall copy for students</p>
+                          <Badge
+                            className={cn(
+                              'mt-1.5 text-[10px] font-semibold',
+                              exam.pdfUrl
+                                ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                : 'bg-slate-100 text-slate-600 border-slate-200'
+                            )}
+                            variant="outline"
+                          >
+                            {exam.pdfUrl ? 'Generated' : 'Not generated'}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {exam.pdfUrl ? (
+                          <>
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="gap-1.5"
+                              onClick={() => window.open(getExamPdfDownloadUrl(exam.pdfUrl!), '_blank')}
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                              Open PDF
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="gap-1.5"
+                              disabled={pdfLoading}
+                              onClick={handleRegeneratePdf}
+                            >
+                              {pdfLoading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                              Regenerate
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="gap-1.5"
+                            disabled={pdfLoading}
+                            onClick={handleRegeneratePdf}
+                          >
+                            {pdfLoading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                            {pdfLoading ? 'Generating…' : 'Generate PDF'}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Solution sheet card */}
+                    <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50/40 p-4">
+                      <div className="flex items-start gap-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-700">
+                          <CheckCircle2 className="h-5 w-5" />
                         </span>
-                      </span>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-auto justify-start gap-3 rounded-xl border-slate-200 py-3 px-4 text-left font-normal hover:bg-violet-50/50 hover:border-violet-200"
-                      onClick={
-                        exam.solveSheetUrl
-                          ? () => window.open(getExamPdfDownloadUrl(exam.solveSheetUrl!), '_blank')
-                          : handleRegenerateSolveSheet
-                      }
-                      disabled={solveSheetLoading}
-                    >
-                      <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-100 text-violet-700">
-                        <Download className="h-5 w-5" />
-                      </span>
-                      <span>
-                        <span className="block text-sm font-semibold text-slate-900">
-                          {solveSheetLoading
-                            ? 'Working…'
-                            : exam.solveSheetUrl
-                              ? sheetLang === 'en'
-                                ? 'Open solution PDF'
-                                : 'সমাধান PDF'
-                              : sheetLang === 'en'
-                                ? 'Generate solution PDF'
-                                : 'সমাধান তৈরি'}
-                        </span>
-                        <span className="block text-xs text-slate-500 mt-0.5">For teachers / marking</span>
-                      </span>
-                    </Button>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-slate-900">
+                            {sheetLang === 'en' ? 'Solution sheet' : 'সমাধান শিট'}
+                          </p>
+                          <p className="mt-0.5 text-xs text-slate-500">For teachers / marking</p>
+                          <Badge
+                            className={cn(
+                              'mt-1.5 text-[10px] font-semibold',
+                              exam.solveSheetUrl
+                                ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                : 'bg-slate-100 text-slate-600 border-slate-200'
+                            )}
+                            variant="outline"
+                          >
+                            {exam.solveSheetUrl ? 'Generated' : 'Not generated'}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {exam.solveSheetUrl ? (
+                          <>
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="gap-1.5 bg-violet-600 hover:bg-violet-700"
+                              onClick={() => window.open(getExamPdfDownloadUrl(exam.solveSheetUrl!), '_blank')}
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                              Open PDF
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="gap-1.5"
+                              disabled={solveSheetLoading}
+                              onClick={handleRegenerateSolveSheet}
+                            >
+                              {solveSheetLoading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                              Regenerate
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="gap-1.5 bg-violet-600 hover:bg-violet-700"
+                            disabled={solveSheetLoading}
+                            onClick={handleRegenerateSolveSheet}
+                          >
+                            {solveSheetLoading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                            {solveSheetLoading ? 'Generating…' : 'Generate PDF'}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   {exam.sets && exam.sets.length > 0 ? (
                     <div className="mt-6 border-t border-slate-100 pt-5">
-                      <p className="text-xs font-medium text-slate-500 mb-3">Active sets</p>
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <p className="text-xs font-semibold text-slate-500">Active sets ({exam.sets.length})</p>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 gap-1.5 text-xs text-indigo-600 hover:text-indigo-700"
+                          onClick={() => setActiveTab('questions')}
+                        >
+                          <ListChecks className="h-3.5 w-3.5" />
+                          Manage in Questions tab
+                        </Button>
+                      </div>
                       <ul className="space-y-2">
-                        {exam.sets.map((set) => (
-                          <li
-                            key={set.id}
-                            className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3"
-                          >
-                            <span className="text-sm font-medium text-slate-800">{set.name}</span>
-                            <span className="text-xs font-medium tabular-nums text-slate-500">
-                              {set.questions?.length ?? 0} questions
-                            </span>
-                          </li>
-                        ))}
+                        {exam.sets.map((set) => {
+                          let mcqCount = 0;
+                          let cqCount = 0;
+                          for (const eq of set.questions || []) {
+                            if (eq.question?.type === 'CQ') cqCount++;
+                            else mcqCount++;
+                          }
+                          return (
+                            <li
+                              key={set.id}
+                              className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3"
+                            >
+                              <span className="text-sm font-medium text-slate-800">{set.name}</span>
+                              <div className="flex items-center gap-1.5">
+                                {mcqCount > 0 && (
+                                  <Badge variant="secondary" className="text-[10px]">
+                                    {mcqCount} MCQ
+                                  </Badge>
+                                )}
+                                {cqCount > 0 && (
+                                  <Badge variant="outline" className="text-[10px]">
+                                    {cqCount} CQ
+                                  </Badge>
+                                )}
+                                <span className="text-xs font-medium tabular-nums text-slate-500">
+                                  {(set.questions?.length ?? 0)} total
+                                </span>
+                              </div>
+                            </li>
+                          );
+                        })}
                       </ul>
                     </div>
                   ) : null}
@@ -622,34 +768,50 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
                     For a printable bubble layout and manual answer entry (OMR sample + grading), open the{' '}
                     <strong className="text-slate-800">OMR</strong> tab above.
                   </p>
+
+                  {/* File upload buttons */}
                   <div className="flex flex-wrap gap-3">
-                    <label>
-                      <input
-                        type="file"
-                        accept="image/*,application/pdf"
-                        className="hidden"
-                        onChange={handleOmrUpload}
-                        disabled={omrUploading}
-                      />
-                      <span className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50">
-                        <Upload className="h-4 w-4" />
-                        {omrUploading ? 'Uploading…' : 'Upload OMR / scan'}
-                      </span>
-                    </label>
-                    <label>
-                      <input
-                        type="file"
-                        accept=".xlsx,.xls"
-                        className="hidden"
-                        onChange={handleExcelImport}
-                        disabled={excelImporting}
-                      />
-                      <span className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-800 hover:bg-emerald-100">
-                        <FileSpreadsheet className="h-4 w-4" />
-                        {excelImporting ? 'Importing…' : 'Import Excel'}
-                      </span>
-                    </label>
+                    {/* OMR scan upload */}
+                    <input
+                      ref={omrFileInputRef}
+                      type="file"
+                      accept="image/*,application/pdf"
+                      className="hidden"
+                      onChange={handleOmrUpload}
+                      disabled={omrUploading}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="gap-2 rounded-xl border-slate-200"
+                      disabled={omrUploading}
+                      onClick={() => omrFileInputRef.current?.click()}
+                    >
+                      {omrUploading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                      {omrUploading ? 'Uploading…' : 'Upload OMR / scan'}
+                    </Button>
+
+                    {/* Excel import */}
+                    <input
+                      ref={excelFileInputRef}
+                      type="file"
+                      accept=".xlsx,.xls"
+                      className="hidden"
+                      onChange={handleExcelImport}
+                      disabled={excelImporting}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="gap-2 rounded-xl border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 hover:border-emerald-300"
+                      disabled={excelImporting}
+                      onClick={() => excelFileInputRef.current?.click()}
+                    >
+                      {excelImporting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
+                      {excelImporting ? 'Importing…' : 'Import Excel'}
+                    </Button>
                   </div>
+
                   <p className="mt-3 text-xs leading-relaxed text-slate-500">
                     Excel columns: <code className="rounded bg-slate-100 px-1 py-0.5 font-mono text-[11px]">rollNo</code>,{' '}
                     <code className="rounded bg-slate-100 px-1 py-0.5 font-mono text-[11px]">subject</code>,{' '}
@@ -658,82 +820,113 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
                     <code className="rounded bg-slate-100 px-1 py-0.5 font-mono text-[11px]">meritPosition</code>
                   </p>
 
+                  {/* Imported results table */}
                   {offlineResults.length > 0 ? (
                     <div className="mt-6 overflow-hidden rounded-xl border border-slate-200">
                       <div className="flex items-center justify-between bg-slate-50 px-4 py-2.5 border-b border-slate-200">
-                        <span className="text-xs font-semibold text-slate-700">Imported rows</span>
+                        <span className="text-xs font-semibold text-slate-700">
+                          Imported rows ({offlineResults.length})
+                        </span>
                         <span className="text-xs text-slate-500">
                           {offlineResults.filter((r) => r.approvalStatus === 'PENDING').length} pending
                         </span>
                       </div>
-                      <div className="max-h-52 overflow-y-auto">
-                        <table className="w-full text-sm">
-                          <thead className="sticky top-0 bg-white text-left text-xs font-medium text-slate-500 shadow-sm">
-                            <tr className="border-b border-slate-100">
-                              <th className="px-4 py-2">Roll</th>
-                              <th className="px-4 py-2">Score</th>
-                              <th className="px-4 py-2 text-right">Action</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                            {offlineResults.slice(0, 15).map((r) => (
-                              <tr key={r.id} className="bg-white hover:bg-slate-50/80">
-                                <td className="px-4 py-2.5 font-medium text-slate-900">{r.rollNo}</td>
-                                <td className="px-4 py-2.5 text-slate-600 tabular-nums">
+                      <div className="max-h-72 overflow-y-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="sticky top-0 bg-white">
+                              <TableHead className="text-xs">Roll</TableHead>
+                              <TableHead className="text-xs">Score</TableHead>
+                              <TableHead className="text-xs">Status</TableHead>
+                              <TableHead className="text-right text-xs">Action</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {offlineResults.map((r) => (
+                              <TableRow key={r.id}>
+                                <TableCell className="font-medium text-slate-900">{r.rollNo}</TableCell>
+                                <TableCell className="tabular-nums text-slate-600">
                                   {r.obtainedMarks ?? '—'} / {r.totalMarks ?? '—'}
-                                </td>
-                                <td className="px-4 py-2.5 text-right">
+                                </TableCell>
+                                <TableCell>
+                                  {r.approvalStatus === 'APPROVED' ? (
+                                    <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px]" variant="outline">Approved</Badge>
+                                  ) : r.approvalStatus === 'REJECTED' ? (
+                                    <Badge className="bg-rose-100 text-rose-800 border-rose-200 text-[10px]" variant="outline">Rejected</Badge>
+                                  ) : (
+                                    <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-[10px]" variant="outline">Pending</Badge>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-right">
                                   {r.approvalStatus === 'PENDING' ? (
                                     <div className="flex justify-end gap-1">
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8 text-emerald-600 hover:bg-emerald-50"
-                                        onClick={() => handleApproveResult(r.id)}
-                                        title="Approve"
-                                      >
-                                        <CheckCircle2 className="h-4 w-4" />
-                                      </Button>
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8 text-rose-600 hover:bg-rose-50"
-                                        onClick={() => handleRejectResult(r.id)}
-                                        title="Reject"
-                                      >
-                                        <XCircle className="h-4 w-4" />
-                                      </Button>
+                                      <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-emerald-600 hover:bg-emerald-50" title="Approve">
+                                            <CheckCircle2 className="h-4 w-4" />
+                                          </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                          <AlertDialogHeader>
+                                            <AlertDialogTitle>Approve this result?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                              Roll <strong>{r.rollNo}</strong> — score{' '}
+                                              <strong>{r.obtainedMarks ?? '?'}/{r.totalMarks ?? '?'}</strong> will be approved and affect leaderboard records.
+                                            </AlertDialogDescription>
+                                          </AlertDialogHeader>
+                                          <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction
+                                              className="bg-emerald-600 hover:bg-emerald-700"
+                                              onClick={() => void handleApproveResult(r.id)}
+                                            >
+                                              Approve
+                                            </AlertDialogAction>
+                                          </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                      </AlertDialog>
+                                      <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-rose-600 hover:bg-rose-50" title="Reject">
+                                            <XCircle className="h-4 w-4" />
+                                          </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                          <AlertDialogHeader>
+                                            <AlertDialogTitle>Reject this result?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                              Roll <strong>{r.rollNo}</strong> will be marked as rejected and excluded from records.
+                                            </AlertDialogDescription>
+                                          </AlertDialogHeader>
+                                          <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction
+                                              className="bg-rose-600 hover:bg-rose-700"
+                                              onClick={() => void handleRejectResult(r.id)}
+                                            >
+                                              Reject
+                                            </AlertDialogAction>
+                                          </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                      </AlertDialog>
                                     </div>
-                                  ) : r.approvalStatus === 'APPROVED' ? (
-                                    <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">Approved</Badge>
-                                  ) : (
-                                    <Badge variant="secondary" className="bg-rose-100 text-rose-800">
-                                      Rejected
-                                    </Badge>
-                                  )}
-                                </td>
-                              </tr>
+                                  ) : null}
+                                </TableCell>
+                              </TableRow>
                             ))}
-                          </tbody>
-                        </table>
+                          </TableBody>
+                        </Table>
                       </div>
-                      {offlineResults.length > 15 ? (
-                        <p className="border-t border-slate-100 bg-slate-50 px-4 py-2 text-center text-xs text-slate-500">
-                          +{offlineResults.length - 15} more rows
-                        </p>
-                      ) : null}
                     </div>
                   ) : null}
 
+                  {/* OMR file grid */}
                   {omrScans.length > 0 || omrPreviews.length > 0 ? (
                     <div className="mt-6 border-t border-slate-100 pt-5">
                       <p className="text-xs font-medium text-slate-500 mb-3">
                         Uploaded files ({omrPreviews.length} local, {omrScans.length} synced)
                       </p>
-                      
-                      {/* Local Previews Grid */}
+
                       {omrPreviews.length > 0 ? (
                         <div className="mb-6">
                           <p className="text-xs font-medium text-slate-600 mb-3">Local Uploads</p>
@@ -742,7 +935,6 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
                               <div
                                 key={preview.id}
                                 className="group relative overflow-hidden rounded-lg border border-slate-200 bg-slate-50 cursor-pointer hover:border-indigo-300 hover:shadow-md transition-all"
-                                onClick={() => setSelectedOmrPreview(preview)}
                               >
                                 {preview.url.startsWith('data:image') ? (
                                   // eslint-disable-next-line @next/next/no-img-element
@@ -757,8 +949,17 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
                                     <p className="text-xs text-slate-600 text-center px-2">PDF</p>
                                   </div>
                                 )}
-                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
-                                  <span className="text-white text-xs font-medium">View</span>
+                                {/* Hover overlay with Eye button */}
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="secondary"
+                                    className="h-10 w-10 rounded-xl"
+                                    onClick={() => setSelectedOmrPreview(preview)}
+                                  >
+                                    <Eye className="h-5 w-5" />
+                                  </Button>
                                 </div>
                                 <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/60 to-transparent p-2 text-white text-[10px] truncate">
                                   {preview.fileName}
@@ -769,7 +970,6 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
                         </div>
                       ) : null}
 
-                      {/* Server-hosted Files */}
                       {omrScans.length > 0 ? (
                         <div>
                           <p className="text-xs font-medium text-slate-600 mb-3">Server Files</p>
@@ -842,47 +1042,32 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
         </div>
       </div>
 
-      {/* OMR Preview Modal */}
-      {selectedOmrPreview ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-          onClick={() => setSelectedOmrPreview(null)}
-        >
-          <div
-            className="relative max-h-[90vh] max-w-4xl w-full bg-white rounded-2xl overflow-hidden shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-4">
-              <h3 className="text-sm font-semibold text-slate-900 truncate">
-                {selectedOmrPreview.fileName}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setSelectedOmrPreview(null)}
-                className="text-slate-500 hover:text-slate-900 transition-colors"
-              >
-                <XCircle className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="flex items-center justify-center bg-black p-4">
-              {selectedOmrPreview.url.startsWith('data:image') ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={selectedOmrPreview.url}
-                  alt={selectedOmrPreview.fileName}
-                  className="max-h-[calc(90vh-120px)] w-auto object-contain"
-                />
-              ) : (
-                <div className="flex flex-col items-center justify-center text-white py-12">
-                  <FileText className="h-16 w-16 mb-4 opacity-50" />
-                  <p className="text-sm">PDF file preview not available</p>
-                  <p className="text-xs text-slate-400 mt-2">File: {selectedOmrPreview.fileName}</p>
-                </div>
-              )}
-            </div>
+      {/* OMR Preview Dialog */}
+      <Dialog open={!!selectedOmrPreview} onOpenChange={(open) => { if (!open) setSelectedOmrPreview(null); }}>
+        <DialogContent className="max-w-4xl p-0 overflow-hidden">
+          <DialogHeader className="border-b border-slate-200 bg-slate-50 px-6 py-4">
+            <DialogTitle className="truncate text-sm font-semibold text-slate-900">
+              {selectedOmrPreview?.fileName ?? 'OMR Preview'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-center bg-black p-4 min-h-[300px]">
+            {selectedOmrPreview?.url.startsWith('data:image') ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={selectedOmrPreview.url}
+                alt={selectedOmrPreview.fileName}
+                className="max-h-[calc(90vh-160px)] w-auto object-contain"
+              />
+            ) : selectedOmrPreview ? (
+              <div className="flex flex-col items-center justify-center text-white py-12">
+                <FileText className="h-16 w-16 mb-4 opacity-50" />
+                <p className="text-sm">PDF file preview not available</p>
+                <p className="text-xs text-slate-400 mt-2">File: {selectedOmrPreview.fileName}</p>
+              </div>
+            ) : null}
           </div>
-        </div>
-      ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

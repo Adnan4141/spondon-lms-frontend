@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef, useMemo, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { getStudentById, lookupStudentUser } from '@/lib/api/students';
 import { getStudentResults } from '@/lib/api/student-portal';
 import type { Student } from '@/types/student';
@@ -17,6 +18,19 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ReferenceLine,
+  ResponsiveContainer,
+  Cell,
+} from 'recharts';
 import { 
   Search, 
   RefreshCw, 
@@ -29,7 +43,10 @@ import {
   Trophy,
   History,
   Activity,
-  ArrowRight
+  ArrowRight,
+  AlertTriangle,
+  Printer,
+  TrendingUp,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
@@ -41,9 +58,31 @@ function getErrorMessage(error: unknown): string {
   return 'Something went wrong';
 }
 
-export default function AcademicRecordsPage() {
+function TrendTooltip({ active, payload, label }: { active?: boolean; payload?: any[]; label?: string }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-xl text-sm">
+      <p className="font-black text-slate-700 truncate max-w-50">{label}</p>
+      <p className="mt-1 font-black text-indigo-600">{Number(payload[0]?.value ?? 0).toFixed(1)}%</p>
+    </div>
+  );
+}
+
+function BarTooltip({ active, payload, label }: { active?: boolean; payload?: { value: number }[]; label?: string }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-xl text-sm">
+      <p className="font-black text-slate-700 truncate max-w-50">{label}</p>
+      <p className="mt-1 font-black text-indigo-600">Avg {Number(payload[0]?.value ?? 0).toFixed(1)}%</p>
+    </div>
+  );
+}
+
+function AcademicRecordsPageContent() {
   const { openModal } = useModalStore();
   const { toast, toasts, removeToast } = useToast();
+  const searchParams = useSearchParams();
+  const autoLoadAttempted = useRef(false);
 
   const [studentIdInput, setStudentIdInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -51,6 +90,59 @@ export default function AcademicRecordsPage() {
 
   const [student, setStudent] = useState<Student | null>(null);
   const [results, setResults] = useState<StudentResults | null>(null);
+
+  // --- URL param auto-load: ?studentId=xxx ---
+  const handleLoadRecordsForId = async (raw: string) => {
+    if (!raw) return;
+    try {
+      setLoading(true);
+      setError(null);
+      setStudent(null);
+      setResults(null);
+      let resolvedId = raw;
+      try {
+        const lookup = await lookupStudentUser(raw);
+        if (lookup.success && lookup.data?.id) {
+          resolvedId = lookup.data.id;
+          if (lookup.data.matchedBy !== 'id') {
+            const label = lookup.data.matchedBy === 'registrationNumber' ? 'registration no.' : 'mobile';
+            toast({ title: 'Student matched', description: `${lookup.data.fullName} — via ${label}`, variant: 'success' });
+          }
+        }
+      } catch { resolvedId = raw; }
+      const [studentResp, resultsResp] = await Promise.all([
+        getStudentById(resolvedId),
+        getStudentResults(resolvedId),
+      ]);
+      if (!studentResp.success || !studentResp.data) throw new Error(studentResp.message || 'Failed to load student');
+      if (studentResp.data.role !== 'STUDENT') {
+        throw new Error('This user is not a student. Use a student account, registration no., or mobile.');
+      }
+      setStudent(studentResp.data);
+      if (!resultsResp.success || !resultsResp.data) {
+        throw new Error(resultsResp.message || 'Failed to load academic records');
+      }
+      setResults(resultsResp.data);
+    } catch (err: unknown) {
+      const msg = getErrorMessage(err) || 'Failed to load academic records';
+      setError(msg);
+      toast({ title: 'Error', description: msg, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Auto-load from URL param on first render
+  useEffect(() => {
+    if (autoLoadAttempted.current) return;
+    const sid = searchParams?.get('studentId');
+    if (sid) {
+      autoLoadAttempted.current = true;
+      setStudentIdInput(sid);
+      handleLoadRecordsForId(sid);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const handleLoadRecords = async () => {
     const raw = studentIdInput.trim();
@@ -62,59 +154,7 @@ export default function AcademicRecordsPage() {
       });
       return;
     }
-    try {
-      setLoading(true);
-      setError(null);
-      setStudent(null);
-      setResults(null);
-
-      let resolvedId = raw;
-      try {
-        const lookup = await lookupStudentUser(raw);
-        if (lookup.success && lookup.data?.id) {
-          resolvedId = lookup.data.id;
-          if (lookup.data.matchedBy !== 'id') {
-            const label =
-              lookup.data.matchedBy === 'registrationNumber' ? 'registration no.' : 'mobile';
-            toast({
-              title: 'Student matched',
-              description: `${lookup.data.fullName} — via ${label}`,
-              variant: 'success',
-            });
-          }
-        }
-      } catch {
-        resolvedId = raw;
-      }
-
-      const [studentResp, resultsResp] = await Promise.all([
-        getStudentById(resolvedId),
-        getStudentResults(resolvedId),
-      ]);
-
-      if (!studentResp.success || !studentResp.data) {
-        throw new Error(studentResp.message || 'Failed to load student');
-      }
-      if (studentResp.data.role !== 'STUDENT') {
-        throw new Error('This user is not a student. Use a student account, registration no., or mobile.');
-      }
-      setStudent(studentResp.data);
-
-      if (!resultsResp.success || !resultsResp.data) {
-        throw new Error(resultsResp.message || 'Failed to load academic records');
-      }
-      setResults(resultsResp.data);
-    } catch (err: unknown) {
-      const msg = getErrorMessage(err) || 'Failed to load academic records';
-      setError(msg);
-      toast({
-        title: 'Error',
-        description: msg,
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
+    await handleLoadRecordsForId(raw);
   };
 
   const handleViewAttempt = (attempt: any) => {
@@ -176,12 +216,38 @@ export default function AcademicRecordsPage() {
   const academicRecords = results?.academicRecords || [];
   const officialExamResults: OfficialExamResult[] = results?.officialExamResults ?? [];
 
+  // --- Chart data ---
+  const trendData = useMemo(() =>
+    onlineAttempts
+      .filter((a) => a.submittedAt && a.obtainedMarks != null && a.totalMarks && Number(a.totalMarks) > 0)
+      .sort((a, b) => new Date(a.submittedAt!).getTime() - new Date(b.submittedAt!).getTime())
+      .map((a) => ({
+        name: (a.exam?.title ?? a.examId).length > 22 ? (a.exam?.title ?? a.examId).slice(0, 20) + '…' : (a.exam?.title ?? a.examId),
+        pct: Math.round(((Number(a.obtainedMarks) / Number(a.totalMarks)) * 100) * 10) / 10,
+      })),
+  [onlineAttempts]);
+
+  // Compute overall at-risk flag
+  const avgPctAll = useMemo(() => {
+    const pcts: number[] = [];
+    for (const a of onlineAttempts) {
+      if (a.obtainedMarks != null && a.totalMarks && Number(a.totalMarks) > 0)
+        pcts.push((Number(a.obtainedMarks) / Number(a.totalMarks)) * 100);
+    }
+    for (const r of officialExamResults) {
+      if (r.percentage != null) pcts.push(Number(r.percentage));
+    }
+    return pcts.length > 0 ? pcts.reduce((a, b) => a + b, 0) / pcts.length : null;
+  }, [onlineAttempts, officialExamResults]);
+
+  const isAtRisk = avgPctAll !== null && avgPctAll < 40;
+
   return (
     <div className="space-y-8 text-slate-900">
       {/* Search Section */}
-      <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm print:hidden">
         <div className="flex flex-wrap items-end gap-4">
-          <div className="min-w-[300px] flex-1">
+          <div className="min-w-75 flex-1">
             <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2 block px-1">
               Student lookup
             </label>
@@ -191,6 +257,7 @@ export default function AcademicRecordsPage() {
                 placeholder="User ID, registration no., or mobile (01XXXXXXXXX)…"
                 value={studentIdInput}
                 onChange={(e) => setStudentIdInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleLoadRecords()}
                 className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
               />
             </div>
@@ -207,80 +274,131 @@ export default function AcademicRecordsPage() {
             )}
             Audit Records
           </Button>
+          {student && (
+            <Button
+              variant="outline"
+              className="h-12 rounded-2xl border-slate-200 gap-2 font-black text-[11px] uppercase tracking-widest print:hidden"
+              onClick={() => window.print()}
+            >
+              <Printer className="h-4 w-4" />
+              Print Report
+            </Button>
+          )}
         </div>
       </section>
 
       {error && (
-        <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-base font-bold text-rose-600 uppercase tracking-widest flex items-center gap-3">
+        <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-base font-bold text-rose-600 uppercase tracking-widest flex items-center gap-3 print:hidden">
            <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />
            {error}
         </div>
       )}
 
-      {student && (
-        <section className="rounded-[32px] border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/30">
-          <div className="flex flex-wrap items-center justify-between gap-6">
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xl font-black shadow-lg">
-                  {student.fullName.charAt(0)}
-                </div>
-                <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full border-4 border-white bg-emerald-500 shadow-sm" />
-              </div>
-              <div>
-                <h2 className="text-xl font-black text-slate-900">{student.fullName}</h2>
-                <div className="flex flex-wrap items-center gap-3 mt-1 text-base font-bold text-slate-400">
-                  <span>{student.mobile}</span>
-                  {student.studentProfile?.registrationNumber ? (
-                    <>
-                      <div className="h-1 w-1 rounded-full bg-slate-200" />
-                      <span className="font-mono text-sm text-slate-600">
-                        Reg: {student.studentProfile.registrationNumber}
-                      </span>
-                    </>
-                  ) : null}
-                  {student.email && (
-                    <>
-                      <div className="h-1 w-1 rounded-full bg-slate-200" />
-                      <span>{student.email}</span>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex flex-wrap gap-4">
-               <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-2 flex items-center gap-3">
-                  <GraduationCap className="h-4 w-4 text-indigo-500" />
-                  <div className="flex flex-col">
-                     <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Enrollments</span>
-                     <span className="text-base font-black text-slate-900">{student._count?.enrollments ?? 0}</span>
-                  </div>
-               </div>
-               <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-2 flex items-center gap-3">
-                  <Activity className="h-4 w-4 text-emerald-500" />
-                  <div className="flex flex-col">
-                     <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Exam Attempts</span>
-                     <span className="text-base font-black text-slate-900">{student._count?.examAttempts ?? 0}</span>
-                  </div>
-               </div>
-            </div>
+      {/* At-risk warning */}
+      {student && isAtRisk && (
+        <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50/80 p-4">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+          <div>
+            <p className="text-sm font-black text-amber-900">At-risk student</p>
+            <p className="mt-0.5 text-xs font-semibold text-amber-800">
+              Overall average score is <span className="font-black">{avgPctAll!.toFixed(1)}%</span> — below the 40% passing threshold.
+            </p>
           </div>
-        </section>
+        </div>
       )}
 
-      {student ? (
-        <AcademicRecordsExplorer
-          studentUserId={student.id}
-          enrollmentCourses={student.enrollments?.map((e) => ({
-            id: e.courseId,
-            name: e.course?.name ?? e.courseId,
-          }))}
-        />
-      ) : null}
+      {student && (
+        <>
+          <section className="rounded-[32px] border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/30">
+            <div className="flex flex-wrap items-center justify-between gap-6">
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <div className="h-14 w-14 rounded-2xl bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xl font-black shadow-lg">
+                    {student.fullName.charAt(0)}
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full border-4 border-white bg-emerald-500 shadow-sm" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-slate-900">{student.fullName}</h2>
+                  <div className="flex flex-wrap items-center gap-3 mt-1 text-base font-bold text-slate-400">
+                    <span>{student.mobile}</span>
+                    {student.studentProfile?.registrationNumber ? (
+                      <>
+                        <div className="h-1 w-1 rounded-full bg-slate-200" />
+                        <span className="font-mono text-sm text-slate-600">
+                          Reg: {student.studentProfile.registrationNumber}
+                        </span>
+                      </>
+                    ) : null}
+                    {student.email && (
+                      <>
+                        <div className="h-1 w-1 rounded-full bg-slate-200" />
+                        <span>{student.email}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-4">
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-2 flex items-center gap-3">
+                  <GraduationCap className="h-4 w-4 text-indigo-500" />
+                  <div className="flex flex-col">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Enrollments</span>
+                    <span className="text-base font-black text-slate-900">{student._count?.enrollments ?? 0}</span>
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-2 flex items-center gap-3">
+                  <Activity className="h-4 w-4 text-emerald-500" />
+                  <div className="flex flex-col">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Exam Attempts</span>
+                    <span className="text-base font-black text-slate-900">{student._count?.examAttempts ?? 0}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+          <AcademicRecordsExplorer
+            studentUserId={student.id}
+            enrollmentCourses={student.enrollments?.map((e) => ({
+              id: e.courseId,
+              name: e.course?.name ?? e.courseId,
+            }))}
+          />
+        </>
+      )}
 
       {results && (
         <div className="space-y-10">
+          {/* Trend line chart */}
+          {trendData.length >= 2 && (
+            <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/30">
+              <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50/50 px-8 py-5">
+                <TrendingUp className="h-4 w-4 text-indigo-500" />
+                <div>
+                  <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Exam Score Trend</h2>
+                  <p className="mt-0.5 text-base font-bold text-indigo-500">Online attempt performance over time</p>
+                </div>
+              </div>
+              <div className="p-8">
+                <ResponsiveContainer width="100%" height={220}>
+                  <LineChart data={trendData} margin={{ top: 4, right: 16, left: -16, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
+                    <YAxis domain={[0, 100]} tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
+                    <Tooltip content={<TrendTooltip />} />
+                    <ReferenceLine y={40} stroke="#f59e0b" strokeDasharray="4 4" strokeWidth={1.5} />
+                    <Line type="monotone" dataKey="pct" stroke="#6366f1" strokeWidth={2.5} dot={{ r: 4, fill: '#6366f1', strokeWidth: 0 }} activeDot={{ r: 6, fill: '#4f46e5', strokeWidth: 0 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+                <p className="mt-2 text-[10px] font-semibold text-slate-400">
+                  <span className="inline-block h-0.5 w-6 align-middle bg-amber-400 mr-1 rounded" />
+                  40% passing threshold
+                </p>
+              </div>
+            </section>
+          )}
+
           {/* Online Attempts Table */}
           <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/30">
             <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
@@ -524,5 +642,19 @@ export default function AcademicRecordsPage() {
 
       <Toaster toasts={toasts} removeToast={removeToast} />
     </div>
+  );
+}
+
+export default function AcademicRecordsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[40vh] items-center justify-center text-sm font-medium text-slate-400">
+          Loading academic records…
+        </div>
+      }
+    >
+      <AcademicRecordsPageContent />
+    </Suspense>
   );
 }

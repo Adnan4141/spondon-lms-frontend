@@ -39,6 +39,7 @@ import {
   Receipt,
   ExternalLink,
   Tag,
+  BarChart3,
 } from 'lucide-react';
 import {
   getEnrollments,
@@ -54,6 +55,7 @@ import { EnrollmentCancelModal } from '@/components/admin/enrollments/Enrollment
 import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
 import { AddEnrollmentForm } from '@/components/admin/students/AddEnrollmentForm';
 import { BenefitManager } from '@/components/admin/students/BenefitManager';
+import { StudentAcademicTab } from '@/components/admin/students/StudentAcademicTab';
 import { getInvoices, getInvoiceById } from '@/lib/api/invoices';
 import type { Invoice } from '@/types/invoice';
 import { InvoiceDetailsView } from '@/components/admin/invoices/InvoiceDetailsView';
@@ -365,6 +367,7 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                 { label: 'Overview', value: 'overview', icon: LayoutDashboard },
                 { label: 'Profile', value: 'identity', icon: Contact },
                 { label: 'Courses', value: 'courses', icon: GraduationCap },
+                { label: 'Academic', value: 'academic', icon: BarChart3 },
                 { label: 'Discounts', value: 'discounts', icon: Tag },
                 { label: 'Payments', value: 'payments', icon: Wallet },
               ].map((tab) => (
@@ -526,6 +529,14 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                       >
                         পেমেন্ট
                         <CreditCard className="h-5 w-5 text-emerald-300" />
+                      </Button>
+                      <Button
+                        type="button"
+                        className="h-12 justify-between rounded-2xl border border-white/10 bg-white/5 px-4 font-bold text-white hover:bg-white/10"
+                        onClick={() => setStudentTab('academic')}
+                      >
+                        একাডেমিক রেকর্ড
+                        <BarChart3 className="h-5 w-5 text-indigo-300" />
                       </Button>
                     </div>
                   </div>
@@ -738,6 +749,16 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                   ))
                 )}
               </div>
+            </TabsContent>
+
+            <TabsContent value="academic" className="m-0 space-y-8">
+              <StudentAcademicTab
+                studentId={student.id}
+                enrollmentCourses={enrollments.map((e) => ({
+                  id: e.courseId,
+                  name: e.course?.name ?? e.courseId,
+                }))}
+              />
             </TabsContent>
 
             <TabsContent value="discounts" className="m-0 space-y-8">
