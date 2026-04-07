@@ -496,3 +496,61 @@ export async function updateCollaboratorRevShare(
     },
   );
 }
+
+// ─── Book Distribution ────────────────────────────────────────────────────────
+
+export interface BookDistribution {
+  id: string;
+  bookId: string;
+  fromBranchId?: string | null;
+  toBranchId: string;
+  quantity: number;
+  note?: string | null;
+  distributedAt: string;
+  createdByUserId?: string | null;
+  book?: { id: string; name: string; sku: string };
+  toBranch?: { id: string; name: string };
+}
+
+export interface CentralStockBook {
+  id: string;
+  name: string;
+  sku: string;
+  price: number;
+  centralQty: number;
+  branchStock: { branchId: string; branchName: string; qty: number }[];
+  totalBranchStock: number;
+}
+
+export async function getCentralStock(): Promise<{ success: boolean; data: CentralStockBook[] }> {
+  return apiRequest('/books/stock/central');
+}
+
+export async function getDistributions(params?: {
+  bookId?: string;
+  toBranchId?: string;
+  from?: string;
+  to?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{ success: boolean; data: BookDistribution[]; total: number; totalPages: number }> {
+  const q = new URLSearchParams();
+  if (params?.bookId) q.append('bookId', params.bookId);
+  if (params?.toBranchId) q.append('toBranchId', params.toBranchId);
+  if (params?.from) q.append('from', params.from);
+  if (params?.to) q.append('to', params.to);
+  if (params?.page) q.append('page', String(params.page));
+  if (params?.limit) q.append('limit', String(params.limit));
+  const qs = q.toString();
+  return apiRequest(`/books/distributions${qs ? `?${qs}` : ''}`);
+}
+
+export async function createDistribution(data: {
+  bookId: string;
+  toBranchId: string;
+  quantity: number;
+  note?: string;
+  createdByUserId?: string;
+}): Promise<{ success: boolean; data: BookDistribution; message?: string }> {
+  return apiRequest('/books/distributions', { method: 'POST', body: JSON.stringify(data) });
+}

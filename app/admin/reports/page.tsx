@@ -1,21 +1,27 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import {
   getRevenueSummary,
   getEnrollmentReport,
   getCourseTransactions,
-  type RevenueSummaryParams,
-  type EnrollmentReportParams,
+  getBookSalesReport,
+  getDueSummary,
+  getLedgerSummary,
+  type RevenueSummaryData,
+  type EnrollmentReportData,
+  type CourseTransactionData,
+  type BookSalesRow,
+  type DueSummaryRow,
+  type LedgerSummaryRow,
+  type LedgerTypeSummary,
 } from '@/lib/api/reports';
 import { getCourses } from '@/lib/api/courses';
-import { getBranches } from '@/lib/api/branches';
+import { getBranches, type Branch } from '@/lib/api/branches';
 import { getPrograms } from '@/lib/api/programs';
-import type { Course } from '@/types/course';
-import type { Branch } from '@/lib/api/branches';
-import type { Program } from '@/types/course';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -31,477 +37,496 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import {
-  BarChart3,
-  RefreshCw,
-  Download,
-  TrendingUp,
-  DollarSign,
-  Users,
-  Calendar,
-  PieChart,
-  ArrowRight,
-  Layers,
-  Search,
-  Building2,
-  BookOpenCheck,
-  LayoutDashboard,
-  ShieldCheck,
-  CreditCard
-} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
-import { DatePicker } from '@/components/ui/date-picker';
+import { AdminDatePicker, AdminMonthPicker } from '@/components/admin/form/AdminField';
 import { cn } from '@/lib/utils';
+import {
+  BarChart3,
+  TrendingUp,
+  Users,
+  BookOpen,
+  Building2,
+  Wallet,
+  RefreshCw,
+  Download,
+  Calendar,
+  ArrowUpRight,
+  ArrowDownRight,
+  Package,
+} from 'lucide-react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from 'recharts';
 
-type ReportType = 'revenue' | 'enrollment' | 'course-transactions';
+type TabKey = 'finance' | 'enrollment' | 'course-transactions' | 'book-sales' | 'due-collection' | 'ledger';
 
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  return 'Something went wrong';
+const TABS: { key: TabKey; label: string; icon: typeof BarChart3 }[] = [
+  { key: 'finance', label: 'Finance Dashboard', icon: TrendingUp },
+  { key: 'enrollment', label: 'Enrollment Report', icon: Users },
+  { key: 'course-transactions', label: 'Course Transactions', icon: BarChart3 },
+  { key: 'book-sales', label: 'Book Sales & Stock', icon: BookOpen },
+  { key: 'due-collection', label: 'Due Collection', icon: Building2 },
+  { key: 'ledger', label: 'Ledger Summary', icon: Wallet },
+];
+
+function fmtNum(n: number) {
+  return new Intl.NumberFormat('en-BD').format(Math.round(n));
 }
 
-const sectionLabel = 'text-[11px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2 block px-1';
+function fmtCur(n: number) {
+  return '৳ ' + fmtNum(n);
+}
 
-export default function ReportsPage() {
-  const { toast, toasts, removeToast } = useToast();
-  const [activeReport, setActiveReport] = useState<ReportType>('revenue');
+// ─── Finance Tab ──────────────────────────────────────────────────────────────
+
+function FinanceTab({ branches, courses }: { branches: Branch[]; courses: any[] }) {
+  const { toast } = useToast();
+  const [period, setPeriod] = useState<'daily' | 'monthly' | 'yearly'>('monthly');
+  const [branchId, setBranchId] = useState('');
+  const [courseId, setCourseId] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
   const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<RevenueSummaryData[]>([]);
+  const [totals, setTotals] = useState<{ totalAmount: number; totalTransactions: number } | null>(null);
 
-  // Data
-  const [revenueData, setRevenueData] = useState<any[]>([]);
-  const [revenueTotals, setRevenueTotals] = useState({ totalAmount: 0, totalTransactions: 0 });
-  const [enrollmentData, setEnrollmentData] = useState<any[]>([]);
-  const [courseTransactionData, setCourseTransactionData] = useState<any[]>([]);
-
-  // Filters
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [programs, setPrograms] = useState<Program[]>([]);
-
-  // Revenue filters
-  const [revenuePeriod, setRevenuePeriod] = useState<'daily' | 'monthly' | 'yearly'>('daily');
-  const [revenueBranchId, setRevenueBranchId] = useState<string>('all');
-  const [revenueCourseId, setRevenueCourseId] = useState<string>('all');
-  const [revenueFrom, setRevenueFrom] = useState<string>('');
-  const [revenueTo, setRevenueTo] = useState<string>('');
-
-  // Enrollment filters
-  const [enrollmentProgramId, setEnrollmentProgramId] = useState<string>('all');
-  const [enrollmentCourseId, setEnrollmentCourseId] = useState<string>('all');
-  const [enrollmentBranchId, setEnrollmentBranchId] = useState<string>('all');
-
-  // Course transaction filters
-  const [transactionCourseId, setTransactionCourseId] = useState<string>('');
-
-  useEffect(() => {
-    loadCourses();
-    loadBranches();
-    loadPrograms();
-  }, []);
-
-  useEffect(() => {
-    if (activeReport === 'revenue') {
-      loadRevenueReport();
-    } else if (activeReport === 'enrollment') {
-      loadEnrollmentReport();
-    }
-  }, [activeReport, revenuePeriod, revenueBranchId, revenueCourseId, revenueFrom, revenueTo, enrollmentProgramId, enrollmentCourseId, enrollmentBranchId]);
-
-  const loadCourses = async () => {
+  async function load() {
+    setLoading(true);
     try {
-      const response = await getCourses({});
-      if (response.success && response.data) setCourses(response.data || []);
-    } catch (err) { console.error(err); }
-  };
+      const res = await getRevenueSummary({ period, branchId: branchId || undefined, courseId: courseId || undefined, from: from || undefined, to: to || undefined });
+      if (res.success) { setData(res.data); setTotals(res.totals); }
+    } catch { toast({ title: 'Failed to load revenue', variant: 'destructive' }); }
+    finally { setLoading(false); }
+  }
 
-  const loadBranches = async () => {
-    try {
-      const response = await getBranches();
-      if (response.success && response.data) setBranches(response.data || []);
-    } catch (err) { console.error(err); }
-  };
+  const barColors = ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd', '#ddd6fe'];
 
-  const loadPrograms = async () => {
-    try {
-      const response = await getPrograms();
-      if (response.success && response.data) setPrograms(response.data || []);
-    } catch (err) { console.error(err); }
-  };
-
-  const loadRevenueReport = async () => {
-    try {
-      setLoading(true);
-      const params: RevenueSummaryParams = { period: revenuePeriod };
-      if (revenueBranchId !== 'all') params.branchId = revenueBranchId;
-      if (revenueCourseId !== 'all') params.courseId = revenueCourseId;
-      if (revenueFrom) params.from = revenueFrom;
-      if (revenueTo) params.to = revenueTo;
-
-      const response = await getRevenueSummary(params);
-      if (response.success) {
-        setRevenueData(response.data || []);
-        setRevenueTotals(response.totals || { totalAmount: 0, totalTransactions: 0 });
-      }
-    } catch (err: any) {
-      toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadEnrollmentReport = async () => {
-    try {
-      setLoading(true);
-      const params: EnrollmentReportParams = {};
-      if (enrollmentProgramId !== 'all') params.programId = enrollmentProgramId;
-      if (enrollmentCourseId !== 'all') params.courseId = enrollmentCourseId;
-      if (enrollmentBranchId !== 'all') params.branchId = enrollmentBranchId;
-
-      const response = await getEnrollmentReport(params);
-      if (response.success) setEnrollmentData(response.data || []);
-    } catch (err: any) {
-      toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadCourseTransactions = async () => {
-    if (!transactionCourseId) {
-      toast({ title: 'Requirement', description: 'Please select a course for analysis', variant: 'destructive' });
-      return;
-    }
-    try {
-      setLoading(true);
-      const response = await getCourseTransactions({ courseId: transactionCourseId });
-      if (response.success) setCourseTransactionData(response.data || []);
-    } catch (err: any) {
-      toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return `Tk ${new Intl.NumberFormat('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount)}`;
-  };
-
-  const renderRevenueReport = () => (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Filter Matrix */}
-      <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm space-y-6">
-        <div className="flex items-center gap-2">
-           <ShieldCheck className="h-4 w-4 text-indigo-600" />
-          <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Filters</h3>
+  return (
+    <div className="space-y-6">
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3 items-end rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Period</p>
+          <Select value={period} onValueChange={(v) => setPeriod(v as typeof period)}>
+            <SelectTrigger className="h-9 w-32 rounded-xl text-sm"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="daily">Daily</SelectItem>
+              <SelectItem value="monthly">Monthly</SelectItem>
+              <SelectItem value="yearly">Yearly</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="space-y-2">
-            <label className={sectionLabel}>Period Type</label>
-            <Select value={revenuePeriod} onValueChange={(v) => setRevenuePeriod(v as any)}>
-              <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-base shadow-inner">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl shadow-xl">
-                <SelectItem value="daily" className="font-bold py-2">Daily</SelectItem>
-                <SelectItem value="monthly" className="font-bold py-2">Monthly</SelectItem>
-                <SelectItem value="yearly" className="font-bold py-2">Yearly</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <label className={sectionLabel}>Branch</label>
-            <Select value={revenueBranchId} onValueChange={setRevenueBranchId}>
-              <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-base shadow-inner">
-                <SelectValue placeholder="All Branches" />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl shadow-xl">
-                <SelectItem value="all" className="font-bold py-2">All Branches</SelectItem>
-                {branches.map((b) => <SelectItem key={b.id} value={b.id} className="font-bold py-2">{b.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <label className={sectionLabel}>Course</label>
-            <Select value={revenueCourseId} onValueChange={setRevenueCourseId}>
-              <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-base shadow-inner">
-                <SelectValue placeholder="All Courses" />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl shadow-xl">
-                <SelectItem value="all" className="font-bold py-2">All Courses</SelectItem>
-                {courses.map((c) => <SelectItem key={c.id} value={c.id} className="font-bold py-2">{c.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <label className={sectionLabel}>From</label>
-            <DatePicker
-              date={revenueFrom ? new Date(revenueFrom) : undefined}
-              setDate={(date) => {
-                if (!date) {
-                  setRevenueFrom('');
-                  return;
-                }
-                const y = date.getFullYear();
-                const m = String(date.getMonth() + 1).padStart(2, '0');
-                const d = String(date.getDate()).padStart(2, '0');
-                setRevenueFrom(`${y}-${m}-${d}`);
-              }}
-              className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-base shadow-inner"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className={sectionLabel}>To</label>
-            <DatePicker
-              date={revenueTo ? new Date(revenueTo) : undefined}
-              setDate={(date) => {
-                if (!date) {
-                  setRevenueTo('');
-                  return;
-                }
-                const y = date.getFullYear();
-                const m = String(date.getMonth() + 1).padStart(2, '0');
-                const d = String(date.getDate()).padStart(2, '0');
-                setRevenueTo(`${y}-${m}-${d}`);
-              }}
-              className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-base shadow-inner"
-            />
-          </div>
-          <div className="flex items-end">
-            <Button className="h-11 w-full rounded-xl bg-slate-900 font-black uppercase tracking-widest text-[11px] text-white hover:bg-indigo-600 transition-all shadow-lg" onClick={loadRevenueReport} disabled={loading}>
-              <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
-              Load
-            </Button>
-          </div>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Branch</p>
+          <Select value={branchId || 'all'} onValueChange={(v) => setBranchId(v === 'all' ? '' : v)}>
+            <SelectTrigger className="h-9 w-44 rounded-xl text-sm"><SelectValue placeholder="All Branches" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Branches</SelectItem>
+              {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
-      </section>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Course</p>
+          <Select value={courseId || 'all'} onValueChange={(v) => setCourseId(v === 'all' ? '' : v)}>
+            <SelectTrigger className="h-9 w-44 rounded-xl text-sm"><SelectValue placeholder="All Courses" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Courses</SelectItem>
+              {courses.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">From</p>
+          <AdminDatePicker className="w-36" value={from} onChange={setFrom} placeholder="From date" />
+        </div>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">To</p>
+          <AdminDatePicker className="w-36" value={to} onChange={setTo} placeholder="To date" />
+        </div>
+        <Button onClick={load} disabled={loading} className="h-9 bg-indigo-600 text-white hover:bg-indigo-700 hover:text-white gap-2">
+          {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <BarChart3 className="h-4 w-4" />}
+          Load
+        </Button>
+      </div>
 
-      {/* Data Visualization Placeholder / Table */}
-      <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/30">
-        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
-          <div>
-            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Revenue</h2>
-            <p className="mt-0.5 text-base font-bold text-indigo-500">Totals by period</p>
-          </div>
+      {/* KPI cards */}
+      {totals && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {[
+            { label: 'Total Revenue', value: fmtCur(totals.totalAmount), icon: TrendingUp, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+            { label: 'Transactions', value: fmtNum(totals.totalTransactions), icon: BarChart3, color: 'text-purple-600', bg: 'bg-purple-50' },
+            { label: 'Avg / Transaction', value: totals.totalTransactions > 0 ? fmtCur(totals.totalAmount / totals.totalTransactions) : '—', icon: ArrowUpRight, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+          ].map((kpi) => (
+            <div key={kpi.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className={cn('h-10 w-10 rounded-xl flex items-center justify-center mb-3', kpi.bg)}>
+                <kpi.icon className={cn('h-5 w-5', kpi.color)} />
+              </div>
+              <p className="text-2xl font-black text-slate-900">{kpi.value}</p>
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-1">{kpi.label}</p>
+            </div>
+          ))}
         </div>
-        {loading ? (
-          <div className="p-20 text-center flex flex-col items-center gap-4">
-             <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
-             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Loading...</p>
-          </div>
-        ) : revenueData.length === 0 ? (
-          <div className="p-20 text-center">
-             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No data found.</p>
-          </div>
-        ) : (
+      )}
+
+      {/* Chart */}
+      {data.length > 0 && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h3 className="text-sm font-black uppercase tracking-wider text-slate-400 mb-4">Revenue by {period}</h3>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={data} margin={{ top: 4, right: 16, left: -10, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+              <XAxis dataKey="bucket" tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
+              <YAxis tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
+              <Tooltip formatter={(v: number) => fmtCur(v)} />
+              <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
+                {data.map((_, i) => <Cell key={i} fill={barColors[i % barColors.length]} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Table */}
+      {data.length > 0 && (
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
           <Table>
-            <TableHeader className="bg-slate-50/50">
-              <TableRow className="border-b border-slate-100">
-                <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Period</TableHead>
-                <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Amount</TableHead>
+            <TableHeader className="bg-slate-50/80">
+              <TableRow>
+                <TableHead className="text-[10px] font-black uppercase tracking-widest text-slate-400">Period</TableHead>
+                <TableHead className="text-right text-[10px] font-black uppercase tracking-widest text-slate-400">Revenue</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {revenueData.map((item, idx) => (
-                <TableRow key={idx} className="group border-slate-100 hover:bg-slate-50/80 transition-colors">
-                  <TableCell className="px-8 py-5">
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                        <Calendar className="h-4 w-4" />
-                      </div>
-                      <span className="font-bold text-slate-700">{item.bucket}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="px-8 py-5 text-right font-black text-slate-900 text-lg">
-                    {formatCurrency(item.amount)}
-                  </TableCell>
+              {data.map((row) => (
+                <TableRow key={row.bucket} className="hover:bg-slate-50/60">
+                  <TableCell className="font-bold text-slate-900">{row.bucket}</TableCell>
+                  <TableCell className="text-right font-black text-indigo-600">{fmtCur(row.amount)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-        )}
-      </section>
+        </div>
+      )}
+
+      {data.length === 0 && !loading && (
+        <div className="py-20 text-center text-slate-400 text-sm font-bold">Set filters and click Load to view revenue data.</div>
+      )}
     </div>
   );
+}
 
-  const renderEnrollmentReport = () => (
-      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm space-y-6">
-          <div className="flex items-center gap-2">
-             <BookOpenCheck className="h-4 w-4 text-emerald-600" />
-             <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Filters</h3>
-          </div>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="space-y-2">
-              <label className={sectionLabel}>Program</label>
-              <Select value={enrollmentProgramId} onValueChange={setEnrollmentProgramId}>
-                <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-base shadow-inner">
-                  <SelectValue placeholder="All Programs" />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl shadow-xl">
-                  <SelectItem value="all" className="font-bold py-2">All Programs</SelectItem>
-                  {programs.map((p) => <SelectItem key={p.id} value={p.id} className="font-bold py-2">{p.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <label className={sectionLabel}>Course</label>
-              <Select value={enrollmentCourseId} onValueChange={setEnrollmentCourseId}>
-                <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-base shadow-inner">
-                  <SelectValue placeholder="All Courses" />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl shadow-xl">
-                  <SelectItem value="all" className="font-bold py-2">All Courses</SelectItem>
-                  {courses.map((c) => <SelectItem key={c.id} value={c.id} className="font-bold py-2">{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <label className={sectionLabel}>Branch</label>
-              <Select value={enrollmentBranchId} onValueChange={setEnrollmentBranchId}>
-                <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-base shadow-inner">
-                  <SelectValue placeholder="All Branches" />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl shadow-xl">
-                  <SelectItem value="all" className="font-bold py-2">All Branches</SelectItem>
-                  {branches.map((b) => <SelectItem key={b.id} value={b.id} className="font-bold py-2">{b.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-end">
-              <Button className="h-11 w-full rounded-xl bg-slate-900 font-black uppercase tracking-widest text-[11px] text-white hover:bg-emerald-600 transition-all shadow-lg" onClick={loadEnrollmentReport} disabled={loading}>
-                <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
-                Load
-              </Button>
-            </div>
-          </div>
-        </section>
+// ─── Enrollment Tab ───────────────────────────────────────────────────────────
 
-        <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/30">
-          <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
-            <div>
-              <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Enrollments</h2>
-              <p className="mt-0.5 text-base font-bold text-emerald-500">By program and course</p>
-            </div>
-          </div>
-          {loading ? (
-            <div className="p-20 text-center flex flex-col items-center gap-4">
-               <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
-               <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Loading...</p>
-            </div>
-          ) : enrollmentData.length === 0 ? (
-            <div className="p-20 text-center">
-               <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No enrollments found.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader className="bg-slate-50/50">
-                  <TableRow className="border-b border-slate-100">
-                    <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Course</TableHead>
-                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-center">Count</TableHead>
-                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Fee</TableHead>
-                    <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Estimated</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {enrollmentData.map((item, idx) => (
-                    <TableRow key={idx} className="group border-slate-100 hover:bg-slate-50/80 transition-colors">
-                      <TableCell className="px-8 py-5">
-                         <div className="flex flex-col gap-1">
-                            <span className="font-bold text-slate-900">{item.courseName}</span>
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.programName}</span>
-                         </div>
-                      </TableCell>
-                      <TableCell className="py-5 text-center">
-                        <Badge variant="outline" className="rounded-xl bg-white border-slate-200 px-4 py-1.5 text-[10px] font-black text-slate-600 shadow-sm">{item.enrollmentCount} STU</Badge>
-                      </TableCell>
-                      <TableCell className="py-5 text-right font-bold text-slate-500">{formatCurrency(item.perStudentPay)}</TableCell>
-                      <TableCell className="px-8 py-5 text-right font-black text-slate-900 text-lg">{formatCurrency(item.estimatedPayable)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </section>
-      </div>
-    );
+function EnrollmentTab({ branches, courses, programs }: { branches: Branch[]; courses: any[]; programs: any[] }) {
+  const { toast } = useToast();
+  const [branchId, setBranchId] = useState('');
+  const [courseId, setCourseId] = useState('');
+  const [programId, setProgramId] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<EnrollmentReportData[]>([]);
 
-  const renderCourseTransactions = () => (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm flex flex-wrap gap-6 items-end">
-        <div className="space-y-2 flex-1 min-w-[300px]">
-          <label className={sectionLabel}>Course</label>
-          <Select value={transactionCourseId} onValueChange={setTransactionCourseId}>
-            <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-6 font-bold text-base shadow-inner transition-all focus:ring-4 focus:ring-indigo-500/10">
-              <SelectValue placeholder="Select a course..." />
-            </SelectTrigger>
-            <SelectContent className="rounded-2xl shadow-2xl">
-              {courses.map((c) => <SelectItem key={c.id} value={c.id} className="font-bold py-3">{c.name}</SelectItem>)}
+  async function load() {
+    setLoading(true);
+    try {
+      const res = await getEnrollmentReport({ branchId: branchId || undefined, courseId: courseId || undefined, programId: programId || undefined });
+      if (res.success) setData(res.data);
+    } catch { toast({ title: 'Failed to load enrollment report', variant: 'destructive' }); }
+    finally { setLoading(false); }
+  }
+
+  useEffect(() => { void load(); }, []);
+
+  const totalEnrollments = data.reduce((s, r) => s + r.enrollmentCount, 0);
+  const totalPayable = data.reduce((s, r) => s + r.estimatedPayable, 0);
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap gap-3 items-end rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Program</p>
+          <Select value={programId || 'all'} onValueChange={(v) => setProgramId(v === 'all' ? '' : v)}>
+            <SelectTrigger className="h-9 w-44 rounded-xl text-sm"><SelectValue placeholder="All Programs" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Programs</SelectItem>
+              {programs.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
-        <Button className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white hover:bg-indigo-600 transition-all shadow-xl" onClick={loadCourseTransactions} disabled={loading || !transactionCourseId}>
-          <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Course</p>
+          <Select value={courseId || 'all'} onValueChange={(v) => setCourseId(v === 'all' ? '' : v)}>
+            <SelectTrigger className="h-9 w-44 rounded-xl text-sm"><SelectValue placeholder="All Courses" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Courses</SelectItem>
+              {courses.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Branch</p>
+          <Select value={branchId || 'all'} onValueChange={(v) => setBranchId(v === 'all' ? '' : v)}>
+            <SelectTrigger className="h-9 w-44 rounded-xl text-sm"><SelectValue placeholder="All Branches" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Branches</SelectItem>
+              {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <Button onClick={load} disabled={loading} className="h-9 bg-indigo-600 text-white hover:bg-indigo-700 hover:text-white gap-2">
+          {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
           Load
         </Button>
-      </section>
+      </div>
 
-      <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/30">
-        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
-          <div>
-            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Transactions</h2>
-            <p className="mt-0.5 text-base font-bold text-indigo-500">Course payments</p>
-          </div>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-2">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-2xl font-black text-indigo-600">{fmtNum(totalEnrollments)}</p>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-1">Total Enrollments</p>
         </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-2xl font-black text-emerald-600">{fmtCur(totalPayable)}</p>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-1">Estimated Payable</p>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         {loading ? (
-          <div className="p-20 text-center flex flex-col items-center gap-4">
-             <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
-             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Loading...</p>
-          </div>
-        ) : courseTransactionData.length === 0 ? (
-          <div className="p-20 text-center">
-             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No transactions found.</p>
-          </div>
+          <div className="py-16 text-center"><RefreshCw className="h-6 w-6 animate-spin text-indigo-400 mx-auto" /></div>
         ) : (
           <div className="overflow-x-auto">
             <Table>
-              <TableHeader className="bg-slate-50/50">
-                <TableRow className="border-b border-slate-100">
-                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Student ID</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Origin</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Net Payable</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Authorized</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Authorization</TableHead>
-                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Temporal</TableHead>
+              <TableHeader className="bg-slate-50/80">
+                <TableRow>
+                  {['Program', 'Course', 'Enrollments', 'Per Student', 'Est. Payable'].map((h) => (
+                    <TableHead key={h} className="text-[10px] font-black uppercase tracking-widest text-slate-400">{h}</TableHead>
+                  ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {courseTransactionData.map((t) => (
-                  <TableRow key={t.id} className="group border-slate-100 hover:bg-slate-50/80 transition-colors">
-                    <TableCell className="px-8 py-5">
-                       <div className="flex flex-col">
-                          <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{t.student?.fullName || '-'}</span>
-                          <span className="text-[9px] font-mono font-black text-slate-400 uppercase">TX-{t.id.slice(0, 8)}</span>
-                       </div>
+                {data.length === 0 ? (
+                  <TableRow><TableCell colSpan={5} className="py-12 text-center text-slate-400 text-sm font-bold">No enrollment data found.</TableCell></TableRow>
+                ) : data.map((row, i) => (
+                  <TableRow key={i} className="hover:bg-slate-50/60">
+                    <TableCell className="text-xs font-bold text-slate-500">{row.programName}</TableCell>
+                    <TableCell className="font-bold text-slate-900">{row.courseName}</TableCell>
+                    <TableCell>
+                      <Badge className="bg-indigo-100 text-indigo-700 rounded-full font-black text-[10px]">{row.enrollmentCount}</Badge>
                     </TableCell>
-                    <TableCell className="py-5 font-bold text-slate-600">{t.branch?.name || '-'}</TableCell>
-                    <TableCell className="py-5 text-right font-black text-slate-900">{formatCurrency(Number(t.totalAmount))}</TableCell>
-                    <TableCell className="py-5 text-right font-black text-emerald-600">{formatCurrency(Number(t.paidAmount))}</TableCell>
-                    <TableCell className="py-5">
-                      <Badge variant="outline" className={cn("rounded-lg text-[9px] font-black uppercase tracking-widest px-2.5 py-1", 
-                        t.status === 'PAID' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-rose-50 text-rose-700 border-rose-100'
-                      )}>
-                        {t.status}
+                    <TableCell className="font-bold text-slate-700">{fmtCur(row.perStudentPay)}</TableCell>
+                    <TableCell className="font-black text-emerald-600">{fmtCur(row.estimatedPayable)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Course Transactions Tab ──────────────────────────────────────────────────
+
+function CourseTransactionsTab({ courses }: { courses: any[] }) {
+  const { toast } = useToast();
+  const [courseId, setCourseId] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<CourseTransactionData[]>([]);
+
+  async function load() {
+    if (!courseId) { toast({ title: 'Select a course', variant: 'destructive' }); return; }
+    setLoading(true);
+    try {
+      const res = await getCourseTransactions({ courseId });
+      if (res.success) setData(res.data);
+    } catch { toast({ title: 'Failed to load transactions', variant: 'destructive' }); }
+    finally { setLoading(false); }
+  }
+
+  const totalPaid = data.reduce((s, r) => s + Number(r.paidAmount ?? 0), 0);
+  const totalDue = data.reduce((s, r) => s + Number(r.dueAmount ?? 0), 0);
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap gap-3 items-end rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex-1 min-w-48">
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Course *</p>
+          <Select value={courseId || 'none'} onValueChange={(v) => setCourseId(v === 'none' ? '' : v)}>
+            <SelectTrigger className="h-9 rounded-xl text-sm"><SelectValue placeholder="Select a course…" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Select a course…</SelectItem>
+              {courses.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <Button onClick={load} disabled={loading} className="h-9 bg-indigo-600 text-white hover:bg-indigo-700 hover:text-white gap-2">
+          {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <BarChart3 className="h-4 w-4" />}
+          Load
+        </Button>
+      </div>
+
+      {data.length > 0 && (
+        <div className="grid grid-cols-2 gap-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-2xl font-black text-emerald-600">{fmtCur(totalPaid)}</p>
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-1">Total Paid</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-2xl font-black text-rose-500">{fmtCur(totalDue)}</p>
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-1">Total Due</p>
+          </div>
+        </div>
+      )}
+
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        {loading ? (
+          <div className="py-16 text-center"><RefreshCw className="h-6 w-6 animate-spin text-indigo-400 mx-auto" /></div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-slate-50/80">
+                <TableRow>
+                  {['Student', 'Branch', 'Payable', 'Paid', 'Due', 'Status', 'Date'].map((h) => (
+                    <TableHead key={h} className="text-[10px] font-black uppercase tracking-widest text-slate-400">{h}</TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.length === 0 ? (
+                  <TableRow><TableCell colSpan={7} className="py-12 text-center text-slate-400 text-sm font-bold">Select a course and click Load.</TableCell></TableRow>
+                ) : data.map((row) => (
+                  <TableRow key={row.id} className="hover:bg-slate-50/60">
+                    <TableCell className="font-bold text-slate-900">{row.student?.fullName ?? '—'}</TableCell>
+                    <TableCell className="text-xs text-slate-500">{row.branch?.name ?? '—'}</TableCell>
+                    <TableCell className="font-bold text-slate-700">{fmtCur(Number(row.totalAmount))}</TableCell>
+                    <TableCell className="font-bold text-emerald-600">{fmtCur(Number(row.paidAmount ?? 0))}</TableCell>
+                    <TableCell className="font-bold text-rose-500">{fmtCur(Number(row.dueAmount ?? 0))}</TableCell>
+                    <TableCell>
+                      <Badge className={cn('rounded-full text-[10px] font-black uppercase px-2',
+                        row.status === 'PAID' ? 'bg-emerald-100 text-emerald-700' :
+                        row.status === 'PARTIAL' ? 'bg-amber-100 text-amber-700' :
+                        row.status === 'ISSUED' ? 'bg-indigo-100 text-indigo-700' :
+                        'bg-slate-100 text-slate-700')}>
+                        {row.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="px-8 py-5 text-base font-bold text-slate-500">
-                      {new Date(t.createdAt).toLocaleDateString()}
+                    <TableCell className="text-xs text-slate-400">{new Date(row.createdAt).toLocaleDateString('en-GB')}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Book Sales Tab ───────────────────────────────────────────────────────────
+
+function BookSalesTab({ branches }: { branches: Branch[] }) {
+  const { toast } = useToast();
+  const [branchId, setBranchId] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<BookSalesRow[]>([]);
+  const [totals, setTotals] = useState<{ totalRevenue: number; totalQtySold: number } | null>(null);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const res = await getBookSalesReport({ branchId: branchId || undefined, from: from || undefined, to: to || undefined });
+      if (res.success) { setData(res.data); setTotals(res.totals); }
+    } catch { toast({ title: 'Failed to load book sales', variant: 'destructive' }); }
+    finally { setLoading(false); }
+  }
+
+  useEffect(() => { void load(); }, []);
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap gap-3 items-end rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Branch</p>
+          <Select value={branchId || 'all'} onValueChange={(v) => setBranchId(v === 'all' ? '' : v)}>
+            <SelectTrigger className="h-9 w-44 rounded-xl text-sm"><SelectValue placeholder="All Branches" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Branches</SelectItem>
+              {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">From</p>
+          <AdminDatePicker className="w-36" value={from} onChange={setFrom} placeholder="From date" />
+        </div>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">To</p>
+          <AdminDatePicker className="w-36" value={to} onChange={setTo} placeholder="To date" />
+        </div>
+        <Button onClick={load} disabled={loading} className="h-9 bg-indigo-600 text-white hover:bg-indigo-700 hover:text-white gap-2">
+          {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <BookOpen className="h-4 w-4" />}
+          Load
+        </Button>
+      </div>
+
+      {totals && (
+        <div className="grid grid-cols-2 gap-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-2xl font-black text-indigo-600">{fmtCur(totals.totalRevenue)}</p>
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-1">Total Book Revenue</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-2xl font-black text-purple-600">{fmtNum(totals.totalQtySold)}</p>
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-1">Total Qty Sold</p>
+          </div>
+        </div>
+      )}
+
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        {loading ? (
+          <div className="py-16 text-center"><RefreshCw className="h-6 w-6 animate-spin text-indigo-400 mx-auto" /></div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-slate-50/80">
+                <TableRow>
+                  {['Book', 'SKU', 'Unit Price', 'Qty Sold', 'Revenue', 'Current Stock'].map((h) => (
+                    <TableHead key={h} className="text-[10px] font-black uppercase tracking-widest text-slate-400">{h}</TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.length === 0 ? (
+                  <TableRow><TableCell colSpan={6} className="py-12 text-center text-slate-400 text-sm font-bold">No book sales data found.</TableCell></TableRow>
+                ) : data.map((row) => (
+                  <TableRow key={row.bookId} className="hover:bg-slate-50/60">
+                    <TableCell className="font-bold text-slate-900">{row.bookName}</TableCell>
+                    <TableCell className="font-mono text-xs text-slate-500">{row.sku || '—'}</TableCell>
+                    <TableCell className="text-sm font-bold text-slate-700">{fmtCur(row.unitPrice)}</TableCell>
+                    <TableCell><Badge className="bg-purple-100 text-purple-700 rounded-full font-black text-[10px]">{row.totalQty}</Badge></TableCell>
+                    <TableCell className="font-black text-indigo-600">{fmtCur(row.totalRevenue)}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {row.stocks.length === 0
+                          ? <span className="text-xs text-slate-300">No stock</span>
+                          : row.stocks.map((s) => (
+                            <span key={s.branchId} className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                              <Package className="h-3 w-3" />
+                              {s.branchName}: {s.qty}
+                            </span>
+                          ))}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -509,60 +534,348 @@ export default function ReportsPage() {
             </Table>
           </div>
         )}
-      </section>
+      </div>
     </div>
   );
+}
+
+// ─── Due Collection Tab ───────────────────────────────────────────────────────
+
+function DueCollectionTab({ branches }: { branches: Branch[] }) {
+  const { toast } = useToast();
+  const [branchId, setBranchId] = useState('');
+  const [month, setMonth] = useState('');
+  const [status, setStatus] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<DueSummaryRow[]>([]);
+  const [totals, setTotals] = useState<{ totalPayable: number; totalPaid: number; totalDue: number } | null>(null);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const res = await getDueSummary({ branchId: branchId || undefined, month: month || undefined, status: status || undefined });
+      if (res.success) { setData(res.data); setTotals(res.totals); }
+    } catch { toast({ title: 'Failed to load due summary', variant: 'destructive' }); }
+    finally { setLoading(false); }
+  }
+
+  useEffect(() => { void load(); }, []);
 
   return (
-    <div className="space-y-8 text-slate-900">
-      <div className="grid gap-8 lg:grid-cols-[260px_1fr]">
-        <aside className="space-y-4">
-           <div className="rounded-[32px] border border-slate-200 bg-white p-4 shadow-sm">
-             <nav className="space-y-2">
-               {[
-                 { id: 'revenue', label: 'Financial Ledger', icon: DollarSign, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-                 { id: 'enrollment', label: 'Registry Analysis', icon: Users, color: 'text-indigo-500', bg: 'bg-indigo-50' },
-                 { id: 'course-transactions', label: 'Monetary Tracks', icon: BarChart3, color: 'text-rose-500', bg: 'bg-rose-50' },
-               ].map((item) => (
-                 <button
-                   key={item.id}
-                   onClick={() => setActiveReport(item.id as ReportType)}
-                   className={cn(
-                     "group w-full flex items-center gap-4 rounded-2xl px-5 py-4 text-base font-black uppercase tracking-widest transition-all",
-                     activeReport === item.id
-                       ? "bg-slate-900 text-white shadow-xl shadow-slate-200"
-                       : "text-slate-400 hover:bg-slate-50 hover:text-slate-900"
-                   )}
-                 >
-                   <div className={cn("flex h-8 w-8 items-center justify-center rounded-xl transition-colors", 
-                      activeReport === item.id ? "bg-white/10" : item.bg,
-                      activeReport === item.id ? "text-white" : item.color
-                   )}>
-                      <item.icon className="h-4 w-4" />
-                   </div>
-                   <span>{item.label}</span>
-                 </button>
-               ))}
-             </nav>
-           </div>
-           
-           <div className="rounded-[32px] border border-slate-200 bg-slate-900 p-6 text-white shadow-xl">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 text-emerald-400 mb-4">
-                 <Layers className="h-5 w-5" />
-              </div>
-              <h4 className="text-base font-black uppercase tracking-widest">Data Synchronization</h4>
-              <p className="mt-2 text-[10px] font-bold text-slate-400 leading-relaxed uppercase tracking-tighter">Authorized analysis based on real-time institutional records.</p>
-           </div>
-        </aside>
-
-        <main className="space-y-6">
-          {activeReport === 'revenue' && renderRevenueReport()}
-          {activeReport === 'enrollment' && renderEnrollmentReport()}
-          {activeReport === 'course-transactions' && renderCourseTransactions()}
-        </main>
+    <div className="space-y-5">
+      <div className="flex flex-wrap gap-3 items-end rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Branch</p>
+          <Select value={branchId || 'all'} onValueChange={(v) => setBranchId(v === 'all' ? '' : v)}>
+            <SelectTrigger className="h-9 w-44 rounded-xl text-sm"><SelectValue placeholder="All Branches" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Branches</SelectItem>
+              {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Month (YYYY-MM)</p>
+          <AdminMonthPicker className="w-40" value={month} onChange={setMonth} placeholder="Select month" />
+        </div>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Invoice Status</p>
+          <Select value={status || 'all'} onValueChange={(v) => setStatus(v === 'all' ? '' : v)}>
+            <SelectTrigger className="h-9 w-36 rounded-xl text-sm"><SelectValue placeholder="All" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="ISSUED">Issued</SelectItem>
+              <SelectItem value="PARTIAL">Partial</SelectItem>
+              <SelectItem value="PAID">Paid</SelectItem>
+              <SelectItem value="DRAFT">Draft</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <Button onClick={load} disabled={loading} className="h-9 bg-indigo-600 text-white hover:bg-indigo-700 hover:text-white gap-2">
+          {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Building2 className="h-4 w-4" />}
+          Load
+        </Button>
       </div>
+
+      {totals && (
+        <div className="grid grid-cols-3 gap-4">
+          {[
+            { label: 'Total Payable', value: fmtCur(totals.totalPayable), color: 'text-slate-900' },
+            { label: 'Total Paid', value: fmtCur(totals.totalPaid), color: 'text-emerald-600' },
+            { label: 'Total Due', value: fmtCur(totals.totalDue), color: 'text-rose-600' },
+          ].map((kpi) => (
+            <div key={kpi.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <p className={cn('text-2xl font-black', kpi.color)}>{kpi.value}</p>
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-1">{kpi.label}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        {loading ? (
+          <div className="py-16 text-center"><RefreshCw className="h-6 w-6 animate-spin text-indigo-400 mx-auto" /></div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-slate-50/80">
+                <TableRow>
+                  {['Branch', 'Invoices', 'Payable', 'Paid', 'Due', 'Collection %'].map((h) => (
+                    <TableHead key={h} className="text-[10px] font-black uppercase tracking-widest text-slate-400">{h}</TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.length === 0 ? (
+                  <TableRow><TableCell colSpan={6} className="py-12 text-center text-slate-400 text-sm font-bold">No due data found.</TableCell></TableRow>
+                ) : data.map((row) => {
+                  const pct = row.totalPayable > 0 ? Math.round((row.totalPaid / row.totalPayable) * 100) : 0;
+                  return (
+                    <TableRow key={row.branchId} className="hover:bg-slate-50/60">
+                      <TableCell className="font-bold text-slate-900">
+                        <div className="flex items-center gap-2"><Building2 className="h-4 w-4 text-slate-400" />{row.branchName}</div>
+                      </TableCell>
+                      <TableCell><Badge className="bg-slate-100 text-slate-700 rounded-full font-black text-[10px]">{row.invoiceCount}</Badge></TableCell>
+                      <TableCell className="font-bold text-slate-700">{fmtCur(row.totalPayable)}</TableCell>
+                      <TableCell className="font-black text-emerald-600">{fmtCur(row.totalPaid)}</TableCell>
+                      <TableCell className="font-black text-rose-500">{fmtCur(row.totalDue)}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 flex-1 rounded-full bg-slate-100 min-w-16">
+                            <div className={cn('h-2 rounded-full', pct >= 80 ? 'bg-emerald-400' : pct >= 50 ? 'bg-amber-400' : 'bg-rose-400')} style={{ width: `${pct}%` }} />
+                          </div>
+                          <span className="text-xs font-black text-slate-600">{pct}%</span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Ledger Summary Tab ───────────────────────────────────────────────────────
+
+function LedgerSummaryTab({ branches }: { branches: Branch[] }) {
+  const { toast } = useToast();
+  const [branchId, setBranchId] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [rows, setRows] = useState<LedgerSummaryRow[]>([]);
+  const [summary, setSummary] = useState<LedgerTypeSummary[]>([]);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const res = await getLedgerSummary({ branchId: branchId || undefined, from: from || undefined, to: to || undefined });
+      if (res.success) { setRows(res.data); setSummary(res.summary); }
+    } catch { toast({ title: 'Failed to load ledger summary', variant: 'destructive' }); }
+    finally { setLoading(false); }
+  }
+
+  const TYPE_COLORS: Record<string, string> = {
+    INCOME: 'bg-emerald-100 text-emerald-700',
+    EXPENSE: 'bg-rose-100 text-rose-700',
+    ASSET: 'bg-sky-100 text-sky-700',
+    LIABILITY: 'bg-amber-100 text-amber-700',
+    EQUITY: 'bg-purple-100 text-purple-700',
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap gap-3 items-end rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Branch</p>
+          <Select value={branchId || 'all'} onValueChange={(v) => setBranchId(v === 'all' ? '' : v)}>
+            <SelectTrigger className="h-9 w-44 rounded-xl text-sm"><SelectValue placeholder="All Branches" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Branches</SelectItem>
+              {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">From</p>
+          <AdminDatePicker className="w-36" value={from} onChange={setFrom} placeholder="From date" />
+        </div>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">To</p>
+          <AdminDatePicker className="w-36" value={to} onChange={setTo} placeholder="To date" />
+        </div>
+        <Button onClick={load} disabled={loading} className="h-9 bg-indigo-600 text-white hover:bg-indigo-700 hover:text-white gap-2">
+          {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" />}
+          Load
+        </Button>
+      </div>
+
+      {summary.length > 0 && (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {summary.map((s) => (
+            <div key={s.type} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <Badge className={cn('rounded-full text-[10px] font-black uppercase mb-2', TYPE_COLORS[s.type] ?? 'bg-slate-100 text-slate-700')}>
+                {s.type}
+              </Badge>
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-400 font-bold">Income</span>
+                  <span className="font-black text-emerald-600">{fmtCur(s.income)}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-400 font-bold">Expense</span>
+                  <span className="font-black text-rose-500">{fmtCur(s.expense)}</span>
+                </div>
+                <div className="flex justify-between text-xs border-t border-slate-100 pt-1 mt-1">
+                  <span className="text-slate-600 font-black">Net</span>
+                  <span className={cn('font-black', s.net >= 0 ? 'text-indigo-600' : 'text-rose-600')}>{fmtCur(s.net)}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        {loading ? (
+          <div className="py-16 text-center"><RefreshCw className="h-6 w-6 animate-spin text-indigo-400 mx-auto" /></div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-slate-50/80">
+                <TableRow>
+                  {['Code', 'Account', 'Type', 'Entry Type', 'Total Amount'].map((h) => (
+                    <TableHead key={h} className="text-[10px] font-black uppercase tracking-widest text-slate-400">{h}</TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.length === 0 ? (
+                  <TableRow><TableCell colSpan={5} className="py-12 text-center text-slate-400 text-sm font-bold">No ledger entries found. Load to view data.</TableCell></TableRow>
+                ) : rows.map((row, i) => (
+                  <TableRow key={i} className="hover:bg-slate-50/60">
+                    <TableCell className="font-mono text-xs text-slate-500">{row.accountCode}</TableCell>
+                    <TableCell className="font-bold text-slate-900">{row.accountName}</TableCell>
+                    <TableCell>
+                      <Badge className={cn('rounded-full text-[10px] font-black uppercase px-2', TYPE_COLORS[row.accountType] ?? 'bg-slate-100 text-slate-700')}>
+                        {row.accountType}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <span className={cn('text-[10px] font-black uppercase tracking-wider', row.entryType === 'INCOME' ? 'text-emerald-600' : 'text-rose-500')}>
+                        {row.entryType === 'INCOME' ? '↑ ' : '↓ '}{row.entryType}
+                      </span>
+                    </TableCell>
+                    <TableCell className={cn('font-black', row.entryType === 'INCOME' ? 'text-emerald-600' : 'text-rose-500')}>
+                      {fmtCur(row.total)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
+function ReportsPageContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const { toast, toasts, removeToast } = useToast();
+
+  const [activeTab, setActiveTab] = useState<TabKey>((searchParams?.get('tab') as TabKey) ?? 'finance');
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [courses, setCourses] = useState<any[]>([]);
+  const [programs, setPrograms] = useState<any[]>([]);
+  const [metaLoading, setMetaLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadMeta() {
+      setMetaLoading(true);
+      try {
+        const [bRes, cRes, pRes] = await Promise.all([getBranches(), getCourses({}), getPrograms()]);
+        if (bRes.success && bRes.data) setBranches(bRes.data);
+        if (cRes.success && cRes.data) setCourses(cRes.data);
+        if (pRes.success && pRes.data) setPrograms(pRes.data);
+      } catch { toast({ title: 'Failed to load filters', variant: 'destructive' }); }
+      finally { setMetaLoading(false); }
+    }
+    void loadMeta();
+  }, []);
+
+  function switchTab(tab: TabKey) {
+    setActiveTab(tab);
+    router.replace(`/admin/reports?tab=${tab}`, { scroll: false });
+  }
+
+  return (
+    <div className="min-h-screen space-y-6 p-6 bg-slate-50/50">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-600 text-white shadow-lg shadow-teal-200">
+          <BarChart3 className="h-6 w-6" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-black text-slate-900">Reports & Analytics</h1>
+          <p className="text-sm text-slate-500 font-medium">Finance, enrollment, inventory, and ledger data</p>
+        </div>
+      </div>
+
+      {/* Tab Bar */}
+      <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+        {TABS.map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => switchTab(tab.key)}
+              className={cn(
+                'flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all',
+                activeTab === tab.key
+                  ? 'bg-teal-600 text-white shadow-md'
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800',
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              <span className="hidden sm:inline">{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Tab Content */}
+      {metaLoading ? (
+        <div className="flex items-center justify-center py-24">
+          <RefreshCw className="h-8 w-8 animate-spin text-teal-400" />
+        </div>
+      ) : (
+        <div>
+          {activeTab === 'finance' && <FinanceTab branches={branches} courses={courses} />}
+          {activeTab === 'enrollment' && <EnrollmentTab branches={branches} courses={courses} programs={programs} />}
+          {activeTab === 'course-transactions' && <CourseTransactionsTab courses={courses} />}
+          {activeTab === 'book-sales' && <BookSalesTab branches={branches} />}
+          {activeTab === 'due-collection' && <DueCollectionTab branches={branches} />}
+          {activeTab === 'ledger' && <LedgerSummaryTab branches={branches} />}
+        </div>
+      )}
 
       <Toaster toasts={toasts} removeToast={removeToast} />
     </div>
+  );
+}
+
+export default function AdminReportsPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-[40vh] items-center justify-center text-sm font-medium text-slate-400">Loading reports…</div>}>
+      <ReportsPageContent />
+    </Suspense>
   );
 }

@@ -33,6 +33,8 @@ import {
   Layers,
   PenLine,
   TextCursorInput,
+  ShieldCheck,
+  Wallet,
 } from 'lucide-react';
 
 type MenuItem = {
@@ -43,96 +45,127 @@ type MenuItem = {
   bg: string;
 };
 
-function buildMenuSections(role: string | null): { label: string; items: MenuItem[] }[] {
-  const isBranchAdmin = role === 'BRANCH_ADMIN';
+type MenuSection = { label: string; items: MenuItem[] };
 
+function can(role: string | null, ...allowed: string[]): boolean {
+  if (!role) return false;
+  if (role === 'SUPER_ADMIN') return true;
+  return allowed.includes(role);
+}
+
+function buildMenuSections(role: string | null): MenuSection[] {
+  const isBranchAdmin = role === 'BRANCH_ADMIN';
+  const isAccounts = role === 'ACCOUNTS';
+  const isModerator = role === 'MODERATOR';
+
+  // ----- Overview -----
   const overviewItems: MenuItem[] = isBranchAdmin
     ? [
-        {
-          title: 'Branch dashboard',
-          href: '/admin/branch',
-          icon: Building2,
-          color: 'text-sky-600',
-          bg: 'bg-sky-50',
-        },
-        {
-          title: 'All modules',
-          href: '/admin',
-          icon: LayoutDashboard,
-          color: 'text-blue-500',
-          bg: 'bg-blue-50',
-        },
+        { title: 'Branch dashboard', href: '/admin/branch', icon: Building2, color: 'text-sky-600', bg: 'bg-sky-50' },
+        { title: 'All modules', href: '/admin', icon: LayoutDashboard, color: 'text-blue-500', bg: 'bg-blue-50' },
       ]
     : [
-        {
-          title: 'Dashboard',
-          href: '/admin',
-          icon: LayoutDashboard,
-          color: 'text-blue-500',
-          bg: 'bg-blue-50',
-        },
+        { title: 'Dashboard', href: '/admin', icon: LayoutDashboard, color: 'text-blue-500', bg: 'bg-blue-50' },
       ];
 
+  // ----- Student section -----
+  const allStudentItems: MenuItem[] = [
+    { title: 'Enrollments', href: '/admin/enrollments', icon: FileText, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+    { title: 'Invoices', href: '/admin/invoices', icon: CreditCard, color: 'text-orange-500', bg: 'bg-orange-50' },
+    { title: 'Students', href: '/admin/students', icon: Users, color: 'text-violet-500', bg: 'bg-violet-50' },
+    { title: 'Academic', href: '/admin/academic-records', icon: BarChart3, color: 'text-lime-500', bg: 'bg-lime-50' },
+  ];
+  const studentItems: MenuItem[] = isAccounts
+    ? allStudentItems.filter((i) => ['/admin/enrollments', '/admin/invoices'].includes(i.href))
+    : isModerator
+    ? []
+    : allStudentItems;
+
+  // ----- Course section -----
+  const courseItems: MenuItem[] = [
+    { title: 'Programs', href: '/admin/programs', icon: GraduationCap, color: 'text-rose-500', bg: 'bg-rose-50' },
+    { title: 'Courses', href: '/admin/courses', icon: BookOpen, color: 'text-indigo-500', bg: 'bg-indigo-50' },
+    { title: 'Batches', href: '/admin/batches', icon: Calendar, color: 'text-sky-500', bg: 'bg-sky-50' },
+    { title: 'Routine', href: '/admin/routine', icon: CalendarRange, color: 'text-teal-500', bg: 'bg-teal-50' },
+    { title: 'Attendance Sheet', href: '/admin/academic-records/attendance-sheet', icon: ClipboardList, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+  ];
+  const showCourse = !isAccounts;
+
+  // ----- Question System -----
+  const questionItems: MenuItem[] = [
+    { title: 'MCQ', href: '/admin/questions/mcq', icon: HelpCircle, color: 'text-amber-500', bg: 'bg-amber-50' },
+    { title: 'Combined MCQ', href: '/admin/questions/combined', icon: Layers, color: 'text-orange-500', bg: 'bg-orange-50' },
+    { title: 'CQ', href: '/admin/questions/cq', icon: PenLine, color: 'text-rose-500', bg: 'bg-rose-50' },
+    { title: 'Short Questions', href: '/admin/questions/short', icon: TextCursorInput, color: 'text-teal-500', bg: 'bg-teal-50' },
+  ];
+  const showQuestions = !isAccounts && !isBranchAdmin;
+
+  // ----- Exam -----
+  const examItems: MenuItem[] = [
+    { title: 'Exam Setup', href: '/admin/exams', icon: ClipboardList, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+    { title: 'Exam Results', href: '/admin/exam-results', icon: Award, color: 'text-amber-500', bg: 'bg-amber-50' },
+    { title: 'Result Approvals', href: '/admin/results/approvals', icon: ListChecks, color: 'text-teal-600', bg: 'bg-teal-50' },
+  ];
+  const showExam = !isAccounts;
+
+  // ----- Management -----
   const managementItems: MenuItem[] = [
     { title: 'Teachers', href: '/admin/teachers', icon: Presentation, color: 'text-cyan-600', bg: 'bg-cyan-50' },
     { title: 'Partners', href: '/admin/partners', icon: Globe, color: 'text-emerald-600', bg: 'bg-emerald-50' },
     { title: 'Branches', href: '/admin/branches', icon: Building2, color: 'text-red-500', bg: 'bg-red-50' },
     { title: 'Institutes', href: '/admin/institutes', icon: School, color: 'text-rose-500', bg: 'bg-rose-50' },
     { title: 'Reviews', href: '/admin/testimonials', icon: MessageSquare, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-  ].filter((item) => !(isBranchAdmin && item.href === '/admin/branches'));
+  ].filter((item) => {
+    if (isBranchAdmin) return item.href === '/admin/teachers';
+    if (isModerator) return item.href === '/admin/teachers';
+    if (isAccounts) return false;
+    return true;
+  });
 
-  return [
-    { label: 'Overview', items: overviewItems },
-    {
-      label: 'Student',
-      items: [
-        { title: 'Enrollments', href: '/admin/enrollments', icon: FileText, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-        { title: 'Invoices', href: '/admin/invoices', icon: CreditCard, color: 'text-orange-500', bg: 'bg-orange-50' },
-        { title: 'Students', href: '/admin/students', icon: Users, color: 'text-violet-500', bg: 'bg-violet-50' },
-        { title: 'Academic', href: '/admin/academic-records', icon: BarChart3, color: 'text-lime-500', bg: 'bg-lime-50' },
-      ],
-    },
-    {
-      label: 'Course',
-      items: [
-        { title: 'Programs', href: '/admin/programs', icon: GraduationCap, color: 'text-rose-500', bg: 'bg-rose-50' },
-        { title: 'Courses', href: '/admin/courses', icon: BookOpen, color: 'text-indigo-500', bg: 'bg-indigo-50' },
-        { title: 'Batches', href: '/admin/batches', icon: Calendar, color: 'text-sky-500', bg: 'bg-sky-50' },
-        { title: 'Routine', href: '/admin/routine', icon: CalendarRange, color: 'text-teal-500', bg: 'bg-teal-50' },
-        { title: 'Attendance Sheet', href: '/admin/academic-records/attendance-sheet', icon: ClipboardList, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-      ],
-    },
-    {
-      label: 'Question System',
-      items: [
-        { title: 'MCQ', href: '/admin/questions/mcq', icon: HelpCircle, color: 'text-amber-500', bg: 'bg-amber-50' },
-        { title: 'Combined MCQ', href: '/admin/questions/combined', icon: Layers, color: 'text-orange-500', bg: 'bg-orange-50' },
-        { title: 'CQ', href: '/admin/questions/cq', icon: PenLine, color: 'text-rose-500', bg: 'bg-rose-50' },
-        { title: 'Short Questions', href: '/admin/questions/short', icon: TextCursorInput, color: 'text-teal-500', bg: 'bg-teal-50' },
-      ],
-    },
-    {
-      label: 'Exam',
-      items: [
-        { title: 'Exam Setup', href: '/admin/exams', icon: ClipboardList, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-        { title: 'Exam Results', href: '/admin/exam-results', icon: Award, color: 'text-amber-500', bg: 'bg-amber-50' },
-        { title: 'Result Approvals', href: '/admin/results/approvals', icon: ListChecks, color: 'text-teal-600', bg: 'bg-teal-50' },
-      ],
-    },
-    { label: 'Management', items: managementItems },
-    {
-      label: 'Administrative',
-      items: [
-        { title: 'Monthly billing', href: '/admin/monthly-billing', icon: CalendarRange, color: 'text-violet-600', bg: 'bg-violet-50' },
-        { title: 'Payouts', href: '/admin/payouts', icon: CreditCard, color: 'text-green-600', bg: 'bg-green-50' },
-        { title: 'SMS Console', href: '/admin/sms', icon: MessageSquare, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-        { title: 'Reports', href: '/admin/reports', icon: BarChart3, color: 'text-teal-500', bg: 'bg-teal-50' },
-        { title: 'Settings', href: '/admin/settings', icon: Settings, color: 'text-slate-500', bg: 'bg-slate-50' },
-        { title: 'Inventory', href: '/admin/inventory', icon: Package, color: 'text-amber-600', bg: 'bg-amber-50' },
-        { title: 'Books', href: '/admin/books', icon: BookOpen, color: 'text-blue-500', bg: 'bg-blue-50' },
-      ],
-    },
+  // ----- User Management (SUPER_ADMIN only) -----
+  const userMgmtItems: MenuItem[] = [
+    { title: 'User Management', href: '/admin/users', icon: ShieldCheck, color: 'text-purple-600', bg: 'bg-purple-50' },
   ];
+
+  // ----- Administrative -----
+  const allAdminItems: MenuItem[] = [
+    { title: 'Monthly billing', href: '/admin/monthly-billing', icon: CalendarRange, color: 'text-violet-600', bg: 'bg-violet-50' },
+    { title: 'Payouts', href: '/admin/payouts', icon: CreditCard, color: 'text-green-600', bg: 'bg-green-50' },
+    { title: 'SMS Console', href: '/admin/sms', icon: MessageSquare, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+    { title: 'Reports', href: '/admin/reports', icon: BarChart3, color: 'text-teal-500', bg: 'bg-teal-50' },
+    { title: 'Accounting', href: '/admin/accounting', icon: Wallet, color: 'text-sky-600', bg: 'bg-sky-50' },
+    { title: 'Settings', href: '/admin/settings', icon: Settings, color: 'text-slate-500', bg: 'bg-slate-50' },
+    { title: 'Inventory', href: '/admin/inventory', icon: Package, color: 'text-amber-600', bg: 'bg-amber-50' },
+    { title: 'Books', href: '/admin/books', icon: BookOpen, color: 'text-blue-500', bg: 'bg-blue-50' },
+  ];
+  const adminItems: MenuItem[] = isAccounts
+    ? allAdminItems.filter((i) =>
+        ['/admin/monthly-billing', '/admin/payouts', '/admin/reports', '/admin/accounting', '/admin/inventory', '/admin/books'].includes(i.href),
+      )
+    : isBranchAdmin
+    ? allAdminItems.filter((i) =>
+        ['/admin/monthly-billing', '/admin/inventory', '/admin/books'].includes(i.href),
+      )
+    : isModerator
+    ? []
+    : allAdminItems;
+
+  // ----- Assemble sections, skipping empty ones -----
+  const sections: MenuSection[] = [
+    { label: 'Overview', items: overviewItems },
+  ];
+
+  if (studentItems.length > 0) sections.push({ label: 'Student', items: studentItems });
+  if (showCourse) sections.push({ label: 'Course', items: courseItems });
+  if (showQuestions) sections.push({ label: 'Question System', items: questionItems });
+  if (showExam) sections.push({ label: 'Exam', items: examItems });
+  if (managementItems.length > 0) sections.push({ label: 'Management', items: managementItems });
+  if (can(role, 'SUPER_ADMIN') && !can(role, 'BRANCH_ADMIN', 'ACCOUNTS', 'MODERATOR', 'TEACHER', 'STUDENT')) {
+    sections.push({ label: 'System', items: userMgmtItems });
+  }
+  if (adminItems.length > 0) sections.push({ label: 'Administrative', items: adminItems });
+
+  return sections;
 }
 
 type SidebarProps = {

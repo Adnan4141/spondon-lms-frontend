@@ -123,3 +123,115 @@ export async function getCourseTransactions(
 export async function getSystemStats(): Promise<SystemStatsResponse> {
   return apiRequest<SystemStatsResponse>('/reports/stats');
 }
+
+// ─── Book Sales Report ────────────────────────────────────────────────────────
+
+export interface BookSalesParams {
+  branchId?: string;
+  from?: string;
+  to?: string;
+}
+
+export interface BookStockEntry {
+  branchId: string;
+  branchName: string;
+  qty: number;
+}
+
+export interface BookSalesRow {
+  bookId: string;
+  bookName: string;
+  sku: string;
+  unitPrice: number;
+  totalQty: number;
+  totalRevenue: number;
+  saleCount: number;
+  stocks: BookStockEntry[];
+  totalStock: number;
+}
+
+export interface BookSalesResponse {
+  success: boolean;
+  data: BookSalesRow[];
+  totals: { totalRevenue: number; totalQtySold: number };
+}
+
+export async function getBookSalesReport(params?: BookSalesParams): Promise<BookSalesResponse> {
+  const q = new URLSearchParams();
+  if (params?.branchId) q.append('branchId', params.branchId);
+  if (params?.from) q.append('from', params.from);
+  if (params?.to) q.append('to', params.to);
+  const qs = q.toString();
+  return apiRequest<BookSalesResponse>(`/reports/book-sales${qs ? `?${qs}` : ''}`);
+}
+
+// ─── Due Summary ──────────────────────────────────────────────────────────────
+
+export interface DueSummaryParams {
+  branchId?: string;
+  month?: string;
+  status?: string;
+}
+
+export interface DueSummaryRow {
+  branchId: string;
+  branchName: string;
+  invoiceCount: number;
+  totalPayable: number;
+  totalPaid: number;
+  totalDue: number;
+}
+
+export interface DueSummaryResponse {
+  success: boolean;
+  data: DueSummaryRow[];
+  totals: { totalPayable: number; totalPaid: number; totalDue: number };
+}
+
+export async function getDueSummary(params?: DueSummaryParams): Promise<DueSummaryResponse> {
+  const q = new URLSearchParams();
+  if (params?.branchId) q.append('branchId', params.branchId);
+  if (params?.month) q.append('month', params.month);
+  if (params?.status) q.append('status', params.status);
+  const qs = q.toString();
+  return apiRequest<DueSummaryResponse>(`/reports/due-summary${qs ? `?${qs}` : ''}`);
+}
+
+// ─── Ledger Summary ───────────────────────────────────────────────────────────
+
+export interface LedgerSummaryParams {
+  from?: string;
+  to?: string;
+  branchId?: string;
+}
+
+export interface LedgerSummaryRow {
+  accountId: string;
+  accountName: string;
+  accountType: string;
+  accountCode: string;
+  entryType: string;
+  total: number;
+}
+
+export interface LedgerTypeSummary {
+  type: string;
+  income: number;
+  expense: number;
+  net: number;
+}
+
+export interface LedgerSummaryResponse {
+  success: boolean;
+  data: LedgerSummaryRow[];
+  summary: LedgerTypeSummary[];
+}
+
+export async function getLedgerSummary(params?: LedgerSummaryParams): Promise<LedgerSummaryResponse> {
+  const q = new URLSearchParams();
+  if (params?.from) q.append('from', params.from);
+  if (params?.to) q.append('to', params.to);
+  if (params?.branchId) q.append('branchId', params.branchId);
+  const qs = q.toString();
+  return apiRequest<LedgerSummaryResponse>(`/reports/ledger-summary${qs ? `?${qs}` : ''}`);
+}
