@@ -89,6 +89,15 @@ function paymentMethodLabel(m: string): string {
   return m || '—';
 }
 
+const STUDENT_DETAIL_TABS = [
+  { label: 'Overview', value: 'overview', icon: LayoutDashboard },
+  { label: 'Profile', value: 'identity', icon: Contact },
+  { label: 'Courses', value: 'courses', icon: GraduationCap },
+  { label: 'Academic', value: 'academic', icon: BarChart3 },
+  { label: 'Discounts', value: 'discounts', icon: Tag },
+  { label: 'Payments', value: 'payments', icon: Wallet },
+] as const;
+
 export function StudentDetailsView({ student }: StudentDetailsViewProps) {
   const profile = student.studentProfile;
   const { toast } = useToast();
@@ -283,6 +292,9 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
     statusFilter === 'all' ? true : String(e.status).toUpperCase() === statusFilter.toUpperCase(),
   );
 
+  const currentDetailTab = STUDENT_DETAIL_TABS.find((t) => t.value === studentTab) ?? STUDENT_DETAIL_TABS[0];
+  const CurrentDetailTabIcon = currentDetailTab.icon;
+
   const programGroups = Object.values(
     filteredEnrollments.reduce((acc: Record<string, { id: string; name: string; courses: EnrollmentType[] }>, e) => {
       const programId = e.course?.program?.id || 'unknown';
@@ -361,29 +373,52 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
 
         {/* Navigation Tabs */}
         <Tabs value={studentTab} onValueChange={setStudentTab} className="w-full">
-          <div className="sticky top-0 z-20 bg-white/80 backdrop-blur-xl border-b border-slate-100 px-8 py-2">
-            <TabsList className="bg-transparent gap-6 h-12 p-0 flex-wrap">
-              {[
-                { label: 'Overview', value: 'overview', icon: LayoutDashboard },
-                { label: 'Profile', value: 'identity', icon: Contact },
-                { label: 'Courses', value: 'courses', icon: GraduationCap },
-                { label: 'Academic', value: 'academic', icon: BarChart3 },
-                { label: 'Discounts', value: 'discounts', icon: Tag },
-                { label: 'Payments', value: 'payments', icon: Wallet },
-              ].map((tab) => (
-                <TabsTrigger
-                  key={tab.value}
-                  value={tab.value}
-                  className="relative h-12 rounded-none bg-transparent px-2 text-sm font-black uppercase tracking-[0.2em] text-slate-400 data-[state=active]:bg-transparent data-[state=active]:text-indigo-600 border-none transition-all after:absolute after:bottom-0 after:left-0 after:h-1 after:w-full after:rounded-full after:bg-indigo-600 after:opacity-0 data-[state=active]:after:opacity-100"
-                >
-                  <tab.icon className="h-4 w-4 mr-2" />
-                  {tab.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
+          <div className="sticky top-0 z-20 border-b border-slate-100 bg-white/90 px-4 py-3 backdrop-blur-xl sm:px-6 md:bg-white/80 md:px-8 md:py-2">
+            {/* Narrow screens: full-width picker so labels are not crushed */}
+            <div className="md:hidden">
+              <Select value={studentTab} onValueChange={setStudentTab}>
+                <SelectTrigger className="h-12 w-full rounded-xl border-slate-200 bg-white text-sm font-black uppercase tracking-wide text-slate-800 shadow-sm">
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <CurrentDetailTabIcon className="h-4 w-4 shrink-0 text-indigo-600" />
+                    <SelectValue placeholder="Section" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border-slate-200 shadow-xl">
+                  {STUDENT_DETAIL_TABS.map((tab) => (
+                    <SelectItem
+                      key={tab.value}
+                      value={tab.value}
+                      textValue={tab.label}
+                      className="font-bold uppercase tracking-wide"
+                    >
+                      <span className="flex items-center gap-2">
+                        <tab.icon className="h-4 w-4 sm:block hidden text-indigo-600" />
+                        {tab.label}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* md+: horizontal tabs; scroll if the viewport is still tight */}
+            <div className="hidden md:block md:overflow-x-auto md:[-ms-overflow-style:none] md:[scrollbar-width:none] md:[&::-webkit-scrollbar]:hidden">
+              <TabsList className="inline-flex h-auto min-h-12 w-max max-w-full flex-nowrap items-stretch gap-2 bg-transparent p-0 lg:gap-6">
+                {STUDENT_DETAIL_TABS.map((tab) => (
+                  <TabsTrigger
+                    key={tab.value}
+                    value={tab.value}
+                    className="relative shrink-0 rounded-none border-none bg-transparent px-2 py-2 text-xs font-black uppercase tracking-wide text-slate-400 transition-all after:absolute after:bottom-0 after:left-0 after:h-1 after:w-full after:rounded-full after:bg-indigo-600 after:opacity-0 data-[state=active]:bg-transparent data-[state=active]:text-indigo-600 data-[state=active]:after:opacity-100 lg:text-sm lg:tracking-[0.2em]"
+                  >
+                    <tab.icon className="mr-1.5 h-4 w-4 shrink-0 lg:mr-2" />
+                    {tab.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
           </div>
 
-          <div className="px-8 py-10">
+          <div className="px-4 py-6 sm:px-6 sm:py-8 md:px-8 md:py-10">
             {/* Overview — bento layout */}
             <TabsContent value="overview" className="m-0">
               <div className="grid gap-6 lg:grid-cols-12 lg:gap-8">
@@ -467,16 +502,16 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
 
                 <div className="space-y-6 lg:col-span-5">
                   <div className="rounded-3xl border border-amber-200/80 bg-linear-to-b from-amber-50/95 to-white p-6 shadow-sm sm:p-8">
-                    <div className="mb-5 flex items-center justify-between gap-3">
+                    <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <h3 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.28em] text-amber-900">
-                        <Wallet className="h-4 w-4" />
+                        <Wallet className="h-4 w-4 shrink-0" />
                         Billing
                       </h3>
                       <Button
                         type="button"
                         size="sm"
                         variant="outline"
-                        className="h-9 rounded-xl border-amber-200 bg-white text-xs font-bold text-amber-950"
+                        className="h-9 w-full rounded-xl border-amber-200 bg-white text-xs font-bold text-amber-950 sm:w-auto"
                         onClick={() => setStudentTab('payments')}
                       >
                         <Receipt className="mr-1.5 h-3.5 w-3.5" />
@@ -605,21 +640,21 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
 
             {/* Courses Tab Content */}
             <TabsContent value="courses" className="m-0 space-y-8">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div>
-                  <h3 className="flex items-center gap-3 text-[11px] font-black uppercase tracking-[0.3em] text-indigo-600">
-                    <GraduationCap className="h-5 w-5" />
+              <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+                <div className="min-w-0">
+                  <h3 className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 sm:gap-3 sm:text-[11px] sm:tracking-[0.3em]">
+                    <GraduationCap className="h-5 w-5 shrink-0" />
                     Courses & programs
                   </h3>
-                  <p className="mt-1 text-sm font-bold text-slate-400 uppercase tracking-widest">
+                  <p className="mt-2 text-xs font-bold leading-relaxed text-slate-500 sm:mt-1 sm:text-sm sm:uppercase sm:tracking-widest sm:text-slate-400">
                     প্রোগ্রাম অনুযায়ী একাধিক কোর্স বা একক কোর্স · প্রতিটি সারিতে <strong>Online / Offline</strong> = কোর্স
                     ডেলিভারি (কেন্দ্রে / রিমোট), পেমেন্ট টাইমিং নয়
                   </p>
                 </div>
-                
-                <div className="flex flex-wrap items-center gap-4">
+
+                <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4 md:w-auto">
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="h-12 w-45 rounded-2xl border-slate-200 bg-white text-sm font-black uppercase tracking-widest shadow-sm">
+                    <SelectTrigger className="h-12 w-full rounded-2xl border-slate-200 bg-white text-sm font-black uppercase tracking-wide shadow-sm sm:w-[11rem] sm:tracking-widest">
                       <SelectValue placeholder="Status Filter" />
                     </SelectTrigger>
                     <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-2xl">
@@ -631,7 +666,7 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                     </SelectContent>
                   </Select>
                   <Button
-                    className="h-12 rounded-2xl bg-slate-900 px-6 text-[10px] font-black uppercase tracking-[0.2em] text-white hover:bg-indigo-600 shadow-xl shadow-slate-200 transition-all hover:scale-[1.02]"
+                    className="h-12 w-full rounded-2xl bg-slate-900 px-6 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-xl shadow-slate-200 transition-all hover:scale-[1.02] hover:bg-indigo-600 sm:w-auto"
                     onClick={handleAddEnrollment}
                   >
                     <Plus className="mr-2 h-4 w-4" />
@@ -664,15 +699,18 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                   </div>
                 ) : (
                   programGroups.map((group) => (
-                    <div key={group.id} className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
-                      <div className="flex items-center justify-between bg-slate-50/50 px-5 py-3 border-b border-slate-100">
-                        <div className="flex items-center gap-3">
-                           <div className="h-6 w-6 rounded border border-slate-200 bg-white flex items-center justify-center">
-                              <GraduationCap className="h-3.5 w-3.5 text-indigo-500" />
-                           </div>
-                           <p className="text-sm font-black text-slate-800">{group.name}</p>
+                    <div key={group.id} className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+                      <div className="flex flex-col gap-2 border-b border-slate-100 bg-slate-50/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-slate-200 bg-white">
+                            <GraduationCap className="h-3.5 w-3.5 text-indigo-500" />
+                          </div>
+                          <p className="truncate text-sm font-black text-slate-800">{group.name}</p>
                         </div>
-                        <Badge variant="secondary" className="rounded-md bg-white text-[9px] font-black uppercase px-2 py-0 border border-slate-200 text-slate-500">
+                        <Badge
+                          variant="secondary"
+                          className="w-fit rounded-md border border-slate-200 bg-white px-2 py-0 text-[9px] font-black uppercase text-slate-500"
+                        >
                           {group.courses.length} course{group.courses.length === 1 ? '' : 's'}
                         </Badge>
                       </div>
@@ -714,8 +752,14 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                                 {c.batch?.name || 'Unassigned batch'} · ফি ৳{money(c.course?.fee)}
                               </span>
                             </div>
-                            <div className="flex items-center gap-3">
-                              <Badge variant="outline" className={cn("rounded-md text-[9px] font-black uppercase px-2 py-0 border-none", getStatusBadgeClass(String(c.status)))}>
+                            <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  'rounded-md border-none px-2 py-0 text-[9px] font-black uppercase',
+                                  getStatusBadgeClass(String(c.status)),
+                                )}
+                              >
                                 {c.status}
                               </Badge>
                               <DropdownMenu>
