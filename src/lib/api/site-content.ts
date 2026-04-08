@@ -29,9 +29,9 @@ export interface ProgramCard {
 
 export interface HeroSlideInput {
   title: string;
-  highlight: string;
-  subtitle: string;
   imageUrl?: string;
+  highlight?: string;
+  subtitle?: string;
   btnText?: string;
   secondaryBtnText?: string;
   sortOrder?: number;

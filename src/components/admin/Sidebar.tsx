@@ -171,7 +171,7 @@ function buildMenuSections(role: string | null): MenuSection[] {
     sections.push({
       label: 'Website',
       items: [
-        { title: 'Landing CMS', href: '/admin/landing', icon: LayoutTemplate, color: 'text-fuchsia-600', bg: 'bg-fuchsia-50' },
+        { title: 'CMS', href: '/admin/landing', icon: LayoutTemplate, color: 'text-fuchsia-600', bg: 'bg-fuchsia-50' },
       ],
     });
   }

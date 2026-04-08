@@ -459,17 +459,6 @@ export function QuestionsPageInner({ initialTab = 'MCQ' as QuestionTabId }) {
                 className="h-10 pl-9 border-none bg-slate-50/50 rounded-xl focus-visible:ring-0 focus-visible:ring-offset-0 text-sm font-medium"
               />
             </div>
-            <Select value={activeTab} onValueChange={(v) => setActiveTab(v as QuestionTabId)}>
-              <SelectTrigger className="h-10 w-[220px] border-none bg-slate-50/50 rounded-xl text-sm font-medium">
-                <SelectValue placeholder="Question Type" />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl border-slate-200/60 shadow-sm">
-                <SelectItem value="MCQ" className="rounded-lg">Multiple Choice (MCQ)</SelectItem>
-                <SelectItem value="COMBINED" className="rounded-lg">Combined MCQs</SelectItem>
-                <SelectItem value="CQ" className="rounded-lg">Creative Questions (CQ)</SelectItem>
-                <SelectItem value="SINGLE" className="rounded-lg">Short Questions</SelectItem>
-              </SelectContent>
-            </Select>
             <Select value={difficultyFilter} onValueChange={(v) => setDifficultyFilter(v as any)}>
               <SelectTrigger className="h-10 w-[140px] border-none bg-slate-50/50 rounded-xl text-sm font-medium">
                 <SelectValue placeholder="Difficulty" />

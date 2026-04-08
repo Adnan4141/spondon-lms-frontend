@@ -205,13 +205,7 @@ interface HeroSlideFormProps {
 function HeroSlideForm({ initial, onSave, onClose, saving }: HeroSlideFormProps) {
   const [form, setForm] = useState<HeroSlideInput>({
     title: initial?.title ?? '',
-    highlight: initial?.highlight ?? '',
-    subtitle: initial?.subtitle ?? '',
     imageUrl: initial?.imageUrl ?? '',
-    btnText: initial?.btnText ?? 'কোর্সসমূহ দেখো',
-    secondaryBtnText: initial?.secondaryBtnText ?? 'শিখতে শুরু করো',
-    sortOrder: initial?.sortOrder ?? 0,
-    isActive: initial?.isActive ?? true,
   });
 
   const set = (k: keyof HeroSlideInput, v: unknown) => setForm((f) => ({ ...f, [k]: v }));
@@ -221,37 +215,9 @@ function HeroSlideForm({ initial, onSave, onClose, saving }: HeroSlideFormProps)
       onSubmit={(e) => { e.preventDefault(); void onSave(form); }}
       className="space-y-4"
     >
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1.5 col-span-2">
-          <Label className="text-xs font-black uppercase tracking-widest text-slate-500">Title</Label>
-          <Input value={form.title} onChange={(e) => set('title', e.target.value)} required placeholder="এখানে টাইটেল লিখুন" className="rounded-xl" />
-        </div>
-        <div className="space-y-1.5 col-span-2">
-          <Label className="text-xs font-black uppercase tracking-widest text-slate-500">Highlight Text</Label>
-          <Input value={form.highlight} onChange={(e) => set('highlight', e.target.value)} required placeholder="হাইলাইট শব্দ" className="rounded-xl" />
-        </div>
-        <div className="space-y-1.5 col-span-2">
-          <Label className="text-xs font-black uppercase tracking-widest text-slate-500">Subtitle</Label>
-          <Input value={form.subtitle} onChange={(e) => set('subtitle', e.target.value)} required placeholder="সাবটাইটেল লিখুন" className="rounded-xl" />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs font-black uppercase tracking-widest text-slate-500">Primary Button</Label>
-          <Input value={form.btnText} onChange={(e) => set('btnText', e.target.value)} placeholder="কোর্সসমূহ দেখো" className="rounded-xl" />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs font-black uppercase tracking-widest text-slate-500">Secondary Button</Label>
-          <Input value={form.secondaryBtnText} onChange={(e) => set('secondaryBtnText', e.target.value)} placeholder="শিখতে শুরু করো" className="rounded-xl" />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs font-black uppercase tracking-widest text-slate-500">Sort Order</Label>
-          <Input type="number" value={form.sortOrder} onChange={(e) => set('sortOrder', Number(e.target.value))} className="rounded-xl" min={0} />
-        </div>
-        <div className="space-y-1.5 flex flex-col justify-end">
-          <div className="flex items-center gap-3 pb-1">
-            <Switch checked={form.isActive} onCheckedChange={(v) => set('isActive', v)} />
-            <Label className="text-sm font-bold text-slate-700">Active</Label>
-          </div>
-        </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs font-black uppercase tracking-widest text-slate-500">Title</Label>
+        <Input value={form.title} onChange={(e) => set('title', e.target.value)} required placeholder="এখানে টাইটেল লিখুন" className="rounded-xl" />
       </div>
 
       <div className="space-y-1.5">
