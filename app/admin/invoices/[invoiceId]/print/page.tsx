@@ -2,11 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { Loader2, Printer, ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
+import { Loader2, Printer } from 'lucide-react';
 import { getInvoiceById } from '@/lib/api/invoices';
 import type { Invoice } from '@/types/invoice';
-import { Button } from '@/components/ui/button';
 import { SpondonPaperInvoice } from '@/components/admin/invoices/SpondonPaperInvoice';
 
 export default function InvoicePrintPage() {
@@ -48,42 +46,31 @@ export default function InvoicePrintPage() {
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-50 px-6 text-center">
         <p className="text-xl font-black text-slate-900">Invoice unavailable</p>
         <p className="max-w-md text-sm font-medium text-slate-500">{error || 'Could not load invoice.'}</p>
-        <Button asChild variant="outline" className="rounded-xl">
-          <Link href="/admin/invoices">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to invoices
-          </Link>
-        </Button>
+        <button
+          className="rounded-xl border border-slate-200 bg-white px-5 py-2 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50"
+          onClick={() => window.close()}
+        >
+          Close
+        </button>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 print:bg-white">
-      <div className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-6 py-4 backdrop-blur print:hidden">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-black text-slate-900">Invoice Print View</h1>
-            <p className="text-sm font-medium text-slate-500">This view uses HTML so Bangla text stays readable in the browser.</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button asChild variant="outline" className="rounded-xl">
-              <Link href="/admin/invoices">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back
-              </Link>
-            </Button>
-            <Button type="button" className="rounded-xl" onClick={() => window.print()}>
-              <Printer className="mr-2 h-4 w-4" />
-              Print
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      <div className="mx-auto max-w-5xl px-6 py-8 print:max-w-none print:px-0 print:py-0">
+      <div className="mx-auto max-w-5xl px-6 py-10 print:max-w-none print:px-0 print:py-0">
         <SpondonPaperInvoice invoice={invoice} className="print:max-w-none" />
       </div>
+
+      {/* Floating print button — hidden when printing */}
+      <button
+        type="button"
+        onClick={() => window.print()}
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-black text-white shadow-xl transition-all hover:bg-indigo-600 hover:scale-105 active:scale-95 print:hidden"
+      >
+        <Printer className="h-4 w-4" />
+        Print
+      </button>
     </div>
   );
 }

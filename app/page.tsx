@@ -24,6 +24,7 @@ import { getSystemStats, SystemStatsData } from '@/lib/api/reports';
 import { getPublicTestimonials } from '@/lib/api/testimonials';
 import { getPublicPartners, Partner } from '@/lib/api/partners';
 import { getPublicTeachers, PublicTeacher } from '@/lib/api/teachers';
+import { getHeroSlides, getProgramCards, type HeroSlide, type ProgramCard } from '@/lib/api/site-content';
 import { API_ORIGIN } from '@/lib/api';
 import { resolveAttachmentUrl } from '@/lib/attachment-url';
 
@@ -50,6 +51,8 @@ const testimonials: Testimonial[] = [
 export default function LandingPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [programs, setPrograms] = useState<Program[]>([]);
+  const [heroSlides, setHeroSlides] = useState<HeroSlide[]>([]);
+  const [programCards, setProgramCards] = useState<ProgramCard[]>([]);
   const [dynamicEbooks, setDynamicEbooks] = useState<PublicCatalogBook[]>([]);
   const [admissionBooks, setAdmissionBooks] = useState<Book[]>([]);
   const [systemStats, setSystemStats] = useState<SystemStatsData | null>(null);
@@ -86,6 +89,8 @@ export default function LandingPage() {
           getPublicTestimonials().catch(() => ({ success: false, data: [] })),
           getPublicPartners().catch(() => ({ success: false, data: [] })),
           getPublicTeachers().catch(() => ({ success: false, data: [] })),
+          getHeroSlides().catch(() => ({ success: false, data: [] as HeroSlide[] })),
+          getProgramCards().catch(() => ({ success: false, data: [] as ProgramCard[] })),
         ]);
 
         const courseRes = results[0].status === 'fulfilled' ? results[0].value : empty;
@@ -96,6 +101,8 @@ export default function LandingPage() {
         const testimonialRes = results[5].status === 'fulfilled' ? results[5].value : { success: false, data: [] };
         const partnerRes = results[6].status === 'fulfilled' ? results[6].value : { success: false, data: [] };
         const teacherRes = results[7].status === 'fulfilled' ? results[7].value : { success: false, data: [] };
+        const heroRes = results[8].status === 'fulfilled' ? results[8].value : { success: false, data: [] as HeroSlide[] };
+        const programCardRes = results[9].status === 'fulfilled' ? results[9].value : { success: false, data: [] as ProgramCard[] };
 
         if (courseRes.success) setCourses(courseRes.data || []);
         if (programRes.success) setPrograms(programRes.data || []);
@@ -115,6 +122,8 @@ export default function LandingPage() {
         }
         if (partnerRes.success) setDynamicPartners(partnerRes.data || []);
         if (teacherRes.success) setTeachers(teacherRes.data || []);
+        if (heroRes.success && heroRes.data?.length) setHeroSlides(heroRes.data);
+        if (programCardRes.success && programCardRes.data?.length) setProgramCards(programCardRes.data);
       } catch (error) {
         console.error('Data load error', error);
       } finally {
@@ -128,8 +137,8 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-white text-slate-900 selection:bg-indigo-100 overflow-x-hidden">
       <Header />
-      <HeroCarousel />
-      <ProgramsCTASection />
+      <HeroCarousel slides={heroSlides} />
+      <ProgramsCTASection cards={programCards} />
       {/* <StatsSection systemStats={systemStats} /> */}
  
       <CoursesSection courses={courses} handleImageError={handleImageError} />

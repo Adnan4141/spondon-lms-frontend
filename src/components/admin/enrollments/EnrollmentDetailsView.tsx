@@ -1,12 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import type { Enrollment } from '@/lib/api/enrollments';
-import { cancelMonthlyEnrollment } from '@/lib/api/invoices';
+import { cancelMonthlyEnrollment, getInvoices, getInvoicePdfUrl } from '@/lib/api/invoices';
+import { API_ORIGIN } from '@/lib/api';
+import type { Invoice } from '@/types/invoice';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { CourseDeliveryBadge } from '@/lib/course-delivery';
 import { useToast } from '@/hooks/use-toast';
@@ -24,6 +27,10 @@ import {
   Loader2,
   CheckCircle2,
   BookOpen,
+  FileText,
+  GraduationCap,
+  Tag,
+  AlertCircle,
 } from 'lucide-react';
 
 export interface EnrollmentDetailsViewProps {
@@ -43,6 +50,16 @@ function getStatusBadgeClass(status: string) {
   if (s === 'CANCELLED') return 'bg-rose-50 text-rose-700 border-rose-100 font-black';
   if (s === 'COMPLETED') return 'bg-indigo-50 text-indigo-700 border-indigo-100 font-black';
   return 'bg-slate-100 text-slate-600 border-slate-200 font-black';
+}
+
+function getInvoiceStatusClass(status: string) {
+  const s = String(status).toUpperCase();
+  if (s === 'PAID') return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+  if (s === 'PARTIAL') return 'bg-amber-50 text-amber-700 border-amber-100';
+  if (s === 'ISSUED') return 'bg-blue-50 text-blue-700 border-blue-100';
+  if (s === 'DRAFT') return 'bg-slate-100 text-slate-600 border-slate-200';
+  if (s === 'CANCELLED') return 'bg-rose-50 text-rose-700 border-rose-100';
+  return 'bg-slate-100 text-slate-500 border-slate-200';
 }
 
 export function EnrollmentDetailsView({

@@ -57,17 +57,17 @@ export default function InventoryPage() {
     category: '',
     unit: 'pcs',
     branchId: '',
-    quantity: 0,
+    currentQty: 0,
     reorderLevel: 0,
     costPrice: 0,
-    salePrice: 0,
+    sellPrice: 0,
   });
   const [savingItem, setSavingItem] = useState(false);
 
   // Transaction modal
   const [showTxnModal, setShowTxnModal] = useState(false);
   const [txnItem, setTxnItem] = useState<InventoryItem | null>(null);
-  const [txnForm, setTxnForm] = useState({ type: 'IN' as 'IN' | 'OUT' | 'ADJUST', quantity: 1, note: '' });
+  const [txnForm, setTxnForm] = useState({ txnType: 'IN' as 'IN' | 'OUT' | 'ADJUST', qty: 1, note: '' });
   const [savingTxn, setSavingTxn] = useState(false);
 
   const loadData = async () => {
@@ -83,7 +83,7 @@ export default function InventoryPage() {
       if (itemsRes.success) setItems(itemsRes.data || []);
       if (branchesRes.success) setBranches(branchesRes.data || []);
     } catch (err) {
-      console.error(err);
+      toast({ title: err instanceof Error ? err.message : 'Failed to load inventory', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -97,7 +97,7 @@ export default function InventoryPage() {
 
   const openCreateModal = () => {
     setEditingItem(null);
-    setItemForm({ name: '', sku: '', category: '', unit: 'pcs', branchId: '', quantity: 0, reorderLevel: 0, costPrice: 0, salePrice: 0 });
+    setItemForm({ name: '', sku: '', category: '', unit: 'pcs', branchId: '', currentQty: 0, reorderLevel: 0, costPrice: 0, sellPrice: 0 });
     setShowItemModal(true);
   };
 
@@ -109,10 +109,10 @@ export default function InventoryPage() {
       category: item.category || '',
       unit: item.unit || 'pcs',
       branchId: item.branchId || '',
-      quantity: item.quantity,
+      currentQty: item.currentQty,
       reorderLevel: item.reorderLevel ?? 0,
       costPrice: item.costPrice ?? 0,
-      salePrice: item.salePrice ?? 0,
+      sellPrice: item.sellPrice ?? 0,
     });
     setShowItemModal(true);
   };
@@ -130,10 +130,10 @@ export default function InventoryPage() {
         category: itemForm.category.trim() || undefined,
         unit: itemForm.unit.trim() || undefined,
         branchId: itemForm.branchId || undefined,
-        quantity: Number(itemForm.quantity) || 0,
+        currentQty: Number(itemForm.currentQty) || 0,
         reorderLevel: Number(itemForm.reorderLevel) || 0,
         costPrice: Number(itemForm.costPrice) || 0,
-        salePrice: Number(itemForm.salePrice) || 0,
+        sellPrice: Number(itemForm.sellPrice) || 0,
       };
       const res = editingItem
         ? await updateInventoryItem(editingItem.id, payload)
@@ -154,13 +154,13 @@ export default function InventoryPage() {
 
   const openTxnModal = (item: InventoryItem) => {
     setTxnItem(item);
-    setTxnForm({ type: 'IN', quantity: 1, note: '' });
+    setTxnForm({ txnType: 'IN', qty: 1, note: '' });
     setShowTxnModal(true);
   };
 
   const handleSaveTxn = async () => {
     if (!txnItem) return;
-    if (txnForm.quantity <= 0) {
+    if (txnForm.qty <= 0) {
       toast({ title: 'Quantity must be positive', variant: 'destructive' });
       return;
     }
@@ -168,8 +168,8 @@ export default function InventoryPage() {
     try {
       const res = await createInventoryTransaction({
         inventoryItemId: txnItem.id,
-        quantity: txnForm.quantity,
-        type: txnForm.type,
+        qty: txnForm.qty,
+        txnType: txnForm.txnType,
         note: txnForm.note.trim() || undefined,
       });
       if (res.success) {
@@ -278,7 +278,7 @@ export default function InventoryPage() {
               </thead>
               <tbody>
                 {items.map((item) => {
-                  const lowStock = item.reorderLevel != null && item.quantity <= item.reorderLevel;
+                  const lowStock = item.reorderLevel != null && item.currentQty <= item.reorderLevel;
                   return (
                     <tr key={item.id} className="border-b border-slate-50 hover:bg-slate-50/50">
                       <td className="px-4 py-3 font-bold text-slate-900">
@@ -293,10 +293,10 @@ export default function InventoryPage() {
                       <td className="px-4 py-3 text-slate-500">{item.sku || '—'}</td>
                       <td className="px-4 py-3 text-slate-500">{item.category || '—'}</td>
                       <td className="px-4 py-3 text-slate-500">{item.branch?.name || '—'}</td>
-                      <td className="px-4 py-3 text-center font-bold text-slate-900">{item.quantity} {item.unit || ''}</td>
+                      <td className="px-4 py-3 text-center font-bold text-slate-900">{item.currentQty} {item.unit || ''}</td>
                       <td className="px-4 py-3 text-center text-slate-500">{item.reorderLevel ?? '—'}</td>
                       <td className="px-4 py-3 text-right text-slate-600">৳{Number(item.costPrice ?? 0).toLocaleString()}</td>
-                      <td className="px-4 py-3 text-right text-slate-600">৳{Number(item.salePrice ?? 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right text-slate-600">৳{Number(item.sellPrice ?? 0).toLocaleString()}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-2">
                           <Button
@@ -371,7 +371,7 @@ export default function InventoryPage() {
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <Label>Quantity</Label>
-                <Input type="number" value={itemForm.quantity} onChange={(e) => setItemForm({ ...itemForm, quantity: Number(e.target.value) })} />
+                <Input type="number" value={itemForm.currentQty} onChange={(e) => setItemForm({ ...itemForm, currentQty: Number(e.target.value) })} />
               </div>
               <div>
                 <Label>Reorder Level</Label>
@@ -384,7 +384,7 @@ export default function InventoryPage() {
             </div>
             <div className="w-1/3">
               <Label>Sale Price</Label>
-              <Input type="number" value={itemForm.salePrice} onChange={(e) => setItemForm({ ...itemForm, salePrice: Number(e.target.value) })} />
+              <Input type="number" value={itemForm.sellPrice} onChange={(e) => setItemForm({ ...itemForm, sellPrice: Number(e.target.value) })} />
             </div>
           </div>
           <DialogFooter>
@@ -405,11 +405,11 @@ export default function InventoryPage() {
           {txnItem && (
             <div className="space-y-4">
               <p className="text-sm font-bold text-slate-700">
-                {txnItem.name} — Current: <span className="text-indigo-600">{txnItem.quantity} {txnItem.unit || ''}</span>
+                {txnItem.name} — Current: <span className="text-indigo-600">{txnItem.currentQty} {txnItem.unit || ''}</span>
               </p>
               <div>
                 <Label>Type</Label>
-                <Select value={txnForm.type} onValueChange={(v) => setTxnForm({ ...txnForm, type: v as 'IN' | 'OUT' | 'ADJUST' })}>
+                <Select value={txnForm.txnType} onValueChange={(v) => setTxnForm({ ...txnForm, txnType: v as 'IN' | 'OUT' | 'ADJUST' })}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -440,8 +440,8 @@ export default function InventoryPage() {
                 <Input
                   type="number"
                   min={1}
-                  value={txnForm.quantity}
-                  onChange={(e) => setTxnForm({ ...txnForm, quantity: Number(e.target.value) })}
+                  value={txnForm.qty}
+                  onChange={(e) => setTxnForm({ ...txnForm, qty: Number(e.target.value) })}
                 />
               </div>
               <div>

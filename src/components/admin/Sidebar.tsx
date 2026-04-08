@@ -35,6 +35,7 @@ import {
   TextCursorInput,
   ShieldCheck,
   Wallet,
+  LayoutTemplate,
 } from 'lucide-react';
 
 type MenuItem = {
@@ -70,9 +71,9 @@ function buildMenuSections(role: string | null): MenuSection[] {
 
   // ----- Student section -----
   const allStudentItems: MenuItem[] = [
+    { title: 'Students', href: '/admin/students', icon: Users, color: 'text-violet-500', bg: 'bg-violet-50' },
     { title: 'Enrollments', href: '/admin/enrollments', icon: FileText, color: 'text-indigo-600', bg: 'bg-indigo-50' },
     { title: 'Invoices', href: '/admin/invoices', icon: CreditCard, color: 'text-orange-500', bg: 'bg-orange-50' },
-    { title: 'Students', href: '/admin/students', icon: Users, color: 'text-violet-500', bg: 'bg-violet-50' },
     { title: 'Academic', href: '/admin/academic-records', icon: BarChart3, color: 'text-lime-500', bg: 'bg-lime-50' },
   ];
   const studentItems: MenuItem[] = isAccounts
@@ -160,10 +161,20 @@ function buildMenuSections(role: string | null): MenuSection[] {
   if (showQuestions) sections.push({ label: 'Question System', items: questionItems });
   if (showExam) sections.push({ label: 'Exam', items: examItems });
   if (managementItems.length > 0) sections.push({ label: 'Management', items: managementItems });
-  if (can(role, 'SUPER_ADMIN') && !can(role, 'BRANCH_ADMIN', 'ACCOUNTS', 'MODERATOR', 'TEACHER', 'STUDENT')) {
+  if (role === 'SUPER_ADMIN') {
     sections.push({ label: 'System', items: userMgmtItems });
   }
   if (adminItems.length > 0) sections.push({ label: 'Administrative', items: adminItems });
+
+  // ----- Landing CMS (SUPER_ADMIN + BRANCH_ADMIN) -----
+  if (can(role, 'BRANCH_ADMIN')) {
+    sections.push({
+      label: 'Website',
+      items: [
+        { title: 'Landing CMS', href: '/admin/landing', icon: LayoutTemplate, color: 'text-fuchsia-600', bg: 'bg-fuchsia-50' },
+      ],
+    });
+  }
 
   return sections;
 }

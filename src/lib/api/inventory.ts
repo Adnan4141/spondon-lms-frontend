@@ -1,5 +1,12 @@
 import { apiRequest } from '../api';
 
+interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  message?: string;
+  error?: string;
+}
+
 export interface InventoryItem {
   id: string;
   branchId?: string | null;
@@ -7,10 +14,10 @@ export interface InventoryItem {
   sku?: string | null;
   category?: string | null;
   unit?: string | null;
-  quantity: number;
+  currentQty: number;
   reorderLevel?: number | null;
   costPrice?: number | null;
-  salePrice?: number | null;
+  sellPrice?: number | null;
   createdAt: string;
   updatedAt: string;
   branch?: { id: string; name: string } | null;
@@ -19,19 +26,19 @@ export interface InventoryItem {
 export interface InventoryTransaction {
   id: string;
   inventoryItemId: string;
-  quantity: number;
-  type: string;
+  qty: number;
+  txnType: string;
   note?: string | null;
   createdAt: string;
   item?: InventoryItem;
 }
 
-export async function getInventoryItems(params?: { branchId?: string; category?: string; search?: string }) {
+export async function getInventoryItems(params?: { branchId?: string; category?: string; search?: string }): Promise<ApiResponse<InventoryItem[]>> {
   const q = new URLSearchParams();
   if (params?.branchId) q.set('branchId', params.branchId);
   if (params?.category) q.set('category', params.category);
   if (params?.search) q.set('search', params.search);
-  return apiRequest(`/inventory/items?${q.toString()}`);
+  return apiRequest<ApiResponse<InventoryItem[]>>(`/inventory/items?${q.toString()}`);
 }
 
 export async function createInventoryItem(data: {
@@ -40,12 +47,12 @@ export async function createInventoryItem(data: {
   sku?: string;
   category?: string;
   unit?: string;
-  quantity?: number;
+  currentQty?: number;
   reorderLevel?: number;
   costPrice?: number;
-  salePrice?: number;
-}) {
-  return apiRequest('/inventory/items', { method: 'POST', body: JSON.stringify(data) });
+  sellPrice?: number;
+}): Promise<ApiResponse<InventoryItem>> {
+  return apiRequest<ApiResponse<InventoryItem>>('/inventory/items', { method: 'POST', body: JSON.stringify(data) });
 }
 
 export async function updateInventoryItem(id: string, data: Partial<{
@@ -54,25 +61,25 @@ export async function updateInventoryItem(id: string, data: Partial<{
   sku: string;
   category: string;
   unit: string;
-  quantity: number;
+  currentQty: number;
   reorderLevel: number;
   costPrice: number;
-  salePrice: number;
-}>) {
-  return apiRequest(`/inventory/items/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  sellPrice: number;
+}>): Promise<ApiResponse<InventoryItem>> {
+  return apiRequest<ApiResponse<InventoryItem>>(`/inventory/items/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 }
 
-export async function getInventoryTransactions(params?: { inventoryItemId?: string }) {
+export async function getInventoryTransactions(params?: { inventoryItemId?: string }): Promise<ApiResponse<InventoryTransaction[]>> {
   const q = new URLSearchParams();
   if (params?.inventoryItemId) q.set('inventoryItemId', params.inventoryItemId);
-  return apiRequest(`/inventory/transactions?${q.toString()}`);
+  return apiRequest<ApiResponse<InventoryTransaction[]>>(`/inventory/transactions?${q.toString()}`);
 }
 
 export async function createInventoryTransaction(data: {
   inventoryItemId: string;
-  quantity: number;
-  type: 'IN' | 'OUT' | 'ADJUST';
+  qty: number;
+  txnType: 'IN' | 'OUT' | 'ADJUST';
   note?: string;
-}) {
-  return apiRequest('/inventory/transactions', { method: 'POST', body: JSON.stringify(data) });
+}): Promise<ApiResponse<InventoryTransaction>> {
+  return apiRequest<ApiResponse<InventoryTransaction>>('/inventory/transactions', { method: 'POST', body: JSON.stringify(data) });
 }

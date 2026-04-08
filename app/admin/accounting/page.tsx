@@ -294,6 +294,8 @@ function LedgerEntryForm({ accounts, branches, onSuccess, onCancel }: {
         <Button type="submit" className="bg-sky-600 text-white hover:bg-sky-700 hover:text-white" disabled={submitting}>
           {submitting ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : null}
           Add entry
+
+
         </Button>
       </div>
     </form>
@@ -559,7 +561,7 @@ function LedgerTab({ accounts, branches }: { accounts: Account[]; branches: Bran
       </div>
 
       <Dialog open={formOpen} onOpenChange={(o) => { if (!o) setFormOpen(false); }}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-5xl">
           <DialogHeader>
             <DialogTitle className="font-black">New Ledger Entry</DialogTitle>
           </DialogHeader>

@@ -93,9 +93,15 @@ export default function InvoicesPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const bid = new URLSearchParams(window.location.search).get('branchId');
+    const params = new URLSearchParams(window.location.search);
+    const bid = params.get('branchId');
     if (bid) setBranchFilter(bid);
-  }, []);
+    const openId = params.get('open');
+    if (openId) {
+      // Auto-open the specific invoice detail view after initial data load
+      setTimeout(() => void handleViewInvoice(openId), 800);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadInvoices = async () => {
     try {
