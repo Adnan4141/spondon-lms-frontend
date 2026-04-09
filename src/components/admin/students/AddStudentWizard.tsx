@@ -119,7 +119,6 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
   const [programCourses, setProgramCourses] = useState<Course[]>([]);
   const [programId, setProgramId] = useState('');
   const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);
-  const [enrollBranchId, setEnrollBranchId] = useState('');
   const [billingStartMonth, setBillingStartMonth] = useState('');
   const [loadingCourses, setLoadingCourses] = useState(false);
 
@@ -188,8 +187,6 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
     return m;
   }, [programCourses]);
 
-  const effectiveEnrollBranchId = enrollBranchId || profile.branchId;
-
   /** True when course delivery is in-person / center (API may send mixed casing). */
   const isOfflineCourseType = (type: Course['type'] | undefined) =>
     String(type ?? '').toUpperCase() === 'OFFLINE';
@@ -211,7 +208,7 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
 
     let cancelled = false;
     setLoadingBatches(true);
-    const branchForFetch = effectiveEnrollBranchId;
+    const branchForFetch = profile.branchId;
 
     // Drop cached rows for these courses so UI shows loading (not stale options from another branch)
     setAvailableBatches((prev) => {
@@ -256,7 +253,7 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
     return () => {
       cancelled = true;
     };
-  }, [selectedCourseIds, effectiveEnrollBranchId, courseById]);
+  }, [selectedCourseIds, profile.branchId, courseById]);
 
   // Clear batch assignment when a course is deselected
   useEffect(() => {
@@ -273,7 +270,7 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
   // Batches are tied to branch — clear picks when enrollment branch changes
   useEffect(() => {
     setBatchAssignments({});
-  }, [effectiveEnrollBranchId]);
+  }, [profile.branchId]);
 
   const toggleCourse = (id: string) => {
     setSelectedCourseIds((prev) =>
@@ -412,8 +409,7 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
       setError('Choose a program and at least one course.');
       return false;
     }
-    const b = enrollBranchId || profile.branchId;
-    if (!b) {
+    if (!profile.branchId) {
       setError('Select a branch for enrollment.');
       return false;
     }
@@ -456,7 +452,6 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
     if (step === 1 && !validateStep1()) return;
     if (step === 2) {
       if (!validateStep2()) return;
-      setEnrollBranchId((prev) => prev || profile.branchId);
       if (!billingStartMonth.trim()) {
         const needsMonth = selectedCourseIds.some((id) => courseById.get(id)?.billingType === 'MONTHLY');
         if (needsMonth) setBillingStartMonth(new Date().toISOString().slice(0, 7));
@@ -489,8 +484,7 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
 
   const handleFinish = async () => {
     if (!validateStep3()) return;
-    const branchForEnroll = enrollBranchId || profile.branchId;
-    if (!branchForEnroll || selectedCourseIds.length === 0) {
+    if (!profile.branchId || selectedCourseIds.length === 0) {
       setError('Branch and at least one course are required.');
       return;
     }
@@ -545,7 +539,7 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
 
       const adm = await offlineAdmission({
         studentUserId,
-        branchId: branchForEnroll,
+        branchId: profile.branchId,
         courses: selectedCourseIds.map((courseId) => ({
           courseId,
           batchId: batchAssignments[courseId] || undefined,
@@ -927,28 +921,6 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
               )}
             </div>
 
-            <div className="space-y-2 rounded-2xl border border-indigo-100 bg-indigo-50/30 p-4">
-              <label className={sectionLabel}>Enrollment branch</label>
-              <Select
-                value={(enrollBranchId || profile.branchId) || undefined}
-                onValueChange={setEnrollBranchId}
-              >
-                <SelectTrigger className="h-12 rounded-2xl border-indigo-200 bg-white font-bold shadow-sm">
-                  <SelectValue placeholder="Branch for these enrollments" />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl">
-                  {branches.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>
-                      {b.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-[10px] font-medium text-indigo-700/80">
-                Offline courses load <strong>active batches</strong> for this branch. Change the branch if batches do not appear.
-              </p>
-            </div>
-
             {!programId ? (
               <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-4 py-10 text-center text-sm font-semibold text-slate-500">
                 Select a program above to list its courses for this admission.
@@ -1027,9 +999,9 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
                           <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-slate-500">
                             Batch <span className="text-rose-500">*</span>
                           </label>
-                          {!effectiveEnrollBranchId ? (
+                          {!profile.branchId ? (
                             <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900">
-                              Select an <strong>enrollment branch</strong> above to load batches for this offline course.
+                              Select a <strong>branch</strong> in the profile section to load batches for this offline course.
                             </p>
                           ) : batchLoadPending ? (
                             <div className="flex items-center gap-2 py-2 text-xs font-bold text-slate-400">
@@ -1530,7 +1502,7 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
               </table>
             </div>
             <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-4 text-xs font-bold text-slate-600 space-y-1">
-              <p>Branch: {branches.find((b) => b.id === (enrollBranchId || profile.branchId))?.name}</p>
+              <p>Branch: {branches.find((b) => b.id === profile.branchId)?.name}</p>
               <p>Billing month: {billingStartMonth || '—'}</p>
               <p>
                 Payment timing:{' '}
