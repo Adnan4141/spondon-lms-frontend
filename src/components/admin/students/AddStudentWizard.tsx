@@ -6,6 +6,7 @@ import { createStudent } from '@/lib/api/students';
 import { getPrograms, getProgramById, type Program } from '@/lib/api/programs';
 import type { Course } from '@/lib/api/courses';
 import { offlineAdmission, type PaymentMethodType } from '@/lib/api/enrollments';
+import { getBatches, type Batch } from '@/lib/api/batches';
 import { useModalStore } from '@/store/modalStore';
 import { useToast } from '@/hooks/use-toast';
 import type { Branch, Institute, SmsAlertTo, UserStatus } from '@/types/student';
@@ -122,6 +123,12 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
   const [billingStartMonth, setBillingStartMonth] = useState('');
   const [loadingCourses, setLoadingCourses] = useState(false);
 
+  /** Per-course batch assignments: { [courseId]: batchId } */
+  const [batchAssignments, setBatchAssignments] = useState<Record<string, string>>({});
+  /** Available ACTIVE batches per course: { [courseId]: Batch[] } */
+  const [availableBatches, setAvailableBatches] = useState<Record<string, Batch[]>>({});
+  const [loadingBatches, setLoadingBatches] = useState(false);
+
   /** Overall amounts for all selected courses; split by course fee weight when creating invoices. */
   const [totalDiscountAmount, setTotalDiscountAmount] = useState('');
   const [totalScholarshipAmount, setTotalScholarshipAmount] = useState('');
@@ -151,8 +158,12 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
     if (!programId) {
       setProgramCourses([]);
       setSelectedCourseIds([]);
+      setBatchAssignments({});
+      setAvailableBatches({});
       return;
     }
+    setBatchAssignments({});
+    setAvailableBatches({});
     (async () => {
       try {
         setLoadingCourses(true);
@@ -176,6 +187,93 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
     programCourses.forEach((c) => m.set(c.id, c));
     return m;
   }, [programCourses]);
+
+  const effectiveEnrollBranchId = enrollBranchId || profile.branchId;
+
+  /** True when course delivery is in-person / center (API may send mixed casing). */
+  const isOfflineCourseType = (type: Course['type'] | undefined) =>
+    String(type ?? '').toUpperCase() === 'OFFLINE';
+
+  // Refetch batches whenever enrollment branch or selected offline courses change (avoids stale cache and []-never-refetch bug).
+  useEffect(() => {
+    const offlineIds = selectedCourseIds.filter((id) => isOfflineCourseType(courseById.get(id)?.type));
+
+    if (offlineIds.length === 0) {
+      setAvailableBatches((prev) => {
+        const next = { ...prev };
+        for (const id of Object.keys(next)) {
+          if (!selectedCourseIds.includes(id)) delete next[id];
+        }
+        return next;
+      });
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingBatches(true);
+    const branchForFetch = effectiveEnrollBranchId;
+
+    // Drop cached rows for these courses so UI shows loading (not stale options from another branch)
+    setAvailableBatches((prev) => {
+      const next = { ...prev };
+      for (const id of offlineIds) delete next[id];
+      return next;
+    });
+
+    Promise.all(
+      offlineIds.map(async (courseId) => {
+        try {
+          const res = await getBatches({
+            courseId,
+            ...(branchForFetch ? { branchId: branchForFetch } : {}),
+            status: 'ACTIVE',
+            limit: 100,
+          });
+          const batches = res.success && Array.isArray(res.data) ? res.data : [];
+          return { courseId, batches };
+        } catch {
+          return { courseId, batches: [] as Batch[] };
+        }
+      }),
+    )
+      .then((results) => {
+        if (cancelled) return;
+        setAvailableBatches((prev) => {
+          const next = { ...prev };
+          for (const id of Object.keys(next)) {
+            if (!selectedCourseIds.includes(id)) delete next[id];
+          }
+          for (const { courseId, batches } of results) {
+            next[courseId] = batches;
+          }
+          return next;
+        });
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingBatches(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCourseIds, effectiveEnrollBranchId, courseById]);
+
+  // Clear batch assignment when a course is deselected
+  useEffect(() => {
+    setBatchAssignments((prev) => {
+      const next: Record<string, string> = {};
+      for (const id of selectedCourseIds) {
+        if (prev[id]) next[id] = prev[id];
+      }
+      return next;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCourseIds]);
+
+  // Batches are tied to branch — clear picks when enrollment branch changes
+  useEffect(() => {
+    setBatchAssignments({});
+  }, [effectiveEnrollBranchId]);
 
   const toggleCourse = (id: string) => {
     setSelectedCourseIds((prev) =>
@@ -225,7 +323,8 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
   }, [programId]);
 
   const effectiveAdmissionFeeTotal = useMemo(
-    () => admissionFeePrograms.reduce((s, p) => s + (Number(admissionFeeOverrides[p.id]) || 0), 0),
+    // Fall back to p.amount when overrides haven't been seeded yet (avoids showing 0)
+    () => admissionFeePrograms.reduce((s, p) => s + (Number(admissionFeeOverrides[p.id] ?? p.amount) || 0), 0),
     [admissionFeePrograms, admissionFeeOverrides],
   );
 
@@ -321,6 +420,15 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
     const needsMonth = selectedCourseIds.some((id) => courseById.get(id)?.billingType === 'MONTHLY');
     if (needsMonth && !/^\d{4}-\d{2}$/.test(billingStartMonth.trim())) {
       setError('Billing month (YYYY-MM) is required for monthly course(s).');
+      return false;
+    }
+    // Offline courses must have a batch assigned
+    const offlineWithoutBatch = selectedCourseIds.filter(
+      (id) => isOfflineCourseType(courseById.get(id)?.type) && !batchAssignments[id],
+    );
+    if (offlineWithoutBatch.length > 0) {
+      const names = offlineWithoutBatch.map((id) => courseById.get(id)?.name || id).join(', ');
+      setError(`Please select a batch for each offline course: ${names}`);
       return false;
     }
     setError(null);
@@ -438,7 +546,10 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
       const adm = await offlineAdmission({
         studentUserId,
         branchId: branchForEnroll,
-        courses: selectedCourseIds.map((courseId) => ({ courseId })),
+        courses: selectedCourseIds.map((courseId) => ({
+          courseId,
+          batchId: batchAssignments[courseId] || undefined,
+        })),
         billingStartMonth: needsMonth ? monthYm || undefined : undefined,
         paymentMethod,
         paymentAmount: payTotal,
@@ -815,6 +926,29 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
                 </Select>
               )}
             </div>
+
+            <div className="space-y-2 rounded-2xl border border-indigo-100 bg-indigo-50/30 p-4">
+              <label className={sectionLabel}>Enrollment branch</label>
+              <Select
+                value={(enrollBranchId || profile.branchId) || undefined}
+                onValueChange={setEnrollBranchId}
+              >
+                <SelectTrigger className="h-12 rounded-2xl border-indigo-200 bg-white font-bold shadow-sm">
+                  <SelectValue placeholder="Branch for these enrollments" />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl">
+                  {branches.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] font-medium text-indigo-700/80">
+                Offline courses load <strong>active batches</strong> for this branch. Change the branch if batches do not appear.
+              </p>
+            </div>
+
             {!programId ? (
               <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-4 py-10 text-center text-sm font-semibold text-slate-500">
                 Select a program above to list its courses for this admission.
@@ -836,60 +970,157 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
                 </div>
                 {programCourses.map((c) => {
                   const sel = selectedCourseIds.includes(c.id);
+                  const isOffline = isOfflineCourseType(c.type);
+                  const batches = availableBatches[c.id] ?? [];
+                  const assignedBatch = batchAssignments[c.id] ?? '';
+                  const batchMissing = sel && isOffline && !assignedBatch;
+                  const batchLoadPending = loadingBatches && !(c.id in availableBatches);
                   return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => toggleCourse(c.id)}
-                      className={cn(
-                        'flex w-full items-center justify-between rounded-2xl border p-4 text-left transition-all',
-                        sel ? 'border-indigo-300 bg-indigo-50/50' : 'border-slate-100 hover:border-slate-200',
-                      )}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Checkbox checked={sel} className="pointer-events-none" />
-                        <Layers className="h-5 w-5 text-slate-400" />
-                        <div>
-                          <p className="font-black text-slate-800">{c.name}</p>
-                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                            <CourseDeliveryBadge type={c.type} />
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                              {c.code} · {Number(c.fee).toFixed(0)} BDT ·{' '}
-                              {c.billingType === 'MONTHLY' ? 'MONTHLY' : 'ONE-TIME'}
-                            </p>
+                    <div key={c.id} className="space-y-0">
+                      <button
+                        type="button"
+                        onClick={() => toggleCourse(c.id)}
+                        className={cn(
+                          'flex w-full items-center justify-between p-4 text-left transition-all',
+                          sel && isOffline ? 'rounded-t-2xl' : 'rounded-2xl',
+                          sel
+                            ? batchMissing
+                              ? 'border border-b-0 border-amber-300 bg-amber-50/50'
+                              : 'border border-b-0 border-indigo-300 bg-indigo-50/50'
+                            : 'rounded-2xl border border-slate-100 hover:border-slate-200',
+                          !sel && 'rounded-2xl',
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Checkbox checked={sel} className="pointer-events-none" />
+                          <Layers className="h-5 w-5 text-slate-400" />
+                          <div>
+                            <p className="font-black text-slate-800">{c.name}</p>
+                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                              <CourseDeliveryBadge type={c.type} />
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                {c.code} · {Number(c.fee).toFixed(0)} BDT ·{' '}
+                                {c.billingType === 'MONTHLY' ? 'MONTHLY' : 'ONE-TIME'}
+                              </p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      {sel ? (
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600">
-                          <Check className="h-4 w-4 text-white" />
+                        {sel ? (
+                          <div className={cn(
+                            'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
+                            batchMissing ? 'bg-amber-400' : 'bg-indigo-600',
+                          )}>
+                            <Check className="h-4 w-4 text-white" />
+                          </div>
+                        ) : null}
+                      </button>
+
+                      {/* Batch selector — shown only when course is selected */}
+                      {sel && isOffline && (
+                        <div
+                          className={cn(
+                            'rounded-b-2xl border border-t-0 px-4 pb-3 pt-2',
+                            batchMissing ? 'border-amber-300 bg-amber-50/30' : 'border-indigo-300 bg-indigo-50/30',
+                          )}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-slate-500">
+                            Batch <span className="text-rose-500">*</span>
+                          </label>
+                          {!effectiveEnrollBranchId ? (
+                            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900">
+                              Select an <strong>enrollment branch</strong> above to load batches for this offline course.
+                            </p>
+                          ) : batchLoadPending ? (
+                            <div className="flex items-center gap-2 py-2 text-xs font-bold text-slate-400">
+                              <div className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
+                              Loading batches…
+                            </div>
+                          ) : batches.length === 0 ? (
+                            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
+                              No active batches for this course at this branch. Create a batch in admin or pick another branch.
+                            </p>
+                          ) : (
+                            <Select
+                              value={assignedBatch || undefined}
+                              onValueChange={(v) =>
+                                setBatchAssignments((prev) => ({ ...prev, [c.id]: v }))
+                              }
+                            >
+                              <SelectTrigger
+                                className={cn(
+                                  'h-10 rounded-xl border font-bold text-sm',
+                                  batchMissing
+                                    ? 'border-amber-300 bg-white text-amber-900'
+                                    : 'border-indigo-200 bg-white text-slate-800',
+                                )}
+                              >
+                                <SelectValue placeholder="Select batch (required for offline)" />
+                              </SelectTrigger>
+                              <SelectContent className="rounded-xl">
+                                {batches.map((b) => (
+                                  <SelectItem key={b.id} value={b.id} className="font-bold">
+                                    {b.name}
+                                    {b.startDate ? (
+                                      <span className="ml-2 text-[10px] font-medium text-slate-400">
+                                        · starts {new Date(b.startDate).toLocaleDateString('en-BD')}
+                                      </span>
+                                    ) : null}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                          {batchMissing && (
+                            <p className="mt-1 text-[10px] font-bold text-amber-700">
+                              Batch is required for offline courses. Please select one to continue.
+                            </p>
+                          )}
                         </div>
-                      ) : null}
-                    </button>
+                      )}
+
+                      {/* Online course — optional batch */}
+                      {sel && !isOffline && (
+                        <div
+                          className="rounded-b-2xl border border-t-0 border-indigo-300 bg-indigo-50/20 px-4 pb-3 pt-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-slate-400">
+                            Batch <span className="text-slate-300">(optional for online)</span>
+                          </label>
+                          {batches.length > 0 ? (
+                            <Select
+                              value={assignedBatch || 'none'}
+                              onValueChange={(v) =>
+                                setBatchAssignments((prev) => ({
+                                  ...prev,
+                                  [c.id]: v === 'none' ? '' : v,
+                                }))
+                              }
+                            >
+                              <SelectTrigger className="h-10 rounded-xl border border-indigo-200 bg-white text-sm font-bold text-slate-700">
+                                <SelectValue placeholder="No batch (optional)" />
+                              </SelectTrigger>
+                              <SelectContent className="rounded-xl">
+                                <SelectItem value="none" className="font-bold text-slate-400">
+                                  No batch
+                                </SelectItem>
+                                {batches.map((b) => (
+                                  <SelectItem key={b.id} value={b.id} className="font-bold">
+                                    {b.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>
             )}
             <div className="grid gap-6 border-t border-slate-100 pt-8 sm:grid-cols-2">
-              <div className="space-y-2">
-                <label className={sectionLabel}>Enrollment branch</label>
-                <Select
-                  value={(enrollBranchId || profile.branchId) || undefined}
-                  onValueChange={setEnrollBranchId}
-                >
-                  <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-white font-bold shadow-sm">
-                    <SelectValue placeholder="Branch for these enrollments" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-2xl">
-                    {branches.map((b) => (
-                      <SelectItem key={b.id} value={b.id}>
-                        {b.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-[10px] font-medium text-slate-400">Defaults to the student branch from step 1; change if needed.</p>
-              </div>
               <div className="space-y-2">
                 <label className={sectionLabel}>First billing month (monthly courses)</label>
                 <MonthYearPicker
@@ -901,7 +1132,7 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
               </div>
 
               {admissionFeePrograms.length > 0 && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 space-y-1">
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 space-y-1 sm:col-span-2">
                   <p className="text-[10px] font-black uppercase tracking-widest text-amber-700">
                     Admission fee will be added to invoice
                   </p>

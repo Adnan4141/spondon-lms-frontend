@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -13,8 +12,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { MonthYearPicker } from '@/components/ui/month-year-picker';
 import { distributeProportionalByFee } from '@/lib/admission-distribution';
 import {
@@ -44,7 +41,6 @@ import {
   ChevronLeft,
   ChevronRight,
   CreditCard,
-  CalendarIcon,
   Lock,
   Search,
 } from 'lucide-react';
@@ -52,20 +48,6 @@ import {
 const inputClass =
   'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner outline-none';
 const sectionLabel = 'text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2 block px-1';
-
-function parseDateInput(value?: string): Date | undefined {
-  if (!value) return undefined;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? undefined : date;
-}
-
-function formatDateInput(date?: Date): string {
-  if (!date) return '';
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
 
 interface AddEnrollmentFormProps {
   studentId: string;
@@ -387,7 +369,8 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
       const due = Math.max(payable - p, 0);
       return { id, fee, disc: d, schol: sc, pay: p, payable, due };
     });
-    return { rows };
+    const totalFee = ids.reduce((s, id) => s + feeFn(id), 0);
+    return { rows, totalFee };
   }, [ids, courseMap, totalDiscountNum, totalScholarshipNum, totalPaymentNum]);
 
   const validateStep1 = (): boolean => {
@@ -458,6 +441,24 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
             })
           );
           setAvailableBatches(newAvailable);
+          
+          // Auto-unselect OFFLINE courses that have no available batches
+          const coursesWithoutBatches = offlineCourseIds.filter((id) => {
+            const batches = newAvailable[id] ?? [];
+            return batches.length === 0;
+          });
+          
+          if (coursesWithoutBatches.length > 0) {
+            setProgramSelectedIds((prev) => prev.filter((id) => !coursesWithoutBatches.includes(id)));
+            setMonthlySelectedIds((prev) => prev.filter((id) => !coursesWithoutBatches.includes(id)));
+            
+            const courseNames = coursesWithoutBatches.map((id) => courseMap.get(id)?.name ?? id).join(', ');
+            toast({
+              title: 'Courses auto-unselected',
+              description: `${coursesWithoutBatches.length} OFFLINE course(s) without available batches were unselected: ${courseNames}`,
+              variant: 'default',
+            });
+          }
         } finally {
           setLoadingBatches(false);
         }
@@ -477,7 +478,9 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
       setTotalDiscountAmount(sumOffer > 0 ? String(Math.round(sumOffer * 100) / 100) : '');
       setDiscountReference(refFrom);
       setTotalScholarshipAmount('');
-      setTotalPaymentAmount(String(Math.round(Math.max(tFee - sumOffer, 0) * 100) / 100));
+      // Default payment = course fees - discount + admission fees
+      const defaultPayment = Math.max(tFee - sumOffer, 0) + effectiveAdmissionFeeTotal;
+      setTotalPaymentAmount(String(Math.round(defaultPayment * 100) / 100));
     }
     if (step === 2) {
       // Validate batch selection for OFFLINE courses
@@ -507,8 +510,9 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
       return;
     }
     const monthYm = billingStartMonth.trim();
-    const nextDueIso = nextPaymentDueDate
-      ? new Date(`${nextPaymentDueDate}T12:00:00`).toISOString()
+    // nextPaymentDueDate is now in YYYY-MM format from MonthYearPicker
+    const nextDueIso = nextPaymentDueDate && /^\d{4}-\d{2}$/.test(nextPaymentDueDate.trim())
+      ? new Date(`${nextPaymentDueDate.trim()}-01T12:00:00`).toISOString()
       : undefined;
     const discTotal = Number(totalDiscountAmount) || 0;
     const scholTotal = Number(totalScholarshipAmount) || 0;
@@ -843,35 +847,7 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
               </>
             )}
 
-            <div className="grid gap-4 sm:grid-cols-2 border-t border-slate-100 pt-6">
-              <div className="space-y-2">
-                <label className={sectionLabel}>Branch</label>
-                <Select value={branchId || undefined} onValueChange={setBranchId}>
-                  <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-white font-bold shadow-sm">
-                    <SelectValue placeholder="Branch" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-2xl">
-                    {branches.map((b) => (
-                      <SelectItem key={b.id} value={b.id}>
-                        {b.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {branchId ? (
-                  loadingEnrollments ? (
-                    <p className="text-[10px] font-bold text-slate-400">Loading enrollments for this branch…</p>
-                  ) : (
-                    <p className="text-[10px] font-bold text-slate-500">
-                      {enrolledCourseIds.length > 0
-                        ? `${enrolledCourseIds.length} course(s) already linked at this branch — those rows are disabled above.`
-                        : 'No existing course enrollments at this branch for this student.'}
-                    </p>
-                  )
-                ) : (
-                  <p className="text-[10px] font-bold text-slate-400">Choose a branch to detect duplicate enrollments.</p>
-                )}
-              </div>
+            <div className="border-t border-slate-100 pt-6">
               <div className="space-y-2">
                 <label className={sectionLabel}>Billing month (monthly courses)</label>
                 <MonthYearPicker value={billingStartMonth} onChange={setBillingStartMonth} />
@@ -1206,44 +1182,25 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <label className={sectionLabel}>Transaction / slip reference (non-cash, if paying now)</label>
-                  <Input
-                    className={inputClass}
-                    value={paymentTrxId}
-                    onChange={(e) => setPaymentTrxId(e.target.value)}
-                    placeholder="Trx ID, bank ref…"
-                    disabled={paymentFieldsLocked}
-                  />
-                </div>
+                {paymentMethod !== 'CASH' && (
+                  <div className="space-y-2 sm:col-span-2">
+                    <label className={sectionLabel}>Transaction / slip reference (required for non-cash)</label>
+                    <Input
+                      className={inputClass}
+                      value={paymentTrxId}
+                      onChange={(e) => setPaymentTrxId(e.target.value)}
+                      placeholder="Trx ID, bank ref…"
+                      disabled={paymentFieldsLocked}
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
             <div className="grid gap-6 sm:grid-cols-2">
               <div className="space-y-2 sm:col-span-2">
-                <label className={sectionLabel}>Next payment date (all invoices)</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        'h-12 w-full justify-start rounded-2xl border-slate-200 bg-slate-50/50 font-bold',
-                        !nextPaymentDueDate && 'text-slate-400',
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {nextPaymentDueDate
-                        ? format(parseDateInput(nextPaymentDueDate)!, 'dd MMM yyyy')
-                        : 'Pick date'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto rounded-2xl p-0" align="start">
-                    <Calendar
-                      selected={parseDateInput(nextPaymentDueDate)}
-                      onSelect={(date) => setNextPaymentDueDate(formatDateInput(date))}
-                    />
-                  </PopoverContent>
-                </Popover>
+                <label className={sectionLabel}>Next payment month (all invoices)</label>
+                <MonthYearPicker value={nextPaymentDueDate} onChange={setNextPaymentDueDate} />
               </div>
             </div>
 
@@ -1296,6 +1253,21 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
                         <td className="px-3 py-2.5 text-right font-mono font-black text-rose-700">{r.due.toFixed(0)}</td>
                       </tr>
                     ))}
+                    {admissionFeePrograms.map((p) => {
+                      const feeAmount = Number(admissionFeeOverrides[p.id]) || p.amount;
+                      return (
+                        <tr key={`admission-${p.id}`} className="bg-amber-50/30">
+                          <td className="px-3 py-2.5 font-bold text-amber-900">
+                            {p.name} <span className="text-[10px] font-medium text-amber-600">(Admission Fee)</span>
+                          </td>
+                          <td className="px-3 py-2.5 text-right font-mono text-amber-800">{feeAmount.toFixed(0)}</td>
+                          <td className="px-3 py-2.5 text-right font-mono text-slate-400">—</td>
+                          <td className="px-3 py-2.5 text-right font-mono text-slate-400">—</td>
+                          <td className="px-3 py-2.5 text-right font-mono text-slate-400">—</td>
+                          <td className="px-3 py-2.5 text-right font-mono text-slate-400">—</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1305,48 +1277,144 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
 
         {step === 3 && (
           <div className="space-y-6">
-            <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-5">
-              <h3 className="text-sm font-black uppercase tracking-widest text-indigo-800">Review</h3>
-              <p className="mt-2 text-xs font-bold text-slate-600">Confirm the table below, then enroll and create invoices.</p>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-800">Review & Confirm</h3>
+                <p className="text-xs text-slate-500">Verify payment summary and enrollment details before submitting</p>
+              </div>
             </div>
-            <div className="overflow-x-auto rounded-2xl border border-slate-200">
-              <table className="w-full min-w-[600px] text-left text-sm">
-                <thead className="border-b border-slate-100 bg-slate-50 text-[10px] font-black uppercase text-slate-500">
-                  <tr>
-                    <th className="px-3 py-2">Course</th>
-                    <th className="px-3 py-2 text-right">Fee</th>
-                    <th className="px-3 py-2 text-right">Disc.</th>
-                    <th className="px-3 py-2 text-right">Schol.</th>
-                    <th className="px-3 py-2 text-right">Pay now</th>
-                    <th className="px-3 py-2 text-right">Due</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
+
+            {/* Payment Summary Card */}
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
+              <div className="border-b border-slate-100 bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-white/90">Payment Summary</p>
+                <p className="text-xs font-medium text-indigo-100">Invoice breakdown for this enrollment</p>
+              </div>
+
+              <div className="divide-y divide-slate-100">
+                {/* Course Fees Section */}
+                <div className="p-5 space-y-3">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Course Fees</p>
                   {distributedPreview.rows.map((r) => {
                     const c = courseMap.get(r.id);
                     return (
-                      <tr key={r.id} className="bg-white">
-                        <td className="px-3 py-2 font-bold text-slate-800">{c?.name}</td>
-                        <td className="px-3 py-2 text-right font-mono">{r.fee.toFixed(0)}</td>
-                        <td className="px-3 py-2 text-right font-mono">{r.disc.toFixed(0)}</td>
-                        <td className="px-3 py-2 text-right font-mono">{r.schol.toFixed(0)}</td>
-                        <td className="px-3 py-2 text-right font-mono">{r.pay.toFixed(0)}</td>
-                        <td className="px-3 py-2 text-right font-black text-amber-800">{r.due.toFixed(0)}</td>
-                      </tr>
+                      <div key={r.id} className="flex items-center justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-bold text-slate-800">{c?.name}</p>
+                          <p className="text-[10px] font-medium text-slate-400">{c?.code} · {c?.billingType}</p>
+                        </div>
+                        <p className="ml-3 font-mono text-sm font-black text-slate-700">৳{r.fee.toLocaleString()}</p>
+                      </div>
                     );
                   })}
-                </tbody>
-              </table>
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+                    <p className="text-xs font-black uppercase tracking-wide text-slate-600">Subtotal (Courses)</p>
+                    <p className="font-mono text-base font-black text-slate-900">৳{distributedPreview.totalFee.toLocaleString()}</p>
+                  </div>
+                </div>
+
+                {/* Admission Fees Section */}
+                {admissionFeePrograms.length > 0 && (
+                  <div className="bg-amber-50/50 p-5 space-y-3">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-amber-700">Admission Fees (One-time)</p>
+                    {admissionFeePrograms.map((p) => (
+                      <div key={p.id} className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-bold text-amber-900">{p.name}</p>
+                          <p className="text-[10px] font-medium text-amber-600">Program admission fee</p>
+                        </div>
+                        <p className="font-mono text-sm font-black text-amber-800">
+                          ৳{(Number(admissionFeeOverrides[p.id]) || p.amount).toLocaleString()}
+                        </p>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between border-t border-amber-200 pt-3">
+                      <p className="text-xs font-black uppercase tracking-wide text-amber-700">Subtotal (Admission)</p>
+                      <p className="font-mono text-base font-black text-amber-900">৳{effectiveAdmissionFeeTotal.toLocaleString()}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Adjustments Section */}
+                {(totalDiscountNum > 0 || totalScholarshipNum > 0) && (
+                  <div className="bg-violet-50/50 p-5 space-y-3">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-violet-700">Adjustments</p>
+                    {totalDiscountNum > 0 && (
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-bold text-violet-900">Discount</p>
+                          {discountReference && (
+                            <p className="text-[10px] font-medium text-violet-600">{discountReference}</p>
+                          )}
+                        </div>
+                        <p className="font-mono text-sm font-black text-violet-700">-৳{totalDiscountNum.toLocaleString()}</p>
+                      </div>
+                    )}
+                    {totalScholarshipNum > 0 && (
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-bold text-violet-900">Scholarship</p>
+                          <p className="text-[10px] font-medium text-violet-600">One-time discount</p>
+                        </div>
+                        <p className="font-mono text-sm font-black text-violet-700">-৳{totalScholarshipNum.toLocaleString()}</p>
+                      </div>
+                    )}
+                    {Number(recurringScholarshipAmount) > 0 && (
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-bold text-violet-900">Recurring Scholarship</p>
+                          <p className="text-[10px] font-medium text-violet-600">Auto-applied monthly</p>
+                        </div>
+                        <p className="font-mono text-sm font-black text-violet-700">৳{Number(recurringScholarshipAmount).toLocaleString()}/mo</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Grand Total & Payment */}
+                <div className="bg-gradient-to-br from-slate-50 to-slate-100 p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-black uppercase tracking-wide text-slate-700">Total Payable</p>
+                    <p className="font-mono text-xl font-black text-slate-900">
+                      ৳{(distributedPreview.totalFee + effectiveAdmissionFeeTotal - totalDiscountNum - totalScholarshipNum).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-slate-200 pt-4">
+                    <p className="text-sm font-black uppercase tracking-wide text-emerald-700">Payment Collected Today</p>
+                    <p className="font-mono text-2xl font-black text-emerald-600">৳{totalPaymentNum.toLocaleString()}</p>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-slate-200 pt-4">
+                    <p className="text-sm font-black uppercase tracking-wide text-rose-700">Amount Due</p>
+                    <p className="font-mono text-2xl font-black text-rose-600">
+                      ৳{Math.max(distributedPreview.totalFee + effectiveAdmissionFeeTotal - totalDiscountNum - totalScholarshipNum - totalPaymentNum, 0).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="space-y-1 rounded-xl border border-slate-100 bg-slate-50/80 p-4 text-xs font-bold text-slate-600">
-              <p>Branch: {branches.find((b) => b.id === branchId)?.name || '—'}</p>
-              <p>Billing month: {billingStartMonth || '—'}</p>
-              <p>
-                Payment timing:{' '}
-                {admissionChannel === 'offline' ? 'Collect now (cash / bKash / bank)' : 'Pay later (gateway)'}
-              </p>
-              <p>Payment method: {paymentMethod}</p>
-              <p>Next payment: {nextPaymentDueDate ? format(parseDateInput(nextPaymentDueDate)!, 'dd MMM yyyy') : '—'}</p>
+
+            {/* Enrollment Details */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Enrollment Details</p>
+                <div className="space-y-1 text-xs font-bold text-slate-700">
+                  <p>Branch: {branches.find((b) => b.id === branchId)?.name || '—'}</p>
+                  <p>Courses: {resolveSelectedIds().length}</p>
+                  <p>Billing starts: {billingStartMonth || 'N/A'}</p>
+                </div>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Payment Info</p>
+                <div className="space-y-1 text-xs font-bold text-slate-700">
+                  <p>Method: {paymentMethod}</p>
+                  <p>Channel: {admissionChannel === 'offline' ? 'Collect now' : 'Pay later'}</p>
+                  {paymentTrxId && <p>Trx ID: {paymentTrxId}</p>}
+                  {nextPaymentDueDate && <p>Next payment month: {nextPaymentDueDate}</p>}
+                </div>
+              </div>
             </div>
           </div>
         )}

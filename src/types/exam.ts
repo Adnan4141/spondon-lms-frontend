@@ -1,5 +1,23 @@
 // Exam types based on Prisma schema
 export type ExamType = 'PRACTICE' | 'SCHEDULED' | 'MODEL' | 'TALENT_HUNT' | 'UNIVERSITY';
+export type SelectionMode = 'RANDOM' | 'MANUAL';
+
+export interface ExamFolderRule {
+  id: string;
+  examId: string;
+  folderId: string;
+  selectionMode: SelectionMode;
+  questionCount?: number | null;
+  questionTypes?: string[];
+  difficulty?: string | null;
+  tags?: string[];
+  createdAt: string;
+  folder?: {
+    id: string;
+    name: string;
+    _count?: { questions: number };
+  };
+}
 export type ExamEngineType =
   | 'REGULAR'
   | 'COMPETITIVE'
@@ -115,6 +133,7 @@ export interface Exam {
   batch?: Batch | null;
   sets?: ExamSet[];
   attempts?: ExamAttempt[];
+  folderRules?: ExamFolderRule[];
   _count?: {
     attempts?: number;
     sets?: number;

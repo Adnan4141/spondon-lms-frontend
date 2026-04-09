@@ -9,7 +9,27 @@ import type {
   StartAttemptResponse,
   AttemptResultResponse,
   ExamStudentView,
+  ExamFolderRule,
+  SelectionMode,
 } from '@/types/exam';
+
+export type { ExamFolderRule, SelectionMode };
+
+export interface UpsertExamFolderRuleDto {
+  folderId: string;
+  selectionMode: SelectionMode;
+  questionCount?: number | null;
+  questionTypes?: string[];
+  difficulty?: string | null;
+  tags?: string[];
+}
+
+export interface GenerateFromFoldersDto {
+  examSetId: string;
+  marks?: number;
+  negativeMarks?: number;
+  replaceExisting?: boolean;
+}
 
 export async function getExams(params?: {
   courseId?: string;
@@ -399,3 +419,28 @@ export async function getExamMeritListOffline(examId: string): Promise<ApiRespon
 export async function getExamMeritListAll(examId: string): Promise<ApiResponse<ExamMeritListPayload>> {
   return apiRequest<ApiResponse<ExamMeritListPayload>>(`/exams/${examId}/merit-list/all`);
 }
+
+// ─── Exam Folder Rules ──────────────────────────────────────────────────────
+
+export async function getExamFolderRules(examId: string): Promise<ApiResponse<ExamFolderRule[]>> {
+  return apiRequest<ApiResponse<ExamFolderRule[]>>(`/exams/${examId}/folder-rules`);
+}
+
+export async function upsertExamFolderRule(examId: string, data: UpsertExamFolderRuleDto): Promise<ApiResponse<ExamFolderRule>> {
+  return apiRequest<ApiResponse<ExamFolderRule>>(`/exams/${examId}/folder-rules`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteExamFolderRule(examId: string, ruleId: string): Promise<ApiResponse<void>> {
+  return apiRequest<ApiResponse<void>>(`/exams/${examId}/folder-rules/${ruleId}`, { method: 'DELETE' });
+}
+
+export async function generateFromFolders(examId: string, data: GenerateFromFoldersDto): Promise<ApiResponse<any>> {
+  return apiRequest<ApiResponse<any>>(`/exams/${examId}/generate-from-folders`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+

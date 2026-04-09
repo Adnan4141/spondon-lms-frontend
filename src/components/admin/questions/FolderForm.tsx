@@ -110,16 +110,16 @@ export function FolderForm({ courses, folders, folder, initialParentId, onSucces
 
           <div className="grid gap-6 sm:grid-cols-2">
             <div className="space-y-2">
-              <label className={sectionLabel}>Associated Course</label>
+              <label className={sectionLabel}>Course (Optional)</label>
               <Select
                 value={form.courseId || 'none'}
                 onValueChange={(v) => setForm((prev) => ({ ...prev, courseId: v === 'none' ? '' : v }))}
               >
                 <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
-                  <SelectValue placeholder="Select Course (Optional)" />
+                  <SelectValue placeholder="None / Standalone" />
                 </SelectTrigger>
                 <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                  <SelectItem value="none" className="text-sm font-medium">No Course</SelectItem>
+                  <SelectItem value="none" className="text-sm font-medium text-slate-500 italic">None / Standalone</SelectItem>
                   {courses.map((course) => (
                     <SelectItem key={course.id} value={course.id} className="text-sm font-medium">
                       {course.name}
@@ -127,6 +127,7 @@ export function FolderForm({ courses, folders, folder, initialParentId, onSucces
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-[11px] text-slate-400 mt-1">Leave empty to make this folder reusable across any exam</p>
             </div>
 
             <div className="space-y-2">

@@ -84,6 +84,7 @@ import { OmrSheetPreview } from './OmrSheetPreview';
 import { OmrGradingPanel } from './OmrGradingPanel';
 import { ExamResultBatchesPanel } from './ExamResultBatchesPanel';
 import { MeritListsTab } from './MeritListsTab';
+import { ExamFolderRules } from './ExamFolderRules';
 
 interface ExamDetailsViewProps {
   exam: Exam;
@@ -153,7 +154,7 @@ function SectionCard({
 export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<
-    'info' | 'courses' | 'omr' | 'questions' | 'results' | 'merit' | 'leaderboard' | 'evaluate'
+    'info' | 'courses' | 'omr' | 'questions' | 'folder-rules' | 'results' | 'merit' | 'leaderboard' | 'evaluate'
   >('info');
   const [exam, setExam] = useState(initialExam);
   const [pdfLoading, setPdfLoading] = useState(false);
@@ -319,7 +320,7 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
   };
 
   const tabs: {
-    id: 'info' | 'courses' | 'omr' | 'questions' | 'results' | 'merit' | 'leaderboard' | 'evaluate';
+    id: 'info' | 'courses' | 'omr' | 'questions' | 'folder-rules' | 'results' | 'merit' | 'leaderboard' | 'evaluate';
     label: string;
     icon: typeof Info;
   }[] = [
@@ -327,6 +328,7 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
     { id: 'courses', label: 'Courses', icon: GraduationCap },
     ...(showOmrTab ? [{ id: 'omr' as const, label: 'OMR', icon: ScanLine }] : []),
     { id: 'questions', label: 'Questions & sets', icon: FileSearch },
+    { id: 'folder-rules', label: 'Folder Rules', icon: BookOpen },
     { id: 'results', label: 'Results', icon: ClipboardCheck },
     { id: 'merit', label: 'Merit', icon: BarChart3 },
     { id: 'leaderboard', label: 'Leaderboard', icon: Trophy },
@@ -1030,6 +1032,14 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
                 examId={exam.id}
                 showLeaderboard={exam.showLeaderboard}
                 courseOptions={leaderboardCourseOptions}
+              />
+            </div>
+          ) : activeTab === 'folder-rules' ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <ExamFolderRules
+                examId={exam.id}
+                sets={exam.sets ?? []}
+                onGenerated={fetchExamData}
               />
             </div>
           ) : activeTab === 'evaluate' ? (
