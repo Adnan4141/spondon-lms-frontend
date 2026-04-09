@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { getUsers, getUserById, updateUser, type User } from '@/lib/api/users';
+import { getUsers, getUserById, updateUser, deleteUser, type User } from '@/lib/api/users';
 import { getBranches, type Branch } from '@/lib/api/branches';
 import { API_ORIGIN } from '@/lib/api';
 import { resolveAttachmentUrl } from '@/lib/attachment-url';
@@ -45,7 +45,7 @@ import {
   Phone,
   ShieldCheck,
   Ban,
-  MoreVertical,
+  Trash2,
   ChevronRight,
   Eye,
 } from 'lucide-react';
@@ -204,6 +204,34 @@ export default function AdminTeachersPage() {
               toast({
                 title: 'Error',
                 description: e instanceof Error ? e.message : 'Update failed',
+                variant: 'destructive',
+              });
+            }
+          }}
+        />
+      ),
+    });
+  };
+
+  const handleDelete = (id: string, name: string) => {
+    openModal({
+      title: 'Delete Teacher',
+      description: 'This action is permanent and cannot be undone.',
+      className: 'sm:max-w-md',
+      content: (
+        <ConfirmationModal
+          title="Delete Teacher Account"
+          description={`Are you sure you want to permanently delete "${name}"? All their data will be removed.`}
+          variant="danger"
+          onConfirm={async () => {
+            try {
+              await deleteUser(id);
+              await load();
+              toast({ title: 'Deleted', description: `${name} has been removed.`, variant: 'success' });
+            } catch (e: unknown) {
+              toast({
+                title: 'Error',
+                description: e instanceof Error ? e.message : 'Delete failed',
                 variant: 'destructive',
               });
             }
@@ -464,10 +492,11 @@ export default function AdminTeachersPage() {
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="h-10 w-10 rounded-xl bg-slate-50 text-slate-400 hover:bg-white hover:text-slate-900 transition-all border border-transparent"
-                          title="More Options"
+                          className="h-10 w-10 rounded-xl bg-slate-50 text-slate-400 hover:bg-rose-50 hover:text-rose-600 hover:shadow-md transition-all border border-transparent hover:border-rose-100"
+                          title="Delete Teacher"
+                          onClick={() => handleDelete(t.id, t.fullName)}
                         >
-                          <MoreVertical className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </TableCell>
