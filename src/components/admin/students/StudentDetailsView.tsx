@@ -59,6 +59,7 @@ import { StudentAcademicTab } from '@/components/admin/students/StudentAcademicT
 import { getInvoices, getInvoiceById } from '@/lib/api/invoices';
 import type { Invoice } from '@/types/invoice';
 import { InvoiceDetailsView } from '@/components/admin/invoices/InvoiceDetailsView';
+import { StudentFinancialDashboard } from '@/components/admin/students/StudentFinancialDashboard';
 
 interface StudentDetailsViewProps {
   student: Student;
@@ -96,6 +97,7 @@ const STUDENT_DETAIL_TABS = [
   { label: 'Academic', value: 'academic', icon: BarChart3 },
   { label: 'Discounts', value: 'discounts', icon: Tag },
   { label: 'Payments', value: 'payments', icon: Wallet },
+  { label: 'Financial', value: 'financial', icon: CreditCard },
 ] as const;
 
 export function StudentDetailsView({ student }: StudentDetailsViewProps) {
@@ -153,6 +155,24 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
     }
     return { due, paid };
   }, [invoices]);
+
+  /** Programs for which this student has already had an ADMISSION_FEE line on any invoice. */
+  const admissionPaidProgramIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const inv of invoices) {
+      for (const item of inv.items ?? []) {
+        if (item.type === 'ADMISSION_FEE' && item.refId) s.add(item.refId);
+      }
+    }
+    return s;
+  }, [invoices]);
+
+  /** Total admission fees paid (sum of ADMISSION_FEE line items across all invoices). */
+  const totalAdmissionFeePaid = useMemo(
+    () =>
+      invoices.flatMap((inv) => inv.items ?? []).filter((i) => i.type === 'ADMISSION_FEE').reduce((s, i) => s + Number(i.unitPrice), 0),
+    [invoices],
+  );
 
   const enrollmentKindStats = useMemo(() => {
     let monthly = 0;
@@ -374,7 +394,7 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
         {/* Navigation Tabs */}
         <Tabs value={studentTab} onValueChange={setStudentTab} className="w-full">
           <div className="sticky top-0 z-20 border-b border-slate-100 bg-white/90 px-4 py-3 backdrop-blur-xl sm:px-6 md:bg-white/80 md:px-8 md:py-2">
-            {/* Narrow screens: full-width picker so labels are not crushed */}
+            {/* Narrow screens (<md): full-width select so labels are not crushed */}
             <div className="md:hidden">
               <Select value={studentTab} onValueChange={setStudentTab}>
                 <SelectTrigger className="h-12 w-full rounded-xl border-slate-200 bg-white text-sm font-black uppercase tracking-wide text-slate-800 shadow-sm">
@@ -392,7 +412,8 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                       className="font-bold uppercase tracking-wide"
                     >
                       <span className="flex items-center gap-2">
-                        <tab.icon className="h-4 w-4 sm:block hidden text-indigo-600" />
+                        {/* icon only at sm+, hidden on truly narrow screens */}
+                        <tab.icon className="hidden sm:block h-4 w-4 shrink-0 text-indigo-600" />
                         {tab.label}
                       </span>
                     </SelectItem>
@@ -401,20 +422,24 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
               </Select>
             </div>
 
-            {/* md+: horizontal tabs; scroll if the viewport is still tight */}
-            <div className="hidden md:block md:overflow-x-auto md:[-ms-overflow-style:none] md:[scrollbar-width:none] md:[&::-webkit-scrollbar]:hidden">
-              <TabsList className="inline-flex h-auto min-h-12 w-max max-w-full flex-nowrap items-stretch gap-2 bg-transparent p-0 lg:gap-6">
-                {STUDENT_DETAIL_TABS.map((tab) => (
-                  <TabsTrigger
-                    key={tab.value}
-                    value={tab.value}
-                    className="relative shrink-0 rounded-none border-none bg-transparent px-2 py-2 text-xs font-black uppercase tracking-wide text-slate-400 transition-all after:absolute after:bottom-0 after:left-0 after:h-1 after:w-full after:rounded-full after:bg-indigo-600 after:opacity-0 data-[state=active]:bg-transparent data-[state=active]:text-indigo-600 data-[state=active]:after:opacity-100 lg:text-sm lg:tracking-[0.2em]"
-                  >
-                    <tab.icon className="mr-1.5 h-4 w-4 shrink-0 lg:mr-2" />
-                    {tab.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
+            {/* md+: horizontal scrollable tab strip with right-edge fade indicator */}
+            <div className="relative hidden md:block">
+              <div className="overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <TabsList className="inline-flex h-auto min-h-12 w-max flex-nowrap items-stretch gap-1 bg-transparent p-0 lg:gap-2">
+                  {STUDENT_DETAIL_TABS.map((tab) => (
+                    <TabsTrigger
+                      key={tab.value}
+                      value={tab.value}
+                      className="relative shrink-0 rounded-none border-none bg-transparent px-3 py-2 text-xs font-black uppercase tracking-tight text-slate-400 transition-all after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-full after:rounded-full after:bg-indigo-600 after:opacity-0 data-[state=active]:bg-transparent data-[state=active]:text-indigo-600 data-[state=active]:after:opacity-100 lg:px-4 lg:tracking-wide lg:text-sm"
+                    >
+                      <tab.icon className="mr-1.5 h-3.5 w-3.5 shrink-0 lg:h-4 lg:w-4 lg:mr-2" />
+                      {tab.label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </div>
+              {/* Right-edge fade to signal overflow/scrollability */}
+              <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-linear-to-l from-white/90 to-transparent" />
             </div>
           </div>
 
@@ -663,6 +688,7 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                       <SelectItem value="PAUSED">PAUSED</SelectItem>
                       <SelectItem value="CANCELLED">CANCELLED</SelectItem>
                       <SelectItem value="COMPLETED">COMPLETED</SelectItem>
+                      <SelectItem value="WAITLISTED">WAITLISTED</SelectItem>
                     </SelectContent>
                   </Select>
                   <Button
@@ -706,6 +732,11 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                             <GraduationCap className="h-3.5 w-3.5 text-indigo-500" />
                           </div>
                           <p className="truncate text-sm font-black text-slate-800">{group.name}</p>
+                          {admissionPaidProgramIds.has(group.id) && (
+                            <Badge className="shrink-0 rounded-md bg-emerald-100 px-2 py-0 text-[8px] font-black uppercase tracking-wide text-emerald-700 border border-emerald-200">
+                              ভর্তি ফি পরিশোধিত
+                            </Badge>
+                          )}
                         </div>
                         <Badge
                           variant="secondary"
@@ -836,7 +867,7 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                 </Button>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-4">
                 <div className="rounded-2xl border border-amber-100 bg-amber-50/40 p-5">
                   <p className="text-[9px] font-black uppercase tracking-widest text-amber-800">Total outstanding</p>
                   <p className="mt-1 text-2xl font-black text-amber-900">৳{money(invoiceTotals.due)}</p>
@@ -844,6 +875,13 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                 <div className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-5">
                   <p className="text-[9px] font-black uppercase tracking-widest text-emerald-800">Total paid</p>
                   <p className="mt-1 text-2xl font-black text-emerald-900">৳{money(invoiceTotals.paid)}</p>
+                </div>
+                <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-5">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-indigo-800">Admission fees paid</p>
+                  <p className="mt-1 text-2xl font-black text-indigo-900">৳{money(totalAdmissionFeePaid)}</p>
+                  <p className="mt-0.5 text-[9px] font-bold text-indigo-500">
+                    {admissionPaidProgramIds.size} program{admissionPaidProgramIds.size === 1 ? '' : 's'} · one-time
+                  </p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-5">
                   <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Invoices</p>
@@ -904,6 +942,11 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                               <Badge variant="outline" className="text-[9px] font-black uppercase">
                                 {inv.status}
                               </Badge>
+                              {inv.items?.some((it) => it.type === 'ADMISSION_FEE') && (
+                                <Badge className="border border-indigo-200 bg-indigo-50 text-[9px] font-black uppercase text-indigo-700">
+                                  ভর্তি ফি
+                                </Badge>
+                              )}
                               {inv.replacedInvoice ? (
                                 <Badge variant="outline" className="border-indigo-200 bg-indigo-50 text-[9px] font-black uppercase text-indigo-700">
                                   Replacement
@@ -960,6 +1003,10 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                   </table>
                 </div>
               )}
+            </TabsContent>
+
+            <TabsContent value="financial" className="m-0">
+              <StudentFinancialDashboard studentUserId={student.id} />
             </TabsContent>
           </div>
         </Tabs>

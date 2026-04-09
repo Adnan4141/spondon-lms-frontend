@@ -17,6 +17,8 @@ export interface Program {
   name: string;
   description?: string;
   thumbnail?: string;
+  admissionFeeEnabled?: boolean;
+  admissionFeeAmount?: number | null;
   createdAt: string;
   updatedAt: string;
   _count?: {
@@ -28,12 +30,16 @@ export interface CreateProgramDto {
   name: string;
   description?: string;
   thumbnail?: string;
+  admissionFeeEnabled?: boolean;
+  admissionFeeAmount?: number | null;
 }
 
 export interface UpdateProgramDto {
   name?: string;
   description?: string;
   thumbnail?: string;
+  admissionFeeEnabled?: boolean;
+  admissionFeeAmount?: number | null;
 }
 
 export interface Course {
@@ -58,8 +64,6 @@ export interface Course {
   admissionStatus: AdmissionStatus;
   status: CourseStatus;
   settledOptionEnabled: boolean;
-  admissionFeeEnabled: boolean;
-  admissionFee?: number | null;
   createdAt: string;
   updatedAt: string;
   program?: Program;
@@ -88,8 +92,6 @@ export interface CreateCourseDto {
   admissionStatus?: AdmissionStatus;
   status?: CourseStatus;
   settledOptionEnabled?: boolean;
-  admissionFeeEnabled?: boolean;
-  admissionFee?: number | null;
 }
 
 export interface UpdateCourseDto {
@@ -111,8 +113,6 @@ export interface UpdateCourseDto {
   admissionStatus?: AdmissionStatus;
   status?: CourseStatus;
   settledOptionEnabled?: boolean;
-  admissionFeeEnabled?: boolean;
-  admissionFee?: number | null;
 }
 
 export interface CourseDetailBatch {

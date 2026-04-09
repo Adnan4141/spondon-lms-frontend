@@ -38,18 +38,30 @@ import {
   Search,
   Users,
   UserCheck,
-  UserX,
   Activity,
   Building2,
   Mail,
   Phone,
-  ShieldCheck,
   Ban,
   Trash2,
   ChevronRight,
   Eye,
+  Clock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+function timeAgo(dateStr?: string): string {
+  if (!dateStr) return '';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `${days}d ago`;
+  return new Date(dateStr).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
 
 export default function AdminTeachersPage() {
   const { openModal } = useModalStore();
@@ -376,6 +388,7 @@ export default function AdminTeachersPage() {
               <TableHeader>
                 <TableRow className="hover:bg-transparent border-b border-slate-50">
                   <TableHead className="h-14 px-8 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Teacher</TableHead>
+                  <TableHead className="h-14 px-6 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Teaching Info</TableHead>
                   <TableHead className="h-14 px-6 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Contact</TableHead>
                   <TableHead className="h-14 px-6 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Branch</TableHead>
                   <TableHead className="h-14 px-6 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Status</TableHead>
@@ -401,8 +414,39 @@ export default function AdminTeachersPage() {
                           </div>
                           <div className="cursor-pointer" onClick={() => openView(t.id)}>
                              <p className="text-base font-black text-slate-900 group-hover:text-indigo-600 transition-colors">{t.fullName}</p>
-                             
+                             {t.createdAt && (
+                               <p className="flex items-center gap-1 text-[10px] font-bold text-slate-400 mt-0.5">
+                                 <Clock className="h-3 w-3" />
+                                 {timeAgo(t.createdAt)}
+                               </p>
+                             )}
                           </div>
+                       </div>
+                    </TableCell>
+                    {/* Teaching Info */}
+                    <TableCell className="py-6 px-6">
+                       <div className="space-y-1">
+                         {t.designation ? (
+                           <div className="flex items-center gap-1.5 text-sm font-bold text-slate-700">
+                             <GraduationCap className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
+                             {t.designation}
+                           </div>
+                         ) : null}
+                         {t.institute ? (
+                           <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
+                             <Building2 className="h-3 w-3 text-slate-300 shrink-0" />
+                             {t.institute}
+                           </div>
+                         ) : null}
+                         {t.experienceYears != null ? (
+                           <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-400">
+                             <Clock className="h-3 w-3 text-slate-300 shrink-0" />
+                             {t.experienceYears} yrs exp
+                           </div>
+                         ) : null}
+                         {!t.designation && !t.institute && t.experienceYears == null && (
+                           <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Not set</span>
+                         )}
                        </div>
                     </TableCell>
                     <TableCell className="py-6 px-6">

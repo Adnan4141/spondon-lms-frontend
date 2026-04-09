@@ -1,7 +1,7 @@
 import { apiRequest, API_ORIGIN } from '../api';
 import type { ApiResponse } from '@/types/course';
 
-export type EnrollmentStatusType = 'ACTIVE' | 'PAUSED' | 'CANCELLED' | 'COMPLETED';
+export type EnrollmentStatusType = 'ACTIVE' | 'PAUSED' | 'CANCELLED' | 'COMPLETED' | 'WAITLISTED';
 
 export interface Enrollment {
   id: string;
@@ -193,10 +193,14 @@ export interface OfflineAdmissionDto {
   paymentMethod?: PaymentMethodType;
   paymentAmount?: number;
   paymentTrxId?: string;
+  /** Per-program admission fee overrides: { [programId]: overrideAmount }. If omitted, program defaults are used. */
+  admissionFeeAmountOverrides?: Record<string, number>;
   receivedByUserId?: string;
   discountAmount?: number;
   discountReference?: string;
   scholarshipAmount?: number;
+  recurringScholarship?: number;
+  forceWaitlist?: boolean;
   nextPaymentDueDate?: string;
   additionalItems?: Array<{
     type?: string;

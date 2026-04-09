@@ -193,6 +193,45 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
     [selectedCourseIds, courseById],
   );
 
+  /**
+   * Admission fee programs: derived from the currently selected program in the `programs` list
+   * (the courses themselves don't carry nested program admission-fee fields).
+   */
+  const admissionFeePrograms = useMemo(() => {
+    const prog = programs.find((p) => p.id === programId);
+    if (!prog?.admissionFeeEnabled || !prog?.admissionFeeAmount || Number(prog.admissionFeeAmount) <= 0) return [];
+    if (selectedCourseIds.length === 0) return [];
+    return [{ id: prog.id, name: prog.name, amount: Number(prog.admissionFeeAmount) }];
+  }, [programs, programId, selectedCourseIds]);
+
+  /**
+   * Admin-editable overrides for the admission fee (per program).
+   * Initialised from program defaults; admin can change before submitting.
+   */
+  const [admissionFeeOverrides, setAdmissionFeeOverrides] = useState<Record<string, string>>({});
+
+  // Re-seed overrides whenever the program changes
+  useEffect(() => {
+    if (!admissionFeePrograms.length) return;
+    setAdmissionFeeOverrides((prev) => {
+      const next: Record<string, string> = {};
+      for (const p of admissionFeePrograms) {
+        // Keep existing edits; seed defaults for newly appearing programs
+        next[p.id] = prev[p.id] ?? String(p.amount);
+      }
+      return next;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [programId]);
+
+  const effectiveAdmissionFeeTotal = useMemo(
+    () => admissionFeePrograms.reduce((s, p) => s + (Number(admissionFeeOverrides[p.id]) || 0), 0),
+    [admissionFeePrograms, admissionFeeOverrides],
+  );
+
+  /** Legacy alias so info-banners in course-step still work */
+  const totalAdmissionFee = effectiveAdmissionFeeTotal;
+
   const totalDiscountNum = Number(totalDiscountAmount) || 0;
   const totalScholarshipNum = Number(totalScholarshipAmount) || 0;
   const totalPaymentNum = Number(totalPaymentAmount) || 0;
@@ -390,6 +429,12 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
       const refTrim = discountReference.trim();
       const needsMonth = selectedCourseIds.some((id) => courseById.get(id)?.billingType === 'MONTHLY');
 
+      const feeOverrides: Record<string, number> = {};
+      for (const p of admissionFeePrograms) {
+        const v = Number(admissionFeeOverrides[p.id]);
+        if (!Number.isNaN(v) && v >= 0) feeOverrides[p.id] = v;
+      }
+
       const adm = await offlineAdmission({
         studentUserId,
         branchId: branchForEnroll,
@@ -402,6 +447,7 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
         discountReference: discTotal > 0 ? refTrim : undefined,
         scholarshipAmount: scholTotal > 0 ? scholTotal : undefined,
         nextPaymentDueDate: nextDueIso,
+        admissionFeeAmountOverrides: Object.keys(feeOverrides).length > 0 ? feeOverrides : undefined,
       });
 
       if (!adm.success || !adm.data) {
@@ -853,6 +899,22 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
                 />
                 <p className="text-[10px] text-slate-400 font-bold">Required when any selected course is monthly.</p>
               </div>
+
+              {admissionFeePrograms.length > 0 && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 space-y-1">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-amber-700">
+                    Admission fee will be added to invoice
+                  </p>
+                  {admissionFeePrograms.map((p) => (
+                    <p key={p.id} className="text-xs font-bold text-amber-800">
+                      {p.name} — ৳{p.amount.toLocaleString()} <span className="font-medium text-amber-600">(one-time per program)</span>
+                    </p>
+                  ))}
+                  <p className="text-[10px] font-bold text-amber-600 mt-1">
+                    Total admission fee: ৳{totalAdmissionFee.toLocaleString()}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -947,6 +1009,49 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
                 </tfoot>
               </table>
             </div>
+
+            {/* ── Admission Fee (editable) ─────────────────────────────── */}
+            {admissionFeePrograms.length > 0 && (
+              <div className="overflow-hidden rounded-2xl border border-indigo-200 bg-indigo-50/40">
+                <div className="flex items-center gap-3 border-b border-indigo-100 bg-indigo-600 px-4 py-3">
+                  <GraduationCap className="h-4 w-4 shrink-0 text-white/80" />
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-white/90">Admission fee</p>
+                    <p className="text-xs font-medium text-indigo-100">One-time per program · auto-added to invoice · edit if needed</p>
+                  </div>
+                </div>
+                <div className="divide-y divide-indigo-100">
+                  {admissionFeePrograms.map((p) => (
+                    <div key={p.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="text-sm font-black text-indigo-900">{p.name}</p>
+                        <p className="text-[10px] font-bold text-indigo-500">
+                          Default: ৳{p.amount.toLocaleString()} · Edit below to override for this enrollment
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-black text-indigo-700">৳</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={admissionFeeOverrides[p.id] ?? String(p.amount)}
+                          onChange={(e) =>
+                            setAdmissionFeeOverrides((prev) => ({ ...prev, [p.id]: e.target.value }))
+                          }
+                          className="h-10 w-32 rounded-xl border border-indigo-200 bg-white px-3 text-right text-sm font-black text-indigo-900 shadow-inner outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="border-t border-indigo-100 bg-white/60 px-4 py-2.5 flex justify-between items-center">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600">Total admission fee</span>
+                  <span className="font-mono text-sm font-black text-indigo-900">৳{effectiveAdmissionFeeTotal.toLocaleString()}</span>
+                </div>
+              </div>
+            )}
 
             <div className="rounded-2xl border border-slate-200 bg-slate-50/40 p-4">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Discount & scholarship</p>
@@ -1102,6 +1207,22 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
                 </div>
               </div>
             </div>
+
+            {admissionFeePrograms.length > 0 && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 space-y-1">
+                <p className="text-[10px] font-black uppercase tracking-widest text-amber-700">
+                  Admission fee · auto-added to invoice
+                </p>
+                {admissionFeePrograms.map((p) => (
+                  <p key={p.id} className="text-xs font-bold text-amber-800">
+                    {p.name} — ৳{p.amount.toLocaleString()} <span className="font-medium text-amber-600">(one-time per program)</span>
+                  </p>
+                ))}
+                <p className="text-[10px] font-bold text-amber-600">
+                  Invoice total will include ৳{totalAdmissionFee.toLocaleString()} admission fee on top of course fees.
+                </p>
+              </div>
+            )}
 
             <div className="overflow-hidden rounded-2xl border border-indigo-200 bg-white shadow-sm">
               <div className="border-b border-indigo-100 bg-indigo-600 px-4 py-3">

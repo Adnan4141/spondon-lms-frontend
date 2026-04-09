@@ -130,6 +130,87 @@ export type EnrollCourseDelivery = {
   notes?: string;
 };
 
+export interface FinancialDashboardData {
+  enrollments: Array<{
+    id: string;
+    status: string;
+    courseId: string;
+    courseName: string;
+    courseCode: string;
+    courseType: 'ONLINE' | 'OFFLINE';
+    billingType: 'ONE_TIME' | 'MONTHLY';
+    courseFee: number;
+    programName?: string;
+    batch?: {
+      id: string;
+      name: string;
+      status: string;
+      startDate?: string | null;
+      endDate?: string | null;
+      capacity?: number | null;
+      _count?: { enrollments: number };
+    } | null;
+    branch?: { id: string; name: string } | null;
+    billingStartMonth?: string | null;
+    recurringScholarship?: number | null;
+    createdAt: string;
+  }>;
+  scholarshipBreakdown: Array<{
+    enrollmentId: string;
+    courseId: string;
+    courseName: string;
+    courseCode: string;
+    programName?: string;
+    recurringScholarship: number;
+    status: string;
+  }>;
+  totalMonthlyScholarship: number;
+  paymentHistory: Array<{
+    id: string;
+    month?: string | null;
+    status: string;
+    totalAmount: number;
+    discountAmount: number;
+    scholarshipAmount: number;
+    payableAmount: number;
+    paidAmount: number;
+    dueAmount: number;
+    issuedAt?: string | null;
+    createdAt: string;
+    branch?: { id: string; name: string } | null;
+    items: Array<{
+      id: string;
+      type: string;
+      title: string;
+      qty: number;
+      unitPrice: number;
+      lineTotal: number;
+    }>;
+    payments: Array<{
+      id: string;
+      method: string;
+      amount: number;
+      trxId?: string | null;
+      paidAt: string;
+    }>;
+    pdfUrl: string;
+  }>;
+  summary: {
+    totalEnrollments: number;
+    activeEnrollments: number;
+    waitlistedEnrollments: number;
+    totalInvoices: number;
+    totalPaid: number;
+    totalDue: number;
+  };
+}
+
+export async function getFinancialDashboard(studentUserId: string): Promise<ApiResponse<FinancialDashboardData>> {
+  return apiRequest<ApiResponse<FinancialDashboardData>>(
+    `/student-portal/financial-dashboard/${encodeURIComponent(studentUserId)}`
+  );
+}
+
 export async function enrollInCourse(data: {
   studentUserId: string;
   courseId: string;

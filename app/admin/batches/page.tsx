@@ -78,7 +78,7 @@ export default function BatchesPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<BatchStatusType | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<BatchStatusType | 'all'>('ACTIVE');
   const [courseFilter, setCourseFilter] = useState<string>('all');
   const [branchFilter, setBranchFilter] = useState<string>('all');
 

@@ -108,7 +108,7 @@ export default function CoursesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<CourseStatus | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<CourseStatus | 'all'>('ACTIVE');
   const [typeFilter, setTypeFilter] = useState<CourseType | 'all'>('all');
   const [billingFilter, setBillingFilter] = useState<BillingType | 'all'>('all');
   const [pagination, setPagination] = useState({

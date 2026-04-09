@@ -63,8 +63,6 @@ type EditFormState = {
   websiteVisible: boolean;
   enrollmentVisible: boolean;
   settledOptionEnabled: boolean;
-  admissionFeeEnabled: boolean;
-  admissionFee: string;
 };
 
 const defaultEditForm: EditFormState = {
@@ -83,8 +81,6 @@ const defaultEditForm: EditFormState = {
   websiteVisible: true,
   enrollmentVisible: true,
   settledOptionEnabled: false,
-  admissionFeeEnabled: false,
-  admissionFee: '',
 };
 
 export function CreateCourseForm({
@@ -147,8 +143,6 @@ export function CreateCourseForm({
       websiteVisible: createForm.websiteVisible,
       enrollmentVisible: createForm.enrollmentVisible,
       settledOptionEnabled: createForm.settledOptionEnabled,
-      admissionFeeEnabled: createForm.admissionFeeEnabled,
-      ...(createForm.admissionFee.trim() ? { admissionFee: Number(createForm.admissionFee) } : {}),
     };
 
     try {
@@ -434,33 +428,7 @@ export function CreateCourseForm({
               />
               <span className="text-[11px] font-black uppercase tracking-widest text-slate-600 group-hover:text-indigo-600 transition-colors">Settled</span>
             </label>
-
-            <label className="flex items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/40 px-4 py-3 transition-all hover:bg-white hover:shadow-md cursor-pointer group">
-              <input
-                type="checkbox"
-                checked={createForm.admissionFeeEnabled}
-                onChange={(e) =>
-                  setCreateForm((prev) => ({ ...prev, admissionFeeEnabled: e.target.checked }))
-                }
-                className={checkboxClass()}
-              />
-              <span className="text-[11px] font-black uppercase tracking-widest text-emerald-800 group-hover:text-emerald-900 transition-colors">Admission Fee</span>
-            </label>
           </div>
-
-          {createForm.admissionFeeEnabled && (
-            <div className="mt-3">
-              <label className={sectionLabel}>Admission Fee Amount (৳)</label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={createForm.admissionFee}
-                onChange={(e) => setCreateForm((prev) => ({ ...prev, admissionFee: e.target.value }))}
-                placeholder="e.g. 500"
-              />
-            </div>
-          )}
         </div>
 
         {createError && (

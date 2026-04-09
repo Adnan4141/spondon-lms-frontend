@@ -40,6 +40,12 @@ export async function deleteProgram(id: string): Promise<ApiResponse<void>> {
   });
 }
 
+export async function deleteProgramCascade(id: string): Promise<ApiResponse<{ courseCount: number }>> {
+  return apiRequest<ApiResponse<{ courseCount: number }>>(`/programs/${id}/cascade`, {
+    method: 'DELETE',
+  });
+}
+
 export async function uploadProgramThumbnail(programId: string, file: File): Promise<ApiResponse<Program>> {
   const formData = new FormData();
   formData.append('thumbnail', file);

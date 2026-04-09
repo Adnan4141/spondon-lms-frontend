@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import {
   getPrograms,
   getProgramById,
-  deleteProgram,
 } from '@/lib/api/programs';
 import type { Program } from '@/types/course';
 import { Button } from '@/components/ui/button';
@@ -28,15 +27,13 @@ import {
   Trash2,
   GraduationCap,
   Layers,
-  ArrowRight,
-  MoreVertical,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { useModalStore } from '@/store/modalStore';
 import { ProgramForm } from '@/components/admin/programs/ProgramForm';
 import { ProgramDetailsView } from '@/components/admin/programs/ProgramDetailsView';
-import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
+import { ProgramCascadeDeleteModal } from '@/components/admin/programs/ProgramCascadeDeleteModal';
 import { cn } from '@/lib/utils';
 
 function getErrorMessage(error: unknown): string {
@@ -51,6 +48,7 @@ export default function ProgramsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [cascadeDeleteId, setCascadeDeleteId] = useState<string | null>(null);
 
   const loadPrograms = async () => {
     try {
@@ -116,28 +114,8 @@ export default function ProgramsPage() {
     });
   };
 
-  const handleDeleteProgram = async (id: string) => {
-    openModal({
-      title: 'Delete program',
-      description: 'This will delete the program. Courses themselves will not be removed.',
-      className: 'sm:max-w-xl',
-      content: (
-        <ConfirmationModal
-          title="Confirm delete"
-          description="This action cannot be undone."
-          variant="danger"
-          onConfirm={async () => {
-            try {
-              await deleteProgram(id);
-              await loadPrograms();
-              toast({ title: 'Success', description: 'Program deleted successfully', variant: 'success' });
-            } catch (err) {
-              toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
-            }
-          }}
-        />
-      ),
-    });
+  const handleDeleteProgram = (id: string) => {
+    setCascadeDeleteId(id);
   };
 
   const filteredPrograms = programs.filter((program) =>
@@ -282,6 +260,22 @@ export default function ProgramsPage() {
       </section>
 
       <Toaster toasts={toasts} removeToast={removeToast} />
+
+      {cascadeDeleteId && (
+        <ProgramCascadeDeleteModal
+          programId={cascadeDeleteId}
+          onClose={() => setCascadeDeleteId(null)}
+          onDeleted={(courseCount) => {
+            setCascadeDeleteId(null);
+            loadPrograms();
+            toast({
+              title: 'Deleted successfully',
+              description: `Program and ${courseCount} course${courseCount !== 1 ? 's' : ''} deleted successfully.`,
+              variant: 'success',
+            });
+          }}
+        />
+      )}
     </div>
   );
 }

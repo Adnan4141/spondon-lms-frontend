@@ -29,6 +29,7 @@ import { useModalStore } from '@/store/modalStore';
 import { getCourses, type Course } from '@/lib/api/courses';
 import { getBranches, type Branch } from '@/lib/api/branches';
 import { getPrograms, getProgramById, type Program } from '@/lib/api/programs';
+import { getBatches, type Batch } from '@/lib/api/batches';
 import {
   offlineAdmission,
   getEnrollments,
@@ -101,7 +102,11 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
 
   const [totalDiscountAmount, setTotalDiscountAmount] = useState('');
   const [totalScholarshipAmount, setTotalScholarshipAmount] = useState('');
+  const [recurringScholarshipAmount, setRecurringScholarshipAmount] = useState('');
   const [totalPaymentAmount, setTotalPaymentAmount] = useState('');
+  const [batchAssignments, setBatchAssignments] = useState<Record<string, string>>({});
+  const [availableBatches, setAvailableBatches] = useState<Record<string, Batch[]>>({});
+  const [loadingBatches, setLoadingBatches] = useState(false);
   const [discountReference, setDiscountReference] = useState('');
   const [admissionChannel, setAdmissionChannel] = useState<AdmissionPaymentChannel>('offline');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('CASH');
@@ -274,6 +279,60 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
     [ids, courseMap],
   );
 
+  /**
+   * Admission fee programs: derived from the `programs` list (which carries the full program fields).
+   * For program-mode we use the selected programId directly.
+   * For monthly-mode we try to match courses' program.id against the programs list.
+   */
+  const admissionFeePrograms = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { id: string; name: string; amount: number }[] = [];
+
+    if (enrollmentMode === 'program') {
+      const prog = programs.find((p) => p.id === programId);
+      if (prog?.admissionFeeEnabled && prog.admissionFeeAmount && Number(prog.admissionFeeAmount) > 0 && ids.length > 0) {
+        out.push({ id: prog.id, name: prog.name, amount: Number(prog.admissionFeeAmount) });
+      }
+    } else {
+      // monthly mode — derive from courses' program reference
+      for (const id of ids) {
+        const c = courseMap.get(id);
+        const progId = (c?.program as { id?: string } | undefined)?.id;
+        if (!progId || seen.has(progId)) continue;
+        const prog = programs.find((p) => p.id === progId);
+        if (prog?.admissionFeeEnabled && prog.admissionFeeAmount && Number(prog.admissionFeeAmount) > 0) {
+          seen.add(progId);
+          out.push({ id: prog.id, name: prog.name, amount: Number(prog.admissionFeeAmount) });
+        }
+      }
+    }
+    return out;
+  }, [enrollmentMode, programId, ids, courseMap, programs]);
+
+  /** Admin-editable admission fee overrides (programId → amount string). */
+  const [admissionFeeOverrides, setAdmissionFeeOverrides] = useState<Record<string, string>>({});
+
+  // Re-seed overrides when the program set changes
+  useEffect(() => {
+    if (!admissionFeePrograms.length) return;
+    setAdmissionFeeOverrides((prev) => {
+      const next: Record<string, string> = {};
+      for (const p of admissionFeePrograms) {
+        next[p.id] = prev[p.id] ?? String(p.amount);
+      }
+      return next;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [programId, enrollmentMode]);
+
+  const effectiveAdmissionFeeTotal = useMemo(
+    () => admissionFeePrograms.reduce((s, p) => s + (Number(admissionFeeOverrides[p.id]) || 0), 0),
+    [admissionFeePrograms, admissionFeeOverrides],
+  );
+
+  /** Legacy alias kept for info-banners in course-selection step */
+  const totalAdmissionFee = effectiveAdmissionFeeTotal;
+
   const totalDiscountNum = Number(totalDiscountAmount) || 0;
   const totalScholarshipNum = Number(totalScholarshipAmount) || 0;
   const totalPaymentNum = Number(totalPaymentAmount) || 0;
@@ -375,7 +434,7 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
     return true;
   };
 
-  const goNext = () => {
+  const goNext = async () => {
     if (step === 1) {
       if (!validateStep1()) return;
       if (!billingStartMonth.trim()) {
@@ -384,6 +443,25 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
         if (needsMonth) setBillingStartMonth(defaultMonth());
       }
       const sel = resolveSelectedIds();
+      // Load batches for OFFLINE courses
+      const offlineCourseIds = sel.filter((id) => courseMap.get(id)?.type === 'OFFLINE');
+      if (offlineCourseIds.length > 0) {
+        setLoadingBatches(true);
+        const newAvailable: Record<string, Batch[]> = { ...availableBatches };
+        try {
+          await Promise.all(
+            offlineCourseIds.map(async (courseId) => {
+              if (!newAvailable[courseId]) {
+                const res = await getBatches({ courseId, branchId: branchId || undefined, status: 'ACTIVE', limit: 100 });
+                newAvailable[courseId] = res.data ?? [];
+              }
+            })
+          );
+          setAvailableBatches(newAvailable);
+        } finally {
+          setLoadingBatches(false);
+        }
+      }
       let sumOffer = 0;
       let refFrom = '';
       for (const id of sel) {
@@ -401,7 +479,18 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
       setTotalScholarshipAmount('');
       setTotalPaymentAmount(String(Math.round(Math.max(tFee - sumOffer, 0) * 100) / 100));
     }
-    if (step === 2 && !validateStep2()) return;
+    if (step === 2) {
+      // Validate batch selection for OFFLINE courses
+      const sel = resolveSelectedIds();
+      const offlineCourseIds = sel.filter((id) => courseMap.get(id)?.type === 'OFFLINE');
+      const missingBatch = offlineCourseIds.filter((id) => !batchAssignments[id]);
+      if (missingBatch.length > 0) {
+        const names = missingBatch.map((id) => courseMap.get(id)?.name ?? id).join(', ');
+        setError(`Batch selection is required for offline course(s): ${names}`);
+        return;
+      }
+      if (!validateStep2()) return;
+    }
     setStep((s) => Math.min(3, s + 1));
   };
 
@@ -430,10 +519,16 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
     try {
       setSubmitting(true);
       setError(null);
+      const feeOverrides: Record<string, number> = {};
+      for (const p of admissionFeePrograms) {
+        const v = Number(admissionFeeOverrides[p.id]);
+        if (!Number.isNaN(v) && v >= 0) feeOverrides[p.id] = v;
+      }
+
       const adm = await offlineAdmission({
         studentUserId: studentId,
         branchId,
-        courses: sel.map((courseId) => ({ courseId })),
+        courses: sel.map((courseId) => ({ courseId, batchId: batchAssignments[courseId] || undefined })),
         billingStartMonth: needsMonth ? monthYm || undefined : undefined,
         paymentMethod,
         paymentAmount: payTotal,
@@ -441,7 +536,9 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
         discountAmount: discTotal > 0 ? discTotal : undefined,
         discountReference: discTotal > 0 ? refShared || undefined : undefined,
         scholarshipAmount: scholTotal > 0 ? scholTotal : undefined,
+        recurringScholarship: Number(recurringScholarshipAmount) > 0 ? Number(recurringScholarshipAmount) : undefined,
         nextPaymentDueDate: nextDueIso,
+        admissionFeeAmountOverrides: Object.keys(feeOverrides).length > 0 ? feeOverrides : undefined,
       });
       if (!adm.success) throw new Error(adm.message || 'Admission failed');
       const pdfUrl = adm.data?.pdfUrl;
@@ -779,6 +876,22 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
                 <label className={sectionLabel}>Billing month (monthly courses)</label>
                 <MonthYearPicker value={billingStartMonth} onChange={setBillingStartMonth} />
               </div>
+
+              {admissionFeePrograms.length > 0 && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 space-y-1">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-amber-700">
+                    Admission fee will be added to invoice
+                  </p>
+                  {admissionFeePrograms.map((p) => (
+                    <p key={p.id} className="text-xs font-bold text-amber-800">
+                      {p.name} — ৳{p.amount.toLocaleString()} <span className="font-medium text-amber-600">(one-time per program)</span>
+                    </p>
+                  ))}
+                  <p className="text-[10px] font-bold text-amber-600 mt-1">
+                    Total admission fee: ৳{totalAdmissionFee.toLocaleString()}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -797,6 +910,60 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
                 </p>
               </div>
             </div>
+
+            {/* Batch assignments for OFFLINE courses */}
+            {(() => {
+              const sel = resolveSelectedIds();
+              const offlineCourseIds = sel.filter((id) => courseMap.get(id)?.type === 'OFFLINE');
+              if (offlineCourseIds.length === 0) return null;
+              return (
+                <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 space-y-3">
+                  <p className={sectionLabel}>Batch assignment (required for offline courses)</p>
+                  {loadingBatches ? (
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+                      Loading batches…
+                    </div>
+                  ) : (
+                    offlineCourseIds.map((courseId) => {
+                      const course = courseMap.get(courseId);
+                      const batches = availableBatches[courseId] ?? [];
+                      return (
+                        <div key={courseId} className="space-y-1">
+                          <label className="text-[10px] font-black text-slate-600 uppercase tracking-wide">
+                            {course?.name ?? courseId}
+                          </label>
+                          {batches.length === 0 ? (
+                            <p className="text-xs text-rose-600 font-medium">No active batches available for this course at selected branch.</p>
+                          ) : (
+                            <Select
+                              value={batchAssignments[courseId] ?? ''}
+                              onValueChange={(v) => setBatchAssignments((prev) => ({ ...prev, [courseId]: v }))}
+                            >
+                              <SelectTrigger className="h-11 rounded-xl border-indigo-200 bg-white font-bold shadow-sm text-sm">
+                                <SelectValue placeholder="Select a batch…" />
+                              </SelectTrigger>
+                              <SelectContent className="rounded-xl">
+                                {batches.map((b) => (
+                                  <SelectItem key={b.id} value={b.id}>
+                                    {b.name}
+                                    {b.capacity != null && b._count?.enrollments != null && (
+                                      <span className="ml-1 text-slate-400">
+                                        ({b._count.enrollments}/{b.capacity} seats)
+                                      </span>
+                                    )}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              );
+            })()}
 
             <div className="space-y-2">
               <label className={sectionLabel}>Payment timing (not course delivery type)</label>
@@ -874,6 +1041,48 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
               </table>
             </div>
 
+            {/* ── Admission Fee (editable) ─────────────────────────────── */}
+            {admissionFeePrograms.length > 0 && (
+              <div className="overflow-hidden rounded-2xl border border-indigo-200 bg-indigo-50/40">
+                <div className="flex items-center gap-3 border-b border-indigo-100 bg-indigo-600 px-4 py-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-white/90">Admission fee</p>
+                    <p className="text-xs font-medium text-indigo-100">One-time per program · auto-added to invoice · edit if needed</p>
+                  </div>
+                </div>
+                <div className="divide-y divide-indigo-100">
+                  {admissionFeePrograms.map((p) => (
+                    <div key={p.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="text-sm font-black text-indigo-900">{p.name}</p>
+                        <p className="text-[10px] font-bold text-indigo-500">
+                          Default: ৳{p.amount.toLocaleString()} · Edit below to override for this enrollment
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-black text-indigo-700">৳</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={admissionFeeOverrides[p.id] ?? String(p.amount)}
+                          onChange={(e) =>
+                            setAdmissionFeeOverrides((prev) => ({ ...prev, [p.id]: e.target.value }))
+                          }
+                          className="h-10 w-32 rounded-xl border border-indigo-200 bg-white px-3 text-right text-sm font-black text-indigo-900 shadow-inner outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="border-t border-indigo-100 bg-white/60 px-4 py-2.5 flex justify-between items-center">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600">Total admission fee</span>
+                  <span className="font-mono text-sm font-black text-indigo-900">৳{effectiveAdmissionFeeTotal.toLocaleString()}</span>
+                </div>
+              </div>
+            )}
+
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Adjustments (discount & scholarship)</p>
               <p className="mt-1 text-xs text-slate-500">
@@ -916,6 +1125,18 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
                     step="0.01"
                     value={totalScholarshipAmount}
                     onChange={(e) => setTotalScholarshipAmount(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className={sectionLabel}>Recurring Scholarship / month (BDT)</label>
+                  <Input
+                    className={inputClass}
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={recurringScholarshipAmount}
+                    onChange={(e) => setRecurringScholarshipAmount(e.target.value)}
+                    placeholder="Auto-deducted each month"
                   />
                 </div>
                 <div className="space-y-2 sm:col-span-2">
@@ -1025,6 +1246,22 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
                 </Popover>
               </div>
             </div>
+
+            {admissionFeePrograms.length > 0 && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 space-y-1">
+                <p className="text-[10px] font-black uppercase tracking-widest text-amber-700">
+                  Admission fee · auto-added to invoice
+                </p>
+                {admissionFeePrograms.map((p) => (
+                  <p key={p.id} className="text-xs font-bold text-amber-800">
+                    {p.name} — ৳{p.amount.toLocaleString()} <span className="font-medium text-amber-600">(one-time per program)</span>
+                  </p>
+                ))}
+                <p className="text-[10px] font-bold text-amber-600">
+                  Invoice total will include ৳{totalAdmissionFee.toLocaleString()} admission fee on top of course fees.
+                </p>
+              </div>
+            )}
 
             <div className="overflow-hidden rounded-2xl border border-indigo-200 bg-white shadow-sm">
               <div className="border-b border-indigo-100 bg-indigo-600 px-4 py-3">

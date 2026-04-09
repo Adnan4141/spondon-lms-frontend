@@ -25,7 +25,13 @@ interface ProgramFormProps {
 export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
   const { closeModal } = useModalStore();
   const { toast } = useToast();
-  const [form, setForm] = useState({ name: '', description: '', thumbnail: '' });
+  const [form, setForm] = useState({ 
+    name: '', 
+    description: '', 
+    thumbnail: '',
+    admissionFeeEnabled: false,
+    admissionFeeAmount: '',
+  });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [thumbnailUploading, setThumbnailUploading] = useState(false);
@@ -40,6 +46,8 @@ export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
         name: program.name,
         description: program.description || '',
         thumbnail: program.thumbnail || '',
+        admissionFeeEnabled: program.admissionFeeEnabled || false,
+        admissionFeeAmount: program.admissionFeeAmount ? String(program.admissionFeeAmount) : '',
       });
       if (program.thumbnail) {
         const url = program.thumbnail.startsWith('/') ? `${API_ORIGIN}${program.thumbnail}` : program.thumbnail;
@@ -49,7 +57,13 @@ export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
       }
       pendingThumbnailFile.current = null;
     } else {
-      setForm({ name: '', description: '', thumbnail: '' });
+      setForm({ 
+        name: '', 
+        description: '', 
+        thumbnail: '',
+        admissionFeeEnabled: false,
+        admissionFeeAmount: '',
+      });
       setThumbnailPreview(null);
       pendingThumbnailFile.current = null;
     }
@@ -102,6 +116,10 @@ export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
     const payload: CreateProgramDto | UpdateProgramDto = {
       name: form.name.trim(),
       description: form.description.trim() || undefined,
+      admissionFeeEnabled: form.admissionFeeEnabled,
+      admissionFeeAmount: form.admissionFeeEnabled && form.admissionFeeAmount.trim()
+        ? Number(form.admissionFeeAmount)
+        : null,
     };
 
     try {
@@ -215,6 +233,38 @@ export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
                 />
               </label>
             </div>
+          </div>
+
+          <div className="space-y-4">
+            <label className={sectionLabel}>Admission Fee Settings</label>
+            <label className="flex items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/40 px-4 py-3 transition-all hover:bg-white hover:shadow-md cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={form.admissionFeeEnabled}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, admissionFeeEnabled: e.target.checked }))
+                }
+                className="h-5 w-5 rounded-lg border-slate-300 text-emerald-600 focus:ring-emerald-500 transition-all cursor-pointer"
+              />
+              <span className="text-sm font-bold text-emerald-800 group-hover:text-emerald-900 transition-colors">
+                Enable Admission Fee (One-time per program)
+              </span>
+            </label>
+
+            {form.admissionFeeEnabled && (
+              <div className="space-y-2 pl-2">
+                <label className={sectionLabel}>Admission Fee Amount (৳)</label>
+                <Input
+                  className={inputClass}
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.admissionFeeAmount}
+                  onChange={(e) => setForm((prev) => ({ ...prev, admissionFeeAmount: e.target.value }))}
+                  placeholder="e.g., 1000"
+                />
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">

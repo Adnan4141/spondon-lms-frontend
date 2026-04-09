@@ -16,6 +16,12 @@ export interface User {
     id: string;
     name: string;
   };
+  // Teacher profile fields
+  designation?: string | null;
+  institute?: string | null;
+  experienceYears?: number | null;
+  demoClassUrl?: string | null;
+  showMobile?: boolean;
 }
 
 export type CreateUserPayload = {
@@ -38,6 +44,11 @@ export type UpdateUserPayload = {
   branchId?: string | null;
   status?: string;
   profileImage?: string | null;
+  designation?: string;
+  institute?: string;
+  experienceYears?: number | null;
+  demoClassUrl?: string;
+  showMobile?: boolean;
 };
 
 export async function getUsers(params?: {
@@ -97,4 +108,32 @@ export async function deleteUser(id: string): Promise<ApiResponse<void>> {
   return apiRequest<ApiResponse<void>>(`/users/${id}`, {
     method: 'DELETE',
   });
+}
+
+export interface PublicTeacher {
+  id: string;
+  fullName: string;
+  profileImage?: string | null;
+  designation?: string | null;
+  institute?: string | null;
+  experienceYears?: number | null;
+  demoClassUrl?: string | null;
+  mobile?: string | null;
+  courses: Array<{
+    id: string;
+    slug?: string;
+    name: string;
+    code?: string;
+    description?: string;
+    fee?: number | string;
+    thumbnail?: string;
+  }>;
+}
+
+export async function getPublicTeachers(): Promise<ApiResponse<PublicTeacher[]>> {
+  return apiRequest<ApiResponse<PublicTeacher[]>>('/users/teachers/public');
+}
+
+export async function getPublicTeacherById(id: string): Promise<ApiResponse<PublicTeacher>> {
+  return apiRequest<ApiResponse<PublicTeacher>>(`/users/teachers/public/${id}`);
 }
