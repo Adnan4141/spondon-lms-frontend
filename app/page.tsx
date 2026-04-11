@@ -14,7 +14,6 @@ import { CoursesSection } from '@/components/landing/CoursesSection';
 import { PaymentSection } from '@/components/landing/PaymentSection';
 import { PartnerCarouselSection } from '@/components/landing/PartnerCarouselSection';
 import { TeachersSection } from '@/components/landing/TeachersSection';
-import { PartnerDetailsDialog } from '@/components/landing/PartnerDetailsDialog';
 import { Feature, Testimonial } from '@/components/landing/types';
 import type { Course, Program } from '@/types/course';
 import { getCourses } from '@/lib/api/courses';
@@ -61,7 +60,6 @@ export default function LandingPage() {
   const [dynamicPartners, setDynamicPartners] = useState<Partner[]>([]);
   const [partnersLoadResolved, setPartnersLoadResolved] = useState(false);
   const [teachers, setTeachers] = useState<PublicTeacher[]>([]);
-  const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(interactiveFeatures[0]);
   const [activeAdmissionTab, setActiveAdmissionTab] = useState('ভার্সিটি');
@@ -78,7 +76,7 @@ export default function LandingPage() {
         const results = await Promise.allSettled([
           getCourses({ limit: 6, websiteVisible: true, featured: true, status: 'ACTIVE' }).catch(() => empty),
           getPrograms().catch(() => empty),
-          getPublicBooksCatalog({ limit: 6 }).catch(() => ({
+          getPublicBooksCatalog({ featured: true, limit: 6 }).catch(() => ({
             success: false as const,
             data: [] as PublicCatalogBook[],
           })),
@@ -148,6 +146,7 @@ export default function LandingPage() {
       <HeroCarousel slides={heroSlides} />
       <ProgramsCTASection
         cards={programCards}
+        programs={programs}
         label={siteSettings['programs_cta.label']}
         title={siteSettings['programs_cta.title']}
         buttonText={siteSettings['programs_cta.button']}
@@ -185,7 +184,6 @@ export default function LandingPage() {
       <PartnerCarouselSection
         partners={dynamicPartners}
         loadResolved={partnersLoadResolved}
-        onSelect={(p) => setSelectedPartner(p as Partner)}
         badge={siteSettings['partners.badge']}
         title={siteSettings['partners.title']}
         subtitle={siteSettings['partners.subtitle']}
@@ -197,13 +195,7 @@ export default function LandingPage() {
         subtitle={siteSettings['payment.subtitle']}
         footerText={siteSettings['payment.footer']}
       />
-      <PartnerDetailsDialog
-        selectedPartner={selectedPartner}
-        setSelectedPartner={setSelectedPartner}
-        courses={courses}
-        dynamicEbooks={dynamicEbooks}
-      />
-      <Footer />
+      <Footer siteSettings={siteSettings} />
     </div>
   );
 }

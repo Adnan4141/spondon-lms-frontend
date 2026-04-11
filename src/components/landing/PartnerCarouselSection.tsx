@@ -3,11 +3,13 @@
 import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { API_ORIGIN } from '@/lib/api';
 import { resolveAttachmentUrl } from '@/lib/attachment-url';
 
 interface PartnerItem {
+  id?: string;
   name: string;
   logo?: string | null;
   websiteUrl?: string | null;
@@ -19,7 +21,6 @@ interface Props {
   partners: PartnerItem[];
   /** After the first public API response (even if empty). */
   loadResolved: boolean;
-  onSelect?: (partner: PartnerItem) => void;
   badge?: string;
   title?: string;
   subtitle?: string;
@@ -28,11 +29,11 @@ interface Props {
 export const PartnerCarouselSection: React.FC<Props> = ({
   partners,
   loadResolved,
-  onSelect,
   badge = 'TRUSTED BY',
   title = 'আমাদের পার্টনারসমূহ',
   subtitle = 'যেসব প্রতিষ্ঠান ও ব্র্যান্ডের সাথে আমরা কাজ করি — তালিকা অ্যাডমিন প্যানেল থেকে আপডেট করা যায়।',
 }) => {
+  const router = useRouter();
   const scrollContent = partners.length > 0 ? [...partners, ...partners] : [];
 
   return (
@@ -113,8 +114,9 @@ export const PartnerCarouselSection: React.FC<Props> = ({
             <motion.button
               type="button"
               key={`${partner.name}-${index}`}
-              onClick={() => onSelect?.(partner)}
-              className="group relative flex-shrink-0 w-48 h-28 md:w-60 md:h-32 bg-white rounded-3xl border border-slate-200 flex items-center justify-center p-8 transition-all duration-500 hover:shadow-[0_20px_40px_-15px_rgba(79,70,229,0.15)] hover:border-indigo-300 hover:-translate-y-1 focus:outline-none"
+              onClick={() => partner.id && router.push(`/partners/${partner.id}`)}
+              disabled={!partner.id}
+              className="group relative flex-shrink-0 w-48 h-28 md:w-60 md:h-32 bg-white rounded-3xl border border-slate-200 flex items-center justify-center p-8 transition-all duration-500 hover:shadow-[0_20px_40px_-15px_rgba(79,70,229,0.15)] hover:border-indigo-300 hover:-translate-y-1 focus:outline-none disabled:cursor-default"
             >
               <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl" />
               <div className="relative w-full h-full">

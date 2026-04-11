@@ -14,12 +14,12 @@ export interface PartnerLinkedProgram {
 }
 
 export interface PartnerLinkedCourse {
-  course: { id: string; name: string; slug?: string | null };
+  course: { id: string; name: string; slug?: string | null; thumbnailUrl?: string | null };
 }
 
 export interface PartnerLinkedBook {
   bookId: string;
-  book: { id: string; name: string; sku: string };
+  book: { id: string; name: string; sku: string; thumbnailUrl?: string | null };
 }
 
 export interface PartnerAdmin extends Partner {
@@ -34,6 +34,10 @@ export interface PartnerAdmin extends Partner {
 
 export async function getPublicPartners(): Promise<{ success: boolean; data: Partner[] }> {
   return apiRequest('/partners/public');
+}
+
+export async function getPartnerById(id: string): Promise<{ success: boolean; data: PartnerAdmin }> {
+  return apiRequest(`/partners/${encodeURIComponent(id)}`);
 }
 
 export async function getAllPartners(): Promise<{ success: boolean; data: PartnerAdmin[] }> {

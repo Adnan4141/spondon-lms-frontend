@@ -10,6 +10,7 @@ export interface Book {
   author?: string | null;
   description?: string | null;
   isEbook: boolean;
+  featured?: boolean;
   fileUrl?: string | null;
   thumbnailUrl?: string | null;
   createdAt: string;
@@ -118,6 +119,7 @@ export interface CreateBookDto {
   author?: string;
   description?: string;
   isEbook?: boolean;
+  featured?: boolean;
   fileUrl?: string;
   thumbnailUrl?: string;
   programId?: string;
@@ -131,6 +133,7 @@ export interface UpdateBookDto {
   author?: string;
   description?: string;
   isEbook?: boolean;
+  featured?: boolean;
   fileUrl?: string;
   thumbnailUrl?: string;
   programId?: string | null;
@@ -166,12 +169,14 @@ export interface CreateBookSaleDto {
 
 export async function getBooks(params?: {
   isEbook?: boolean;
+  featured?: boolean;
   programId?: string;
   page?: number;
   limit?: number;
 }): Promise<ApiResponse<Book[]>> {
   const queryParams = new URLSearchParams();
   if (params?.isEbook !== undefined) queryParams.append('isEbook', String(params.isEbook));
+  if (params?.featured !== undefined) queryParams.append('featured', String(params.featured));
   if (params?.programId) queryParams.append('programId', params.programId);
   if (params?.page) queryParams.append('page', String(params.page));
   if (params?.limit) queryParams.append('limit', String(params.limit));
@@ -183,10 +188,12 @@ export async function getBooks(params?: {
 /** Marketing-safe catalog (no admin-only fields) */
 export async function getPublicBooksCatalog(params?: {
   isEbook?: boolean;
+  featured?: boolean;
   limit?: number;
 }): Promise<ApiResponse<PublicCatalogBook[]>> {
   const queryParams = new URLSearchParams();
   if (params?.isEbook !== undefined) queryParams.append('isEbook', String(params.isEbook));
+  if (params?.featured !== undefined) queryParams.append('featured', String(params.featured));
   if (params?.limit) queryParams.append('limit', String(params.limit));
   const query = queryParams.toString();
   return apiRequest<ApiResponse<PublicCatalogBook[]>>(`/books/public-list${query ? `?${query}` : ''}`);
@@ -199,6 +206,7 @@ export interface PublicCatalogBook {
   price: number;
   thumbnailUrl?: string | null;
   isEbook: boolean;
+  featured?: boolean;
   description?: string | null;
 }
 
@@ -280,6 +288,7 @@ export async function createBook(
   if (data.author) formData.append('author', data.author);
   if (data.description) formData.append('description', data.description);
   if (data.isEbook !== undefined) formData.append('isEbook', String(data.isEbook));
+  if (data.featured !== undefined) formData.append('featured', String(data.featured));
   if (data.fileUrl) formData.append('fileUrl', data.fileUrl);
   if (data.thumbnailUrl) formData.append('thumbnailUrl', data.thumbnailUrl);
   if (file) formData.append('file', file);
@@ -306,6 +315,7 @@ export async function updateBook(
   if (data.author) formData.append('author', data.author);
   if (data.description) formData.append('description', data.description);
   if (data.isEbook !== undefined) formData.append('isEbook', String(data.isEbook));
+  if (data.featured !== undefined) formData.append('featured', String(data.featured));
   if (data.fileUrl) formData.append('fileUrl', data.fileUrl);
   if (data.thumbnailUrl) formData.append('thumbnailUrl', data.thumbnailUrl);
   if (file) formData.append('file', file);

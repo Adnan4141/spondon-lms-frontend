@@ -42,6 +42,34 @@ const DEFAULTS: Record<string, string> = {
 
   'trust.title': 'কেন Shikho-তে আস্থা রাখবে?',
   'trust.subtitle': 'সেরা মেন্টর ও সর্বাধুনিক প্রযুক্তির সাথে সারাদেশের ৩০ লক্ষ+ শিক্ষার্থীর মানসম্মত পড়ালেখা ও পরীক্ষা প্রস্তুতির নির্ভরযোগ্য প্রতিষ্ঠান Shikho!',
+
+  // Footer
+  'footer.description': 'আমরা বিশ্বাস করি মানসম্মত শিক্ষা সবার অধিকার। প্রযুক্তির মাধ্যমে শিক্ষাকে সহজলভ্য করাই আমাদের মূল লক্ষ্য।',
+  'footer.phone': '+৮৮০ ১৭০০-০০০০০০',
+  'footer.phone_href': 'tel:+8801700000000',
+  'footer.email': 'support@spondonpro.com',
+  'footer.facebook': '#',
+  'footer.instagram': '#',
+  'footer.twitter': '#',
+  'footer.linkedin': '#',
+  'footer.newsletter_title': 'নতুন কোর্সের আপডেট পেতে চান?',
+  'footer.newsletter_subtitle': 'আমাদের নিউজলেটারে সাবস্ক্রাইব করে যুক্ত থাকুন।',
+  'footer.copyright': '© ২০২৬ স্পন্দন',
+  'footer.payment_logo_url': '/images/SSL-Commerz-Pay-With-logo-All-Size-01-570x213.png',
+  // Courses slots
+  'footer.course_1_label': 'একাডেমিক প্রোগ্রাম', 'footer.course_1_href': '/courses',
+  'footer.course_2_label': 'মেডিকেল প্রস্তুতি',   'footer.course_2_href': '/courses',
+  'footer.course_3_label': 'ইঞ্জিনিয়ারিং',        'footer.course_3_href': '/courses',
+  'footer.course_4_label': 'ভার্সিটি ক ইউনিট',    'footer.course_4_href': '/courses',
+  'footer.course_5_label': '',                      'footer.course_5_href': '/courses',
+  'footer.course_6_label': '',                      'footer.course_6_href': '/courses',
+  // Link slots
+  'footer.link_1_label': 'আমাদের সম্পর্কে', 'footer.link_1_href': '/about-us',
+  'footer.link_2_label': 'ক্যারিয়ার',        'footer.link_2_href': '#',
+  'footer.link_3_label': 'প্রাইভেসি পলিসি',  'footer.link_3_href': '#',
+  'footer.link_4_label': 'সচরাচর জিজ্ঞাসা',  'footer.link_4_href': '#',
+  'footer.link_5_label': '',                  'footer.link_5_href': '#',
+  'footer.link_6_label': '',                  'footer.link_6_href': '#',
 };
 
 const LABELS: Record<string, string> = {
@@ -74,6 +102,34 @@ const LABELS: Record<string, string> = {
 
   'trust.title': 'Section Title',
   'trust.subtitle': 'Subtitle Paragraph',
+
+  // Footer – General
+  'footer.description': 'Company Description',
+  'footer.phone': 'Phone Display Text',
+  'footer.phone_href': 'Phone Link (tel:+880...)',
+  'footer.email': 'Email Address',
+  'footer.facebook': 'Facebook URL',
+  'footer.instagram': 'Instagram URL',
+  'footer.twitter': 'Twitter/X URL',
+  'footer.linkedin': 'LinkedIn URL',
+  'footer.newsletter_title': 'Newsletter Card Title',
+  'footer.newsletter_subtitle': 'Newsletter Card Subtitle',
+  'footer.copyright': 'Copyright Text',
+  'footer.payment_logo_url': 'Payment Logo Image URL',
+  // Courses slots
+  'footer.course_1_label': 'Course 1 Label', 'footer.course_1_href': 'Course 1 Link',
+  'footer.course_2_label': 'Course 2 Label', 'footer.course_2_href': 'Course 2 Link',
+  'footer.course_3_label': 'Course 3 Label', 'footer.course_3_href': 'Course 3 Link',
+  'footer.course_4_label': 'Course 4 Label', 'footer.course_4_href': 'Course 4 Link',
+  'footer.course_5_label': 'Course 5 Label', 'footer.course_5_href': 'Course 5 Link',
+  'footer.course_6_label': 'Course 6 Label', 'footer.course_6_href': 'Course 6 Link',
+  // Link slots
+  'footer.link_1_label': 'Link 1 Label', 'footer.link_1_href': 'Link 1 URL',
+  'footer.link_2_label': 'Link 2 Label', 'footer.link_2_href': 'Link 2 URL',
+  'footer.link_3_label': 'Link 3 Label', 'footer.link_3_href': 'Link 3 URL',
+  'footer.link_4_label': 'Link 4 Label', 'footer.link_4_href': 'Link 4 URL',
+  'footer.link_5_label': 'Link 5 Label', 'footer.link_5_href': 'Link 5 URL',
+  'footer.link_6_label': 'Link 6 Label', 'footer.link_6_href': 'Link 6 URL',
 };
 
 // ─── Grouped sections ──────────────────────────────────────────────────────
@@ -86,6 +142,42 @@ const GROUPS: { label: string; color: string; keys: string[] }[] = [
   { label: 'Programs CTA Section', color: 'border-orange-400', keys: ['programs_cta.label', 'programs_cta.title', 'programs_cta.button'] },
   { label: 'Partners Section', color: 'border-pink-400', keys: ['partners.badge', 'partners.title', 'partners.subtitle'] },
   { label: 'Trust Section', color: 'border-blue-400', keys: ['trust.title', 'trust.subtitle'] },
+  {
+    label: 'Footer – General',
+    color: 'border-slate-500',
+    keys: [
+      'footer.newsletter_title', 'footer.newsletter_subtitle',
+      'footer.description',
+      'footer.phone', 'footer.phone_href',
+      'footer.email',
+      'footer.facebook', 'footer.instagram', 'footer.twitter', 'footer.linkedin',
+      'footer.copyright', 'footer.payment_logo_url',
+    ],
+  },
+  {
+    label: 'Footer – Popular Courses (6 slots)',
+    color: 'border-emerald-600',
+    keys: [
+      'footer.course_1_label', 'footer.course_1_href',
+      'footer.course_2_label', 'footer.course_2_href',
+      'footer.course_3_label', 'footer.course_3_href',
+      'footer.course_4_label', 'footer.course_4_href',
+      'footer.course_5_label', 'footer.course_5_href',
+      'footer.course_6_label', 'footer.course_6_href',
+    ],
+  },
+  {
+    label: 'Footer – Quick Links (6 slots)',
+    color: 'border-violet-600',
+    keys: [
+      'footer.link_1_label', 'footer.link_1_href',
+      'footer.link_2_label', 'footer.link_2_href',
+      'footer.link_3_label', 'footer.link_3_href',
+      'footer.link_4_label', 'footer.link_4_href',
+      'footer.link_5_label', 'footer.link_5_href',
+      'footer.link_6_label', 'footer.link_6_href',
+    ],
+  },
 ];
 
 // ─── Multi-line keys ───────────────────────────────────────────────────────
@@ -96,6 +188,8 @@ const MULTILINE = new Set([
   'partners.subtitle',
   'trust.subtitle',
   'programs_cta.title',
+  'footer.description',
+  'footer.newsletter_subtitle',
 ]);
 
 // ─── Component ────────────────────────────────────────────────────────────

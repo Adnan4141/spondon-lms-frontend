@@ -100,6 +100,7 @@ import { useModalStore } from '@/store/modalStore';
 import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
 
 type BookFilter = 'all' | 'physical' | 'ebook';
+type FeaturedFilter = 'all' | 'featured' | 'not_featured';
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -149,6 +150,7 @@ export default function BooksPage() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<BookFilter>('all');
+  const [featuredFilter, setFeaturedFilter] = useState<FeaturedFilter>('all');
   const [programFilter, setProgramFilter] = useState<string>('all');
 
   const [programs, setPrograms] = useState<Program[]>([]);
@@ -208,6 +210,7 @@ export default function BooksPage() {
     author: '',
     description: '',
     isEbook: false,
+    featured: false,
     fileUrl: '',
     thumbnailUrl: '',
     programId: undefined,
@@ -220,6 +223,7 @@ export default function BooksPage() {
     author: '',
     description: '',
     isEbook: false,
+    featured: false,
     fileUrl: '',
     thumbnailUrl: '',
     programId: undefined,
@@ -323,6 +327,7 @@ export default function BooksPage() {
           author: book.author || '',
           description: book.description || '',
           isEbook: book.isEbook,
+          featured: Boolean((book as any).featured),
           fileUrl: book.fileUrl || '',
           thumbnailUrl: book.thumbnailUrl || '',
           programId: (book as any).programId || undefined,
@@ -460,7 +465,7 @@ export default function BooksPage() {
       await createBook({ ...createForm }, createFile || undefined, createThumbnail || undefined);
       setCreateDialogOpen(false);
       setCreateForm({
-        name: '', sku: '', price: 0, mrp: undefined, author: '', description: '', isEbook: false, fileUrl: '', thumbnailUrl: '', programId: undefined,
+        name: '', sku: '', price: 0, mrp: undefined, author: '', description: '', isEbook: false, featured: false, fileUrl: '', thumbnailUrl: '', programId: undefined,
       });
       setCreateFile(null);
       setCreateThumbnail(null);
@@ -527,7 +532,11 @@ export default function BooksPage() {
       programFilter === 'all' ||
       (programFilter === '__none__' && !(book as any).programId) ||
       (book as any).programId === programFilter;
-    return matchesSearch && matchesType && matchesProgram;
+    const matchesFeatured =
+      featuredFilter === 'all' ||
+      (featuredFilter === 'featured' && Boolean(book.featured)) ||
+      (featuredFilter === 'not_featured' && !Boolean(book.featured));
+    return matchesSearch && matchesType && matchesProgram && matchesFeatured;
   });
 
   const isDetailsReady = !!bookDetails && !detailsLoading;
@@ -558,6 +567,17 @@ export default function BooksPage() {
                 <SelectItem value="all" className="text-sm font-medium">All</SelectItem>
                 <SelectItem value="physical" className="text-sm font-medium">Physical</SelectItem>
                 <SelectItem value="ebook" className="text-sm font-medium">E-Book</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={featuredFilter} onValueChange={(v) => setFeaturedFilter(v as FeaturedFilter)}>
+              <SelectTrigger className="h-12 w-[200px] rounded-2xl border-slate-200 bg-white text-sm font-medium shadow-sm">
+                <SelectValue placeholder="Featured Status" />
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
+                <SelectItem value="all" className="text-sm font-medium">All Books</SelectItem>
+                <SelectItem value="featured" className="text-sm font-medium">Featured Only</SelectItem>
+                <SelectItem value="not_featured" className="text-sm font-medium">Not Featured</SelectItem>
               </SelectContent>
             </Select>
 
@@ -721,6 +741,11 @@ export default function BooksPage() {
                        <Badge variant="outline" className={cn("rounded-lg text-[10px] font-black uppercase tracking-widest px-2.5 py-1", book.isEbook ? "bg-indigo-50 text-indigo-600 border-indigo-100" : "bg-emerald-50 text-emerald-600 border-emerald-100")}>
                          {book.isEbook ? 'Digital E-Book' : 'Physical Print'}
                        </Badge>
+                       {book.featured && (
+                        <Badge variant="outline" className="mt-1.5 rounded-lg text-[10px] font-bold px-2.5 py-1 bg-amber-50 text-amber-700 border-amber-200">
+                          Featured
+                        </Badge>
+                       )}
                        {(book as any).program && (
                          <Badge variant="outline" className="mt-1.5 rounded-lg text-[10px] font-bold px-2.5 py-1 bg-violet-50 text-violet-600 border-violet-100">
                            {(book as any).program.name}
@@ -964,6 +989,24 @@ export default function BooksPage() {
                 </div>
               )}
 
+              <div className="flex items-center gap-3 px-1">
+                <div
+                  className={cn(
+                    "flex h-6 w-6 items-center justify-center rounded-lg border-2 transition-all cursor-pointer",
+                    createForm.featured ? "bg-amber-500 border-amber-500 text-white" : "bg-white border-slate-200 text-transparent"
+                  )}
+                  onClick={() => setCreateForm((prev) => ({ ...prev, featured: !prev.featured }))}
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                </div>
+                <label
+                  className="text-[11px] font-black uppercase tracking-widest text-slate-600 cursor-pointer select-none"
+                  onClick={() => setCreateForm((prev) => ({ ...prev, featured: !prev.featured }))}
+                >
+                  Show on homepage as featured book
+                </label>
+              </div>
+
               <div className="grid gap-8 sm:grid-cols-2">
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 px-1">
@@ -1154,6 +1197,24 @@ export default function BooksPage() {
                     </Select>
                   </div>
                 )}
+
+                <div className="flex items-center gap-3 px-1">
+                  <div
+                    className={cn(
+                      "flex h-6 w-6 items-center justify-center rounded-lg border-2 transition-all cursor-pointer",
+                      editForm.featured ? "bg-amber-500 border-amber-500 text-white" : "bg-white border-slate-200 text-transparent"
+                    )}
+                    onClick={() => setEditForm((prev) => ({ ...prev, featured: !prev.featured }))}
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                  </div>
+                  <label
+                    className="text-[11px] font-black uppercase tracking-widest text-slate-600 cursor-pointer select-none"
+                    onClick={() => setEditForm((prev) => ({ ...prev, featured: !prev.featured }))}
+                  >
+                    Show on homepage as featured book
+                  </label>
+                </div>
 
                 <div className="grid gap-8 sm:grid-cols-2">
                   <div className="space-y-3">

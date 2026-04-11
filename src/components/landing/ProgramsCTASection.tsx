@@ -3,6 +3,8 @@
 import React from 'react';
 import { Globe2 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { staggerContainer, fadeInUp } from '@/lib/animations/landing';
 import type { ProgramCard } from '@/lib/api/site-content';
 
@@ -20,6 +22,7 @@ const STATIC_CARDS: ProgramCard[] = [
 
 interface Props {
   cards?: ProgramCard[];
+  programs?: Array<{ id: string; name: string }>;
   label?: string;
   title?: string;
   buttonText?: string;
@@ -27,11 +30,41 @@ interface Props {
 
 export const ProgramsCTASection: React.FC<Props> = ({
   cards,
+  programs = [],
   label = 'আমাদের প্রোগ্রামসমূহ',
   title = 'সেরা প্রোগ্রামের, সেরা কোর্সে যুক্ত হন আজই',
   buttonText = 'সবকটি কোর্স দেখুন',
 }) => {
+  const router = useRouter();
   const displayCards = cards && cards.length > 0 ? cards : STATIC_CARDS;
+
+  const normalize = (value: string) =>
+    value
+      .toLowerCase()
+      .replace(/\+/g, ' ')
+      .replace(/[^a-z0-9\u0980-\u09ff\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const resolveProgramId = (cardTitle: string) => {
+    const nCard = normalize(cardTitle);
+    const exact = programs.find((p) => normalize(p.name) === nCard);
+    if (exact) return exact.id;
+    const broad = programs.find((p) => {
+      const nName = normalize(p.name);
+      return nCard.includes(nName) || nName.includes(nCard);
+    });
+    return broad?.id;
+  };
+
+  const handleProgramClick = (card: ProgramCard) => {
+    const programId = resolveProgramId(card.title);
+    if (programId) {
+      router.push(`/courses?programId=${encodeURIComponent(programId)}`);
+      return;
+    }
+    router.push(`/courses?program=${encodeURIComponent(card.title)}`);
+  };
 
   return (
     <section className="py-12 sm:py-16 md:py-24">
@@ -54,7 +87,8 @@ export const ProgramsCTASection: React.FC<Props> = ({
             <motion.div
               key={item.id}
               variants={fadeInUp}
-              className={`${item.bgColor} w-full max-w-sm rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-100 flex items-start gap-3 sm:gap-4`}
+              className={`${item.bgColor} w-full max-w-sm rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-100 flex items-start gap-3 sm:gap-4 cursor-pointer hover:shadow-md transition-all`}
+              onClick={() => handleProgramClick(item)}
             >
               <div className="h-12 w-12 rounded-xl bg-white text-indigo-600 flex items-center justify-center shadow-inner border border-slate-100">
                 <Globe2 className="h-6 w-6" />
@@ -68,10 +102,10 @@ export const ProgramsCTASection: React.FC<Props> = ({
         </motion.div>
 
         <div className="mt-10 flex justify-center">
-          <button className="flex items-center gap-2 px-6 py-3 rounded-xl bg-indigo-50 text-indigo-700 font-bold text-sm border border-indigo-100 hover:bg-indigo-100 transition-colors">
+          <Link href="/courses" className="flex items-center gap-2 px-6 py-3 rounded-xl bg-indigo-50 text-indigo-700 font-bold text-sm border border-indigo-100 hover:bg-indigo-100 transition-colors">
             {buttonText}
             <Globe2 className="h-4 w-4" />
-          </button>
+          </Link>
         </div>
       </div>
     </section>

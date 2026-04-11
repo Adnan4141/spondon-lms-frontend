@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { CourseCard } from '@/components/landing/shared/CourseCard';
@@ -18,6 +19,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 export default function CoursesPage() {
+    const searchParams = useSearchParams();
     const [courses, setCourses] = useState<Course[]>([]);
     const [programs, setPrograms] = useState<Program[]>([]);
     const [loading, setLoading] = useState(true);
@@ -53,6 +55,37 @@ export default function CoursesPage() {
     useEffect(() => {
         fetchInitialData();
     }, [fetchInitialData]);
+
+    useEffect(() => {
+        if (programs.length === 0) return;
+
+        const programIdFromQuery = searchParams.get('programId');
+        if (programIdFromQuery && programs.some((p) => p.id === programIdFromQuery)) {
+            setSelectedProgram(programIdFromQuery);
+            return;
+        }
+
+        const programNameFromQuery = searchParams.get('program');
+        if (!programNameFromQuery) return;
+
+        const normalize = (value: string) =>
+            value
+                .toLowerCase()
+                .replace(/\+/g, ' ')
+                .replace(/[^a-z0-9\u0980-\u09ff\s]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+
+        const target = normalize(programNameFromQuery);
+        const matched = programs.find((p) => {
+            const n = normalize(p.name);
+            return n === target || n.includes(target) || target.includes(n);
+        });
+
+        if (matched) {
+            setSelectedProgram(matched.id);
+        }
+    }, [programs, searchParams]);
 
     const filteredCourses = useMemo(() => {
         const q = searchQuery.toLowerCase().trim();
