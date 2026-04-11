@@ -2,7 +2,24 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { getUsers, getUserById, updateUser, deleteUser, type User } from '@/lib/api/users';
+import { getUsers, getUserById, updateUser, deleteUser, reorderTeachers, type User } from '@/lib/api/users';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { getBranches, type Branch } from '@/lib/api/branches';
 import { API_ORIGIN } from '@/lib/api';
 import { resolveAttachmentUrl } from '@/lib/attachment-url';
@@ -32,6 +49,7 @@ import { TeacherDetailsView } from '@/components/admin/teachers/TeacherDetailsVi
 import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
 import {
   GraduationCap,
+  GripVertical,
   Pencil,
   Plus,
   RefreshCw,
@@ -63,6 +81,49 @@ function timeAgo(dateStr?: string): string {
   return new Date(dateStr).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+// ---------- Sortable row used in drag-and-drop sort mode ----------
+function SortableTeacherRow({ teacher }: { teacher: User }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: teacher.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    position: isDragging ? ('relative' as const) : undefined,
+    zIndex: isDragging ? 10 : undefined,
+  };
+  return (
+    <TableRow ref={setNodeRef} style={style} className="bg-white hover:bg-indigo-50/30 transition-colors select-none">
+      <TableCell className="py-4 px-4 w-12">
+        <button
+          className="cursor-grab active:cursor-grabbing p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all touch-none"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="h-5 w-5" />
+        </button>
+      </TableCell>
+      <TableCell className="py-4 px-4" colSpan={5}>
+        <div className="flex items-center gap-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] bg-gradient-to-br from-indigo-50 to-white text-indigo-600 font-black text-sm shadow-sm border border-indigo-100 overflow-hidden">
+            {teacher.profileImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={resolveAttachmentUrl(teacher.profileImage, API_ORIGIN)} alt={teacher.fullName} className="h-full w-full object-cover" />
+            ) : (
+              teacher.fullName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
+            )}
+          </div>
+          <div>
+            <p className="text-base font-black text-slate-900">{teacher.fullName}</p>
+            {teacher.designation && <p className="text-xs text-slate-500 font-semibold">{teacher.designation}</p>}
+          </div>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
+// ------------------------------------------------------------------
+
 export default function AdminTeachersPage() {
   const { openModal } = useModalStore();
   const { toast, toasts, removeToast } = useToast();
@@ -74,6 +135,9 @@ export default function AdminTeachersPage() {
   const [branchFilter, setBranchFilter] = useState<string>('all');
   const [actorRole, setActorRole] = useState<string | null>(null);
   const [actorBranchId, setActorBranchId] = useState<string | null>(null);
+  const [sortMode, setSortMode] = useState(false);
+  const [orderedTeachers, setOrderedTeachers] = useState<User[]>([]);
+  const [savingOrder, setSavingOrder] = useState(false);
 
   useEffect(() => {
     try {
@@ -128,6 +192,11 @@ export default function AdminTeachersPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Keep orderedTeachers in sync whenever the source list changes
+  useEffect(() => {
+    setOrderedTeachers(teachers);
+  }, [teachers]);
 
   const filtered = teachers.filter((t) => {
     const q = query.trim().toLowerCase();
@@ -253,6 +322,39 @@ export default function AdminTeachersPage() {
     });
   };
 
+  // ── DnD sort handlers ─────────────────────────────────────────────
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setOrderedTeachers((items) => {
+        const oldIndex = items.findIndex((t) => t.id === active.id);
+        const newIndex = items.findIndex((t) => t.id === over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
+
+  const handleSaveOrder = async () => {
+    try {
+      setSavingOrder(true);
+      const items = orderedTeachers.map((t, i) => ({ id: t.id, displayOrder: i }));
+      await reorderTeachers(items);
+      await load();
+      setSortMode(false);
+      toast({ title: 'Order saved', description: 'Teacher display order updated.', variant: 'success' });
+    } catch {
+      toast({ title: 'Error', description: 'Failed to save order.', variant: 'destructive' });
+    } finally {
+      setSavingOrder(false);
+    }
+  };
+  // ──────────────────────────────────────────────────────────────────
+
   const isBranchAdmin = actorRole === 'BRANCH_ADMIN';
 
   // Stats calculation
@@ -283,22 +385,57 @@ export default function AdminTeachersPage() {
           </div>
           
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            {!sortMode && (
+              <Button
+                className="h-14 px-8 rounded-2xl text-white bg-slate-900 font-black tracking-tight hover:bg-indigo-600 transition-all hover:scale-[1.02] shadow-lg shadow-slate-200"
+                onClick={openCreate}
+              >
+                <Plus className="mr-2 h-5 w-5" />
+                Add Teacher
+              </Button>
+            )}
             <Button
-              className="h-14 px-8 rounded-2xl text-white bg-slate-900 font-black tracking-tight hover:bg-indigo-600 transition-all hover:scale-[1.02] shadow-lg shadow-slate-200"
-              onClick={openCreate}
+              variant="outline"
+              className={cn(
+                'h-14 px-6 rounded-2xl font-black tracking-tight border-2 transition-all',
+                sortMode
+                  ? 'border-indigo-600 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+                  : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-300',
+              )}
+              onClick={() => {
+                if (sortMode) setOrderedTeachers(teachers);
+                setSortMode((s) => !s);
+              }}
             >
-              <Plus className="mr-2 h-5 w-5" />
-              Add Teacher
+              <GripVertical className="mr-2 h-5 w-5" />
+              {sortMode ? 'Cancel' : 'Sort Order'}
             </Button>
-          
+            {sortMode && (
+              <Button
+                className="h-14 px-8 rounded-2xl text-white bg-indigo-600 font-black tracking-tight hover:bg-indigo-700 transition-all shadow-lg disabled:opacity-50"
+                onClick={handleSaveOrder}
+                disabled={savingOrder}
+              >
+                {savingOrder ? 'Saving…' : 'Save Order'}
+              </Button>
+            )}
           </div>
         </div>
       </div>
 
     
 
+      {sortMode && (
+        <div className="rounded-[24px] border border-indigo-200 bg-indigo-50 px-6 py-4 flex items-center gap-3">
+          <GripVertical className="h-5 w-5 text-indigo-500 shrink-0" />
+          <p className="text-sm font-bold text-indigo-700">
+            Drag rows to reorder teachers. Click <span className="font-black">Save Order</span> when done.
+          </p>
+        </div>
+      )}
+
       {/* Filter Section */}
-      <section className="rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/30">
+      {!sortMode && <section className="rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/30">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
           <div className="relative min-w-[280px] flex-1">
             <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -352,7 +489,7 @@ export default function AdminTeachersPage() {
              </Button>
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* Teachers Table */}
       <section className="overflow-hidden rounded-[40px] border border-slate-100 bg-white shadow-2xl shadow-slate-200/40">
@@ -387,15 +524,30 @@ export default function AdminTeachersPage() {
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent border-b border-slate-50">
-                  <TableHead className="h-14 px-8 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Teacher</TableHead>
-                  <TableHead className="h-14 px-6 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Teaching Info</TableHead>
-                  <TableHead className="h-14 px-6 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Contact</TableHead>
-                  <TableHead className="h-14 px-6 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Branch</TableHead>
-                  <TableHead className="h-14 px-6 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Status</TableHead>
-                  <TableHead className="h-14 px-8 text-right text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Actions</TableHead>
+                  {sortMode && <TableHead className="h-14 px-4 w-12 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400" />}
+                  <TableHead className="h-14 px-8 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">
+                    {sortMode ? 'Teacher (drag to reorder)' : 'Teacher'}
+                  </TableHead>
+                  {!sortMode && <>
+                    <TableHead className="h-14 px-6 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Teaching Info</TableHead>
+                    <TableHead className="h-14 px-6 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Contact</TableHead>
+                    <TableHead className="h-14 px-6 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Branch</TableHead>
+                    <TableHead className="h-14 px-6 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Status</TableHead>
+                    <TableHead className="h-14 px-8 text-right text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Actions</TableHead>
+                  </>}
                 </TableRow>
               </TableHeader>
               <TableBody>
+                {sortMode ? (
+                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <SortableContext items={orderedTeachers.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                      {orderedTeachers.map((t) => (
+                        <SortableTeacherRow key={t.id} teacher={t} />
+                      ))}
+                    </SortableContext>
+                  </DndContext>
+                ) : (
+                <>
                 {filtered.map((t) => (
                   <TableRow key={t.id} className="group transition-all hover:bg-slate-50/50">
                     <TableCell className="py-6 px-8">
@@ -546,6 +698,8 @@ export default function AdminTeachersPage() {
                     </TableCell>
                   </TableRow>
                 ))}
+                </>
+                )}
               </TableBody>
             </Table>
           </div>

@@ -27,6 +27,19 @@ export interface ProgramCard {
   updatedAt: string;
 }
 
+export interface TrustFeature {
+  id: string;
+  title: string;
+  icon: string;
+  description: string | null;
+  color: string;
+  bgColor: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface HeroSlideInput {
   title: string;
   imageUrl?: string;
@@ -41,6 +54,16 @@ export interface HeroSlideInput {
 export interface ProgramCardInput {
   title: string;
   subtitle: string;
+  bgColor?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export interface TrustFeatureInput {
+  title: string;
+  icon?: string;
+  description?: string;
+  color?: string;
   bgColor?: string;
   sortOrder?: number;
   isActive?: boolean;
@@ -124,4 +147,29 @@ export async function updateProgramCard(id: string, data: Partial<ProgramCardInp
 
 export async function deleteProgramCard(id: string): Promise<ApiResponse<void>> {
   return apiRequest<ApiResponse<void>>(`/site-content/program-cards/${id}`, { method: 'DELETE' });
+}
+
+// ─── Trust Features ────────────────────────────────────────────────────────
+
+export async function getTrustFeatures(includeInactive = false): Promise<ApiResponse<TrustFeature[]>> {
+  const q = includeInactive ? '?includeInactive=true' : '';
+  return apiRequest<ApiResponse<TrustFeature[]>>(`/site-content/trust-features${q}`);
+}
+
+export async function createTrustFeature(data: TrustFeatureInput): Promise<ApiResponse<TrustFeature>> {
+  return apiRequest<ApiResponse<TrustFeature>>('/site-content/trust-features', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateTrustFeature(id: string, data: Partial<TrustFeatureInput>): Promise<ApiResponse<TrustFeature>> {
+  return apiRequest<ApiResponse<TrustFeature>>(`/site-content/trust-features/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteTrustFeature(id: string): Promise<ApiResponse<void>> {
+  return apiRequest<ApiResponse<void>>(`/site-content/trust-features/${id}`, { method: 'DELETE' });
 }

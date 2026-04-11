@@ -72,6 +72,8 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { getCourses } from '@/lib/api/courses';
+import { getPrograms } from '@/lib/api/programs';
+import type { Program } from '@/lib/api/programs';
 import type { Course } from '@/types/course';
 import { getUsers } from '@/lib/api/users';
 import { cn } from '@/lib/utils';
@@ -95,7 +97,9 @@ export default function BooksPage() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<BookFilter>('all');
+  const [programFilter, setProgramFilter] = useState<string>('all');
 
+  const [programs, setPrograms] = useState<Program[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [users, setUsers] = useState<any[]>([]);
 
@@ -149,6 +153,7 @@ export default function BooksPage() {
     isEbook: false,
     fileUrl: '',
     thumbnailUrl: '',
+    programId: undefined,
   });
   const [editForm, setEditForm] = useState<UpdateBookDto>({
     name: '',
@@ -160,6 +165,7 @@ export default function BooksPage() {
     isEbook: false,
     fileUrl: '',
     thumbnailUrl: '',
+    programId: undefined,
   });
   const [createFile, setCreateFile] = useState<File | null>(null);
   const [createThumbnail, setCreateThumbnail] = useState<File | null>(null);
@@ -192,12 +198,14 @@ export default function BooksPage() {
 
   const loadInitialData = async () => {
     try {
-      const [coursesRes, usersRes] = await Promise.all([
+      const [coursesRes, usersRes, programsRes] = await Promise.all([
         getCourses({}),
-        getUsers({ limit: 100 })
+        getUsers({ limit: 100 }),
+        getPrograms(),
       ]);
       if (coursesRes.success) setCourses(coursesRes.data || []);
       if (usersRes.success) setUsers(usersRes.data || []);
+      if (programsRes.success) setPrograms(programsRes.data || []);
     } catch (err) { console.error(err); }
   };
 
@@ -224,6 +232,7 @@ export default function BooksPage() {
           isEbook: book.isEbook,
           fileUrl: book.fileUrl || '',
           thumbnailUrl: book.thumbnailUrl || '',
+          programId: (book as any).programId || undefined,
         });
         setEditFile(null);
         setEditThumbnail(null);
@@ -358,7 +367,7 @@ export default function BooksPage() {
       await createBook({ ...createForm }, createFile || undefined, createThumbnail || undefined);
       setCreateDialogOpen(false);
       setCreateForm({
-        name: '', sku: '', price: 0, mrp: undefined, author: '', description: '', isEbook: false, fileUrl: '', thumbnailUrl: '',
+        name: '', sku: '', price: 0, mrp: undefined, author: '', description: '', isEbook: false, fileUrl: '', thumbnailUrl: '', programId: undefined,
       });
       setCreateFile(null);
       setCreateThumbnail(null);
@@ -421,7 +430,11 @@ export default function BooksPage() {
       typeFilter === 'all' ||
       (typeFilter === 'ebook' && book.isEbook) ||
       (typeFilter === 'physical' && !book.isEbook);
-    return matchesSearch && matchesType;
+    const matchesProgram =
+      programFilter === 'all' ||
+      (programFilter === '__none__' && !(book as any).programId) ||
+      (book as any).programId === programFilter;
+    return matchesSearch && matchesType && matchesProgram;
   });
 
   const isDetailsReady = !!bookDetails && !detailsLoading;
@@ -454,6 +467,21 @@ export default function BooksPage() {
                 <SelectItem value="ebook" className="text-sm font-medium">E-Book</SelectItem>
               </SelectContent>
             </Select>
+
+            {programs.length > 0 && (
+              <Select value={programFilter} onValueChange={setProgramFilter}>
+                <SelectTrigger className="h-12 w-[200px] rounded-2xl border-slate-200 bg-white text-sm font-medium shadow-sm">
+                  <SelectValue placeholder="All Programs" />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
+                  <SelectItem value="all" className="text-sm font-medium">All Programs</SelectItem>
+                  <SelectItem value="__none__" className="text-sm font-medium">No Program</SelectItem>
+                  {programs.map((p) => (
+                    <SelectItem key={p.id} value={p.id} className="text-sm font-medium">{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
 
             <Button variant="outline" className="h-12 w-12 rounded-2xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-all shadow-sm" onClick={loadBooks}>
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
@@ -553,6 +581,11 @@ export default function BooksPage() {
                        <Badge variant="outline" className={cn("rounded-lg text-[10px] font-black uppercase tracking-widest px-2.5 py-1", book.isEbook ? "bg-indigo-50 text-indigo-600 border-indigo-100" : "bg-emerald-50 text-emerald-600 border-emerald-100")}>
                          {book.isEbook ? 'Digital E-Book' : 'Physical Print'}
                        </Badge>
+                       {(book as any).program && (
+                         <Badge variant="outline" className="mt-1.5 rounded-lg text-[10px] font-bold px-2.5 py-1 bg-violet-50 text-violet-600 border-violet-100">
+                           {(book as any).program.name}
+                         </Badge>
+                       )}
                     </TableCell>
                     <TableCell className="py-5">
                        <div className="flex flex-col">
@@ -767,6 +800,29 @@ export default function BooksPage() {
                 </div>
               </div>
 
+              {programs.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 px-1">
+                    <Layers className="h-3.5 w-3.5 text-violet-500" />
+                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Program Category <span className="normal-case font-medium">— optional</span></label>
+                  </div>
+                  <Select
+                    value={createForm.programId || '__none__'}
+                    onValueChange={(v) => setCreateForm((p) => ({ ...p, programId: v === '__none__' ? undefined : v }))}
+                  >
+                    <SelectTrigger className="h-14 rounded-2xl border-slate-200 bg-slate-50/30 px-5 font-bold text-slate-700 border-2">
+                      <SelectValue placeholder="Select program..." />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-2xl p-2">
+                      <SelectItem value="__none__" className="rounded-xl py-3 font-bold">None</SelectItem>
+                      {programs.map((p) => (
+                        <SelectItem key={p.id} value={p.id} className="rounded-xl py-3 font-bold">{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               <div className="grid gap-8 sm:grid-cols-2">
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 px-1">
@@ -934,6 +990,29 @@ export default function BooksPage() {
                     </Select>
                   </div>
                 </div>
+
+                {programs.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 px-1">
+                      <Layers className="h-3.5 w-3.5 text-violet-500" />
+                      <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Program Category <span className="normal-case font-medium">— optional</span></label>
+                    </div>
+                    <Select
+                      value={editForm.programId || '__none__'}
+                      onValueChange={(v) => setEditForm((p) => ({ ...p, programId: v === '__none__' ? null : v }))}
+                    >
+                      <SelectTrigger className="h-14 rounded-2xl border-slate-200 bg-slate-50/30 px-5 font-bold text-slate-700 border-2">
+                        <SelectValue placeholder="Select program..." />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-2xl p-2">
+                        <SelectItem value="__none__" className="rounded-xl py-3 font-bold">None</SelectItem>
+                        {programs.map((p) => (
+                          <SelectItem key={p.id} value={p.id} className="rounded-xl py-3 font-bold">{p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 <div className="grid gap-8 sm:grid-cols-2">
                   <div className="space-y-3">

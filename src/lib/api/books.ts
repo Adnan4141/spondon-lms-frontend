@@ -13,6 +13,8 @@ export interface Book {
   fileUrl?: string | null;
   thumbnailUrl?: string | null;
   createdAt: string;
+  programId?: string | null;
+  program?: { id: string; name: string } | null;
   courseBooks?: CourseBook[];
   collaborators?: Array<
     BookCollaborator & {
@@ -118,6 +120,7 @@ export interface CreateBookDto {
   isEbook?: boolean;
   fileUrl?: string;
   thumbnailUrl?: string;
+  programId?: string;
 }
 
 export interface UpdateBookDto {
@@ -130,6 +133,7 @@ export interface UpdateBookDto {
   isEbook?: boolean;
   fileUrl?: string;
   thumbnailUrl?: string;
+  programId?: string | null;
 }
 
 export interface CreateBookStockDto {
@@ -162,11 +166,13 @@ export interface CreateBookSaleDto {
 
 export async function getBooks(params?: {
   isEbook?: boolean;
+  programId?: string;
   page?: number;
   limit?: number;
 }): Promise<ApiResponse<Book[]>> {
   const queryParams = new URLSearchParams();
   if (params?.isEbook !== undefined) queryParams.append('isEbook', String(params.isEbook));
+  if (params?.programId) queryParams.append('programId', params.programId);
   if (params?.page) queryParams.append('page', String(params.page));
   if (params?.limit) queryParams.append('limit', String(params.limit));
 

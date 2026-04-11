@@ -3,7 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Quote, Star } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Play, Quote } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Testimonial } from './types';
 
@@ -24,141 +24,108 @@ export const StudentReviewTestimonialSection: React.FC<Props> = ({
   const prev = () => setTestimonialIndex((testimonialIndex - 1 + testimonials.length) % testimonials.length);
 
   const activeTestimonial = testimonials[testimonialIndex];
-  const rating = activeTestimonial?.rating ?? 5;
 
   return (
-    <section className="pb-24 sm:pb-32 bg-white overflow-hidden relative">
-      <div className="mx-auto max-w-7xl px-6 lg:px-12 relative z-10">
-        <div className="grid lg:grid-cols-2 gap-10 xl:gap-14 items-stretch">
+    <section className="relative -mt-16 bg-white pb-16 sm:-mt-20 sm:pb-20 lg:-mt-24 lg:pb-24">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-10">
+        <div className="relative mx-auto max-w-4xl rounded-[1.9rem] border border-slate-100 bg-white px-5 py-5 shadow-[0_28px_60px_-24px_rgba(15,23,42,0.22)] sm:px-8 sm:py-8 lg:max-w-5xl lg:px-9 lg:py-9">
+          <button
+            onClick={prev}
+            className="absolute left-2 top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white text-indigo-500 shadow-[0_14px_34px_-18px_rgba(15,23,42,0.4)] transition-all hover:scale-105 hover:text-indigo-700 sm:-left-11 sm:h-14 sm:w-14"
+            aria-label="Previous testimonial"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </button>
 
-          {/* Left: student image */}
-          <div className="relative">
-            <div className="absolute -top-6 -left-6 w-28 h-28 rounded-full bg-indigo-100/60 blur-2xl" />
-            <div className="absolute -bottom-8 -right-4 w-32 h-32 rounded-full bg-blue-100/60 blur-2xl" />
+          <button
+            onClick={next}
+            className="absolute right-2 top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white text-indigo-500 shadow-[0_14px_34px_-18px_rgba(15,23,42,0.4)] transition-all hover:scale-105 hover:text-indigo-700 sm:-right-11 sm:h-14 sm:w-14"
+            aria-label="Next testimonial"
+          >
+            <ChevronRight className="h-6 w-6" />
+          </button>
+
+          <div className="grid items-center gap-6 lg:grid-cols-[1.18fr_0.82fr] lg:gap-8">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={`quote-${testimonialIndex}`}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.32, ease: 'easeOut' }}
+                className="space-y-4 px-3 sm:px-5 lg:px-6"
+              >
+                <div className="flex items-center gap-2 text-indigo-500">
+                  <Quote className="h-9 w-9 fill-fuchsia-500/20 text-fuchsia-500" />
+                </div>
+
+                <p className="max-w-xl text-lg font-medium leading-[1.75] text-slate-500 sm:text-xl lg:text-[1.12rem]">
+                  &ldquo;{activeTestimonial?.quote}&rdquo;
+                </p>
+
+                <div className="pt-2">
+                  <p className="text-2xl font-extrabold text-indigo-900 sm:text-[2rem]">{activeTestimonial?.name}</p>
+                  <p className="mt-2 max-w-xl text-xs font-medium leading-relaxed text-slate-400 sm:text-sm">
+                    {activeTestimonial?.info || activeTestimonial?.instituteName || 'শিক্ষার্থী'}
+                  </p>
+                </div>
+              </motion.div>
+            </AnimatePresence>
 
             <AnimatePresence mode="wait">
               <motion.div
-                key={`img-${testimonialIndex}`}
-                initial={{ opacity: 0, scale: 0.97 }}
+                key={`thumb-${testimonialIndex}`}
+                initial={{ opacity: 0, scale: 0.96 }}
                 animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.97 }}
-                transition={{ duration: 0.4 }}
-                className="relative h-full min-h-90 sm:min-h-115 rounded-[2.2rem] overflow-hidden border border-slate-200 shadow-[0_28px_60px_-20px_rgba(0,0,0,0.2)]"
+                exit={{ opacity: 0, scale: 0.96 }}
+                transition={{ duration: 0.32 }}
+                className="relative h-44 overflow-hidden rounded-[1.45rem] border border-indigo-100 bg-indigo-50 shadow-[0_18px_36px_-18px_rgba(67,56,202,0.35)] sm:h-52 lg:h-48"
               >
                 {activeTestimonial?.thumbnailUrl ? (
-                  <Image
-                    src={activeTestimonial.thumbnailUrl}
-                    alt={activeTestimonial.name}
-                    fill
-                    className="object-cover"
-                  />
+                  <>
+                    <Image
+                      src={activeTestimonial.thumbnailUrl}
+                      alt={activeTestimonial.name}
+                      fill
+                      className="object-cover"
+                    />
+                    {activeTestimonial?.videoUrl && (
+                      <a
+                        href={activeTestimonial.videoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="absolute inset-0 flex items-center justify-center bg-indigo-950/20 transition-colors hover:bg-indigo-950/30"
+                      >
+                        <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-indigo-500/95 text-white shadow-xl">
+                          <Play className="ml-0.5 h-6 w-6 fill-current" />
+                        </span>
+                      </a>
+                    )}
+                  </>
                 ) : (
-                  <div className="w-full h-full bg-linear-to-br from-indigo-100 via-blue-50 to-slate-100 flex items-center justify-center">
-                    <span className="text-[8rem] font-black text-indigo-200 select-none">
+                  <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-indigo-100 to-blue-50">
+                    <span className="text-7xl font-black text-indigo-300">
                       {activeTestimonial?.name?.charAt(0) || 'S'}
                     </span>
                   </div>
                 )}
-              
               </motion.div>
             </AnimatePresence>
           </div>
 
-          {/* Right: review card */}
-          <div className="relative">
-            <div className="absolute -top-10 -right-10 w-40 h-40 bg-indigo-600/5 rounded-full blur-2xl" />
-
-            <div className="bg-white rounded-[3rem] border border-slate-200 p-8 sm:p-12 lg:p-14 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)] relative overflow-hidden h-full flex flex-col justify-between">
-              <div className="absolute top-0 right-0 p-12 opacity-[0.03] pointer-events-none">
-                <Quote className="w-48 h-48 rotate-12" />
-              </div>
-
-              <div className="relative z-10 space-y-8">
-                {/* Stars */}
-                <div className="flex gap-1">
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <Star
-                      key={s}
-                      className={cn(
-                        'w-5 h-5 transition-colors',
-                        s <= rating ? 'fill-amber-400 text-amber-400' : 'fill-slate-100 text-slate-200'
-                      )}
-                    />
-                  ))}
-                </div>
-
-                {/* Quote */}
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={testimonialIndex}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    transition={{ duration: 0.4, ease: 'easeOut' }}
-                    className="min-h-40"
-                  >
-                    <p className="text-2xl sm:text-3xl font-black text-slate-900 leading-tight italic">
-                      &ldquo;{activeTestimonial?.quote}&rdquo;
-                    </p>
-                  </motion.div>
-                </AnimatePresence>
-
-                {/* Author + nav */}
-                <div className="flex items-center justify-between pt-8 border-t border-slate-100">
-                  <div>
-                    <p className="text-lg font-black text-slate-900 leading-none">
-                      {activeTestimonial?.name}
-                    </p>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-                      {activeTestimonial?.instituteName && (
-                        <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-bold text-indigo-600">
-                          {activeTestimonial.instituteName}
-                        </span>
-                      )}
-                      {activeTestimonial?.info && (
-                        <span className="text-xs font-semibold text-slate-400">
-                          {activeTestimonial.info}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      onClick={prev}
-                      className="w-12 h-12 rounded-2xl border border-slate-200 bg-white hover:bg-indigo-600 hover:border-indigo-600 hover:text-white flex items-center justify-center transition-all shadow-sm active:scale-95"
-                      aria-label="Previous testimonial"
-                    >
-                      <ChevronLeft className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={next}
-                      className="w-12 h-12 rounded-2xl border border-slate-200 bg-white hover:bg-indigo-600 hover:border-indigo-600 hover:text-white flex items-center justify-center transition-all shadow-sm active:scale-95"
-                      aria-label="Next testimonial"
-                    >
-                      <ChevronRight className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Dot indicators */}
-            <div className="flex justify-center lg:justify-start gap-2 mt-8">
-              {testimonials.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setTestimonialIndex(i)}
-                  className={cn(
-                    'h-1.5 transition-all duration-300 rounded-full',
-                    i === testimonialIndex ? 'w-8 bg-indigo-600' : 'w-2 bg-slate-200'
-                  )}
-                  aria-label={`Go to testimonial ${i + 1}`}
-                />
-              ))}
-            </div>
+          <div className="mt-7 flex justify-center gap-2.5">
+            {testimonials.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setTestimonialIndex(i)}
+                className={cn(
+                  'h-2.5 rounded-full transition-all duration-300',
+                  i === testimonialIndex ? 'w-7 bg-fuchsia-500' : 'w-2.5 bg-slate-300 hover:bg-slate-400'
+                )}
+                aria-label={`Go to testimonial ${i + 1}`}
+              />
+            ))}
           </div>
-
         </div>
       </div>
     </section>

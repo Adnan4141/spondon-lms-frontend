@@ -22,6 +22,7 @@ export interface User {
   experienceYears?: number | null;
   demoClassUrl?: string | null;
   showMobile?: boolean;
+  displayOrder?: number;
 }
 
 export type CreateUserPayload = {
@@ -136,4 +137,13 @@ export async function getPublicTeachers(): Promise<ApiResponse<PublicTeacher[]>>
 
 export async function getPublicTeacherById(id: string): Promise<ApiResponse<PublicTeacher>> {
   return apiRequest<ApiResponse<PublicTeacher>>(`/users/teachers/public/${id}`);
+}
+
+export async function reorderTeachers(
+  items: { id: string; displayOrder: number }[]
+): Promise<ApiResponse<void>> {
+  return apiRequest<ApiResponse<void>>('/users/teachers/reorder', {
+    method: 'PATCH',
+    body: JSON.stringify(items),
+  });
 }

@@ -15,5 +15,6 @@ export interface Testimonial {
   info: string;
   instituteName?: string;
   thumbnailUrl?: string;
+  videoUrl?: string;
   rating?: number;
 }
