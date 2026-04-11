@@ -108,6 +108,7 @@ export function TeacherForm({ branches, teacher, lockedBranchId, onSuccess }: Te
   const [status, setStatus] = useState('ACTIVE');
 
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // ── Populate on edit ──
@@ -199,10 +200,20 @@ export function TeacherForm({ branches, teacher, lockedBranchId, onSuccess }: Te
 
         const res = await updateUser(teacher.id, payload);
         if (!res.success) { setError(res.message || 'Update failed'); return; }
+
         if (photoFile) {
+          setUploadingPhoto(true);
           const up = await uploadUserProfileImage(teacher.id, photoFile);
-          if (!up.success) { setError(up.message || 'Profile saved but image upload failed'); return; }
+          setUploadingPhoto(false);
+          if (!up.success) {
+            await onSuccess();
+            closeModal();
+            toast({ title: 'Profile updated', variant: 'success' });
+            toast({ title: 'Photo upload failed', description: up.message || 'Re-upload from the Edit view.', variant: 'destructive' });
+            return;
+          }
         }
+
         await onSuccess();
         toast({ title: 'Teacher updated', variant: 'success' });
         closeModal();
@@ -221,6 +232,7 @@ export function TeacherForm({ branches, teacher, lockedBranchId, onSuccess }: Te
         if (!res.success || !res.data) { setError(res.message || 'Could not create teacher'); return; }
 
         const newId = res.data.id;
+        const otp = (res.data as { oneTimePassword?: string }).oneTimePassword;
 
         // Save teaching info separately
         if (designation || institute || expYears != null || demoClassUrl || showMobile) {
@@ -234,12 +246,19 @@ export function TeacherForm({ branches, teacher, lockedBranchId, onSuccess }: Te
         }
 
         if (photoFile) {
+          setUploadingPhoto(true);
           const up = await uploadUserProfileImage(newId, photoFile);
-          if (!up.success) { setError(up.message || 'Teacher created but photo upload failed'); return; }
+          setUploadingPhoto(false);
+          if (!up.success) {
+            await onSuccess();
+            closeModal();
+            toast({ title: 'Teacher created', description: otp ? `One-time password: ${otp}` : 'Account established.', variant: 'success' });
+            toast({ title: 'Photo upload failed', description: up.message || 'Re-upload from the Edit view.', variant: 'destructive' });
+            return;
+          }
         }
 
         await onSuccess();
-        const otp = (res.data as { oneTimePassword?: string }).oneTimePassword;
         toast({
           title: 'Teacher created',
           description: otp ? `One-time password: ${otp}` : 'Account established.',
@@ -251,6 +270,7 @@ export function TeacherForm({ branches, teacher, lockedBranchId, onSuccess }: Te
       setError(e instanceof Error ? e.message : 'Request failed');
     } finally {
       setSubmitting(false);
+      setUploadingPhoto(false);
     }
   };
 
@@ -697,7 +717,7 @@ export function TeacherForm({ branches, teacher, lockedBranchId, onSuccess }: Te
             variant="ghost"
             className="h-11 rounded-xl px-5 font-black text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all text-sm"
             onClick={step === 0 ? closeModal : goBack}
-            disabled={submitting}
+            disabled={submitting || uploadingPhoto}
           >
             <ChevronLeft className="mr-1.5 h-4 w-4" />
             {step === 0 ? 'Cancel' : 'Back'}
@@ -722,9 +742,11 @@ export function TeacherForm({ branches, teacher, lockedBranchId, onSuccess }: Te
                 type="button"
                 className="h-11 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm shadow-lg shadow-indigo-200 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-60"
                 onClick={handleSubmit}
-                disabled={submitting}
+                disabled={submitting || uploadingPhoto}
               >
-                {submitting ? (
+                {uploadingPhoto ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading photo…</>
+                ) : submitting ? (
                   <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving…</>
                 ) : (
                   <>{isEdit ? 'Save Changes' : 'Create Teacher'}</>
