@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getPrograms } from '@/lib/api/programs';
-import { getCourseById, getCourses, updateCourse, createCourse } from '@/lib/api/courses';
+import { getCourseById, getCourses, updateCourse, createCourse, deleteCourse } from '@/lib/api/courses';
 import {
   getCourseContents,
   createCourseContent,
@@ -105,8 +105,10 @@ export default function CoursesPage() {
   const { toast, toasts, removeToast } = useToast();
   const [courses, setCourses] = useState<Course[]>([]);
   const [programs, setPrograms] = useState<Program[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [deletingCourseId, setDeletingCourseId] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [courseToDelete, setCourseToDelete] = useState<Course | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<CourseStatus | 'all'>('ACTIVE');
   const [typeFilter, setTypeFilter] = useState<CourseType | 'all'>('all');
@@ -213,6 +215,33 @@ export default function CoursesPage() {
       className: 'sm:max-w-5xl max-h-[92vh] overflow-y-auto',
       content: <CourseForm programs={programs} onSuccess={loadCourses} />,
     });
+  };
+
+  const handleDeleteClick = (course: Course) => {
+    setCourseToDelete(course);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!courseToDelete) return;
+    
+    try {
+      setDeletingCourseId(courseToDelete.id);
+      const response = await deleteCourse(courseToDelete.id);
+      
+      if (response.success) {
+        toast({ title: 'Success', description: 'Course deleted successfully', variant: 'success' });
+        setDeleteConfirmOpen(false);
+        setCourseToDelete(null);
+        loadCourses();
+      } else {
+        toast({ title: 'Error', description: response.message || 'Failed to delete course', variant: 'destructive' });
+      }
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to delete course', variant: 'destructive' });
+    } finally {
+      setDeletingCourseId(null);
+    }
   };
 
   useEffect(() => { loadPrograms(); }, []);
@@ -398,6 +427,19 @@ export default function CoursesPage() {
                         >
                           Edit
                         </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 rounded-xl border-rose-200 bg-white px-4 text-[10px] font-black uppercase tracking-widest text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all shadow-sm"
+                          onClick={() => handleDeleteClick(course)}
+                          disabled={deletingCourseId === course.id}
+                        >
+                          {deletingCourseId === course.id ? (
+                            <RefreshCw className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <><Trash2 className="h-3 w-3 mr-1" />Delete</>
+                          )}
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -438,6 +480,41 @@ export default function CoursesPage() {
       )}
 
       <Toaster toasts={toasts} removeToast={removeToast} />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="sm:max-w-md rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="font-black text-slate-900">Delete Course</DialogTitle>
+            <DialogDescription className="text-slate-600">
+              Are you sure you want to delete this course? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          {courseToDelete && (
+            <div className="my-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-sm font-bold text-slate-900">{courseToDelete.name}</p>
+              <p className="text-xs font-medium text-slate-500 mt-1">Code: {courseToDelete.code}</p>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteConfirmOpen(false)}
+              className="rounded-xl"
+              disabled={deletingCourseId !== null}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteConfirm}
+              className="rounded-xl bg-rose-600 hover:bg-rose-700"
+              disabled={deletingCourseId !== null}
+            >
+              {deletingCourseId ? 'Deleting...' : 'Delete Course'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
