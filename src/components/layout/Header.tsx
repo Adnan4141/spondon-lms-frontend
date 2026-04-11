@@ -70,9 +70,9 @@ export function Header() {
   return (
     <nav
       className={cn(
-        'fixed top-0 left-0 right-0 z-50 w-full transition-all duration-500',
+        'z-50 w-full transition-all duration-500',
         scrolled 
-          ? 'py-0' // Tighten up on scroll
+          ? 'fixed top-0 left-0 right-0 py-0' // Fixed with compact spacing on scroll
           : 'py-2 sm:py-4'  // Less padding on mobile
       )}
     >
@@ -82,7 +82,7 @@ export function Header() {
           "absolute inset-0 transition-all duration-500 ease-in-out -z-10",
           scrolled 
             ? "bg-white/80 backdrop-blur-xl opacity-100 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)]" 
-            : "bg-transparent opacity-0"
+            : "bg-white opacity-100"
         )} 
       />
 
@@ -90,7 +90,7 @@ export function Header() {
       <div 
         className={cn(
           "absolute bottom-0 left-0 h-[1px] bg-slate-200 transition-all duration-700 ease-in-out -z-10",
-          scrolled ? "w-full opacity-100" : "w-0 opacity-0"
+          scrolled ? "w-full opacity-100" : "w-full opacity-60"
         )} 
       />
 
@@ -104,10 +104,7 @@ export function Header() {
             width={200}
             height={65}
             priority
-            className={cn(
-              "object-contain transition-all duration-500 w-28 sm:w-36 md:w-44 lg:w-[200px] h-auto",
-              !scrolled && "brightness-0 invert"
-            )}
+            className="object-contain transition-all duration-500 w-28 sm:w-36 md:w-44 lg:w-[200px] h-auto"
           />
         </Link>
 
@@ -119,7 +116,7 @@ export function Header() {
               href={link.href}
               className={cn(
                 "group relative text-[17px] font-bold tracking-tight transition-colors duration-300",
-                scrolled ? 'text-slate-700' : 'text-white'
+                'text-slate-700'
               )}
             >
               <span className="relative z-10">{link.name}</span>
@@ -127,7 +124,7 @@ export function Header() {
               {/* Animated Underline */}
               <span className={cn(
                 "absolute -bottom-1 left-0 h-[2px] transition-all duration-300 group-hover:w-full w-0",
-                scrolled ? "bg-[#5C2D91]" : "bg-white"
+                "bg-[#5C2D91]"
               )} />
             </Link>
           ))}
@@ -140,9 +137,7 @@ export function Header() {
               <Link href={getDashboardHref()}>
                 <Button className={cn(
                   "rounded-2xl px-6 h-11 font-bold transition-all duration-500 active:scale-95 shadow-sm",
-                  scrolled 
-                    ? "bg-[#5C2D91] hover:bg-[#FF2D8C] text-white" 
-                    : "bg-white text-[#5C2D91] hover:shadow-xl hover:shadow-white/20"
+                  "bg-[#5C2D91] hover:bg-[#FF2D8C] text-white"
                 )}>
                   <LayoutDashboard className="h-4 w-4 mr-2" />
                   ড্যাশবোর্ড
@@ -152,7 +147,7 @@ export function Header() {
                 onClick={handleLogout}
                 className={cn(
                   "rounded-2xl px-4 h-11 font-bold transition-all flex items-center gap-2",
-                  scrolled ? "text-slate-600 hover:text-rose-500" : "text-white/90 hover:text-white"
+                  "text-slate-600 hover:text-rose-500"
                 )}
                 title="Logout"
               >
@@ -163,9 +158,7 @@ export function Header() {
             <Link href="/login">
               <Button className={cn(
                 "rounded-2xl px-8 h-11 font-bold transition-all duration-500 active:scale-95 shadow-sm",
-                scrolled 
-                  ? "bg-[#5C2D91] hover:bg-[#FF2D8C] text-white" 
-                  : "bg-white text-[#5C2D91] hover:shadow-xl hover:shadow-white/20"
+                "bg-[#5C2D91] hover:bg-[#FF2D8C] text-white"
               )}>
                 লগ ইন / সাইন আপ
               </Button>
@@ -177,12 +170,7 @@ export function Header() {
         <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
           aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
-          className={cn(
-            "lg:hidden relative z-[60] p-3 sm:p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl sm:rounded-2xl transition-all duration-300 touch-manipulation",
-            scrolled 
-              ? "bg-slate-100 text-slate-900" 
-              : "bg-white/10 text-white backdrop-blur-md border border-white/20"
-          )}
+          className="lg:hidden relative z-[60] p-3 sm:p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl sm:rounded-2xl transition-all duration-300 touch-manipulation bg-slate-100 text-slate-900"
         >
           {isMenuOpen ? <X size={22} className="sm:w-6 sm:h-6" /> : <Menu size={22} className="sm:w-6 sm:h-6" />}
         </button>

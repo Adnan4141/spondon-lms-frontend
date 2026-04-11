@@ -81,6 +81,7 @@ export interface CreateCourseDto {
   thumbnail?: string;
   type: CourseType;
   billingType: BillingType;
+  category?: CourseCategory;
   fee: number;
   offerDiscountAmount?: number | null;
   offerDiscountNote?: string | null;
@@ -102,6 +103,7 @@ export interface UpdateCourseDto {
   thumbnail?: string;
   type?: CourseType;
   billingType?: BillingType;
+  category?: CourseCategory;
   fee?: number;
   offerDiscountAmount?: number | null;
   offerDiscountNote?: string | null;

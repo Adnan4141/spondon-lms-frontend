@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import {
   AdmissionStatus,
   BillingType,
+  CourseCategory,
   CourseStatus,
   CourseType,
   CreateCourseDto,
@@ -18,6 +19,7 @@ import {
 } from '@/types/course';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { uploadQuestionImage } from '@/lib/api/question-bank';
 import {
@@ -67,6 +69,20 @@ const statusOptions: CourseStatus[] = ['ACTIVE', 'DISABLED', 'ARCHIVED'];
 const typeOptions: CourseType[] = ['ONLINE', 'OFFLINE'];
 const billingOptions: BillingType[] = ['ONE_TIME', 'MONTHLY'];
 const admissionOptions: AdmissionStatus[] = ['OPEN', 'CLOSED'];
+const categoryOptions: { value: CourseCategory; label: string }[] = [
+  { value: 'SSC', label: 'SSC' },
+  { value: 'HSC', label: 'HSC' },
+  { value: 'ADMISSION', label: 'ভর্তি (Admission)' },
+  { value: 'JUNIOR_CADET_JOB', label: 'ক্যাডেট / জব (Junior/Cadet/Job)' },
+  { value: 'JOB', label: 'Job' },
+];
+
+const DEFAULT_BENEFITS = [
+  'অভিজ্ঞ শিক্ষক মন্ডলী',
+  'মানসম্মত লেকচার শিট',
+  'নিয়মিত মডেল টেস্ট',
+  'সাপ্তাহিক সলভ ক্লাস',
+];
 
 const inputClass =
   'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
@@ -86,6 +102,7 @@ type FormState = {
   thumbnail: string;
   type: CourseType;
   billingType: BillingType;
+  category: CourseCategory | '';
   fee: string;
   offerDiscountAmount: string;
   offerDiscountNote: string;
@@ -98,6 +115,7 @@ type FormState = {
   settledOptionEnabled: boolean;
   admissionFeeEnabled: boolean;
   admissionFee: string;
+  benefits: string[];
 };
 
 const defaultForm: FormState = {
@@ -108,6 +126,7 @@ const defaultForm: FormState = {
   thumbnail: '',
   type: 'ONLINE',
   billingType: 'ONE_TIME',
+  category: '',
   fee: '0',
   offerDiscountAmount: '',
   offerDiscountNote: '',
@@ -120,6 +139,7 @@ const defaultForm: FormState = {
   settledOptionEnabled: false,
   admissionFeeEnabled: false,
   admissionFee: '',
+  benefits: DEFAULT_BENEFITS,
 };
 
 interface CourseFormProps {
@@ -156,6 +176,11 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
 
   const isEdit = !!course;
 
+  const billingOptionLabels: Record<BillingType, string> = {
+    ONE_TIME: 'Program-wise',
+    MONTHLY: 'Monthly',
+  };
+
   const fetchExtras = async () => {
     if (!course?.id) return;
     try {
@@ -172,6 +197,10 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
 
   useEffect(() => {
     if (course) {
+      const outlineData = course.outline as any;
+      const loadedBenefits = Array.isArray(outlineData?.benefits) && outlineData.benefits.length > 0
+        ? outlineData.benefits
+        : DEFAULT_BENEFITS;
       setForm({
         programId: course.programId,
         name: course.name,
@@ -180,6 +209,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
         thumbnail: course.thumbnail || '',
         type: course.type,
         billingType: course.billingType,
+        category: course.category || '',
         fee: String(course.fee),
         offerDiscountAmount:
           course.offerDiscountAmount != null && String(course.offerDiscountAmount) !== ''
@@ -195,6 +225,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
         settledOptionEnabled: course.settledOptionEnabled,
         admissionFeeEnabled: course.admissionFeeEnabled ?? false,
         admissionFee: course.admissionFee != null ? String(course.admissionFee) : '',
+        benefits: loadedBenefits,
       });
       if (course.thumbnail) {
         const url = resolveAttachmentUrl(course.thumbnail, API_ORIGIN);
@@ -323,29 +354,16 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
   }, [resources]);
 
   const handleSubmit = async () => {
-    const parsedFee = Number(form.fee);
-
-    if (Number.isNaN(parsedFee) || parsedFee < 0) {
-      setError('Fee must be a valid positive number.');
-      return;
-    }
-
-    let offerDisc: number | null | undefined;
-    if (form.offerDiscountAmount.trim() === '') {
-      offerDisc = isEdit ? null : undefined;
-    } else {
-      const od = Number(form.offerDiscountAmount);
-      if (Number.isNaN(od) || od < 0) {
-        setError('Offer discount must be a valid non-negative number.');
-        return;
-      }
-      offerDisc = od;
-    }
-
     if (!form.programId || !form.name.trim() || !form.slug.trim() || !form.code.trim()) {
       setError('Program, name, slug, and code are required.');
       return;
     }
+
+    const filteredBenefits = form.benefits.map((b) => b.trim()).filter(Boolean);
+    const existingOutline = (course?.outline && typeof course.outline === 'object' && !Array.isArray(course.outline))
+      ? (course.outline as Record<string, unknown>)
+      : {};
+    const outline = { ...existingOutline, benefits: filteredBenefits };
 
     const payload: CreateCourseDto | UpdateCourseDto = {
       programId: form.programId,
@@ -355,9 +373,11 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
       thumbnail: form.thumbnail.trim() || undefined,
       type: form.type,
       billingType: form.billingType,
-      fee: parsedFee,
-      ...(offerDisc !== undefined ? { offerDiscountAmount: offerDisc } : {}),
-      offerDiscountNote: form.offerDiscountNote.trim() || (isEdit ? null : undefined),
+      category: form.category || undefined,
+      fee: Number(course?.fee ?? form.fee ?? 0),
+      outline,
+      offerDiscountAmount: null,
+      offerDiscountNote: null,
       description: form.description.trim() || undefined,
       status: form.status,
       admissionStatus: form.admissionStatus,
@@ -474,6 +494,27 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
               </Select>
             </div>
 
+            {/* Category */}
+            <div className="space-y-2">
+              <label className={sectionLabel}>Category</label>
+              <Select
+                value={form.category || '__none__'}
+                onValueChange={(value) => setForm((prev) => ({ ...prev, category: value === '__none__' ? '' : value as CourseCategory }))}
+              >
+                <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
+                  <SelectValue placeholder="No category" />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
+                  <SelectItem value="__none__" className="text-sm font-medium text-slate-400">— No category</SelectItem>
+                  {categoryOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value} className="text-sm font-medium">
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="space-y-2">
               <label className={sectionLabel}>Course Code</label>
               <Input
@@ -584,67 +625,23 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                 }
               >
                 <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
-                  <SelectValue />
+                  <SelectValue placeholder="Select billing" />
                 </SelectTrigger>
                 <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
                   {billingOptions.map((option) => (
                     <SelectItem key={option} value={option} className="text-sm font-medium">
-                      {option}
+                      {billingOptionLabels[option]}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               {form.billingType === 'MONTHLY' && (
                 <p className="text-xs font-medium text-slate-500 leading-relaxed">
-                  Monthly courses bill students every month. Set the fee as the amount due each month. When enrolling students,
+                  Monthly courses bill students every month. Billing amount is managed at program level. When enrolling students,
                   set their billing start month; run <span className="font-bold text-slate-700">Monthly billing</span> in admin
-                  to create invoices (benefits apply automatically).
+                  to generate invoices.
                 </p>
               )}
-            </div>
-
-            <div className="space-y-2 sm:col-span-2">
-              <label className={sectionLabel}>
-                {form.billingType === 'MONTHLY' ? 'Monthly tuition (৳)' : 'Tuition fee (৳)'}
-              </label>
-              <Input
-                className={inputClass}
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.fee}
-                onChange={(e) => setForm((prev) => ({ ...prev, fee: e.target.value }))}
-              />
-            </div>
-
-            <div className="space-y-2 sm:col-span-2 rounded-2xl border border-amber-100 bg-amber-50/30 p-4">
-              <label className={sectionLabel}>অফার ডিস্কাউন্ট (কোর্সে সংযুক্ত · পরে এডিট করা যাবে)</label>
-              <p className="mb-3 text-[10px] font-bold text-amber-900/80">
-                ভর্তির ধাপে এই মান ডিফল্ট হিসেবে আসবে। ডিস্কাউন্ট দিলে রেফারেন্স/নোট এখানে রাখুন; অফলাইন পেমেন্টে আলাদা রেফারেন্সও লাগবে।
-              </p>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <label className={sectionLabel}>Offer amount (৳)</label>
-                  <Input
-                    className={inputClass}
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.offerDiscountAmount}
-                    onChange={(e) => setForm((prev) => ({ ...prev, offerDiscountAmount: e.target.value }))}
-                    placeholder="0"
-                  />
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <label className={sectionLabel}>Offer label / note (e.g. Eid 2026)</label>
-                  <Input
-                    className={inputClass}
-                    value={form.offerDiscountNote}
-                    onChange={(e) => setForm((prev) => ({ ...prev, offerDiscountNote: e.target.value }))}
-                    placeholder="Shown when prefilling admission discount"
-                  />
-                </div>
-              </div>
             </div>
 
             <div className="space-y-2 sm:col-span-2">
@@ -659,6 +656,52 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                 placeholder="Describe the course curriculum..."
                 className="min-h-[200px]"
               />
+            </div>
+
+            {/* Benefits Editor */}
+            <div className="space-y-3 sm:col-span-2 rounded-2xl border border-indigo-100 bg-indigo-50/30 p-4">
+              <div className="flex items-center justify-between">
+                <label className={sectionLabel} style={{ marginBottom: 0 }}>কোর্সের সুবিধাসমূহ (কোর্সটি কেন করবেন?)</label>
+                <button
+                  type="button"
+                  onClick={() => setForm((prev) => ({ ...prev, benefits: [...prev.benefits, ''] }))}
+                  disabled={form.benefits.length >= 12}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-colors disabled:opacity-40"
+                >
+                  <Plus className="h-3 w-3" /> যোগ করুন
+                </button>
+              </div>
+              <p className="text-[10px] font-bold text-indigo-900/60">কোর্স ডিটেইল পেজে দেখাবে সর্বোচ্চ ১২টি বিল পয়েন্ট দেখাবে।</p>
+              <div className="space-y-2">
+                {form.benefits.map((benefit, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <span className="text-[10px] font-black text-slate-400 w-5 text-center shrink-0">{idx + 1}</span>
+                    <Input
+                      className={inputClass + ' flex-1'}
+                      value={benefit}
+                      onChange={(e) => setForm((prev) => {
+                        const next = [...prev.benefits];
+                        next[idx] = e.target.value;
+                        return { ...prev, benefits: next };
+                      })}
+                      placeholder="সুবিধার বিবরণ লিখুন..."
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setForm((prev) => ({
+                        ...prev,
+                        benefits: prev.benefits.filter((_, i) => i !== idx),
+                      }))}
+                      className="h-10 w-10 rounded-xl border border-rose-100 bg-rose-50 text-rose-400 hover:bg-rose-100 hover:text-rose-600 flex items-center justify-center transition-colors shrink-0"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+                {form.benefits.length === 0 && (
+                  <p className="text-xs font-bold text-slate-400 text-center py-3">কোনো সুবিধা যোগ নেই। দেখানোর জন্য ‘যোগ করুন’ চাপুন।</p>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:col-span-2 pt-2">
