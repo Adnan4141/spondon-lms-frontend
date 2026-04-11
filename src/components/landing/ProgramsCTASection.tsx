@@ -20,18 +20,26 @@ const STATIC_CARDS: ProgramCard[] = [
 
 interface Props {
   cards?: ProgramCard[];
+  label?: string;
+  title?: string;
+  buttonText?: string;
 }
 
-export const ProgramsCTASection: React.FC<Props> = ({ cards }) => {
+export const ProgramsCTASection: React.FC<Props> = ({
+  cards,
+  label = 'আমাদের প্রোগ্রামসমূহ',
+  title = 'সেরা প্রোগ্রামের, সেরা কোর্সে যুক্ত হন আজই',
+  buttonText = 'সবকটি কোর্স দেখুন',
+}) => {
   const displayCards = cards && cards.length > 0 ? cards : STATIC_CARDS;
 
   return (
     <section className="py-12 sm:py-16 md:py-24">
       <div className="mx-auto max-w-6xl px-4">
         <div className="text-center mb-12">
-          <p className="text-xs sm:text-sm font-bold text-indigo-500">আমাদের প্রোগ্রামসমূহ</p>
+          <p className="text-xs sm:text-sm font-bold text-indigo-500">{label}</p>
           <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-slate-800 leading-tight mt-2">
-            সেরা প্রোগ্রামের, সেরা কোর্সে যুক্ত হন আজই
+            {title}
           </h2>
         </div>
 
@@ -61,7 +69,7 @@ export const ProgramsCTASection: React.FC<Props> = ({ cards }) => {
 
         <div className="mt-10 flex justify-center">
           <button className="flex items-center gap-2 px-6 py-3 rounded-xl bg-indigo-50 text-indigo-700 font-bold text-sm border border-indigo-100 hover:bg-indigo-100 transition-colors">
-            সবকটি কোর্স দেখুন
+            {buttonText}
             <Globe2 className="h-4 w-4" />
           </button>
         </div>

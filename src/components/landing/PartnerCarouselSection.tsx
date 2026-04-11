@@ -20,9 +20,19 @@ interface Props {
   /** After the first public API response (even if empty). */
   loadResolved: boolean;
   onSelect?: (partner: PartnerItem) => void;
+  badge?: string;
+  title?: string;
+  subtitle?: string;
 }
 
-export const PartnerCarouselSection: React.FC<Props> = ({ partners, loadResolved, onSelect }) => {
+export const PartnerCarouselSection: React.FC<Props> = ({
+  partners,
+  loadResolved,
+  onSelect,
+  badge = 'TRUSTED BY',
+  title = 'আমাদের পার্টনারসমূহ',
+  subtitle = 'যেসব প্রতিষ্ঠান ও ব্র্যান্ডের সাথে আমরা কাজ করি — তালিকা অ্যাডমিন প্যানেল থেকে আপডেট করা যায়।',
+}) => {
   const scrollContent = partners.length > 0 ? [...partners, ...partners] : [];
 
   return (

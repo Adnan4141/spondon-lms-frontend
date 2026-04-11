@@ -10,9 +10,19 @@ import { Button } from '@/components/ui/button';
 
 interface Props {
   dynamicEbooks: PublicCatalogBook[];
+  badge?: string;
+  title?: string;
+  titleHighlight?: string;
+  buttonText?: string;
 }
 
-export const DigitalLibrarySection: React.FC<Props> = ({ dynamicEbooks }) => {
+export const DigitalLibrarySection: React.FC<Props> = ({
+  dynamicEbooks,
+  badge = 'Learning Resource',
+  title = 'স্মার্ট বইয়ের',
+  titleHighlight = 'কালেকশন',
+  buttonText = 'সকল বই দেখুন',
+}) => {
   return (
     <section className="relative py-16 sm:py-24 md:py-32 overflow-hidden bg-[#0A0F1C]">
       <div className="absolute inset-0 z-0">
@@ -36,11 +46,11 @@ export const DigitalLibrarySection: React.FC<Props> = ({ dynamicEbooks }) => {
             whileInView={{ opacity: 1 }}
             className="inline-block px-4 py-1.5 sm:px-5 sm:py-2 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em]"
           >
-            Learning Resource
+            {badge}
           </motion.span>
           <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-black text-white leading-tight tracking-tighter">
-            স্মার্ট বইয়ের{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">কালেকশন</span>
+            {title}{' '}
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">{titleHighlight}</span>
           </h2>
     
         </div>
@@ -65,7 +75,7 @@ export const DigitalLibrarySection: React.FC<Props> = ({ dynamicEbooks }) => {
               asChild
               className="rounded-2xl bg-emerald-500 font-black uppercase text-[1২px] py-6 tracking-widest text-white hover:bg-emerald-400"
             >
-              <Link href="/books">সকল বই দেখুন</Link>
+              <Link href="/books">{buttonText}</Link>
             </Button>
          
           </div>

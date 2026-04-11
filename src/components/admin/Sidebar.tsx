@@ -36,6 +36,7 @@ import {
   ShieldCheck,
   Wallet,
   LayoutTemplate,
+  Settings2,
 } from 'lucide-react';
 
 type MenuItem = {
@@ -173,6 +174,7 @@ function buildMenuSections(role: string | null): MenuSection[] {
       items: [
         { title: 'CMS', href: '/admin/landing', icon: LayoutTemplate, color: 'text-fuchsia-600', bg: 'bg-fuchsia-50' },
         { title: 'Trust Features', href: '/admin/trust-features', icon: Award, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+        { title: 'Site Settings', href: '/admin/site-settings', icon: Settings2, color: 'text-violet-600', bg: 'bg-violet-50' },
       ],
     });
   }

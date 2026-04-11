@@ -2,6 +2,23 @@
 
 import { useEffect, useState } from 'react';
 import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import {
   getBooks,
   getBookById,
   createBook,
@@ -14,6 +31,7 @@ import {
   getCollaboratorRevenue,
   updateCollaboratorRevShare,
   addBookCollaboratorsBulk,
+  reorderBooks,
   type Book,
   type CreateBookDto,
   type UpdateBookDto,
@@ -68,6 +86,7 @@ import {
   Database,
   CheckCircle2,
   ChevronsUpDown,
+  GripVertical,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
@@ -85,6 +104,39 @@ type BookFilter = 'all' | 'physical' | 'ebook';
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   return 'Something went wrong';
+}
+
+// Sortable Book Row Component
+function SortableBookRow({ book }: { book: Book }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: book.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <TableRow ref={setNodeRef} style={style} className="bg-white hover:bg-indigo-50/30 transition-colors">
+      <TableCell className="py-4 px-4 w-12">
+        <button
+          className="cursor-grab active:cursor-grabbing p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all touch-none"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="h-5 w-5" />
+        </button>
+      </TableCell>
+      <TableCell className="py-4 px-4" colSpan={5}>
+        <div className="flex items-center gap-4">
+          <BookOpen className="h-5 w-5 text-indigo-600" />
+          <div>
+            <p className="text-base font-black text-slate-900">{book.name}</p>
+            <p className="text-xs text-slate-500 font-semibold">{book.sku}</p>
+          </div>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
 }
 
 export default function BooksPage() {
@@ -128,6 +180,11 @@ export default function BooksPage() {
 
   // Bulk collab state
   const [bulkQueue, setBulkQueue] = useState<BulkCollaboratorItem[]>([]);
+
+  // Sort mode state
+  const [sortMode, setSortMode] = useState(false);
+  const [orderedBooks, setOrderedBooks] = useState<Book[]>([]);
+  const [savingOrder, setSavingOrder] = useState(false);
   const [bulkUserSearch, setBulkUserSearch] = useState('');
   const [bulkUserPopoverOpen, setBulkUserPopoverOpen] = useState(false);
   const [bulkUserId, setBulkUserId] = useState('');
@@ -213,6 +270,42 @@ export default function BooksPage() {
     loadBooks();
     loadInitialData();
   }, []);
+
+  useEffect(() => {
+    setOrderedBooks(books);
+  }, [books]);
+
+  // DnD handlers
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setOrderedBooks((items) => {
+        const oldIndex = items.findIndex((b) => b.id === active.id);
+        const newIndex = items.findIndex((b) => b.id === over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
+
+  const handleSaveOrder = async () => {
+    try {
+      setSavingOrder(true);
+      const items = orderedBooks.map((b, i) => ({ id: b.id, displayOrder: i }));
+      await reorderBooks(items);
+      await loadBooks();
+      setSortMode(false);
+      toast({ title: 'Order saved', description: 'Books order updated successfully.', variant: 'default' });
+    } catch {
+      toast({ title: 'Error', description: 'Failed to save order.', variant: 'destructive' });
+    } finally {
+      setSavingOrder(false);
+    }
+  };
 
   const fetchBookDetails = async (id: string) => {
     try {
@@ -489,40 +582,78 @@ export default function BooksPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            {!sortMode && (
+              <>
+                <Button
+                  variant="outline"
+                  className="h-12 rounded-2xl border-slate-200 bg-white px-6 font-black uppercase tracking-widest text-[10px] text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
+                  onClick={() => window.location.href = '/admin/books/stock'}
+                >
+                  <Warehouse className="mr-2 h-4 w-4" />
+                  Stock Ledger
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-12 rounded-2xl border-slate-200 bg-white px-6 font-black uppercase tracking-widest text-[10px] text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
+                  onClick={() => window.location.href = '/admin/books/sales'}
+                >
+                  <ShoppingBag className="mr-2 h-4 w-4" />
+                  Sales History
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-12 rounded-2xl border-slate-200 bg-white px-6 font-black uppercase tracking-widest text-[10px] text-violet-600 hover:bg-violet-50 transition-all shadow-sm border-violet-200"
+                  onClick={() => window.location.href = '/admin/books/orders'}
+                >
+                  <ArrowRight className="mr-2 h-4 w-4" />
+                  Online Orders
+                </Button>
+                <Button
+                  className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95"
+                  onClick={() => setCreateDialogOpen(true)}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Book
+                </Button>
+              </>
+            )}
             <Button
               variant="outline"
-              className="h-12 rounded-2xl border-slate-200 bg-white px-6 font-black uppercase tracking-widest text-[10px] text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
-              onClick={() => window.location.href = '/admin/books/stock'}
+              className={cn(
+                'h-12 rounded-2xl px-6 font-black uppercase tracking-widest text-[10px] transition-all shadow-sm',
+                sortMode
+                  ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
+                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+              )}
+              onClick={() => {
+                if (sortMode) setOrderedBooks(books);
+                setSortMode((s) => !s);
+              }}
             >
-              <Warehouse className="mr-2 h-4 w-4" />
-              Stock Ledger
+              <GripVertical className="mr-2 h-4 w-4" />
+              {sortMode ? 'Cancel' : 'Sort Order'}
             </Button>
-            <Button
-              variant="outline"
-              className="h-12 rounded-2xl border-slate-200 bg-white px-6 font-black uppercase tracking-widest text-[10px] text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
-              onClick={() => window.location.href = '/admin/books/sales'}
-            >
-              <ShoppingBag className="mr-2 h-4 w-4" />
-              Sales History
-            </Button>
-            <Button
-              variant="outline"
-              className="h-12 rounded-2xl border-slate-200 bg-white px-6 font-black uppercase tracking-widest text-[10px] text-violet-600 hover:bg-violet-50 transition-all shadow-sm border-violet-200"
-              onClick={() => window.location.href = '/admin/books/orders'}
-            >
-              <ArrowRight className="mr-2 h-4 w-4" />
-              Online Orders
-            </Button>
-            <Button
-              className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95"
-              onClick={() => setCreateDialogOpen(true)}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Book
-            </Button>
+            {sortMode && (
+              <Button
+                className="h-12 rounded-2xl bg-indigo-600 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg transition-all hover:bg-indigo-700"
+                onClick={handleSaveOrder}
+                disabled={savingOrder}
+              >
+                {savingOrder ? 'Saving…' : 'Save Order'}
+              </Button>
+            )}
           </div>
         </div>
       </section>
+
+      {sortMode && (
+        <div className="rounded-2xl border border-indigo-200 bg-indigo-50 px-6 py-4 flex items-center gap-3">
+          <GripVertical className="h-5 w-5 text-indigo-500 shrink-0" />
+          <p className="text-sm font-bold text-indigo-700">
+            Drag rows to reorder books. Click <span className="font-black">Save Order</span> when done.
+          </p>
+        </div>
+      )}
 
       {/* Table Section */}
       <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/30">
@@ -560,7 +691,16 @@ export default function BooksPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredBooks.map((book) => (
+                {sortMode ? (
+                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <SortableContext items={orderedBooks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
+                      {orderedBooks.map((book) => (
+                        <SortableBookRow key={book.id} book={book} />
+                      ))}
+                    </SortableContext>
+                  </DndContext>
+                ) : (
+                  filteredBooks.map((book) => (
                   <TableRow key={book.id} className="group border-slate-100 transition-colors hover:bg-slate-50/80">
                     <TableCell className="px-8 py-5">
                        <div className="flex items-center gap-4">
@@ -676,7 +816,8 @@ export default function BooksPage() {
                        </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>

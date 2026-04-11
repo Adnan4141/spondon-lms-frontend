@@ -6,9 +6,19 @@ import { Badge } from '@/components/ui/badge';
 
 interface Props {
   handleImageError: (e: React.SyntheticEvent<HTMLImageElement, Event>, text?: string) => void;
+  badge?: string;
+  title?: string;
+  subtitle?: string;
+  footerText?: string;
 }
 
-export const PaymentSection: React.FC<Props> = ({ handleImageError }) => (
+export const PaymentSection: React.FC<Props> = ({
+  handleImageError,
+  badge = 'Secure Checkout',
+  title = 'পেমেন্ট পার্টনার',
+  subtitle = 'Trusted payment gateways ensuring safe and secure transactions',
+  footerText = 'Verified by SSLCOMMERZ',
+}) => (
   <section className="relative py-12 sm:py-20 md:py-28 overflow-hidden bg-gradient-to-br from-sky-50 via-white to-indigo-50">
     
     {/* Gradient Blobs */}
@@ -21,15 +31,15 @@ export const PaymentSection: React.FC<Props> = ({ handleImageError }) => (
         {/* Title */}
         <div className="text-center space-y-4">
           <Badge className="bg-white/70 backdrop-blur-md text-blue-600 border border-blue-100 px-6 py-2 text-[10px] font-black uppercase tracking-[0.25em] rounded-full shadow">
-            Secure Checkout
+            {badge}
           </Badge>
 
           <h3 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-slate-800 tracking-tight">
-            পেমেন্ট পার্টনার
+            {title}
           </h3>
 
           <p className="text-slate-500 text-sm max-w-md mx-auto">
-            Trusted payment gateways ensuring safe and secure transactions
+            {subtitle}
           </p>
         </div>
 
@@ -62,7 +72,7 @@ export const PaymentSection: React.FC<Props> = ({ handleImageError }) => (
         <div className="flex items-center gap-4 text-slate-300">
           <div className="h-px w-20 bg-gradient-to-r from-transparent via-slate-300 to-transparent" />
           <p className="text-[11px] font-black uppercase tracking-[0.35em] text-slate-400">
-            Verified by SSLCOMMERZ
+            {footerText}
           </p>
           <div className="h-px w-20 bg-gradient-to-r from-transparent via-slate-300 to-transparent" />
         </div>

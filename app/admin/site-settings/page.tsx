@@ -1,0 +1,234 @@
+'use client';
+
+import React, { useEffect, useState } from 'react';
+import { Save, RotateCcw, Settings2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
+import { Toaster } from '@/components/ui/toast';
+import { getSiteSettings, upsertSiteSettings } from '@/lib/api/site-content';
+
+// ─── Default values (mirrors component defaults) ──────────────────────────
+
+const DEFAULTS: Record<string, string> = {
+  'courses.badge': 'Premium Learning',
+  'courses.title': 'আমাদের সবচেয়ে ',
+  'courses.titleHighlight': 'জনপ্রিয় কোর্সসমূহ',
+  'courses.subtitle': 'নিজেদের প্রস্তুত করুন আগামী দিনের চ্যালেঞ্জ মোকাবিলায়।',
+  'courses.button': 'সকল কোর্স দেখুন',
+
+  'teachers.badge': 'OUR TEACHERS',
+  'teachers.title': 'আমাদের শিক্ষকমণ্ডলী',
+
+  'library.badge': 'Learning Resource',
+  'library.title': 'স্মার্ট বইয়ের',
+  'library.titleHighlight': 'কালেকশন',
+  'library.button': 'সকল বই দেখুন',
+
+  'payment.badge': 'Secure Checkout',
+  'payment.title': 'পেমেন্ট পার্টনার',
+  'payment.subtitle': 'Trusted payment gateways ensuring safe and secure transactions',
+  'payment.footer': 'Verified by SSLCOMMERZ',
+
+  'programs_cta.label': 'আমাদের প্রোগ্রামসমূহ',
+  'programs_cta.title': 'সেরা প্রোগ্রামের, সেরা কোর্সে যুক্ত হন আজই',
+  'programs_cta.button': 'সবকটি কোর্স দেখুন',
+
+  'partners.badge': 'TRUSTED BY',
+  'partners.title': 'আমাদের পার্টনারসমূহ',
+  'partners.subtitle': 'যেসব প্রতিষ্ঠান ও ব্র্যান্ডের সাথে আমরা কাজ করি — তালিকা অ্যাডমিন প্যানেল থেকে আপডেট করা যায়।',
+
+  'trust.title': 'কেন Shikho-তে আস্থা রাখবে?',
+  'trust.subtitle': 'সেরা মেন্টর ও সর্বাধুনিক প্রযুক্তির সাথে সারাদেশের ৩০ লক্ষ+ শিক্ষার্থীর মানসম্মত পড়ালেখা ও পরীক্ষা প্রস্তুতির নির্ভরযোগ্য প্রতিষ্ঠান Shikho!',
+};
+
+const LABELS: Record<string, string> = {
+  'courses.badge': 'Badge',
+  'courses.title': 'Title (main part)',
+  'courses.titleHighlight': 'Title (gradient/highlight part)',
+  'courses.subtitle': 'Subtitle',
+  'courses.button': 'Button Text',
+
+  'teachers.badge': 'Badge',
+  'teachers.title': 'Section Title',
+
+  'library.badge': 'Badge',
+  'library.title': 'Title (main part)',
+  'library.titleHighlight': 'Title (highlight part)',
+  'library.button': 'Button Text',
+
+  'payment.badge': 'Badge',
+  'payment.title': 'Section Title',
+  'payment.subtitle': 'Subtitle',
+  'payment.footer': 'Footer Text',
+
+  'programs_cta.label': 'Label',
+  'programs_cta.title': 'Section Title',
+  'programs_cta.button': 'Button Text',
+
+  'partners.badge': 'Badge',
+  'partners.title': 'Section Title',
+  'partners.subtitle': 'Subtitle',
+
+  'trust.title': 'Section Title',
+  'trust.subtitle': 'Subtitle Paragraph',
+};
+
+// ─── Grouped sections ──────────────────────────────────────────────────────
+
+const GROUPS: { label: string; color: string; keys: string[] }[] = [
+  { label: 'Courses Section', color: 'border-indigo-400', keys: ['courses.badge', 'courses.title', 'courses.titleHighlight', 'courses.subtitle', 'courses.button'] },
+  { label: 'Teachers Section', color: 'border-violet-400', keys: ['teachers.badge', 'teachers.title'] },
+  { label: 'Digital Library Section', color: 'border-emerald-400', keys: ['library.badge', 'library.title', 'library.titleHighlight', 'library.button'] },
+  { label: 'Payment Section', color: 'border-sky-400', keys: ['payment.badge', 'payment.title', 'payment.subtitle', 'payment.footer'] },
+  { label: 'Programs CTA Section', color: 'border-orange-400', keys: ['programs_cta.label', 'programs_cta.title', 'programs_cta.button'] },
+  { label: 'Partners Section', color: 'border-pink-400', keys: ['partners.badge', 'partners.title', 'partners.subtitle'] },
+  { label: 'Trust Section', color: 'border-blue-400', keys: ['trust.title', 'trust.subtitle'] },
+];
+
+// ─── Multi-line keys ───────────────────────────────────────────────────────
+
+const MULTILINE = new Set([
+  'courses.subtitle',
+  'payment.subtitle',
+  'partners.subtitle',
+  'trust.subtitle',
+  'programs_cta.title',
+]);
+
+// ─── Component ────────────────────────────────────────────────────────────
+
+export default function SiteSettingsPage() {
+  const { toast } = useToast();
+  const [values, setValues] = useState<Record<string, string>>({ ...DEFAULTS });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await getSiteSettings();
+        if (res.success && res.data && res.data.length > 0) {
+          const merged = { ...DEFAULTS };
+          for (const s of res.data) merged[s.key] = s.value;
+          setValues(merged);
+        }
+      } catch {
+        // keep defaults
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  const handleChange = (key: string, val: string) => {
+    setValues((prev) => ({ ...prev, [key]: val }));
+  };
+
+  const handleReset = (key: string) => {
+    setValues((prev) => ({ ...prev, [key]: DEFAULTS[key] ?? '' }));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const res = await upsertSiteSettings(values, LABELS);
+      if (res.success) {
+        toast({ title: 'Saved', description: 'All section text settings have been updated.' });
+      } else {
+        toast({ title: 'Error', description: (res as any).message || 'Failed to save settings', variant: 'destructive' });
+      }
+    } catch (err: any) {
+      toast({ title: 'Error', description: err?.message || 'Unexpected error', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="p-6 space-y-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-40 rounded-2xl bg-slate-100 animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 max-w-4xl space-y-8">
+      <Toaster />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
+            <Settings2 className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black text-slate-900">Site Settings</h1>
+            <p className="text-sm text-slate-500">Manage all landing page section text from here</p>
+          </div>
+        </div>
+        <Button onClick={handleSave} disabled={saving} className="bg-violet-600 hover:bg-violet-700 text-white font-bold px-6 gap-2">
+          <Save className="h-4 w-4" />
+          {saving ? 'Saving…' : 'Save All'}
+        </Button>
+      </div>
+
+      {GROUPS.map((group) => (
+        <div key={group.label} className={`rounded-2xl border-l-4 ${group.color} bg-white shadow-sm border border-slate-100 overflow-hidden`}>
+          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+            <h2 className="font-black text-slate-800 text-base">{group.label}</h2>
+          </div>
+          <div className="p-6 grid gap-5 sm:grid-cols-2">
+            {group.keys.map((key) => (
+              <div key={key} className={MULTILINE.has(key) ? 'sm:col-span-2' : ''}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <Label htmlFor={key} className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                    {LABELS[key] ?? key}
+                  </Label>
+                  <button
+                    type="button"
+                    onClick={() => handleReset(key)}
+                    className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-700 transition-colors"
+                    title="Reset to default"
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    Reset
+                  </button>
+                </div>
+                {MULTILINE.has(key) ? (
+                  <Textarea
+                    id={key}
+                    value={values[key] ?? ''}
+                    onChange={(e) => handleChange(key, e.target.value)}
+                    rows={3}
+                    className="text-sm resize-y"
+                    placeholder={DEFAULTS[key]}
+                  />
+                ) : (
+                  <Input
+                    id={key}
+                    value={values[key] ?? ''}
+                    onChange={(e) => handleChange(key, e.target.value)}
+                    className="text-sm"
+                    placeholder={DEFAULTS[key]}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      <div className="flex justify-end pb-10">
+        <Button onClick={handleSave} disabled={saving} className="bg-violet-600 hover:bg-violet-700 text-white font-bold px-8 gap-2">
+          <Save className="h-4 w-4" />
+          {saving ? 'Saving…' : 'Save All Settings'}
+        </Button>
+      </div>
+    </div>
+  );
+}

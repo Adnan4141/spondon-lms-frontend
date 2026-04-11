@@ -66,3 +66,10 @@ export async function deleteTestimonial(id: string): Promise<{ success: boolean 
 export async function approveTestimonial(id: string): Promise<{ success: boolean; data: TestimonialAdmin }> {
   return apiRequest(`/testimonials/${id}/approve`, { method: 'PATCH' });
 }
+
+export async function reorderTestimonials(items: { id: string; sortOrder: number }[]): Promise<{ success: boolean }> {
+  return apiRequest('/testimonials/reorder', {
+    method: 'PATCH',
+    body: JSON.stringify(items),
+  });
+}

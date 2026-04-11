@@ -2,6 +2,23 @@
 
 import Image from 'next/image';
 import { useCallback, useEffect, useState, useMemo, type ComponentProps } from 'react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -25,6 +42,7 @@ import {
   deleteTestimonial,
   getAllTestimonials,
   updateTestimonial,
+  reorderTestimonials,
   type TestimonialAdmin,
 } from '@/lib/api/testimonials';
 import { getUsers, type User as AppUser } from '@/lib/api/users';
@@ -46,6 +64,7 @@ import {
   Activity,
   User,
   BookOpen,
+  GripVertical,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { API_ORIGIN } from '@/lib/api';
@@ -190,6 +209,39 @@ const RatingField = ({ defaultValue = 5, onChange }: RatingFieldProps) => {
   );
 };
 
+// Sortable Testimonial Row Component
+function SortableTestimonialRow({ testimonial }: { testimonial: TestimonialAdmin }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: testimonial.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <TableRow ref={setNodeRef} style={style} className="bg-white hover:bg-indigo-50/30 transition-colors">
+      <TableCell className="py-4 px-4 w-12">
+        <button
+          className="cursor-grab active:cursor-grabbing p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all touch-none"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="h-5 w-5" />
+        </button>
+      </TableCell>
+      <TableCell className="py-4 px-4" colSpan={5}>
+        <div className="flex items-center gap-4">
+          <Quote className="h-5 w-5 text-indigo-600" />
+          <div>
+            <p className="text-base font-black text-slate-900">{testimonial.name}</p>
+            <p className="text-xs text-slate-500 font-semibold truncate max-w-md">{testimonial.quote}</p>
+          </div>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
+
 export default function AdminTestimonialsPage() {
   const { toast, toasts, removeToast } = useToast();
   const { openModal, closeModal } = useModalStore();
@@ -200,6 +252,11 @@ export default function AdminTestimonialsPage() {
   const [students, setStudents] = useState<AppUser[]>([]);
   const [courses, setCourses] = useState<Array<{ id: string; name: string; code?: string | null }>>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
+
+  // Sort mode state
+  const [sortMode, setSortMode] = useState(false);
+  const [orderedTestimonials, setOrderedTestimonials] = useState<TestimonialAdmin[]>([]);
+  const [savingOrder, setSavingOrder] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -216,6 +273,42 @@ export default function AdminTestimonialsPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    setOrderedTestimonials(testimonials);
+  }, [testimonials]);
+
+  // DnD handlers
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setOrderedTestimonials((items) => {
+        const oldIndex = items.findIndex((t) => t.id === active.id);
+        const newIndex = items.findIndex((t) => t.id === over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
+
+  const handleSaveOrder = async () => {
+    try {
+      setSavingOrder(true);
+      const items = orderedTestimonials.map((t, i) => ({ id: t.id, sortOrder: i }));
+      await reorderTestimonials(items);
+      await load();
+      setSortMode(false);
+      toast({ title: 'Order saved', description: 'Testimonials order updated successfully.', variant: 'default' });
+    } catch {
+      toast({ title: 'Error', description: 'Failed to save order.', variant: 'destructive' });
+    } finally {
+      setSavingOrder(false);
+    }
+  };
 
   useEffect(() => {
     async function loadLookups() {
@@ -540,21 +633,59 @@ export default function AdminTestimonialsPage() {
           </div>
           
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            {!sortMode && (
+              <>
+                <Button
+                  className="h-14 px-8 rounded-2xl text-white bg-slate-900 font-black tracking-tight hover:bg-amber-500 transition-all hover:scale-[1.02] shadow-lg shadow-slate-200"
+                  onClick={() => openForm()}
+                >
+                  <Plus className="mr-2 h-5 w-5" />
+                  Add Manual Review
+                </Button>
+                <Button variant="outline" className="h-14 w-14 rounded-2xl border-slate-200 bg-white hover:bg-slate-50 transition-all" onClick={load}>
+                  <RefreshCw className={cn('h-5 w-5 text-slate-400', loading && 'animate-spin')} />
+                </Button>
+              </>
+            )}
             <Button
-              className="h-14 px-8 rounded-2xl text-white bg-slate-900 font-black tracking-tight hover:bg-amber-500 transition-all hover:scale-[1.02] shadow-lg shadow-slate-200"
-              onClick={() => openForm()}
+              variant="outline"
+              className={cn(
+                'h-14 px-6 rounded-2xl font-black tracking-tight transition-all',
+                sortMode
+                  ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
+                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+              )}
+              onClick={() => {
+                if (sortMode) setOrderedTestimonials(testimonials);
+                setSortMode((s) => !s);
+              }}
             >
-              <Plus className="mr-2 h-5 w-5" />
-              Add Manual Review
+              <GripVertical className="mr-2 h-5 w-5" />
+              {sortMode ? 'Cancel' : 'Sort Order'}
             </Button>
-            <Button variant="outline" className="h-14 w-14 rounded-2xl border-slate-200 bg-white hover:bg-slate-50 transition-all" onClick={load}>
-              <RefreshCw className={cn('h-5 w-5 text-slate-400', loading && 'animate-spin')} />
-            </Button>
+            {sortMode && (
+              <Button
+                className="h-14 px-8 rounded-2xl bg-indigo-600 text-white font-black tracking-tight hover:bg-indigo-700 transition-all shadow-lg"
+                onClick={handleSaveOrder}
+                disabled={savingOrder}
+              >
+                {savingOrder ? 'Saving…' : 'Save Order'}
+              </Button>
+            )}
           </div>
         </div>
       </div>
 
 
+
+      {sortMode && (
+        <div className="rounded-2xl border border-indigo-200 bg-indigo-50 px-6 py-4 flex items-center gap-3">
+          <GripVertical className="h-5 w-5 text-indigo-500 shrink-0" />
+          <p className="text-sm font-bold text-indigo-700">
+            Drag rows to reorder testimonials. Click <span className="font-black">Save Order</span> when done.
+          </p>
+        </div>
+      )}
 
       {/* Filter Section */}
       <section className="rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/30">
@@ -631,7 +762,16 @@ export default function AdminTestimonialsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredTestimonials.map((t) => (
+                {sortMode ? (
+                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <SortableContext items={orderedTestimonials.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                      {orderedTestimonials.map((t) => (
+                        <SortableTestimonialRow key={t.id} testimonial={t} />
+                      ))}
+                    </SortableContext>
+                  </DndContext>
+                ) : (
+                  filteredTestimonials.map((t) => (
                   <TableRow key={t.id} className="group transition-all hover:bg-slate-50/50">
                     <TableCell className="py-8 px-8">
                        <div className="flex items-center gap-4">
@@ -749,7 +889,8 @@ export default function AdminTestimonialsPage() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>

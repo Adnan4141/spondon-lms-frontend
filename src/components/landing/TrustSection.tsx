@@ -11,12 +11,16 @@ interface Props {
   testimonials: Testimonial[];
   testimonialIndex: number;
   setTestimonialIndex: (index: number) => void;
+  sectionTitle?: string;
+  sectionSubtitle?: string;
 }
 
 export const TrustSection: React.FC<Props> = ({
   testimonials,
   testimonialIndex,
   setTestimonialIndex,
+  sectionTitle = 'কেন Shikho-তে আস্থা রাখবে?',
+  sectionSubtitle = 'সেরা মেন্টর ও সর্বাধুনিক প্রযুক্তির সাথে সারাদেশের ৩০ লক্ষ+ শিক্ষার্থীর মানসম্মত পড়ালেখা ও পরীক্ষা প্রস্তুতির নির্ভরযোগ্য প্রতিষ্ঠান Shikho!',
 }) => {
   const [features, setFeatures] = useState<TrustFeature[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,10 +61,10 @@ export const TrustSection: React.FC<Props> = ({
             {/* Left Content */}
             <div className="text-white">
               <h2 className="mb-6 text-4xl font-bold leading-tight lg:text-5xl">
-                কেন Shikho-তে আস্থা রাখবে?
+                {sectionTitle}
               </h2>
               <p className="max-w-md text-lg leading-relaxed opacity-90">
-                সেরা মেন্টর ও সর্বাধুনিক প্রযুক্তির সাথে সারাদেশের ৩০ লক্ষ+ শিক্ষার্থীর মানসম্মত পড়ালেখা ও পরীক্ষা প্রস্তুতির নির্ভরযোগ্য প্রতিষ্ঠান Shikho!
+                {sectionSubtitle}
               </p>
             </div>
 
@@ -96,15 +100,15 @@ export const TrustSection: React.FC<Props> = ({
                   <ChevronRight size={28} />
                 </button>
 
-                <div className="grid items-center gap-8 lg:grid-cols-12">
+                <div className="grid items-center h-[25rem] gap-8 lg:grid-cols-12">
                   {/* Testimonial Text */}
                   <div className="lg:col-span-7">
                     <div className="mb-4 flex gap-1">
                        <div className="h-8 w-8 rounded bg-blue-600/10 flex items-center justify-center text-blue-600 font-serif text-4xl pt-2">“</div>
 
                     </div>
-                    <blockquote className="mb-6 text-lg font-medium leading-relaxed text-slate-600 italic">
-                      &quot;{activeTestimonial.quote}&quot;
+                    <blockquote className="mb-6 text-lg font-medium leading-relaxed line-clamp-10 text-slate-600 italic">
+                      &quot;{activeTestimonial.quote}&quot; 
                     </blockquote>
                     <div>
                       <h4 className="text-2xl font-bold text-[#2d3a7d]">{activeTestimonial.name}</h4>
@@ -152,7 +156,7 @@ export const TrustSection: React.FC<Props> = ({
                 ))}
               </div>
             </div>
-          )}
+          )} 
         </div>
       </div>
     </section>

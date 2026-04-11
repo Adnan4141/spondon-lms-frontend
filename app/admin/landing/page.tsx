@@ -3,6 +3,23 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import {
   getHeroSlides,
   createHeroSlide,
   updateHeroSlide,
@@ -12,6 +29,8 @@ import {
   updateProgramCard,
   deleteProgramCard,
   uploadSiteContentImage,
+  reorderHeroSlides,
+  reorderProgramCards,
   type HeroSlide,
   type ProgramCard,
   type HeroSlideInput,
@@ -61,6 +80,82 @@ function resolveImageUrl(url: string): string {
   if (!url) return '';
   if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/images/')) return url;
   return `${API_ORIGIN}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
+// ─── Sortable Components ───────────────────────────────────────────────────
+
+function SortableSlideRow({ slide }: { slide: HeroSlide }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: slide.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
+    >
+      <button
+        className="cursor-grab active:cursor-grabbing p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all touch-none"
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical className="h-5 w-5" />
+      </button>
+      <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-xl bg-slate-100 border border-slate-200">
+        {slide.imageUrl ? (
+          <Image
+            src={resolveImageUrl(slide.imageUrl)}
+            alt={slide.title}
+            fill
+            className="object-cover"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center">
+            <ImageIcon className="h-5 w-5 text-slate-300" />
+          </div>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-black text-slate-900 text-sm truncate">{slide.title}</p>
+        <p className="text-xs text-slate-400 truncate mt-0.5">{slide.subtitle}</p>
+      </div>
+      <span className="text-[10px] font-black text-slate-400 bg-slate-100 rounded-lg px-2.5 py-1">#{slide.sortOrder}</span>
+    </div>
+  );
+}
+
+function SortableCardRow({ card }: { card: ProgramCard }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: card.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn('flex items-center gap-4 rounded-2xl border border-slate-100 p-4 shadow-sm', card.bgColor)}
+    >
+      <button
+        className="cursor-grab active:cursor-grabbing p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-white transition-all touch-none"
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical className="h-5 w-5" />
+      </button>
+      <div className="flex-1 min-w-0">
+        <p className="font-black text-slate-900 text-sm leading-snug">{card.title}</p>
+        <p className="text-xs text-slate-500 mt-1 leading-snug">{card.subtitle}</p>
+      </div>
+      <span className="text-[10px] font-black text-slate-400 bg-white/60 rounded-lg px-2 py-0.5">#{card.sortOrder}</span>
+    </div>
+  );
 }
 
 const BG_COLOR_OPTIONS = [
@@ -341,6 +436,15 @@ export default function LandingCMSPage() {
   const [savingCard, setSavingCard] = useState(false);
   const [deletingCardId, setDeletingCardId] = useState<string | null>(null);
 
+  // Sort mode states
+  const [slidesSortMode, setSlidesSortMode] = useState(false);
+  const [orderedSlides, setOrderedSlides] = useState<HeroSlide[]>([]);
+  const [savingSlidesOrder, setSavingSlidesOrder] = useState(false);
+
+  const [cardsSortMode, setCardsSortMode] = useState(false);
+  const [orderedCards, setOrderedCards] = useState<ProgramCard[]>([]);
+  const [savingCardsOrder, setSavingCardsOrder] = useState(false);
+
   // ── Data loaders ──────────────────────────────────────────────────────
 
   const loadSlides = useCallback(async () => {
@@ -363,6 +467,10 @@ export default function LandingCMSPage() {
 
   useEffect(() => { void loadSlides(); }, [loadSlides]);
   useEffect(() => { void loadCards(); }, [loadCards]);
+
+  // Keep ordered lists in sync
+  useEffect(() => { setOrderedSlides(slides); }, [slides]);
+  useEffect(() => { setOrderedCards(cards); }, [cards]);
 
   // ── Hero slide actions ────────────────────────────────────────────────
 
@@ -434,6 +542,70 @@ export default function LandingCMSPage() {
     }
   };
 
+  // ── DnD handlers ──────────────────────────────────────────────────────────
+
+  const slidesSensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const cardsSensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleSlidesDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setOrderedSlides((items) => {
+        const oldIndex = items.findIndex((s) => s.id === active.id);
+        const newIndex = items.findIndex((s) => s.id === over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
+
+  const handleCardsDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setOrderedCards((items) => {
+        const oldIndex = items.findIndex((c) => c.id === active.id);
+        const newIndex = items.findIndex((c) => c.id === over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
+
+  const handleSaveSlidesOrder = async () => {
+    try {
+      setSavingSlidesOrder(true);
+      const items = orderedSlides.map((s, i) => ({ id: s.id, sortOrder: i }));
+      await reorderHeroSlides(items);
+      await loadSlides();
+      setSlidesSortMode(false);
+      toast({ title: 'Order saved', description: 'Hero slides order updated.', variant: 'success' });
+    } catch {
+      toast({ title: 'Error', description: 'Failed to save order.', variant: 'destructive' });
+    } finally {
+      setSavingSlidesOrder(false);
+    }
+  };
+
+  const handleSaveCardsOrder = async () => {
+    try {
+      setSavingCardsOrder(true);
+      const items = orderedCards.map((c, i) => ({ id: c.id, sortOrder: i }));
+      await reorderProgramCards(items);
+      await loadCards();
+      setCardsSortMode(false);
+      toast({ title: 'Order saved', description: 'Program cards order updated.', variant: 'success' });
+    } catch {
+      toast({ title: 'Error', description: 'Failed to save order.', variant: 'destructive' });
+    } finally {
+      setSavingCardsOrder(false);
+    }
+  };
+
   // ── Render ────────────────────────────────────────────────────────────
 
   return (
@@ -466,20 +638,60 @@ export default function LandingCMSPage() {
           <div className="flex items-center justify-between">
             <p className="text-sm font-bold text-slate-500">{slides.length} slide{slides.length !== 1 ? 's' : ''}</p>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={loadSlides} className="rounded-xl h-9 gap-1.5">
-                <RefreshCw className={cn('h-3.5 w-3.5', slidesLoading && 'animate-spin')} />
-                Refresh
-              </Button>
+              {!slidesSortMode && (
+                <>
+                  <Button variant="outline" size="sm" onClick={loadSlides} className="rounded-xl h-9 gap-1.5">
+                    <RefreshCw className={cn('h-3.5 w-3.5', slidesLoading && 'animate-spin')} />
+                    Refresh
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => { setEditSlide(null); setSlideDialog(true); }}
+                    className="rounded-xl h-9 gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add Slide
+                  </Button>
+                </>
+              )}
               <Button
+                variant="outline"
                 size="sm"
-                onClick={() => { setEditSlide(null); setSlideDialog(true); }}
-                className="rounded-xl h-9 gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white"
+                className={cn(
+                  'rounded-xl h-9 gap-1.5',
+                  slidesSortMode
+                    ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
+                    : 'border-slate-200 bg-white text-slate-700'
+                )}
+                onClick={() => {
+                  if (slidesSortMode) setOrderedSlides(slides);
+                  setSlidesSortMode((s) => !s);
+                }}
               >
-                <Plus className="h-3.5 w-3.5" />
-                Add Slide
+                <GripVertical className="h-3.5 w-3.5" />
+                {slidesSortMode ? 'Cancel' : 'Sort Order'}
               </Button>
+              {slidesSortMode && (
+                <Button
+                  size="sm"
+                  className="rounded-xl h-9 gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white"
+                  onClick={handleSaveSlidesOrder}
+                  disabled={savingSlidesOrder}
+                >
+                  {savingSlidesOrder ? 'Saving…' : 'Save Order'}
+                </Button>
+              )}
             </div>
           </div>
+
+          {slidesSortMode && (
+            <div className="rounded-2xl border border-indigo-200 bg-indigo-50 px-6 py-4 flex items-center gap-3">
+              <GripVertical className="h-5 w-5 text-indigo-500 shrink-0" />
+              <p className="text-sm font-bold text-indigo-700">
+                Drag rows to reorder slides. Click <span className="font-black">Save Order</span> when done.
+              </p>
+            </div>
+          )}
 
           {slidesLoading ? (
             <div className="flex items-center justify-center py-16">
@@ -491,6 +703,16 @@ export default function LandingCMSPage() {
               <p className="font-black text-slate-400 text-sm">No hero slides yet</p>
               <p className="text-xs text-slate-300 mt-1">Add your first slide to get started</p>
             </div>
+          ) : slidesSortMode ? (
+            <DndContext sensors={slidesSensors} collisionDetection={closestCenter} onDragEnd={handleSlidesDragEnd}>
+              <SortableContext items={orderedSlides.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-3">
+                  {orderedSlides.map((slide) => (
+                    <SortableSlideRow key={slide.id} slide={slide} />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
           ) : (
             <div className="space-y-3">
               {slides.map((slide) => (
@@ -574,20 +796,60 @@ export default function LandingCMSPage() {
           <div className="flex items-center justify-between">
             <p className="text-sm font-bold text-slate-500">{cards.length} card{cards.length !== 1 ? 's' : ''}</p>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={loadCards} className="rounded-xl h-9 gap-1.5">
-                <RefreshCw className={cn('h-3.5 w-3.5', cardsLoading && 'animate-spin')} />
-                Refresh
-              </Button>
+              {!cardsSortMode && (
+                <>
+                  <Button variant="outline" size="sm" onClick={loadCards} className="rounded-xl h-9 gap-1.5">
+                    <RefreshCw className={cn('h-3.5 w-3.5', cardsLoading && 'animate-spin')} />
+                    Refresh
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => { setEditCard(null); setCardDialog(true); }}
+                    className="rounded-xl h-9 gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add Card
+                  </Button>
+                </>
+              )}
               <Button
+                variant="outline"
                 size="sm"
-                onClick={() => { setEditCard(null); setCardDialog(true); }}
-                className="rounded-xl h-9 gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white"
+                className={cn(
+                  'rounded-xl h-9 gap-1.5',
+                  cardsSortMode
+                    ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
+                    : 'border-slate-200 bg-white text-slate-700'
+                )}
+                onClick={() => {
+                  if (cardsSortMode) setOrderedCards(cards);
+                  setCardsSortMode((s) => !s);
+                }}
               >
-                <Plus className="h-3.5 w-3.5" />
-                Add Card
+                <GripVertical className="h-3.5 w-3.5" />
+                {cardsSortMode ? 'Cancel' : 'Sort Order'}
               </Button>
+              {cardsSortMode && (
+                <Button
+                  size="sm"
+                  className="rounded-xl h-9 gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white"
+                  onClick={handleSaveCardsOrder}
+                  disabled={savingCardsOrder}
+                >
+                  {savingCardsOrder ? 'Saving…' : 'Save Order'}
+                </Button>
+              )}
             </div>
           </div>
+
+          {cardsSortMode && (
+            <div className="rounded-2xl border border-indigo-200 bg-indigo-50 px-6 py-4 flex items-center gap-3">
+              <GripVertical className="h-5 w-5 text-indigo-500 shrink-0" />
+              <p className="text-sm font-bold text-indigo-700">
+                Drag rows to reorder cards. Click <span className="font-black">Save Order</span> when done.
+              </p>
+            </div>
+          )}
 
           {cardsLoading ? (
             <div className="flex items-center justify-center py-16">
@@ -598,6 +860,16 @@ export default function LandingCMSPage() {
               <LayoutTemplate className="h-10 w-10 text-slate-300 mb-3" />
               <p className="font-black text-slate-400 text-sm">No program cards yet</p>
             </div>
+          ) : cardsSortMode ? (
+            <DndContext sensors={cardsSensors} collisionDetection={closestCenter} onDragEnd={handleCardsDragEnd}>
+              <SortableContext items={orderedCards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-3">
+                  {orderedCards.map((card) => (
+                    <SortableCardRow key={card.id} card={card} />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
           ) : (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {cards.map((card) => (

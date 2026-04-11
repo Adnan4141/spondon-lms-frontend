@@ -173,3 +173,49 @@ export async function updateTrustFeature(id: string, data: Partial<TrustFeatureI
 export async function deleteTrustFeature(id: string): Promise<ApiResponse<void>> {
   return apiRequest<ApiResponse<void>>(`/site-content/trust-features/${id}`, { method: 'DELETE' });
 }
+
+// ─── Reorder Functions ─────────────────────────────────────────────────────
+
+export async function reorderHeroSlides(items: { id: string; sortOrder: number }[]): Promise<ApiResponse<void>> {
+  return apiRequest<ApiResponse<void>>('/site-content/hero-slides/reorder', {
+    method: 'PATCH',
+    body: JSON.stringify(items),
+  });
+}
+
+export async function reorderProgramCards(items: { id: string; sortOrder: number }[]): Promise<ApiResponse<void>> {
+  return apiRequest<ApiResponse<void>>('/site-content/program-cards/reorder', {
+    method: 'PATCH',
+    body: JSON.stringify(items),
+  });
+}
+
+// ─── Site Settings ─────────────────────────────────────────────────────────
+
+export interface SiteSetting {
+  id: string;
+  key: string;
+  value: string;
+  label?: string | null;
+  group: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function getSiteSettings(group?: string): Promise<ApiResponse<SiteSetting[]>> {
+  const q = group ? `?group=${encodeURIComponent(group)}` : '';
+  return apiRequest<ApiResponse<SiteSetting[]>>(`/site-content/settings${q}`);
+}
+
+export async function upsertSiteSettings(data: Record<string, string>, labels?: Record<string, string>): Promise<ApiResponse<SiteSetting[]>> {
+  const settings = Object.entries(data).map(([key, value]) => ({
+    key,
+    value,
+    label: labels?.[key],
+    group: key.split('.')[0],
+  }));
+  return apiRequest<ApiResponse<SiteSetting[]>>('/site-content/settings', {
+    method: 'PATCH',
+    body: JSON.stringify({ settings }),
+  });
+}

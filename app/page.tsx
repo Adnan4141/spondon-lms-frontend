@@ -24,7 +24,7 @@ import { getSystemStats, SystemStatsData } from '@/lib/api/reports';
 import { getPublicTestimonials } from '@/lib/api/testimonials';
 import { getPublicPartners, Partner } from '@/lib/api/partners';
 import { getPublicTeachers, PublicTeacher } from '@/lib/api/teachers';
-import { getHeroSlides, getProgramCards, type HeroSlide, type ProgramCard } from '@/lib/api/site-content';
+import { getHeroSlides, getProgramCards, getSiteSettings, type HeroSlide, type ProgramCard } from '@/lib/api/site-content';
 import { API_ORIGIN } from '@/lib/api';
 import { resolveAttachmentUrl } from '@/lib/attachment-url';
 
@@ -53,6 +53,7 @@ export default function LandingPage() {
   const [programs, setPrograms] = useState<Program[]>([]);
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>([]);
   const [programCards, setProgramCards] = useState<ProgramCard[]>([]);
+  const [siteSettings, setSiteSettings] = useState<Record<string, string>>({});
   const [dynamicEbooks, setDynamicEbooks] = useState<PublicCatalogBook[]>([]);
   const [admissionBooks, setAdmissionBooks] = useState<Book[]>([]);
   const [systemStats, setSystemStats] = useState<SystemStatsData | null>(null);
@@ -91,6 +92,7 @@ export default function LandingPage() {
           getPublicTeachers().catch(() => ({ success: false, data: [] })),
           getHeroSlides().catch(() => ({ success: false, data: [] as HeroSlide[] })),
           getProgramCards().catch(() => ({ success: false, data: [] as ProgramCard[] })),
+          getSiteSettings().catch(() => ({ success: false, data: [] })),
         ]);
 
         const courseRes = results[0].status === 'fulfilled' ? results[0].value : empty;
@@ -103,6 +105,7 @@ export default function LandingPage() {
         const teacherRes = results[7].status === 'fulfilled' ? results[7].value : { success: false, data: [] };
         const heroRes = results[8].status === 'fulfilled' ? results[8].value : { success: false, data: [] as HeroSlide[] };
         const programCardRes = results[9].status === 'fulfilled' ? results[9].value : { success: false, data: [] as ProgramCard[] };
+        const settingsRes = results[10].status === 'fulfilled' ? results[10].value : { success: false, data: [] };
 
         if (courseRes.success) setCourses(courseRes.data || []);
         if (programRes.success) setPrograms(programRes.data || []);
@@ -124,6 +127,11 @@ export default function LandingPage() {
         if (teacherRes.success) setTeachers(teacherRes.data || []);
         if (heroRes.success && heroRes.data?.length) setHeroSlides(heroRes.data);
         if (programCardRes.success && programCardRes.data?.length) setProgramCards(programCardRes.data);
+        if (settingsRes.success && settingsRes.data) {
+          const map: Record<string, string> = {};
+          for (const s of settingsRes.data as { key: string; value: string }[]) map[s.key] = s.value;
+          setSiteSettings(map);
+        }
       } catch (error) {
         console.error('Data load error', error);
       } finally {
@@ -138,19 +146,57 @@ export default function LandingPage() {
     <div className="min-h-screen bg-white text-slate-900 selection:bg-indigo-100 overflow-x-hidden">
       <Header />
       <HeroCarousel slides={heroSlides} />
-      <ProgramsCTASection cards={programCards} />
+      <ProgramsCTASection
+        cards={programCards}
+        label={siteSettings['programs_cta.label']}
+        title={siteSettings['programs_cta.title']}
+        buttonText={siteSettings['programs_cta.button']}
+      />
       {/* <StatsSection systemStats={systemStats} /> */}
  
-      <CoursesSection courses={courses} handleImageError={handleImageError} />
-      <TrustSection testimonials={dynamicTestimonials.length > 0 ? dynamicTestimonials : testimonials} testimonialIndex={testimonialIndex} setTestimonialIndex={setTestimonialIndex} />
-      <TeachersSection teachers={teachers} />
-      <DigitalLibrarySection dynamicEbooks={dynamicEbooks} />
+      <CoursesSection
+        courses={courses}
+        handleImageError={handleImageError}
+        badge={siteSettings['courses.badge']}
+        title={siteSettings['courses.title']}
+        titleHighlight={siteSettings['courses.titleHighlight']}
+        subtitle={siteSettings['courses.subtitle']}
+        buttonText={siteSettings['courses.button']}
+      />
+      <TrustSection
+        testimonials={dynamicTestimonials.length > 0 ? dynamicTestimonials : testimonials}
+        testimonialIndex={testimonialIndex}
+        setTestimonialIndex={setTestimonialIndex}
+        sectionTitle={siteSettings['trust.title']}
+        sectionSubtitle={siteSettings['trust.subtitle']}
+      />
+      <TeachersSection
+        teachers={teachers}
+        badge={siteSettings['teachers.badge']}
+        title={siteSettings['teachers.title']}
+      />
+      <DigitalLibrarySection
+        dynamicEbooks={dynamicEbooks}
+        badge={siteSettings['library.badge']}
+        title={siteSettings['library.title']}
+        titleHighlight={siteSettings['library.titleHighlight']}
+        buttonText={siteSettings['library.button']}
+      />
       <PartnerCarouselSection
         partners={dynamicPartners}
         loadResolved={partnersLoadResolved}
         onSelect={(p) => setSelectedPartner(p as Partner)}
+        badge={siteSettings['partners.badge']}
+        title={siteSettings['partners.title']}
+        subtitle={siteSettings['partners.subtitle']}
       />
-      <PaymentSection handleImageError={handleImageError} />
+      <PaymentSection
+        handleImageError={handleImageError}
+        badge={siteSettings['payment.badge']}
+        title={siteSettings['payment.title']}
+        subtitle={siteSettings['payment.subtitle']}
+        footerText={siteSettings['payment.footer']}
+      />
       <PartnerDetailsDialog
         selectedPartner={selectedPartner}
         setSelectedPartner={setSelectedPartner}

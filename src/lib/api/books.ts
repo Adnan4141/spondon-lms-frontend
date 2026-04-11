@@ -560,3 +560,10 @@ export async function createDistribution(data: {
 }): Promise<{ success: boolean; data: BookDistribution; message?: string }> {
   return apiRequest('/books/distributions', { method: 'POST', body: JSON.stringify(data) });
 }
+
+export async function reorderBooks(items: { id: string; displayOrder: number }[]): Promise<ApiResponse<void>> {
+  return apiRequest<ApiResponse<void>>('/books/reorder', {
+    method: 'PATCH',
+    body: JSON.stringify(items),
+  });
+}

@@ -10,9 +10,15 @@ import type { PublicTeacher } from '@/lib/api/teachers';
 
 interface Props {
   teachers: PublicTeacher[];
+  badge?: string;
+  title?: string;
 }
 
-export const TeachersSection: React.FC<Props> = ({ teachers }) => {
+export const TeachersSection: React.FC<Props> = ({
+  teachers,
+  badge = 'OUR TEACHERS',
+  title = 'আমাদের শিক্ষকমণ্ডলী',
+}) => {
   if (!teachers.length) return null;
 
   return (
@@ -25,10 +31,10 @@ export const TeachersSection: React.FC<Props> = ({ teachers }) => {
           className="text-center mb-12"
         >
           <p className="text-xs font-bold text-indigo-600 uppercase tracking-[0.5em] mb-4">
-            OUR TEACHERS
+            {badge}
           </p>
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 tracking-tight">
-            আমাদের শিক্ষকমণ্ডলী
+            {title}
           </h2>
         </motion.div>
 
