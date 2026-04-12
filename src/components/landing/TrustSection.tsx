@@ -161,8 +161,8 @@ export const TrustSection: React.FC<Props> = ({
 
   return (
     <section className="bg-white py-10 sm:py-12 md:py-16 lg:pt-36">
-      <div className="mx-auto max-w-7xl px-3 sm:px-4 lg:min-h-screen lg:pb-40 pb-28 sm:pb-32 md:pb-36">
-        <div className="relative rounded-2xl bg-[#3b4a97] px-4 pt-10 pb-28 shadow-sm sm:rounded-3xl sm:px-6 sm:pt-12 sm:pb-32 md:rounded-[2rem] md:px-10 md:pt-14 md:pb-36 lg:rounded-[2.5rem] lg:px-20 lg:pt-20 lg:pb-40">
+      <div className="mx-auto max-w-7xl px-3 sm:px-4 pb-10 sm:pb-12 md:pb-16 lg:min-h-screen lg:pb-40">
+        <div className="relative rounded-2xl bg-[#3b4a97] px-4 pt-10 pb-6 shadow-sm sm:rounded-3xl sm:px-6 sm:pt-12 sm:pb-8 md:rounded-[2rem] md:px-10 md:pt-14 md:pb-10 lg:rounded-[2.5rem] lg:px-20 lg:pt-20 lg:pb-40">
           <div className="grid gap-8 sm:gap-10 md:gap-12 lg:grid-cols-2 lg:items-start">
             <div className="text-white">
               <h2 className="mb-4 text-2xl font-bold leading-tight sm:mb-5 sm:text-3xl md:mb-6 md:text-4xl lg:text-5xl">
@@ -190,7 +190,7 @@ export const TrustSection: React.FC<Props> = ({
 
           {activeTestimonial && (
             <div
-              className="absolute -bottom-[38rem] left-0 right-0 z-10 mx-auto w-full max-w-5xl px-2 sm:-bottom-24 sm:px-4 md:-bottom-[30rem] lg:-bottom-112"
+              className="relative z-10 mx-auto mt-8 w-full max-w-5xl px-2 sm:mt-10 sm:px-4 md:mt-12 lg:absolute lg:mt-0 lg:-bottom-112 lg:left-0 lg:right-0 lg:px-4"
               onPointerEnter={() => setPaused(true)}
               onPointerLeave={() => setPaused(false)}
             >

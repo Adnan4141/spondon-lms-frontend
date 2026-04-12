@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,11 +17,10 @@ import {
   updatePartner,
   type PartnerAdmin,
 } from '@/lib/api/partners';
-import { getPrograms } from '@/lib/api/programs';
 import { getCourses } from '@/lib/api/courses';
-import { Checkbox } from '@/components/ui/checkbox';
 import { getBooks } from '@/lib/api/books';
-import { Globe2, Upload, Sparkles, GraduationCap, BookOpen, Library } from 'lucide-react';
+import { Globe2, Upload, Sparkles, BookOpen, Library, Search, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const PARTNER_TYPES = [
   'MEDIA',
@@ -31,6 +30,114 @@ const PARTNER_TYPES = [
   'HARDWARE',
   'OTHER',
 ] as const;
+
+interface Option {
+  id: string;
+  label: string;
+  sub?: string;
+}
+
+function SearchMultiSelect({
+  options,
+  selected,
+  onToggle,
+  placeholder,
+  icon: Icon,
+}: {
+  options: Option[];
+  selected: Set<string>;
+  onToggle: (id: string) => void;
+  placeholder: string;
+  icon: React.ElementType;
+}) {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const filtered = options.filter(
+    (o) =>
+      !selected.has(o.id) &&
+      (o.label.toLowerCase().includes(query.toLowerCase()) ||
+        (o.sub?.toLowerCase().includes(query.toLowerCase()) ?? false)),
+  );
+
+  const selectedOptions = options.filter((o) => selected.has(o.id));
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  return (
+    <div ref={containerRef} className="space-y-2">
+      {selectedOptions.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {selectedOptions.map((o) => (
+            <span
+              key={o.id}
+              className="inline-flex items-center gap-1 rounded-full border border-indigo-100 bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700"
+            >
+              {o.label}
+              <button
+                type="button"
+                onClick={() => onToggle(o.id)}
+                className="text-indigo-400 transition-colors hover:text-indigo-700"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+        <input
+          className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none transition-all placeholder:text-slate-400 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+          placeholder={placeholder}
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+        />
+        {open && (
+          <div className="absolute z-50 mt-1 max-h-52 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+            {filtered.length === 0 ? (
+              <p className="px-3 py-2 text-xs text-slate-400">
+                {query ? 'No matches found' : 'All selected or none available'}
+              </p>
+            ) : (
+              filtered.map((o) => (
+                <button
+                  key={o.id}
+                  type="button"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-indigo-50"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onToggle(o.id);
+                    setQuery('');
+                  }}
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0 text-indigo-400" />
+                  <span className="flex-1 truncate font-medium text-slate-800">{o.label}</span>
+                  {o.sub && (
+                    <span className="shrink-0 font-mono text-[10px] text-slate-400">{o.sub}</span>
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 interface PartnerAdminFormProps {
   existing?: PartnerAdmin;
@@ -76,22 +183,17 @@ export function PartnerAdminForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [programOptions, setProgramOptions] = useState<{ id: string; name: string }[]>([]);
-  const [courseOptions, setCourseOptions] = useState<{ id: string; name: string }[]>([]);
-  const [selectedProgramIds, setSelectedProgramIds] = useState<Set<string>>(new Set());
+  const [courseOptions, setCourseOptions] = useState<Option[]>([]);
+  const [bookOptions, setBookOptions] = useState<Option[]>([]);
   const [selectedCourseIds, setSelectedCourseIds] = useState<Set<string>>(new Set());
   const [selectedBookIds, setSelectedBookIds] = useState<Set<string>>(new Set());
-  const [bookOptions, setBookOptions] = useState<{ id: string; name: string; sku: string }[]>([]);
   const [revenueSharePercent, setRevenueSharePercent] = useState<string>(String(existing?.revenueSharePercent ?? ''));
 
   useEffect(() => {
-    const p = new Set<string>();
     const c = new Set<string>();
-    existing?.partnerPrograms?.forEach((x) => p.add(x.program.id));
     existing?.partnerCourses?.forEach((x) => c.add(x.course.id));
     const bk = new Set<string>();
     existing?.partnerBooks?.forEach((x) => bk.add(x.bookId));
-    setSelectedProgramIds(p);
     setSelectedCourseIds(c);
     setSelectedBookIds(bk);
   }, [existing?.id]);
@@ -100,15 +202,15 @@ export function PartnerAdminForm({
     let cancelled = false;
     (async () => {
       try {
-        const [pr, cr, br] = await Promise.all([
-          getPrograms(),
+        const [cr, br] = await Promise.all([
           getCourses({ limit: 500 }),
           getBooks({ limit: 500 }),
         ]);
         if (cancelled) return;
-        if (pr.success && pr.data) setProgramOptions(pr.data.map((x) => ({ id: x.id, name: x.name })));
-        if (cr.success && cr.data) setCourseOptions(cr.data.map((x) => ({ id: x.id, name: x.name })));
-        if (br.success && br.data) setBookOptions(br.data.map((x) => ({ id: x.id, name: x.name, sku: x.sku })));
+        if (cr.success && cr.data)
+          setCourseOptions(cr.data.map((x) => ({ id: x.id, label: x.name })));
+        if (br.success && br.data)
+          setBookOptions(br.data.map((x) => ({ id: x.id, label: x.name, sub: x.sku })));
       } catch {
         /* ignore */
       }
@@ -142,7 +244,6 @@ export function PartnerAdminForm({
 
       if (logoFile) fd.append('logo', logoFile);
 
-      fd.append('programIds', JSON.stringify([...selectedProgramIds]));
       fd.append('courseIds', JSON.stringify([...selectedCourseIds]));
       fd.append('bookIds', JSON.stringify([...selectedBookIds]));
       if (revenueSharePercent.trim()) fd.append('revenueSharePercent', revenueSharePercent.trim());
@@ -166,7 +267,7 @@ export function PartnerAdminForm({
 
       {/* ERROR */}
       {error && (
-        <div className="rounded-xl bg-gradient-to-r from-red-50 to-rose-100 border border-red-200 p-3 text-sm text-red-700 shadow-sm">
+        <div className="rounded-xl bg-linear-to-r from-red-50 to-rose-100 border border-red-200 p-3 text-sm text-red-700 shadow-sm">
           {error}
         </div>
       )}
@@ -297,7 +398,7 @@ export function PartnerAdminForm({
             Description
           </label>
           <Textarea
-            className="mt-1 rounded-xl min-h-[120px] border-slate-200 focus:ring-2 focus:ring-indigo-300"
+            className="mt-1 rounded-xl min-h-30 border-slate-200 focus:ring-2 focus:ring-indigo-300"
             placeholder="Short description..."
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -320,104 +421,57 @@ export function PartnerAdminForm({
           <p className="text-xs text-slate-400 mt-1">Optional. Defines partner's share of book/course revenue.</p>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-3">
-          <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
-            <div className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-indigo-600">
-              <GraduationCap className="h-4 w-4" />
-              Programs (collaboration)
-            </div>
-            <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
-              {programOptions.length === 0 ? (
-                <p className="text-xs text-slate-400">No programs loaded</p>
-              ) : (
-                programOptions.map((prog) => (
-                  <label
-                    key={prog.id}
-                    className="flex cursor-pointer items-center gap-3 rounded-lg border border-transparent px-2 py-2 hover:bg-white"
-                  >
-                    <Checkbox
-                      checked={selectedProgramIds.has(prog.id)}
-                      onCheckedChange={(checked) => {
-                        setSelectedProgramIds((prev) => {
-                          const next = new Set(prev);
-                          if (checked) next.add(prog.id);
-                          else next.delete(prog.id);
-                          return next;
-                        });
-                      }}
-                    />
-                    <span className="text-sm font-medium text-slate-800">{prog.name}</span>
-                  </label>
-                ))
-              )}
-            </div>
-          </div>
+        <div className="grid gap-6 md:grid-cols-2">
           <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
             <div className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-indigo-600">
               <BookOpen className="h-4 w-4" />
-              Courses (collaboration)
-            </div>
-            <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
-              {courseOptions.length === 0 ? (
-                <p className="text-xs text-slate-400">No courses loaded</p>
-              ) : (
-                courseOptions.map((c) => (
-                  <label
-                    key={c.id}
-                    className="flex cursor-pointer items-center gap-3 rounded-lg border border-transparent px-2 py-2 hover:bg-white"
-                  >
-                    <Checkbox
-                      checked={selectedCourseIds.has(c.id)}
-                      onCheckedChange={(checked) => {
-                        setSelectedCourseIds((prev) => {
-                          const next = new Set(prev);
-                          if (checked) next.add(c.id);
-                          else next.delete(c.id);
-                          return next;
-                        });
-                      }}
-                    />
-                    <span className="text-sm font-medium text-slate-800">{c.name}</span>
-                  </label>
-                ))
+              Courses
+              {selectedCourseIds.size > 0 && (
+                <span className="ml-auto rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-black text-indigo-700">
+                  {selectedCourseIds.size} selected
+                </span>
               )}
             </div>
+            <SearchMultiSelect
+              options={courseOptions}
+              selected={selectedCourseIds}
+              onToggle={(id) =>
+                setSelectedCourseIds((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(id)) next.delete(id);
+                  else next.add(id);
+                  return next;
+                })
+              }
+              placeholder="Search courses…"
+              icon={BookOpen}
+            />
           </div>
 
-          {/* Books */}
           <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
             <div className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-indigo-600">
               <Library className="h-4 w-4" />
-              Books (collaboration)
-            </div>
-            <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
-              {bookOptions.length === 0 ? (
-                <p className="text-xs text-slate-400">No books loaded</p>
-              ) : (
-                bookOptions.map((b) => (
-                  <label
-                    key={b.id}
-                    className="flex cursor-pointer items-center gap-3 rounded-lg border border-transparent px-2 py-2 hover:bg-white"
-                  >
-                    <Checkbox
-                      checked={selectedBookIds.has(b.id)}
-                      onCheckedChange={(checked) => {
-                        setSelectedBookIds((prev) => {
-                          const next = new Set(prev);
-                          if (checked) next.add(b.id);
-                          else next.delete(b.id);
-                          return next;
-                        });
-                      }}
-                    />
-                    <div className="min-w-0">
-                      <span className="text-sm font-medium text-slate-800 truncate block">{b.name}</span>
-                      <span className="text-[10px] text-slate-400 font-mono">{b.sku}</span>
-                    </div>
-                  </label>
-                ))
+              Books
+              {selectedBookIds.size > 0 && (
+                <span className="ml-auto rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-black text-indigo-700">
+                  {selectedBookIds.size} selected
+                </span>
               )}
             </div>
+            <SearchMultiSelect
+              options={bookOptions}
+              selected={selectedBookIds}
+              onToggle={(id) =>
+                setSelectedBookIds((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(id)) next.delete(id);
+                  else next.add(id);
+                  return next;
+                })
+              }
+              placeholder="Search books…"
+              icon={Library}
+            />
           </div>
         </div>
       </div>
@@ -436,7 +490,7 @@ export function PartnerAdminForm({
         <Button
           onClick={submit}
           disabled={saving}
-          className="rounded-xl px-6 bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-semibold shadow-lg shadow-indigo-200 hover:opacity-90"
+          className="rounded-xl px-6 bg-linear-to-r from-indigo-600 to-blue-600 text-white font-semibold shadow-lg shadow-indigo-200 hover:opacity-90"
         >
           {saving
             ? 'Saving...'

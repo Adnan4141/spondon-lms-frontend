@@ -147,6 +147,8 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
   // Monthly discount (recurring)
   const [monthlyDiscountAmount, setMonthlyDiscountAmount] = useState('');
 
+  // One-time vs Monthly payment mode
+  const [enrollPaymentMode, setEnrollPaymentMode] = useState<'ONE_TIME' | 'MONTHLY'>('MONTHLY');
   const [done, setDone] = useState<{
     studentId: string;
     roll: string;
@@ -210,7 +212,7 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
         if (res.success && res.data?.courses) {
           const list = res.data.courses as Course[];
           setProgramCourses(list);
-          setSelectedCourseIds(list.map((c) => c.id));
+          setSelectedCourseIds([]);
         } else {
           setProgramCourses([]);
           setSelectedCourseIds([]);
@@ -328,6 +330,22 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
     [selectedCourseIds, courseById],
   );
 
+  /** One-time course fees (billingType = ONE_TIME) */
+  const oneTimeCourseFees = useMemo(
+    () => selectedCourseIds
+      .filter((id) => courseById.get(id)?.billingType !== 'MONTHLY')
+      .reduce((s, id) => s + (Number(courseById.get(id)?.fee) || 0), 0),
+    [selectedCourseIds, courseById],
+  );
+
+  /** Monthly course fees (billingType = MONTHLY) */
+  const monthlyCourseFees = useMemo(
+    () => selectedCourseIds
+      .filter((id) => courseById.get(id)?.billingType === 'MONTHLY')
+      .reduce((s, id) => s + (Number(courseById.get(id)?.fee) || 0), 0),
+    [selectedCourseIds, courseById],
+  );
+
   /**
    * Admission fee programs: derived from the currently selected program in the `programs` list
    * (the courses themselves don't carry nested program admission-fee fields).
@@ -369,12 +387,18 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
   const totalAdmissionFee = effectiveAdmissionFeeTotal;
 
   const totalDiscountNum = Number(totalDiscountAmount) || 0;
-  const totalMonthlyDiscountNum = Number(monthlyDiscountAmount) || 0;
+  const totalMonthlyDiscountNum = enrollPaymentMode === 'ONE_TIME' ? 0 : (Number(monthlyDiscountAmount) || 0);
   const totalPaymentNum = Number(totalPaymentAmount) || 0;
 
+  /** Course + admission (matches backend invoice line total before discounts). */
+  const grossBeforeDiscount = useMemo(
+    () => totalCourseFee + effectiveAdmissionFeeTotal,
+    [totalCourseFee, effectiveAdmissionFeeTotal],
+  );
+
   const netPayable = useMemo(
-    () => netPayableAfterAdjustments(totalCourseFee, totalDiscountNum + totalMonthlyDiscountNum),
-    [totalCourseFee, totalDiscountNum, totalMonthlyDiscountNum],
+    () => netPayableAfterAdjustments(grossBeforeDiscount, totalDiscountNum + totalMonthlyDiscountNum),
+    [grossBeforeDiscount, totalDiscountNum, totalMonthlyDiscountNum],
   );
 
   const balanceAfterPay = useMemo(
@@ -383,12 +407,9 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
   );
 
   const adjustmentsOverTotalFees =
-    totalCourseFee > 0 && totalDiscountNum + totalMonthlyDiscountNum > totalCourseFee + 1e-6;
+    grossBeforeDiscount > 0 && totalDiscountNum + totalMonthlyDiscountNum > grossBeforeDiscount + 1e-6;
 
-  const maxDiscountAllowed = Math.max(0, Math.round((totalCourseFee - totalMonthlyDiscountNum) * 100) / 100);
-
-  /** True when any selected course is OFFLINE */
-  const hasOfflineCourse = selectedCourseIds.some((id) => isOfflineCourseType(courseById.get(id)?.type));
+  const maxDiscountAllowed = Math.max(0, Math.round((grossBeforeDiscount - totalMonthlyDiscountNum) * 100) / 100);
 
   /** Payment type badge label (OFFLINE / ONLINE / MIXED) */
   const paymentTypeBadge = useMemo(() => {
@@ -475,13 +496,18 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
   };
 
   const validateStep3 = (): boolean => {
-    const v = validateAdmissionPayment(totalCourseFee, 'offline', {
-      totalDiscountAmount,
-      totalPaymentAmount,
-      discountReference,
-      paymentMethod,
-      paymentTrxId,
-    });
+    const v = validateAdmissionPayment(
+      grossBeforeDiscount,
+      'offline',
+      {
+        totalDiscountAmount,
+        totalPaymentAmount,
+        discountReference,
+        paymentMethod,
+        paymentTrxId,
+      },
+      { otherDiscountAmount: totalMonthlyDiscountNum },
+    );
     if (v.ok === false) {
       setError(v.message);
       return false;
@@ -510,9 +536,16 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
         if (o > 0 && c?.offerDiscountNote && !offerNote) offerNote = String(c.offerDiscountNote).trim();
       }
       const tf = selectedCourseIds.reduce((s, id) => s + (Number(courseById.get(id)?.fee) || 0), 0);
+      const admissionTotal = admissionFeePrograms.reduce(
+        (s, p) => s + (Number(admissionFeeOverrides[p.id] ?? p.amount) || 0),
+        0,
+      );
       setTotalDiscountAmount(sumOffer > 0 ? String(Math.round(sumOffer * 100) / 100) : '');
       setDiscountReference(offerNote);
-      setTotalPaymentAmount(String(Math.round(Math.max(tf - sumOffer, 0) * 100) / 100));
+      setTotalPaymentAmount(String(Math.round(Math.max(tf + admissionTotal - sumOffer, 0) * 100) / 100));
+      // Auto-set payment mode based on selected course billing types
+      const hasMonthly = selectedCourseIds.some((id) => courseById.get(id)?.billingType === 'MONTHLY');
+      setEnrollPaymentMode(hasMonthly ? 'MONTHLY' : 'ONE_TIME');
     }
     if (step === 3 && !validateStep3()) return;
     setStep((s) => Math.min(4, s + 1));
@@ -836,14 +869,7 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
                       >
                         বিদ্যমান Student দেখুন
                       </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        className="rounded-lg text-[11px] h-7 bg-amber-600 text-white hover:bg-amber-700"
-                        onClick={() => setMobileDuplicateDismissed(true)}
-                      >
-                        তবুও নতুন করুন
-                      </Button>
+                     
                     </div>
                   </div>
                 )}
@@ -1232,31 +1258,83 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
 
         {step === 3 && (
           <div className="space-y-6 animate-in fade-in duration-200">
-            {/* ── Section title ── */}
-            <p className="text-xs font-medium uppercase tracking-widest text-slate-500">ফি সারসংক্ষেপ</p>
 
-            {/* ── Fee breakdown card ── */}
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/40 p-4 space-y-1">
-              {admissionFeePrograms.length > 0 && (
-                <div className="flex items-center justify-between py-1.5 text-sm border-b border-slate-100 last:border-b-0">
-                  <span className="text-slate-600">Admission fee</span>
-                  <span className="font-mono font-bold">৳{effectiveAdmissionFeeTotal.toLocaleString()}</span>
-                </div>
-              )}
-              {selectedCourseIds.map((cid) => {
-                const c = courseById.get(cid);
-                const fee = c?.fee != null ? Number(c.fee) : 0;
-                return (
-                  <div key={cid} className="flex items-center justify-between py-1.5 text-sm border-b border-slate-100 last:border-b-0">
-                    <span className="text-slate-600">{c?.name}</span>
-                    <span className="font-mono font-bold">৳{fee.toLocaleString()}</span>
-                  </div>
-                );
-              })}
-              {selectedCourseIds.length === 0 && (
-                <p className="text-sm text-slate-400">কোনো course নির্বাচন করা হয়নি</p>
-              )}
+            {/* ── Payment mode toggle ── */}
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/40 p-1.5 flex">
+              <button
+                type="button"
+                onClick={() => setEnrollPaymentMode('ONE_TIME')}
+                className={cn(
+                  'flex-1 rounded-xl py-3 text-center text-xs font-black uppercase tracking-widest transition-all',
+                  enrollPaymentMode === 'ONE_TIME'
+                    ? 'bg-indigo-600 text-white shadow-lg'
+                    : 'text-slate-500 hover:bg-white',
+                )}
+              >
+                একবারে পরিশোধ (One-time)
+              </button>
+              <button
+                type="button"
+                onClick={() => setEnrollPaymentMode('MONTHLY')}
+                className={cn(
+                  'flex-1 rounded-xl py-3 text-center text-xs font-black uppercase tracking-widest transition-all',
+                  enrollPaymentMode === 'MONTHLY'
+                    ? 'bg-indigo-600 text-white shadow-lg'
+                    : 'text-slate-500 hover:bg-white',
+                )}
+              >
+                মাসিক কিস্তি (Monthly)
+              </button>
             </div>
+
+            {/* ── Categorized fees ── */}
+            {/* One-time charges */}
+            {(oneTimeCourseFees > 0 || effectiveAdmissionFeeTotal > 0) && (
+              <div className="rounded-2xl border border-violet-200 bg-violet-50/30 p-4 space-y-1">
+                <p className="text-[10px] font-black uppercase tracking-widest text-violet-600 mb-2">একবারের চার্জ (One-time)</p>
+                {admissionFeePrograms.length > 0 && (
+                  <div className="flex items-center justify-between py-1.5 text-sm border-b border-violet-100">
+                    <span className="text-slate-600">Admission fee</span>
+                    <span className="font-mono font-bold">৳{effectiveAdmissionFeeTotal.toLocaleString()}</span>
+                  </div>
+                )}
+                {selectedCourseIds.filter((id) => courseById.get(id)?.billingType !== 'MONTHLY').map((cid) => {
+                  const c = courseById.get(cid);
+                  const fee = c?.fee != null ? Number(c.fee) : 0;
+                  return (
+                    <div key={cid} className="flex items-center justify-between py-1.5 text-sm border-b border-violet-100 last:border-b-0">
+                      <span className="text-slate-600">{c?.name}</span>
+                      <span className="font-mono font-bold">৳{fee.toLocaleString()}</span>
+                    </div>
+                  );
+                })}
+                <div className="flex items-center justify-between pt-2 text-sm font-bold">
+                  <span className="text-violet-700">মোট একবার</span>
+                  <span className="font-mono text-violet-800">৳{(oneTimeCourseFees + effectiveAdmissionFeeTotal).toLocaleString()}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Monthly charges */}
+            {monthlyCourseFees > 0 && (
+              <div className="rounded-2xl border border-sky-200 bg-sky-50/30 p-4 space-y-1">
+                <p className="text-[10px] font-black uppercase tracking-widest text-sky-600 mb-2">মাসিক চার্জ (Monthly recurring)</p>
+                {selectedCourseIds.filter((id) => courseById.get(id)?.billingType === 'MONTHLY').map((cid) => {
+                  const c = courseById.get(cid);
+                  const fee = c?.fee != null ? Number(c.fee) : 0;
+                  return (
+                    <div key={cid} className="flex items-center justify-between py-1.5 text-sm border-b border-sky-100 last:border-b-0">
+                      <span className="text-slate-600">{c?.name}</span>
+                      <span className="font-mono font-bold">৳{fee.toLocaleString()}/mo</span>
+                    </div>
+                  );
+                })}
+                <div className="flex items-center justify-between pt-2 text-sm font-bold">
+                  <span className="text-sky-700">মোট মাসিক</span>
+                  <span className="font-mono text-sky-800">৳{monthlyCourseFees.toLocaleString()}/mo</span>
+                </div>
+              </div>
+            )}
 
             {/* ── Admission Fee (editable) ── */}
             {admissionFeePrograms.length > 0 && (
@@ -1301,9 +1379,9 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
               </div>
             )}
 
-            {/* ── Special Discount ── */}
+            {/* ── Special Discount (one-time, program-wise) ── */}
             <div className="space-y-2">
-              <label className={sectionLabel}>Special Discount (একবার, ভর্তির সময়)</label>
+              <label className={sectionLabel}>Special Discount (একবার, প্রোগ্রামভিত্তিক)</label>
               <Input
                 className={cn(
                   inputClass,
@@ -1320,15 +1398,16 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
                 <div className="flex gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-800">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>
-                    Discount ({totalDiscountNum.toFixed(2)} BDT) exceeds fees ({totalCourseFee.toFixed(2)} BDT).
+                    Discount ({(totalDiscountNum + totalMonthlyDiscountNum).toFixed(2)} BDT) exceeds billable total (
+                    {grossBeforeDiscount.toFixed(2)} BDT).
                     Max: {maxDiscountAllowed.toFixed(2)} BDT
                   </span>
                 </div>
               )}
             </div>
 
-            {/* ── Monthly Discount (offline courses only) ── */}
-            {hasOfflineCourse && (
+            {/* ── Monthly Discount — only if monthly payment mode ── */}
+            {enrollPaymentMode === 'MONTHLY' && (
               <div className="space-y-2">
                 <label className={sectionLabel}>Monthly Discount (প্রতি মাসে প্রযোজ্য)</label>
                 <Input
@@ -1340,7 +1419,7 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
                   onChange={(e) => setMonthlyDiscountAmount(e.target.value)}
                   placeholder="0"
                 />
-                <p className="text-[10px] font-medium text-slate-400">প্রতি মাসে এই পরিমাণ ছাড় পাবেন (Offline courses only).</p>
+                <p className="text-[10px] font-medium text-slate-400">প্রতি মাসে এই পরিমাণ ছাড় পাবেন।</p>
               </div>
             )}
 
@@ -1360,14 +1439,20 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
             {/* ── Fee totals card ── */}
             <div className="rounded-2xl border border-slate-200 bg-slate-50/40 p-4 space-y-1">
               <div className="flex items-center justify-between py-1.5 text-sm border-b border-slate-100">
-                <span className="text-slate-600">মোট ফি</span>
+                <span className="text-slate-600">Course fees</span>
                 <span className="font-mono font-bold">৳{totalCourseFee.toLocaleString()}</span>
               </div>
+              {effectiveAdmissionFeeTotal > 0 && (
+                <div className="flex items-center justify-between py-1.5 text-sm border-b border-slate-100">
+                  <span className="text-slate-600">Admission fees</span>
+                  <span className="font-mono font-bold">৳{effectiveAdmissionFeeTotal.toLocaleString()}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between py-1.5 text-sm border-b border-slate-100">
                 <span className="text-slate-600">Special Discount</span>
                 <span className="font-mono font-bold text-rose-600">− ৳{totalDiscountNum.toLocaleString()}</span>
               </div>
-              {hasOfflineCourse && totalMonthlyDiscountNum > 0 && (
+              {enrollPaymentMode === 'MONTHLY' && totalMonthlyDiscountNum > 0 && (
                 <div className="flex items-center justify-between py-1.5 text-sm border-b border-slate-100">
                   <span className="text-slate-600">Monthly Discount</span>
                   <span className="font-mono font-bold text-rose-600">− ৳{totalMonthlyDiscountNum.toLocaleString()}</span>
@@ -1508,11 +1593,9 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Payment Type</span>
                 <span className={cn(
                   'rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase',
-                  paymentTypeBadge === 'OFFLINE' ? 'bg-violet-100 text-violet-700' :
-                  paymentTypeBadge === 'ONLINE'  ? 'bg-sky-100 text-sky-700' :
-                  'bg-amber-100 text-amber-700',
+                  enrollPaymentMode === 'ONE_TIME' ? 'bg-violet-100 text-violet-700' : 'bg-sky-100 text-sky-700',
                 )}>
-                  {paymentTypeBadge}
+                  {enrollPaymentMode === 'ONE_TIME' ? 'একবারে (One-time)' : 'মাসিক (Monthly)'}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
@@ -1520,9 +1603,15 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
                 <span className="font-bold text-slate-700">{billingStartMonth || '—'}</span>
               </div>
               <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Total fees</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Course fees</span>
                 <span className="font-mono font-black text-slate-800">৳{totalCourseFee.toFixed(2)}</span>
               </div>
+              {effectiveAdmissionFeeTotal > 0 && (
+                <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Admission fees</span>
+                  <span className="font-mono font-black text-slate-800">৳{effectiveAdmissionFeeTotal.toFixed(2)}</span>
+                </div>
+              )}
               {totalDiscountNum > 0 && (
                 <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
                   <span className="text-[10px] font-black uppercase tracking-widest text-amber-600">Special Discount</span>

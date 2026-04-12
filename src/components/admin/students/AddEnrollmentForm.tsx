@@ -57,15 +57,31 @@ interface AddEnrollmentFormProps {
   studentId: string;
   defaultBranchId?: string;
   onSuccess: () => Promise<void>;
+  /**
+   * When embedded in EditStudentWizard, parent owns steps 2–4 (Register is step 1 on parent).
+   * Parent `parentStep`: 2 = courses, 3 = payment, 4 = confirm.
+   */
+  nestedInParentWizard?: {
+    parentStep: number;
+    setParentStep: (step: number) => void;
+    onBackToProfile: () => void;
+  };
 }
 
 const STEP_LABELS = ['Courses', 'Payment', 'Confirm'] as const;
 
-export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: AddEnrollmentFormProps) {
+export function AddEnrollmentForm({
+  studentId,
+  defaultBranchId,
+  onSuccess,
+  nestedInParentWizard,
+}: AddEnrollmentFormProps) {
   const { closeModal } = useModalStore();
   const { toast } = useToast();
 
-  const [step, setStep] = useState(1);
+  const [internalStep, setInternalStep] = useState(1);
+  const nested = nestedInParentWizard;
+  const step = nested ? nested.parentStep - 1 : internalStep;
   const [enrollmentMode, setEnrollmentMode] = useState<'program' | 'monthly'>('program');
   const [programs, setPrograms] = useState<Program[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -90,6 +106,10 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
   const [branchId, setBranchId] = useState(defaultBranchId || '');
   const defaultMonth = () => new Date().toISOString().slice(0, 7);
   const [billingStartMonth, setBillingStartMonth] = useState(defaultMonth());
+
+  useEffect(() => {
+    if (defaultBranchId) setBranchId(defaultBranchId);
+  }, [defaultBranchId]);
 
   const [totalDiscountAmount, setTotalDiscountAmount] = useState('');
   const [totalPaymentAmount, setTotalPaymentAmount] = useState('');
@@ -188,7 +208,7 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
           const list = res.data.courses as Course[];
           setProgramCourses(list);
           const blocked = new Set(enrolledCourseIds);
-          setProgramSelectedIds(list.map((c) => c.id).filter((id) => !blocked.has(id)));
+          setProgramSelectedIds([]);
         } else {
           setProgramCourses([]);
           setProgramSelectedIds([]);
@@ -364,6 +384,11 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
     [admissionFeePrograms, admissionFeeOverrides],
   );
 
+  const grossBeforeDiscount = useMemo(
+    () => totalCourseFee + effectiveAdmissionFeeTotal,
+    [totalCourseFee, effectiveAdmissionFeeTotal],
+  );
+
   /** Legacy alias kept for info-banners in course-selection step */
   const totalAdmissionFee = effectiveAdmissionFeeTotal;
 
@@ -371,8 +396,8 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
   const totalPaymentNum = Number(totalPaymentAmount) || 0;
 
   const netPayable = useMemo(
-    () => netPayableAfterAdjustments(totalCourseFee, totalDiscountNum),
-    [totalCourseFee, totalDiscountNum],
+    () => netPayableAfterAdjustments(grossBeforeDiscount, totalDiscountNum),
+    [grossBeforeDiscount, totalDiscountNum],
   );
 
   const balanceAfterPay = useMemo(
@@ -381,9 +406,9 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
   );
 
   const adjustmentsOverTotalFees =
-    totalCourseFee > 0 && totalDiscountNum > totalCourseFee + 1e-6;
+    grossBeforeDiscount > 0 && totalDiscountNum > grossBeforeDiscount + 1e-6;
 
-  const maxDiscountAllowed = Math.max(0, Math.round(totalCourseFee * 100) / 100);
+  const maxDiscountAllowed = Math.max(0, Math.round(grossBeforeDiscount * 100) / 100);
 
   const paymentFieldsLocked = adjustmentsOverTotalFees;
 
@@ -439,7 +464,8 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
   const validateStep2 = (): boolean => {
     const sel = resolveSelectedIds();
     const tFee = sel.reduce((s, id) => s + (Number(courseMap.get(id)?.fee) || 0), 0);
-    const v = validateAdmissionPayment(tFee, 'offline', {
+    const gross = tFee + effectiveAdmissionFeeTotal;
+    const v = validateAdmissionPayment(gross, 'offline', {
       totalDiscountAmount,
       totalPaymentAmount,
       discountReference,
@@ -530,12 +556,18 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
       }
       if (!validateStep2()) return;
     }
-    setStep((s) => Math.min(3, s + 1));
+    if (nested) nested.setParentStep(Math.min(4, nested.parentStep + 1));
+    else setInternalStep((s) => Math.min(3, s + 1));
   };
 
   const goBack = () => {
     setError(null);
-    setStep((s) => Math.max(1, s - 1));
+    if (nested) {
+      if (nested.parentStep <= 2) nested.onBackToProfile();
+      else nested.setParentStep(nested.parentStep - 1);
+    } else {
+      setInternalStep((s) => Math.max(1, s - 1));
+    }
   };
 
   const handleSubmit = async () => {
@@ -587,7 +619,7 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
         description: `${sel.length} course(s) enrolled on one invoice.${pdfUrl ? ' PDF opened in a new tab.' : ''}`,
         variant: 'success',
       });
-      closeModal();
+      if (!nested) closeModal();
       await onSuccess();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed';
@@ -600,39 +632,41 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
 
   return (
     <div className="flex h-full max-h-[min(90vh,820px)] flex-col bg-white text-slate-900">
-      <div className="border-b border-slate-100 px-4 pt-5 pb-4 sm:px-6">
-        <div className="grid w-full grid-cols-3 gap-2 sm:gap-4">
-          {STEP_LABELS.map((label, i) => {
-            const n = i + 1;
-            const active = step === n;
-            const done = step > n;
-            return (
-              <div key={label} className="flex flex-col items-center px-0.5 text-center">
-                <div
-                  className={cn(
-                    'mb-2 flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold transition-colors sm:h-10 sm:w-10',
-                    done
-                      ? 'bg-indigo-600 text-white'
-                      : active
-                        ? 'bg-indigo-600 text-white ring-2 ring-indigo-200'
-                        : 'bg-slate-100 text-slate-400',
-                  )}
-                >
-                  {done ? <Check className="h-4 w-4" /> : n}
+      {!nested ? (
+        <div className="border-b border-slate-100 px-4 pt-5 pb-4 sm:px-6">
+          <div className="grid w-full grid-cols-3 gap-2 sm:gap-4">
+            {STEP_LABELS.map((label, i) => {
+              const n = i + 1;
+              const active = step === n;
+              const done = step > n;
+              return (
+                <div key={label} className="flex flex-col items-center px-0.5 text-center">
+                  <div
+                    className={cn(
+                      'mb-2 flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold transition-colors sm:h-10 sm:w-10',
+                      done
+                        ? 'bg-indigo-600 text-white'
+                        : active
+                          ? 'bg-indigo-600 text-white ring-2 ring-indigo-200'
+                          : 'bg-slate-100 text-slate-400',
+                    )}
+                  >
+                    {done ? <Check className="h-4 w-4" /> : n}
+                  </div>
+                  <span
+                    className={cn(
+                      'text-[11px] font-semibold leading-snug sm:text-xs',
+                      active ? 'text-indigo-700' : 'text-slate-500',
+                    )}
+                  >
+                    {label}
+                  </span>
                 </div>
-                <span
-                  className={cn(
-                    'text-[11px] font-semibold leading-snug sm:text-xs',
-                    active ? 'text-indigo-700' : 'text-slate-500',
-                  )}
-                >
-                  {label}
-                </span>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6 no-scrollbar">
         {step === 1 && (
@@ -1081,6 +1115,16 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
                   <dt>Total course fees</dt>
                   <dd className="font-mono">{totalCourseFee.toFixed(2)} BDT</dd>
                 </div>
+                {effectiveAdmissionFeeTotal > 0 ? (
+                  <div className="flex justify-between gap-2 font-bold text-amber-900">
+                    <dt>Admission (on invoice)</dt>
+                    <dd className="font-mono">{effectiveAdmissionFeeTotal.toFixed(2)} BDT</dd>
+                  </div>
+                ) : null}
+                <div className="flex justify-between gap-2 font-bold text-slate-800">
+                  <dt>Billable total</dt>
+                  <dd className="font-mono">{grossBeforeDiscount.toFixed(2)} BDT</dd>
+                </div>
                 <div className="flex justify-between gap-2 font-bold text-slate-800">
                   <dt>Net after discount</dt>
                   <dd className="font-mono text-indigo-800">{netPayable.toFixed(2)} BDT</dd>
@@ -1170,7 +1214,8 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Adjustments (discount)</p>
               <p className="mt-1 text-xs text-slate-500">
-                Discount cannot exceed total course fees ({totalCourseFee.toFixed(2)} BDT). Max discount: {maxDiscountAllowed.toFixed(2)}.
+                Discount cannot exceed billable total ({grossBeforeDiscount.toFixed(2)} BDT). Max discount:{' '}
+                {maxDiscountAllowed.toFixed(2)}.
               </p>
               {adjustmentsOverTotalFees ? (
                 <div className="mt-3 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-900">
@@ -1431,9 +1476,7 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
                 <div className="bg-gradient-to-br from-slate-50 to-slate-100 p-5 space-y-4">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-black uppercase tracking-wide text-slate-700">Total Payable</p>
-                    <p className="font-mono text-xl font-black text-slate-900">
-                      ৳{(distributedPreview.totalFee + effectiveAdmissionFeeTotal - totalDiscountNum).toLocaleString()}
-                    </p>
+                    <p className="font-mono text-xl font-black text-slate-900">৳{netPayable.toLocaleString()}</p>
                   </div>
                   <div className="flex items-center justify-between border-t border-slate-200 pt-4">
                     <p className="text-sm font-black uppercase tracking-wide text-emerald-700">Payment Collected Today</p>
@@ -1441,9 +1484,7 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
                   </div>
                   <div className="flex items-center justify-between border-t border-slate-200 pt-4">
                     <p className="text-sm font-black uppercase tracking-wide text-rose-700">Amount Due</p>
-                    <p className="font-mono text-2xl font-black text-rose-600">
-                      ৳{Math.max(distributedPreview.totalFee + effectiveAdmissionFeeTotal - totalDiscountNum - totalPaymentNum, 0).toLocaleString()}
-                    </p>
+                    <p className="font-mono text-2xl font-black text-rose-600">৳{balanceAfterPay.toLocaleString()}</p>
                   </div>
                 </div>
               </div>
@@ -1477,9 +1518,13 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
       </div>
 
       <div className="flex shrink-0 gap-3 border-t border-slate-100 px-6 py-5">
-        <Button variant="outline" className="h-12 flex-1 rounded-2xl font-bold text-sm" onClick={step === 1 ? closeModal : goBack}>
+        <Button
+          variant="outline"
+          className="h-12 flex-1 rounded-2xl font-bold text-sm"
+          onClick={step === 1 ? (nested ? nested.onBackToProfile : closeModal) : goBack}
+        >
           {step === 1 ? (
-            'Close'
+            nested ? 'Back' : 'Close'
           ) : (
             <>
               <ChevronLeft className="mr-1 h-4 w-4" />

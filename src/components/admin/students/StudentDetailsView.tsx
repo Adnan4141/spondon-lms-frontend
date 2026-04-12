@@ -56,6 +56,7 @@ import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
 import { AddEnrollmentForm } from '@/components/admin/students/AddEnrollmentForm';
 import { BenefitManager } from '@/components/admin/students/BenefitManager';
 import { StudentAcademicTab } from '@/components/admin/students/StudentAcademicTab';
+import { CourseCancellationWizard } from '@/components/admin/students/CourseCancellationWizard';
 import { getInvoices, getInvoiceById } from '@/lib/api/invoices';
 import type { Invoice } from '@/types/invoice';
 import { InvoiceDetailsView } from '@/components/admin/invoices/InvoiceDetailsView';
@@ -289,6 +290,24 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
         <EnrollmentCancelModal
           enrollmentId={enrollment.id}
           enrollmentName={enrollment.course?.name}
+          onSuccess={refreshEnrollmentsAndBilling}
+        />
+      ),
+    });
+  };
+
+  const handleBulkCancel = () => {
+    openModal({
+      title: 'Cancel courses',
+      description: 'Select courses to cancel and adjust benefits.',
+      className: 'sm:max-w-2xl',
+      content: (
+        <CourseCancellationWizard
+          studentId={student.id}
+          studentName={student.fullName}
+          studentReg={profile?.registrationNumber}
+          branchName={student.branch?.name}
+          enrollments={enrollments}
           onSuccess={refreshEnrollmentsAndBilling}
         />
       ),
@@ -693,6 +712,14 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                       <SelectItem value="WAITLISTED">WAITLISTED</SelectItem>
                     </SelectContent>
                   </Select>
+                  <Button
+                    variant="outline"
+                    className="h-12 w-full rounded-2xl border-rose-200 bg-white px-6 text-[10px] font-black uppercase tracking-[0.2em] text-rose-700 shadow-sm transition-all hover:bg-rose-50 sm:w-auto"
+                    onClick={handleBulkCancel}
+                  >
+                    <Ban className="mr-2 h-4 w-4" />
+                    Cancel Courses
+                  </Button>
                   <Button
                     className="h-12 w-full rounded-2xl bg-slate-900 px-6 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-xl shadow-slate-200 transition-all hover:scale-[1.02] hover:bg-indigo-600 sm:w-auto"
                     onClick={handleAddEnrollment}

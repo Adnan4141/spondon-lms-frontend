@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { updateStudent } from '@/lib/api/students';
 import { useModalStore } from '@/store/modalStore';
 import { useToast } from '@/hooks/use-toast';
@@ -122,16 +122,26 @@ function formatDateInput(date?: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+export type StudentFormHandle = {
+  submitProfile: () => Promise<{ ok: boolean; branchId?: string }>;
+};
+
 interface StudentFormProps {
   branches: Branch[];
   institutes: Institute[];
   student: Student;
   onSuccess: () => Promise<void>;
+  /** Single scroll layout with section headers (for edit wizard step 1). */
+  layout?: 'tabs' | 'wizard';
+  hideFooter?: boolean;
 }
 
 type EditFormState = Omit<CreateStudentDto, 'registrationNumber'>;
 
-export function StudentForm({ branches, institutes, student, onSuccess }: StudentFormProps) {
+export const StudentForm = forwardRef<StudentFormHandle, StudentFormProps>(function StudentForm(
+  { branches, institutes, student, onSuccess, layout = 'tabs', hideFooter = false },
+  ref,
+) {
   const { closeModal } = useModalStore();
   const { toast } = useToast();
 
@@ -186,10 +196,10 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
     });
   }, [student]);
 
-  const handleSubmit = async () => {
+  const submitProfileCore = useCallback(async (): Promise<{ ok: boolean; branchId?: string }> => {
     if (!form.fullName.trim() || !form.mobile.trim()) {
       setError('Name and mobile are required.');
-      return;
+      return { ok: false };
     }
 
     try {
@@ -209,41 +219,29 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
         variant: 'success',
       });
 
-      closeModal();
       await onSuccess();
+      return { ok: true, branchId: form.branchId || undefined };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Processing failed';
       setError(msg);
       toast({ title: 'Error', description: msg, variant: 'destructive' });
+      return { ok: false };
     } finally {
       setSubmitting(false);
     }
+  }, [form, student.id, onSuccess]);
+
+  useImperativeHandle(ref, () => ({
+    submitProfile: () => submitProfileCore(),
+  }));
+
+  const handleSubmit = async () => {
+    const r = await submitProfileCore();
+    if (r.ok) closeModal();
   };
 
-  return (
-    <div className="flex flex-col h-full bg-white text-slate-900">
-      <Tabs defaultValue="account" className="flex-1 flex flex-col min-h-0">
-        <div className="px-8 pt-6 border-b border-slate-100 bg-slate-50/30">
-          <TabsList className="bg-transparent gap-8 h-14 p-0">
-            {[
-              { label: 'Account', value: 'account', icon: ShieldCheck },
-              { label: 'Branch & Institute', value: 'institutional', icon: Building2 },
-              { label: 'Personal', value: 'personal', icon: Fingerprint },
-            ].map((tab) => (
-              <TabsTrigger
-                key={tab.value}
-                value={tab.value}
-                className="relative h-14 rounded-none bg-transparent px-2 text-sm font-black uppercase tracking-[0.2em] text-slate-400 data-[state=active]:bg-transparent data-[state=active]:text-indigo-600 border-none transition-all after:absolute after:bottom-0 after:left-0 after:h-1 after:w-full after:rounded-full after:bg-indigo-600 after:opacity-0 data-[state=active]:after:opacity-100"
-              >
-                <tab.icon className="h-4 w-4 mr-2" />
-                {tab.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-8 py-10 no-scrollbar">
-          <TabsContent value="account" className="m-0 space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+  const accountSection = (
+    <div className="m-0 space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
              <div className="flex items-center gap-3 mb-6">
                 <div className="h-10 w-10 rounded-xl bg-indigo-50 flex items-center justify-center">
                    <Info className="h-5 w-5 text-indigo-600" />
@@ -284,9 +282,11 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
                    </div>
                 </div>
              </div>
-          </TabsContent>
+    </div>
+  );
 
-          <TabsContent value="institutional" className="m-0 space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+  const institutionalSection = (
+    <div className="m-0 space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
              <div className="flex items-center gap-3 mb-6">
                 <div className="h-10 w-10 rounded-xl bg-emerald-50 flex items-center justify-center">
                    <GraduationCap className="h-5 w-5 text-emerald-600" />
@@ -339,9 +339,11 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
                    />
                 </div>
              </div>
-          </TabsContent>
+    </div>
+  );
 
-          <TabsContent value="personal" className="m-0 space-y-10 animate-in fade-in slide-in-from-bottom-2 duration-300">
+  const personalSection = (
+    <div className="m-0 space-y-10 animate-in fade-in slide-in-from-bottom-2 duration-300">
              <div className="grid gap-8 sm:grid-cols-2">
                 <div className="space-y-2">
                    <label className={sectionLabel}>Father's Name</label>
@@ -447,35 +449,87 @@ export function StudentForm({ branches, institutes, student, onSuccess }: Studen
                    />
                 </div>
              </div>
-          </TabsContent>
-        </div>
-
-        {error && (
-          <div className="mx-8 mb-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-[10px] font-black uppercase tracking-widest text-rose-600 flex items-center gap-3 animate-in shake-in duration-300">
-             <div className="h-2 w-2 rounded-full bg-rose-500" />
-             {error}
-          </div>
-        )}
-
-        <div className="mt-auto shrink-0 border-t border-slate-100 bg-white px-8 pb-8 pt-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <Button
-              variant="outline"
-              className="flex-1 h-14 rounded-2xl border-slate-700 bg-slate-800 font-black uppercase tracking-[0.2em] text-[11px] text-white hover:bg-slate-900 hover:text-white transition-all shadow-sm"
-              onClick={closeModal}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="flex-[2] h-14 rounded-2xl bg-slate-900 font-black uppercase tracking-[0.2em] text-[11px] text-white shadow-xl shadow-slate-200 hover:bg-indigo-600 hover:scale-[1.02] active:scale-95 transition-all"
-            >
-              {submitting ? 'Saving...' : 'Update'}
-            </Button>
-          </div>
-        </div>
-      </Tabs>
     </div>
   );
-}
+
+  const tabbedBody = (
+    <Tabs defaultValue="account" className="flex-1 flex flex-col min-h-0">
+      <div className="px-8 pt-6 border-b border-slate-100 bg-slate-50/30">
+        <TabsList className="bg-transparent gap-8 h-14 p-0">
+          {[
+            { label: 'Account', value: 'account', icon: ShieldCheck },
+            { label: 'Branch & Institute', value: 'institutional', icon: Building2 },
+            { label: 'Personal', value: 'personal', icon: Fingerprint },
+          ].map((tab) => (
+            <TabsTrigger
+              key={tab.value}
+              value={tab.value}
+              className="relative h-14 rounded-none bg-transparent px-2 text-sm font-black uppercase tracking-[0.2em] text-slate-400 data-[state=active]:bg-transparent data-[state=active]:text-indigo-600 border-none transition-all after:absolute after:bottom-0 after:left-0 after:h-1 after:w-full after:rounded-full after:bg-indigo-600 after:opacity-0 data-[state=active]:after:opacity-100"
+            >
+              <tab.icon className="h-4 w-4 mr-2" />
+              {tab.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-8 py-10 no-scrollbar">
+        <TabsContent value="account" className="m-0">
+          {accountSection}
+        </TabsContent>
+        <TabsContent value="institutional" className="m-0">
+          {institutionalSection}
+        </TabsContent>
+        <TabsContent value="personal" className="m-0">
+          {personalSection}
+        </TabsContent>
+      </div>
+    </Tabs>
+  );
+
+  const wizardBody = (
+    <div className="flex-1 overflow-y-auto px-8 py-8 no-scrollbar space-y-10">
+      {accountSection}
+      <div className="border-t border-slate-100 pt-10">{institutionalSection}</div>
+      <div className="border-t border-slate-100 pt-10">{personalSection}</div>
+    </div>
+  );
+
+  const footer = !hideFooter && (
+    <div className="mt-auto shrink-0 border-t border-slate-100 bg-white px-8 pb-8 pt-6">
+      <div className="flex flex-col sm:flex-row gap-4">
+        <Button
+          variant="outline"
+          className="flex-1 h-14 rounded-2xl border-slate-700 bg-slate-800 font-black uppercase tracking-[0.2em] text-[11px] text-white hover:bg-slate-900 hover:text-white transition-all shadow-sm"
+          onClick={closeModal}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSubmit}
+          disabled={submitting}
+          className="flex-[2] h-14 rounded-2xl bg-slate-900 font-black uppercase tracking-[0.2em] text-[11px] text-white shadow-xl shadow-slate-200 hover:bg-indigo-600 hover:scale-[1.02] active:scale-95 transition-all"
+        >
+          {submitting ? 'Saving...' : 'Update'}
+        </Button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col h-full bg-white text-slate-900">
+      {layout === 'tabs' ? tabbedBody : wizardBody}
+
+      {error && (
+        <div className="mx-8 mb-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-[10px] font-black uppercase tracking-widest text-rose-600 flex items-center gap-3 animate-in shake-in duration-300">
+          <div className="h-2 w-2 rounded-full bg-rose-500" />
+          {error}
+        </div>
+      )}
+
+      {footer}
+    </div>
+  );
+});
+
+StudentForm.displayName = 'StudentForm';

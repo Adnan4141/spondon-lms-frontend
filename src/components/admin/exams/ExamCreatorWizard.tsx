@@ -1,17 +1,31 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import { createExam, updateExam, addQuestionsToSet, regenerateExamPdf, regenerateSolveSheet, generateSetPdf, getExamPdfDownloadUrl, getExamById } from '@/lib/api/exams';
+import {
+  createExam,
+  updateExam,
+  addQuestionsToSet,
+  createExamSet,
+  regenerateExamPdf,
+  regenerateSolveSheet,
+  generateSetPdf,
+  getExamPdfDownloadUrl,
+  getExamById,
+} from '@/lib/api/exams';
 import { getQuestionFolderTree, type FolderTreeNode } from '@/lib/api/question-bank';
 import { getCourses } from '@/lib/api/courses';
 import { getBranches } from '@/lib/api/branches';
 import { getBatches } from '@/lib/api/batches';
 import type { Course } from '@/types/course';
 import type { Branch } from '@/lib/api/branches';
-import type { CreateExamDto, Exam, ExamType, ExamMode, ExamStatus } from '@/types/exam';
+import type { CreateExamDto, Exam, ExamEngineType, ExamSet, ExamType, ExamMode, ExamStatus } from '@/types/exam';
 import { useToast } from '@/hooks/use-toast';
 import { Check, ChevronRight, Search, X, Folder, FileText, Download, Send, Save, ArrowLeft, ArrowRight, AlertTriangle, Loader2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { DateTimePicker } from '@/components/ui/datetime-picker';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface WizardState {
@@ -31,6 +45,7 @@ interface WizardState {
   percentile: boolean;
   solveSheet: boolean;
   omr: boolean;
+  examEngine: ExamEngineType;
   // Step 2 - Method
   method: 'folder' | 'blueprint' | 'manual' | 'import';
   // Step 3 - Config
@@ -92,6 +107,83 @@ function setLabel(index: number): string {
   return index < 26 ? String.fromCharCode(65 + index) : `Set ${index + 1}`;
 }
 
+function toLocalDatetimeInput(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function parseLocalDatetimeInput(s: string): Date | undefined {
+  if (!s?.trim()) return undefined;
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? undefined : d;
+}
+
+function sortExamSets(sets: ExamSet[] | undefined): ExamSet[] {
+  return [...(sets ?? [])].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }),
+  );
+}
+
+function initialSelectedFoldersFromExam(exam: Exam | null | undefined): Set<string> {
+  const rules = exam?.folderRules;
+  if (!rules?.length) return new Set();
+  return new Set(rules.map((r) => r.folderId).filter(Boolean));
+}
+
+function treeFolderAndQuestionTotals(nodes: FolderTreeNode[]): { folders: number; questions: number } {
+  let folders = 0;
+  let questions = 0;
+  function walk(list: FolderTreeNode[]) {
+    for (const n of list) {
+      folders += 1;
+      questions += n.questionCount ?? n.counts?.total ?? 0;
+      walk(n.children ?? []);
+    }
+  }
+  walk(nodes);
+  return { folders, questions };
+}
+
+function collectIdsWithChildren(nodes: FolderTreeNode[]): Set<string> {
+  const ids = new Set<string>();
+  function walk(list: FolderTreeNode[]) {
+    for (const n of list) {
+      const ch = n.children ?? [];
+      if (ch.length) {
+        ids.add(n.id);
+        walk(ch);
+      }
+    }
+  }
+  walk(nodes);
+  return ids;
+}
+
+function subtreeTypeTotals(n: FolderTreeNode): { mcq: number; cq: number; short: number; questions: number } {
+  let mcq = 0;
+  let cq = 0;
+  let sh = 0;
+  let questions = 0;
+  function w(x: FolderTreeNode) {
+    const c = x.counts ?? { mcqSingle: 0, mcqPassage: 0, cq: 0, short: 0, total: 0 };
+    mcq += (c.mcqSingle ?? 0) + (c.mcqPassage ?? 0);
+    cq += c.cq ?? 0;
+    sh += c.short ?? 0;
+    questions += x.questionCount ?? c.total ?? 0;
+    (x.children ?? []).forEach(w);
+  }
+  w(n);
+  return { mcq, cq, sh, questions };
+}
+
+function formatRowCounts(mcq: number, cq: number, short: number): string {
+  const parts: string[] = [];
+  if (mcq) parts.push(`${mcq}M`);
+  if (cq) parts.push(`${cq}C`);
+  if (short) parts.push(`${short}S`);
+  return parts.length ? parts.join('·') : '0Q';
+}
+
 // ─── Main Component ─────────────────────────────────────────────────────────
 export function ExamCreatorWizard({ exam, onSuccess, onClose, actingTeacherUserId }: ExamCreatorWizardProps) {
   const { toast } = useToast();
@@ -101,9 +193,13 @@ export function ExamCreatorWizard({ exam, onSuccess, onClose, actingTeacherUserI
   const [branches, setBranches] = useState<Branch[]>([]);
   const [batches, setBatches] = useState<{ id: string; name: string }[]>([]);
   const [folderTree, setFolderTree] = useState<FolderTreeNode[]>([]);
+  const [folderTreeLoading, setFolderTreeLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [generatedExam, setGeneratedExam] = useState<Exam | null>(exam || null);
   const [generating, setGenerating] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState<string | null>(null);
+
+  const sortedSets = useMemo(() => sortExamSets(generatedExam?.sets), [generatedExam?.sets]);
 
 
   const [st, setSt] = useState<WizardState>({
@@ -122,8 +218,9 @@ export function ExamCreatorWizard({ exam, onSuccess, onClose, actingTeacherUserI
     percentile: exam?.showPercentile ?? true,
     solveSheet: exam?.solveSheetVisibility === 'IMMEDIATELY',
     omr: false,
+    examEngine: exam?.examEngine || 'REGULAR',
     method: 'folder',
-    selectedFolders: new Set<string>(),
+    selectedFolders: initialSelectedFoldersFromExam(exam),
     mcqPassageCount: 3,
     mcqSingleCount: 10,
     cqCount: 4,
@@ -168,17 +265,49 @@ export function ExamCreatorWizard({ exam, onSuccess, onClose, actingTeacherUserI
     })();
   }, [st.courseId]);
 
-  // Load folder tree when entering step 3
+  // Load folder tree when entering step 3 (Sets & generate)
   useEffect(() => {
-    if (step === 2) {
-      (async () => {
-        try {
-          const res = await getQuestionFolderTree(st.courseId || undefined, actingTeacherUserId || undefined);
-          if (res.success && res.data) setFolderTree(res.data);
-        } catch { /* ignore */ }
-      })();
+    if (step !== 2) {
+      setFolderTreeLoading(false);
+      return;
     }
-  }, [step, st.courseId, actingTeacherUserId]);
+    let cancelled = false;
+    (async () => {
+      if (!st.courseId?.trim()) {
+        setFolderTree([]);
+        setFolderTreeLoading(false);
+        return;
+      }
+      setFolderTreeLoading(true);
+      try {
+        const res = await getQuestionFolderTree(st.courseId, actingTeacherUserId || undefined);
+        if (cancelled) return;
+        if (res.success && res.data) setFolderTree(res.data);
+        else {
+          setFolderTree([]);
+          toast({
+            title: 'Folders unavailable',
+            description: res.message || 'Could not load the question folder tree.',
+            variant: 'destructive',
+          });
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setFolderTree([]);
+          toast({
+            title: 'Folders unavailable',
+            description: e instanceof Error ? e.message : 'Network error loading folders.',
+            variant: 'destructive',
+          });
+        }
+      } finally {
+        if (!cancelled) setFolderTreeLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [step, st.courseId, actingTeacherUserId, toast]);
 
   const navigateTo = useCallback((s: number) => {
     if (s <= maxStep + 1 && s >= 0 && s < STEPS.length) {
@@ -187,9 +316,27 @@ export function ExamCreatorWizard({ exam, onSuccess, onClose, actingTeacherUserI
     }
   }, [maxStep]);
 
+  const basicsComplete = Boolean(st.courseId?.trim() && st.title.trim());
+
   const advance = useCallback(() => {
+    if (step === 0 && !basicsComplete) {
+      if (!st.courseId?.trim()) {
+        toast({
+          title: 'Course required',
+          description: 'Choose a course before continuing.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Title required',
+          description: 'Enter an exam title before continuing.',
+          variant: 'destructive',
+        });
+      }
+      return;
+    }
     navigateTo(step + 1);
-  }, [step, navigateTo]);
+  }, [step, navigateTo, basicsComplete, st.courseId, st.title, toast]);
 
   const totalQuestionsPerSet = st.mcqPassageCount + st.mcqSingleCount + st.cqCount + st.shortCount;
 
@@ -199,88 +346,139 @@ export function ExamCreatorWizard({ exam, onSuccess, onClose, actingTeacherUserI
       <div className="text-[15px] font-medium text-slate-900">Exam basics</div>
       <div className="text-xs text-slate-400 mb-4">Define exam identity and scheduling.</div>
 
-      <Label>Exam title</Label>
-      <input
-        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+      <WizardLabel>Exam title</WizardLabel>
+      <Input
         placeholder="e.g. VAP Bio-01 Weekly MCQ 2025"
         value={st.title}
-        onChange={e => update({ title: e.target.value })}
+        onChange={(e) => update({ title: e.target.value })}
+        className="text-sm"
       />
 
-      <div className="grid grid-cols-2 gap-3 mt-3">
+      <div className="grid grid-cols-1 gap-3 mt-3 sm:grid-cols-2">
         <FieldWrap label="Course">
-          <select className="wizard-select" value={st.courseId} onChange={e => update({ courseId: e.target.value, batchId: '' })}>
-            <option value="">— Select —</option>
-            {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          <Select value={st.courseId || '__none__'} onValueChange={(v) => update({ courseId: v === '__none__' ? '' : v, batchId: '' })}>
+            <SelectTrigger className="h-9 w-full">
+              <SelectValue placeholder="Select course" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">— Select —</SelectItem>
+              {courses.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </FieldWrap>
         <FieldWrap label="Branch">
-          <select className="wizard-select" value={st.branchId} onChange={e => update({ branchId: e.target.value })}>
-            <option value="">— All branches —</option>
-            {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
+          <Select value={st.branchId || '__all__'} onValueChange={(v) => update({ branchId: v === '__all__' ? '' : v })}>
+            <SelectTrigger className="h-9 w-full">
+              <SelectValue placeholder="All branches" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">— All branches —</SelectItem>
+              {branches.map((b) => (
+                <SelectItem key={b.id} value={b.id}>
+                  {b.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </FieldWrap>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 mt-3">
+      <div className="grid grid-cols-1 gap-3 mt-3 sm:grid-cols-2">
         <FieldWrap label="Batch">
-          <select className="wizard-select" value={st.batchId} onChange={e => update({ batchId: e.target.value })}>
-            <option value="">—</option>
-            {batches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
+          <Select value={st.batchId || '__none__'} onValueChange={(v) => update({ batchId: v === '__none__' ? '' : v })} disabled={!st.courseId}>
+            <SelectTrigger className="h-9 w-full">
+              <SelectValue placeholder="Batch" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">—</SelectItem>
+              {batches.map((b) => (
+                <SelectItem key={b.id} value={b.id}>
+                  {b.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </FieldWrap>
         <FieldWrap label="Language">
-          <select className="wizard-select" value={st.language} onChange={e => update({ language: e.target.value })}>
-            <option value="bn">Bengali</option>
-            <option value="en">English</option>
-          </select>
+          <Select value={st.language} onValueChange={(v) => update({ language: v })}>
+            <SelectTrigger className="h-9 w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="bn">Bengali</SelectItem>
+              <SelectItem value="en">English</SelectItem>
+            </SelectContent>
+          </Select>
         </FieldWrap>
       </div>
 
-      <Label>Exam type</Label>
-      <BadgeRow
-        options={EXAM_TYPES}
-        value={st.type}
-        onChange={v => update({ type: v as ExamType })}
-      />
+      <WizardLabel>Exam type</WizardLabel>
+      <BadgeRow options={EXAM_TYPES} value={st.type} onChange={(v) => update({ type: v as ExamType })} />
 
-      <Label>Mode</Label>
-      <BadgeRow
-        options={EXAM_MODES}
-        value={st.mode}
-        onChange={v => update({ mode: v as ExamMode })}
-      />
+      <WizardLabel>Mode</WizardLabel>
+      <BadgeRow options={EXAM_MODES} value={st.mode} onChange={(v) => update({ mode: v as ExamMode })} />
 
-      <div className="grid grid-cols-2 gap-3 mt-3">
+      <div className="grid grid-cols-1 gap-3 mt-3 sm:grid-cols-2">
         <FieldWrap label="Start">
-          <input type="datetime-local" className="wizard-select" value={st.startAt} onChange={e => update({ startAt: e.target.value })} />
+          <DateTimePicker
+            date={parseLocalDatetimeInput(st.startAt)}
+            setDate={(d) => update({ startAt: d ? toLocalDatetimeInput(d) : '' })}
+            placeholder="Start date & time"
+            className="h-9 w-full rounded-md border-slate-200 bg-white text-sm font-normal shadow-sm"
+          />
         </FieldWrap>
         <FieldWrap label="End">
-          <input type="datetime-local" className="wizard-select" value={st.endAt} onChange={e => update({ endAt: e.target.value })} />
+          <DateTimePicker
+            date={parseLocalDatetimeInput(st.endAt)}
+            setDate={(d) => update({ endAt: d ? toLocalDatetimeInput(d) : '' })}
+            placeholder="End date & time"
+            className="h-9 w-full rounded-md border-slate-200 bg-white text-sm font-normal shadow-sm"
+          />
         </FieldWrap>
       </div>
 
-      <div className="grid grid-cols-3 gap-3 mt-3">
+      <div className="grid grid-cols-1 gap-3 mt-3 sm:grid-cols-3">
         <FieldWrap label="Duration (min)">
-          <input type="number" className="wizard-select" min={5} value={st.durationMinutes} onChange={e => update({ durationMinutes: +e.target.value })} />
+          <Input
+            type="number"
+            min={5}
+            value={st.durationMinutes}
+            onChange={(e) => update({ durationMinutes: +e.target.value || 5 })}
+            className="text-sm"
+          />
         </FieldWrap>
         <FieldWrap label="Attempts">
-          <input type="number" className="wizard-select" min={1} value={st.allowedAttempts} onChange={e => update({ allowedAttempts: +e.target.value })} />
+          <Input
+            type="number"
+            min={1}
+            value={st.allowedAttempts}
+            onChange={(e) => update({ allowedAttempts: +e.target.value || 1 })}
+            className="text-sm"
+          />
         </FieldWrap>
         <FieldWrap label="Engine">
-          <select className="wizard-select">
-            <option>Standard</option>
-            <option>Competitive</option>
-            <option>Hall OMR</option>
-          </select>
+          <Select value={st.examEngine} onValueChange={(v) => update({ examEngine: v as ExamEngineType })}>
+            <SelectTrigger className="h-9 w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="REGULAR">Standard</SelectItem>
+              <SelectItem value="COMPETITIVE">Competitive</SelectItem>
+              <SelectItem value="OMR_BOOK">Hall OMR</SelectItem>
+            </SelectContent>
+          </Select>
         </FieldWrap>
       </div>
 
-      <Label>Options</Label>
-      <Toggle label="Leaderboard" checked={st.leaderboard} onChange={v => update({ leaderboard: v })} />
-      <Toggle label="Percentile display" checked={st.percentile} onChange={v => update({ percentile: v })} />
-      <Toggle label="Solve sheet visible after submission" checked={st.solveSheet} onChange={v => update({ solveSheet: v })} />
-      <Toggle label="OMR offline upload enabled" checked={st.omr} onChange={v => update({ omr: v })} />
+      <WizardLabel>Options</WizardLabel>
+      <Toggle label="Leaderboard" checked={st.leaderboard} onChange={(v) => update({ leaderboard: v })} />
+      <Toggle label="Percentile display" checked={st.percentile} onChange={(v) => update({ percentile: v })} />
+      <Toggle label="Solve sheet visible after submission" checked={st.solveSheet} onChange={(v) => update({ solveSheet: v })} />
+      <Toggle label="OMR offline upload enabled" checked={st.omr} onChange={(v) => update({ omr: v })} />
     </>
   );
 
@@ -337,26 +535,37 @@ export function ExamCreatorWizard({ exam, onSuccess, onClose, actingTeacherUserI
       <div className="grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-4">
         {/* Left: Folder tree */}
         <div>
-          <Label className="mt-0">Browse &amp; select folders</Label>
-          <FolderTreePanel tree={folderTree} selectedFolders={st.selectedFolders} onSelectionChange={folders => update({ selectedFolders: folders })} />
+          <WizardLabel className="mt-0">Browse &amp; select folders</WizardLabel>
+          <FolderTreePanel
+            tree={folderTree}
+            treeLoading={folderTreeLoading}
+            selectedFolders={st.selectedFolders}
+            onSelectionChange={(folders) => update({ selectedFolders: folders })}
+            courseSelected={Boolean(st.courseId)}
+          />
 
-          <Label>Saved rule set</Label>
-          <div className="flex gap-2 items-center">
-            <select className="wizard-select flex-1">
-              <option value="">— load a preset —</option>
-              <option>VAP Weekly Bio standard</option>
-              <option>VAP Model Test Bio+Phy</option>
-              <option>Admission Full Syllabus</option>
-            </select>
-            <button className="px-3 py-1.5 text-xs font-medium rounded-md border border-slate-200 bg-slate-50 text-slate-500 hover:bg-white transition-colors whitespace-nowrap">
+          <WizardLabel>Saved rule set</WizardLabel>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Select defaultValue="__preset__">
+              <SelectTrigger className="h-9 w-full flex-1">
+                <SelectValue placeholder="Load a preset" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__preset__">— load a preset —</SelectItem>
+                <SelectItem value="vap-bio">VAP Weekly Bio standard</SelectItem>
+                <SelectItem value="vap-model">VAP Model Test Bio+Phy</SelectItem>
+                <SelectItem value="adm">Admission Full Syllabus</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button type="button" variant="outline" size="sm" className="shrink-0 text-xs" disabled>
               Save as rule set
-            </button>
+            </Button>
           </div>
         </div>
 
         {/* Right: Config */}
         <div className="space-y-3">
-          <Label className="mt-0">Questions per set</Label>
+          <WizardLabel className="mt-0">Questions per set</WizardLabel>
           <div className="grid grid-cols-2 gap-3">
             <TypeCard dot="#378ADD" title="MCQ passage" sub="passages + child MCQs" value={st.mcqPassageCount} onChange={v => update({ mcqPassageCount: v })} />
             <TypeCard dot="#85B7EB" title="MCQ single" sub="standalone MCQs" value={st.mcqSingleCount} onChange={v => update({ mcqSingleCount: v })} />
@@ -364,20 +573,22 @@ export function ExamCreatorWizard({ exam, onSuccess, onClose, actingTeacherUserI
             <TypeCard dot="#BA7517" title="Short / written" sub="optional" value={st.shortCount} onChange={v => update({ shortCount: v })} />
           </div>
 
-          <Label>Marks</Label>
+          <WizardLabel>Marks</WizardLabel>
           <div className="grid grid-cols-2 gap-3">
-            <MarksInput label="Per question" value={st.marksPerQuestion} onChange={v => update({ marksPerQuestion: v })} />
-            <MarksInput label="Negative mark" value={st.negativeMarks} onChange={v => update({ negativeMarks: v })} />
+            <MarksInput label="Per question" value={st.marksPerQuestion} onChange={(v) => update({ marksPerQuestion: v })} />
+            <MarksInput label="Negative mark" value={st.negativeMarks} onChange={(v) => update({ negativeMarks: v })} />
           </div>
 
-          <Label>Set variants (A–Z)</Label>
-          <div className="flex items-center gap-3 flex-wrap">
+          <WizardLabel>Set variants (A–Z)</WizardLabel>
+          <div className="flex flex-wrap items-center gap-3">
             <span className="text-xs text-slate-500">Number of sets</span>
-            <input
+            <Input
               type="number"
-              className="w-16 rounded-md border border-slate-200 px-2 py-1.5 text-center text-sm font-medium text-slate-900"
-              min={1} max={26} value={st.setCount}
-              onChange={e => update({ setCount: Math.max(1, Math.min(26, +e.target.value || 1)) })}
+              className="h-9 w-16 text-center text-sm font-medium"
+              min={1}
+              max={26}
+              value={st.setCount}
+              onChange={(e) => update({ setCount: Math.max(1, Math.min(26, +e.target.value || 1)) })}
             />
             <div className="flex gap-1 flex-wrap">
               {Array.from({ length: st.setCount }, (_, i) => (
@@ -396,10 +607,15 @@ export function ExamCreatorWizard({ exam, onSuccess, onClose, actingTeacherUserI
           {st.selectedFolders.size === 0 && (
             <p className="text-xs text-red-600 mt-1">Select at least one folder before generating.</p>
           )}
+          {!basicsComplete && (
+            <p className="mt-1 text-xs text-amber-800">
+              Complete step 1: select a course and enter an exam title before generating.
+            </p>
+          )}
 
           <button
             className="w-full py-2.5 text-sm font-medium rounded-md bg-blue-500 text-white hover:bg-blue-600 transition-colors disabled:opacity-50"
-            disabled={st.selectedFolders.size === 0 || generating}
+            disabled={st.selectedFolders.size === 0 || generating || !basicsComplete}
             onClick={handleGenerate}
           >
             {generating ? <><Loader2 className="h-4 w-4 inline animate-spin mr-2" />Generating...</> : 'Generate sets'}
@@ -411,45 +627,90 @@ export function ExamCreatorWizard({ exam, onSuccess, onClose, actingTeacherUserI
 
   // ─── Step 4: Downloads ──────────────────────────────────────────────────
   const renderDownloads = () => {
-    const labels = Array.from({ length: st.setCount }, (_, i) => setLabel(i));
+    const setsForCards: ExamSet[] =
+      sortedSets.length > 0
+        ? sortedSets
+        : Array.from({ length: st.setCount }, (_, i) => ({
+            id: '',
+            examId: generatedExam?.id ?? '',
+            name: setLabel(i),
+            createdAt: '',
+          }));
 
     return (
       <>
         <div className="text-[15px] font-medium text-slate-900">Export &amp; download</div>
         <div className="text-xs text-slate-400 mb-4">Download each set for offline hall distribution or preview in browser.</div>
 
-        <div className="flex gap-2 flex-wrap mb-4">
-          <DlButton onClick={() => handleBulkDownload()}>All sets — PDF (ZIP)</DlButton>
-          <DlButton onClick={() => handleBulkDownload()}>All sets — DOCX (ZIP)</DlButton>
-          <DlButton onClick={handleSolveSheet}>Solve sheet</DlButton>
+        {!generatedExam?.id ? (
+          <p className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-md p-3">
+            Save and generate questions first (step 3), then return here to download PDFs.
+          </p>
+        ) : null}
+
+        <div className="flex flex-wrap gap-2 mb-4">
+          <DlButton onClick={() => handleBulkDownload()} disabled={!generatedExam?.id || pdfBusy === 'bulk-pdf'}>
+            {pdfBusy === 'bulk-pdf' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+            All sets — PDF
+          </DlButton>
+          <DlButton
+            onClick={() => toast({ title: 'DOCX export', description: 'Combined DOCX export is not available yet.' })}
+            disabled={!generatedExam?.id}
+          >
+            All sets — DOCX
+          </DlButton>
+          <DlButton onClick={() => handleSolveSheet()} disabled={!generatedExam?.id || pdfBusy === 'solve'}>
+            {pdfBusy === 'solve' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+            Solve sheet
+          </DlButton>
           <DlButton onClick={() => toast({ title: 'OMR', description: 'OMR template generation coming soon' })}>OMR template</DlButton>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {labels.map((label, i) => {
+          {setsForCards.map((setRow, i) => {
+            const label = setRow.name;
             const co = SET_COLORS[i % SET_COLORS.length];
+            const setId = setRow.id || null;
+            const busy = setId ? pdfBusy === `set-${setId}` : false;
+            const canPdf = Boolean(generatedExam?.id && setId);
             return (
-              <div key={i} className="rounded-lg border border-slate-100 p-3 bg-white">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-6 h-6 rounded-md flex items-center justify-center text-[11px] font-medium" style={{ background: co.bg, color: co.color }}>
+              <div key={setId || `placeholder-${label}`} className="rounded-lg border border-slate-100 bg-white p-3">
+                <div className="mb-3 flex items-center gap-2">
+                  <div
+                    className="flex h-6 w-6 items-center justify-center rounded-md text-[11px] font-medium"
+                    style={{ background: co.bg, color: co.color }}
+                  >
                     {label}
                   </div>
                   <div>
                     <div className="text-xs font-medium text-slate-900">Set {label}</div>
-                    <div className="text-[10px] text-slate-400">{totalQuestionsPerSet} Qs · {st.shuffle ? 'shuffled' : 'ordered'}</div>
+                    <div className="text-[10px] text-slate-400">
+                      {totalQuestionsPerSet} Qs · {st.shuffle ? 'shuffled' : 'ordered'}
+                    </div>
                   </div>
                 </div>
                 <div className="flex gap-1.5">
                   <button
-                    className="flex-1 py-1 text-[10px] font-medium rounded-md border border-blue-500 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
-                    onClick={() => handleSetPdf(label, i)}
+                    type="button"
+                    className="flex-1 rounded-md border border-blue-500 bg-blue-50 py-1 text-[10px] font-medium text-blue-700 transition-colors hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={!canPdf || busy}
+                    onClick={() => setId && handleSetPdf(label, setId)}
                   >
-                    PDF
+                    {busy ? <Loader2 className="mx-auto h-3 w-3 animate-spin" /> : 'PDF'}
                   </button>
-                  <button className="flex-1 py-1 text-[10px] font-medium rounded-md border border-slate-200 text-slate-500 bg-slate-50 hover:bg-white transition-colors">
+                  <button
+                    type="button"
+                    className="flex-1 rounded-md border border-slate-200 bg-slate-50 py-1 text-[10px] font-medium text-slate-500 transition-colors hover:bg-white disabled:opacity-50"
+                    disabled
+                  >
                     DOCX
                   </button>
-                  <button className="flex-1 py-1 text-[10px] font-medium rounded-md border border-slate-200 text-slate-500 bg-slate-50 hover:bg-white transition-colors">
+                  <button
+                    type="button"
+                    className="flex-1 rounded-md border border-slate-200 bg-slate-50 py-1 text-[10px] font-medium text-slate-500 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={!canPdf || busy}
+                    onClick={() => setId && handleSetPdf(label, setId)}
+                  >
                     View
                   </button>
                 </div>
@@ -474,7 +735,7 @@ export function ExamCreatorWizard({ exam, onSuccess, onClose, actingTeacherUserI
         <StatCard label="Folders used" value={st.selectedFolders.size} sub="source folders selected" />
       </div>
 
-      <Label>Publish action</Label>
+      <WizardLabel>Publish action</WizardLabel>
       <BadgeRow
         options={[
           { value: 'DRAFT', label: 'Keep draft' },
@@ -501,21 +762,37 @@ export function ExamCreatorWizard({ exam, onSuccess, onClose, actingTeacherUserI
 
   // ─── Handlers ─────────────────────────────────────────────────────────
   const handleGenerate = async () => {
+    if (!st.courseId?.trim()) {
+      toast({
+        title: 'Course required',
+        description: 'Go back to step 1 and select a course. Exams must be linked to a course.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (!st.title.trim()) {
+      toast({
+        title: 'Title required',
+        description: 'Go back to step 1 and enter an exam title.',
+        variant: 'destructive',
+      });
+      return;
+    }
     if (st.selectedFolders.size === 0) return;
 
     try {
       setGenerating(true);
 
-      // Step 1: Create or update exam
       let examId = generatedExam?.id;
-      
+
       const examPayload: CreateExamDto = {
         title: st.title.trim(),
-        courseId: st.courseId,
-        branchId: st.branchId || '',
-        batchId: st.batchId || undefined,
+        courseId: st.courseId.trim(),
+        branchId: st.branchId?.trim() || '',
+        batchId: st.batchId?.trim() || undefined,
         type: st.type,
         mode: st.mode,
+        examEngine: st.examEngine,
         startAt: st.startAt || undefined,
         endAt: st.endAt || undefined,
         durationMinutes: st.durationMinutes || undefined,
@@ -542,13 +819,18 @@ export function ExamCreatorWizard({ exam, onSuccess, onClose, actingTeacherUserI
         await updateExam(examId, examPayload);
       }
 
-      // Step 2: Add questions to sets using auto-generate
+      const refreshedAfterSave = await getExamById(examId, { teacherUserId: actingTeacherUserId ?? undefined });
+      let baseSetId = sortExamSets(refreshedAfterSave.data?.sets).find((s) => s.name === 'A')?.id;
+      if (!baseSetId) {
+        const setRes = await createExamSet({ examId, name: 'A' });
+        if (!setRes.success || !setRes.data?.id) throw new Error('Failed to create exam set A');
+        baseSetId = setRes.data.id;
+      }
+
       const folderIds = Array.from(st.selectedFolders);
-      
-      // Use the first selected folder to add questions with auto-generation
       const addRes = await addQuestionsToSet({
-        examSetId: '', // empty - backend creates sets in auto mode
-        folderId: folderIds[0],
+        examSetId: baseSetId,
+        folderIds,
         shuffleQuestions: st.shuffle,
         autoSetCount: st.setCount,
         count: totalQuestionsPerSet,
@@ -559,19 +841,21 @@ export function ExamCreatorWizard({ exam, onSuccess, onClose, actingTeacherUserI
         negativeMarks: st.negativeMarks,
       });
 
-      if (!addRes.success) throw new Error('Failed to add questions');
+      if (!addRes.success) throw new Error(addRes.message || 'Failed to add questions');
 
-      // Refresh exam data
-      const refreshed = await getExamById(examId);
+      const refreshed = await getExamById(examId, { teacherUserId: actingTeacherUserId ?? undefined });
       if (refreshed.success && refreshed.data) {
         setGeneratedExam(refreshed.data);
       }
 
-      toast({ title: 'Success', description: `Generated ${st.setCount} set(s) with ${totalQuestionsPerSet} questions each`, variant: 'success' });
-      
-      // Jump to downloads step
+      toast({
+        title: 'Success',
+        description: `Generated ${st.setCount} set(s) with ${totalQuestionsPerSet} questions each`,
+        variant: 'success',
+      });
+
       setStep(3);
-      setMaxStep(prev => Math.max(prev, 3));
+      setMaxStep((prev) => Math.max(prev, 3));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Generation failed';
       toast({ title: 'Error', description: msg, variant: 'destructive' });
@@ -580,55 +864,117 @@ export function ExamCreatorWizard({ exam, onSuccess, onClose, actingTeacherUserI
     }
   };
 
+  const openPdfUrl = (url: string, sameTab = false) => {
+    const href = getExamPdfDownloadUrl(url);
+    if (!href) {
+      toast({ title: 'Error', description: 'Missing PDF URL', variant: 'destructive' });
+      return;
+    }
+    if (sameTab) {
+      window.location.assign(href);
+    } else {
+      window.open(href, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   const handleBulkDownload = async () => {
     if (!generatedExam?.id) return;
+    const key = 'bulk-pdf';
     try {
-      const res = await regenerateExamPdf(generatedExam.id);
-      if (res.success && res.data?.pdfUrl) {
-        window.open(getExamPdfDownloadUrl(res.data.pdfUrl), '_blank');
+      setPdfBusy(key);
+      const res = await regenerateExamPdf(generatedExam.id, 2);
+      if (!res.success || !res.data?.pdfUrl) {
+        toast({
+          title: 'Could not generate PDF',
+          description: res.message || 'Ensure sets have questions, then try again.',
+          variant: 'destructive',
+        });
+        return;
       }
-    } catch {
-      toast({ title: 'Error', description: 'Failed to generate PDF', variant: 'destructive' });
+      openPdfUrl(res.data.pdfUrl);
+    } catch (e) {
+      toast({
+        title: 'Error',
+        description: e instanceof Error ? e.message : 'Failed to generate PDF',
+        variant: 'destructive',
+      });
+    } finally {
+      setPdfBusy(null);
     }
   };
 
   const handleSolveSheet = async () => {
     if (!generatedExam?.id) return;
     try {
+      setPdfBusy('solve');
       const res = await regenerateSolveSheet(generatedExam.id);
-      if (res.success && res.data?.solveSheetUrl) {
-        window.open(getExamPdfDownloadUrl(res.data.solveSheetUrl), '_blank');
+      if (!res.success || !res.data?.solveSheetUrl) {
+        toast({
+          title: 'Could not generate solve sheet',
+          description: res.message || 'Try again after questions are added.',
+          variant: 'destructive',
+        });
+        return;
       }
-    } catch {
-      toast({ title: 'Error', description: 'Failed to generate solve sheet', variant: 'destructive' });
+      openPdfUrl(res.data.solveSheetUrl);
+    } catch (e) {
+      toast({
+        title: 'Error',
+        description: e instanceof Error ? e.message : 'Failed to generate solve sheet',
+        variant: 'destructive',
+      });
+    } finally {
+      setPdfBusy(null);
     }
   };
 
-  const handleSetPdf = async (label: string, index: number) => {
-    if (!generatedExam?.id || !generatedExam.sets?.[index]) return;
+  const handleSetPdf = async (setName: string, setId: string) => {
+    if (!generatedExam?.id || !setId) return;
+    const key = `set-${setId}`;
     try {
-      const setId = generatedExam.sets[index].id;
-      const res = await generateSetPdf(generatedExam.id, setId);
-      if (res.success && res.data?.pdfUrl) {
-        window.open(getExamPdfDownloadUrl(res.data.pdfUrl), '_blank');
+      setPdfBusy(key);
+      const res = await generateSetPdf(generatedExam.id, setId, 2);
+      if (!res.success || !res.data?.pdfUrl) {
+        toast({
+          title: `Set ${setName}`,
+          description: res.message || 'Could not generate PDF for this set.',
+          variant: 'destructive',
+        });
+        return;
       }
-    } catch {
-      toast({ title: 'Error', description: `Failed to generate PDF for Set ${label}`, variant: 'destructive' });
+      openPdfUrl(res.data.pdfUrl);
+    } catch (e) {
+      toast({
+        title: 'Error',
+        description: e instanceof Error ? e.message : `Failed to generate PDF for Set ${setName}`,
+        variant: 'destructive',
+      });
+    } finally {
+      setPdfBusy(null);
     }
   };
 
   const handlePublish = async () => {
+    if (!st.courseId?.trim() || !st.title.trim()) {
+      toast({
+        title: 'Missing basics',
+        description: 'Select a course and enter a title (step 1) before saving.',
+        variant: 'destructive',
+      });
+      return;
+    }
     try {
       setLoading(true);
 
       let examId = generatedExam?.id;
       const payload: CreateExamDto = {
         title: st.title.trim(),
-        courseId: st.courseId,
-        branchId: st.branchId || '',
-        batchId: st.batchId || undefined,
+        courseId: st.courseId.trim(),
+        branchId: st.branchId?.trim() || '',
+        batchId: st.batchId?.trim() || undefined,
         type: st.type,
         mode: st.mode,
+        examEngine: st.examEngine,
         startAt: st.startAt || undefined,
         endAt: st.endAt || undefined,
         durationMinutes: st.durationMinutes || undefined,
@@ -772,30 +1118,13 @@ export function ExamCreatorWizard({ exam, onSuccess, onClose, actingTeacherUserI
         )}
       </div>
 
-      <style jsx>{`
-        .wizard-select {
-          width: 100%;
-          font-size: 13px;
-          color: #1e293b;
-          border: 0.5px solid #e2e8f0;
-          border-radius: 6px;
-          padding: 6px 8px;
-          background: #fff;
-          outline: none;
-          font-family: inherit;
-        }
-        .wizard-select:focus {
-          box-shadow: 0 0 0 2px rgba(55, 138, 221, 0.15);
-          border-color: #378ADD;
-        }
-      `}</style>
     </div>
   );
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────
 
-function Label({ children, className }: { children: React.ReactNode; className?: string }) {
+function WizardLabel({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div className={cn('text-[10px] font-medium uppercase tracking-widest text-slate-400 mt-4 mb-1.5', className)}>
       {children}
@@ -803,7 +1132,7 @@ function Label({ children, className }: { children: React.ReactNode; className?:
   );
 }
 
-function FieldWrap({ label, children }: { label: string; children: React.ReactNode }) {
+function FieldWrap({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
       <span className="text-xs text-slate-500">{label}</span>
@@ -856,7 +1185,7 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
 }
 
 function MethodCard({ selected, onClick, icon, iconBg, title, sub, recommended }: {
-  selected: boolean; onClick: () => void; icon: React.ReactNode; iconBg: string;
+  selected: boolean; onClick: () => void; icon: ReactNode; iconBg: string;
   title: string; sub: string; recommended?: boolean;
 }) {
   return (
@@ -885,17 +1214,19 @@ function TypeCard({ dot, title, sub, value, onChange }: {
   dot: string; title: string; sub: string; value: number; onChange: (v: number) => void;
 }) {
   return (
-    <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-100 rounded-lg">
+    <div className="flex items-center gap-3 rounded-lg border border-slate-100 bg-slate-50 p-3">
       <div className="flex-1">
-        <div className="w-1.75 h-1.75 rounded-full mb-1" style={{ background: dot }} />
+        <div className="mb-1 h-1.5 w-1.5 rounded-full" style={{ background: dot }} />
         <div className="text-xs font-medium text-slate-900">{title}</div>
         <div className="text-[10px] text-slate-400">{sub}</div>
       </div>
-      <input
+      <Input
         type="number"
-        className="w-15 rounded-md border border-slate-200 px-2 py-1.5 text-center text-[15px] font-medium text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
-        min={0} max={99} value={value}
-        onChange={e => onChange(Math.max(0, +e.target.value || 0))}
+        className="h-9 w-14 text-center text-[15px] font-medium"
+        min={0}
+        max={99}
+        value={value}
+        onChange={(e) => onChange(Math.max(0, +e.target.value || 0))}
       />
     </div>
   );
@@ -903,13 +1234,15 @@ function TypeCard({ dot, title, sub, value, onChange }: {
 
 function MarksInput({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
   return (
-    <div className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-md">
-      <span className="text-[11px] text-slate-500 flex-1">{label}</span>
-      <input
+    <div className="flex items-center gap-2 rounded-md bg-slate-50 p-2.5">
+      <span className="flex-1 text-[11px] text-slate-500">{label}</span>
+      <Input
         type="number"
-        className="w-14 rounded-md border border-slate-200 px-2 py-1 text-center text-sm text-slate-900 focus:ring-2 focus:ring-blue-500/20 outline-none"
-        min={0} step={0.25} value={value}
-        onChange={e => onChange(+e.target.value || 0)}
+        className="h-9 w-14 text-center text-sm"
+        min={0}
+        step={0.25}
+        value={value}
+        onChange={(e) => onChange(+e.target.value || 0)}
       />
     </div>
   );
@@ -938,6 +1271,14 @@ function SummaryStrip({ st, totalQuestionsPerSet }: { st: WizardState; totalQues
   );
 }
 
+function subtreeMatchesSearch(node: FolderTreeNode, q: string): boolean {
+  if (!q) return true;
+  const lower = q.toLowerCase();
+  if (node.name.toLowerCase().includes(lower)) return true;
+  const kids = node.children ?? [];
+  return kids.some((c) => subtreeMatchesSearch(c, q));
+}
+
 function PoolWarning({ folderTree, selectedFolders, mcqPassageCount, mcqSingleCount, cqCount }: {
   folderTree: FolderTreeNode[]; selectedFolders: Set<string>; mcqPassageCount: number; mcqSingleCount: number; cqCount: number;
 }) {
@@ -950,7 +1291,8 @@ function PoolWarning({ folderTree, selectedFolders, mcqPassageCount, mcqSingleCo
           totalS += n.counts.mcqSingle;
           totalC += n.counts.cq;
         }
-        if (n.children?.length) walk(n.children);
+        const kids = n.children ?? [];
+        if (kids.length) walk(kids);
       }
     }
     walk(folderTree);
@@ -974,7 +1316,7 @@ function PoolWarning({ folderTree, selectedFolders, mcqPassageCount, mcqSingleCo
   );
 }
 
-function StatCard({ label, value, sub }: { label: string; value: React.ReactNode; sub?: string }) {
+function StatCard({ label, value, sub }: { label: string; value: ReactNode; sub?: string }) {
   return (
     <div className="p-4 bg-slate-50 rounded-lg">
       <div className="text-[11px] text-slate-400 mb-1">{label}</div>
@@ -1011,11 +1353,21 @@ function CheckRow({ label, checked, onChange }: { label: string; checked: boolea
   );
 }
 
-function DlButton({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
+function DlButton({
+  children,
+  onClick,
+  disabled,
+}: {
+  children: ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
   return (
     <button
-      className="px-3 py-1.5 text-xs font-medium rounded-md border border-slate-200 bg-slate-50 text-slate-500 hover:bg-white transition-colors"
+      type="button"
+      className="inline-flex items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
       onClick={onClick}
+      disabled={disabled}
     >
       {children}
     </button>
@@ -1023,13 +1375,43 @@ function DlButton({ children, onClick }: { children: React.ReactNode; onClick: (
 }
 
 // ─── Folder Tree Panel ──────────────────────────────────────────────────
-function FolderTreePanel({ tree, selectedFolders, onSelectionChange }: {
+function FolderTreePanel({
+  tree,
+  treeLoading,
+  selectedFolders,
+  onSelectionChange,
+  courseSelected,
+}: {
   tree: FolderTreeNode[];
+  treeLoading: boolean;
   selectedFolders: Set<string>;
   onSelectionChange: (folders: Set<string>) => void;
+  courseSelected: boolean;
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [manualExpandedIds, setManualExpandedIds] = useState<Set<string>>(new Set());
+
+  const defaultExpandedRootIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const n of tree) {
+      if ((n.children ?? []).length > 0) s.add(n.id);
+    }
+    return s;
+  }, [tree]);
+
+  useEffect(() => {
+    setManualExpandedIds(new Set(defaultExpandedRootIds));
+  }, [defaultExpandedRootIds]);
+
+  const treeStats = useMemo(() => treeFolderAndQuestionTotals(tree), [tree]);
+
+  const expandAllBranches = useCallback(() => {
+    setManualExpandedIds(collectIdsWithChildren(tree));
+  }, [tree]);
+
+  const collapseAllBranches = useCallback(() => {
+    setManualExpandedIds(new Set());
+  }, []);
 
   // Compute search-expanded IDs via useMemo (no setState in effect)
   const searchExpandedIds = useMemo(() => {
@@ -1038,10 +1420,11 @@ function FolderTreePanel({ tree, selectedFolders, onSelectionChange }: {
     const result = new Set<string>();
     function walk(nodes: FolderTreeNode[]) {
       for (const n of nodes) {
+        const kids = n.children ?? [];
         if (n.name.toLowerCase().includes(q)) result.add(n.id);
-        if (n.children.length) {
-          walk(n.children);
-          if (n.children.some(c => result.has(c.id))) result.add(n.id);
+        if (kids.length) {
+          walk(kids);
+          if (kids.some((c) => result.has(c.id))) result.add(n.id);
         }
       }
     }
@@ -1074,10 +1457,12 @@ function FolderTreePanel({ tree, selectedFolders, onSelectionChange }: {
   const selectAll = useCallback((node: FolderTreeNode, checked: boolean) => {
     const next = new Set(selectedFolders);
     function walk(n: FolderTreeNode) {
-      if (n.children.length === 0) {
-        if (checked) next.add(n.id); else next.delete(n.id);
+      const kids = n.children ?? [];
+      if (kids.length === 0) {
+        if (checked) next.add(n.id);
+        else next.delete(n.id);
       }
-      n.children.forEach(walk);
+      kids.forEach(walk);
     }
     walk(node);
     onSelectionChange(next);
@@ -1086,13 +1471,24 @@ function FolderTreePanel({ tree, selectedFolders, onSelectionChange }: {
   // Collect selected leaf names for tags
   const selectedLeafNames = useMemo(() => {
     const result: { id: string; name: string }[] = [];
+    const seen = new Set<string>();
     function walk(nodes: FolderTreeNode[]) {
       for (const n of nodes) {
-        if (selectedFolders.has(n.id)) result.push({ id: n.id, name: n.name });
-        if (n.children.length) walk(n.children);
+        if (selectedFolders.has(n.id)) {
+          result.push({ id: n.id, name: n.name });
+          seen.add(n.id);
+        }
+        const kids = n.children ?? [];
+        if (kids.length) walk(kids);
       }
     }
     walk(tree);
+    for (const id of selectedFolders) {
+      if (!seen.has(id)) {
+        result.push({ id, name: 'Folder not in tree' });
+        seen.add(id);
+      }
+    }
     return result;
   }, [tree, selectedFolders]);
 
@@ -1100,24 +1496,73 @@ function FolderTreePanel({ tree, selectedFolders, onSelectionChange }: {
 
   return (
     <div className="border border-slate-100 rounded-lg overflow-hidden bg-slate-50/50">
-      {/* Search */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100">
-        <Search className="h-3.5 w-3.5 text-slate-400" />
-        <input
-          className="flex-1 text-sm bg-transparent outline-none text-slate-900 placeholder:text-slate-400"
-          placeholder="Search folders..."
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-        />
+      {/* Search + expand/collapse */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <Search className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+          <Input
+            className="h-8 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0"
+            placeholder="Search folders..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            disabled={treeLoading || !tree.length}
+          />
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-[11px] text-slate-600"
+            disabled={treeLoading || !tree.length}
+            onClick={expandAllBranches}
+          >
+            Expand all
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-[11px] text-slate-600"
+            disabled={treeLoading || !tree.length}
+            onClick={collapseAllBranches}
+          >
+            Collapse all
+          </Button>
+        </div>
       </div>
 
+      {tree.length > 0 && (
+        <div className="border-b border-slate-100 bg-white px-3 py-1.5 text-[10px] text-slate-500">
+          <span className="font-medium text-slate-600">{treeStats.folders}</span> folders in tree
+          <span className="mx-1.5 text-slate-300">·</span>
+          <span className="font-medium text-slate-600">{treeStats.questions}</span> questions (all folders)
+        </div>
+      )}
+
       {/* Tree */}
-      <div className="max-h-80 overflow-y-auto">
-        {tree.length === 0 ? (
-          <div className="p-4 text-xs text-slate-400 text-center">
-            {!q ? 'No question folders found. Select a course first.' : 'No matching folders.'}
+      <div className="relative max-h-80 overflow-y-auto">
+        {treeLoading && tree.length === 0 && (
+          <div className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
+            <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+            Loading folders…
           </div>
-        ) : (
+        )}
+        {treeLoading && tree.length > 0 && (
+          <div className="pointer-events-none absolute inset-0 z-10 flex justify-center bg-white/50 pt-6">
+            <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+          </div>
+        )}
+        {!treeLoading && tree.length === 0 && (
+          <div className="p-4 text-center text-xs text-slate-400">
+            {!courseSelected
+              ? 'Select a course in step 1, then open this step again to load folders.'
+              : !q
+                ? 'No question folders found for this course.'
+                : 'No matching folders.'}
+          </div>
+        )}
+        {tree.length > 0 && (
           <FolderTreeNodes
             nodes={tree}
             depth={0}
@@ -1132,7 +1577,7 @@ function FolderTreePanel({ tree, selectedFolders, onSelectionChange }: {
       </div>
 
       {/* Selected tags */}
-      <div className="flex flex-wrap gap-1 px-3 py-2 min-h-9.5 border-t border-slate-100 bg-white">
+      <div className="flex min-h-10 flex-wrap gap-1 border-t border-slate-100 bg-white px-3 py-2">
         {selectedLeafNames.length === 0 ? (
           <span className="text-[11px] text-slate-400">No folders selected — browse and check above</span>
         ) : (
@@ -1162,25 +1607,28 @@ function FolderTreeNodes({ nodes, depth, expandedIds, selectedFolders, searchQue
 }) {
   return (
     <>
-      {nodes.map(node => {
-        const isLeaf = node.children.length === 0;
+      {nodes.map((node) => {
+        const children = node.children ?? [];
+        const isLeaf = children.length === 0;
         const isExpanded = expandedIds.has(node.id);
-        const nameMatches = !searchQuery || node.name.toLowerCase().includes(searchQuery);
-        const totalMcq = node.counts.mcqSingle + node.counts.mcqPassage;
+        const c = node.counts ?? { mcqSingle: 0, mcqPassage: 0, cq: 0, short: 0, total: 0 };
+        const leafMcq = (c.mcqSingle ?? 0) + (c.mcqPassage ?? 0);
 
         // Check if any children (recursively) are selected
         function hasSelectedChild(n: FolderTreeNode): boolean {
           if (selectedFolders.has(n.id)) return true;
-          return n.children.some(hasSelectedChild);
+          return (n.children ?? []).some(hasSelectedChild);
         }
         function allLeavesSelected(n: FolderTreeNode): boolean {
-          if (n.children.length === 0) return selectedFolders.has(n.id);
-          return n.children.every(allLeavesSelected);
+          const kids = n.children ?? [];
+          if (kids.length === 0) return selectedFolders.has(n.id);
+          return kids.every(allLeavesSelected);
         }
 
-        if (searchQuery && !nameMatches && isLeaf) return null;
+        if (searchQuery && !subtreeMatchesSearch(node, searchQuery)) return null;
 
         if (isLeaf) {
+          const qn = node.questionCount ?? c.total ?? 0;
           return (
             <div
               key={node.id}
@@ -1190,7 +1638,9 @@ function FolderTreeNodes({ nodes, depth, expandedIds, selectedFolders, searchQue
             >
               <FileText className="h-2.5 w-2.5 text-slate-400 shrink-0" />
               <span className="flex-1 truncate">{node.name}</span>
-              <span className="text-[10px] text-slate-400 whitespace-nowrap">{totalMcq}M·{node.counts.cq}C</span>
+              <span className="whitespace-nowrap text-[10px] text-slate-400" title="Questions in this folder (by type)">
+                {qn}Q · {formatRowCounts(leafMcq, c.cq ?? 0, c.short ?? 0)}
+              </span>
               <input
                 type="checkbox"
                 className="w-3 h-3 accent-blue-500 shrink-0"
@@ -1205,43 +1655,51 @@ function FolderTreeNodes({ nodes, depth, expandedIds, selectedFolders, searchQue
         // Folder node (not leaf)
         const allSelected = allLeavesSelected(node);
         const someSelected = hasSelectedChild(node);
-
-        // Aggregate counts for this parent
-        let aggMcq = 0, aggCq = 0;
-        function sumCounts(n: FolderTreeNode) {
-          aggMcq += n.counts.mcqSingle + n.counts.mcqPassage;
-          aggCq += n.counts.cq;
-          n.children.forEach(sumCounts);
-        }
-        sumCounts(node);
+        const agg = subtreeTypeTotals(node);
+        const subfolderCount = node.childCount ?? children.length;
 
         return (
           <div key={node.id}>
             <div
-              className="flex items-center gap-1.5 py-1.5 px-2 cursor-pointer hover:bg-white text-sm text-slate-900"
+              className="flex cursor-pointer items-center gap-1.5 px-2 py-1.5 text-sm text-slate-900 hover:bg-white"
               style={{ paddingLeft: 6 + depth * 14 }}
+              onClick={() => toggleExpand(node.id)}
             >
               <button
-                className="w-3 h-3 flex items-center justify-center text-slate-400 shrink-0"
-                onClick={() => toggleExpand(node.id)}
+                type="button"
+                className="flex h-6 w-6 shrink-0 items-center justify-center text-slate-400"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleExpand(node.id);
+                }}
               >
                 <ChevronRight className={cn('h-2.5 w-2.5 transition-transform', isExpanded && 'rotate-90')} />
               </button>
-              <Folder className="h-3.5 w-3.5 text-slate-400 shrink-0" onClick={() => toggleExpand(node.id)} />
-              <span className="flex-1 text-[13px] truncate" onClick={() => toggleExpand(node.id)}>{node.name}</span>
-              <span className="text-[10px] text-slate-400 whitespace-nowrap">{aggMcq}M·{aggCq}C</span>
+              <Folder className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+              <span className="flex-1 truncate text-[13px]">{node.name}</span>
+              <span
+                className="max-w-[min(52vw,14rem)] truncate whitespace-nowrap text-right text-[10px] text-slate-400"
+                title="Subfolders · subtree question total · MCQ / CQ / Short in subtree"
+              >
+                {subfolderCount > 0
+                  ? `${subfolderCount} subfolder${subfolderCount === 1 ? '' : 's'} · `
+                  : ''}
+                Σ{agg.questions}Q · {formatRowCounts(agg.mcq, agg.cq, agg.short)}
+              </span>
               <input
                 type="checkbox"
-                className="w-3 h-3 accent-blue-500 shrink-0"
+                className="h-3 w-3 shrink-0 accent-blue-500"
                 checked={allSelected}
-                ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
-                onChange={e => selectAll(node, e.target.checked)}
-                onClick={e => e.stopPropagation()}
+                ref={(el) => {
+                  if (el) el.indeterminate = someSelected && !allSelected;
+                }}
+                onChange={(e) => selectAll(node, e.target.checked)}
+                onClick={(e) => e.stopPropagation()}
               />
             </div>
             {isExpanded && (
               <FolderTreeNodes
-                nodes={node.children}
+                nodes={children}
                 depth={depth + 1}
                 expandedIds={expandedIds}
                 selectedFolders={selectedFolders}

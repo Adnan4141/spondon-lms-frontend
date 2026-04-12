@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Invoice } from '@/types/invoice';
+import React, { useMemo, useState } from 'react';
+import type { Invoice, InvoiceItem } from '@/types/invoice';
 import { initInvoicePayment, getInvoicePdfUrl } from '@/lib/api/invoices';
 import { API_ORIGIN } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
@@ -12,34 +12,40 @@ import {
   Calendar,
   History,
   CheckCircle2,
-  Activity,
   CreditCard,
-  Receipt,
   Download,
-  ShieldCheck,
-  TrendingUp,
-  AlertCircle,
   ExternalLink,
   Lock,
   Sparkles,
   Copy,
+  Wallet,
+  FileText,
 } from 'lucide-react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { useModalStore } from '@/store/modalStore';
+import { RecordPaymentDialog } from '@/components/admin/invoices/RecordPaymentDialog';
 
 interface InvoiceDetailsViewProps {
   invoice: Invoice;
-  onRefresh?: () => void;
+  onRefresh?: () => void | Promise<void>;
 }
 
 function getStatusBadgeClass(status: string) {
   const s = String(status).toUpperCase();
-  if (s === 'PAID') return 'bg-emerald-50 text-emerald-700 border-emerald-100 font-black';
-  if (s === 'PARTIAL') return 'bg-amber-50 text-amber-700 border-amber-100 font-black';
-  if (s === 'ISSUED') return 'bg-blue-50 text-blue-700 border-blue-100 font-black';
-  if (s === 'CANCELLED') return 'bg-rose-50 text-rose-700 border-rose-100 font-black';
-  return 'bg-slate-100 text-slate-600 border-slate-200 font-black';
+  if (s === 'PAID') return 'bg-[#EAF3DE] text-[#27500A] border-[#D4E8C4]';
+  if (s === 'PARTIAL') return 'bg-[#FAEEDA] text-[#633806] border-[#F0E0C4]';
+  if (s === 'ISSUED') return 'bg-[#E6F1FB] text-[#0C447C] border-[#C9DFF3]';
+  if (s === 'CANCELLED') return 'bg-[#FCEBEB] text-[#791F1F] border-[#F5D0D0]';
+  return 'bg-slate-100 text-slate-600 border-slate-200';
+}
+
+function itemTypeBadgeClass(type: string) {
+  const t = String(type).toUpperCase();
+  if (t === 'COURSE') return 'bg-[#EEEDFE] text-[#3C3489] border-[#D8D4F5]';
+  if (t === 'BOOK') return 'bg-[#FAEEDA] text-[#633806] border-[#F0E0C4]';
+  if (t === 'ADMISSION_FEE') return 'bg-[#E6F1FB] text-[#0C447C] border-[#C9DFF3]';
+  return 'bg-slate-100 text-slate-600 border-slate-200';
 }
 
 function resolvePdfUrl(relativeOrAbsolute: string): string {
@@ -57,8 +63,20 @@ async function fetchPdfAsObjectUrl(apiPdfPath: string): Promise<string> {
   return URL.createObjectURL(blob);
 }
 
-export function InvoiceDetailsView({ invoice }: InvoiceDetailsViewProps) {
+function initials(name?: string | null): string {
+  if (!name?.trim()) return '?';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function isItemCancelled(item: InvoiceItem): boolean {
+  return Boolean(item.cancelled);
+}
+
+export function InvoiceDetailsView({ invoice, onRefresh }: InvoiceDetailsViewProps) {
   const { toast } = useToast();
+  const { openModal, closeModal } = useModalStore();
   const [paying, setPaying] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [idCopied, setIdCopied] = useState(false);
@@ -67,17 +85,28 @@ export function InvoiceDetailsView({ invoice }: InvoiceDetailsViewProps) {
   const paidAmount = Number(invoice.paidAmount);
   const totalAmount = Number(invoice.totalAmount);
   const payableAmount = Number(invoice.payableAmount) || totalAmount;
-  const discountAmount = Number(invoice.discountAmount) + Number(invoice.scholarshipAmount);
+  const discountAmount = Number(invoice.discountAmount);
+  const scholarshipAmount = Number(invoice.scholarshipAmount);
+  const monthlyDisc = Number(invoice.monthlyDiscountAmount ?? 0);
   const status = String(invoice.status).toUpperCase();
   const isPaid = status === 'PAID';
   const isPartial = status === 'PARTIAL';
   const isCancelled = status === 'CANCELLED';
 
+  const items = invoice.items ?? [];
+  const activeItems = useMemo(() => items.filter((i) => !isItemCancelled(i)), [items]);
+  const cancelledItems = useMemo(() => items.filter((i) => isItemCancelled(i)), [items]);
+
+  const subtotalActive = useMemo(
+    () => activeItems.reduce((s, i) => s + Number(i.lineTotal), 0),
+    [activeItems],
+  );
+
   const openPrintNewTab = () => {
     window.open(
       `/admin/invoices/${invoice.id}/print`,
       'invoice-preview',
-      'width=860,height=1000,scrollbars=yes,resizable=yes'
+      'width=860,height=1000,scrollbars=yes,resizable=yes',
     );
   };
 
@@ -127,302 +156,431 @@ export function InvoiceDetailsView({ invoice }: InvoiceDetailsViewProps) {
     }
   };
 
+  const openRecordPayment = () => {
+    closeModal();
+    queueMicrotask(() => {
+      openModal({
+        title: 'Record Manual Payment',
+        description: `Record a payment for ${invoice.month || 'this invoice'}.`,
+        className: 'sm:max-w-lg',
+        content: (
+          <RecordPaymentDialog
+            invoice={invoice}
+            onSuccess={async () => {
+              await onRefresh?.();
+            }}
+          />
+        ),
+      });
+    });
+  };
+
   const copyInvoiceId = async () => {
     try {
       await navigator.clipboard.writeText(invoice.id);
       setIdCopied(true);
       setTimeout(() => setIdCopied(false), 2000);
     } catch {
-      // fallback silently
+      /* ignore */
     }
   };
 
-  const formatCurrency = (amount: number | string) => {
-    return `৳${new Intl.NumberFormat('en-US', {
+  const formatCurrency = (amount: number | string) =>
+    `৳${new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(Number(amount))}`;
+
+  const formatCurrencyFull = (amount: number | string) =>
+    `৳${new Intl.NumberFormat('en-US', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(Number(amount))}`;
-  };
 
-  const statusLabel = isPaid ? 'All Set' : isPartial ? 'Partially Paid' : isCancelled ? 'Cancelled' : 'Action Needed';
-  const statusMessage = isPaid
-    ? 'This invoice is fully paid'
-    : isPartial
-    ? `You still need to pay ${formatCurrency(dueAmount)}`
-    : isCancelled
-    ? 'This invoice has been cancelled'
-    : 'You have an unpaid balance';
-  const contextActionText = isPaid
-    ? 'Download your receipt'
-    : isPartial
-    ? 'Complete your remaining payment'
-    : 'Pay now to complete this invoice';
+  const displayInvoiceRef = invoice.id.length > 18 ? `${invoice.id.slice(0, 14)}…` : invoice.id;
+  const reg = invoice.student?.studentProfile?.registrationNumber;
+  const updatedStr = new Date(invoice.updatedAt).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+
+  const activityEntries = useMemo(() => {
+    const rows: { dot: 'cancel' | 'update' | 'invoice'; title: string; meta: string }[] = [];
+    if (invoice.replacedInvoice?.id) {
+      rows.push({
+        dot: 'invoice',
+        title: 'Revised invoice',
+        meta: `Replaces invoice ${invoice.replacedInvoice.id.slice(0, 12)}… · ${invoice.replacedInvoice.status}`,
+      });
+    }
+    if (invoice.replacement?.id) {
+      rows.push({
+        dot: 'update',
+        title: 'Superseded',
+        meta: `New invoice ${invoice.replacement.id.slice(0, 12)}… (${invoice.replacement.status})`,
+      });
+    }
+    if (invoice.issuedAt) {
+      rows.push({
+        dot: 'invoice',
+        title: 'Invoice issued',
+        meta: new Date(invoice.issuedAt).toLocaleString(),
+      });
+    }
+    (invoice.payments ?? []).forEach((p) => {
+      rows.push({
+        dot: 'update',
+        title: 'Payment recorded',
+        meta: `${formatCurrencyFull(p.amount)} · ${p.method} · ${new Date(p.paidAt).toLocaleString()}${p.trxId ? ` · ${p.trxId}` : ''}`,
+      });
+    });
+    if (rows.length === 0) {
+      rows.push({
+        dot: 'update',
+        title: 'No activity yet',
+        meta: 'Issuance and payments will appear here.',
+      });
+    }
+    return rows;
+  }, [invoice]);
+
+  const nextDueStr = invoice.nextPaymentDueDate
+    ? new Date(invoice.nextPaymentDueDate).toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      })
+    : null;
+
+  const sectionLabel = 'text-[11px] font-medium uppercase tracking-[0.08em] text-slate-500 mb-3';
+
+  const cardClass = 'rounded-xl border border-slate-200/90 bg-white px-4 py-3.5 shadow-sm';
+
+  const rowClass = 'flex items-center justify-between gap-3 border-b border-slate-200/80 py-2.5 last:border-b-0';
 
   return (
-    <div className="flex flex-col h-full bg-white text-slate-900">
-      <div className="flex-1 overflow-y-auto px-8 py-8 no-scrollbar">
+    <div className="mx-auto max-w-5xl bg-white text-slate-900">
+      <h2 className="sr-only">
+        Invoice details for {invoice.student?.fullName ?? 'student'}
+        {invoice.month ? `, billing month ${invoice.month}` : ''}
+      </h2>
 
-        {/* Status Banner */}
-        <div className={cn(
-          'mb-6 flex items-center justify-between gap-4 rounded-2xl border px-5 py-4',
-          isPaid ? 'border-emerald-100 bg-emerald-50/60' :
-          isPartial ? 'border-amber-100 bg-amber-50/60' :
-          isCancelled ? 'border-slate-200 bg-slate-50' :
-          'border-rose-100 bg-rose-50/60'
-        )}>
-          <div className="flex items-center gap-3">
-            {isPaid
-              ? <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
-              : isCancelled
-              ? <AlertCircle className="h-5 w-5 text-slate-400 shrink-0" />
-              : <AlertCircle className="h-5 w-5 text-rose-500 shrink-0" />
-            }
-            <div>
-              <p className={cn('text-sm font-black', isPaid ? 'text-emerald-800' : isCancelled ? 'text-slate-600' : isPartial ? 'text-amber-800' : 'text-rose-800')}>
-                {statusLabel}
-              </p>
-              <p className={cn('text-xs font-bold', isPaid ? 'text-emerald-600' : isCancelled ? 'text-slate-500' : isPartial ? 'text-amber-600' : 'text-rose-600')}>
-                {statusMessage}
-              </p>
+      {/* Student header strip (reference layout) */}
+      <div className="mb-5 flex items-center gap-3">
+        <div
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#EEEDFE] text-[15px] font-medium text-[#3C3489]"
+          aria-hidden
+        >
+          {initials(invoice.student?.fullName)}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-base font-medium text-slate-900">{invoice.student?.fullName ?? '—'}</p>
+          <p className="mt-0.5 text-xs text-slate-500">
+            {reg ? <>Reg. {reg}</> : <>ID {invoice.student?.mobile ?? '—'}</>}
+            {' · '}
+            {invoice.branch?.name ?? '—'}
+            {' · '}
+            Updated {updatedStr}
+          </p>
+        </div>
+        <Badge variant="outline" className={cn('shrink-0 rounded-md border px-2 py-0.5 text-[11px] font-medium', getStatusBadgeClass(status))}>
+          {status}
+        </Badge>
+      </div>
+
+      {/* Metrics */}
+      <div className="mb-5 grid grid-cols-3 gap-3">
+        <div className="rounded-lg bg-slate-50 px-3 py-3">
+          <p className="text-[11px] text-slate-500">Active lines</p>
+          <p className="mt-1 text-xl font-medium text-slate-900">{activeItems.length}</p>
+          {cancelledItems.length > 0 ? (
+            <p className="mt-0.5 text-[11px] text-[#A32D2D]">was {items.length}</p>
+          ) : (
+            <p className="mt-0.5 text-[11px] text-slate-400">of {items.length}</p>
+          )}
+        </div>
+        <div className="rounded-lg bg-slate-50 px-3 py-3">
+          <p className="text-[11px] text-slate-500">Subtotal (active)</p>
+          <p className="mt-1 text-xl font-medium text-slate-900">{formatCurrency(subtotalActive)}</p>
+          <p className="mt-0.5 text-[11px] text-slate-400">line items</p>
+        </div>
+        <div className="rounded-lg bg-slate-50 px-3 py-3">
+          <p className="text-[11px] text-slate-500">Due</p>
+          <p className={cn('mt-1 text-xl font-medium', dueAmount > 0 ? 'text-[#A32D2D]' : 'text-[#3B6D11]')}>
+            {formatCurrency(dueAmount)}
+          </p>
+          <p className="mt-0.5 text-[11px] text-slate-400">{isPaid ? 'settled' : isPartial ? 'partial' : 'balance'}</p>
+        </div>
+      </div>
+
+      {/* Settlement actions — same capabilities as before */}
+      <div className={cn(cardClass, 'mb-5 flex flex-wrap gap-2')}>
+        <Button type="button" variant="outline" size="sm" className="h-9 rounded-md border-slate-300 bg-transparent text-[13px] font-medium" onClick={openPrintNewTab}>
+          <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+          Preview invoice
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          className="h-9 rounded-md border border-slate-800 bg-slate-900 text-[13px] font-medium text-white hover:bg-slate-800"
+          onClick={downloadPdf}
+          disabled={pdfLoading}
+        >
+          <Download className="mr-1.5 h-3.5 w-3.5" />
+          {pdfLoading ? 'Preparing…' : isPaid ? 'Download receipt' : 'Download PDF'}
+        </Button>
+        {dueAmount > 0 && !isCancelled && (
+          <>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 rounded-md bg-emerald-600 text-[13px] font-medium text-white hover:bg-emerald-700"
+              onClick={handlePayViaGateway}
+              disabled={paying}
+            >
+              <CreditCard className="mr-1.5 h-3.5 w-3.5" />
+              {paying ? 'Redirecting…' : `Pay ${formatCurrency(dueAmount)} (gateway)`}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9 rounded-md border-emerald-300 text-emerald-800 hover:bg-emerald-50"
+              onClick={openRecordPayment}
+            >
+              <Wallet className="mr-1.5 h-3.5 w-3.5" />
+              Record payment
+            </Button>
+          </>
+        )}
+      </div>
+
+      {dueAmount > 0 && !isCancelled && (
+        <div className="mb-5 rounded-xl border border-emerald-100 bg-emerald-50/50 px-4 py-3 text-[11px] font-medium text-slate-600">
+          <span className="flex items-center gap-1 text-emerald-800">
+            <Lock className="h-3 w-3" /> Secure gateway
+          </span>
+          <span className="mx-2 text-slate-300">·</span>
+          <span className="inline-flex items-center gap-1">
+            <Sparkles className="h-3 w-3 text-indigo-500" />
+            Receipt after payment
+          </span>
+        </div>
+      )}
+
+      {/* Line items (enrollment-style list) */}
+      <p className={sectionLabel}>Charges & line items</p>
+      <div className={cn(cardClass, 'mb-5')}>
+        {[...activeItems, ...cancelledItems].map((item) => {
+          const cancelled = isItemCancelled(item);
+          return (
+            <div key={item.id} className={cn(rowClass, cancelled && 'opacity-55')}>
+              <div className="min-w-0">
+                <p className={cn('text-sm font-medium text-slate-900', cancelled && 'text-slate-500 line-through')}>{item.title}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-1">
+                  <Badge variant="outline" className={cn('rounded-md border px-2 py-0 text-[11px] font-medium', itemTypeBadgeClass(item.type))}>
+                    {item.type.replace('_', ' ')}
+                  </Badge>
+                  {cancelled ? (
+                    <Badge variant="outline" className="rounded-md border bg-[#FCEBEB] px-2 py-0 text-[11px] font-medium text-[#791F1F] border-[#F5D0D0]">
+                      Cancelled
+                    </Badge>
+                  ) : null}
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                {!cancelled ? (
+                  <span className="text-sm font-medium text-slate-900">{formatCurrency(item.lineTotal)}</span>
+                ) : (
+                  <span className="text-sm text-slate-400 line-through">{formatCurrency(item.lineTotal)}</span>
+                )}
+              </div>
             </div>
+          );
+        })}
+        {items.length === 0 ? <p className="py-4 text-center text-sm text-slate-400">No line items.</p> : null}
+      </div>
+
+      {/* Discounts / benefits */}
+      {(discountAmount > 0 || monthlyDisc > 0 || scholarshipAmount > 0) && (
+        <>
+          <p className={sectionLabel}>Discounts &amp; benefits</p>
+          <div className={cn(cardClass, 'mb-5 space-y-0')}>
+            {discountAmount > 0 ? (
+              <div className={rowClass}>
+                <div>
+                  <p className="text-sm font-medium text-slate-900">Special discount</p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    One-time{invoice.discountReference ? ` · ${invoice.discountReference}` : ''}
+                  </p>
+                </div>
+                <span className="text-sm font-medium text-[#A32D2D]">− {formatCurrency(discountAmount)}</span>
+              </div>
+            ) : null}
+            {monthlyDisc > 0 ? (
+              <div className={rowClass}>
+                <div>
+                  <p className="text-sm font-medium text-slate-900">Monthly discount</p>
+                  <p className="mt-0.5 text-xs text-slate-500">Recurring (this invoice)</p>
+                </div>
+                <span className="text-sm font-medium text-[#A32D2D]">− {formatCurrency(monthlyDisc)}</span>
+              </div>
+            ) : null}
+            {scholarshipAmount > 0 ? (
+              <div className={rowClass}>
+                <div>
+                  <p className="text-sm font-medium text-slate-900">Scholarship</p>
+                </div>
+                <span className="text-sm font-medium text-[#A32D2D]">− {formatCurrency(scholarshipAmount)}</span>
+              </div>
+            ) : null}
           </div>
-          <Badge variant="outline" className={cn('rounded-xl px-3 py-1 text-[10px] uppercase tracking-widest shrink-0', getStatusBadgeClass(invoice.status))}>
-            {invoice.status}
+        </>
+      )}
+
+      {/* Invoice summary card */}
+      <p className={sectionLabel}>Invoice summary</p>
+      <div className={cn(cardClass, 'mb-5')}>
+        <div className="mb-3 flex items-start justify-between gap-3 rounded-lg bg-slate-50 px-3 py-3">
+          <div className="min-w-0">
+            <button
+              type="button"
+              onClick={copyInvoiceId}
+              title="Copy full invoice ID"
+              className="flex items-center gap-1.5 text-left text-[13px] font-medium text-slate-900 hover:text-indigo-600"
+            >
+              <Copy className="h-3.5 w-3.5 shrink-0" />
+              {idCopied ? 'Copied' : displayInvoiceRef}
+            </button>
+            <p className="mt-1 text-xs text-slate-500">
+              {invoice.month ? `Month ${invoice.month}` : 'No billing month'}
+              {invoice.issuedAt ? ` · Issued ${new Date(invoice.issuedAt).toLocaleDateString()}` : ''}
+            </p>
+          </div>
+          <Badge variant="outline" className={cn('shrink-0 rounded-md border px-2 py-0.5 text-[11px] font-medium', getStatusBadgeClass(status))}>
+            {status}
           </Badge>
         </div>
 
-        {/* Header Hero Card */}
-        <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-slate-50/50 p-8 shadow-sm mb-6">
-          <div className="flex flex-col md:flex-row gap-8 items-center md:items-start">
-            <div className="relative shrink-0">
-              <div className="h-24 w-24 rounded-[32px] bg-linear-to-tr from-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-xl">
-                <Receipt className="h-10 w-10" />
-              </div>
-              <div className="absolute -bottom-2 -right-2 h-8 w-8 rounded-2xl border-4 border-white bg-indigo-500 flex items-center justify-center shadow-sm">
-                <ShieldCheck className="h-4 w-4 text-white" />
-              </div>
-            </div>
-            <div className="space-y-4 text-center md:text-left flex-1">
-              <div className="space-y-1">
-                <h2 className="text-3xl font-black tracking-tight text-slate-900">Invoice</h2>
-                <button
-                  type="button"
-                  onClick={copyInvoiceId}
-                  title="Click to copy invoice ID"
-                  className="inline-flex items-center gap-1.5 text-sm font-mono font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                  {idCopied ? 'Invoice ID copied' : `#${invoice.id.slice(0, 12)}…`}
-                </button>
-              </div>
-              <div className="flex flex-wrap justify-center md:justify-start gap-6 pt-2">
-                <div className="flex items-center gap-2 text-base font-bold text-slate-500">
-                  <User className="h-4 w-4 text-indigo-500" />
-                  {invoice.student?.fullName}
-                </div>
-                <div className="flex items-center gap-2 text-base font-bold text-slate-500">
-                  <Building2 className="h-4 w-4 text-rose-500" />
-                  {invoice.branch?.name}
-                </div>
-                {invoice.month && (
-                  <div className="flex items-center gap-2 text-base font-bold text-slate-500">
-                    <Calendar className="h-4 w-4 text-emerald-500" />
-                    {invoice.month}
-                  </div>
-                )}
-              </div>
-              <p className="text-xs font-bold text-slate-400">{contextActionText}</p>
-            </div>
-            {/* PDF Actions */}
-            <div className="flex flex-col gap-2 shrink-0">
-              <Button
-                type="button"
-                variant="outline"
-                className="h-9 gap-2 rounded-xl font-bold text-sm"
-                onClick={openPrintNewTab}
-              >
-                <ExternalLink className="h-4 w-4" />
-                Preview Invoice
-              </Button>
-              <Button
-                type="button"
-                className="h-9 gap-2 rounded-xl bg-slate-900 font-bold text-white hover:bg-slate-800 text-sm"
-                onClick={downloadPdf}
-                disabled={pdfLoading}
-              >
-                <Download className="h-4 w-4" />
-                {pdfLoading ? 'Preparing your invoice…' : isPaid ? 'Download your receipt' : 'Download Invoice'}
-              </Button>
-            </div>
-          </div>
+        <div className={rowClass}>
+          <span className="text-[13px] text-slate-500">Subtotal (active lines)</span>
+          <span className="text-sm font-medium text-slate-900">{formatCurrency(subtotalActive)}</span>
         </div>
-
-        {/* Pay CTA + Trust signals */}
-        {dueAmount > 0 && !isCancelled && (
-          <div className="mb-8 rounded-2xl border border-emerald-100 bg-emerald-50/40 p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex flex-col gap-1.5">
-              <p className="text-sm font-black text-slate-800">Amount due: {formatCurrency(dueAmount)}</p>
-              <div className="flex flex-wrap gap-4 text-[11px] font-bold text-slate-500">
-                <span className="flex items-center gap-1"><Lock className="h-3 w-3 text-emerald-600" /> Your payment is secure and encrypted</span>
-                <span className="flex items-center gap-1"><Sparkles className="h-3 w-3 text-indigo-500" /> You&apos;ll receive a receipt after payment</span>
-              </div>
-            </div>
-            <Button
-              onClick={handlePayViaGateway}
-              disabled={paying}
-              className="h-12 px-8 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black shadow-lg shrink-0"
-            >
-              <CreditCard className="mr-2 h-4 w-4" />
-              {paying ? 'Processing payment…' : `Pay ${formatCurrency(dueAmount)} now`}
-            </Button>
+        {discountAmount > 0 ? (
+          <div className={rowClass}>
+            <span className="text-[13px] text-slate-500">Special discount</span>
+            <span className="text-sm font-medium text-[#A32D2D]">− {formatCurrency(discountAmount)}</span>
           </div>
-        )}
-
-        {/* Summary */}
-        <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4">Summary</h3>
-
-        {/* Payment progress bar */}
-        {payableAmount > 0 && !isCancelled && (
-          <div className="mb-6 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-bold text-slate-600">
-                {isPaid
-                  ? 'All payments completed 🎉'
-                  : `You've paid ${formatCurrency(paidAmount)} out of ${formatCurrency(payableAmount)}`}
-              </span>
-              <span className="text-sm font-black text-slate-900">
-                {isPaid ? 100 : Math.round(Math.min(100, (paidAmount / payableAmount) * 100))}%
-              </span>
-            </div>
-            <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
-              <div
-                className={cn('h-2 rounded-full transition-all', isPaid ? 'bg-emerald-500' : 'bg-indigo-500')}
-                style={{ width: `${isPaid ? 100 : Math.min(100, (paidAmount / payableAmount) * 100)}%` }}
-              />
-            </div>
-            {isPartial && (
-              <p className="mt-2 text-xs font-bold text-amber-600">You still need to pay {formatCurrency(dueAmount)}</p>
-            )}
+        ) : null}
+        {monthlyDisc > 0 ? (
+          <div className={rowClass}>
+            <span className="text-[13px] text-slate-500">Monthly discount</span>
+            <span className="text-sm font-medium text-[#A32D2D]">− {formatCurrency(monthlyDisc)}</span>
           </div>
-        )}
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10">
-          {[
-            { label: `Total bill: ${formatCurrency(totalAmount)}`, value: formatCurrency(invoice.totalAmount), icon: CreditCard, color: 'text-blue-600', bg: 'bg-blue-50' },
-            { label: discountAmount > 0 ? `You saved ${formatCurrency(discountAmount)}` : 'Discounts & Adjustments', value: formatCurrency(discountAmount), icon: TrendingUp, color: 'text-amber-600', bg: 'bg-amber-50' },
-            { label: `You've paid ${formatCurrency(paidAmount)} so far`, value: formatCurrency(invoice.paidAmount), icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-            { label: dueAmount > 0 ? `You still owe ${formatCurrency(dueAmount)}` : 'Nothing due', value: formatCurrency(invoice.dueAmount), icon: AlertCircle, color: dueAmount > 0 ? 'text-rose-600' : 'text-emerald-600', bg: dueAmount > 0 ? 'bg-rose-50' : 'bg-emerald-50' },
-          ].map((stat, i) => (
-            <div key={i} className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm transition-all hover:shadow-md">
-              <div className={cn('mb-3 flex h-10 w-10 items-center justify-center rounded-2xl', stat.bg, stat.color)}>
-                <stat.icon className="h-5 w-5" />
-              </div>
-              <p className="text-[10px] font-black leading-snug text-slate-400 mb-1">{stat.label}</p>
-              <p className="text-base font-black text-slate-900">{stat.value}</p>
-            </div>
-          ))}
-        </div>
-
-        {Number(invoice.discountAmount) > 0 && invoice.discountReference ? (
-          <div className="mb-6 rounded-2xl border border-amber-100 bg-amber-50/50 px-4 py-3 text-sm font-bold text-amber-950">
-            <span className="text-[10px] font-black uppercase tracking-widest text-amber-700">Discount reference</span>
-            <p className="mt-1">{invoice.discountReference}</p>
+        ) : null}
+        {scholarshipAmount > 0 ? (
+          <div className={rowClass}>
+            <span className="text-[13px] text-slate-500">Scholarship</span>
+            <span className="text-sm font-medium text-[#A32D2D]">− {formatCurrency(scholarshipAmount)}</span>
           </div>
         ) : null}
 
-        {/* Charges Table */}
-        <div className="space-y-2 mb-10">
-          <h3 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-indigo-600">
-            <Activity className="h-4 w-4" />
-            What you&apos;re being charged for
-          </h3>
-          <p className="text-xs font-bold text-slate-400">Here&apos;s a breakdown of your charges</p>
-          <div className="overflow-hidden rounded-[28px] border border-slate-100 bg-white shadow-sm mt-3">
-            <Table>
-              <TableHeader className="bg-slate-50/50">
-                <TableRow className="border-b border-slate-100">
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Type</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Description</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Qty</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Price</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Total</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {invoice.items?.map((item) => (
-                  <TableRow key={item.id} className="border-slate-50">
-                    <TableCell>
-                      <Badge variant="outline" className="rounded-lg bg-slate-50 border-slate-200 text-[9px] font-black uppercase tracking-widest px-2 py-0.5">{item.type}</Badge>
-                    </TableCell>
-                    <TableCell className="text-base font-bold text-slate-700">{item.title}</TableCell>
-                    <TableCell className="text-right text-base font-medium text-slate-500">{item.qty}</TableCell>
-                    <TableCell className="text-right text-base font-medium text-slate-500">{formatCurrency(item.unitPrice)}</TableCell>
-                    <TableCell className="text-right text-base font-black text-slate-900">{formatCurrency(item.lineTotal)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
+        <div className="my-3 border-t border-slate-200/80" />
 
-        {/* Your Payments & Invoice Info */}
-        <div className="grid gap-10 lg:grid-cols-2">
-          <div>
-            <h3 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-emerald-600 mb-4">
-              <TrendingUp className="h-4 w-4" />
-              Your payments
-            </h3>
-            <div className="space-y-3">
-              {invoice.payments && invoice.payments.length > 0 ? (
-                invoice.payments.map((p) => (
-                  <div key={p.id} className="group flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-white hover:border-emerald-200 transition-all">
-                    <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                        <CheckCircle2 className="h-4 w-4" />
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-base font-bold text-slate-800">{formatCurrency(p.amount)}</span>
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{p.method} • {new Date(p.paidAt).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                    {p.trxId && <Badge variant="outline" className="rounded-lg text-[9px] font-mono text-slate-400 uppercase">{p.trxId.slice(0, 10)}</Badge>}
-                  </div>
-                ))
-              ) : (
-                <div className="flex flex-col items-center justify-center p-10 rounded-3xl border border-dashed border-slate-200 bg-slate-50/50">
-                  <CreditCard className="h-8 w-8 text-slate-300 mb-3" />
-                  <p className="text-sm font-bold text-slate-500 text-center">No payments yet.</p>
-                  <p className="text-xs font-bold text-slate-400 text-center mt-1">Once you make a payment, it will appear here.</p>
+        <div className={rowClass}>
+          <span className="text-sm font-medium text-slate-900">Total payable</span>
+          <span className="text-base font-medium text-slate-900">{formatCurrency(payableAmount)}</span>
+        </div>
+        <div className={rowClass}>
+          <span className="text-[13px] text-slate-500">Paid</span>
+          <span className="text-sm font-medium text-[#3B6D11]">{formatCurrency(paidAmount)}</span>
+        </div>
+        <div className={rowClass}>
+          <span className="text-sm font-medium text-[#A32D2D]">Due</span>
+          <span className="text-base font-medium text-[#A32D2D]">{formatCurrency(dueAmount)}</span>
+        </div>
+        {nextDueStr ? (
+          <div className={rowClass}>
+            <span className="text-[13px] text-slate-500">Next payment due</span>
+            <span className="text-sm font-medium text-slate-900">{nextDueStr}</span>
+          </div>
+        ) : null}
+      </div>
+
+      {/* Payments list (compact) */}
+      <p className={sectionLabel}>Payments</p>
+      <div className={cn(cardClass, 'mb-5')}>
+        {invoice.payments && invoice.payments.length > 0 ? (
+          invoice.payments.map((p) => (
+            <div key={p.id} className={rowClass}>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                <div>
+                  <p className="text-sm font-medium text-slate-900">{formatCurrencyFull(p.amount)}</p>
+                  <p className="text-[11px] text-slate-500">
+                    {p.method} · {new Date(p.paidAt).toLocaleString()}
+                  </p>
                 </div>
+              </div>
+              {p.trxId ? <span className="font-mono text-[11px] text-slate-400">{p.trxId.slice(0, 14)}…</span> : null}
+            </div>
+          ))
+        ) : (
+          <div className="flex flex-col items-center py-8 text-center">
+            <FileText className="mb-2 h-8 w-8 text-slate-300" />
+            <p className="text-sm font-medium text-slate-500">No payments yet</p>
+          </div>
+        )}
+      </div>
+
+      {/* Activity log */}
+      <p className={sectionLabel}>Activity log</p>
+      <div className={cn(cardClass, 'mb-2')}>
+        {activityEntries.map((log, idx) => (
+          <div key={idx} className="flex gap-2.5 border-b border-slate-200/80 py-2 last:border-b-0">
+            <span
+              className={cn(
+                'mt-1.5 h-2 w-2 shrink-0 rounded-full',
+                log.dot === 'cancel' && 'bg-[#E24B4A]',
+                log.dot === 'update' && 'bg-[#639922]',
+                log.dot === 'invoice' && 'bg-[#378ADD]',
               )}
+              aria-hidden
+            />
+            <div>
+              <p className="text-[13px] font-medium text-slate-900">{log.title}</p>
+              <p className="mt-0.5 text-xs text-slate-500">{log.meta}</p>
             </div>
           </div>
+        ))}
+      </div>
 
-          <div>
-            <h3 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4">
-              <History className="h-4 w-4" />
-              Invoice Info
-            </h3>
-            <div className="grid gap-4">
-              <div className="flex items-center justify-between p-5 rounded-2xl border border-slate-100 bg-slate-50/30">
-                <span className="text-base font-bold text-slate-500">Created On</span>
-                <span className="text-base font-black text-slate-900">{new Date(invoice.createdAt).toLocaleString()}</span>
-              </div>
-              <div className="flex items-center justify-between p-5 rounded-2xl border border-slate-100 bg-slate-50/30">
-                <span className="text-base font-bold text-slate-500">Status</span>
-                <span className="text-base font-black text-indigo-600">{invoice.status}</span>
-              </div>
-              {invoice.issuedAt && (
-                <div className="flex items-center justify-between p-5 rounded-2xl border border-slate-100 bg-slate-50/30">
-                  <span className="text-base font-bold text-slate-500">Date Issued</span>
-                  <span className="text-base font-black text-slate-900">{new Date(invoice.issuedAt).toLocaleString()}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4 text-xs text-slate-400">
+        <span className="inline-flex items-center gap-1">
+          <User className="h-3.5 w-3.5" />
+          {invoice.student?.mobile}
+        </span>
+        <span>·</span>
+        <span className="inline-flex items-center gap-1">
+          <Building2 className="h-3.5 w-3.5" />
+          {invoice.branch?.name}
+        </span>
+        {invoice.month ? (
+          <>
+            <span>·</span>
+            <span className="inline-flex items-center gap-1">
+              <Calendar className="h-3.5 w-3.5" />
+              {invoice.month}
+            </span>
+          </>
+        ) : null}
+        <span>·</span>
+        <span className="inline-flex items-center gap-1">
+          <History className="h-3.5 w-3.5" />
+          Created {new Date(invoice.createdAt).toLocaleString()}
+        </span>
       </div>
     </div>
   );
 }
-

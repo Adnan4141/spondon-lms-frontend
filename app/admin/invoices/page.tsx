@@ -69,11 +69,12 @@ function getErrorMessage(error: unknown): string {
 }
 
 function getStatusBadgeClass(status: string) {
-  if (status === 'PAID') return 'bg-emerald-50 text-emerald-700 border-emerald-100 font-black';
-  if (status === 'PARTIAL') return 'bg-amber-50 text-amber-700 border-amber-100 font-black';
-  if (status === 'ISSUED') return 'bg-blue-50 text-blue-700 border-blue-100 font-black';
-  if (status === 'CANCELLED') return 'bg-rose-50 text-rose-700 border-rose-100 font-black';
-  return 'bg-slate-50 text-slate-600 border-slate-200 font-black';
+  const s = String(status).toUpperCase();
+  if (s === 'PAID') return 'bg-[#EAF3DE] text-[#27500A] border-[#D4E8C4]';
+  if (s === 'PARTIAL') return 'bg-[#FAEEDA] text-[#633806] border-[#F0E0C4]';
+  if (s === 'ISSUED') return 'bg-[#E6F1FB] text-[#0C447C] border-[#C9DFF3]';
+  if (s === 'CANCELLED') return 'bg-[#FCEBEB] text-[#791F1F] border-[#F5D0D0]';
+  return 'bg-slate-100 text-slate-600 border-slate-200';
 }
 
 export default function InvoicesPage() {
@@ -152,10 +153,10 @@ export default function InvoicesPage() {
       const res = await getInvoiceById(invoiceId);
       if (res.success && res.data) {
         openModal({
-          title: 'Invoice Details',
-          description: 'View invoice info.',
-          className: 'sm:max-w-4xl',
-          content: <InvoiceDetailsView invoice={res.data} />,
+          title: 'Invoice details',
+          description: 'Summary, charges, payments, and settlement.',
+          className: 'sm:max-w-2xl max-h-[min(92vh,880px)] overflow-y-auto',
+          content: <InvoiceDetailsView invoice={res.data} onRefresh={loadInvoices} />,
         });
       }
     } catch (err) {
@@ -280,6 +281,9 @@ export default function InvoicesPage() {
       i.id.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const totalDueOutstanding = filteredInvoices.reduce((s, i) => s + Math.max(0, Number(i.dueAmount)), 0);
+  const unpaidCount = filteredInvoices.filter((i) => Number(i.dueAmount) > 0 && i.status !== 'CANCELLED').length;
+
   const formatCurrency = (amount: number | string) => {
     return `৳${new Intl.NumberFormat('en-US', {
       minimumFractionDigits: 2,
@@ -288,9 +292,32 @@ export default function InvoicesPage() {
   };
 
   return (
-    <div className="space-y-8 text-slate-900">
+    <div className="mx-auto max-w-7xl space-y-8 pb-10 text-slate-900">
+      <header className="space-y-1">
+        <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-500">Accounting · Invoices</p>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">Invoices</h1>
+        <p className="max-w-2xl text-sm text-slate-500">
+          Search, filter, and open an invoice for the same layout as the revised enrollment statement — preview, PDF,
+          gateway pay, and manual settlement.
+        </p>
+      </header>
+
+      <section className="grid gap-3 sm:grid-cols-3">
+        {[
+          { label: 'In list', value: String(filteredInvoices.length), sub: 'after search & filters' },
+          { label: 'Outstanding due', value: formatCurrency(totalDueOutstanding), sub: `${unpaidCount} with balance` },
+          { label: 'Status filter', value: statusFilter === 'all' ? 'All' : statusFilter, sub: branchFilter === 'all' ? 'All branches' : 'Branch filtered' },
+        ].map((m) => (
+          <div key={m.label} className="rounded-xl border border-slate-200/90 bg-slate-50 px-4 py-3 shadow-sm">
+            <p className="text-[11px] text-slate-500">{m.label}</p>
+            <p className="mt-1 text-xl font-medium text-slate-900">{m.value}</p>
+            <p className="mt-0.5 text-[11px] text-slate-400">{m.sub}</p>
+          </div>
+        ))}
+      </section>
+
       {/* Filter Section */}
-      <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+      <section className="rounded-xl border border-slate-200/90 bg-white p-5 shadow-sm space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-6">
           <div className="flex flex-wrap flex-1 items-center gap-4">
             <div className="min-w-[300px] flex-1">
@@ -365,15 +392,11 @@ export default function InvoicesPage() {
       </section>
 
       {/* Table Section */}
-      <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/30">
-        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
+      <section className="overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-sm">
+        <div className="flex items-center justify-between border-b border-slate-200/80 bg-slate-50/80 px-6 py-4">
           <div>
-            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Invoices</h2>
-            <p className="mt-0.5 text-base font-bold text-indigo-500">All invoices</p>
-          </div>
-          <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            Invoices
+            <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-500">Invoice list</p>
+            <p className="mt-0.5 text-base font-medium text-slate-900">All matching rows</p>
           </div>
         </div>
 
@@ -389,57 +412,61 @@ export default function InvoicesPage() {
         ) : (
           <div className="overflow-x-auto">
             <Table>
-              <TableHeader className="bg-slate-50/50">
-                <TableRow className="hover:bg-transparent border-b border-slate-100">
-                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Invoice</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Details</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Payable</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">Due</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Status</TableHead>
-                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400 text-center">Manage</TableHead>
+              <TableHeader className="bg-slate-50/80">
+                <TableRow className="border-b border-slate-200/80 hover:bg-transparent">
+                  <TableHead className="px-6 text-[11px] font-medium uppercase tracking-wide text-slate-500">Student</TableHead>
+                  <TableHead className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Branch / month</TableHead>
+                  <TableHead className="text-right text-[11px] font-medium uppercase tracking-wide text-slate-500">Payable</TableHead>
+                  <TableHead className="text-right text-[11px] font-medium uppercase tracking-wide text-slate-500">Due</TableHead>
+                  <TableHead className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Status</TableHead>
+                  <TableHead className="px-6 text-right text-[11px] font-medium uppercase tracking-wide text-slate-500">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredInvoices.map((i) => (
                   <TableRow key={i.id} className="group border-slate-100 transition-colors hover:bg-slate-50/80">
-                    <TableCell className="px-8 py-5">
-                       <div className="flex items-center gap-4">
-                          <div className="h-10 w-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-black text-slate-500 text-base shadow-sm">
-                             {i.student?.fullName.charAt(0)}
+                    <TableCell className="px-6 py-4">
+                       <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#EEEDFE] text-sm font-medium text-[#3C3489]">
+                             {i.student?.fullName?.trim()
+                               ? (i.student.fullName.trim().split(/\s+/).length > 1
+                                   ? (i.student.fullName.trim()[0] + i.student.fullName.trim().split(/\s+/).pop()![0]).toUpperCase()
+                                   : i.student.fullName.trim().slice(0, 2).toUpperCase())
+                               : '?'}
                           </div>
-                          <div className="flex flex-col">
-                             <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors text-base">{i.student?.fullName}</span>
-                             <span className="text-xs font-mono font-black text-slate-400 uppercase tracking-tighter">SID: {i.id.slice(0, 12)}</span>
-                          </div>
-                       </div>
-                    </TableCell>
-                    <TableCell className="py-5">
-                       <div className="flex flex-col gap-1.5">
-                          <div className="flex items-center gap-1.5 text-base font-bold text-slate-600">
-                             <Building2 className="h-3.5 w-3.5 text-rose-500" />
-                             {i.branch?.name}
-                          </div>
-                          <div className="flex items-center gap-1.5 text-sm font-black text-slate-400 uppercase tracking-widest">
-                             <Calendar className="h-3.5 w-3.5 text-emerald-500" />
-                             {i.month || 'GLOBAL'}
+                          <div className="flex flex-col min-w-0">
+                             <span className="truncate font-medium text-slate-900 group-hover:text-indigo-600 transition-colors">{i.student?.fullName}</span>
+                             <span className="truncate text-xs text-slate-500">{i.id.slice(0, 14)}…</span>
                           </div>
                        </div>
                     </TableCell>
-                    <TableCell className="py-5 text-right font-black text-slate-900 text-base">{formatCurrency(i.payableAmount)}</TableCell>
-                    <TableCell className="py-5 text-right font-black text-rose-600 text-base">
-                       {Number(i.dueAmount) > 0 ? formatCurrency(i.dueAmount) : '-'}
+                    <TableCell className="py-4">
+                       <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+                             <Building2 className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                             <span className="truncate">{i.branch?.name}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                             <Calendar className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                             {i.month || '—'}
+                          </div>
+                       </div>
                     </TableCell>
-                    <TableCell className="py-5">
-                       <Badge variant="outline" className={cn("rounded-lg text-[9px] font-black uppercase tracking-widest px-2.5 py-1", getStatusBadgeClass(String(i.status)))}>
+                    <TableCell className="py-4 text-right text-sm font-medium text-slate-900">{formatCurrency(i.payableAmount)}</TableCell>
+                    <TableCell className="py-4 text-right text-sm font-medium text-[#A32D2D]">
+                       {Number(i.dueAmount) > 0 ? formatCurrency(i.dueAmount) : '—'}
+                    </TableCell>
+                    <TableCell className="py-4">
+                       <Badge variant="outline" className={cn('rounded-md border px-2 py-0.5 text-[11px] font-medium', getStatusBadgeClass(String(i.status)))}>
                          {i.status}
                        </Badge>
                     </TableCell>
-                    <TableCell className="px-8 py-5">
-                       <div className="flex justify-center gap-2">
+                    <TableCell className="px-6 py-4">
+                       <div className="flex flex-wrap justify-end gap-1.5">
                           <Button
                             variant="outline"
                             size="sm"
-                            className="h-8 rounded-xl border-slate-200 bg-white px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm"
+                            className="h-8 rounded-md border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-900 hover:text-white"
                             onClick={() => handleViewInvoice(i.id)}
                           >
                             View
@@ -447,7 +474,7 @@ export default function InvoicesPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="h-8 rounded-xl border-slate-200 bg-white px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm"
+                            className="h-8 rounded-md border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-900 hover:text-white"
                             onClick={() => handleEditInvoice(i.id)}
                           >
                             Edit
@@ -456,16 +483,16 @@ export default function InvoicesPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="h-8 rounded-xl border-emerald-200 bg-white px-4 text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-all shadow-sm"
+                              className="h-8 rounded-md border-emerald-200 bg-white px-3 text-xs font-medium text-emerald-700 hover:bg-emerald-600 hover:text-white"
                               onClick={() => handleRecordPayment(i.id)}
                             >
-                              Pay
+                              Settle
                             </Button>
                           )}
                           <Button
                             variant="outline"
                             size="sm"
-                            className="h-8 w-8 rounded-xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all shadow-sm"
+                            className="h-8 w-8 rounded-md border-slate-200 bg-white p-0 text-slate-400 hover:bg-rose-600 hover:text-white"
                             onClick={() => handleDeleteInvoice(i.id)}
                           >
                             <Trash2 className="h-3.5 w-3.5" />

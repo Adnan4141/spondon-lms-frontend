@@ -99,6 +99,7 @@ export async function addQuestionsToSet(data: {
   examSetId: string;
   questionIds?: string[];
   folderId?: string;
+  folderIds?: string[];
   count?: number;
   shuffleQuestions?: boolean;
   autoSetCount?: number;
@@ -180,7 +181,11 @@ export async function regenerateSolveSheet(examId: string): Promise<ApiResponse<
 }
 
 export function getExamPdfDownloadUrl(pdfUrl: string): string {
-  return `${API_ORIGIN}${pdfUrl}`;
+  if (!pdfUrl) return '';
+  const trimmed = pdfUrl.trim();
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+  const path = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return `${API_ORIGIN}${path}`;
 }
 
 // Student Exam APIs

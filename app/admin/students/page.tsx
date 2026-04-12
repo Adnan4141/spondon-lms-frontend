@@ -45,7 +45,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { useModalStore } from '@/store/modalStore';
-import { StudentForm } from '@/components/admin/students/StudentForm';
+import { EditStudentWizard } from '@/components/admin/students/EditStudentWizard';
 import { AddStudentWizard } from '@/components/admin/students/AddStudentWizard';
 import { StudentDetailsView } from '@/components/admin/students/StudentDetailsView';
 import { BulkImportForm } from '@/components/admin/students/BulkImportForm';
@@ -164,9 +164,16 @@ export default function StudentsPage() {
         }
         openModal({
           title: 'Edit Student',
-          description: 'Update student information.',
-          className: 'sm:max-w-5xl',
-          content: <StudentForm branches={branches} institutes={institutes} student={res.data} onSuccess={loadStudents} />,
+          description: 'Update profile, then optionally add courses and generate an invoice.',
+          className: 'sm:max-w-5xl max-h-[92vh] flex flex-col overflow-hidden',
+          content: (
+            <EditStudentWizard
+              branches={branches}
+              institutes={institutes}
+              student={res.data}
+              onSuccess={loadStudents}
+            />
+          ),
         });
       } else {
         toast({ title: 'Error', description: res.message || 'Student not found', variant: 'destructive' });

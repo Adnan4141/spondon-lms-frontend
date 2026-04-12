@@ -22,6 +22,13 @@ export interface PartnerLinkedBook {
   book: { id: string; name: string; sku: string; thumbnailUrl?: string | null };
 }
 
+/** Full public detail for homepage partner modal (no admin-only fields). */
+export interface PublicPartnerDetail extends Partner {
+  partnerPrograms?: PartnerLinkedProgram[];
+  partnerCourses?: PartnerLinkedCourse[];
+  partnerBooks?: PartnerLinkedBook[];
+}
+
 export interface PartnerAdmin extends Partner {
   isActive: boolean;
   sortOrder: number;
@@ -34,6 +41,12 @@ export interface PartnerAdmin extends Partner {
 
 export async function getPublicPartners(): Promise<{ success: boolean; data: Partner[] }> {
   return apiRequest('/partners/public');
+}
+
+export async function getPublicPartnerById(
+  id: string,
+): Promise<{ success: boolean; data?: PublicPartnerDetail; message?: string }> {
+  return apiRequest(`/partners/public/${encodeURIComponent(id)}`);
 }
 
 export async function getPartnerById(id: string): Promise<{ success: boolean; data: PartnerAdmin }> {
