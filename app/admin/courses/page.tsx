@@ -113,6 +113,7 @@ export default function CoursesPage() {
   const [statusFilter, setStatusFilter] = useState<CourseStatus | 'all'>('ACTIVE');
   const [typeFilter, setTypeFilter] = useState<CourseType | 'all'>('all');
   const [billingFilter, setBillingFilter] = useState<BillingType | 'all'>('all');
+  const [error, setError] = useState<string | null>(null);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,

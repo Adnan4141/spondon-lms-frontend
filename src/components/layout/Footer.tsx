@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { Facebook, Instagram, Twitter, Linkedin, Phone, Mail, Send } from 'lucide-react';
+import { Facebook, Instagram, Twitter, Linkedin, Youtube, Phone, Mail, Send } from 'lucide-react';
 
 interface FooterProps {
   siteSettings?: Record<string, string>;
@@ -19,6 +19,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   'footer.instagram': '#',
   'footer.twitter': '#',
   'footer.linkedin': '#',
+  'footer.youtube': '#',
   'footer.newsletter_title': 'নতুন কোর্সের আপডেট পেতে চান?',
   'footer.newsletter_subtitle': 'আমাদের নিউজলেটারে সাবস্ক্রাইব করে যুক্ত থাকুন।',
   'footer.copyright': '© ২০২৬ স্পন্দন',
@@ -54,6 +55,7 @@ const SOCIAL_LINKS = [
   { Icon: Instagram, settingKey: 'footer.instagram', label: 'Instagram' },
   { Icon: Twitter, settingKey: 'footer.twitter', label: 'Twitter' },
   { Icon: Linkedin, settingKey: 'footer.linkedin', label: 'LinkedIn' },
+  { Icon: Youtube, settingKey: 'footer.youtube', label: 'YouTube' },
 ];
 
 export function Footer({ siteSettings = {} }: FooterProps) {

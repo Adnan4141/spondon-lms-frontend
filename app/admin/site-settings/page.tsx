@@ -1,7 +1,12 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Save, RotateCcw, Settings2 } from 'lucide-react';
+import {
+  Save, RotateCcw, Settings2, Layout, Link2, Facebook,
+  Instagram, Twitter, Linkedin, Youtube, BookOpen, Users, CreditCard,
+  Briefcase, Handshake, ShieldCheck, FileText, Globe, Phone, Mail,
+  ChevronDown, ChevronUp,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -9,8 +14,9 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { getSiteSettings, upsertSiteSettings } from '@/lib/api/site-content';
+import { cn } from '@/lib/utils';
 
-// ─── Default values (mirrors component defaults) ──────────────────────────
+// ─── Default values ────────────────────────────────────────────────────────
 
 const DEFAULTS: Record<string, string> = {
   'courses.badge': 'Premium Learning',
@@ -52,6 +58,7 @@ const DEFAULTS: Record<string, string> = {
   'footer.instagram': '#',
   'footer.twitter': '#',
   'footer.linkedin': '#',
+  'footer.youtube': '#',
   'footer.newsletter_title': 'নতুন কোর্সের আপডেট পেতে চান?',
   'footer.newsletter_subtitle': 'আমাদের নিউজলেটারে সাবস্ক্রাইব করে যুক্ত থাকুন।',
   'footer.copyright': '© ২০২৬ স্পন্দন',
@@ -112,6 +119,7 @@ const LABELS: Record<string, string> = {
   'footer.instagram': 'Instagram URL',
   'footer.twitter': 'Twitter/X URL',
   'footer.linkedin': 'LinkedIn URL',
+  'footer.youtube': 'YouTube Channel URL',
   'footer.newsletter_title': 'Newsletter Card Title',
   'footer.newsletter_subtitle': 'Newsletter Card Subtitle',
   'footer.copyright': 'Copyright Text',
@@ -132,55 +140,7 @@ const LABELS: Record<string, string> = {
   'footer.link_6_label': 'Link 6 Label', 'footer.link_6_href': 'Link 6 URL',
 };
 
-// ─── Grouped sections ──────────────────────────────────────────────────────
-
-const GROUPS: { label: string; color: string; keys: string[] }[] = [
-  { label: 'Courses Section', color: 'border-indigo-400', keys: ['courses.badge', 'courses.title', 'courses.titleHighlight', 'courses.subtitle', 'courses.button'] },
-  { label: 'Teachers Section', color: 'border-violet-400', keys: ['teachers.badge', 'teachers.title'] },
-  { label: 'Digital Library Section', color: 'border-emerald-400', keys: ['library.badge', 'library.title', 'library.titleHighlight', 'library.button'] },
-  { label: 'Payment Section', color: 'border-sky-400', keys: ['payment.badge', 'payment.title', 'payment.subtitle', 'payment.footer'] },
-  { label: 'Programs CTA Section', color: 'border-orange-400', keys: ['programs_cta.label', 'programs_cta.title', 'programs_cta.button'] },
-  { label: 'Partners Section', color: 'border-pink-400', keys: ['partners.badge', 'partners.title', 'partners.subtitle'] },
-  { label: 'Trust Section', color: 'border-blue-400', keys: ['trust.title', 'trust.subtitle'] },
-  {
-    label: 'Footer – General',
-    color: 'border-slate-500',
-    keys: [
-      'footer.newsletter_title', 'footer.newsletter_subtitle',
-      'footer.description',
-      'footer.phone', 'footer.phone_href',
-      'footer.email',
-      'footer.facebook', 'footer.instagram', 'footer.twitter', 'footer.linkedin',
-      'footer.copyright', 'footer.payment_logo_url',
-    ],
-  },
-  {
-    label: 'Footer – Popular Courses (6 slots)',
-    color: 'border-emerald-600',
-    keys: [
-      'footer.course_1_label', 'footer.course_1_href',
-      'footer.course_2_label', 'footer.course_2_href',
-      'footer.course_3_label', 'footer.course_3_href',
-      'footer.course_4_label', 'footer.course_4_href',
-      'footer.course_5_label', 'footer.course_5_href',
-      'footer.course_6_label', 'footer.course_6_href',
-    ],
-  },
-  {
-    label: 'Footer – Quick Links (6 slots)',
-    color: 'border-violet-600',
-    keys: [
-      'footer.link_1_label', 'footer.link_1_href',
-      'footer.link_2_label', 'footer.link_2_href',
-      'footer.link_3_label', 'footer.link_3_href',
-      'footer.link_4_label', 'footer.link_4_href',
-      'footer.link_5_label', 'footer.link_5_href',
-      'footer.link_6_label', 'footer.link_6_href',
-    ],
-  },
-];
-
-// ─── Multi-line keys ───────────────────────────────────────────────────────
+// ─── Multiline keys ────────────────────────────────────────────────────────
 
 const MULTILINE = new Set([
   'courses.subtitle',
@@ -192,13 +152,243 @@ const MULTILINE = new Set([
   'footer.newsletter_subtitle',
 ]);
 
-// ─── Component ────────────────────────────────────────────────────────────
+// ─── Tab structure ─────────────────────────────────────────────────────────
+
+interface SectionGroup {
+  label: string;
+  icon: React.ReactNode;
+  accent: string;
+  keys: string[];
+}
+
+const LANDING_SECTIONS: SectionGroup[] = [
+  {
+    label: 'Courses Section',
+    icon: <BookOpen className="h-4 w-4" />,
+    accent: 'border-indigo-400 bg-indigo-50 text-indigo-600',
+    keys: ['courses.badge', 'courses.title', 'courses.titleHighlight', 'courses.subtitle', 'courses.button'],
+  },
+  {
+    label: 'Teachers Section',
+    icon: <Users className="h-4 w-4" />,
+    accent: 'border-violet-400 bg-violet-50 text-violet-600',
+    keys: ['teachers.badge', 'teachers.title'],
+  },
+  {
+    label: 'Digital Library Section',
+    icon: <FileText className="h-4 w-4" />,
+    accent: 'border-emerald-400 bg-emerald-50 text-emerald-600',
+    keys: ['library.badge', 'library.title', 'library.titleHighlight', 'library.button'],
+  },
+  {
+    label: 'Payment Section',
+    icon: <CreditCard className="h-4 w-4" />,
+    accent: 'border-sky-400 bg-sky-50 text-sky-600',
+    keys: ['payment.badge', 'payment.title', 'payment.subtitle', 'payment.footer'],
+  },
+  {
+    label: 'Programs CTA Section',
+    icon: <Briefcase className="h-4 w-4" />,
+    accent: 'border-orange-400 bg-orange-50 text-orange-600',
+    keys: ['programs_cta.label', 'programs_cta.title', 'programs_cta.button'],
+  },
+  {
+    label: 'Partners Section',
+    icon: <Handshake className="h-4 w-4" />,
+    accent: 'border-pink-400 bg-pink-50 text-pink-600',
+    keys: ['partners.badge', 'partners.title', 'partners.subtitle'],
+  },
+  {
+    label: 'Trust & Credibility Section',
+    icon: <ShieldCheck className="h-4 w-4" />,
+    accent: 'border-blue-400 bg-blue-50 text-blue-600',
+    keys: ['trust.title', 'trust.subtitle'],
+  },
+];
+
+const FOOTER_SECTIONS: SectionGroup[] = [
+  {
+    label: 'General Info',
+    icon: <Globe className="h-4 w-4" />,
+    accent: 'border-slate-400 bg-slate-50 text-slate-600',
+    keys: ['footer.description', 'footer.copyright', 'footer.payment_logo_url'],
+  },
+  {
+    label: 'Contact Details',
+    icon: <Phone className="h-4 w-4" />,
+    accent: 'border-teal-400 bg-teal-50 text-teal-600',
+    keys: ['footer.phone', 'footer.phone_href', 'footer.email'],
+  },
+  {
+    label: 'Social Media Links',
+    icon: <Link2 className="h-4 w-4" />,
+    accent: 'border-rose-400 bg-rose-50 text-rose-600',
+    keys: ['footer.facebook', 'footer.instagram', 'footer.twitter', 'footer.linkedin', 'footer.youtube'],
+  },
+  {
+    label: 'Newsletter',
+    icon: <Mail className="h-4 w-4" />,
+    accent: 'border-amber-400 bg-amber-50 text-amber-600',
+    keys: ['footer.newsletter_title', 'footer.newsletter_subtitle'],
+  },
+  {
+    label: 'Popular Courses (6 slots)',
+    icon: <BookOpen className="h-4 w-4" />,
+    accent: 'border-emerald-500 bg-emerald-50 text-emerald-700',
+    keys: [
+      'footer.course_1_label', 'footer.course_1_href',
+      'footer.course_2_label', 'footer.course_2_href',
+      'footer.course_3_label', 'footer.course_3_href',
+      'footer.course_4_label', 'footer.course_4_href',
+      'footer.course_5_label', 'footer.course_5_href',
+      'footer.course_6_label', 'footer.course_6_href',
+    ],
+  },
+  {
+    label: 'Quick Links (6 slots)',
+    icon: <Link2 className="h-4 w-4" />,
+    accent: 'border-violet-500 bg-violet-50 text-violet-700',
+    keys: [
+      'footer.link_1_label', 'footer.link_1_href',
+      'footer.link_2_label', 'footer.link_2_href',
+      'footer.link_3_label', 'footer.link_3_href',
+      'footer.link_4_label', 'footer.link_4_href',
+      'footer.link_5_label', 'footer.link_5_href',
+      'footer.link_6_label', 'footer.link_6_href',
+    ],
+  },
+];
+
+const SOCIAL_ICONS: Record<string, React.ReactNode> = {
+  'footer.facebook': <Facebook className="h-4 w-4 text-blue-600" />,
+  'footer.instagram': <Instagram className="h-4 w-4 text-pink-500" />,
+  'footer.twitter': <Twitter className="h-4 w-4 text-sky-500" />,
+  'footer.linkedin': <Linkedin className="h-4 w-4 text-blue-700" />,
+  'footer.youtube': <Youtube className="h-4 w-4 text-red-600" />,
+};
+
+// ─── Sub-components ────────────────────────────────────────────────────────
+
+function FieldRow({
+  fieldKey,
+  value,
+  onChange,
+  onReset,
+}: {
+  fieldKey: string;
+  value: string;
+  onChange: (v: string) => void;
+  onReset: () => void;
+}) {
+  const isMulti = MULTILINE.has(fieldKey);
+  const icon = SOCIAL_ICONS[fieldKey];
+  return (
+    <div className={isMulti ? 'sm:col-span-2' : ''}>
+      <div className="flex items-center justify-between mb-1.5">
+        <Label htmlFor={fieldKey} className="text-xs font-bold text-slate-600 uppercase tracking-wide flex items-center gap-1.5">
+          {icon}
+          {LABELS[fieldKey] ?? fieldKey}
+        </Label>
+        <button
+          type="button"
+          onClick={onReset}
+          className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-violet-600 transition-colors"
+          title="Reset to default"
+        >
+          <RotateCcw className="h-3 w-3" />
+          Reset
+        </button>
+      </div>
+      {isMulti ? (
+        <Textarea
+          id={fieldKey}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          rows={3}
+          className="text-sm resize-y border-slate-200 focus-visible:ring-violet-400"
+          placeholder={DEFAULTS[fieldKey]}
+        />
+      ) : (
+        <Input
+          id={fieldKey}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="text-sm border-slate-200 focus-visible:ring-violet-400"
+          placeholder={DEFAULTS[fieldKey]}
+        />
+      )}
+    </div>
+  );
+}
+
+function SectionCard({
+  section,
+  values,
+  onChange,
+  onReset,
+}: {
+  section: SectionGroup;
+  values: Record<string, string>;
+  onChange: (key: string, val: string) => void;
+  onReset: (key: string) => void;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+  const accentBorder = section.accent.split(' ')[0];
+  const accentBg = section.accent.split(' ')[1];
+  const accentText = section.accent.split(' ')[2];
+
+  return (
+    <div className={cn('rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden border-l-4', accentBorder)}>
+      <button
+        type="button"
+        onClick={() => setCollapsed((c) => !c)}
+        className="w-full flex items-center justify-between px-6 py-4 border-b border-slate-100 hover:bg-slate-50/70 transition-colors text-left"
+      >
+        <div className="flex items-center gap-3">
+          <div className={cn('h-8 w-8 rounded-xl flex items-center justify-center', accentBg, accentText)}>
+            {section.icon}
+          </div>
+          <h2 className="font-black text-slate-800 text-sm">{section.label}</h2>
+          <span className="text-[10px] text-slate-400 font-bold bg-slate-100 px-2 py-0.5 rounded-full">
+            {section.keys.length} field{section.keys.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+        {collapsed
+          ? <ChevronDown className="h-4 w-4 text-slate-400" />
+          : <ChevronUp className="h-4 w-4 text-slate-400" />}
+      </button>
+      {!collapsed && (
+        <div className="p-6 grid gap-5 sm:grid-cols-2">
+          {section.keys.map((key) => (
+            <FieldRow
+              key={key}
+              fieldKey={key}
+              value={values[key] ?? ''}
+              onChange={(v) => onChange(key, v)}
+              onReset={() => onReset(key)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Page ──────────────────────────────────────────────────────────────────
+
+type TabId = 'landing' | 'footer';
+
+const TABS: { id: TabId; label: string; icon: React.ReactNode; sections: SectionGroup[] }[] = [
+  { id: 'landing', label: 'Landing Page', icon: <Layout className="h-4 w-4" />, sections: LANDING_SECTIONS },
+  { id: 'footer', label: 'Footer', icon: <Globe className="h-4 w-4" />, sections: FOOTER_SECTIONS },
+];
 
 export default function SiteSettingsPage() {
   const { toast } = useToast();
   const [values, setValues] = useState<Record<string, string>>({ ...DEFAULTS });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabId>('landing');
 
   useEffect(() => {
     async function load() {
@@ -231,7 +421,7 @@ export default function SiteSettingsPage() {
     try {
       const res = await upsertSiteSettings(values, LABELS);
       if (res.success) {
-        toast({ title: 'Saved', description: 'All section text settings have been updated.' });
+        toast({ title: 'Saved successfully', description: 'All site settings have been updated.' });
       } else {
         toast({ title: 'Error', description: (res as any).message || 'Failed to save settings', variant: 'destructive' });
       }
@@ -245,6 +435,8 @@ export default function SiteSettingsPage() {
   if (loading) {
     return (
       <div className="p-6 space-y-4">
+        <div className="h-20 rounded-2xl bg-slate-100 animate-pulse" />
+        <div className="h-12 rounded-2xl bg-slate-100 animate-pulse w-72" />
         {[1, 2, 3].map((i) => (
           <div key={i} className="h-40 rounded-2xl bg-slate-100 animate-pulse" />
         ))}
@@ -252,76 +444,84 @@ export default function SiteSettingsPage() {
     );
   }
 
+  const currentTab = TABS.find((t) => t.id === activeTab)!;
+  const totalFields = currentTab.sections.reduce((s, g) => s + g.keys.length, 0);
+
   return (
-    <div className="p-6 max-w-4xl space-y-8">
+    <div className="min-h-screen bg-slate-50">
       <Toaster />
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
-            <Settings2 className="h-5 w-5" />
+
+      {/* Header */}
+      <div className="sticky top-0 z-10 bg-white border-b border-slate-100 shadow-sm">
+        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-violet-50 flex items-center justify-center text-violet-600">
+              <Settings2 className="h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="text-xl font-black text-slate-900 leading-none">Site Settings</h1>
+              <p className="text-xs text-slate-500 mt-0.5">{totalFields} fields in this section</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-black text-slate-900">Site Settings</h1>
-            <p className="text-sm text-slate-500">Manage all landing page section text from here</p>
-          </div>
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="bg-violet-600 hover:bg-violet-700 text-white font-bold px-6 gap-2 rounded-xl"
+          >
+            <Save className="h-4 w-4" />
+            {saving ? 'Saving…' : 'Save All'}
+          </Button>
         </div>
-        <Button onClick={handleSave} disabled={saving} className="bg-violet-600 hover:bg-violet-700 text-white font-bold px-6 gap-2">
-          <Save className="h-4 w-4" />
-          {saving ? 'Saving…' : 'Save All'}
-        </Button>
+
+        {/* Tab Bar */}
+        <div className="max-w-5xl mx-auto px-6 flex gap-1 pb-0">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                'flex items-center gap-2 px-5 py-3 text-sm font-bold border-b-2 transition-all',
+                activeTab === tab.id
+                  ? 'border-violet-600 text-violet-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300',
+              )}
+            >
+              {tab.icon}
+              {tab.label}
+              <span className={cn(
+                'text-[10px] px-1.5 py-0.5 rounded-full font-black transition-colors',
+                activeTab === tab.id ? 'bg-violet-100 text-violet-600' : 'bg-slate-100 text-slate-500',
+              )}>
+                {tab.sections.reduce((s, g) => s + g.keys.length, 0)}
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
 
-      {GROUPS.map((group) => (
-        <div key={group.label} className={`rounded-2xl border-l-4 ${group.color} bg-white shadow-sm border border-slate-100 overflow-hidden`}>
-          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-            <h2 className="font-black text-slate-800 text-base">{group.label}</h2>
-          </div>
-          <div className="p-6 grid gap-5 sm:grid-cols-2">
-            {group.keys.map((key) => (
-              <div key={key} className={MULTILINE.has(key) ? 'sm:col-span-2' : ''}>
-                <div className="flex items-center justify-between mb-1.5">
-                  <Label htmlFor={key} className="text-xs font-bold text-slate-600 uppercase tracking-wide">
-                    {LABELS[key] ?? key}
-                  </Label>
-                  <button
-                    type="button"
-                    onClick={() => handleReset(key)}
-                    className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-700 transition-colors"
-                    title="Reset to default"
-                  >
-                    <RotateCcw className="h-3 w-3" />
-                    Reset
-                  </button>
-                </div>
-                {MULTILINE.has(key) ? (
-                  <Textarea
-                    id={key}
-                    value={values[key] ?? ''}
-                    onChange={(e) => handleChange(key, e.target.value)}
-                    rows={3}
-                    className="text-sm resize-y"
-                    placeholder={DEFAULTS[key]}
-                  />
-                ) : (
-                  <Input
-                    id={key}
-                    value={values[key] ?? ''}
-                    onChange={(e) => handleChange(key, e.target.value)}
-                    className="text-sm"
-                    placeholder={DEFAULTS[key]}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
+      {/* Content */}
+      <div className="max-w-5xl mx-auto px-6 py-8 space-y-4">
+        {currentTab.sections.map((section) => (
+          <SectionCard
+            key={section.label}
+            section={section}
+            values={values}
+            onChange={handleChange}
+            onReset={handleReset}
+          />
+        ))}
 
-      <div className="flex justify-end pb-10">
-        <Button onClick={handleSave} disabled={saving} className="bg-violet-600 hover:bg-violet-700 text-white font-bold px-8 gap-2">
-          <Save className="h-4 w-4" />
-          {saving ? 'Saving…' : 'Save All Settings'}
-        </Button>
+        <div className="flex justify-end pt-4 pb-12">
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="bg-violet-600 hover:bg-violet-700 text-white font-bold px-10 gap-2 rounded-xl h-12"
+          >
+            <Save className="h-4 w-4" />
+            {saving ? 'Saving…' : 'Save All Settings'}
+          </Button>
+        </div>
       </div>
     </div>
   );
