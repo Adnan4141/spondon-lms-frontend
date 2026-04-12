@@ -14,14 +14,12 @@ import {
   getQuestionFolderTree,
 } from '@/lib/api/question-bank';
 import type { FolderTreeNode } from '@/lib/api/question-bank';
-import { getCourses } from '@/lib/api/courses';
 import type {
   Question,
   QuestionFolder,
   Difficulty,
   McqPassage,
 } from '@/types/question';
-import type { Course } from '@/types/course';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -215,7 +213,6 @@ export function QuestionsPageInner({ initialTab }: { initialTab?: QuestionTabId 
   const [folders, setFolders] = useState<QuestionFolder[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [passages, setPassages] = useState<McqPassage[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
 
   /* ---- ui ---- */
   const [loading, setLoading] = useState(true);
@@ -249,13 +246,6 @@ export function QuestionsPageInner({ initialTab }: { initialTab?: QuestionTabId 
     } catch (err) { console.error(err); }
   }, []);
 
-  const loadCourses = useCallback(async () => {
-    try {
-      const res = await getCourses({});
-      if (res.success && res.data) setCourses(res.data || []);
-    } catch (err) { console.error(err); }
-  }, []);
-
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -271,7 +261,7 @@ export function QuestionsPageInner({ initialTab }: { initialTab?: QuestionTabId 
     finally { setLoading(false); }
   }, [activeFolderId, difficultyFilter]);
 
-  useEffect(() => { loadFolderTree(); loadFolders(); loadCourses(); }, [loadFolderTree, loadFolders, loadCourses]);
+  useEffect(() => { loadFolderTree(); loadFolders(); }, [loadFolderTree, loadFolders]);
   useEffect(() => { loadData(); }, [loadData]);
 
   const reloadAll = useCallback(async () => { await Promise.all([loadFolderTree(), loadFolders(), loadData()]); }, [loadFolderTree, loadFolders, loadData]);
@@ -355,9 +345,9 @@ export function QuestionsPageInner({ initialTab }: { initialTab?: QuestionTabId 
       title: parentId ? 'Create Subfolder' : 'New Folder',
       description: 'Create a folder for questions.',
       className: 'sm:max-w-2xl',
-      content: <FolderForm courses={courses} folders={folders} initialParentId={parentId} onSuccess={async () => { await Promise.all([loadFolderTree(), loadFolders()]); }} />,
+      content: <FolderForm folders={folders} initialParentId={parentId} onSuccess={reloadAll} />,
     });
-  }, [openModal, courses, folders, loadFolderTree, loadFolders]);
+  }, [openModal, folders, reloadAll]);
 
   const handleEditFolder = useCallback((folderId: string) => {
     const folder = folders.find((f) => f.id === folderId);
@@ -366,9 +356,9 @@ export function QuestionsPageInner({ initialTab }: { initialTab?: QuestionTabId 
       title: 'Update Folder',
       description: 'Edit folder details.',
       className: 'sm:max-w-2xl',
-      content: <FolderForm courses={courses} folders={folders} folder={folder} onSuccess={async () => { await Promise.all([loadFolderTree(), loadFolders()]); }} />,
+      content: <FolderForm folders={folders} folder={folder} onSuccess={reloadAll} />,
     });
-  }, [openModal, courses, folders, loadFolderTree, loadFolders]);
+  }, [openModal, folders, reloadAll]);
 
   const handleDeleteFolder = useCallback((folderId: string) => {
     openModal({
@@ -381,14 +371,13 @@ export function QuestionsPageInner({ initialTab }: { initialTab?: QuestionTabId 
           variant="danger"
           onConfirm={async () => {
             await deleteQuestionFolder(folderId);
-            loadFolderTree();
-            loadFolders();
+            await reloadAll();
             if (activeFolderId === folderId) setActiveFolderId(undefined);
           }}
         />
       ),
     });
-  }, [openModal, activeFolderId, loadFolderTree, loadFolders]);
+  }, [openModal, activeFolderId, reloadAll]);
 
   const handleCreateAction = useCallback((tab: QuestionTabId) => {
     const folderId = activeFolderId;
@@ -640,7 +629,7 @@ export function QuestionsPageInner({ initialTab }: { initialTab?: QuestionTabId 
             <button
               className="h-7 w-7 flex items-center justify-center rounded-lg hover:bg-slate-200 transition-colors"
               title="New folder"
-              onClick={() => handleCreateFolder(activeFolderId)}
+              onClick={() => handleCreateFolder()}
             >
               <Plus className="h-3.5 w-3.5 text-slate-600" />
             </button>

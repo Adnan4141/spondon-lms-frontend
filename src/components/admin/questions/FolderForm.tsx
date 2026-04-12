@@ -5,7 +5,6 @@ import { createQuestionFolder, updateQuestionFolder } from '@/lib/api/question-b
 import { useModalStore } from '@/store/modalStore';
 import { useToast } from '@/hooks/use-toast';
 import type { QuestionFolder, CreateQuestionFolderDto, UpdateQuestionFolderDto } from '@/types/question';
-import type { Course } from '@/types/course';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -21,20 +20,18 @@ const inputClass =
 const sectionLabel = 'text-[11px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2 block';
 
 interface FolderFormProps {
-  courses: Course[];
   folders: QuestionFolder[];
   folder?: QuestionFolder | null;
   initialParentId?: string;
   onSuccess: () => Promise<void>;
 }
 
-export function FolderForm({ courses, folders, folder, initialParentId, onSuccess }: FolderFormProps) {
+export function FolderForm({ folders, folder, initialParentId, onSuccess }: FolderFormProps) {
   const { closeModal } = useModalStore();
   const { toast } = useToast();
-  const [form, setForm] = useState({ 
-    name: '', 
-    courseId: '', 
-    parentFolderId: initialParentId || '' 
+  const [form, setForm] = useState({
+    name: '',
+    parentFolderId: initialParentId || '',
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +42,6 @@ export function FolderForm({ courses, folders, folder, initialParentId, onSucces
     if (folder) {
       setForm({
         name: folder.name,
-        courseId: folder.courseId || '',
         parentFolderId: folder.parentFolderId || '',
       });
     }
@@ -63,7 +59,6 @@ export function FolderForm({ courses, folders, folder, initialParentId, onSucces
       
       const payload: CreateQuestionFolderDto = {
         name: form.name.trim(),
-        courseId: form.courseId.trim() ? form.courseId.trim() : null,
         parentFolderId: form.parentFolderId || undefined,
       };
 
@@ -81,8 +76,8 @@ export function FolderForm({ courses, folders, folder, initialParentId, onSucces
       
       closeModal();
       await onSuccess();
-    } catch (err: any) {
-      const errorMsg = err.message || `Failed to ${isEdit ? 'update' : 'create'} folder`;
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : `Failed to ${isEdit ? 'update' : 'create'} folder`;
       setError(errorMsg);
       toast({
         title: 'Error',
@@ -108,28 +103,7 @@ export function FolderForm({ courses, folders, folder, initialParentId, onSucces
             />
           </div>
 
-          <div className="grid gap-6 sm:grid-cols-2">
-            <div className="space-y-2">
-              <label className={sectionLabel}>Course (Optional)</label>
-              <Select
-                value={form.courseId || 'none'}
-                onValueChange={(v) => setForm((prev) => ({ ...prev, courseId: v === 'none' ? '' : v }))}
-              >
-                <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
-                  <SelectValue placeholder="None / Standalone" />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                  <SelectItem value="none" className="text-sm font-medium text-slate-500 italic">None / Standalone</SelectItem>
-                  {courses.map((course) => (
-                    <SelectItem key={course.id} value={course.id} className="text-sm font-medium">
-                      {course.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-[11px] text-slate-400 mt-1">Leave empty to make this folder reusable across any exam</p>
-            </div>
-
+          <div className="grid gap-6 sm:grid-cols-1">
             <div className="space-y-2">
               <label className={sectionLabel}>Parent Hierarchy</label>
               <Select
@@ -172,7 +146,7 @@ export function FolderForm({ courses, folders, folder, initialParentId, onSucces
           <Button
             onClick={handleSubmit}
             disabled={submitting}
-            className="flex-[2] h-12 rounded-2xl bg-slate-900 font-black uppercase tracking-[0.2em] text-[11px] text-white shadow-xl shadow-slate-200 hover:bg-indigo-600 hover:scale-[1.02] active:scale-95 transition-all"
+            className="flex-2 h-12 rounded-2xl bg-slate-900 font-black uppercase tracking-[0.2em] text-[11px] text-white shadow-xl shadow-slate-200 hover:bg-indigo-600 hover:scale-[1.02] active:scale-95 transition-all"
           >
             {submitting ? 'Processing...' : isEdit ? 'Update Folder' : 'Create Folder'}
           </Button>
