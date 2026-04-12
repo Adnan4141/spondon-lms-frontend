@@ -37,16 +37,15 @@ export const CourseCard: React.FC<Props> = ({ course, handleImageError }) => (
             {course.type === 'ONLINE' ? '• Online' : '• Offline'}
           </div>
         </div>
-        <div className="absolute bottom-4 right-4 bg-white px-3 py-1.5 rounded-xl shadow-2xl flex flex-col items-center border border-slate-50">
-          <span className="text-[9px] text-slate-400 font-bold uppercase leading-none mb-0.5">Fee</span>
-          <span className="text-base sm:text-lg font-black text-[#5C2D91]">৳{String(course.fee)}</span>
-        </div>
       </div>
       <div className="p-6 flex flex-col flex-1">
         <div className="flex-1">
-          <h3 className="text-base sm:text-lg md:text-xl font-black text-slate-800 leading-tight group-hover:text-indigo-600 transition-colors line-clamp-2">{course.name}</h3>
-          <div className="flex items-center gap-4 mt-4 py-3 border-y border-slate-50">
-         
+          <h3 className="text-base sm:text-lg md:text-xl font-black text-slate-800 leading-tight group-hover:text-indigo-600 transition-colors line-clamp-2">
+            {course.name}
+          </h3>
+          <div className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Fee</span>
+            <span className="text-lg sm:text-xl font-black text-[#5C2D91]">৳{String(course.fee)}</span>
           </div>
         </div>
         <Link href={`/course/${course.slug || course.id}`} className="mt-6 block cursor-pointer">

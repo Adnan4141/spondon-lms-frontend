@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { Suspense, useEffect, useState, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
@@ -18,7 +18,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
-export default function CoursesPage() {
+function CoursesPageContent() {
     const searchParams = useSearchParams();
     const [courses, setCourses] = useState<Course[]>([]);
     const [programs, setPrograms] = useState<Program[]>([]);
@@ -370,5 +370,13 @@ export default function CoursesPage() {
                 )}
             </AnimatePresence>
         </div>
+    );
+}
+
+export default function CoursesPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-slate-50" />}>
+            <CoursesPageContent />
+        </Suspense>
     );
 }
