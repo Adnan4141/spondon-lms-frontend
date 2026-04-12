@@ -107,6 +107,28 @@ export async function copyQuestion(data: CopyQuestionDto): Promise<ApiResponse<Q
   });
 }
 
+export interface FolderTreeNode {
+  id: string;
+  name: string;
+  courseId: string | null;
+  parentFolderId: string | null;
+  childCount: number;
+  questionCount: number;
+  counts: { mcqSingle: number; mcqPassage: number; cq: number; short: number; total: number };
+  children: FolderTreeNode[];
+}
+
+export async function getQuestionFolderTree(
+  courseId?: string,
+  teacherUserId?: string
+): Promise<ApiResponse<FolderTreeNode[]>> {
+  const queryParams = new URLSearchParams();
+  if (courseId) queryParams.append('courseId', courseId);
+  if (teacherUserId) queryParams.append('teacherUserId', teacherUserId);
+  const query = queryParams.toString();
+  return apiRequest<ApiResponse<FolderTreeNode[]>>(`/question-bank/folders/tree${query ? `?${query}` : ''}`);
+}
+
 export async function bulkCopyQuestions(data: BulkCopyQuestionsDto): Promise<ApiResponse<Question[]>> {
   return apiRequest<ApiResponse<Question[]>>('/question-bank/questions/bulk-copy', {
     method: 'POST',

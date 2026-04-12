@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Play, Quote } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Testimonial } from './types';
 
 interface Props {
@@ -13,27 +14,58 @@ interface Props {
   setTestimonialIndex: (index: number) => void;
 }
 
+function resolveVideoSource(url?: string): { kind: 'iframe' | 'video'; src: string } | null {
+  if (!url) return null;
+
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+
+    if (host.includes('youtube.com')) {
+      const videoId = parsed.searchParams.get('v');
+      if (videoId) return { kind: 'iframe', src: `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0` };
+    }
+
+    if (host.includes('youtu.be')) {
+      const videoId = parsed.pathname.replace(/^\//, '');
+      if (videoId) return { kind: 'iframe', src: `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0` };
+    }
+
+    if (host.includes('vimeo.com')) {
+      const videoId = parsed.pathname.split('/').filter(Boolean).pop();
+      if (videoId) return { kind: 'iframe', src: `https://player.vimeo.com/video/${videoId}?autoplay=1` };
+    }
+
+    return { kind: 'video', src: url };
+  } catch {
+    return { kind: 'video', src: url };
+  }
+}
+
 export const StudentReviewTestimonialSection: React.FC<Props> = ({
   testimonials,
   testimonialIndex,
   setTestimonialIndex,
 }) => {
+  const [isVideoOpen, setIsVideoOpen] = useState(false);
+
   if (!testimonials.length) return null;
 
   useEffect(() => {
-    if (testimonials.length <= 1) return;
+    if (testimonials.length <= 1 || isVideoOpen) return;
 
     const timer = window.setTimeout(() => {
       setTestimonialIndex((testimonialIndex + 1) % testimonials.length);
     }, 5000);
 
     return () => window.clearTimeout(timer);
-  }, [testimonialIndex, testimonials.length, setTestimonialIndex]);
+  }, [isVideoOpen, testimonialIndex, testimonials.length, setTestimonialIndex]);
 
   const next = () => setTestimonialIndex((testimonialIndex + 1) % testimonials.length);
   const prev = () => setTestimonialIndex((testimonialIndex - 1 + testimonials.length) % testimonials.length);
 
   const activeTestimonial = testimonials[testimonialIndex];
+  const activeVideo = useMemo(() => resolveVideoSource(activeTestimonial?.videoUrl), [activeTestimonial?.videoUrl]);
 
   return (
     <section className="relative -mt-16 bg-white pb-16 sm:-mt-20 sm:pb-20 lg:-mt-24 lg:pb-24">
@@ -100,16 +132,16 @@ export const StudentReviewTestimonialSection: React.FC<Props> = ({
                       className="object-cover"
                     />
                     {activeTestimonial?.videoUrl && (
-                      <a
-                        href={activeTestimonial.videoUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        type="button"
+                        onClick={() => setIsVideoOpen(true)}
                         className="absolute inset-0 flex items-center justify-center bg-indigo-950/20 transition-colors hover:bg-indigo-950/30"
+                        aria-label={`Play video testimonial from ${activeTestimonial.name}`}
                       >
                         <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-indigo-500/95 text-white shadow-xl">
                           <Play className="ml-0.5 h-6 w-6 fill-current" />
                         </span>
-                      </a>
+                      </button>
                     )}
                   </>
                 ) : (
@@ -136,8 +168,35 @@ export const StudentReviewTestimonialSection: React.FC<Props> = ({
               />
             ))}
           </div>
-        </div>
+        </div>    
       </div>
+
+      <Dialog open={isVideoOpen} onOpenChange={setIsVideoOpen}>
+        <DialogContent className="overflow-hidden border-none bg-slate-950 p-0 shadow-[0_32px_64px_-18px_rgba(15,23,42,0.65)] sm:max-w-4xl">
+          <DialogTitle className="sr-only">
+            {activeTestimonial?.name ? `${activeTestimonial.name} video testimonial` : 'Video testimonial'}
+          </DialogTitle>
+          <div className="aspect-video w-full bg-black">
+            {activeVideo?.kind === 'iframe' ? (
+              <iframe
+                src={activeVideo.src}
+                title={activeTestimonial?.name ? `${activeTestimonial.name} video testimonial` : 'Video testimonial'}
+                className="h-full w-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
+            ) : activeVideo?.kind === 'video' ? (
+              <video
+                src={activeVideo.src}
+                className="h-full w-full"
+                controls
+                autoPlay
+                playsInline
+              />
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 };

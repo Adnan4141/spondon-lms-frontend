@@ -81,7 +81,7 @@ function TestimonialMedia({ t }: { t: Testimonial }) {
           alt={t.name || 'Testimonial'}
           fill
           className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
-          sizes="(max-width: 1024px) 100vw, 40vw"
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 90vw, 40vw"
         />
         {videoSrc ? (
           <a
@@ -160,25 +160,29 @@ export const TrustSection: React.FC<Props> = ({
   }, [hasTestimonials, testimonials.length, paused, setTestimonialIndex]);
 
   return (
-    <section className="bg-white py-16 lg:pt-36">
-      <div className="mx-auto max-w-7xl px-4 md:min-h-screen lg:pb-40">
-        <div className="relative rounded-[2.5rem] bg-[#3b4a97] px-8 pt-16 pb-32 lg:px-20 lg:pt-20 lg:pb-40">
-          <div className="grid gap-12 lg:grid-cols-2 lg:items-start">
+    <section className="bg-white py-10 sm:py-12 md:py-16 lg:pt-36">
+      <div className="mx-auto max-w-7xl px-3 sm:px-4 lg:min-h-screen lg:pb-40 pb-28 sm:pb-32 md:pb-36">
+        <div className="relative rounded-2xl bg-[#3b4a97] px-4 pt-10 pb-28 shadow-sm sm:rounded-3xl sm:px-6 sm:pt-12 sm:pb-32 md:rounded-[2rem] md:px-10 md:pt-14 md:pb-36 lg:rounded-[2.5rem] lg:px-20 lg:pt-20 lg:pb-40">
+          <div className="grid gap-8 sm:gap-10 md:gap-12 lg:grid-cols-2 lg:items-start">
             <div className="text-white">
-              <h2 className="mb-6 text-4xl font-bold leading-tight lg:text-5xl">{sectionTitle}</h2>
-              <p className="max-w-md text-lg leading-relaxed opacity-90">{sectionSubtitle}</p>
+              <h2 className="mb-4 text-2xl font-bold leading-tight sm:mb-5 sm:text-3xl md:mb-6 md:text-4xl lg:text-5xl">
+                {sectionTitle}
+              </h2>
+              <p className="max-w-md text-sm leading-relaxed opacity-90 sm:text-base md:text-lg">
+                {sectionSubtitle}
+              </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
               {visibleFeatures.map((feature) => (
                 <div
                   key={feature.id}
-                  className="flex items-center gap-4 rounded-2xl bg-white p-4 shadow-sm transition-transform hover:scale-[1.02]"
+                  className="flex items-center gap-3 rounded-xl bg-white p-3 shadow-sm transition-transform hover:scale-[1.02] sm:gap-4 sm:rounded-2xl sm:p-4"
                 >
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-3xl">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-2xl sm:h-14 sm:w-14 sm:rounded-xl sm:text-3xl">
                     <span>{feature.icon}</span>
                   </div>
-                  <span className="text-[1.05rem] font-bold text-[#2d3a7d]">{feature.title}</span>
+                  <span className="text-sm font-bold text-[#2d3a7d] sm:text-[1.05rem]">{feature.title}</span>
                 </div>
               ))}
             </div>
@@ -186,66 +190,72 @@ export const TrustSection: React.FC<Props> = ({
 
           {activeTestimonial && (
             <div
-              className="absolute -bottom-24 mx-auto w-full max-w-5xl px-4 lg:-bottom-[28rem]"
-              onMouseEnter={() => setPaused(true)}
-              onMouseLeave={() => setPaused(false)}
+              className="absolute -bottom-[38rem] left-0 right-0 z-10 mx-auto w-full max-w-5xl px-2 sm:-bottom-24 sm:px-4 md:-bottom-[30rem] lg:-bottom-112"
+              onPointerEnter={() => setPaused(true)}
+              onPointerLeave={() => setPaused(false)}
             >
-              <div className="relative rounded-[2rem] bg-white p-6 shadow-[0_20px_50px_rgba(0,0,0,0.1)] lg:p-10">
+              <div className="relative rounded-xl bg-white p-4 shadow-[0_20px_50px_rgba(0,0,0,0.1)] sm:rounded-2xl sm:p-6 md:p-8 lg:rounded-[2rem] lg:p-10">
                 <Button
                   type="button"
                   variant="secondary"
                   size="icon"
                   onClick={goPrev}
-                  className="absolute -left-5 top-1/2 z-10 h-12 w-12 -translate-y-1/2 rounded-full border border-slate-100 bg-white p-0 text-[#3b4a97] shadow-lg hover:bg-slate-50 lg:-left-7 lg:h-14 lg:w-14"
+                  className="absolute left-1 top-1/2 z-10 h-10 w-10 -translate-y-1/2 rounded-full border border-slate-100 bg-white p-0 text-[#3b4a97] shadow-md hover:bg-slate-50 sm:left-2 sm:h-12 sm:w-12 md:-left-5 md:shadow-lg lg:-left-7 lg:h-14 lg:w-14"
                   aria-label="Previous testimonial"
                 >
-                  <ChevronLeft className="h-7 w-7" />
+                  <ChevronLeft className="h-6 w-6 sm:h-7 sm:w-7" />
                 </Button>
                 <Button
                   type="button"
                   variant="secondary"
                   size="icon"
                   onClick={goNext}
-                  className="absolute -right-5 top-1/2 z-10 h-12 w-12 -translate-y-1/2 rounded-full border border-slate-100 bg-white p-0 text-[#3b4a97] shadow-lg hover:bg-slate-50 lg:-right-7 lg:h-14 lg:w-14"
+                  className="absolute right-1 top-1/2 z-10 h-10 w-10 -translate-y-1/2 rounded-full border border-slate-100 bg-white p-0 text-[#3b4a97] shadow-md hover:bg-slate-50 sm:right-2 sm:h-12 sm:w-12 md:-right-5 md:shadow-lg lg:-right-7 lg:h-14 lg:w-14"
                   aria-label="Next testimonial"
                 >
-                  <ChevronRight className="h-7 w-7" />
+                  <ChevronRight className="h-6 w-6 sm:h-7 sm:w-7" />
                 </Button>
 
-                <div className="grid min-h-0 items-center gap-8 lg:grid-cols-12 lg:gap-10">
-                  <div className="lg:col-span-7">
-                    <div className="mb-4 flex gap-1">
-                      <div className="flex h-8 w-8 items-center justify-center rounded bg-blue-600/10 pt-2 font-serif text-4xl text-blue-600">
+                <div className="grid min-h-0 items-center gap-6 px-10 sm:gap-8 sm:px-12 md:grid-cols-12 md:gap-8 md:px-10 lg:gap-10 lg:px-12">
+                  <div className="md:col-span-7">
+                    <div className="mb-3 flex gap-1 sm:mb-4">
+                      <div className="flex h-7 w-7 items-center justify-center rounded bg-blue-600/10 pt-1.5 font-serif text-3xl text-blue-600 sm:h-8 sm:w-8 sm:pt-2 sm:text-4xl">
                         “
                       </div>
                     </div>
-                    <blockquote className="mb-6 line-clamp-10 text-lg font-medium italic leading-relaxed text-slate-600">
+                    <blockquote className="mb-4 line-clamp-10 text-base font-medium italic leading-relaxed text-slate-600 sm:mb-6 sm:text-lg">
                       &quot;{activeTestimonial.quote}&quot;
                     </blockquote>
                     <div>
-                      <h4 className="text-2xl font-bold text-[#2d3a7d]">{activeTestimonial.name}</h4>
-                      <p className="text-sm font-medium text-slate-400">{activeTestimonial.info}</p>
+                      <h4 className="text-lg font-bold text-[#2d3a7d] sm:text-xl md:text-2xl">
+                        {activeTestimonial.name}
+                      </h4>
+                      <p className="text-xs font-medium text-slate-400 sm:text-sm">{activeTestimonial.info}</p>
                     </div>
                   </div>
 
-                  <div className="lg:col-span-5">
+                  <div className="md:col-span-5">
                     <TestimonialMedia t={activeTestimonial} />
                   </div>
                 </div>
               </div>
 
-              <div className="mt-10 flex justify-center gap-2">
+              <div className="mt-6 flex justify-center gap-1.5 sm:mt-8 sm:gap-2 md:mt-10">
                 {testimonials.map((_, i) => (
                   <button
                     key={i}
                     type="button"
                     onClick={() => setTestimonialIndex(i)}
-                    className={cn(
-                      'h-2.5 rounded-full transition-all duration-300',
-                      testimonialIndex === i ? 'w-8 bg-[#d63384]' : 'w-2.5 bg-slate-300'
-                    )}
+                    className="flex min-h-11 min-w-11 items-center justify-center rounded-full p-2 touch-manipulation"
                     aria-label={`Go to testimonial ${i + 1}`}
-                  />
+                  >
+                    <span
+                      className={cn(
+                        'block h-2.5 rounded-full transition-all duration-300',
+                        testimonialIndex === i ? 'w-8 bg-[#d63384]' : 'w-2.5 bg-slate-300'
+                      )}
+                    />
+                  </button>
                 ))}
               </div>
             </div>

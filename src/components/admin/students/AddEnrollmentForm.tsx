@@ -17,7 +17,6 @@ import { distributeProportionalByFee } from '@/lib/admission-distribution';
 import {
   validateAdmissionPayment,
   netPayableAfterAdjustments,
-  type AdmissionPaymentChannel,
 } from '@/lib/admission-payment-zod';
 import { cn } from '@/lib/utils';
 import { CourseDeliveryBadge } from '@/lib/course-delivery';
@@ -43,12 +42,11 @@ import {
   ListTree,
   ChevronLeft,
   ChevronRight,
-  CreditCard,
-  Lock,
   Search,
   PlayCircle,
   ChevronDown,
   ChevronUp,
+  Wallet,
 } from 'lucide-react';
 
 const inputClass =
@@ -94,14 +92,11 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
   const [billingStartMonth, setBillingStartMonth] = useState(defaultMonth());
 
   const [totalDiscountAmount, setTotalDiscountAmount] = useState('');
-  const [totalScholarshipAmount, setTotalScholarshipAmount] = useState('');
-  const [recurringScholarshipAmount, setRecurringScholarshipAmount] = useState('');
   const [totalPaymentAmount, setTotalPaymentAmount] = useState('');
   const [batchAssignments, setBatchAssignments] = useState<Record<string, string>>({});
   const [availableBatches, setAvailableBatches] = useState<Record<string, Batch[]>>({});
   const [loadingBatches, setLoadingBatches] = useState(false);
   const [discountReference, setDiscountReference] = useState('');
-  const [admissionChannel, setAdmissionChannel] = useState<AdmissionPaymentChannel>('offline');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('CASH');
   const [paymentTrxId, setPaymentTrxId] = useState('');
   const [nextPaymentDueDate, setNextPaymentDueDate] = useState('');
@@ -373,12 +368,11 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
   const totalAdmissionFee = effectiveAdmissionFeeTotal;
 
   const totalDiscountNum = Number(totalDiscountAmount) || 0;
-  const totalScholarshipNum = Number(totalScholarshipAmount) || 0;
   const totalPaymentNum = Number(totalPaymentAmount) || 0;
 
   const netPayable = useMemo(
-    () => netPayableAfterAdjustments(totalCourseFee, totalDiscountNum, totalScholarshipNum),
-    [totalCourseFee, totalDiscountNum, totalScholarshipNum],
+    () => netPayableAfterAdjustments(totalCourseFee, totalDiscountNum),
+    [totalCourseFee, totalDiscountNum],
   );
 
   const balanceAfterPay = useMemo(
@@ -387,48 +381,35 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
   );
 
   const adjustmentsOverTotalFees =
-    totalCourseFee > 0 && totalDiscountNum + totalScholarshipNum > totalCourseFee + 1e-6;
+    totalCourseFee > 0 && totalDiscountNum > totalCourseFee + 1e-6;
 
-  const maxDiscountAllowed = Math.max(0, Math.round((totalCourseFee - totalScholarshipNum) * 100) / 100);
-  const maxScholarshipAllowed = Math.max(0, Math.round((totalCourseFee - totalDiscountNum) * 100) / 100);
+  const maxDiscountAllowed = Math.max(0, Math.round(totalCourseFee * 100) / 100);
 
-  const paymentFieldsLocked =
-    admissionChannel === 'online' || (admissionChannel === 'offline' && adjustmentsOverTotalFees);
+  const paymentFieldsLocked = adjustmentsOverTotalFees;
 
   useEffect(() => {
-    if (admissionChannel !== 'offline') return;
     setTotalPaymentAmount((prev) => {
       const pay = Number(prev) || 0;
       if (pay > netPayable + 0.0001) return String(netPayable);
       return prev;
     });
-  }, [admissionChannel, netPayable]);
-
-  useEffect(() => {
-    if (admissionChannel === 'online') {
-      setTotalPaymentAmount('0');
-      setPaymentMethod('CASH');
-      setPaymentTrxId('');
-    }
-  }, [admissionChannel]);
+  }, [netPayable]);
 
   const distributedPreview = useMemo(() => {
     const feeFn = (id: string) => Number(courseMap.get(id)?.fee) || 0;
     const discMap = distributeProportionalByFee(ids, feeFn, totalDiscountNum);
-    const scholMap = distributeProportionalByFee(ids, feeFn, totalScholarshipNum);
     const payMap = distributeProportionalByFee(ids, feeFn, totalPaymentNum);
     const rows = ids.map((id) => {
       const fee = feeFn(id);
       const d = discMap[id] ?? 0;
-      const sc = scholMap[id] ?? 0;
       const p = payMap[id] ?? 0;
-      const payable = Math.max(fee - d - sc, 0);
+      const payable = Math.max(fee - d, 0);
       const due = Math.max(payable - p, 0);
-      return { id, fee, disc: d, schol: sc, pay: p, payable, due };
+      return { id, fee, disc: d, pay: p, payable, due };
     });
     const totalFee = ids.reduce((s, id) => s + feeFn(id), 0);
     return { rows, totalFee };
-  }, [ids, courseMap, totalDiscountNum, totalScholarshipNum, totalPaymentNum]);
+  }, [ids, courseMap, totalDiscountNum, totalPaymentNum]);
 
   const validateStep1 = (): boolean => {
     const sel = resolveSelectedIds();
@@ -458,9 +439,8 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
   const validateStep2 = (): boolean => {
     const sel = resolveSelectedIds();
     const tFee = sel.reduce((s, id) => s + (Number(courseMap.get(id)?.fee) || 0), 0);
-    const v = validateAdmissionPayment(tFee, admissionChannel, {
+    const v = validateAdmissionPayment(tFee, 'offline', {
       totalDiscountAmount,
-      totalScholarshipAmount,
       totalPaymentAmount,
       discountReference,
       paymentMethod,
@@ -534,7 +514,6 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
       const tFee = sel.reduce((s, id) => s + (Number(courseMap.get(id)?.fee) || 0), 0);
       setTotalDiscountAmount(sumOffer > 0 ? String(Math.round(sumOffer * 100) / 100) : '');
       setDiscountReference(refFrom);
-      setTotalScholarshipAmount('');
       // Default payment = course fees - discount + admission fees
       const defaultPayment = Math.max(tFee - sumOffer, 0) + effectiveAdmissionFeeTotal;
       setTotalPaymentAmount(String(Math.round(defaultPayment * 100) / 100));
@@ -572,7 +551,6 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
       ? new Date(`${nextPaymentDueDate.trim()}-01T12:00:00`).toISOString()
       : undefined;
     const discTotal = Number(totalDiscountAmount) || 0;
-    const scholTotal = Number(totalScholarshipAmount) || 0;
     const payTotal = Number(totalPaymentAmount) || 0;
     const refShared = discountReference.trim();
     const needsMonth = sel.some((id) => courseMap.get(id)?.billingType === 'MONTHLY');
@@ -596,8 +574,6 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
         paymentTrxId: payTotal > 0 && paymentMethod !== 'CASH' ? paymentTrxId.trim() || undefined : undefined,
         discountAmount: discTotal > 0 ? discTotal : undefined,
         discountReference: discTotal > 0 ? refShared || undefined : undefined,
-        scholarshipAmount: scholTotal > 0 ? scholTotal : undefined,
-        recurringScholarship: Number(recurringScholarshipAmount) > 0 ? Number(recurringScholarshipAmount) : undefined,
         nextPaymentDueDate: nextDueIso,
         admissionFeeAmountOverrides: Object.keys(feeOverrides).length > 0 ? feeOverrides : undefined,
       });
@@ -1033,13 +1009,13 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
           <div className="space-y-8">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50">
-                <CreditCard className="h-5 w-5 text-violet-600" />
+                <Wallet className="h-5 w-5 text-violet-600" />
               </div>
               <div>
                 <h3 className="text-base font-black text-slate-800">Payment & adjustments</h3>
                 <p className="text-xs text-slate-500">
-                  Totals below apply to <strong>all selected courses</strong>. Discount, scholarship, and pay-today are split
-                  by each course fee. Discount + scholarship cannot exceed total fees; pay today cannot exceed net payable.
+                  Totals below apply to <strong>all selected courses</strong>. Discount and pay-today are split
+                  by each course fee. Discount cannot exceed total fees; pay today cannot exceed net payable.
                 </p>
               </div>
             </div>
@@ -1098,31 +1074,6 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
               );
             })()}
 
-            <div className="space-y-2">
-              <label className={sectionLabel}>Payment timing (not course delivery type)</label>
-              <p className="text-[11px] font-medium text-slate-500">
-                Whether you record money <strong>now</strong> or the student pays <strong>later</strong>. Separate from each
-                course&apos;s Online / Offline delivery badge in step 1.
-              </p>
-              <Select
-                value={admissionChannel}
-                onValueChange={(v) => setAdmissionChannel(v as 'offline' | 'online')}
-              >
-                <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-white font-bold shadow-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl">
-                  <SelectItem value="offline">Collect payment now (cash / bKash / bank)</SelectItem>
-                  <SelectItem value="online">Pay later — invoice only for now (gateway later)</SelectItem>
-                </SelectContent>
-              </Select>
-              {admissionChannel === 'online' ? (
-                <p className="text-xs font-medium text-slate-600">
-                  No payment recorded now. Invoice PDF is still created; the student can pay via the online gateway later.
-                </p>
-              ) : null}
-            </div>
-
             <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 text-sm">
               <p className="text-[10px] font-black uppercase tracking-widest text-indigo-700">Totals (auto)</p>
               <dl className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -1131,7 +1082,7 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
                   <dd className="font-mono">{totalCourseFee.toFixed(2)} BDT</dd>
                 </div>
                 <div className="flex justify-between gap-2 font-bold text-slate-800">
-                  <dt>Net after discount & scholarship</dt>
+                  <dt>Net after discount</dt>
                   <dd className="font-mono text-indigo-800">{netPayable.toFixed(2)} BDT</dd>
                 </div>
                 <div className="flex justify-between gap-2 font-bold text-slate-800">
@@ -1217,17 +1168,15 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
             )}
 
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Adjustments (discount & scholarship)</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Adjustments (discount)</p>
               <p className="mt-1 text-xs text-slate-500">
-                Combined discount + scholarship cannot exceed total course fees ({totalCourseFee.toFixed(2)} BDT). Max discount
-                alone: {maxDiscountAllowed.toFixed(2)} · Max scholarship alone: {maxScholarshipAllowed.toFixed(2)}.
+                Discount cannot exceed total course fees ({totalCourseFee.toFixed(2)} BDT). Max discount: {maxDiscountAllowed.toFixed(2)}.
               </p>
               {adjustmentsOverTotalFees ? (
                 <div className="mt-3 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-900">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>
-                    Discount + scholarship exceed total fees. Lower one or both — payment fields stay locked until this is
-                    fixed.
+                    Discount exceeds total fees. Lower it — payment fields stay locked until this is fixed.
                   </span>
                 </div>
               ) : null}
@@ -1244,32 +1193,6 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
                     step="0.01"
                     value={totalDiscountAmount}
                     onChange={(e) => setTotalDiscountAmount(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className={sectionLabel}>Total scholarship (BDT)</label>
-                  <Input
-                    className={cn(
-                      inputClass,
-                      adjustmentsOverTotalFees && 'border-rose-300 bg-rose-50/50 focus-visible:ring-rose-200',
-                    )}
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={totalScholarshipAmount}
-                    onChange={(e) => setTotalScholarshipAmount(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className={sectionLabel}>Recurring Scholarship / month (BDT)</label>
-                  <Input
-                    className={inputClass}
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={recurringScholarshipAmount}
-                    onChange={(e) => setRecurringScholarshipAmount(e.target.value)}
-                    placeholder="Auto-deducted each month"
                   />
                 </div>
                 <div className="space-y-2 sm:col-span-2">
@@ -1294,14 +1217,12 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">Payment collected today</p>
                 {paymentFieldsLocked ? (
                   <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-black uppercase text-slate-500">
-                    <Lock className="h-3 w-3" />
-                    {admissionChannel === 'online' ? 'Pay later' : 'Fix adjustments'}
+                    Fix adjustments
                   </span>
                 ) : null}
               </div>
               <p className="mt-1 text-xs text-slate-500">
-                Only these fields are for today&apos;s collection. They are disabled when paying online or when adjustments
-                exceed fees.
+                Only these fields are for today&apos;s collection. They are disabled when adjustments exceed fees.
               </p>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2 sm:col-span-2">
@@ -1387,7 +1308,6 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
                       <th className="px-3 py-2">Course</th>
                       <th className="px-3 py-2 text-right">Fee</th>
                       <th className="px-3 py-2 text-right">Disc</th>
-                      <th className="px-3 py-2 text-right">Schol.</th>
                       <th className="px-3 py-2 text-right">Pay</th>
                       <th className="px-3 py-2 text-right">Due</th>
                     </tr>
@@ -1403,7 +1323,6 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
                         </td>
                         <td className="px-3 py-2.5 text-right font-mono text-slate-700">{r.fee.toFixed(0)}</td>
                         <td className="px-3 py-2.5 text-right font-mono text-amber-800">{r.disc.toFixed(0)}</td>
-                        <td className="px-3 py-2.5 text-right font-mono text-violet-800">{r.schol.toFixed(0)}</td>
                         <td className="px-3 py-2.5 text-right font-mono text-emerald-800">{r.pay.toFixed(0)}</td>
                         <td className="px-3 py-2.5 text-right font-mono font-black text-rose-700">{r.due.toFixed(0)}</td>
                       </tr>
@@ -1416,7 +1335,6 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
                             {p.name} <span className="text-[10px] font-medium text-amber-600">(Admission Fee)</span>
                           </td>
                           <td className="px-3 py-2.5 text-right font-mono text-amber-800">{feeAmount.toFixed(0)}</td>
-                          <td className="px-3 py-2.5 text-right font-mono text-slate-400">—</td>
                           <td className="px-3 py-2.5 text-right font-mono text-slate-400">—</td>
                           <td className="px-3 py-2.5 text-right font-mono text-slate-400">—</td>
                           <td className="px-3 py-2.5 text-right font-mono text-slate-400">—</td>
@@ -1494,38 +1412,18 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
                 )}
 
                 {/* Adjustments Section */}
-                {(totalDiscountNum > 0 || totalScholarshipNum > 0) && (
+                {totalDiscountNum > 0 && (
                   <div className="bg-violet-50/50 p-5 space-y-3">
                     <p className="text-[10px] font-black uppercase tracking-wider text-violet-700">Adjustments</p>
-                    {totalDiscountNum > 0 && (
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-bold text-violet-900">Discount</p>
-                          {discountReference && (
-                            <p className="text-[10px] font-medium text-violet-600">{discountReference}</p>
-                          )}
-                        </div>
-                        <p className="font-mono text-sm font-black text-violet-700">-৳{totalDiscountNum.toLocaleString()}</p>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-bold text-violet-900">Discount</p>
+                        {discountReference && (
+                          <p className="text-[10px] font-medium text-violet-600">{discountReference}</p>
+                        )}
                       </div>
-                    )}
-                    {totalScholarshipNum > 0 && (
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-bold text-violet-900">Scholarship</p>
-                          <p className="text-[10px] font-medium text-violet-600">One-time discount</p>
-                        </div>
-                        <p className="font-mono text-sm font-black text-violet-700">-৳{totalScholarshipNum.toLocaleString()}</p>
-                      </div>
-                    )}
-                    {Number(recurringScholarshipAmount) > 0 && (
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-bold text-violet-900">Recurring Scholarship</p>
-                          <p className="text-[10px] font-medium text-violet-600">Auto-applied monthly</p>
-                        </div>
-                        <p className="font-mono text-sm font-black text-violet-700">৳{Number(recurringScholarshipAmount).toLocaleString()}/mo</p>
-                      </div>
-                    )}
+                      <p className="font-mono text-sm font-black text-violet-700">-৳{totalDiscountNum.toLocaleString()}</p>
+                    </div>
                   </div>
                 )}
 
@@ -1534,7 +1432,7 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-black uppercase tracking-wide text-slate-700">Total Payable</p>
                     <p className="font-mono text-xl font-black text-slate-900">
-                      ৳{(distributedPreview.totalFee + effectiveAdmissionFeeTotal - totalDiscountNum - totalScholarshipNum).toLocaleString()}
+                      ৳{(distributedPreview.totalFee + effectiveAdmissionFeeTotal - totalDiscountNum).toLocaleString()}
                     </p>
                   </div>
                   <div className="flex items-center justify-between border-t border-slate-200 pt-4">
@@ -1544,7 +1442,7 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
                   <div className="flex items-center justify-between border-t border-slate-200 pt-4">
                     <p className="text-sm font-black uppercase tracking-wide text-rose-700">Amount Due</p>
                     <p className="font-mono text-2xl font-black text-rose-600">
-                      ৳{Math.max(distributedPreview.totalFee + effectiveAdmissionFeeTotal - totalDiscountNum - totalScholarshipNum - totalPaymentNum, 0).toLocaleString()}
+                      ৳{Math.max(distributedPreview.totalFee + effectiveAdmissionFeeTotal - totalDiscountNum - totalPaymentNum, 0).toLocaleString()}
                     </p>
                   </div>
                 </div>
@@ -1565,7 +1463,6 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Payment Info</p>
                 <div className="space-y-1 text-xs font-bold text-slate-700">
                   <p>Method: {paymentMethod}</p>
-                  <p>Channel: {admissionChannel === 'offline' ? 'Collect now' : 'Pay later'}</p>
                   {paymentTrxId && <p>Trx ID: {paymentTrxId}</p>}
                   {nextPaymentDueDate && <p>Next payment month: {nextPaymentDueDate}</p>}
                 </div>

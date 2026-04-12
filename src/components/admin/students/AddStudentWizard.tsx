@@ -28,7 +28,6 @@ import { distributeProportionalByFee } from '@/lib/admission-distribution';
 import {
   validateAdmissionPayment,
   netPayableAfterAdjustments,
-  type AdmissionPaymentChannel,
 } from '@/lib/admission-payment-zod';
 import { cn } from '@/lib/utils';
 import { CourseDeliveryBadge } from '@/lib/course-delivery';
@@ -39,12 +38,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Copy,
-  CreditCard,
   FileText,
   GraduationCap,
   Layers,
   Library,
-  Lock,
   Mail,
   MessageSquare,
   Phone,
@@ -132,10 +129,8 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
 
   /** Overall amounts for all selected courses; split by course fee weight when creating invoices. */
   const [totalDiscountAmount, setTotalDiscountAmount] = useState('');
-  const [totalScholarshipAmount, setTotalScholarshipAmount] = useState('');
   const [totalPaymentAmount, setTotalPaymentAmount] = useState('');
   const [discountReference, setDiscountReference] = useState('');
-  const [admissionChannel, setAdmissionChannel] = useState<AdmissionPaymentChannel>('offline');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('CASH');
   const [paymentTrxId, setPaymentTrxId] = useState('');
   const [nextPaymentDueDate, setNextPaymentDueDate] = useState('');
@@ -375,12 +370,11 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
 
   const totalDiscountNum = Number(totalDiscountAmount) || 0;
   const totalMonthlyDiscountNum = Number(monthlyDiscountAmount) || 0;
-  const totalScholarshipNum = Number(totalScholarshipAmount) || 0;
   const totalPaymentNum = Number(totalPaymentAmount) || 0;
 
   const netPayable = useMemo(
-    () => netPayableAfterAdjustments(totalCourseFee, totalDiscountNum + totalMonthlyDiscountNum, totalScholarshipNum),
-    [totalCourseFee, totalDiscountNum, totalMonthlyDiscountNum, totalScholarshipNum],
+    () => netPayableAfterAdjustments(totalCourseFee, totalDiscountNum + totalMonthlyDiscountNum),
+    [totalCourseFee, totalDiscountNum, totalMonthlyDiscountNum],
   );
 
   const balanceAfterPay = useMemo(
@@ -389,10 +383,9 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
   );
 
   const adjustmentsOverTotalFees =
-    totalCourseFee > 0 && totalDiscountNum + totalMonthlyDiscountNum + totalScholarshipNum > totalCourseFee + 1e-6;
+    totalCourseFee > 0 && totalDiscountNum + totalMonthlyDiscountNum > totalCourseFee + 1e-6;
 
-  const maxDiscountAllowed = Math.max(0, Math.round((totalCourseFee - totalMonthlyDiscountNum - totalScholarshipNum) * 100) / 100);
-  const maxScholarshipAllowed = Math.max(0, Math.round((totalCourseFee - totalDiscountNum - totalMonthlyDiscountNum) * 100) / 100);
+  const maxDiscountAllowed = Math.max(0, Math.round((totalCourseFee - totalMonthlyDiscountNum) * 100) / 100);
 
   /** True when any selected course is OFFLINE */
   const hasOfflineCourse = selectedCourseIds.some((id) => isOfflineCourseType(courseById.get(id)?.type));
@@ -406,42 +399,30 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
     return 'ONLINE';
   }, [selectedCourseIds, courseById]);
 
-  const paymentFieldsLocked =
-    admissionChannel === 'online' || (admissionChannel === 'offline' && adjustmentsOverTotalFees);
+  const paymentFieldsLocked = adjustmentsOverTotalFees;
 
   useEffect(() => {
-    if (admissionChannel !== 'offline') return;
     setTotalPaymentAmount((prev) => {
       const pay = Number(prev) || 0;
       if (pay > netPayable + 0.0001) return String(netPayable);
       return prev;
     });
-  }, [admissionChannel, netPayable]);
-
-  useEffect(() => {
-    if (admissionChannel === 'online') {
-      setTotalPaymentAmount('0');
-      setPaymentMethod('CASH');
-      setPaymentTrxId('');
-    }
-  }, [admissionChannel]);
+  }, [netPayable]);
 
   const distributedPreview = useMemo(() => {
     const feeFn = (id: string) => Number(courseById.get(id)?.fee) || 0;
     const discMap = distributeProportionalByFee(selectedCourseIds, feeFn, totalDiscountNum);
-    const scholMap = distributeProportionalByFee(selectedCourseIds, feeFn, totalScholarshipNum);
     const payMap = distributeProportionalByFee(selectedCourseIds, feeFn, totalPaymentNum);
     const rows = selectedCourseIds.map((id) => {
       const fee = feeFn(id);
       const d = discMap[id] ?? 0;
-      const sc = scholMap[id] ?? 0;
       const p = payMap[id] ?? 0;
-      const payable = Math.max(fee - d - sc, 0);
+      const payable = Math.max(fee - d, 0);
       const due = Math.max(payable - p, 0);
-      return { id, fee, disc: d, schol: sc, pay: p, payable, due };
+      return { id, fee, disc: d, pay: p, payable, due };
     });
     return { rows };
-  }, [selectedCourseIds, courseById, totalDiscountNum, totalScholarshipNum, totalPaymentNum]);
+  }, [selectedCourseIds, courseById, totalDiscountNum, totalPaymentNum]);
 
   const WIZARD_STEP_LABELS = ['Register', 'Courses', 'Payment', 'Confirm'] as const;
 
@@ -494,9 +475,8 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
   };
 
   const validateStep3 = (): boolean => {
-    const v = validateAdmissionPayment(totalCourseFee, admissionChannel, {
+    const v = validateAdmissionPayment(totalCourseFee, 'offline', {
       totalDiscountAmount,
-      totalScholarshipAmount,
       totalPaymentAmount,
       discountReference,
       paymentMethod,
@@ -531,7 +511,6 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
       }
       const tf = selectedCourseIds.reduce((s, id) => s + (Number(courseById.get(id)?.fee) || 0), 0);
       setTotalDiscountAmount(sumOffer > 0 ? String(Math.round(sumOffer * 100) / 100) : '');
-      setTotalScholarshipAmount('');
       setDiscountReference(offerNote);
       setTotalPaymentAmount(String(Math.round(Math.max(tf - sumOffer, 0) * 100) / 100));
     }
@@ -588,7 +567,6 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
         : undefined;
 
       const discTotal = Number(totalDiscountAmount) || 0;
-      const scholTotal = Number(totalScholarshipAmount) || 0;
       const payTotal = Number(totalPaymentAmount) || 0;
       const refTrim = discountReference.trim();
       const needsMonth = selectedCourseIds.some((id) => courseById.get(id)?.billingType === 'MONTHLY');
@@ -613,7 +591,6 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
         discountAmount: discTotal > 0 ? discTotal : undefined,
         discountReference: discTotal > 0 ? refTrim : undefined,
         monthlyDiscountAmount: totalMonthlyDiscountNum > 0 ? totalMonthlyDiscountNum : undefined,
-        scholarshipAmount: scholTotal > 0 ? scholTotal : undefined,
         nextPaymentDueDate: nextDueIso,
         admissionFeeAmountOverrides: Object.keys(feeOverrides).length > 0 ? feeOverrides : undefined,
       }, `wizard-${studentUserId}-${Date.now()}`);
@@ -1254,115 +1231,34 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
         )}
 
         {step === 3 && (
-          <div className="space-y-8 animate-in fade-in duration-200">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-violet-50 flex items-center justify-center">
-                <CreditCard className="h-5 w-5 text-violet-600" />
-              </div>
-              <div>
-                <h3 className="text-base font-black text-slate-800">Payment & adjustments</h3>
-                <p className="text-xs text-slate-500">
-                  Totals apply to all selected courses and are split by fee weight. Discount + scholarship cannot exceed fees; pay
-                  today cannot exceed net payable. Invoice PDFs are generated right after admission.
-                </p>
-              </div>
-            </div>
+          <div className="space-y-6 animate-in fade-in duration-200">
+            {/* ── Section title ── */}
+            <p className="text-xs font-medium uppercase tracking-widest text-slate-500">ফি সারসংক্ষেপ</p>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <label className={sectionLabel}>Payment timing (not course delivery type)</label>
-              <p className="mb-2 text-[11px] font-medium text-slate-500">
-                This is whether you record money <strong>now</strong> or the student pays <strong>later</strong> via gateway. It is
-                separate from each course&apos;s <strong>Online / Offline</strong> delivery label in the previous step.
-              </p>
-              <Select
-                value={admissionChannel}
-                onValueChange={(v) => setAdmissionChannel(v as AdmissionPaymentChannel)}
-              >
-                <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 font-bold">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl">
-                  <SelectItem value="offline">Collect payment now (cash / bKash / bank)</SelectItem>
-                  <SelectItem value="online">Pay later — invoice only for now (gateway later)</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="mt-2 text-xs text-slate-500">
-                {admissionChannel === 'online'
-                  ? 'Payment fields below stay off. Invoice PDF is still created; the student pays from their account later.'
-                  : 'Enter what you collect today. Transaction ID is required for non-cash.'}
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 text-sm">
-              <p className="text-[10px] font-black uppercase tracking-widest text-indigo-700">Totals (auto)</p>
-              <dl className="mt-3 grid gap-2 sm:grid-cols-2">
-                <div className="flex justify-between gap-2 font-bold text-slate-800">
-                  <dt>Total course fees</dt>
-                  <dd className="font-mono">{totalCourseFee.toFixed(2)} BDT</dd>
+            {/* ── Fee breakdown card ── */}
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/40 p-4 space-y-1">
+              {admissionFeePrograms.length > 0 && (
+                <div className="flex items-center justify-between py-1.5 text-sm border-b border-slate-100 last:border-b-0">
+                  <span className="text-slate-600">Admission fee</span>
+                  <span className="font-mono font-bold">৳{effectiveAdmissionFeeTotal.toLocaleString()}</span>
                 </div>
-                {totalDiscountNum > 0 && (
-                  <div className="flex justify-between gap-2 font-bold text-amber-800">
-                    <dt>Special Discount</dt>
-                    <dd className="font-mono">−{totalDiscountNum.toFixed(2)} BDT</dd>
+              )}
+              {selectedCourseIds.map((cid) => {
+                const c = courseById.get(cid);
+                const fee = c?.fee != null ? Number(c.fee) : 0;
+                return (
+                  <div key={cid} className="flex items-center justify-between py-1.5 text-sm border-b border-slate-100 last:border-b-0">
+                    <span className="text-slate-600">{c?.name}</span>
+                    <span className="font-mono font-bold">৳{fee.toLocaleString()}</span>
                   </div>
-                )}
-                {totalMonthlyDiscountNum > 0 && (
-                  <div className="flex justify-between gap-2 font-bold text-violet-800">
-                    <dt>মাসিক ছাড় (Monthly Discount)</dt>
-                    <dd className="font-mono">−{totalMonthlyDiscountNum.toFixed(2)} BDT</dd>
-                  </div>
-                )}
-                {totalScholarshipNum > 0 && (
-                  <div className="flex justify-between gap-2 font-bold text-emerald-800">
-                    <dt>Scholarship</dt>
-                    <dd className="font-mono">−{totalScholarshipNum.toFixed(2)} BDT</dd>
-                  </div>
-                )}
-                <div className="flex justify-between gap-2 font-bold text-slate-800 border-t border-indigo-100 pt-2 sm:col-span-2">
-                  <dt>Net after discount & scholarship</dt>
-                  <dd className="font-mono text-indigo-800">{netPayable.toFixed(2)} BDT</dd>
-                </div>
-                <div className="flex justify-between gap-2 font-bold text-slate-800">
-                  <dt>Pay today (total)</dt>
-                  <dd className="font-mono">{totalPaymentNum.toFixed(2)} BDT</dd>
-                </div>
-                <div className="flex justify-between gap-2 font-bold text-amber-900">
-                  <dt>Balance after pay today</dt>
-                  <dd className="font-mono">{balanceAfterPay.toFixed(2)} BDT</dd>
-                </div>
-              </dl>
+                );
+              })}
+              {selectedCourseIds.length === 0 && (
+                <p className="text-sm text-slate-400">কোনো course নির্বাচন করা হয়নি</p>
+              )}
             </div>
 
-            <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
-              <table className="w-full min-w-[320px] text-sm">
-                <thead className="border-b border-slate-100 bg-slate-50 text-[10px] font-black uppercase text-slate-500">
-                  <tr>
-                    <th className="px-3 py-2 text-left">Course</th>
-                    <th className="px-3 py-2 text-right">Fee (BDT)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {selectedCourseIds.map((cid) => {
-                    const c = courseById.get(cid);
-                    const fee = c?.fee != null ? Number(c.fee) : 0;
-                    return (
-                      <tr key={cid}>
-                        <td className="px-3 py-2 font-bold text-slate-800">{c?.name}</td>
-                        <td className="px-3 py-2 text-right font-mono font-bold">{fee.toFixed(2)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot className="border-t-2 border-slate-200 bg-slate-50/80">
-                  <tr>
-                    <td className="px-3 py-2 text-xs font-black uppercase text-slate-600">Total</td>
-                    <td className="px-3 py-2 text-right font-black text-slate-900">{totalCourseFee.toFixed(2)}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-
-            {/* ── Admission Fee (editable) ─────────────────────────────── */}
+            {/* ── Admission Fee (editable) ── */}
             {admissionFeePrograms.length > 0 && (
               <div className="overflow-hidden rounded-2xl border border-indigo-200 bg-indigo-50/40">
                 <div className="flex items-center gap-3 border-b border-indigo-100 bg-indigo-600 px-4 py-3">
@@ -1378,7 +1274,7 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
                       <div className="min-w-0">
                         <p className="text-sm font-black text-indigo-900">{p.name}</p>
                         <p className="text-[10px] font-bold text-indigo-500">
-                          Default: ৳{p.amount.toLocaleString()} · Edit below to override for this enrollment
+                          Default: ৳{p.amount.toLocaleString()} · Edit below to override
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -1405,231 +1301,180 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
               </div>
             )}
 
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/40 p-4">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Discount & scholarship</p>
-              <p className="mb-3 text-xs text-slate-600">Together these cannot exceed total course fees ({totalCourseFee.toFixed(2)} BDT).</p>
-              {adjustmentsOverTotalFees ? (
-                <div className="mb-3 flex gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-800">
+            {/* ── Special Discount ── */}
+            <div className="space-y-2">
+              <label className={sectionLabel}>Special Discount (একবার, ভর্তির সময়)</label>
+              <Input
+                className={cn(
+                  inputClass,
+                  adjustmentsOverTotalFees ? 'border-rose-300 bg-rose-50/50 focus:border-rose-400 focus:ring-rose-500/15' : '',
+                )}
+                type="number"
+                min={0}
+                step="0.01"
+                value={totalDiscountAmount}
+                onChange={(e) => setTotalDiscountAmount(e.target.value)}
+                placeholder="0"
+              />
+              {adjustmentsOverTotalFees && (
+                <div className="flex gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-800">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>
-                    Discount + scholarship ({(totalDiscountNum + totalScholarshipNum).toFixed(2)} BDT) exceed fees. Lower one or both.
-                    Max discount now: {maxDiscountAllowed.toFixed(2)} · Max scholarship now: {maxScholarshipAllowed.toFixed(2)}
+                    Discount ({totalDiscountNum.toFixed(2)} BDT) exceeds fees ({totalCourseFee.toFixed(2)} BDT).
+                    Max: {maxDiscountAllowed.toFixed(2)} BDT
                   </span>
                 </div>
-              ) : null}
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <label className={sectionLabel}>Total discount (BDT)</label>
-                  <Input
-                    className={cn(
-                      inputClass,
-                      adjustmentsOverTotalFees ? 'border-rose-300 bg-rose-50/50 focus:border-rose-400 focus:ring-rose-500/15' : '',
-                    )}
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={totalDiscountAmount}
-                    onChange={(e) => setTotalDiscountAmount(e.target.value)}
-                  />
-                  <p className="text-[10px] font-medium text-slate-400">Cap with current scholarship: {maxDiscountAllowed.toFixed(2)} BDT</p>
-                </div>
-                <div className="space-y-2">
-                  <label className={sectionLabel}>Total scholarship (BDT)</label>
-                  <Input
-                    className={cn(
-                      inputClass,
-                      adjustmentsOverTotalFees ? 'border-rose-300 bg-rose-50/50 focus:border-rose-400 focus:ring-rose-500/15' : '',
-                    )}
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={totalScholarshipAmount}
-                    onChange={(e) => setTotalScholarshipAmount(e.target.value)}
-                  />
-                  <p className="text-[10px] font-medium text-slate-400">Cap with current discount: {maxScholarshipAllowed.toFixed(2)} BDT</p>
-                </div>
-                {hasOfflineCourse && (
-                  <div className="space-y-2 sm:col-span-2">
-                    <label className={sectionLabel}>মাসিক ছাড় (Monthly Discount) (BDT)</label>
-                    <Input
-                      className={inputClass}
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      value={monthlyDiscountAmount}
-                      onChange={(e) => setMonthlyDiscountAmount(e.target.value)}
-                      placeholder="0"
-                    />
-                    <p className="text-[10px] font-medium text-slate-400">প্রতি মাসে এই পরিমাণ ছাড় পাবেন (Offline courses only).</p>
-                  </div>
-                )}
-                <div className="space-y-2 sm:col-span-2">
-                  <label className={sectionLabel}>Discount reference (required if discount &gt; 0)</label>
-                  <Input
-                    className={inputClass}
-                    value={discountReference}
-                    onChange={(e) => setDiscountReference(e.target.value)}
-                    placeholder="Offer code, approver…"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div
-              className={cn(
-                'rounded-2xl border-2 p-4 transition-colors',
-                paymentFieldsLocked
-                  ? 'border-slate-200 bg-slate-100/80'
-                  : 'border-emerald-200/80 bg-emerald-50/30',
               )}
-            >
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">Payment collected today</p>
-                  <p className="text-xs font-semibold text-slate-700">Only active for offline collection when discount + scholarship are valid.</p>
-                </div>
-                {paymentFieldsLocked ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-200/90 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-slate-700">
-                    <Lock className="h-3 w-3" />
-                    {admissionChannel === 'online' ? 'Pay later' : 'Fix adjustments'}
-                  </span>
-                ) : (
-                  <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-emerald-800">
-                    Active
-                  </span>
-                )}
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2 sm:col-span-2">
-                  <label className={cn(sectionLabel, paymentFieldsLocked && 'text-slate-400')}>Total pay today (BDT)</label>
-                  <Input
-                    className={cn(inputClass, paymentFieldsLocked && 'cursor-not-allowed bg-slate-100 text-slate-500')}
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={totalPaymentAmount}
-                    onChange={(e) => setTotalPaymentAmount(e.target.value)}
-                    disabled={paymentFieldsLocked}
-                  />
-                  {!paymentFieldsLocked && totalPaymentNum > netPayable && (
-                    <div className="flex gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
-                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-                      <span>
-                        Pay today ({totalPaymentNum.toFixed(2)}) &gt; Net payable ({netPayable.toFixed(2)}). Overpayment is not allowed.
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <label className={cn(sectionLabel, paymentFieldsLocked && 'text-slate-400')}>Payment method</label>
-                  <Select
-                    value={paymentMethod}
-                    onValueChange={(v) => setPaymentMethod(v as PaymentMethodType)}
-                    disabled={paymentFieldsLocked}
-                  >
-                    <SelectTrigger
-                      className={cn(
-                        'h-12 rounded-2xl border-slate-200 font-bold',
-                        paymentFieldsLocked ? 'cursor-not-allowed bg-slate-100 text-slate-500' : 'bg-white',
-                      )}
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-2xl">
-                      <SelectItem value="CASH">Cash</SelectItem>
-                      <SelectItem value="BKASH">bKash</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <label className={cn(sectionLabel, paymentFieldsLocked && 'text-slate-400')}>
-                    Transaction / slip reference (non-cash, if paying now)
-                  </label>
-                  <Input
-                    className={cn(inputClass, paymentFieldsLocked && 'cursor-not-allowed bg-slate-100 text-slate-500')}
-                    value={paymentTrxId}
-                    onChange={(e) => setPaymentTrxId(e.target.value)}
-                    placeholder="Trx ID, bank ref…"
-                    disabled={paymentFieldsLocked}
-                  />
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <label className={sectionLabel}>Next payment date (all invoices)</label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          'h-12 w-full justify-start rounded-2xl border-slate-200 bg-white font-bold shadow-sm',
-                          !nextPaymentDueDate && 'text-slate-400',
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {nextPaymentDueDate
-                          ? format(parseDateInput(nextPaymentDueDate)!, 'dd MMM yyyy')
-                          : 'Pick date'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto rounded-2xl p-0" align="start">
-                      <Calendar
-                        selected={parseDateInput(nextPaymentDueDate)}
-                        onSelect={(date) => setNextPaymentDueDate(formatDateInput(date))}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              </div>
             </div>
 
-            {admissionFeePrograms.length > 0 && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 space-y-1">
-                <p className="text-[10px] font-black uppercase tracking-widest text-amber-700">
-                  Admission fee · auto-added to invoice
-                </p>
-                {admissionFeePrograms.map((p) => (
-                  <p key={p.id} className="text-xs font-bold text-amber-800">
-                    {p.name} — ৳{p.amount.toLocaleString()} <span className="font-medium text-amber-600">(one-time per program)</span>
-                  </p>
-                ))}
-                <p className="text-[10px] font-bold text-amber-600">
-                  Invoice total will include ৳{totalAdmissionFee.toLocaleString()} admission fee on top of course fees.
-                </p>
+            {/* ── Monthly Discount (offline courses only) ── */}
+            {hasOfflineCourse && (
+              <div className="space-y-2">
+                <label className={sectionLabel}>Monthly Discount (প্রতি মাসে প্রযোজ্য)</label>
+                <Input
+                  className={inputClass}
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={monthlyDiscountAmount}
+                  onChange={(e) => setMonthlyDiscountAmount(e.target.value)}
+                  placeholder="0"
+                />
+                <p className="text-[10px] font-medium text-slate-400">প্রতি মাসে এই পরিমাণ ছাড় পাবেন (Offline courses only).</p>
               </div>
             )}
 
-            <div className="overflow-hidden rounded-2xl border border-indigo-200 bg-white shadow-sm">
-              <div className="border-b border-indigo-100 bg-indigo-600 px-4 py-3">
-                <p className="text-[10px] font-black uppercase tracking-widest text-white/90">Per-course split (preview)</p>
-                <p className="text-xs font-medium text-indigo-100">Amounts scaled by each course fee; same totals as above.</p>
+            {/* ── Discount reference ── */}
+            <div className="space-y-2">
+              <label className={sectionLabel}>Discount reference (required if discount &gt; 0)</label>
+              <Input
+                className={inputClass}
+                value={discountReference}
+                onChange={(e) => setDiscountReference(e.target.value)}
+                placeholder="Offer code, approver…"
+              />
+            </div>
+
+            <hr className="border-slate-200" />
+
+            {/* ── Fee totals card ── */}
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/40 p-4 space-y-1">
+              <div className="flex items-center justify-between py-1.5 text-sm border-b border-slate-100">
+                <span className="text-slate-600">মোট ফি</span>
+                <span className="font-mono font-bold">৳{totalCourseFee.toLocaleString()}</span>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[520px] text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50 text-left text-[10px] font-black uppercase tracking-wider text-slate-500">
-                      <th className="px-3 py-2">Course</th>
-                      <th className="px-3 py-2 text-right">Fee</th>
-                      <th className="px-3 py-2 text-right">Disc</th>
-                      <th className="px-3 py-2 text-right">Schol.</th>
-                      <th className="px-3 py-2 text-right">Pay</th>
-                      <th className="px-3 py-2 text-right">Due</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {distributedPreview.rows.map((r) => (
-                      <tr key={r.id} className="bg-white">
-                        <td className="max-w-[200px] truncate px-3 py-2.5 font-bold text-slate-800" title={courseById.get(r.id)?.name}>
-                          {courseById.get(r.id)?.name}
-                        </td>
-                        <td className="px-3 py-2.5 text-right font-mono text-slate-700">{r.fee.toFixed(0)}</td>
-                        <td className="px-3 py-2.5 text-right font-mono text-amber-800">{r.disc.toFixed(0)}</td>
-                        <td className="px-3 py-2.5 text-right font-mono text-violet-800">{r.schol.toFixed(0)}</td>
-                        <td className="px-3 py-2.5 text-right font-mono text-emerald-800">{r.pay.toFixed(0)}</td>
-                        <td className="px-3 py-2.5 text-right font-mono font-black text-rose-700">{r.due.toFixed(0)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="flex items-center justify-between py-1.5 text-sm border-b border-slate-100">
+                <span className="text-slate-600">Special Discount</span>
+                <span className="font-mono font-bold text-rose-600">− ৳{totalDiscountNum.toLocaleString()}</span>
               </div>
+              {hasOfflineCourse && totalMonthlyDiscountNum > 0 && (
+                <div className="flex items-center justify-between py-1.5 text-sm border-b border-slate-100">
+                  <span className="text-slate-600">Monthly Discount</span>
+                  <span className="font-mono font-bold text-rose-600">− ৳{totalMonthlyDiscountNum.toLocaleString()}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between py-1.5 text-sm font-bold">
+                <span>মোট পরিশোধযোগ্য</span>
+                <span className="font-mono text-indigo-800">৳{netPayable.toLocaleString()}</span>
+              </div>
+            </div>
+
+            {/* ── Paid amount ── */}
+            <div className="space-y-2">
+              <label className={sectionLabel}>পরিশোধিত পরিমাণ</label>
+              <Input
+                className={cn(inputClass, paymentFieldsLocked && 'cursor-not-allowed bg-slate-100 text-slate-500')}
+                type="number"
+                min={0}
+                step="0.01"
+                value={totalPaymentAmount}
+                onChange={(e) => setTotalPaymentAmount(e.target.value)}
+                disabled={paymentFieldsLocked}
+                placeholder="0"
+              />
+              {!paymentFieldsLocked && totalPaymentNum > netPayable && (
+                <div className="flex gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                  <span>
+                    Pay today ({totalPaymentNum.toFixed(2)}) &gt; Net payable ({netPayable.toFixed(2)}). Overpayment is not allowed.
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* ── Paid / Due card ── */}
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/40 p-4 space-y-1">
+              <div className="flex items-center justify-between py-1.5 text-sm border-b border-slate-100">
+                <span className="text-slate-600">পরিশোধিত</span>
+                <span className="font-mono font-bold text-emerald-600">৳{totalPaymentNum.toLocaleString()}</span>
+              </div>
+              <div className="flex items-center justify-between py-1.5 text-sm font-bold">
+                <span>বাকি (Due)</span>
+                <span className="font-mono font-bold text-rose-600">৳{balanceAfterPay.toLocaleString()}</span>
+              </div>
+            </div>
+
+            {/* ── Payment Mode ── */}
+            <div className="space-y-2">
+              <label className={sectionLabel}>Payment Mode</label>
+              <Select
+                value={paymentMethod}
+                onValueChange={(v) => setPaymentMethod(v as PaymentMethodType)}
+                disabled={paymentFieldsLocked}
+              >
+                <SelectTrigger
+                  className={cn(
+                    'h-12 rounded-2xl border-slate-200 font-bold',
+                    paymentFieldsLocked ? 'cursor-not-allowed bg-slate-100 text-slate-500' : 'bg-white',
+                  )}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl">
+                  <SelectItem value="CASH">Cash</SelectItem>
+                  <SelectItem value="BKASH">bKash</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* ── Transaction Reference (bKash only) ── */}
+            {paymentMethod === 'BKASH' && (
+              <div className="space-y-2">
+                <label className={sectionLabel}>Transaction Reference *</label>
+                <Input
+                  className={inputClass}
+                  value={paymentTrxId}
+                  onChange={(e) => setPaymentTrxId(e.target.value)}
+                  placeholder="TXN ID / Ref নম্বর দিন"
+                />
+              </div>
+            )}
+
+            {/* ── Next payment date ── */}
+            <div className="space-y-2">
+              <label className={sectionLabel}>Next payment date (all invoices)</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      'h-12 w-full justify-start rounded-2xl border-slate-200 bg-white font-bold shadow-sm',
+                      !nextPaymentDueDate && 'text-slate-400',
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {nextPaymentDueDate
+                      ? format(parseDateInput(nextPaymentDueDate)!, 'dd MMM yyyy')
+                      : 'Pick date'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto rounded-2xl p-0" align="start">
+                  <Calendar
+                    selected={parseDateInput(nextPaymentDueDate)}
+                    onSelect={(date) => setNextPaymentDueDate(formatDateInput(date))}
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
         )}
@@ -1690,12 +1535,6 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
                   <span className="font-mono font-black text-violet-700">−৳{totalMonthlyDiscountNum.toFixed(2)}</span>
                 </div>
               )}
-              {totalScholarshipNum > 0 && (
-                <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Scholarship</span>
-                  <span className="font-mono font-black text-emerald-700">−৳{totalScholarshipNum.toFixed(2)}</span>
-                </div>
-              )}
               <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
                 <span className="text-[10px] font-black uppercase tracking-widest text-indigo-700">Net Payable</span>
                 <span className="font-mono font-black text-indigo-800">৳{netPayable.toFixed(2)}</span>
@@ -1704,9 +1543,13 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Pay today</span>
                 <span className="font-mono font-bold text-slate-700">৳{totalPaymentNum.toFixed(2)}</span>
               </div>
+              <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">বাকি (Due)</span>
+                <span className="font-mono font-bold text-rose-600">৳{balanceAfterPay.toFixed(2)}</span>
+              </div>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Payment method</span>
-                <span className="font-bold text-slate-700">{paymentMethod}</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Payment mode</span>
+                <span className="font-bold text-slate-700">{paymentMethod}{paymentMethod === 'BKASH' && paymentTrxId.trim() ? ` — ${paymentTrxId.trim()}` : ''}</span>
               </div>
             </div>
 

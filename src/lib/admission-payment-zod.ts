@@ -1,11 +1,10 @@
 import { z } from 'zod';
 
-export const PAYMENT_METHODS = ['CASH', 'BKASH', 'BANK', 'GATEWAY'] as const;
+export const PAYMENT_METHODS = ['CASH', 'BKASH'] as const;
 export type AdmissionPaymentChannel = 'offline' | 'online';
 
 export type AdmissionPaymentFields = {
   totalDiscountAmount: string;
-  totalScholarshipAmount: string;
   totalPaymentAmount: string;
   discountReference: string;
   paymentMethod: (typeof PAYMENT_METHODS)[number];
@@ -13,7 +12,7 @@ export type AdmissionPaymentFields = {
 };
 
 /**
- * Validates totals: discount + scholarship ≤ course fees; payment ≤ net payable (offline only).
+ * Validates totals: discount ≤ course fees; payment ≤ net payable (offline only).
  */
 export function validateAdmissionPayment(
   totalCourseFee: number,
@@ -24,7 +23,6 @@ export function validateAdmissionPayment(
   const schema = z
     .object({
       totalDiscountAmount: z.string(),
-      totalScholarshipAmount: z.string(),
       totalPaymentAmount: z.string(),
       discountReference: z.string(),
       paymentMethod: z.enum(PAYMENT_METHODS),
@@ -32,24 +30,23 @@ export function validateAdmissionPayment(
     })
     .superRefine((data, ctx) => {
       const disc = Number(data.totalDiscountAmount) || 0;
-      const schol = Number(data.totalScholarshipAmount) || 0;
       const pay = Number(data.totalPaymentAmount) || 0;
-      if (disc < 0 || schol < 0 || pay < 0) {
-        ctx.addIssue({ code: 'custom', message: 'Discount, scholarship, and payment cannot be negative.' });
+      if (disc < 0 || pay < 0) {
+        ctx.addIssue({ code: 'custom', message: 'Discount and payment cannot be negative.' });
         return;
       }
-      if (disc + schol > fee + 1e-6) {
+      if (disc > fee + 1e-6) {
         ctx.addIssue({
           code: 'custom',
-          message: `Discount plus scholarship cannot exceed total course fees (${fee.toFixed(2)} BDT).`,
+          message: `Discount cannot exceed total course fees (${fee.toFixed(2)} BDT).`,
         });
         return;
       }
-      const net = Math.max(0, fee - disc - schol);
+      const net = Math.max(0, fee - disc);
       if (channel === 'offline' && pay > net + 1e-6) {
         ctx.addIssue({
           code: 'custom',
-          message: `Payment cannot exceed net payable after discount and scholarship (${net.toFixed(2)} BDT).`,
+          message: `Payment cannot exceed net payable after discount (${net.toFixed(2)} BDT).`,
         });
         return;
       }
@@ -84,9 +81,8 @@ export function validateAdmissionPayment(
   return { ok: true };
 }
 
-export function netPayableAfterAdjustments(totalCourseFee: number, discount: number, scholarship: number): number {
+export function netPayableAfterAdjustments(totalCourseFee: number, discount: number): number {
   const fee = Math.max(0, Number(totalCourseFee) || 0);
   const d = Math.max(0, Number(discount) || 0);
-  const s = Math.max(0, Number(scholarship) || 0);
-  return Math.max(0, Math.round((fee - d - s) * 100) / 100);
+  return Math.max(0, Math.round((fee - d) * 100) / 100);
 }

@@ -125,6 +125,16 @@
     @apply bg-background text-foreground;
     background-image: linear-gradient(180deg, color-mix(in oklab, var(--background) 94%, #fff), var(--background));
   }
+
+  /* Hide number input spinners globally */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
 }
 
 @layer components {

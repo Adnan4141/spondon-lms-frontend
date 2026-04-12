@@ -2,10 +2,7 @@
 
 import React from 'react';
 import { Globe2 } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { staggerContainer, fadeInUp } from '@/lib/animations/landing';
 import type { ProgramCard } from '@/lib/api/site-content';
 
 // ─── Static fallback data ─────────────────────────────────────────────────
@@ -76,18 +73,11 @@ export const ProgramsCTASection: React.FC<Props> = ({
           </h2>
         </div>
 
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={staggerContainer}
-          className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 justify-items-center"
-        >
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 justify-items-center">
           {displayCards.map((item) => (
-            <motion.div
+            <div
               key={item.id}
-              variants={fadeInUp}
-              className={`${item.bgColor} w-full max-w-sm rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-100 flex items-start gap-3 sm:gap-4 cursor-pointer hover:shadow-md transition-all`}
+              className={`${item.bgColor} w-full max-w-sm rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-100 flex items-start gap-3 sm:gap-4 cursor-pointer hover:shadow-md transition-shadow`}
               onClick={() => handleProgramClick(item)}
             >
               <div className="h-12 w-12 rounded-xl bg-white text-indigo-600 flex items-center justify-center shadow-inner border border-slate-100">
@@ -97,9 +87,9 @@ export const ProgramsCTASection: React.FC<Props> = ({
                 <h3 className="text-base sm:text-lg font-black text-slate-900 leading-snug">{item.title}</h3>
                 <p className="text-xs sm:text-sm font-medium text-slate-500 leading-snug">{item.subtitle}</p>
               </div>
-            </motion.div>
+            </div>
           ))}
-        </motion.div>
+        </div>
 
       </div>
     </section>

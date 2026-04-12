@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Manrope, Space_Mono } from "next/font/google";
 import "./globals.css";
+import { NumberScrollBlocker } from "@/components/number-scroll-blocker";
 
 const manrope = Manrope({
   variable: "--font-manrope",
@@ -28,6 +29,7 @@ export default function RootLayout({
       <body
         className={`${manrope.variable} ${spaceMono.variable} antialiased`}
       >
+        <NumberScrollBlocker />
         {children}
       </body>
     </html>

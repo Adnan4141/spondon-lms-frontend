@@ -50,7 +50,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { useModalStore } from '@/store/modalStore';
-import { ExamForm } from '@/components/admin/exams/ExamForm';
+import { ExamCreatorWizard } from '@/components/admin/exams/ExamCreatorWizard';
 import { ExamDetailsView } from '@/components/admin/exams/ExamDetailsView';
 import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
 import { cn } from '@/lib/utils';
@@ -88,7 +88,7 @@ function getModeBadgeClass(mode: string) {
 }
 
 export default function ExamsPage() {
-  const { openModal } = useModalStore();
+  const { openModal, closeModal } = useModalStore();
   const { toast, toasts, removeToast } = useToast();
   
   const [exams, setExams] = useState<Exam[]>([]);
@@ -173,10 +173,10 @@ export default function ExamsPage() {
       const res = await getExamById(examId);
       if (res.success && res.data) {
         openModal({
-          title: 'Update Exam Baseline',
-          description: 'Refine exam scheduling and access rules.',
-          className: 'sm:max-w-6xl w-[min(100vw-2rem,72rem)] max-h-[92vh]',
-          content: <ExamForm courses={courses} branches={branches} exam={res.data} onSuccess={loadExams} />,
+          title: 'Edit Exam',
+          description: 'Modify exam configuration with the wizard.',
+          className: 'sm:max-w-5xl w-[min(100vw-2rem,64rem)] max-h-[92vh] p-0',
+          content: <ExamCreatorWizard exam={res.data} onSuccess={loadExams} onClose={() => closeModal()} />,
         });
       }
     } catch (err) {
@@ -185,12 +185,12 @@ export default function ExamsPage() {
   };
 
   const handleCreateExam = () => {
-        openModal({
-          title: 'Create Exam',
-          description: 'Online (browser) or offline (hall PDF + OMR / Excel).',
-          className: 'sm:max-w-6xl w-[min(100vw-2rem,72rem)] max-h-[92vh]',
-          content: <ExamForm courses={courses} branches={branches} onSuccess={loadExams} />,
-        });
+    openModal({
+      title: 'Create Exam',
+      description: 'Build and generate exam sets with the wizard.',
+      className: 'sm:max-w-5xl w-[min(100vw-2rem,64rem)] max-h-[92vh] p-0',
+      content: <ExamCreatorWizard onSuccess={loadExams} onClose={() => closeModal()} />,
+    });
   };
 
   const handleDeleteExam = async (examId: string) => {
