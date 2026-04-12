@@ -3,7 +3,6 @@ import type { ContentType, CourseContent } from './course-content';
 
 export type CourseType = 'ONLINE' | 'OFFLINE';
 export type BillingType = 'ONE_TIME' | 'MONTHLY';
-export type CourseCategory = 'SSC' | 'HSC' | 'ADMISSION' | 'JUNIOR_CADET_JOB' | 'JOB';
 export type AdmissionStatus = 'OPEN' | 'CLOSED';
 export type CourseStatus = 'ACTIVE' | 'DISABLED' | 'ARCHIVED';
 export type JsonValue =
@@ -160,11 +159,9 @@ export interface Course {
   programId: string;
   name: string;
   slug: string;
-  code: string;
   thumbnail?: string;
   type: CourseType;
   billingType: BillingType;
-  category?: CourseCategory;
   fee: number | string;
   offerDiscountAmount?: number | string | null;
   offerDiscountNote?: string | null;
@@ -189,12 +186,10 @@ export interface Course {
 export interface CreateCourseDto {
   programId: string;
   name: string;
-  slug: string;
-  code: string;
+  slug?: string;
   thumbnail?: string;
   type: CourseType;
   billingType: BillingType;
-  category?: CourseCategory;
   fee: number;
   offerDiscountAmount?: number | null;
   offerDiscountNote?: string | null;
@@ -212,11 +207,9 @@ export interface UpdateCourseDto {
   programId?: string;
   name?: string;
   slug?: string;
-  code?: string;
   thumbnail?: string;
   type?: CourseType;
   billingType?: BillingType;
-  category?: CourseCategory;
   fee?: number;
   offerDiscountAmount?: number | null;
   offerDiscountNote?: string | null;

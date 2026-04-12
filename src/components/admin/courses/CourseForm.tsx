@@ -9,7 +9,6 @@ import { useToast } from '@/hooks/use-toast';
 import {
   AdmissionStatus,
   BillingType,
-  CourseCategory,
   CourseStatus,
   CourseType,
   CreateCourseDto,
@@ -79,13 +78,15 @@ const statusOptions: CourseStatus[] = ['ACTIVE', 'DISABLED', 'ARCHIVED'];
 const typeOptions: CourseType[] = ['ONLINE', 'OFFLINE'];
 const billingOptions: BillingType[] = ['ONE_TIME', 'MONTHLY'];
 const admissionOptions: AdmissionStatus[] = ['OPEN', 'CLOSED'];
-const categoryOptions: { value: CourseCategory; label: string }[] = [
-  { value: 'SSC', label: 'SSC' },
-  { value: 'HSC', label: 'HSC' },
-  { value: 'ADMISSION', label: 'ভর্তি (Admission)' },
-  { value: 'JUNIOR_CADET_JOB', label: 'ক্যাডেট / জব (Junior/Cadet/Job)' },
-  { value: 'JOB', label: 'Job' },
-];
+
+function buildSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
 
 const DEFAULT_BENEFITS = [
   'অভিজ্ঞ শিক্ষক মন্ডলী',
@@ -108,11 +109,9 @@ type FormState = {
   programId: string;
   name: string;
   slug: string;
-  code: string;
   thumbnail: string;
   type: CourseType;
   billingType: BillingType;
-  category: CourseCategory | '';
   fee: string;
   offerDiscountAmount: string;
   offerDiscountNote: string;
@@ -123,8 +122,6 @@ type FormState = {
   websiteVisible: boolean;
   enrollmentVisible: boolean;
   settledOptionEnabled: boolean;
-  admissionFeeEnabled: boolean;
-  admissionFee: string;
   benefits: string[];
   /** Shown on public `/course/[slug]` between benefits and books */
   websiteSections: CourseWebsiteSection[];
@@ -140,11 +137,9 @@ const defaultForm: FormState = {
   programId: '',
   name: '',
   slug: '',
-  code: '',
   thumbnail: '',
   type: 'ONLINE',
   billingType: 'ONE_TIME',
-  category: '',
   fee: '0',
   offerDiscountAmount: '',
   offerDiscountNote: '',
@@ -155,8 +150,6 @@ const defaultForm: FormState = {
   websiteVisible: true,
   enrollmentVisible: true,
   settledOptionEnabled: false,
-  admissionFeeEnabled: false,
-  admissionFee: '',
   benefits: DEFAULT_BENEFITS,
   websiteSections: [],
   publicShowBenefits: true,
@@ -231,11 +224,9 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
         programId: course.programId,
         name: course.name,
         slug: course.slug,
-        code: course.code,
         thumbnail: course.thumbnail || '',
         type: course.type,
         billingType: course.billingType,
-        category: course.category || '',
         fee: String(course.fee),
         offerDiscountAmount:
           course.offerDiscountAmount != null && String(course.offerDiscountAmount) !== ''
@@ -249,8 +240,6 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
         websiteVisible: course.websiteVisible,
         enrollmentVisible: course.enrollmentVisible !== false,
         settledOptionEnabled: course.settledOptionEnabled,
-        admissionFeeEnabled: course.admissionFeeEnabled ?? false,
-        admissionFee: course.admissionFee != null ? String(course.admissionFee) : '',
         benefits: loadedBenefits,
         websiteSections: loadedWebsiteSections,
         publicShowBenefits: pub.showBenefits,
@@ -386,8 +375,8 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
   }, [resources]);
 
   const handleSubmit = async () => {
-    if (!form.programId || !form.name.trim() || !form.slug.trim() || !form.code.trim()) {
-      setError('Program, name, slug, and code are required.');
+    if (!form.programId || !form.name.trim()) {
+      setError('Program and name are required.');
       return;
     }
 
@@ -427,12 +416,9 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
     const payload: CreateCourseDto | UpdateCourseDto = {
       programId: form.programId,
       name: form.name.trim(),
-      slug: form.slug.trim().toLowerCase(),
-      code: form.code.trim(),
       thumbnail: form.thumbnail.trim() || undefined,
       type: form.type,
       billingType: form.billingType,
-      category: form.category || undefined,
       fee: Number(course?.fee ?? form.fee ?? 0),
       outline: outline as JsonValue,
       offerDiscountAmount: null,
@@ -444,8 +430,6 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
       websiteVisible: form.websiteVisible,
       enrollmentVisible: form.enrollmentVisible,
       settledOptionEnabled: form.settledOptionEnabled,
-      admissionFeeEnabled: form.admissionFeeEnabled,
-      ...(form.admissionFee.trim() ? { admissionFee: Number(form.admissionFee) } : { admissionFee: null }),
     };
 
     try {
@@ -571,54 +555,28 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
               </Select>
             </div>
 
-            {/* Category */}
-            <div className="space-y-2">
-              <label className={sectionLabel}>Category</label>
-              <Select
-                value={form.category || '__none__'}
-                onValueChange={(value) => setForm((prev) => ({ ...prev, category: value === '__none__' ? '' : value as CourseCategory }))}
-              >
-                <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
-                  <SelectValue placeholder="No category" />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                  <SelectItem value="__none__" className="text-sm font-medium text-slate-400">— No category</SelectItem>
-                  {categoryOptions.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value} className="text-sm font-medium">
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className={sectionLabel}>Course Code</label>
-              <Input
-                className={inputClass}
-                value={form.code}
-                onChange={(e) => setForm((prev) => ({ ...prev, code: e.target.value.toUpperCase() }))}
-                placeholder="e.g., HSC-PHY-01"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className={sectionLabel}>Course Slug</label>
-              <Input
-                className={inputClass}
-                value={form.slug}
-                onChange={(e) => setForm((prev) => ({ ...prev, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') }))}
-                placeholder="e.g., hsc-physics-01"
-              />
-            </div>
+            {/* Category and Code removed; slug is auto-generated from name */}
 
             <div className="space-y-2 sm:col-span-2">
               <label className={sectionLabel}>Course Title</label>
               <Input
                 className={inputClass}
                 value={form.name}
-                onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                onChange={(e) => {
+                  const name = e.target.value;
+                  setForm((prev) => ({ ...prev, name, slug: buildSlug(name) }));
+                }}
                 placeholder="Full course name"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className={sectionLabel}>Course Slug (auto-generated)</label>
+              <Input
+                className={cn(inputClass, 'bg-slate-100 text-slate-500 cursor-default')}
+                value={form.slug}
+                readOnly
+                placeholder="auto-generated from title"
               />
             </div>
 
@@ -1017,31 +975,6 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                   Settle course option (admin can mark all dues paid, cancel enrollments, remove from student portal)
                 </span>
               </label>
-              <label className="flex items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/40 px-4 py-3 transition-all hover:bg-white hover:shadow-md cursor-pointer group">
-                <input
-                  type="checkbox"
-                  checked={form.admissionFeeEnabled}
-                  onChange={(e) => setForm((prev) => ({ ...prev, admissionFeeEnabled: e.target.checked }))}
-                  className={checkboxClass()}
-                />
-                <span className="text-[11px] font-black uppercase tracking-widest text-emerald-800 group-hover:text-emerald-900 transition-colors">
-                  Charge Admission Fee
-                </span>
-              </label>
-              {form.admissionFeeEnabled && (
-                <div className="sm:col-span-2">
-                  <Label className="text-xs font-black uppercase tracking-widest text-slate-500">Admission Fee Amount (৳)</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.admissionFee}
-                    onChange={(e) => setForm((prev) => ({ ...prev, admissionFee: e.target.value }))}
-                    placeholder="e.g. 500"
-                    className="mt-1"
-                  />
-                </div>
-              )}
             </div>
           </div>
         )}
