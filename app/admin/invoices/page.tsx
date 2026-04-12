@@ -155,7 +155,7 @@ export default function InvoicesPage() {
         openModal({
           title: 'Invoice details',
           description: 'Summary, charges, payments, and settlement.',
-          className: 'sm:max-w-2xl max-h-[min(92vh,880px)] overflow-y-auto',
+          className: 'sm:max-w-5xl max-h-[min(92vh,880px)] overflow-y-auto',
           content: <InvoiceDetailsView invoice={res.data} onRefresh={loadInvoices} />,
         });
       }

@@ -30,9 +30,6 @@ import {
   Globe,
   ListChecks,
   Package,
-  Layers,
-  PenLine,
-  TextCursorInput,
   ShieldCheck,
   Wallet,
   LayoutTemplate,
@@ -95,10 +92,7 @@ function buildMenuSections(role: string | null): MenuSection[] {
 
   // ----- Question System -----
   const questionItems: MenuItem[] = [
-    { title: 'MCQ', href: '/admin/questions/mcq', icon: HelpCircle, color: 'text-amber-500', bg: 'bg-amber-50' },
-    { title: 'Combined MCQ', href: '/admin/questions/combined', icon: Layers, color: 'text-orange-500', bg: 'bg-orange-50' },
-    { title: 'CQ', href: '/admin/questions/cq', icon: PenLine, color: 'text-rose-500', bg: 'bg-rose-50' },
-    { title: 'Short Questions', href: '/admin/questions/short', icon: TextCursorInput, color: 'text-teal-500', bg: 'bg-teal-50' },
+    { title: 'Questions', href: '/admin/questions', icon: HelpCircle, color: 'text-amber-500', bg: 'bg-amber-50' },
   ];
   const showQuestions = !isAccounts && !isBranchAdmin;
 

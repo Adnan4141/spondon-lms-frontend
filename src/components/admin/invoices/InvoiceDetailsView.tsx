@@ -260,7 +260,7 @@ export function InvoiceDetailsView({ invoice, onRefresh }: InvoiceDetailsViewPro
   const rowClass = 'flex items-center justify-between gap-3 border-b border-slate-200/80 py-2.5 last:border-b-0';
 
   return (
-    <div className="mx-auto max-w-5xl bg-white text-slate-900">
+    <div className="mx-auto w-full max-w-full bg-white px-4 py-1 text-slate-900 sm:px-6">
       <h2 className="sr-only">
         Invoice details for {invoice.student?.fullName ?? 'student'}
         {invoice.month ? `, billing month ${invoice.month}` : ''}
