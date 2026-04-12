@@ -30,8 +30,11 @@ import { getBatches, type Batch } from '@/lib/api/batches';
 import {
   offlineAdmission,
   getEnrollments,
+  updateEnrollment,
+  type Enrollment,
   type PaymentMethodType,
 } from '@/lib/api/enrollments';
+import { getEnrollmentDiscountHistory, type EnrollmentDiscountLogEntry } from '@/lib/api/enrollments';
 import {
   AlertTriangle,
   Check,
@@ -43,6 +46,9 @@ import {
   CreditCard,
   Lock,
   Search,
+  PlayCircle,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 const inputClass =
@@ -76,7 +82,12 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
   const [error, setError] = useState<string | null>(null);
   /** courseIds with an enrollment row at the selected branch (any status — DB unique prevents duplicate). */
   const [enrolledCourseIds, setEnrolledCourseIds] = useState<string[]>([]);
+  /** Map courseId → Enrollment for richer display (status, createdAt) */
+  const [enrollmentByCourse, setEnrollmentByCourse] = useState<Map<string, Enrollment>>(new Map());
   const [loadingEnrollments, setLoadingEnrollments] = useState(false);
+
+  const [discountHistory, setDiscountHistory] = useState<EnrollmentDiscountLogEntry[]>([]);
+  const [discountHistoryOpen, setDiscountHistoryOpen] = useState(false);
 
   const [branchId, setBranchId] = useState(defaultBranchId || '');
   const defaultMonth = () => new Date().toISOString().slice(0, 7);
@@ -133,6 +144,17 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
             ? [...new Set(res.data.map((e) => e.courseId))]
             : [];
         setEnrolledCourseIds(ids);
+        // Build courseId → enrollment map (last wins, prefer ACTIVE over others)
+        if (res.success && res.data) {
+          const map = new Map<string, Enrollment>();
+          for (const e of res.data) {
+            const existing = map.get(e.courseId);
+            if (!existing || e.status === 'ACTIVE' || existing.status === 'CANCELLED') {
+              map.set(e.courseId, e);
+            }
+          }
+          setEnrollmentByCourse(map);
+        }
       } catch {
         if (!cancelled) setEnrolledCourseIds([]);
       } finally {
@@ -143,6 +165,14 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
       cancelled = true;
     };
   }, [studentId, branchId]);
+
+  // Fetch discount history for this student
+  useEffect(() => {
+    if (!studentId) return;
+    getEnrollmentDiscountHistory(studentId).then((res) => {
+      if (res.success && res.data) setDiscountHistory(res.data);
+    }).catch(() => {});
+  }, [studentId]);
 
   useEffect(() => {
     setProgramSelectedIds((prev) => prev.filter((id) => !enrolledCourseIds.includes(id)));
@@ -251,6 +281,33 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
     }
   };
 
+  const handleResume = async (courseId: string) => {
+    const enrollment = enrollmentByCourse.get(courseId);
+    if (!enrollment || enrollment.status !== 'PAUSED') return;
+    try {
+      const res = await updateEnrollment(enrollment.id, { status: 'ACTIVE', reason: 'Resumed by admin' });
+      if (res.success) {
+        toast({ title: 'Enrollment resumed', description: `${enrollment.course?.name ?? courseId} is now ACTIVE.` });
+        // Re-fetch enrollments
+        const updated = await getEnrollments({ studentUserId: studentId, branchId, limit: 500 });
+        if (updated.success && updated.data) {
+          const ids2 = [...new Set(updated.data.map((e) => e.courseId))];
+          setEnrolledCourseIds(ids2);
+          const map = new Map<string, Enrollment>();
+          for (const e of updated.data) {
+            const ex = map.get(e.courseId);
+            if (!ex || e.status === 'ACTIVE' || ex.status === 'CANCELLED') map.set(e.courseId, e);
+          }
+          setEnrollmentByCourse(map);
+        }
+      } else {
+        toast({ title: 'Error', description: res.message || 'Could not resume enrollment', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Failed to resume enrollment', variant: 'destructive' });
+    }
+  };
+
   const ids = useMemo(() => {
     if (enrollmentMode === 'monthly') return monthlySelectedIds;
     return programSelectedIds;
@@ -350,7 +407,7 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
   useEffect(() => {
     if (admissionChannel === 'online') {
       setTotalPaymentAmount('0');
-      setPaymentMethod('GATEWAY');
+      setPaymentMethod('CASH');
       setPaymentTrxId('');
     }
   }, [admissionChannel]);
@@ -692,49 +749,76 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
                     monthlyCoursesFiltered.map((course) => {
                       const isSelected = monthlySelectedIds.includes(course.id);
                       const alreadyEnrolled = enrolledSet.has(course.id);
+                      const existingEnrollment = enrollmentByCourse.get(course.id);
+                      const isPaused = existingEnrollment?.status === 'PAUSED';
                       return (
-                        <button
-                          key={course.id}
-                          type="button"
-                          disabled={alreadyEnrolled}
-                          onClick={() => toggleMonthlyCourse(course.id)}
-                          className={cn(
-                            'flex w-full items-center justify-between rounded-2xl border p-4 text-left transition-all',
-                            alreadyEnrolled && 'cursor-not-allowed opacity-75',
-                            isSelected && !alreadyEnrolled
-                              ? 'border-indigo-200 bg-indigo-50/50'
-                              : !alreadyEnrolled && 'border-slate-100 hover:border-slate-200',
-                            alreadyEnrolled && 'border-amber-100 bg-amber-50/40',
-                          )}
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <Checkbox
-                              checked={isSelected}
-                              disabled={alreadyEnrolled}
-                              className="pointer-events-none shrink-0"
-                            />
-                            <BookOpen className="h-5 w-5 shrink-0 text-slate-400" />
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="truncate font-black text-slate-800">{course.name}</p>
-                                {alreadyEnrolled ? (
-                                  <Badge variant="secondary" className="text-[9px] font-black uppercase">
-                                    Already enrolled
-                                  </Badge>
-                                ) : null}
-                              </div>
-                              <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                                <CourseDeliveryBadge type={course.type} />
-                                <p className="text-[10px] font-bold text-slate-400">
-                                  {course.code} · ৳{Number(course.fee || 0).toFixed(0)} · Monthly
-                                </p>
+                        <div key={course.id} className="space-y-0">
+                          <button
+                            type="button"
+                            disabled={alreadyEnrolled && !isPaused}
+                            onClick={() => toggleMonthlyCourse(course.id)}
+                            className={cn(
+                              'flex w-full items-center justify-between rounded-2xl border p-4 text-left transition-all',
+                              alreadyEnrolled && !isPaused && 'cursor-not-allowed opacity-75',
+                              isSelected && !alreadyEnrolled
+                                ? 'border-indigo-200 bg-indigo-50/50'
+                                : !alreadyEnrolled && 'border-slate-100 hover:border-slate-200',
+                              alreadyEnrolled && !isPaused && 'border-amber-100 bg-amber-50/40',
+                              isPaused && 'border-amber-200 bg-amber-50/30',
+                            )}
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <Checkbox
+                                checked={isSelected}
+                                disabled={alreadyEnrolled && !isPaused}
+                                className="pointer-events-none shrink-0"
+                              />
+                              <BookOpen className="h-5 w-5 shrink-0 text-slate-400" />
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="truncate font-black text-slate-800">{course.name}</p>
+                                  {alreadyEnrolled && !isPaused ? (
+                                    <span title={`ইতিমধ্যে ভর্তি আছেন (ACTIVE since ${existingEnrollment?.createdAt ? new Date(existingEnrollment.createdAt).toLocaleDateString('en-BD', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'})`}>
+                                      <Badge variant="secondary" className="text-[9px] font-black uppercase">
+                                        ইতিমধ্যে ভর্তি
+                                      </Badge>
+                                    </span>
+                                  ) : isPaused ? (
+                                    <Badge variant="outline" className="text-[9px] font-black uppercase border-amber-400 text-amber-700">
+                                      PAUSED
+                                    </Badge>
+                                  ) : null}
+                                </div>
+                                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                  <CourseDeliveryBadge type={course.type} />
+                                  <p className="text-[10px] font-bold text-slate-400">
+                                    {course.code} · ৳{Number(course.fee || 0).toFixed(0)} · Monthly
+                                  </p>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                          {isSelected && !alreadyEnrolled ? (
-                            <Check className="h-5 w-5 shrink-0 text-indigo-600" />
-                          ) : null}
-                        </button>
+                            {isSelected && !alreadyEnrolled ? (
+                              <Check className="h-5 w-5 shrink-0 text-indigo-600" />
+                            ) : null}
+                          </button>
+                          {isPaused && (
+                            <div className="rounded-b-2xl border border-t-0 border-amber-200 bg-amber-50/50 px-4 py-2 flex items-center justify-between gap-2">
+                              <p className="text-[10px] font-bold text-amber-800">
+                                Enrollment is PAUSED since {existingEnrollment?.updatedAt ? new Date(existingEnrollment.updatedAt).toLocaleDateString('en-BD', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}.
+                              </p>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-7 rounded-xl border-amber-400 text-amber-700 font-black text-[10px] uppercase hover:bg-amber-100"
+                                onClick={(e) => { e.stopPropagation(); handleResume(course.id); }}
+                              >
+                                <PlayCircle className="mr-1 h-3 w-3" />
+                                Resume করুন
+                              </Button>
+                            </div>
+                          )}
+                        </div>
                       );
                     })
                   )}
@@ -797,49 +881,76 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
                     {programCourses.map((course) => {
                       const isSelected = programSelectedIds.includes(course.id);
                       const alreadyEnrolled = enrolledSet.has(course.id);
+                      const existingEnrollment = enrollmentByCourse.get(course.id);
+                      const isPaused = existingEnrollment?.status === 'PAUSED';
                       return (
-                        <button
-                          key={course.id}
-                          type="button"
-                          disabled={alreadyEnrolled}
-                          onClick={() => toggleProgramCourse(course.id)}
-                          className={cn(
-                            'flex w-full items-center justify-between rounded-2xl border p-4 text-left transition-all',
-                            alreadyEnrolled && 'cursor-not-allowed opacity-75',
-                            isSelected && !alreadyEnrolled
-                              ? 'border-indigo-200 bg-indigo-50/50'
-                              : !alreadyEnrolled && 'border-slate-100 hover:border-slate-200',
-                            alreadyEnrolled && 'border-amber-100 bg-amber-50/40',
-                          )}
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <Checkbox
-                              checked={isSelected}
-                              disabled={alreadyEnrolled}
-                              className="pointer-events-none shrink-0"
-                            />
-                            <BookOpen className="h-5 w-5 shrink-0 text-slate-400" />
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="font-black text-slate-800">{course.name}</p>
-                                {alreadyEnrolled ? (
-                                  <Badge variant="secondary" className="text-[9px] font-black uppercase">
-                                    Already enrolled
-                                  </Badge>
-                                ) : null}
-                              </div>
-                              <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                                <CourseDeliveryBadge type={course.type} />
-                                <p className="text-[10px] font-bold text-slate-400">
-                                  {course.code} · {course.billingType}
-                                </p>
+                        <div key={course.id} className="space-y-0">
+                          <button
+                            type="button"
+                            disabled={alreadyEnrolled && !isPaused}
+                            onClick={() => toggleProgramCourse(course.id)}
+                            className={cn(
+                              'flex w-full items-center justify-between rounded-2xl border p-4 text-left transition-all',
+                              alreadyEnrolled && !isPaused && 'cursor-not-allowed opacity-75',
+                              isSelected && !alreadyEnrolled
+                                ? 'border-indigo-200 bg-indigo-50/50'
+                                : !alreadyEnrolled && 'border-slate-100 hover:border-slate-200',
+                              alreadyEnrolled && !isPaused && 'border-amber-100 bg-amber-50/40',
+                              isPaused && 'border-amber-200 bg-amber-50/30',
+                            )}
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <Checkbox
+                                checked={isSelected}
+                                disabled={alreadyEnrolled && !isPaused}
+                                className="pointer-events-none shrink-0"
+                              />
+                              <BookOpen className="h-5 w-5 shrink-0 text-slate-400" />
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="font-black text-slate-800">{course.name}</p>
+                                  {alreadyEnrolled && !isPaused ? (
+                                    <span title={`ইতিমধ্যে ভর্তি আছেন (ACTIVE since ${existingEnrollment?.createdAt ? new Date(existingEnrollment.createdAt).toLocaleDateString('en-BD', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'})`}>
+                                      <Badge variant="secondary" className="text-[9px] font-black uppercase">
+                                        ইতিমধ্যে ভর্তি
+                                      </Badge>
+                                    </span>
+                                  ) : isPaused ? (
+                                    <Badge variant="outline" className="text-[9px] font-black uppercase border-amber-400 text-amber-700">
+                                      PAUSED
+                                    </Badge>
+                                  ) : null}
+                                </div>
+                                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                  <CourseDeliveryBadge type={course.type} />
+                                  <p className="text-[10px] font-bold text-slate-400">
+                                    {course.code} · {course.billingType}
+                                  </p>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                          {isSelected && !alreadyEnrolled ? (
-                            <Check className="h-5 w-5 shrink-0 text-indigo-600" />
-                          ) : null}
-                        </button>
+                            {isSelected && !alreadyEnrolled ? (
+                              <Check className="h-5 w-5 shrink-0 text-indigo-600" />
+                            ) : null}
+                          </button>
+                          {isPaused && (
+                            <div className="rounded-b-2xl border border-t-0 border-amber-200 bg-amber-50/50 px-4 py-2 flex items-center justify-between gap-2">
+                              <p className="text-[10px] font-bold text-amber-800">
+                                Enrollment is PAUSED since {existingEnrollment?.updatedAt ? new Date(existingEnrollment.updatedAt).toLocaleDateString('en-BD', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}.
+                              </p>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-7 rounded-xl border-amber-400 text-amber-700 font-black text-[10px] uppercase hover:bg-amber-100"
+                                onClick={(e) => { e.stopPropagation(); handleResume(course.id); }}
+                              >
+                                <PlayCircle className="mr-1 h-3 w-3" />
+                                Resume করুন
+                              </Button>
+                            </div>
+                          )}
+                        </div>
                       );
                     })}
                   </div>
@@ -866,6 +977,52 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
                   <p className="text-[10px] font-bold text-amber-600 mt-1">
                     Total admission fee: ৳{totalAdmissionFee.toLocaleString()}
                   </p>
+                </div>
+              )}
+
+              {/* Discount History Panel */}
+              {discountHistory.length > 0 && (
+                <div className="mt-4 rounded-2xl border border-indigo-100 bg-indigo-50/30 overflow-hidden">
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between px-4 py-3 text-left"
+                    onClick={() => setDiscountHistoryOpen((v) => !v)}
+                  >
+                    <span className="text-[10px] font-black uppercase tracking-widest text-indigo-700">
+                      ছাড়ের ইতিহাস ({discountHistory.length})
+                    </span>
+                    {discountHistoryOpen ? (
+                      <ChevronUp className="h-4 w-4 text-indigo-500" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-indigo-500" />
+                    )}
+                  </button>
+                  {discountHistoryOpen && (
+                    <div className="overflow-x-auto border-t border-indigo-100">
+                      <table className="w-full min-w-[400px] text-xs">
+                        <thead className="bg-indigo-50 text-[10px] font-black uppercase text-indigo-500">
+                          <tr>
+                            <th className="px-3 py-2 text-left">Course</th>
+                            <th className="px-3 py-2 text-right">Amount</th>
+                            <th className="px-3 py-2 text-left">Type</th>
+                            <th className="px-3 py-2 text-left">Applied by</th>
+                            <th className="px-3 py-2 text-left">Date</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-indigo-50">
+                          {discountHistory.map((d) => (
+                            <tr key={d.id} className="bg-white">
+                              <td className="px-3 py-2 font-bold text-slate-700">{d.enrollment?.course?.name ?? '—'}</td>
+                              <td className="px-3 py-2 text-right font-mono font-black text-indigo-800">৳{Number(d.discountAmount).toFixed(0)}</td>
+                              <td className="px-3 py-2 font-bold text-slate-600">{d.discountType}</td>
+                              <td className="px-3 py-2 text-slate-500">{d.appliedBy?.fullName ?? 'System'}</td>
+                              <td className="px-3 py-2 text-slate-400">{new Date(d.createdAt).toLocaleDateString('en-BD', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1177,8 +1334,6 @@ export function AddEnrollmentForm({ studentId, defaultBranchId, onSuccess }: Add
                     <SelectContent className="rounded-2xl">
                       <SelectItem value="CASH">Cash</SelectItem>
                       <SelectItem value="BKASH">bKash</SelectItem>
-                      <SelectItem value="BANK">Bank</SelectItem>
-                      <SelectItem value="GATEWAY">Gateway / online</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

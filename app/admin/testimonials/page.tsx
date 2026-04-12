@@ -2,6 +2,9 @@
 
 import Image from 'next/image';
 import { useCallback, useEffect, useState, useMemo, type ComponentProps } from 'react';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   DndContext,
   closestCenter,
@@ -23,7 +26,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Table,
   TableBody,
@@ -45,9 +47,6 @@ import {
   reorderTestimonials,
   type TestimonialAdmin,
 } from '@/lib/api/testimonials';
-import { getUsers, type User as AppUser } from '@/lib/api/users';
-import { getCourses } from '@/lib/api/courses';
-import { getBatches, type Batch } from '@/lib/api/batches';
 import {
   Pencil,
   Plus,
@@ -57,8 +56,6 @@ import {
   MessageSquare,
   Star,
   Search,
-  Check,
-  ChevronsUpDown,
   MoreVertical,
   Quote,
   Activity,
@@ -87,127 +84,163 @@ const InputField = ({ label, required, className, ...props }: InputFieldProps) =
   </div>
 );
 
-type SearchSelectOption = {
-  id: string;
-  label: string;
-};
+type MediaKind = 'none' | 'photo' | 'video';
 
-type SearchSelectFieldProps = {
-  label: string;
-  placeholder: string;
-  options: SearchSelectOption[];
-  defaultValue?: string;
-  onValueChange: (input: string, selected?: SearchSelectOption) => void;
-};
-
-type RatingFieldProps = {
-  defaultValue?: number | null;
-  onChange: (value: number) => void;
-};
-
-const SearchSelectField = ({
-  label,
-  placeholder,
-  options,
-  defaultValue,
-  onValueChange,
-}: SearchSelectFieldProps) => {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState(defaultValue || '');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return options.slice(0, 40);
-    return options.filter((o) => o.label.toLowerCase().includes(q)).slice(0, 40);
-  }, [options, query]);
-
-  return (
-    <div className="space-y-2">
-      <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">{label}</label>
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            type="button"
-            variant="outline"
-            className="h-11 w-full rounded-xl border-slate-200 bg-slate-50 px-3 justify-between font-medium text-slate-700 hover:bg-white"
-          >
-            <span className="truncate text-left">{query || <span className="text-slate-400 font-normal">{placeholder}</span>}</span>
-            <ChevronsUpDown className="h-4 w-4 text-slate-400" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent align="start" className="w-(--radix-popover-trigger-width) p-2 rounded-xl">
-          <Input
-            value={query}
-            placeholder={placeholder}
-            className="h-10 rounded-lg"
-            onChange={(e) => {
-              const value = e.target.value;
-              setQuery(value);
-              setSelectedId(null);
-              onValueChange(value);
-            }}
-          />
-          <div className="mt-2 max-h-56 overflow-auto space-y-1">
-            {filtered.length === 0 ? (
-              <div className="px-2 py-2 text-xs font-medium text-slate-400">No results</div>
-            ) : (
-              filtered.map((opt) => {
-                const isSelected = opt.id === selectedId;
-                return (
-                  <Button
-                    key={opt.id}
-                    type="button"
-                    variant="ghost"
-                    className={cn(
-                      'w-full justify-start rounded-lg px-2 h-9 text-sm',
-                      isSelected && 'bg-indigo-50 text-indigo-700 font-bold',
-                    )}
-                    onClick={() => {
-                      setQuery(opt.label);
-                      setSelectedId(opt.id);
-                      onValueChange(opt.label, opt);
-                      setOpen(false);
-                    }}
-                  >
-                    <Check className={cn('mr-2 h-4 w-4', isSelected ? 'text-emerald-600' : 'text-transparent')} />
-                    <span className="truncate">{opt.label}</span>
-                  </Button>
-                );
-              })
-            )}
-          </div>
-        </PopoverContent>
-      </Popover>
-    </div>
+function TestimonialMediaFields({
+  existing,
+  formData,
+  onThumbnailFile,
+  onVideoFile,
+}: {
+  existing?: TestimonialAdmin;
+  formData: Record<string, unknown>;
+  onThumbnailFile: (f: File | null) => void;
+  onVideoFile: (f: File | null) => void;
+}) {
+  const [kind, setKind] = useState<MediaKind>(() =>
+    existing?.videoUrl ? 'video' : existing?.thumbnailUrl ? 'photo' : 'none',
   );
-};
+  const [photoTab, setPhotoTab] = useState<'upload' | 'link'>(() =>
+    existing?.thumbnailUrl && String(existing.thumbnailUrl).startsWith('/uploads/') ? 'upload' : 'link',
+  );
+  const [videoTab, setVideoTab] = useState<'upload' | 'link'>(() =>
+    existing?.videoUrl && String(existing.videoUrl).startsWith('/uploads/') ? 'upload' : 'link',
+  );
 
-const RatingField = ({ defaultValue = 5, onChange }: RatingFieldProps) => {
-  const [rating, setRating] = useState(defaultValue || 5);
+  useEffect(() => {
+    if (kind === 'none') {
+      formData.thumbnailUrl = '';
+      formData.videoUrl = '';
+      onThumbnailFile(null);
+      onVideoFile(null);
+    } else if (kind === 'photo') {
+      formData.videoUrl = '';
+      onVideoFile(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync mutable formData for submit
+  }, [kind]);
 
   return (
-    <div className="space-y-2">
-      <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Rating</label>
-      <div className="flex items-center gap-2 rounded-xl border bg-slate-50 px-4 h-12">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <button
-            key={star}
-            type="button"
-            onClick={() => {
-              setRating(star);
-              onChange(star);
-            }}
-            className={cn('transition', rating >= star ? 'scale-110' : 'opacity-40')}
-          >
-            <Star className="h-5 w-5 fill-amber-400 text-amber-400" />
-          </button>
-        ))}
-        <span className="ml-auto text-xs font-bold text-slate-500">{rating}/5</span>
+    <div className="space-y-5 rounded-2xl border border-slate-100 bg-slate-50/40 p-5 sm:p-6">
+      <h3 className="text-sm font-black uppercase tracking-wide text-slate-700">Landing trust card media</h3>
+
+      <div className="space-y-2">
+        <Label className="text-xs font-bold uppercase tracking-wide text-slate-500">Photo or video</Label>
+        <RadioGroup
+          value={kind}
+          onValueChange={(v) => setKind(v as MediaKind)}
+          className="grid gap-3 sm:flex sm:flex-wrap sm:gap-6"
+        >
+          <div className="flex items-center gap-2">
+            <RadioGroupItem value="none" id="tm-kind-none" />
+            <Label htmlFor="tm-kind-none" className="cursor-pointer text-sm font-medium text-slate-700">
+              None
+            </Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <RadioGroupItem value="photo" id="tm-kind-photo" />
+            <Label htmlFor="tm-kind-photo" className="cursor-pointer text-sm font-medium text-slate-700">
+              Image only
+            </Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <RadioGroupItem value="video" id="tm-kind-video" />
+            <Label htmlFor="tm-kind-video" className="cursor-pointer text-sm font-medium text-slate-700">
+              Video (YouTube, link, or upload)
+            </Label>
+          </div>
+        </RadioGroup>
+      </div>
+
+      {kind === 'photo' ? (
+        <Tabs value={photoTab} onValueChange={(v) => setPhotoTab(v as 'upload' | 'link')}>
+          <TabsList className="w-full sm:w-auto">
+            <TabsTrigger value="link">Image URL</TabsTrigger>
+            <TabsTrigger value="upload">Upload image</TabsTrigger>
+          </TabsList>
+          <TabsContent value="link" className="mt-4 space-y-2">
+            <Label className="text-xs text-slate-500">Image URL (https or /uploads/…)</Label>
+            <Input
+              defaultValue={String(formData.thumbnailUrl ?? existing?.thumbnailUrl ?? '')}
+              className="h-11 rounded-xl border-slate-200 bg-white"
+              onChange={(e) => {
+                formData.thumbnailUrl = e.target.value;
+              }}
+            />
+          </TabsContent>
+          <TabsContent value="upload" className="mt-4 space-y-2">
+            <Label className="text-xs text-slate-500">Image file (replaces URL on save)</Label>
+            <Input
+              type="file"
+              accept="image/*"
+              className="h-11 rounded-xl border-slate-200 bg-white"
+              onChange={(e) => onThumbnailFile(e.target.files?.[0] || null)}
+            />
+          </TabsContent>
+        </Tabs>
+      ) : null}
+
+      {kind === 'video' ? (
+        <div className="space-y-4">
+          <Tabs value={videoTab} onValueChange={(v) => setVideoTab(v as 'upload' | 'link')}>
+            <TabsList className="w-full sm:w-auto">
+              <TabsTrigger value="link">Video / YouTube URL</TabsTrigger>
+              <TabsTrigger value="upload">Upload video</TabsTrigger>
+            </TabsList>
+            <TabsContent value="link" className="mt-4 space-y-2">
+              <Label className="text-xs text-slate-500">YouTube watch URL or direct .mp4 link</Label>
+              <Input
+                defaultValue={String(formData.videoUrl ?? existing?.videoUrl ?? '')}
+                className="h-11 rounded-xl border-slate-200 bg-white"
+                onChange={(e) => {
+                  formData.videoUrl = e.target.value;
+                }}
+              />
+            </TabsContent>
+            <TabsContent value="upload" className="mt-4 space-y-2">
+              <Label className="text-xs text-slate-500">Video file (MP4 / WebM)</Label>
+              <Input
+                type="file"
+                accept="video/*"
+                className="h-11 rounded-xl border-slate-200 bg-white"
+                onChange={(e) => onVideoFile(e.target.files?.[0] || null)}
+              />
+            </TabsContent>
+          </Tabs>
+          <div className="space-y-2">
+            <Label className="text-xs text-slate-500">Optional poster / thumbnail URL (for native video)</Label>
+            <Input
+              defaultValue={String(formData.thumbnailUrl ?? existing?.thumbnailUrl ?? '')}
+              className="h-11 rounded-xl border-slate-200 bg-white"
+              onChange={(e) => {
+                formData.thumbnailUrl = e.target.value;
+              }}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <InputField
+          label="Media overlay title"
+          placeholder="Short line on the card"
+          defaultValue={String(formData.mediaCaptionTitle ?? existing?.mediaCaptionTitle ?? '')}
+          onChange={(e) => {
+            formData.mediaCaptionTitle = e.target.value;
+          }}
+        />
+        <InputField
+          label="Media overlay subtitle"
+          placeholder="Second line (optional)"
+          defaultValue={String(formData.mediaCaptionSubtitle ?? existing?.mediaCaptionSubtitle ?? '')}
+          onChange={(e) => {
+            formData.mediaCaptionSubtitle = e.target.value;
+          }}
+        />
       </div>
     </div>
   );
-};
+}
 
 // Sortable Testimonial Row Component
 function SortableTestimonialRow({ testimonial }: { testimonial: TestimonialAdmin }) {
@@ -249,10 +282,6 @@ export default function AdminTestimonialsPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'published'>('all');
-  const [students, setStudents] = useState<AppUser[]>([]);
-  const [courses, setCourses] = useState<Array<{ id: string; name: string; code?: string | null }>>([]);
-  const [batches, setBatches] = useState<Batch[]>([]);
-
   // Sort mode state
   const [sortMode, setSortMode] = useState(false);
   const [orderedTestimonials, setOrderedTestimonials] = useState<TestimonialAdmin[]>([]);
@@ -310,34 +339,6 @@ export default function AdminTestimonialsPage() {
     }
   };
 
-  useEffect(() => {
-    async function loadLookups() {
-      try {
-        const [studentRes, courseRes, batchRes] = await Promise.all([
-          getUsers({ role: 'STUDENT', status: 'ACTIVE', limit: 300 }),
-          getCourses({ status: 'ACTIVE', limit: 300 }),
-          getBatches({ status: 'ACTIVE', limit: 400 }),
-        ]);
-
-        if (studentRes.success) setStudents(studentRes.data || []);
-        if (courseRes.success) {
-          setCourses(
-            (courseRes.data || []).map((c: { id: string; name: string; code?: string | null }) => ({
-              id: c.id,
-              name: c.name,
-              code: c.code || null,
-            }))
-          );
-        }
-        if (batchRes.success) setBatches(batchRes.data || []);
-      } catch {
-        // Keep form usable even if lookups fail.
-      }
-    }
-
-    loadLookups();
-  }, []);
-
   const filteredTestimonials = useMemo(() => {
     return testimonials.filter((t) => {
       const matchesSearch = 
@@ -362,106 +363,29 @@ export default function AdminTestimonialsPage() {
           quote: '',
           institute: '',
           info: '',
-          rating: 5,
           courseId: '',
           studentUserId: '',
           thumbnailUrl: '',
+          videoUrl: '',
+          mediaCaptionTitle: '',
+          mediaCaptionSubtitle: '',
           sortOrder: 0,
         };
     let thumbnailFile: File | null = null;
-    let lastAutoBatchValue = '';
+    let videoFile: File | null = null;
 
     openModal({
       title: existing ? 'Edit Testimonial' : 'Create Testimonial',
-      description: 'Manage quote, image, video, and publish order for landing page testimonials.',
+      description: 'Fields shown here map to the landing Trust section: name, subtitle, quote, media, and sort order.',
       className: 'sm:max-w-5xl p-0 overflow-hidden',
       content: (
         <div className="space-y-8 p-6 sm:p-8 lg:p-10 bg-white">
   {!existing && (
     <div className="flex gap-3 items-start rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm font-medium text-indigo-700">
       <Activity className="h-5 w-5 mt-0.5 shrink-0" />
-      <p>
-        Create a testimonial manually. You can attach a thumbnail or use an external image/video.
-      </p>
+      <p>Add what should appear on the Trust section: display name, optional subtitle, quote, and optional photo or video.</p>
     </div>
   )}
-
-  {/* ---------------- STUDENT INFO ---------------- */}
-  <div className="space-y-5 rounded-2xl border border-slate-100 bg-slate-50/40 p-5 sm:p-6">
-    <h3 className="text-sm font-black tracking-wide text-slate-700 uppercase">
-      Student Info
-    </h3>
-
-    <div className="grid gap-5 sm:grid-cols-2">
-      <SearchSelectField
-        label="Student"
-        placeholder="Search student by name/mobile"
-        options={students.map((s) => ({ id: s.id, label: `${s.fullName} (${s.mobile})` }))}
-        defaultValue={
-          students.find((s) => s.id === formData.studentUserId)
-            ? `${students.find((s) => s.id === formData.studentUserId)?.fullName} (${students.find((s) => s.id === formData.studentUserId)?.mobile})`
-            : (formData.studentUserId || '')
-        }
-        onValueChange={(input, selected) => {
-          formData.studentUserId = selected?.id || input.trim();
-          if (selected) {
-            const matched = students.find((s) => s.id === selected.id);
-            if (matched) {
-              formData.name = matched.fullName;
-              const displayNameInput = document.getElementById('testimonial-display-name') as HTMLInputElement | null;
-              if (displayNameInput) displayNameInput.value = matched.fullName;
-            }
-          }
-        }}
-      />
-
-      <SearchSelectField
-        label="Course"
-        placeholder="Search course by name/code"
-        options={courses.map((c) => ({ id: c.id, label: `${c.name}${c.code ? ` (${c.code})` : ''}` }))}
-        defaultValue={
-          courses.find((c) => c.id === formData.courseId)
-            ? `${courses.find((c) => c.id === formData.courseId)?.name}${courses.find((c) => c.id === formData.courseId)?.code ? ` (${courses.find((c) => c.id === formData.courseId)?.code})` : ''}`
-            : (formData.courseId || '')
-        }
-        onValueChange={(input, selected) => {
-          formData.courseId = selected?.id || input.trim();
-        }}
-      />
-
-      <InputField id="testimonial-display-name" label="Display Name" required placeholder="Student name" onChange={(e)=>formData.name=e.target.value} defaultValue={formData.name}/>
-
-      <InputField
-        label="Institute Name"
-        placeholder="e.g. Dhaka College, Notre Dame College"
-        defaultValue={formData.institute || ''}
-        onChange={(e) => (formData.institute = e.target.value)}
-      />
-
-      <SearchSelectField
-        label="Batch (Searchable)"
-        placeholder="Search batch name"
-        options={batches.map((b) => ({ id: b.id, label: `${b.name}${b.course?.name ? ` - ${b.course.name}` : ''}` }))}
-        onValueChange={(_input, selected) => {
-          if (!selected) return;
-          const batch = batches.find((b) => b.id === selected.id);
-          if (!batch) return;
-
-          const infoInput = document.getElementById('testimonial-info') as HTMLInputElement | null;
-          if (infoInput) {
-            const current = infoInput.value.trim();
-            if (!current || current === lastAutoBatchValue) {
-              infoInput.value = batch.name;
-              formData.info = batch.name;
-              lastAutoBatchValue = batch.name;
-            }
-          }
-        }}
-      />
-
-      <InputField id="testimonial-info" label="Batch / Info" placeholder="HSC 2024" onChange={(e)=>formData.info=e.target.value} defaultValue={formData.info}/>
-    </div>
-  </div>
 
   {/* ---------------- CONTENT ---------------- */}
   <div className="space-y-5 rounded-2xl border border-slate-100 bg-slate-50/40 p-5 sm:p-6">
@@ -469,21 +393,31 @@ export default function AdminTestimonialsPage() {
       Content
     </h3>
 
-    <RatingField
-      defaultValue={formData.rating}
-      onChange={(value) => {
-        formData.rating = value;
-      }}
-    />
+    <div className="grid gap-5 sm:grid-cols-2">
+      <InputField
+        id="testimonial-display-name"
+        label="Display name"
+        required
+        placeholder="Name on the card"
+        onChange={(e) => (formData.name = e.target.value)}
+        defaultValue={String(formData.name ?? '')}
+      />
+      <InputField
+        id="testimonial-info"
+        label="Subtitle (under name)"
+        placeholder="e.g. HSC 2024, Course name"
+        onChange={(e) => (formData.info = e.target.value)}
+        defaultValue={String(formData.info ?? '')}
+      />
+    </div>
 
-    {/* Quote */}
     <div className="space-y-2">
-      <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Testimonial</label>
+      <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Quote</label>
       <Textarea
-        defaultValue={formData.quote}
-        placeholder="What did the student say?"
+        defaultValue={String(formData.quote ?? '')}
+        placeholder="What they said"
         className="min-h-32 rounded-xl"
-        onChange={(e)=>formData.quote = e.target.value}
+        onChange={(e) => (formData.quote = e.target.value)}
       />
     </div>
   </div>
@@ -491,37 +425,40 @@ export default function AdminTestimonialsPage() {
   {/* ---------------- MEDIA ---------------- */}
   <div className="space-y-5 rounded-2xl border border-slate-100 bg-slate-50/40 p-5 sm:p-6">
     <h3 className="text-sm font-black tracking-wide text-slate-700 uppercase">
-      Media
+      {'Media & order'}
     </h3>
 
     <div className="grid gap-5 sm:grid-cols-2">
-      <InputField type="number" label="Sort Order" onChange={(e)=>formData.sortOrder=Number(e.target.value)} defaultValue={formData.sortOrder || 0}/>
-    </div>
-
-    <InputField label="Thumbnail URL" placeholder="https://... or /uploads/..." onChange={(e)=>formData.thumbnailUrl=e.target.value} defaultValue={formData.thumbnailUrl}/>
-
-    {/* Upload */}
-    <div className="space-y-3">
-      <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Upload Thumbnail</label>
-      <Input
-        type="file"
-        accept="image/*"
-        className="h-11 rounded-xl border-slate-200 bg-slate-50 focus:bg-white"
-        onChange={(e)=> thumbnailFile = e.target.files?.[0] || null}
+      <InputField
+        type="number"
+        label="Sort Order"
+        onChange={(e) => (formData.sortOrder = Number(e.target.value))}
+        defaultValue={formData.sortOrder || 0}
       />
-
-      {(formData.thumbnailUrl || existing?.thumbnailUrl) && (
-        <div className="relative w-28 h-28 rounded-xl overflow-hidden border bg-slate-100">
-          <Image
-            src={resolveAttachmentUrl(formData.thumbnailUrl || existing?.thumbnailUrl || '', API_ORIGIN)}
-            alt="Thumbnail preview"
-            fill
-            unoptimized
-            className="w-full h-full object-cover"
-          />
-        </div>
-      )}
     </div>
+
+    <TestimonialMediaFields
+      existing={existing}
+      formData={formData}
+      onThumbnailFile={(f) => {
+        thumbnailFile = f;
+      }}
+      onVideoFile={(f) => {
+        videoFile = f;
+      }}
+    />
+
+    {(formData.thumbnailUrl || existing?.thumbnailUrl) && (
+      <div className="relative h-28 w-28 overflow-hidden rounded-xl border bg-slate-100">
+        <Image
+          src={resolveAttachmentUrl(String(formData.thumbnailUrl || existing?.thumbnailUrl || ''), API_ORIGIN)}
+          alt="Thumbnail preview"
+          fill
+          unoptimized
+          className="h-full w-full object-cover"
+        />
+      </div>
+    )}
   </div>
 
   {/* ---------------- ACTIONS ---------------- */}
@@ -538,19 +475,36 @@ export default function AdminTestimonialsPage() {
           if (!formData.quote?.trim()) throw new Error('Quote required');
 
           const payload = new FormData();
-          Object.entries({
+          const textFields: Record<string, unknown> = {
             name: formData.name,
             quote: formData.quote,
-            institute: formData.institute || '',
-            info: formData.info,
-            rating: formData.rating || 5,
-            sortOrder: formData.sortOrder || 0,
-            studentUserId: formData.studentUserId,
-            courseId: formData.courseId,
-            thumbnailUrl: formData.thumbnailUrl || ''
-          }).forEach(([k,v]) => v && payload.append(k, String(v)));
+            institute: formData.institute ?? '',
+            info: formData.info ?? '',
+            sortOrder: formData.sortOrder ?? 0,
+            studentUserId: formData.studentUserId ?? '',
+            courseId: formData.courseId ?? '',
+          };
+          if (existing) {
+            const ratingVal = (formData as TestimonialAdmin).rating;
+            if (ratingVal != null && !Number.isNaN(Number(ratingVal))) {
+              textFields.rating = ratingVal;
+            }
+          }
+          Object.entries(textFields).forEach(([k, v]) => {
+            if (v !== undefined && v !== null && String(v).trim() !== '') payload.append(k, String(v));
+          });
+
+          if (!thumbnailFile) {
+            payload.append('thumbnailUrl', String(formData.thumbnailUrl || ''));
+          }
+          if (!videoFile) {
+            payload.append('videoUrl', String(formData.videoUrl || ''));
+          }
+          payload.append('mediaCaptionTitle', String(formData.mediaCaptionTitle || ''));
+          payload.append('mediaCaptionSubtitle', String(formData.mediaCaptionSubtitle || ''));
 
           if (thumbnailFile) payload.append('thumbnail', thumbnailFile);
+          if (videoFile) payload.append('video', videoFile);
 
           if (existing) {
             await updateTestimonial(existing.id, payload);

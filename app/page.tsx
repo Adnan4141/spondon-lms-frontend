@@ -111,15 +111,20 @@ export default function LandingPage() {
         if (bookRes.success) setAdmissionBooks(bookRes.data || []);
         if (statsRes.success && statsRes.data) setSystemStats(statsRes.data);
         if (testimonialRes.success && testimonialRes.data?.length) {
-          setDynamicTestimonials(testimonialRes.data.map((t: any, i: number) => ({
-            id: i + 1,
-            quote: t.quote,
-            name: t.name,
-            info: t.info || '',
-            instituteName: t.institute || '',
-            thumbnailUrl: t.thumbnailUrl ? resolveAttachmentUrl(t.thumbnailUrl, API_ORIGIN) : undefined,
-            rating: t.rating ?? 5,
-          })));
+          setDynamicTestimonials(
+            testimonialRes.data.map((t: any) => ({
+              id: t.id,
+              quote: t.quote,
+              name: t.name,
+              info: t.info || '',
+              instituteName: t.institute || '',
+              thumbnailUrl: t.thumbnailUrl || undefined,
+              videoUrl: t.videoUrl || undefined,
+              mediaCaptionTitle: t.mediaCaptionTitle || undefined,
+              mediaCaptionSubtitle: t.mediaCaptionSubtitle || undefined,
+              rating: t.rating ?? 5,
+            }))
+          );
         }
         if (partnerRes.success) setDynamicPartners(partnerRes.data || []);
         if (teacherRes.success) setTeachers(teacherRes.data || []);

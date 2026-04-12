@@ -60,7 +60,7 @@ import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
 import { cn } from '@/lib/utils';
 import { CourseDeliveryBadge } from '@/lib/course-delivery';
 
-const statusOptions: (EnrollmentStatusType | 'all')[] = ['all', 'ACTIVE', 'PAUSED', 'CANCELLED', 'COMPLETED'];
+const statusOptions: (EnrollmentStatusType | 'all')[] = ['all', 'ACTIVE', 'PAUSED', 'CANCELLED', 'COMPLETED', 'PENDING_PAYMENT', 'EXPIRED'];
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -73,7 +73,16 @@ function getStatusBadgeClass(status: string) {
   if (s === 'PAUSED') return 'bg-amber-50 text-amber-700 border-amber-100 font-black';
   if (s === 'CANCELLED') return 'bg-rose-50 text-rose-700 border-rose-100 font-black';
   if (s === 'COMPLETED') return 'bg-indigo-50 text-indigo-700 border-indigo-100 font-black';
+  if (s === 'PENDING_PAYMENT') return 'bg-orange-50 text-orange-700 border-orange-200 font-black';
+  if (s === 'EXPIRED') return 'bg-red-50 text-red-700 border-red-200 font-black';
   return 'bg-slate-100 text-slate-600 border-slate-200 font-black';
+}
+
+function statusLabel(status: string): string {
+  const s = String(status).toUpperCase();
+  if (s === 'PENDING_PAYMENT') return 'পেমেন্ট বাকি';
+  if (s === 'EXPIRED') return 'মেয়াদোত্তীর্ণ';
+  return s;
 }
 
 export default function EnrollmentsPage() {
@@ -286,7 +295,7 @@ export default function EnrollmentsPage() {
               <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
                 {statusOptions.map((opt) => (
                   <SelectItem key={opt} value={opt} className="text-sm font-medium">
-                    {opt === 'all' ? 'All Status' : opt}
+                    {opt === 'all' ? 'All Status' : statusLabel(opt)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -415,7 +424,7 @@ export default function EnrollmentsPage() {
                     </TableCell>
                     <TableCell className="py-5">
                        <Badge variant="outline" className={cn("rounded-lg text-[10px] font-black uppercase tracking-widest px-2.5 py-1", getStatusBadgeClass(String(e.status)))}>
-                         {e.status}
+                         {statusLabel(String(e.status))}
                        </Badge>
                     </TableCell>
                     <TableCell className="px-8 py-5">

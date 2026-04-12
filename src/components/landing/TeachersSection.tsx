@@ -1,12 +1,13 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { API_ORIGIN } from '@/lib/api';
 import { resolveAttachmentUrl } from '@/lib/attachment-url';
 import type { PublicTeacher } from '@/lib/api/teachers';
+import { cn } from '@/lib/utils';
 
 interface Props {
   teachers: PublicTeacher[];
@@ -14,89 +15,114 @@ interface Props {
   title?: string;
 }
 
+function TeacherMarqueeCard({ teacher }: { teacher: PublicTeacher }) {
+  const img = teacher.profileImage ? resolveAttachmentUrl(teacher.profileImage, API_ORIGIN) : null;
+  const subtitle = [teacher.designation, teacher.institute].filter(Boolean).join(' · ');
+  const primaryCourse = teacher.courses?.[0]?.name;
+
+  return (
+    <Link
+      href={`/teachers/${teacher.id}`}
+      className={cn(
+        'group flex w-[240px] shrink-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white',
+        'shadow-md shadow-slate-200/60 transition-all duration-300 hover:border-indigo-200 hover:shadow-lg hover:shadow-indigo-100/80 sm:w-[280px]'
+      )}
+    >
+      <div className="relative aspect-4/5 w-full overflow-hidden bg-linear-to-br from-indigo-50 via-white to-violet-50">
+        {img ? (
+          <Image
+            src={img}
+            alt={teacher.fullName}
+            fill
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
+            sizes="280px"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center text-5xl font-black text-indigo-200 select-none">
+            {teacher.fullName.slice(0, 2).toUpperCase()}
+          </div>
+        )}
+        <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-slate-900/20 via-transparent to-transparent" />
+      </div>
+
+      <div className="flex flex-1 flex-col gap-2 p-4">
+        {primaryCourse ? (
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600">{primaryCourse}</p>
+        ) : null}
+        <h3 className="text-base font-black leading-snug text-slate-900 sm:text-lg">{teacher.fullName}</h3>
+        {subtitle ? (
+          <p className="line-clamp-2 text-xs font-medium italic leading-relaxed text-slate-600">{subtitle}</p>
+        ) : null}
+        {teacher.experienceYears != null ? (
+          <p className="text-[11px] font-semibold text-slate-500">
+            {teacher.experienceYears} বছরের অভিজ্ঞতা
+          </p>
+        ) : null}
+        <span className="mt-1 inline-flex w-full items-center justify-center rounded-xl bg-indigo-50 py-2 text-center text-[10px] font-black uppercase tracking-wide text-indigo-700 ring-1 ring-indigo-100 transition-colors group-hover:bg-indigo-100 group-hover:ring-indigo-200">
+          প্রোফাইল ও ক্লাস
+        </span>
+      </div>
+    </Link>
+  );
+}
+
 export const TeachersSection: React.FC<Props> = ({
   teachers,
   badge = 'OUR TEACHERS',
   title = 'আমাদের শিক্ষকমণ্ডলী',
 }) => {
+  const durationSec = useMemo(() => {
+    const n = teachers.length;
+    return Math.min(90, Math.max(28, 22 + n * 9));
+  }, [teachers.length]);
+
   if (!teachers.length) return null;
 
   return (
-    <section className="py-12 sm:py-20 bg-linear-to-b from-slate-50 to-white">
+    <section className="overflow-hidden bg-linear-to-b from-slate-50 via-white to-slate-50 py-14 sm:py-20">
       <div className="mx-auto max-w-7xl px-6 lg:px-12">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-center mb-12"
+          className="mb-10 text-center sm:mb-14"
         >
-          <p className="text-xs font-bold text-indigo-600 uppercase tracking-[0.5em] mb-4">
-            {badge}
-          </p>
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 tracking-tight">
-            {title}
-          </h2>
+          <p className="mb-3 text-xs font-bold uppercase tracking-[0.45em] text-indigo-600">{badge}</p>
+          <h2 className="text-2xl font-black tracking-tight text-slate-900 sm:text-3xl md:text-4xl">{title}</h2>
         </motion.div>
+      </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {teachers.map((teacher, i) => (
-            <motion.div
-              key={teacher.id}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.05 }}
-              className="group bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col"
-            >
-              {/* Photo */}
-              <div className="relative w-full aspect-square bg-linear-to-br from-indigo-100 to-purple-100 overflow-hidden">
-                {teacher.profileImage ? (
-                  <Image
-                    src={resolveAttachmentUrl(teacher.profileImage, API_ORIGIN)}
-                    alt={teacher.fullName}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-300"
-                    sizes="(max-width: 768px) 50vw, 25vw"
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-full text-5xl text-indigo-200 font-black select-none">
-                    {teacher.fullName.slice(0, 2).toUpperCase()}
-                  </div>
-                )}
-              </div>
+      {/* Full-bleed marquee row */}
+      <div className="teachers-marquee-wrap relative">
+        <div
+          className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-linear-to-r from-slate-50 via-white/90 to-transparent sm:w-28"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-linear-to-l from-slate-50 via-white/90 to-transparent sm:w-28"
+          aria-hidden
+        />
 
-              {/* Info */}
-              <div className="flex flex-col flex-1 p-4 gap-3">
-                <div>
-                  <h3 className="font-black text-slate-900 text-sm sm:text-base leading-snug">
-                    {teacher.fullName}
-                  </h3>
-                  {(teacher.designation || teacher.institute) && (
-                    <p className="text-xs text-slate-500 font-semibold mt-0.5">
-                      {[teacher.designation, teacher.institute].filter(Boolean).join(' , ')}
-                    </p>
-                  )}
-                  {teacher.experienceYears != null && (
-                    <p className="text-xs text-slate-400 font-medium mt-0.5">
-                      Experience: {teacher.experienceYears} Years
-                    </p>
-                  )}
-                </div>
-
-                {/* CTA Button */}
-                <div className="mt-auto">
-                  <Link
-                    href={`/teachers/${teacher.id}`}
-                    className="block w-full text-center rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-[11px] font-black tracking-tight py-2.5 px-3 transition-all duration-200 shadow-sm"
-                  >
-                    স্যারের ভিডিও ক্লাস দেখতে ক্লিক করুন
-                  </Link>
-                </div>
-              </div>
-            </motion.div>
-          ))}
+        <div className="overflow-hidden px-2 sm:px-4">
+          <div
+            className="teachers-marquee-track gap-4 sm:gap-5 py-1"
+            style={
+              {
+                '--teachers-marquee-duration': `${durationSec}s`,
+              } as React.CSSProperties
+            }
+          >
+            {teachers.map((teacher) => (
+              <TeacherMarqueeCard key={teacher.id} teacher={teacher} />
+            ))}
+            {teachers.map((teacher) => (
+              <TeacherMarqueeCard key={`${teacher.id}-marquee-dup`} teacher={teacher} />
+            ))}
+          </div>
         </div>
       </div>
+
+     
     </section>
   );
 };

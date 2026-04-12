@@ -9,6 +9,8 @@ export interface Testimonial {
   rating?: number | null;
   videoUrl?: string | null;
   thumbnailUrl?: string | null;
+  mediaCaptionTitle?: string | null;
+  mediaCaptionSubtitle?: string | null;
   course?: { id: string; name: string } | null;
 }
 

@@ -16,7 +16,16 @@ import {
   UpdateCourseDto,
   Program,
   CourseDetails,
+  type CourseWebsiteSection,
+  type JsonValue,
+  DEFAULT_PUBLIC_CURRICULUM_TYPES,
+  PUBLIC_CURRICULUM_CONTENT_TYPES,
+  newCourseWebsiteSectionId,
+  curriculumContentTypeLabel,
+  normalizeCoursePublicPageDisplay,
+  normalizeCourseWebsiteSections,
 } from '@/types/course';
+import type { ContentType } from '@/types/course-content';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -48,6 +57,7 @@ import {
   ImageIcon,
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   Play,
   Clock,
   Pencil,
@@ -116,6 +126,14 @@ type FormState = {
   admissionFeeEnabled: boolean;
   admissionFee: string;
   benefits: string[];
+  /** Shown on public `/course/[slug]` between benefits and books */
+  websiteSections: CourseWebsiteSection[];
+  /** `outline.publicPageDisplay` — toggles blocks on `/course/[slug]` */
+  publicShowBenefits: boolean;
+  publicShowWebsiteSections: boolean;
+  publicShowBooks: boolean;
+  publicShowCurriculum: boolean;
+  publicCurriculumTypes: ContentType[];
 };
 
 const defaultForm: FormState = {
@@ -140,6 +158,12 @@ const defaultForm: FormState = {
   admissionFeeEnabled: false,
   admissionFee: '',
   benefits: DEFAULT_BENEFITS,
+  websiteSections: [],
+  publicShowBenefits: true,
+  publicShowWebsiteSections: true,
+  publicShowBooks: true,
+  publicShowCurriculum: true,
+  publicCurriculumTypes: [...DEFAULT_PUBLIC_CURRICULUM_TYPES],
 };
 
 interface CourseFormProps {
@@ -201,6 +225,8 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
       const loadedBenefits = Array.isArray(outlineData?.benefits) && outlineData.benefits.length > 0
         ? outlineData.benefits
         : DEFAULT_BENEFITS;
+      const loadedWebsiteSections = normalizeCourseWebsiteSections(outlineData?.websiteSections);
+      const pub = normalizeCoursePublicPageDisplay(course.outline);
       setForm({
         programId: course.programId,
         name: course.name,
@@ -226,6 +252,12 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
         admissionFeeEnabled: course.admissionFeeEnabled ?? false,
         admissionFee: course.admissionFee != null ? String(course.admissionFee) : '',
         benefits: loadedBenefits,
+        websiteSections: loadedWebsiteSections,
+        publicShowBenefits: pub.showBenefits,
+        publicShowWebsiteSections: pub.showWebsiteSections,
+        publicShowBooks: pub.showBooks,
+        publicShowCurriculum: pub.showCurriculum,
+        publicCurriculumTypes: [...pub.curriculumContentTypes],
       });
       if (course.thumbnail) {
         const url = resolveAttachmentUrl(course.thumbnail, API_ORIGIN);
@@ -363,7 +395,34 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
     const existingOutline = (course?.outline && typeof course.outline === 'object' && !Array.isArray(course.outline))
       ? (course.outline as Record<string, unknown>)
       : {};
-    const outline = { ...existingOutline, benefits: filteredBenefits };
+    const websiteSectionsPayload = form.websiteSections
+      .map((s) => ({
+        id: (s.id && String(s.id).trim()) || newCourseWebsiteSectionId(),
+        title: s.title.trim(),
+        bodyHtml: s.bodyHtml.trim(),
+      }))
+      .filter((s) => s.title || s.bodyHtml);
+
+    const outline: Record<string, unknown> = { ...existingOutline, benefits: filteredBenefits };
+    if (websiteSectionsPayload.length > 0) {
+      outline.websiteSections = websiteSectionsPayload;
+    } else {
+      delete outline.websiteSections;
+    }
+
+    if (form.publicShowCurriculum && form.publicCurriculumTypes.length === 0) {
+      setError('Public curriculum is on — select at least one content type (e.g. Syllabus).');
+      return;
+    }
+
+    outline.publicPageDisplay = {
+      showBenefits: form.publicShowBenefits,
+      showWebsiteSections: form.publicShowWebsiteSections,
+      showBooks: form.publicShowBooks,
+      showCurriculum: form.publicShowCurriculum,
+      curriculumContentTypes:
+        form.publicCurriculumTypes.length > 0 ? form.publicCurriculumTypes : [...DEFAULT_PUBLIC_CURRICULUM_TYPES],
+    };
 
     const payload: CreateCourseDto | UpdateCourseDto = {
       programId: form.programId,
@@ -375,7 +434,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
       billingType: form.billingType,
       category: form.category || undefined,
       fee: Number(course?.fee ?? form.fee ?? 0),
-      outline,
+      outline: outline as JsonValue,
       offerDiscountAmount: null,
       offerDiscountNote: null,
       description: form.description.trim() || undefined,
@@ -444,6 +503,24 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
       case 'SCHEDULE': return <Calendar className="h-4 w-4" />;
       default: return <FileText className="h-4 w-4" />;
     }
+  };
+
+  const togglePublicCurriculumType = (t: ContentType) => {
+    setForm((prev) => {
+      const has = prev.publicCurriculumTypes.includes(t);
+      if (has && prev.publicCurriculumTypes.length <= 1) {
+        toast({
+          title: 'কমপক্ষে একটি টাইপ চাই',
+          description: 'কারিকুলাম চালু থাকলে অন্তত একটি কনটেন্ট টাইপ রাখুন।',
+          variant: 'destructive',
+        });
+        return prev;
+      }
+      const next = has
+        ? prev.publicCurriculumTypes.filter((x) => x !== t)
+        : [...prev.publicCurriculumTypes, t];
+      return { ...prev, publicCurriculumTypes: next };
+    });
   };
 
   return (
@@ -702,6 +779,202 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                   <p className="text-xs font-bold text-slate-400 text-center py-3">কোনো সুবিধা যোগ নেই। দেখানোর জন্য ‘যোগ করুন’ চাপুন।</p>
                 )}
               </div>
+            </div>
+
+            {/* Public course page — extra HTML sections (e.g. /course/arts) */}
+            <div className="space-y-3 sm:col-span-2 rounded-2xl border border-slate-200 bg-slate-50/40 p-4">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <label className={sectionLabel} style={{ marginBottom: 0 }}>
+                    ওয়েবসাইট কোর্স ডিটেইল — ডাইনামিক সেকশন
+                  </label>
+                  <p className="text-[10px] font-bold text-slate-500 mt-1">
+                    পাবলিক URL <span className="font-mono text-slate-700">/course/{form.slug || 'slug'}</span> — সুবিধার নিচে, বই/সিলেবাসের উপরে দেখাবে।
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setForm((prev) => ({
+                      ...prev,
+                      websiteSections: [
+                        ...prev.websiteSections,
+                        { id: newCourseWebsiteSectionId(), title: '', bodyHtml: '' },
+                      ],
+                    }))
+                  }
+                  disabled={form.websiteSections.length >= 20}
+                  className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 text-white text-[10px] font-black uppercase tracking-widest hover:bg-slate-900 transition-colors disabled:opacity-40 shrink-0"
+                >
+                  <Plus className="h-3 w-3" /> সেকশন যোগ
+                </button>
+              </div>
+              <div className="space-y-4">
+                {form.websiteSections.map((sec, idx) => (
+                  <div
+                    key={sec.id}
+                    className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3 shadow-sm"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[10px] font-black text-slate-400 w-6 shrink-0">{idx + 1}</span>
+                      <Input
+                        className={inputClass + ' flex-1 min-w-[160px]'}
+                        value={sec.title}
+                        onChange={(e) =>
+                          setForm((prev) => {
+                            const next = [...prev.websiteSections];
+                            next[idx] = { ...next[idx], title: e.target.value };
+                            return { ...prev, websiteSections: next };
+                          })
+                        }
+                        placeholder="সেকশন শিরোনাম (যেমন: কোর্স সম্পর্কে বিস্তারিত)"
+                      />
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          title="উপরে"
+                          disabled={idx === 0}
+                          onClick={() =>
+                            setForm((prev) => {
+                              if (idx === 0) return prev;
+                              const next = [...prev.websiteSections];
+                              [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+                              return { ...prev, websiteSections: next };
+                            })
+                          }
+                          className="h-9 w-9 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 disabled:opacity-30 flex items-center justify-center"
+                        >
+                          <ChevronUp className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          title="নিচে"
+                          disabled={idx === form.websiteSections.length - 1}
+                          onClick={() =>
+                            setForm((prev) => {
+                              if (idx >= prev.websiteSections.length - 1) return prev;
+                              const next = [...prev.websiteSections];
+                              [next[idx + 1], next[idx]] = [next[idx], next[idx + 1]];
+                              return { ...prev, websiteSections: next };
+                            })
+                          }
+                          className="h-9 w-9 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 disabled:opacity-30 flex items-center justify-center"
+                        >
+                          <ChevronDown className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          title="মুছুন"
+                          onClick={() =>
+                            setForm((prev) => ({
+                              ...prev,
+                              websiteSections: prev.websiteSections.filter((_, i) => i !== idx),
+                            }))
+                          }
+                          className="h-9 w-9 rounded-xl border border-rose-100 bg-rose-50 text-rose-500 hover:bg-rose-100 flex items-center justify-center"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                    <RichTextEditor
+                      value={sec.bodyHtml}
+                      onChange={(html) =>
+                        setForm((prev) => {
+                          const next = [...prev.websiteSections];
+                          next[idx] = { ...next[idx], bodyHtml: html };
+                          return { ...prev, websiteSections: next };
+                        })
+                      }
+                      onImageUpload={async (file) => {
+                        const res = await uploadQuestionImage(file);
+                        return res.data?.url || '';
+                      }}
+                      placeholder="এখানে বিস্তারিত টেক্সট, তালিকা, ছবি ইত্যাদি লিখুন..."
+                      className="min-h-[160px]"
+                    />
+                  </div>
+                ))}
+                {form.websiteSections.length === 0 && (
+                  <p className="text-xs font-bold text-slate-400 text-center py-4">
+                    কোনো ডাইনামিক সেকশন নেই। প্রয়োজনে &quot;সেকশন যোগ&quot; চাপুন।
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* What to show on public /course/[slug] */}
+            <div className="space-y-4 sm:col-span-2 rounded-2xl border border-emerald-100 bg-emerald-50/25 p-4">
+              <div>
+                <label className={sectionLabel} style={{ marginBottom: 4 }}>
+                  পাবলিক কোর্স পেজ — দেখানোর অপশন
+                </label>
+                <p className="text-[10px] font-bold text-slate-500">
+                  ওয়েবসাইটের <span className="font-mono">/course/{form.slug || 'slug'}</span> পেজে কোন ব্লক ও কোন ধরনের কোর্স কনটেন্ট দেখাবে।
+                </p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label className="flex items-center gap-3 rounded-xl border border-white/80 bg-white/90 px-3 py-2.5 cursor-pointer shadow-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.publicShowBenefits}
+                    onChange={(e) => setForm((p) => ({ ...p, publicShowBenefits: e.target.checked }))}
+                    className={checkboxClass()}
+                  />
+                  <span className="text-xs font-bold text-slate-700">সুবিধা (কোর্সটি কেন করবেন?)</span>
+                </label>
+                <label className="flex items-center gap-3 rounded-xl border border-white/80 bg-white/90 px-3 py-2.5 cursor-pointer shadow-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.publicShowWebsiteSections}
+                    onChange={(e) => setForm((p) => ({ ...p, publicShowWebsiteSections: e.target.checked }))}
+                    className={checkboxClass()}
+                  />
+                  <span className="text-xs font-bold text-slate-700">ডাইনামিক HTML সেকশন</span>
+                </label>
+                <label className="flex items-center gap-3 rounded-xl border border-white/80 bg-white/90 px-3 py-2.5 cursor-pointer shadow-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.publicShowBooks}
+                    onChange={(e) => setForm((p) => ({ ...p, publicShowBooks: e.target.checked }))}
+                    className={checkboxClass()}
+                  />
+                  <span className="text-xs font-bold text-slate-700">সুপারিশকৃত বই</span>
+                </label>
+                <label className="flex items-center gap-3 rounded-xl border border-white/80 bg-white/90 px-3 py-2.5 cursor-pointer shadow-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.publicShowCurriculum}
+                    onChange={(e) => setForm((p) => ({ ...p, publicShowCurriculum: e.target.checked }))}
+                    className={checkboxClass()}
+                  />
+                  <span className="text-xs font-bold text-slate-700">কারিকুলাম / কনটেন্ট তালিকা</span>
+                </label>
+              </div>
+              {form.publicShowCurriculum ? (
+                <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-2">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    তালিকায় যে কনটেন্ট টাইপগুলো দেখাবে
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {PUBLIC_CURRICULUM_CONTENT_TYPES.map((t) => (
+                      <label
+                        key={t}
+                        className="inline-flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50/80 px-2.5 py-1.5 cursor-pointer text-[11px] font-bold text-slate-700"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={form.publicCurriculumTypes.includes(t)}
+                          onChange={() => togglePublicCurriculumType(t)}
+                          className={checkboxClass()}
+                        />
+                        {curriculumContentTypeLabel(t)}
+                        <span className="text-[9px] font-mono text-slate-400">({t})</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:col-span-2 pt-2">

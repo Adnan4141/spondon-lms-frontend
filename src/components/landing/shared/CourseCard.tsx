@@ -46,15 +46,7 @@ export const CourseCard: React.FC<Props> = ({ course, handleImageError }) => (
         <div className="flex-1">
           <h3 className="text-base sm:text-lg md:text-xl font-black text-slate-800 leading-tight group-hover:text-indigo-600 transition-colors line-clamp-2">{course.name}</h3>
           <div className="flex items-center gap-4 mt-4 py-3 border-y border-slate-50">
-            <div className="flex flex-col">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">ব্যাচ সংখ্যা</span>
-              <span className="text-xs font-bold text-slate-700">০৫ টি</span>
-            </div>
-            <div className="h-6 w-[1px] bg-slate-100" />
-            <div className="flex flex-col">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">ভর্তি শেষ</span>
-              <span className="text-xs font-bold text-red-500">১৫ দিন বাকি</span>
-            </div>
+         
           </div>
         </div>
         <Link href={`/course/${course.slug || course.id}`} className="mt-6 block cursor-pointer">

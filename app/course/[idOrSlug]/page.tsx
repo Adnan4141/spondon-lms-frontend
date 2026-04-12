@@ -10,8 +10,17 @@ import { Toaster } from '@/components/ui/toast';
 import { getCourseById } from '@/lib/api/courses';
 import { enrollInCourse, checkEnrollment, type EnrollCourseDelivery } from '@/lib/api/student-portal';
 import { getInvoicePdfUrl, initInvoicePayment } from '@/lib/api/invoices';
+import { getBatches, type Batch } from '@/lib/api/batches';
 import { API_ORIGIN } from '@/lib/api';
-import type { CourseDetailCourseBook, CourseDetails } from '@/types/course';
+import {
+    type CourseDetailCourseBook,
+    type CourseDetails,
+    curriculumContentTypeLabel,
+    DEFAULT_PUBLIC_COURSE_BENEFIT_BULLETS,
+    normalizeCoursePublicPageDisplay,
+    normalizeCourseWebsiteSections,
+} from '@/types/course';
+import type { ContentType } from '@/types/course-content';
 import {
     Dialog,
     DialogContent,
@@ -23,14 +32,18 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { 
-    BookOpen, 
-    Calendar, 
-    Clock, 
-    CheckCircle2, 
-    ArrowRight, 
-    Users, 
-    ShieldCheck, 
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import {
+    BookOpen,
+    CheckCircle2,
+    ArrowRight,
+    ShieldCheck,
     Info,
     Layout,
     Globe,
@@ -62,10 +75,14 @@ export default function CourseDetailsPage() {
     });
     const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
     const [createdInvoice, setCreatedInvoice] = useState<{ id: string; total?: number } | null>(null);
+    // Batch selection for OFFLINE courses
+    const [offlineBatches, setOfflineBatches] = useState<Batch[]>([]);
+    const [selectedBatchId, setSelectedBatchId] = useState<string>('');
 
     const fetchCourse = useCallback(async () => {
         try {
             setLoading(true);
+            setError(null);
             const res = await getCourseById(idOrSlug as string);
             if (res.success && res.data) {
                 setCourse(res.data as unknown as CourseDetails);
@@ -86,11 +103,24 @@ export default function CourseDetailsPage() {
         }
     }, [idOrSlug, fetchCourse]);
 
+    // Fetch batches for OFFLINE courses
+    useEffect(() => {
+        if (!course?.id || course.type !== 'OFFLINE') return;
+        getBatches({ courseId: course.id, status: 'ACTIVE', limit: 50 }).then((res) => {
+            if (res.success && res.data) setOfflineBatches(res.data);
+        }).catch(() => {});
+    }, [course?.id, course?.type]);
+
     useEffect(() => {
         if (!course?.id) return;
         const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
         if (!userStr) return;
-        const user = JSON.parse(userStr);
+        let user: { id?: string };
+        try {
+            user = JSON.parse(userStr);
+        } catch {
+            return;
+        }
         if (!user?.id) return;
         checkEnrollment(user.id, course.id).then((r) => {
             if (r.success && r.data?.enrolled) setAlreadyEnrolled(true);
@@ -159,6 +189,7 @@ export default function CourseDetailsPage() {
             const res = await enrollInCourse({
                 studentUserId: user.id,
                 courseId: course.id,
+                batchId: selectedBatchId || undefined,
                 includeBookIds: selectedPaidBookIds.length ? selectedPaidBookIds : undefined,
                 delivery: deliveryPayload,
             });
@@ -308,16 +339,25 @@ export default function CourseDetailsPage() {
         );
     }
 
-    const contents = (course as any).contents || [];
-    const syllabus = contents.filter((c: any) => c.type === 'SYLLABUS');
-    const feeBreakdown = course.feeBreakdown;
-    const outline = course.outline as any;
-    const benefits = Array.isArray(outline?.benefits) ? outline.benefits : [
-        'অভিজ্ঞ শিক্ষক মন্ডলী',
-        'মানসম্মত লেকচার শিট',
-        'নিয়মিত মডেল টেস্ট',
-        'সাপ্তাহিক সলভ ক্লাস'
-    ];
+    const outline = course.outline as Record<string, unknown> | null | undefined;
+    const publicPage = normalizeCoursePublicPageDisplay(course.outline);
+
+    const rawBenefits = outline?.benefits;
+    const benefitsList =
+        Array.isArray(rawBenefits)
+            ? rawBenefits
+                  .map((b: unknown) => (typeof b === 'string' ? b.trim() : ''))
+                  .filter(Boolean)
+            : null;
+    const benefits =
+        benefitsList === null ? [...DEFAULT_PUBLIC_COURSE_BENEFIT_BULLETS] : benefitsList;
+
+    const websiteSectionsAll = normalizeCourseWebsiteSections(outline?.websiteSections);
+    const websiteSections = publicPage.showWebsiteSections ? websiteSectionsAll : [];
+
+    const contents = course.contents ?? [];
+    const curriculumTypeSet = new Set<ContentType>(publicPage.curriculumContentTypes);
+    const curriculumRows = contents.filter((c) => curriculumTypeSet.has(c.type));
 
     return (
         <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-indigo-100">
@@ -372,26 +412,55 @@ export default function CourseDetailsPage() {
                     {/* Main Info */}
                     <div className="lg:col-span-2 space-y-16">
                         {/* Why this course */}
-                        <section>
-                            <div className="flex items-center gap-4 mb-8">
-                                <div className="h-12 w-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-100">
-                                    <Zap size={24} />
-                                </div>
-                                <h2 className="text-3xl font-black text-slate-900 tracking-tight">কোর্সটি কেন করবেন?</h2>
-                            </div>
-                            <div className="grid sm:grid-cols-2 gap-4">
-                                {benefits.map((benefit: string, idx: number) => (
-                                    <div key={idx} className="bg-white p-6 rounded-3xl border border-slate-100 flex items-start gap-4 transition-all hover:border-indigo-100 group">
-                                        <div className="h-6 w-6 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center flex-shrink-0 mt-0.5 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
-                                            <CheckCircle2 size={14} />
-                                        </div>
-                                        <p className="font-bold text-slate-700 leading-relaxed">{benefit}</p>
+                        {publicPage.showBenefits ? (
+                            <section>
+                                <div className="flex items-center gap-4 mb-8">
+                                    <div className="h-12 w-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-100">
+                                        <Zap size={24} />
                                     </div>
-                                ))}
-                            </div>
-                        </section>
+                                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">কোর্সটি কেন করবেন?</h2>
+                                </div>
+                                <div className="grid sm:grid-cols-2 gap-4">
+                                    {benefits.map((benefit: string, idx: number) => (
+                                        <div
+                                            key={`${benefit.slice(0, 24)}-${idx}`}
+                                            className="bg-white p-6 rounded-3xl border border-slate-100 flex items-start gap-4 transition-all hover:border-indigo-100 group"
+                                        >
+                                            <div className="h-6 w-6 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+                                                <CheckCircle2 size={14} />
+                                            </div>
+                                            <p className="font-bold text-slate-700 leading-relaxed">{benefit}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
+                        ) : null}
 
-                        {courseBooks.length > 0 ? (
+                        {websiteSections.length > 0
+                            ? websiteSections.map((sec) => (
+                                <section key={sec.id} className="space-y-6">
+                                    {sec.title.trim() ? (
+                                        <div className="flex items-center gap-4 mb-2">
+                                            <div className="h-12 w-12 rounded-2xl bg-slate-800 flex items-center justify-center text-white shadow-lg shadow-slate-200">
+                                                <Layout size={24} />
+                                            </div>
+                                            <h2 className="text-3xl font-black text-slate-900 tracking-tight">{sec.title}</h2>
+                                        </div>
+                                    ) : null}
+                                    {sec.bodyHtml?.trim() ? (
+                                        <div
+                                            className={cn(
+                                                'prose prose-slate prose-lg max-w-none bg-white p-8 rounded-3xl border border-slate-100',
+                                                '[&_img]:rounded-xl [&_img]:border [&_img]:border-slate-100'
+                                            )}
+                                            dangerouslySetInnerHTML={{ __html: sec.bodyHtml }}
+                                        />
+                                    ) : null}
+                                </section>
+                              ))
+                            : null}
+
+                        {publicPage.showBooks && courseBooks.length > 0 ? (
                             <section>
                                 <div className="flex items-center gap-4 mb-8">
                                     <div className="h-12 w-12 rounded-2xl bg-amber-500 flex items-center justify-center text-white shadow-lg shadow-amber-100">
@@ -455,49 +524,70 @@ export default function CourseDetailsPage() {
                             </section>
                         ) : null}
 
-                        {/* Syllabus / Modules */}
-                        <section>
-                            <div className="flex items-center gap-4 mb-8">
-                                <div className="h-12 w-12 rounded-2xl bg-emerald-500 flex items-center justify-center text-white shadow-lg shadow-emerald-100">
-                                    <BookOpen size={24} />
+                        {/* Course content list (types chosen in admin) */}
+                        {publicPage.showCurriculum ? (
+                            <section>
+                                <div className="flex items-center gap-4 mb-8">
+                                    <div className="h-12 w-12 rounded-2xl bg-emerald-500 flex items-center justify-center text-white shadow-lg shadow-emerald-100">
+                                        <BookOpen size={24} />
+                                    </div>
+                                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">কোর্স কারিকুলাম</h2>
                                 </div>
-                                <h2 className="text-3xl font-black text-slate-900 tracking-tight">কোর্স কারিকুলাম</h2>
-                            </div>
-                            <div className="space-y-4">
-                                {syllabus.length > 0 ? syllabus.map((item: any, idx: number) => (
-                                    <div key={item.id || idx} className="bg-white rounded-3xl border border-slate-100 overflow-hidden transition-all hover:shadow-md">
-                                        <div className="p-6 flex items-center justify-between">
-                                            <div className="flex items-center gap-6">
-                                                <span className="h-10 w-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 font-black text-sm">
-                                                    {String(idx + 1).padStart(2, '0')}
-                                                </span>
-                                                <div>
-                                                    <h4 className="font-black text-slate-800 mb-1">{item.title}</h4>
-                                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{item.textBody || '১.৫ ঘণ্টা'}</p>
+                                <div className="space-y-4">
+                                    {curriculumRows.length > 0 ? (
+                                        curriculumRows.map((item, idx: number) => {
+                                            const meta =
+                                                item.textBody?.trim() ||
+                                                (item.type === 'VIDEO' && item.durationMinutes
+                                                    ? `${item.durationMinutes} মিনিট`
+                                                    : null);
+                                            return (
+                                                <div
+                                                    key={item.id || idx}
+                                                    className="bg-white rounded-3xl border border-slate-100 overflow-hidden transition-all hover:shadow-md"
+                                                >
+                                                    <div className="p-6 flex items-center justify-between gap-4">
+                                                        <div className="flex items-center gap-6 min-w-0">
+                                                            <span className="h-10 w-10 shrink-0 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 font-black text-sm">
+                                                                {String(idx + 1).padStart(2, '0')}
+                                                            </span>
+                                                            <div className="min-w-0">
+                                                                <span className="inline-block text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md mb-1.5">
+                                                                    {curriculumContentTypeLabel(item.type)}
+                                                                </span>
+                                                                <h4 className="font-black text-slate-800 mb-1 truncate">{item.title}</h4>
+                                                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                                                                    {meta || '—'}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-3 shrink-0">
+                                                            {item.fileUrl ? (
+                                                                <a
+                                                                    href={item.fileUrl}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="h-8 w-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center transition-colors hover:bg-indigo-600 hover:text-white"
+                                                                >
+                                                                    <FileText size={14} />
+                                                                </a>
+                                                            ) : null}
+                                                            <ArrowRight size={20} className="text-slate-300" />
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                {item.fileUrl && (
-                                                    <a 
-                                                        href={item.fileUrl} 
-                                                        target="_blank" 
-                                                        rel="noopener noreferrer"
-                                                        className="h-8 w-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center transition-colors hover:bg-indigo-600 hover:text-white"
-                                                    >
-                                                        <FileText size={14} />
-                                                    </a>
-                                                )}
-                                                <ArrowRight size={20} className="text-slate-300" />
-                                            </div>
+                                            );
+                                        })
+                                    ) : (
+                                        <div className="bg-white p-12 rounded-[40px] border border-dashed border-slate-200 text-center">
+                                            <p className="text-slate-400 font-bold">
+                                                নির্বাচিত কনটেন্ট টাইপ অনুযায়ী এখনো কোনো আইটেম নেই। অ্যাডমিন থেকে টাইপ বা কনটেন্ট যোগ করুন।
+                                            </p>
                                         </div>
-                                    </div>
-                                )) : (
-                                    <div className="bg-white p-12 rounded-[40px] border border-dashed border-slate-200 text-center">
-                                        <p className="text-slate-400 font-bold">বিস্তারিত সিলেবাস শিঘ্রই যুক্ত করা হবে।</p>
-                                    </div>
-                                )}
-                            </div>
-                        </section>
+                                    )}
+                                </div>
+                            </section>
+                        ) : null}
                     </div>
 
                     {/* Sidebar */}
@@ -548,6 +638,38 @@ export default function CourseDetailsPage() {
                                 ) : (
                                     <div className="mb-6" />
                                 )}
+                                {/* Batch selector for OFFLINE courses */}
+                                {course.type === 'OFFLINE' && offlineBatches.length > 0 && (
+                                    <div className="mb-4">
+                                        <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-2">Batch নির্বাচন করুন</p>
+                                        <Select value={selectedBatchId} onValueChange={setSelectedBatchId}>
+                                            <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-white font-bold text-slate-800">
+                                                <SelectValue placeholder="Batch বেছে নিন" />
+                                            </SelectTrigger>
+                                            <SelectContent className="rounded-2xl">
+                                                {offlineBatches.map((b) => {
+                                                    const seats = (b as any).availableSeats;
+                                                    const isFull = seats === 0;
+                                                    return (
+                                                        <SelectItem key={b.id} value={b.id} disabled={isFull} className="font-bold">
+                                                            {b.name}
+                                                            {seats != null ? (
+                                                                <span className={cn('ml-2 text-[10px] font-black', isFull ? 'text-rose-500' : 'text-slate-400')}>
+                                                                    {isFull ? '· পূর্ণ' : `· ${seats} seats`}
+                                                                </span>
+                                                            ) : null}
+                                                        </SelectItem>
+                                                    );
+                                                })}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
+                                {course.type === 'OFFLINE' && offlineBatches.length === 0 && !loading && (
+                                    <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
+                                        সব ব্যাচ পূর্ণ। নতুন ব্যাচ শীঘ্রই আসছে।
+                                    </div>
+                                )}
                                 {alreadyEnrolled ? (
                                     <Link
                                         href="/student/courses"
@@ -558,7 +680,7 @@ export default function CourseDetailsPage() {
                                 ) : (
                                     <button
                                         onClick={handleEnrollClick}
-                                        disabled={enrolling}
+                                        disabled={enrolling || (course.type === 'OFFLINE' && offlineBatches.length > 0 && !selectedBatchId)}
                                         className="w-full h-16 bg-[#5C2D91] text-white rounded-2xl font-black uppercase text-sm tracking-widest shadow-xl shadow-indigo-100 transition-all hover:bg-[#4A2475] active:scale-95 flex items-center justify-center gap-3 disabled:opacity-70"
                                     >
                                         {enrolling ? 'প্রসেসিং...' : 'এখনই ভর্তি হোন'} <ArrowRight size={20} />

@@ -9,7 +9,7 @@ export interface Feature {
 }
 
 export interface Testimonial {
-  id: number;
+  id: string | number;
   quote: string;
   name: string;
   info: string;
@@ -17,4 +17,7 @@ export interface Testimonial {
   thumbnailUrl?: string;
   videoUrl?: string;
   rating?: number;
+  /** Landing trust card — optional lines over image/video */
+  mediaCaptionTitle?: string;
+  mediaCaptionSubtitle?: string;
 }

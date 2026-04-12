@@ -209,7 +209,32 @@
   }
 }
 
+/* Landing: teachers infinite row marquee */
+@keyframes teachers-marquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
 
+.teachers-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: teachers-marquee var(--teachers-marquee-duration, 45s) linear infinite;
+  will-change: transform;
+}
+
+.teachers-marquee-wrap:hover .teachers-marquee-track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .teachers-marquee-track {
+    animation: none;
+  }
+}
 
 /* optional scrollbar styling */
 ::-webkit-scrollbar {

@@ -85,3 +85,33 @@ export async function bulkImportStudents(file: File, branchId?: string, defaultP
     body: formData,
   });
 }
+
+export interface MobileDuplicateCheckResult {
+  exists: boolean;
+  student?: {
+    id: string;
+    fullName: string;
+    registrationNumber: string | null;
+  };
+}
+
+/** Check if a mobile number is already registered (500ms debounce recommended). */
+export async function checkDuplicateMobile(mobile: string): Promise<ApiResponse<MobileDuplicateCheckResult>> {
+  return apiRequest<ApiResponse<MobileDuplicateCheckResult>>(
+    `/users/check-mobile/${encodeURIComponent(mobile)}`,
+  );
+}
+
+/** Send initial credentials (OTP) via SMS to the student's mobile. */
+export async function sendCredentialsSms(userId: string): Promise<ApiResponse<void>> {
+  return apiRequest<ApiResponse<void>>(`/users/${userId}/send-credentials-sms`, {
+    method: 'POST',
+  });
+}
+
+/** Send initial credentials (OTP) via email to the student. (TODO: email service) */
+export async function sendCredentialsEmail(userId: string): Promise<ApiResponse<void>> {
+  return apiRequest<ApiResponse<void>>(`/users/${userId}/send-credentials-email`, {
+    method: 'POST',
+  });
+}

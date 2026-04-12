@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
-import { createStudent } from '@/lib/api/students';
+import { createStudent, checkDuplicateMobile, sendCredentialsSms, sendCredentialsEmail } from '@/lib/api/students';
 import { getPrograms, getProgramById, type Program } from '@/lib/api/programs';
 import type { Course } from '@/lib/api/courses';
 import { offlineAdmission, type PaymentMethodType } from '@/lib/api/enrollments';
@@ -38,15 +38,17 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Copy,
   CreditCard,
   FileText,
   GraduationCap,
   Layers,
   Library,
   Lock,
+  Mail,
+  MessageSquare,
   Phone,
   User,
-  Mail,
 } from 'lucide-react';
 
 const inputClass =
@@ -119,7 +121,7 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
   const [programCourses, setProgramCourses] = useState<Course[]>([]);
   const [programId, setProgramId] = useState('');
   const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);
-  const [billingStartMonth, setBillingStartMonth] = useState('');
+  const [billingStartMonth, setBillingStartMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [loadingCourses, setLoadingCourses] = useState(false);
 
   /** Per-course batch assignments: { [courseId]: batchId } */
@@ -141,9 +143,21 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Mobile duplicate check
+  const [mobileCheckState, setMobileCheckState] = useState<'idle' | 'checking' | 'exists' | 'clear'>('idle');
+  const [existingStudent, setExistingStudent] = useState<{ id: string; fullName: string; registrationNumber: string | null } | null>(null);
+  const [mobileDuplicateDismissed, setMobileDuplicateDismissed] = useState(false);
+  const mobileDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Monthly discount (recurring)
+  const [monthlyDiscountAmount, setMonthlyDiscountAmount] = useState('');
+
   const [done, setDone] = useState<{
+    studentId: string;
     roll: string;
-    oneTimePassword?: string;
+    oneTimePassword?: string | null;
+    email?: string;
+    pdfUrl?: string | null;
     results: Array<{ courseName: string; pdfUrl: string | null; dueAmount: number; nextDue?: string }>;
   } | null>(null);
 
@@ -152,6 +166,37 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
       if (res.success && res.data) setPrograms(res.data);
     });
   }, []);
+
+  // Debounced mobile duplicate check
+  useEffect(() => {
+    const mobile = profile.mobile.trim();
+    if (!/^01[3-9]\d{8}$/.test(mobile)) {
+      setMobileCheckState('idle');
+      setExistingStudent(null);
+      return;
+    }
+    setMobileCheckState('checking');
+    if (mobileDebounceRef.current) clearTimeout(mobileDebounceRef.current);
+    mobileDebounceRef.current = setTimeout(async () => {
+      try {
+        const res = await checkDuplicateMobile(mobile);
+        if (res.success && res.data?.exists) {
+          setMobileCheckState('exists');
+          setExistingStudent(res.data.student ?? null);
+          setMobileDuplicateDismissed(false);
+        } else {
+          setMobileCheckState('clear');
+          setExistingStudent(null);
+        }
+      } catch {
+        setMobileCheckState('idle');
+      }
+    }, 500);
+    return () => {
+      if (mobileDebounceRef.current) clearTimeout(mobileDebounceRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile.mobile]);
 
   useEffect(() => {
     if (!programId) {
@@ -329,12 +374,13 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
   const totalAdmissionFee = effectiveAdmissionFeeTotal;
 
   const totalDiscountNum = Number(totalDiscountAmount) || 0;
+  const totalMonthlyDiscountNum = Number(monthlyDiscountAmount) || 0;
   const totalScholarshipNum = Number(totalScholarshipAmount) || 0;
   const totalPaymentNum = Number(totalPaymentAmount) || 0;
 
   const netPayable = useMemo(
-    () => netPayableAfterAdjustments(totalCourseFee, totalDiscountNum, totalScholarshipNum),
-    [totalCourseFee, totalDiscountNum, totalScholarshipNum],
+    () => netPayableAfterAdjustments(totalCourseFee, totalDiscountNum + totalMonthlyDiscountNum, totalScholarshipNum),
+    [totalCourseFee, totalDiscountNum, totalMonthlyDiscountNum, totalScholarshipNum],
   );
 
   const balanceAfterPay = useMemo(
@@ -343,10 +389,22 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
   );
 
   const adjustmentsOverTotalFees =
-    totalCourseFee > 0 && totalDiscountNum + totalScholarshipNum > totalCourseFee + 1e-6;
+    totalCourseFee > 0 && totalDiscountNum + totalMonthlyDiscountNum + totalScholarshipNum > totalCourseFee + 1e-6;
 
-  const maxDiscountAllowed = Math.max(0, Math.round((totalCourseFee - totalScholarshipNum) * 100) / 100);
-  const maxScholarshipAllowed = Math.max(0, Math.round((totalCourseFee - totalDiscountNum) * 100) / 100);
+  const maxDiscountAllowed = Math.max(0, Math.round((totalCourseFee - totalMonthlyDiscountNum - totalScholarshipNum) * 100) / 100);
+  const maxScholarshipAllowed = Math.max(0, Math.round((totalCourseFee - totalDiscountNum - totalMonthlyDiscountNum) * 100) / 100);
+
+  /** True when any selected course is OFFLINE */
+  const hasOfflineCourse = selectedCourseIds.some((id) => isOfflineCourseType(courseById.get(id)?.type));
+
+  /** Payment type badge label (OFFLINE / ONLINE / MIXED) */
+  const paymentTypeBadge = useMemo(() => {
+    if (selectedCourseIds.length === 0) return null;
+    const types = new Set(selectedCourseIds.map((id) => String(courseById.get(id)?.type ?? '').toUpperCase()));
+    if (types.has('OFFLINE') && types.has('ONLINE')) return 'MIXED';
+    if (types.has('OFFLINE')) return 'OFFLINE';
+    return 'ONLINE';
+  }, [selectedCourseIds, courseById]);
 
   const paymentFieldsLocked =
     admissionChannel === 'online' || (admissionChannel === 'offline' && adjustmentsOverTotalFees);
@@ -363,7 +421,7 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
   useEffect(() => {
     if (admissionChannel === 'online') {
       setTotalPaymentAmount('0');
-      setPaymentMethod('GATEWAY');
+      setPaymentMethod('CASH');
       setPaymentTrxId('');
     }
   }, [admissionChannel]);
@@ -394,6 +452,10 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
     }
     if (!/^01[3-9]\d{8}$/.test(profile.mobile.trim())) {
       setError('Mobile must be a valid 11-digit BD number (e.g. 017XXXXXXXX).');
+      return false;
+    }
+    if (mobileCheckState === 'exists' && !mobileDuplicateDismissed) {
+      setError('এই নম্বরে আগে থেকে একজন Student আছেন। তবুও নতুন করতে চাইলে "তবুও নতুন করুন" তে ক্লিক করুন।');
       return false;
     }
     if (!profile.branchId) {
@@ -550,10 +612,11 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
         paymentTrxId: payTotal > 0 && paymentMethod !== 'CASH' ? paymentTrxId.trim() || undefined : undefined,
         discountAmount: discTotal > 0 ? discTotal : undefined,
         discountReference: discTotal > 0 ? refTrim : undefined,
+        monthlyDiscountAmount: totalMonthlyDiscountNum > 0 ? totalMonthlyDiscountNum : undefined,
         scholarshipAmount: scholTotal > 0 ? scholTotal : undefined,
         nextPaymentDueDate: nextDueIso,
         admissionFeeAmountOverrides: Object.keys(feeOverrides).length > 0 ? feeOverrides : undefined,
-      });
+      }, `wizard-${studentUserId}-${Date.now()}`);
 
       if (!adm.success || !adm.data) {
         throw new Error(adm.message || 'Admission failed');
@@ -583,7 +646,7 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
         },
       ];
 
-      setDone({ roll, oneTimePassword: otp, results });
+      setDone({ studentId: studentUserId, roll, oneTimePassword: otp, email: profile.email.trim() || undefined, pdfUrl: adm.data.pdfUrl, results });
 
       toast({
         title: 'Admission complete',
@@ -605,24 +668,75 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
       <div className="flex flex-col h-full max-h-[85vh] bg-white text-slate-900">
         <div className="flex-1 overflow-y-auto px-8 py-8 space-y-8">
           <div className="rounded-3xl border border-emerald-100 bg-emerald-50/40 p-6 space-y-4">
-            <h3 className="text-sm font-black uppercase tracking-[0.2em] text-emerald-800">Admission complete</h3>
+            <h3 className="text-sm font-black uppercase tracking-[0.2em] text-emerald-800">ভর্তি সম্পন্ন</h3>
             <p className="text-sm text-slate-600">
-              Save roll and one-time password. Student logs in with mobile + password. One invoice PDF lists all enrolled courses.
+              রেজিস্ট্রেশন নম্বর ও পাসওয়ার্ড সংরক্ষণ করুন। Student মোবাইল + পাসওয়ার্ড দিয়ে লগইন করবে।
             </p>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-2xl bg-white border border-slate-100 p-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Roll / Reg. no.</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">রেজিস্ট্রেশন নম্বর</p>
                 <p className="font-mono text-xl font-black text-slate-900">{done.roll}</p>
               </div>
               {done.oneTimePassword ? (
                 <div className="rounded-2xl bg-white border border-slate-100 p-4">
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                    One-time password
+                    প্রাথমিক পাসওয়ার্ড
                   </p>
-                  <p className="font-mono text-xl font-black text-indigo-700">{done.oneTimePassword}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-mono text-xl font-black text-indigo-700 flex-1">{done.oneTimePassword}</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(done.oneTimePassword!);
+                        toast({ title: 'Copied', description: 'Password copied to clipboard', variant: 'success' });
+                      }}
+                      className="p-1.5 rounded-xl hover:bg-slate-100 transition-colors"
+                    >
+                      <Copy className="h-4 w-4 text-slate-500" />
+                    </button>
+                  </div>
                 </div>
               ) : null}
             </div>
+
+            {/* SMS / Email credential buttons */}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-xl text-xs font-bold"
+                onClick={async () => {
+                  try {
+                    await sendCredentialsSms(done.studentId);
+                    toast({ title: 'SMS পাঠানো হয়েছে', description: 'Credentials SMS sent successfully', variant: 'success' });
+                  } catch (e: unknown) {
+                    toast({ title: 'Error', description: e instanceof Error ? e.message : 'SMS failed', variant: 'destructive' });
+                  }
+                }}
+              >
+                <MessageSquare className="mr-1.5 h-3.5 w-3.5" />
+                SMS পাঠান
+              </Button>
+              {done.email && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-xl text-xs font-bold"
+                  onClick={async () => {
+                    try {
+                      await sendCredentialsEmail(done.studentId);
+                      toast({ title: 'Email পাঠানো হয়েছে', description: 'Credentials email sent', variant: 'success' });
+                    } catch (e: unknown) {
+                      toast({ title: 'Error', description: e instanceof Error ? e.message : 'Email failed', variant: 'destructive' });
+                    }
+                  }}
+                >
+                  <Mail className="mr-1.5 h-3.5 w-3.5" />
+                  Email পাঠান
+                </Button>
+              )}
+            </div>
+
             <div className="space-y-3">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Invoice</p>
               {done.results.map((r, i) => (
@@ -714,15 +828,54 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
                 <div className="relative">
                   <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
-                    className={cn(inputClass, 'pl-11')}
+                    className={cn(inputClass, 'pl-11',
+                      mobileCheckState === 'exists' && !mobileDuplicateDismissed ? 'border-amber-400 bg-amber-50' :
+                      mobileCheckState === 'clear' ? 'border-emerald-400' : ''
+                    )}
                     value={profile.mobile}
                     onChange={(e) => setProfile((p) => ({ ...p, mobile: e.target.value }))}
                     placeholder="017XXXXXXXX"
                   />
+                  {mobileCheckState === 'checking' && (
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
+                  )}
+                  {mobileCheckState === 'clear' && (
+                    <Check className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-500" />
+                  )}
                 </div>
+                {mobileCheckState === 'exists' && !mobileDuplicateDismissed && existingStudent && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 space-y-2">
+                    <p className="text-xs font-bold text-amber-800">
+                      ⚠ এই নম্বরে আগে থেকে একজন Student আছেন: <strong>{existingStudent.fullName}</strong>
+                      {existingStudent.registrationNumber ? ` (রেজি. ${existingStudent.registrationNumber})` : ''}
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="rounded-lg text-[11px] h-7 border-amber-300 text-amber-800 hover:bg-amber-100"
+                        onClick={() => window.open(`/admin/students/${existingStudent!.id}`, '_blank')}
+                      >
+                        বিদ্যমান Student দেখুন
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="rounded-lg text-[11px] h-7 bg-amber-600 text-white hover:bg-amber-700"
+                        onClick={() => setMobileDuplicateDismissed(true)}
+                      >
+                        তবুও নতুন করুন
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                <p className="text-[10px] font-bold text-slate-400">
+                  রেজিস্ট্রেশন নম্বর: পরবর্তী ধাপে স্বয়ংক্রিয়ভাবে তৈরি হবে (৭ সংখ্যার)
+                </p>
               </div>
               <div className="space-y-2 sm:col-span-2">
-                <label className={sectionLabel}>Email (optional)</label>
+                <label className={sectionLabel}>ইমেইল (ঐচ্ছিক)</label>
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
@@ -1051,45 +1204,23 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
                         </div>
                       )}
 
-                      {/* Online course — optional batch */}
-                      {sel && !isOffline && (
-                        <div
-                          className="rounded-b-2xl border border-t-0 border-indigo-300 bg-indigo-50/20 px-4 pb-3 pt-2"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-slate-400">
-                            Batch <span className="text-slate-300">(optional for online)</span>
-                          </label>
-                          {batches.length > 0 ? (
-                            <Select
-                              value={assignedBatch || 'none'}
-                              onValueChange={(v) =>
-                                setBatchAssignments((prev) => ({
-                                  ...prev,
-                                  [c.id]: v === 'none' ? '' : v,
-                                }))
-                              }
-                            >
-                              <SelectTrigger className="h-10 rounded-xl border border-indigo-200 bg-white text-sm font-bold text-slate-700">
-                                <SelectValue placeholder="No batch (optional)" />
-                              </SelectTrigger>
-                              <SelectContent className="rounded-xl">
-                                <SelectItem value="none" className="font-bold text-slate-400">
-                                  No batch
-                                </SelectItem>
-                                {batches.map((b) => (
-                                  <SelectItem key={b.id} value={b.id} className="font-bold">
-                                    {b.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : null}
-                        </div>
-                      )}
+
                     </div>
                   );
                 })}
+              </div>
+            )}
+            {selectedCourseIds.length > 0 && (
+              <div className="flex items-center gap-2 pt-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Payment type:</span>
+                <span className={cn(
+                  'rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest',
+                  paymentTypeBadge === 'OFFLINE' ? 'bg-violet-100 text-violet-700' :
+                  paymentTypeBadge === 'ONLINE'  ? 'bg-sky-100 text-sky-700' :
+                  'bg-amber-100 text-amber-700',
+                )}>
+                  {paymentTypeBadge}
+                </span>
               </div>
             )}
             <div className="grid gap-6 border-t border-slate-100 pt-8 sm:grid-cols-2">
@@ -1169,7 +1300,25 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
                   <dt>Total course fees</dt>
                   <dd className="font-mono">{totalCourseFee.toFixed(2)} BDT</dd>
                 </div>
-                <div className="flex justify-between gap-2 font-bold text-slate-800">
+                {totalDiscountNum > 0 && (
+                  <div className="flex justify-between gap-2 font-bold text-amber-800">
+                    <dt>Special Discount</dt>
+                    <dd className="font-mono">−{totalDiscountNum.toFixed(2)} BDT</dd>
+                  </div>
+                )}
+                {totalMonthlyDiscountNum > 0 && (
+                  <div className="flex justify-between gap-2 font-bold text-violet-800">
+                    <dt>মাসিক ছাড় (Monthly Discount)</dt>
+                    <dd className="font-mono">−{totalMonthlyDiscountNum.toFixed(2)} BDT</dd>
+                  </div>
+                )}
+                {totalScholarshipNum > 0 && (
+                  <div className="flex justify-between gap-2 font-bold text-emerald-800">
+                    <dt>Scholarship</dt>
+                    <dd className="font-mono">−{totalScholarshipNum.toFixed(2)} BDT</dd>
+                  </div>
+                )}
+                <div className="flex justify-between gap-2 font-bold text-slate-800 border-t border-indigo-100 pt-2 sm:col-span-2">
                   <dt>Net after discount & scholarship</dt>
                   <dd className="font-mono text-indigo-800">{netPayable.toFixed(2)} BDT</dd>
                 </div>
@@ -1299,6 +1448,21 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
                   />
                   <p className="text-[10px] font-medium text-slate-400">Cap with current discount: {maxScholarshipAllowed.toFixed(2)} BDT</p>
                 </div>
+                {hasOfflineCourse && (
+                  <div className="space-y-2 sm:col-span-2">
+                    <label className={sectionLabel}>মাসিক ছাড় (Monthly Discount) (BDT)</label>
+                    <Input
+                      className={inputClass}
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={monthlyDiscountAmount}
+                      onChange={(e) => setMonthlyDiscountAmount(e.target.value)}
+                      placeholder="0"
+                    />
+                    <p className="text-[10px] font-medium text-slate-400">প্রতি মাসে এই পরিমাণ ছাড় পাবেন (Offline courses only).</p>
+                  </div>
+                )}
                 <div className="space-y-2 sm:col-span-2">
                   <label className={sectionLabel}>Discount reference (required if discount &gt; 0)</label>
                   <Input
@@ -1347,6 +1511,14 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
                     onChange={(e) => setTotalPaymentAmount(e.target.value)}
                     disabled={paymentFieldsLocked}
                   />
+                  {!paymentFieldsLocked && totalPaymentNum > netPayable && (
+                    <div className="flex gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                      <span>
+                        Pay today ({totalPaymentNum.toFixed(2)}) &gt; Net payable ({netPayable.toFixed(2)}). Overpayment is not allowed.
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2 sm:col-span-2">
                   <label className={cn(sectionLabel, paymentFieldsLocked && 'text-slate-400')}>Payment method</label>
@@ -1366,8 +1538,6 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
                     <SelectContent className="rounded-2xl">
                       <SelectItem value="CASH">Cash</SelectItem>
                       <SelectItem value="BKASH">bKash</SelectItem>
-                      <SelectItem value="BANK">Bank</SelectItem>
-                      <SelectItem value="GATEWAY">Gateway / online</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1467,49 +1637,87 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
         {step === 4 && (
           <div className="space-y-6 animate-in fade-in duration-200">
             <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-5">
-              <h3 className="text-sm font-black uppercase tracking-widest text-indigo-800">Final review</h3>
+              <h3 className="text-sm font-black uppercase tracking-widest text-indigo-800">চূড়ান্ত নিশ্চিতকরণ</h3>
               <p className="mt-2 text-xs font-bold text-slate-600">
-                If the table looks correct, press Create student & invoices. Invoice PDFs generate immediately after save.
+                তথ্য সঠিক হলে &ldquo;ভর্তি সম্পন্ন করুন&rdquo; চাপুন। Invoice তৈরি হবে — PDF ডাউনলোড ও SMS পাঠানো যাবে।
               </p>
             </div>
-            <div className="overflow-x-auto rounded-2xl border border-slate-200">
-              <table className="w-full min-w-[600px] text-left text-sm">
-                <thead className="border-b border-slate-100 bg-slate-50 text-[10px] font-black uppercase text-slate-500">
-                  <tr>
-                    <th className="px-3 py-2">Course</th>
-                    <th className="px-3 py-2 text-right">Fee</th>
-                    <th className="px-3 py-2 text-right">Disc.</th>
-                    <th className="px-3 py-2 text-right">Schol.</th>
-                    <th className="px-3 py-2 text-right">Pay now</th>
-                    <th className="px-3 py-2 text-right">Due</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {distributedPreview.rows.map((r) => {
-                    const c = courseById.get(r.id);
-                    return (
-                      <tr key={r.id} className="bg-white">
-                        <td className="px-3 py-2 font-bold text-slate-800">{c?.name}</td>
-                        <td className="px-3 py-2 text-right font-mono">{r.fee.toFixed(0)}</td>
-                        <td className="px-3 py-2 text-right font-mono">{r.disc.toFixed(0)}</td>
-                        <td className="px-3 py-2 text-right font-mono">{r.schol.toFixed(0)}</td>
-                        <td className="px-3 py-2 text-right font-mono">{r.pay.toFixed(0)}</td>
-                        <td className="px-3 py-2 text-right font-black text-amber-800">{r.due.toFixed(0)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+
+            {/* Key-value summary */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2 text-sm shadow-sm">
+              <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Program</span>
+                <span className="font-black text-slate-800">{programs.find((p) => p.id === programId)?.name ?? '—'}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Branch</span>
+                <span className="font-bold text-slate-700">{branches.find((b) => b.id === profile.branchId)?.name ?? '—'}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">কোর্সসমূহ</span>
+                <span className="font-bold text-slate-700 text-right max-w-[60%]">
+                  {selectedCourseIds.map((id) => courseById.get(id)?.name).filter(Boolean).join(', ')}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Payment Type</span>
+                <span className={cn(
+                  'rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase',
+                  paymentTypeBadge === 'OFFLINE' ? 'bg-violet-100 text-violet-700' :
+                  paymentTypeBadge === 'ONLINE'  ? 'bg-sky-100 text-sky-700' :
+                  'bg-amber-100 text-amber-700',
+                )}>
+                  {paymentTypeBadge}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Billing month</span>
+                <span className="font-bold text-slate-700">{billingStartMonth || '—'}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Total fees</span>
+                <span className="font-mono font-black text-slate-800">৳{totalCourseFee.toFixed(2)}</span>
+              </div>
+              {totalDiscountNum > 0 && (
+                <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-amber-600">Special Discount</span>
+                  <span className="font-mono font-black text-amber-700">−৳{totalDiscountNum.toFixed(2)}</span>
+                </div>
+              )}
+              {totalMonthlyDiscountNum > 0 && (
+                <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-violet-600">মাসিক ছাড়</span>
+                  <span className="font-mono font-black text-violet-700">−৳{totalMonthlyDiscountNum.toFixed(2)}</span>
+                </div>
+              )}
+              {totalScholarshipNum > 0 && (
+                <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Scholarship</span>
+                  <span className="font-mono font-black text-emerald-700">−৳{totalScholarshipNum.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-700">Net Payable</span>
+                <span className="font-mono font-black text-indigo-800">৳{netPayable.toFixed(2)}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Pay today</span>
+                <span className="font-mono font-bold text-slate-700">৳{totalPaymentNum.toFixed(2)}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Payment method</span>
+                <span className="font-bold text-slate-700">{paymentMethod}</span>
+              </div>
             </div>
-            <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-4 text-xs font-bold text-slate-600 space-y-1">
-              <p>Branch: {branches.find((b) => b.id === profile.branchId)?.name}</p>
-              <p>Billing month: {billingStartMonth || '—'}</p>
-              <p>
-                Payment timing:{' '}
-                {admissionChannel === 'offline' ? 'Collect now (cash / bKash / bank)' : 'Pay later (gateway)'}
+
+            {/* Info banner */}
+            <div className="flex items-start gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm">
+              <div className="mt-0.5 h-4 w-4 shrink-0 rounded-full bg-sky-500 flex items-center justify-center">
+                <span className="text-[8px] font-black text-white">i</span>
+              </div>
+              <p className="font-bold text-sky-800">
+                Invoice তৈরি হবে — PDF ডাউনলোড ও SMS পাঠানো যাবে। Student-এর পোর্টাল লগইনের জন্য OTP জেনারেট হবে।
               </p>
-              <p>Payment method: {paymentMethod}</p>
-              <p>Next payment: {nextPaymentDueDate ? format(parseDateInput(nextPaymentDueDate)!, 'dd MMM yyyy') : '—'}</p>
             </div>
           </div>
         )}
@@ -1547,11 +1755,11 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
           </Button>
         ) : (
           <Button
-            className="h-14 flex-[2] rounded-2xl bg-indigo-600 font-black uppercase tracking-widest text-[11px] text-white hover:bg-indigo-600 hover:text-white"
+            className="h-14 flex-[2] rounded-2xl bg-emerald-600 font-black uppercase tracking-widest text-[11px] text-white hover:bg-emerald-700 hover:text-white"
             onClick={handleFinish}
             disabled={submitting}
           >
-            {submitting ? 'Saving…' : 'Create student & invoices'}
+            {submitting ? 'সংরক্ষণ হচ্ছে…' : 'ভর্তি সম্পন্ন করুন'}
           </Button>
         )}
       </div>

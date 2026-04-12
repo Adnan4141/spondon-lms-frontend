@@ -1,7 +1,7 @@
 import { apiRequest, API_ORIGIN } from '../api';
 import type { ApiResponse } from '@/types/course';
 
-export type EnrollmentStatusType = 'ACTIVE' | 'PAUSED' | 'CANCELLED' | 'COMPLETED' | 'WAITLISTED';
+export type EnrollmentStatusType = 'ACTIVE' | 'PAUSED' | 'CANCELLED' | 'COMPLETED' | 'WAITLISTED' | 'PENDING_PAYMENT' | 'EXPIRED';
 
 export interface Enrollment {
   id: string;
@@ -54,6 +54,8 @@ export interface UpdateEnrollmentDto {
   batchId?: string;
   status?: EnrollmentStatusType;
   billingStartMonth?: string;
+  reason?: string;
+  appliedByUserId?: string;
 }
 
 export async function getEnrollments(params?: {
@@ -174,7 +176,7 @@ export async function bulkChangeBranch(data: {
   });
 }
 
-export type PaymentMethodType = 'CASH' | 'BKASH' | 'BANK' | 'GATEWAY';
+export type PaymentMethodType = 'CASH' | 'BKASH';
 
 export interface OfflineAdmissionCourseLine {
   courseId: string;
@@ -198,6 +200,7 @@ export interface OfflineAdmissionDto {
   receivedByUserId?: string;
   discountAmount?: number;
   discountReference?: string;
+  monthlyDiscountAmount?: number;
   scholarshipAmount?: number;
   recurringScholarship?: number;
   forceWaitlist?: boolean;
@@ -209,9 +212,16 @@ export interface OfflineAdmissionDto {
     qty?: number;
     unitPrice?: number;
   }>;
+  appliedByUserId?: string;
 }
 
 export interface OfflineAdmissionResult {
+  studentId: string;
+  registrationNumber: string | null;
+  oneTimePassword: string | null;
+  enrollmentIds: string[];
+  invoiceId: string;
+  invoicePdfUrl: string | null;
   enrollment: Enrollment;
   enrollments?: Enrollment[];
   invoice: {
@@ -228,13 +238,44 @@ export interface OfflineAdmissionResult {
 
 export async function offlineAdmission(
   data: OfflineAdmissionDto,
+  idempotencyKey?: string,
 ): Promise<ApiResponse<OfflineAdmissionResult>> {
+  const headers: Record<string, string> = {};
+  if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
   const res = await apiRequest<ApiResponse<OfflineAdmissionResult>>('/enrollments/offline-admission', {
     method: 'POST',
     body: JSON.stringify(data),
+    headers,
   });
   if (res.success && res.data?.pdfUrl?.startsWith('/')) {
     res.data.pdfUrl = `${API_ORIGIN}${res.data.pdfUrl}`;
   }
+  if (res.success && res.data?.invoicePdfUrl?.startsWith('/')) {
+    res.data.invoicePdfUrl = `${API_ORIGIN}${res.data.invoicePdfUrl}`;
+  }
   return res;
+}
+
+export interface EnrollmentDiscountLogEntry {
+  id: string;
+  enrollmentId: string;
+  invoiceId?: string | null;
+  discountAmount: number | string;
+  discountType: string;
+  reference?: string | null;
+  appliedByUserId?: string | null;
+  createdAt: string;
+  enrollment?: {
+    id: string;
+    course?: { id: string; name: string };
+  };
+  appliedBy?: { id: string; fullName: string } | null;
+}
+
+export async function getEnrollmentDiscountHistory(
+  studentUserId: string,
+): Promise<ApiResponse<EnrollmentDiscountLogEntry[]>> {
+  return apiRequest<ApiResponse<EnrollmentDiscountLogEntry[]>>(
+    `/enrollments/discount-history?studentUserId=${encodeURIComponent(studentUserId)}`,
+  );
 }

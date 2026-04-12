@@ -101,12 +101,6 @@ export const ProgramsCTASection: React.FC<Props> = ({
           ))}
         </motion.div>
 
-        <div className="mt-10 flex justify-center">
-          <Link href="/courses" className="flex items-center gap-2 px-6 py-3 rounded-xl bg-indigo-50 text-indigo-700 font-bold text-sm border border-indigo-100 hover:bg-indigo-100 transition-colors">
-            {buttonText}
-            <Globe2 className="h-4 w-4" />
-          </Link>
-        </div>
       </div>
     </section>
   );
