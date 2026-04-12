@@ -236,6 +236,33 @@
   }
 }
 
+/* Landing: partners logo row — seamless loop, fluid “mercury” motion */
+@keyframes partners-marquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.partners-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: partners-marquee var(--partners-marquee-duration, 48s) linear infinite;
+  will-change: transform;
+}
+
+.partners-marquee-wrap:hover .partners-marquee-track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .partners-marquee-track {
+    animation: none;
+  }
+}
+
 /* optional scrollbar styling */
 ::-webkit-scrollbar {
   width: 8px;

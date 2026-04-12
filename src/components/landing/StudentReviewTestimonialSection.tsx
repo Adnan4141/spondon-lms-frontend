@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Play, Quote } from 'lucide-react';
@@ -19,6 +19,16 @@ export const StudentReviewTestimonialSection: React.FC<Props> = ({
   setTestimonialIndex,
 }) => {
   if (!testimonials.length) return null;
+
+  useEffect(() => {
+    if (testimonials.length <= 1) return;
+
+    const timer = window.setTimeout(() => {
+      setTestimonialIndex((testimonialIndex + 1) % testimonials.length);
+    }, 5000);
+
+    return () => window.clearTimeout(timer);
+  }, [testimonialIndex, testimonials.length, setTestimonialIndex]);
 
   const next = () => setTestimonialIndex((testimonialIndex + 1) % testimonials.length);
   const prev = () => setTestimonialIndex((testimonialIndex - 1 + testimonials.length) % testimonials.length);

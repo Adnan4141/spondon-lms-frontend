@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -34,7 +34,12 @@ export const PartnerCarouselSection: React.FC<Props> = ({
   subtitle = 'যেসব প্রতিষ্ঠান ও ব্র্যান্ডের সাথে আমরা কাজ করি — তালিকা অ্যাডমিন প্যানেল থেকে আপডেট করা যায়।',
 }) => {
   const router = useRouter();
-  const scrollContent = partners.length > 0 ? [...partners, ...partners] : [];
+  const scrollContent = useMemo(() => (partners.length > 0 ? [...partners, ...partners] : []), [partners]);
+
+  const durationSec = useMemo(() => {
+    const n = partners.length;
+    return Math.min(85, Math.max(26, 20 + n * 8));
+  }, [partners.length]);
 
   return (
     <section className="relative py-12 sm:py-16 md:py-20 bg-gradient-to-b from-white to-slate-50 overflow-hidden">
@@ -47,7 +52,7 @@ export const PartnerCarouselSection: React.FC<Props> = ({
           viewport={{ once: true }}
           className="text-xs font-bold text-indigo-600 uppercase tracking-[0.5em] mb-4"
         >
-          TRUSTED BY
+          {badge}
         </motion.p>
 
         <motion.h2
@@ -57,7 +62,7 @@ export const PartnerCarouselSection: React.FC<Props> = ({
           transition={{ delay: 0.1 }}
           className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 tracking-tight"
         >
-          আমাদের পার্টনারসমূহ
+          {title}
         </motion.h2>
         <motion.p
           initial={{ opacity: 0, y: 8 }}
@@ -66,7 +71,7 @@ export const PartnerCarouselSection: React.FC<Props> = ({
           transition={{ delay: 0.15 }}
           className="mx-auto mt-3 max-w-2xl text-sm font-medium text-slate-500"
         >
-          যেসব প্রতিষ্ঠান ও ব্র্যান্ডের সাথে আমরা কাজ করি — তালিকা অ্যাডমিন প্যানেল থেকে আপডেট করা যায়।
+          {subtitle}
         </motion.p>
       </div>
 
@@ -93,50 +98,56 @@ export const PartnerCarouselSection: React.FC<Props> = ({
         </div>
       ) : null}
 
-      {/* Carousel Container */}
+      {/* Carousel: CSS infinite marquee (translate3d), pause on hover */}
       {loadResolved && partners.length > 0 ? (
-      <div className="relative flex items-center overflow-hidden">
-        
-        {/* Advanced Edge Masks (Glassy feel) */}
-        <div className="absolute left-0 top-0 bottom-0 w-24 md:w-64 bg-gradient-to-r from-white via-white/80 to-transparent z-20 pointer-events-none" />
-        <div className="absolute right-0 top-0 bottom-0 w-24 md:w-64 bg-gradient-to-l from-white via-white/80 to-transparent z-20 pointer-events-none" />
+        <div className="partners-marquee-wrap relative">
+          {/* Soft metallic edge fades */}
+          <div
+            className="pointer-events-none absolute inset-y-0 left-0 z-20 w-20 bg-gradient-to-r from-white via-slate-100/70 to-transparent md:w-56"
+            aria-hidden
+          />
+          <div
+            className="pointer-events-none absolute inset-y-0 right-0 z-20 w-20 bg-gradient-to-l from-white via-slate-100/70 to-transparent md:w-56"
+            aria-hidden
+          />
 
-        <motion.div
-          className="flex gap-8 md:gap-12 items-center py-4"
-          animate={{ x: ["0%", "-50%"] }}
-          transition={{
-            repeat: Infinity,
-            ease: "linear",
-            duration: 35, // Adjust speed here (higher = slower)
-          }}
-        >
-          {scrollContent.map((partner, index) => (
-            <motion.button
-              type="button"
-              key={`${partner.name}-${index}`}
-              onClick={() => partner.id && router.push(`/partners/${partner.id}`)}
-              disabled={!partner.id}
-              className="group relative flex-shrink-0 w-48 h-28 md:w-60 md:h-32 bg-white rounded-3xl border border-slate-200 flex items-center justify-center p-8 transition-all duration-500 hover:shadow-[0_20px_40px_-15px_rgba(79,70,229,0.15)] hover:border-indigo-300 hover:-translate-y-1 focus:outline-none disabled:cursor-default"
+          <div className="overflow-hidden px-2 sm:px-4">
+            <div
+              className="partners-marquee-track gap-8 md:gap-12 items-center py-4"
+              style={
+                {
+                  '--partners-marquee-duration': `${durationSec}s`,
+                } as React.CSSProperties
+              }
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl" />
-              <div className="relative w-full h-full">
-                <Image
-                  src={resolveAttachmentUrl(partner.logo, API_ORIGIN) || 'https://placehold.co/240x128?text=Logo'}
-                  alt={`${partner.name} logo`}
-                  fill
-                  sizes="(max-width: 768px) 192px, 240px"
-                  className="object-contain transition-all duration-500 group-hover:scale-110"
-                  priority={index < 4}
-                />
-              </div>
-            </motion.button>
-          ))}
-        </motion.div>
-      </div>
+              {scrollContent.map((partner, i) => (
+                <button
+                  type="button"
+                  key={`${partner.id ?? partner.name}-${i}`}
+                  onClick={() => partner.id && router.push(`/partners/${partner.id}`)}
+                  disabled={!partner.id}
+                  className="group relative h-28 w-48 shrink-0 rounded-3xl border border-slate-200/90 bg-white bg-gradient-to-b from-white to-slate-50/80 p-8 shadow-sm shadow-slate-200/40 flex items-center justify-center transition-all duration-500 hover:-translate-y-1 hover:border-indigo-300/80 hover:shadow-[0_20px_40px_-15px_rgba(79,70,229,0.18)] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 disabled:cursor-default md:h-32 md:w-60"
+                >
+                  <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-br from-indigo-50/40 via-transparent to-slate-100/30 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+                  <div className="relative h-full w-full">
+                    <Image
+                      src={resolveAttachmentUrl(partner.logo, API_ORIGIN) || 'https://placehold.co/240x128?text=Logo'}
+                      alt={`${partner.name} logo`}
+                      fill
+                      sizes="(max-width: 768px) 192px, 240px"
+                      className="object-contain transition-transform duration-500 group-hover:scale-110"
+                      priority={i < 4}
+                    />
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       ) : null}
       
       {/* Bottom Border Accent */}
-      <div className="mt-12 mx-auto max-w-xs h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+      <div className="mt-12 mx-auto max-w-xs h-px bg-gradient-to-r from-transparent via-slate-300/80 to-transparent" />
 
     </section>
   );
