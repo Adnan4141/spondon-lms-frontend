@@ -69,11 +69,7 @@ export function SpondonPaperInvoice({
           {invoice.branch?.name && (
             <p className="text-sm font-semibold text-slate-800">{invoice.branch.name}</p>
           )}
-          {invoice.branch?.address && (
-            <p className="mt-0.5 whitespace-pre-wrap text-xs text-slate-500">
-              {invoice.branch.address}
-            </p>
-          )}
+          
           {invoice.branch?.phone && (
             <p className="mt-0.5 text-xs text-slate-500">{invoice.branch.phone}</p>
           )}

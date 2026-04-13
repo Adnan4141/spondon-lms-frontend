@@ -380,11 +380,6 @@ export default function CourseDetailsPage() {
                                 <span className="px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-400/20 text-indigo-400 text-[10px] font-black uppercase tracking-widest">
                                     {course.program?.name || 'Academic'}
                                 </span>
-                                {course.category && (
-                                    <span className="px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-400/20 text-amber-400 text-[10px] font-black uppercase tracking-widest">
-                                        {course.category === 'JUNIOR_CADET_JOB' ? 'Cadet / Job' : course.category}
-                                    </span>
-                                )}
                                 <span className="px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-400/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest">
                                     {course.type === 'ONLINE' ? '• Online Course' : '• Offline Course'}
                                 </span>

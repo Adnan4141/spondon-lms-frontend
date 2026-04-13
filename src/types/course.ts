@@ -5,7 +5,6 @@ export type CourseType = 'ONLINE' | 'OFFLINE';
 export type BillingType = 'ONE_TIME' | 'MONTHLY';
 export type AdmissionStatus = 'OPEN' | 'CLOSED';
 export type CourseStatus = 'ACTIVE' | 'DISABLED' | 'ARCHIVED';
-export type CourseCategory = 'SSC' | 'HSC' | 'ADMISSION' | 'JUNIOR_CADET_JOB';
 export type JsonValue =
   | string
   | number
@@ -171,7 +170,6 @@ export interface Course {
   branchAccessMode: string;
   admissionStatus: AdmissionStatus;
   status: CourseStatus;
-  category?: CourseCategory;
   settledOptionEnabled: boolean;
   createdAt: string;
   updatedAt: string;
