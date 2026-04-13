@@ -60,6 +60,7 @@ import {
   Home,
   ChevronRight,
   MoreVertical,
+  FolderPlus,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
