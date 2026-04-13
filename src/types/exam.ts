@@ -31,7 +31,7 @@ export type ExamStatus = 'DRAFT' | 'PUBLISHED' | 'CLOSED';
 export interface Course {
   id: string;
   name: string;
-  code: string;
+  slug?: string;
 }
 
 export interface Branch {
@@ -182,7 +182,7 @@ export interface ExamStudentView {
   branch?: Branch;
   batch?: Batch | null;
   /** Extra linked courses (primary is `courseId` / `course`) — for multi-course exams & leaderboard scope. */
-  examCourses?: { courseId: string; course?: { id: string; name: string; code: string } }[];
+  examCourses?: { courseId: string; course?: { id: string; name: string; slug?: string } }[];
   _count?: { sets: number };
 }
 

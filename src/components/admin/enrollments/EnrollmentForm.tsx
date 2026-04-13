@@ -88,7 +88,7 @@ export function EnrollmentForm({ enrollment, onSuccess }: EnrollmentFormProps) {
       setSubmitting(true);
       setError(null);
 
-      if (enrollment.course?.billingType === 'MONTHLY') {
+      if (enrollment.billingType === 'MONTHLY') {
         const m = form.billingStartMonth.trim();
         if (!/^\d{4}-\d{2}$/.test(m)) {
           setError('মাসিক কোর্সের জন্য billing start month (YYYY-MM) আবশ্যক / Required for monthly courses');
@@ -142,17 +142,17 @@ export function EnrollmentForm({ enrollment, onSuccess }: EnrollmentFormProps) {
               </div>
             </div>
             <div className="flex flex-wrap gap-2 pt-2">
-              {enrollment.course?.billingType && (
+              {enrollment.billingType && (
                 <Badge
                   variant="outline"
                   className={cn(
                     'rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-widest',
-                    enrollment.course.billingType === 'MONTHLY'
+                    enrollment.billingType === 'MONTHLY'
                       ? 'border-violet-200 bg-violet-50 text-violet-800'
                       : 'border-sky-200 bg-sky-50 text-sky-800',
                   )}
                 >
-                  {enrollment.course.billingType === 'MONTHLY' ? 'মাসিক বিলিং' : 'এককালীন ফি'}
+                  {enrollment.billingType === 'MONTHLY' ? 'মাসিক বিলিং' : 'এককালীন ফি'}
                 </Badge>
               )}
               {enrollment.course?.program?.name && (
@@ -234,7 +234,7 @@ export function EnrollmentForm({ enrollment, onSuccess }: EnrollmentFormProps) {
           </section>
 
           {/* Billing — only for monthly courses */}
-          {enrollment.course?.billingType === 'MONTHLY' && (
+          {enrollment.billingType === 'MONTHLY' && (
             <section className="space-y-6">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-emerald-600" />

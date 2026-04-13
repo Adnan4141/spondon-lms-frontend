@@ -5,7 +5,7 @@ export interface AttendanceSheet {
   course: {
     id: string;
     name: string;
-    code: string;
+    slug?: string;
   };
   enrollments: Array<{
     id: string;

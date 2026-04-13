@@ -17,7 +17,7 @@ export interface Batch {
   course?: {
     id: string;
     name: string;
-    code: string;
+    slug?: string;
   };
   branch?: {
     id: string;

@@ -164,10 +164,8 @@ export interface Course {
   slug: string;
   thumbnail?: string;
   type: CourseType;
-  billingType: BillingType;
   fee: number | string;
-  offerDiscountAmount?: number | string | null;
-  offerDiscountNote?: string | null;
+  offerPrice?: number | string | null;
   description?: string;
   outline?: JsonValue;
   featured: boolean;
@@ -192,10 +190,8 @@ export interface CreateCourseDto {
   slug?: string;
   thumbnail?: string;
   type: CourseType;
-  billingType: BillingType;
   fee: number;
-  offerDiscountAmount?: number | null;
-  offerDiscountNote?: string | null;
+  offerPrice?: number | null;
   description?: string;
   outline?: JsonValue;
   featured?: boolean;
@@ -212,10 +208,8 @@ export interface UpdateCourseDto {
   slug?: string;
   thumbnail?: string;
   type?: CourseType;
-  billingType?: BillingType;
   fee?: number;
-  offerDiscountAmount?: number | null;
-  offerDiscountNote?: string | null;
+  offerPrice?: number | null;
   description?: string;
   outline?: JsonValue;
   featured?: boolean;
@@ -273,6 +267,9 @@ export interface CourseDetailCourseBook {
 
 export interface CourseFeeBreakdown {
   courseFee: number;
+  offerPrice?: number | null;
+  effectivePrice?: number;
+  discountPercent?: number | null;
   linkedBooksTotal: number;
   totalWithPaidBooks: number;
 }
@@ -291,7 +288,6 @@ export interface GetCoursesParams {
   programId?: string;
   status?: CourseStatus;
   websiteVisible?: boolean;
-  billingType?: BillingType;
   /** When set, returns courses where this user is on CourseTeacher OR CourseCollaborator. */
   teacherUserId?: string;
   page?: number;

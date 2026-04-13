@@ -140,7 +140,7 @@ export default function TeacherCoursesPage() {
                   </div>
                 </div>
                 <div className="p-6 flex flex-col flex-1">
-                  <p className="text-xs font-mono font-bold text-slate-400 mb-1">{course.code}</p>
+                  <p className="text-xs font-mono font-bold text-slate-400 mb-1">{course.slug}</p>
                   <h2 className="text-xl font-black text-slate-900 group-hover:text-indigo-600 transition-colors mb-2">
                     {course.name}
                   </h2>

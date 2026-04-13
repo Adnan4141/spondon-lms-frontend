@@ -1,18 +1,20 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ExcelJS from 'exceljs';
-import {
-  getAttendanceSheet,
-  recordAttendance,
-  bulkRecordAttendance,
-  type AttendanceSheet,
-  type AttendanceStatus,
-} from '@/lib/api/attendance';
+import { getPrograms } from '@/lib/api/programs';
 import { getCourses } from '@/lib/api/courses';
-import { getBranches } from '@/lib/api/branches';
-import { getBatches } from '@/lib/api/batches';
+import { getBranches, type Branch } from '@/lib/api/branches';
+import { getBatches, type Batch } from '@/lib/api/batches';
+import { getRoutineSlots } from '@/lib/api/routine';
+import { getEnrollments } from '@/lib/api/enrollments';
+import { getStudents } from '@/lib/api/students';
+import type { Program, Course } from '@/types/course';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { DatePicker } from '@/components/ui/date-picker';
 import {
   Select,
   SelectContent,
@@ -21,28 +23,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  Printer,
-  Download,
-  FileText,
-  Search,
-  RefreshCw,
-  Users,
-  Calendar,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  LayoutGrid,
-  Table2,
-  GraduationCap,
-  Building2,
-  Layers,
-  CheckSquare,
-  BarChart3,
-} from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
-import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -50,9 +30,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { DatePicker } from '@/components/ui/date-picker';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
   TableBody,
@@ -61,1069 +38,1041 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+import {
+  CalendarDays,
+  Check,
+  ChevronDown,
+  Download,
+  FileSpreadsheet,
+  FileText,
+  Lock,
+  Printer,
+  RefreshCw,
+  Search,
+  Settings2,
+  Upload,
+  Users,
+  X,
+} from 'lucide-react';
 
-type CourseRow = { id: string; name: string };
-type BranchRow = { id: string; name: string };
-type BatchRow = { id: string; name: string };
+// ─────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────
 
-type AttendanceEditModalState = {
-  sessionId: string;
-  sessionDate: string;
-  studentUserId: string;
-  studentName: string;
-  currentStatus: string | null;
-};
+type AttendanceStatus = 'P' | 'A' | 'L';
 
-function StatusDot({ status }: { status: string | null }) {
-  if (status === 'PRESENT') {
-    return (
-      <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-600 shadow-sm">
-        <CheckCircle2 className="h-4 w-4" />
-      </span>
-    );
-  }
-  if (status === 'ABSENT') {
-    return (
-      <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-600 shadow-sm">
-        <XCircle className="h-4 w-4" />
-      </span>
-    );
-  }
-  if (status === 'LATE' || status) {
-    return (
-      <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-amber-200 bg-amber-50 text-amber-600 shadow-sm">
-        <Clock className="h-4 w-4" />
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50/80" />
-  );
+interface StudentRow {
+  id: string;
+  fullName: string;
+  regNo: string;
 }
 
-function sessionLabel(d: string) {
-  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+interface DateColumn {
+  dateStr: string; // YYYY-MM-DD
+  label: string;   // dd-MMM
+  isFuture: boolean;
+  dayOfWeek: number;
 }
 
-function sessionDateFull(d: string) {
-  return new Date(d).toLocaleDateString('en-GB', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
+interface StoredData {
+  meta: {
+    batchId: string;
+    batchName: string;
+    courseId: string;
+    courseName: string;
+    programId: string;
+    programName: string;
+    branchId: string;
+    branchName: string;
+  };
+  students: StudentRow[];
+  routineDays: number[];
+  lockAfterDays: number;
+  lockedDates: string[];
+  autoAbsentEnabled: boolean;
+  attendance: Record<string, Record<string, AttendanceStatus | null>>;
+  lastUpdated: string;
 }
+
+// ─────────────────────────────────────────────────────────────
+// Constants
+// ─────────────────────────────────────────────────────────────
+
+const STORAGE_PREFIX = 'attendance_v1_';
+const DAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const STATUS_CYCLE: (AttendanceStatus | null)[] = [null, 'P', 'A', 'L'];
+
+// ─────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────
+
+function dateToYMD(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function formatDateLabel(ymd: string): string {
+  const [y, m, day] = ymd.split('-').map(Number);
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${String(day).padStart(2, '0')}-${months[m - 1]}`;
+}
+
+function todayYMD(): string {
+  return dateToYMD(new Date());
+}
+
+function loadStored(batchId: string): StoredData | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_PREFIX + batchId);
+    return raw ? (JSON.parse(raw) as StoredData) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveStored(data: StoredData) {
+  localStorage.setItem(STORAGE_PREFIX + data.meta.batchId, JSON.stringify({ ...data, lastUpdated: new Date().toISOString() }));
+}
+
+function parseCsv(text: string): string[][] {
+  return text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => line.split(',').map((c) => c.trim().replace(/^"|"$/g, '')));
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ─────────────────────────────────────────────────────────────
+// Status Cell Component
+// ─────────────────────────────────────────────────────────────
+
+function StatusCell({ status, onClick, disabled }: { status: AttendanceStatus | null; onClick?: () => void; disabled: boolean }) {
+  const base = 'inline-flex h-7 w-7 items-center justify-center rounded text-xs font-bold select-none transition-colors';
+  if (disabled && !status) {
+    return <span className={cn(base, 'bg-slate-50 border border-dashed border-slate-200 cursor-not-allowed text-slate-300')}>—</span>;
+  }
+  if (disabled) {
+    const cls = status === 'P' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : status === 'A' ? 'bg-rose-50 text-rose-600 border border-rose-200' : 'bg-amber-50 text-amber-600 border border-amber-200';
+    return <span className={cn(base, cls, 'cursor-not-allowed opacity-60')}>{status}</span>;
+  }
+  if (!status) {
+    return <span onClick={onClick} className={cn(base, 'border border-dashed border-slate-200 bg-slate-50/80 hover:bg-slate-100 cursor-pointer text-slate-400')}>—</span>;
+  }
+  const cls = status === 'P' ? 'bg-emerald-100 text-emerald-700 border border-emerald-300 hover:bg-emerald-200' : status === 'A' ? 'bg-rose-100 text-rose-700 border border-rose-300 hover:bg-rose-200' : 'bg-amber-100 text-amber-700 border border-amber-300 hover:bg-amber-200';
+  return <span onClick={onClick} className={cn(base, cls, 'cursor-pointer')}>{status}</span>;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Main Component
+// ─────────────────────────────────────────────────────────────
 
 export default function AttendanceSheetPage() {
   const { toast } = useToast();
 
-  const [courses, setCourses] = useState<CourseRow[]>([]);
-  const [branches, setBranches] = useState<BranchRow[]>([]);
-  const [batches, setBatches] = useState<BatchRow[]>([]);
+  // ── Cascade selection ──────────────────────────────────────
+  const [programs, setPrograms] = useState<Program[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [batchList, setBatchList] = useState<Batch[]>([]);
+  const [selectedProgramId, setSelectedProgramId] = useState('');
+  const [selectedCourseId, setSelectedCourseId] = useState('');
+  const [selectedBranchId, setSelectedBranchId] = useState('');
+  const [selectedBatchId, setSelectedBatchId] = useState('');
+  const [loadingPrograms, setLoadingPrograms] = useState(true);
+  const [loadingCourses, setLoadingCourses] = useState(false);
+  const [loadingBranches, setLoadingBranches] = useState(false);
+  const [loadingBatches, setLoadingBatches] = useState(false);
 
-  const [filters, setFilters] = useState({
-    courseId: '',
-    branchId: 'all',
-    batchId: 'all',
-  });
+  // ── Date range ─────────────────────────────────────────────
+  const [startDate, setStartDate] = useState<Date | undefined>();
+  const [endDate, setEndDate] = useState<Date | undefined>();
 
-  const [sheetData, setSheetData] = useState<AttendanceSheet | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [fetchingFilters, setFetchingFilters] = useState(true);
-  /** Mobile / tablet: 'cards' is easier to read; 'table' for wide matrix with horizontal scroll */
-  const [layoutMode, setLayoutMode] = useState<'cards' | 'table'>('cards');
-  const [editAttendance, setEditAttendance] = useState(true);
-  const [attendanceModal, setAttendanceModal] = useState<AttendanceEditModalState | null>(null);
-  const [modalStatus, setModalStatus] = useState<AttendanceStatus>('PRESENT');
-  const [modalSaving, setModalSaving] = useState(false);
-  const [activeSheetTab, setActiveSheetTab] = useState<'matrix' | 'summary'>('matrix');
-  const [sessionRangeStart, setSessionRangeStart] = useState<Date | undefined>(undefined);
-  const [sessionRangeEnd, setSessionRangeEnd] = useState<Date | undefined>(undefined);
-  const [bulkMarkingSession, setBulkMarkingSession] = useState<string | null>(null);
+  // ── Generated sheet data ───────────────────────────────────
+  const [generating, setGenerating] = useState(false);
+  const [generated, setGenerated] = useState(false);
+  const [dateColumns, setDateColumns] = useState<DateColumn[]>([]);
+  const [students, setStudents] = useState<StudentRow[]>([]);
+  const [attendance, setAttendance] = useState<Record<string, Record<string, AttendanceStatus | null>>>({});
+  const [lockedDates, setLockedDates] = useState<string[]>([]);
+  const [lockAfterDays, setLockAfterDays] = useState(7);
+  const [autoAbsentEnabled, setAutoAbsentEnabled] = useState(false);
 
-  const loadFilters = async () => {
-    try {
-      setFetchingFilters(true);
-      const [coursesRes, branchesRes] = await Promise.all([
-        getCourses({ status: 'ACTIVE' }),
-        getBranches(),
-      ]);
-      if (coursesRes.success) setCourses((coursesRes.data as CourseRow[]) || []);
-      if (branchesRes.success) setBranches((branchesRes.data as BranchRow[]) || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setFetchingFilters(false);
+  // ── UI state ───────────────────────────────────────────────
+  const [search, setSearch] = useState('');
+  const [attendanceFilter, setAttendanceFilter] = useState<'ALL' | 'LOW' | 'GOOD'>('ALL');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [csvModalOpen, setCsvModalOpen] = useState(false);
+  const [csvMode, setCsvMode] = useState<'students' | 'attendance'>('students');
+  const [csvText, setCsvText] = useState('');
+  const [csvPreview, setCsvPreview] = useState<string[][]>([]);
+  const [csvError, setCsvError] = useState('');
+  const [bulkMenuDate, setBulkMenuDate] = useState<string | null>(null);
+  const bulkMenuRef = useRef<HTMLDivElement>(null);
+
+  // ── Derived: selected batch obj ────────────────────────────
+  const selectedBatch = useMemo(() => batchList.find((b) => b.id === selectedBatchId), [batchList, selectedBatchId]);
+  const selectedCourse = useMemo(() => courses.find((c) => c.id === selectedCourseId), [courses, selectedCourseId]);
+  const selectedProgram = useMemo(() => programs.find((p) => p.id === selectedProgramId), [programs, selectedProgramId]);
+  const selectedBranch = useMemo(() => branches.find((b) => b.id === selectedBranchId), [branches, selectedBranchId]);
+
+  // ── Derived: isDateLocked ──────────────────────────────────
+  const today = todayYMD();
+  const isDateLocked = useCallback((dateStr: string): boolean => {
+    if (lockedDates.includes(dateStr)) return true;
+    const diff = (new Date(today).getTime() - new Date(dateStr).getTime()) / 86400000;
+    return diff > lockAfterDays;
+  }, [lockedDates, lockAfterDays, today]);
+
+  // ── Derived: summary per student ──────────────────────────
+  const summaries = useMemo(() => {
+    const pastCols = dateColumns.filter((c) => !c.isFuture);
+    return students.map((s) => {
+      const rec = attendance[s.id] ?? {};
+      let p = 0, a = 0, l = 0;
+      for (const col of pastCols) {
+        const v = rec[col.dateStr];
+        if (v === 'P') p++;
+        else if (v === 'A') a++;
+        else if (v === 'L') l++;
+        else if (autoAbsentEnabled) a++;
+      }
+      const total = pastCols.length;
+      const pct = total === 0 ? 0 : Math.round(((p + l) / total) * 100);
+      return { id: s.id, p, a, l, total, pct };
+    });
+  }, [students, attendance, dateColumns, autoAbsentEnabled]);
+
+  const summaryMap = useMemo(() => Object.fromEntries(summaries.map((s) => [s.id, s])), [summaries]);
+
+  // ── Derived: filtered students ─────────────────────────────
+  const filteredStudents = useMemo(() => {
+    let list = students;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((s) => s.fullName.toLowerCase().includes(q) || s.regNo.toLowerCase().includes(q));
     }
-  };
+    if (attendanceFilter === 'LOW') list = list.filter((s) => (summaryMap[s.id]?.pct ?? 0) < 75);
+    if (attendanceFilter === 'GOOD') list = list.filter((s) => (summaryMap[s.id]?.pct ?? 0) >= 75);
+    return list;
+  }, [students, search, attendanceFilter, summaryMap]);
 
-  const loadBatches = async (courseId: string) => {
-    if (!courseId || courseId === 'all') {
-      setBatches([]);
-      return;
-    }
-    const res = await getBatches({ courseId });
-    if (res.success) setBatches((res.data as BatchRow[]) || []);
-  };
-
+  // ── Load programs on mount ─────────────────────────────────
   useEffect(() => {
-    loadFilters();
+    setLoadingPrograms(true);
+    getPrograms()
+      .then((res) => { if (res.success && res.data) setPrograms(res.data); })
+      .catch(() => toast({ title: 'Error', description: 'Failed to load programs', variant: 'destructive' }))
+      .finally(() => setLoadingPrograms(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const branchName = useMemo(() => {
-    if (filters.branchId === 'all') return 'All branches';
-    return branches.find((b) => b.id === filters.branchId)?.name ?? '—';
-  }, [filters.branchId, branches]);
-
-  const batchName = useMemo(() => {
-    if (filters.batchId === 'all') return 'All batches';
-    return batches.find((b) => b.id === filters.batchId)?.name ?? '—';
-  }, [filters.batchId, batches]);
-
-  const filteredSessions = useMemo(() => {
-    if (!sheetData) return [];
-    return sheetData.sessions.filter((s) => {
-      const d = new Date(s.sessionDate);
-      if (sessionRangeStart && d < sessionRangeStart) return false;
-      if (sessionRangeEnd) {
-        const endDay = new Date(sessionRangeEnd);
-        endDay.setHours(23, 59, 59, 999);
-        if (d > endDay) return false;
+  // ── Close bulk menu on outside click ─────────────────────
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (bulkMenuRef.current && !bulkMenuRef.current.contains(e.target as Node)) {
+        setBulkMenuDate(null);
       }
-      return true;
-    });
-  }, [sheetData, sessionRangeStart, sessionRangeEnd]);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
-  const handleBulkPresent = async (sessionId: string) => {
-    if (!sheetData) return;
-    setBulkMarkingSession(sessionId);
+  // ── Cascade handlers ───────────────────────────────────────
+  const handleProgramChange = useCallback(async (programId: string) => {
+    const id = programId === '_none' ? '' : programId;
+    setSelectedProgramId(id);
+    setSelectedCourseId('');
+    setSelectedBranchId('');
+    setSelectedBatchId('');
+    setCourses([]); setBranches([]); setBatchList([]);
+    setGenerated(false);
+    if (!id) return;
+    setLoadingCourses(true);
     try {
-      const records = sheetData.enrollments.map((enr) => ({
-        studentUserId: enr.student.id,
-        status: 'PRESENT' as AttendanceStatus,
-      }));
-      const res = await bulkRecordAttendance({ sessionId, records });
-      if (res.success) {
-        setSheetData((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            sessions: prev.sessions.map((s) => {
-              if (s.id !== sessionId) return s;
-              const updatedRecords = prev.enrollments.map((enr) => {
-                const existing = s.attendanceRecords.find((r) => r.studentUserId === enr.student.id);
-                return existing
-                  ? { ...existing, status: 'PRESENT' }
-                  : { id: `bulk-${enr.student.id}`, studentUserId: enr.student.id, status: 'PRESENT', student: { id: enr.student.id, fullName: enr.student.fullName } };
-              });
-              return { ...s, attendanceRecords: updatedRecords };
-            }),
-          };
-        });
-        toast({ title: 'All present', description: `Marked ${records.length} students present.`, variant: 'success' });
-      } else {
-        toast({ title: 'Error', description: (res as { message?: string }).message ?? 'Bulk mark failed', variant: 'destructive' });
-      }
-    } catch {
-      toast({ title: 'Error', description: 'Bulk mark failed', variant: 'destructive' });
-    } finally {
-      setBulkMarkingSession(null);
-    }
-  };
+      const res = await getCourses({ programId: id });
+      if (res.success && res.data) setCourses(res.data);
+    } catch { toast({ title: 'Error', description: 'Failed to load courses', variant: 'destructive' }); }
+    finally { setLoadingCourses(false); }
+  }, [toast]);
 
-  const studentSummary = useMemo(() => {
-    if (!sheetData) return [];
-    return sheetData.enrollments.map((enr) => {
-      let present = 0, absent = 0, late = 0;
-      for (const s of filteredSessions) {
-        const r = s.attendanceRecords.find((x) => x.studentUserId === enr.student.id);
-        if (r?.status === 'PRESENT') present++;
-        else if (r?.status === 'ABSENT') absent++;
-        else if (r?.status === 'LATE') late++;
-      }
-      const total = filteredSessions.length;
-      const rate = total > 0 ? Math.round(((present + late) / total) * 100) : null;
-      return { id: enr.student.id, name: enr.student.fullName, mobile: enr.student.mobile, batch: enr.batch?.name ?? '—', present, absent, late, total, rate };
-    });
-  }, [sheetData, filteredSessions]);
+  const handleCourseChange = useCallback(async (courseId: string) => {
+    const id = courseId === '_none' ? '' : courseId;
+    setSelectedCourseId(id);
+    setSelectedBranchId('');
+    setSelectedBatchId('');
+    setBranches([]); setBatchList([]);
+    setGenerated(false);
+    if (!id) return;
+    setLoadingBranches(true);
+    try {
+      const res = await getBranches();
+      if (res.success && res.data) setBranches(res.data);
+    } catch { toast({ title: 'Error', description: 'Failed to load branches', variant: 'destructive' }); }
+    finally { setLoadingBranches(false); }
+  }, [toast]);
 
-  const handleGenerateSheet = async () => {
-    if (!filters.courseId) {
-      toast({
-        title: 'Selection required',
-        description: 'Choose a course to generate the sheet.',
-        variant: 'destructive',
-      });
+  const handleBranchChange = useCallback(async (branchId: string) => {
+    const id = branchId === '_none' ? '' : branchId;
+    setSelectedBranchId(id);
+    setSelectedBatchId('');
+    setBatchList([]);
+    setGenerated(false);
+    if (!id) return;
+    setLoadingBatches(true);
+    try {
+      const res = await getBatches({ courseId: selectedCourseId, branchId: id });
+      if (res.success && res.data) setBatchList(res.data);
+    } catch { toast({ title: 'Error', description: 'Failed to load batches', variant: 'destructive' }); }
+    finally { setLoadingBatches(false); }
+  }, [toast, selectedCourseId]);
+
+  const handleBatchChange = useCallback((batchId: string) => {
+    setSelectedBatchId(batchId === '_none' ? '' : batchId);
+    setGenerated(false);
+  }, []);
+
+  const setThisMonth = useCallback(() => {
+    const now = new Date();
+    setStartDate(new Date(now.getFullYear(), now.getMonth(), 1));
+    setEndDate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+  }, []);
+
+  const setNextMonth = useCallback(() => {
+    const now = new Date();
+    setStartDate(new Date(now.getFullYear(), now.getMonth() + 1, 1));
+    setEndDate(new Date(now.getFullYear(), now.getMonth() + 2, 0));
+  }, []);
+
+  // ── Generate sheet ─────────────────────────────────────────
+  const handleGenerate = useCallback(async () => {
+    if (!selectedBatchId || !startDate || !endDate) {
+      toast({ title: 'Validation', description: 'Select a batch and date range first.', variant: 'destructive' });
       return;
     }
-
-    try {
-      setLoading(true);
-      const res = await getAttendanceSheet({
-        courseId: filters.courseId,
-        branchId: filters.branchId === 'all' ? undefined : filters.branchId,
-        batchId: filters.batchId === 'all' ? undefined : filters.batchId,
-      });
-
-      if (res.success && res.data) {
-        setSheetData(res.data);
-        toast({ title: 'Ready', description: 'Attendance sheet loaded.', variant: 'success' });
-      } else {
-        setSheetData(null);
-        toast({
-          title: 'No data',
-          description: (res as { message?: string }).message || 'Could not build sheet.',
-          variant: 'destructive',
-        });
-      }
-    } catch (err: unknown) {
-      setSheetData(null);
-      toast({
-        title: 'Error',
-        description: err instanceof Error ? err.message : 'Request failed',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
+    if (startDate > endDate) {
+      toast({ title: 'Validation', description: 'Start date must be before end date.', variant: 'destructive' });
+      return;
     }
-  };
+    setGenerating(true);
+    try {
+      // 1. Routine days
+      const slotRes = await getRoutineSlots({ batchId: selectedBatchId });
+      const routineDays: number[] = slotRes.success && slotRes.data
+        ? [...new Set(slotRes.data.filter((s) => s.isActive).map((s) => s.dayOfWeek))]
+        : [];
 
-  const handlePrint = () => {
-    window.print();
-  };
+      if (routineDays.length === 0) {
+        toast({ title: 'Warning', description: 'No active routine slots found for this batch. Showing all days.', variant: 'default' });
+        for (let i = 0; i < 7; i++) routineDays.push(i);
+      }
 
-  const applyAttendancePatch = (
-    sessionId: string,
-    studentUserId: string,
-    row: { id: string; status: string; student: { id: string; fullName: string } }
-  ) => {
-    setSheetData((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        sessions: prev.sessions.map((s) => {
-          if (s.id !== sessionId) return s;
-          const others = s.attendanceRecords.filter((r) => r.studentUserId !== studentUserId);
-          return {
-            ...s,
-            attendanceRecords: [
-              ...others,
-              {
-                id: row.id,
-                studentUserId,
-                status: row.status,
-                student: row.student,
-              },
-            ],
-          };
-        }),
+      // 2. Date columns
+      const todayStr = todayYMD();
+      const cols: DateColumn[] = [];
+      const cur = new Date(startDate);
+      cur.setHours(0, 0, 0, 0);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      while (cur <= end) {
+        const dow = cur.getDay();
+        if (routineDays.includes(dow)) {
+          const ds = dateToYMD(cur);
+          cols.push({ dateStr: ds, label: formatDateLabel(ds), isFuture: ds > todayStr, dayOfWeek: dow });
+        }
+        cur.setDate(cur.getDate() + 1);
+      }
+
+      // 3. Enrollments → student list
+      const enrollRes = await getEnrollments({ batchId: selectedBatchId, status: 'ACTIVE', limit: 500 });
+      const enrollments = enrollRes.success && enrollRes.data ? enrollRes.data : [];
+
+      // 4. Try get reg numbers from students API
+      let regMap: Record<string, string> = {};
+      try {
+        const stuRes = await getStudents({ branchId: selectedBranchId, limit: 500 });
+        if (stuRes.success && stuRes.data) {
+          for (const s of stuRes.data) {
+            regMap[s.id] = s.studentProfile?.registrationNumber ?? s.mobile ?? '';
+          }
+        }
+      } catch { /* ignore */ }
+
+      const newStudents: StudentRow[] = enrollments
+        .filter((e) => e.student)
+        .map((e) => ({
+          id: e.student!.id,
+          fullName: e.student!.fullName,
+          regNo: regMap[e.student!.id] ?? e.student!.mobile ?? '',
+        }));
+
+      // 5. Merge with existing localStorage data
+      const stored = loadStored(selectedBatchId);
+      const existingAttendance = stored?.attendance ?? {};
+      const mergedAttendance: Record<string, Record<string, AttendanceStatus | null>> = {};
+      for (const st of newStudents) {
+        mergedAttendance[st.id] = {};
+        for (const col of cols) {
+          mergedAttendance[st.id][col.dateStr] = existingAttendance[st.id]?.[col.dateStr] ?? null;
+        }
+      }
+
+      const lockDays = stored?.lockAfterDays ?? 7;
+      const lockDates = stored?.lockedDates ?? [];
+      const autoAbsent = stored?.autoAbsentEnabled ?? false;
+
+      const newStored: StoredData = {
+        meta: {
+          batchId: selectedBatchId,
+          batchName: selectedBatch?.name ?? '',
+          courseId: selectedCourseId,
+          courseName: selectedCourse?.name ?? '',
+          programId: selectedProgramId,
+          programName: selectedProgram?.name ?? '',
+          branchId: selectedBranchId,
+          branchName: selectedBranch?.name ?? '',
+        },
+        students: newStudents,
+        routineDays,
+        lockAfterDays: lockDays,
+        lockedDates: lockDates,
+        autoAbsentEnabled: autoAbsent,
+        attendance: mergedAttendance,
+        lastUpdated: new Date().toISOString(),
       };
-    });
-  };
+      saveStored(newStored);
 
-  const openAttendanceModal = (
-    sessionId: string,
-    sessionDate: string,
-    studentUserId: string,
-    studentName: string,
-    current: string | null
-  ) => {
-    if (!editAttendance) return;
-    setModalStatus(current === 'ABSENT' ? 'ABSENT' : 'PRESENT');
-    setAttendanceModal({ sessionId, sessionDate, studentUserId, studentName, currentStatus: current });
-  };
-
-  const saveAttendanceFromModal = async () => {
-    if (!attendanceModal) return;
-    setModalSaving(true);
-    try {
-      const res = await recordAttendance({
-        sessionId: attendanceModal.sessionId,
-        studentUserId: attendanceModal.studentUserId,
-        status: modalStatus,
-      });
-      if (res.success && res.data) {
-        applyAttendancePatch(attendanceModal.sessionId, attendanceModal.studentUserId, {
-          id: res.data.id,
-          status: res.data.status,
-          student:
-            res.data.student || {
-              id: attendanceModal.studentUserId,
-              fullName: attendanceModal.studentName,
-            },
-        });
-        toast({ title: 'Attendance saved', description: modalStatus, variant: 'success' });
-        setAttendanceModal(null);
-      } else {
-        toast({
-          title: 'Could not save',
-          description: (res as { message?: string }).message || 'Request failed',
-          variant: 'destructive',
-        });
-      }
+      setStudents(newStudents);
+      setDateColumns(cols);
+      setAttendance(mergedAttendance);
+      setLockAfterDays(lockDays);
+      setLockedDates(lockDates);
+      setAutoAbsentEnabled(autoAbsent);
+      setGenerated(true);
+      toast({ title: 'Sheet generated', description: `${newStudents.length} students × ${cols.length} class dates.` });
     } catch (err) {
-      toast({
-        title: 'Error',
-        description: err instanceof Error ? err.message : 'Request failed',
-        variant: 'destructive',
-      });
+      console.error(err);
+      toast({ title: 'Error', description: 'Failed to generate attendance sheet.', variant: 'destructive' });
     } finally {
-      setModalSaving(false);
+      setGenerating(false);
     }
-  };
+  }, [selectedBatchId, startDate, endDate, selectedBranchId, selectedCourseId, selectedProgramId, selectedBatch, selectedCourse, selectedProgram, selectedBranch, toast]);
 
-  const handleExportCsv = () => {
-    if (!sheetData) return;
-    const sep = ',';
-    const esc = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
-    const header = ['Student', 'Mobile', 'Batch', ...sheetData.sessions.map((s) => sessionLabel(s.sessionDate))];
-    const lines = [header.map(esc).join(sep)];
-    for (const enr of sheetData.enrollments) {
-      const batch = enr.batch?.name || '';
-      const cells = sheetData.sessions.map((sess) => {
-        const r = sess.attendanceRecords.find((x) => x.studentUserId === enr.student.id);
-        return r?.status || '';
-      });
-      lines.push(
-        [enr.student.fullName, enr.student.mobile, batch, ...cells].map(esc).join(sep)
-      );
+  // ── Attendance cell toggle ─────────────────────────────────
+  const toggleCell = useCallback((studentId: string, dateStr: string) => {
+    setAttendance((prev) => {
+      const cur = prev[studentId]?.[dateStr] ?? null;
+      const idx = STATUS_CYCLE.indexOf(cur);
+      const next = STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length];
+      const updated = {
+        ...prev,
+        [studentId]: { ...(prev[studentId] ?? {}), [dateStr]: next },
+      };
+      // persist
+      const stored = loadStored(selectedBatchId);
+      if (stored) {
+        stored.attendance = updated;
+        saveStored(stored);
+      }
+      return updated;
+    });
+  }, [selectedBatchId]);
+
+  // ── Bulk mark for a date ───────────────────────────────────
+  const bulkMarkDate = useCallback((dateStr: string, status: AttendanceStatus | null) => {
+    setAttendance((prev) => {
+      const updated = { ...prev };
+      for (const s of filteredStudents) {
+        updated[s.id] = { ...(updated[s.id] ?? {}), [dateStr]: status };
+      }
+      const stored = loadStored(selectedBatchId);
+      if (stored) { stored.attendance = updated; saveStored(stored); }
+      return updated;
+    });
+    setBulkMenuDate(null);
+  }, [filteredStudents, selectedBatchId]);
+
+  // ── Bulk mark all ──────────────────────────────────────────
+  const bulkMarkAll = useCallback((status: AttendanceStatus | null) => {
+    setAttendance((prev) => {
+      const updated = { ...prev };
+      const pastCols = dateColumns.filter((c) => !c.isFuture && !isDateLocked(c.dateStr));
+      for (const s of filteredStudents) {
+        for (const col of pastCols) {
+          if (!updated[s.id]) updated[s.id] = {};
+          updated[s.id][col.dateStr] = status;
+        }
+      }
+      const stored = loadStored(selectedBatchId);
+      if (stored) { stored.attendance = updated; saveStored(stored); }
+      return updated;
+    });
+  }, [filteredStudents, dateColumns, isDateLocked, selectedBatchId]);
+
+  // ── Lock / Unlock date ────────────────────────────────────
+  const toggleDateLock = useCallback((dateStr: string) => {
+    setLockedDates((prev) => {
+      const next = prev.includes(dateStr) ? prev.filter((d) => d !== dateStr) : [...prev, dateStr];
+      const stored = loadStored(selectedBatchId);
+      if (stored) { stored.lockedDates = next; saveStored(stored); }
+      return next;
+    });
+  }, [selectedBatchId]);
+
+  // ── Save lock settings ────────────────────────────────────
+  const saveLockSettings = useCallback((days: number, autoAbsent: boolean) => {
+    setLockAfterDays(days);
+    setAutoAbsentEnabled(autoAbsent);
+    const stored = loadStored(selectedBatchId);
+    if (stored) {
+      stored.lockAfterDays = days;
+      stored.autoAbsentEnabled = autoAbsent;
+      saveStored(stored);
     }
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `attendance-${sheetData.course.code}-${Date.now()}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast({ title: 'CSV exported', variant: 'success' });
-  };
+    setSettingsOpen(false);
+    toast({ title: 'Settings saved' });
+  }, [selectedBatchId, toast]);
 
-  const handleExportXlsx = async () => {
-    if (!sheetData) return;
+  // ── CSV Export ────────────────────────────────────────────
+  const exportCsv = useCallback(() => {
+    const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
+    const headers = ['Name', 'Reg No', ...dateColumns.map((c) => c.label), 'Total', 'P', 'A', 'L', '%'];
+    const rows: string[] = [headers.map(escape).join(',')];
+    for (const s of students) {
+      const sm = summaryMap[s.id];
+      const cells = dateColumns.map((c) => attendance[s.id]?.[c.dateStr] ?? '—');
+      rows.push([s.fullName, s.regNo, ...cells, String(sm?.total ?? 0), String(sm?.p ?? 0), String(sm?.a ?? 0), String(sm?.l ?? 0), `${sm?.pct ?? 0}%`].map(escape).join(','));
+    }
+    downloadBlob(new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' }), `attendance_${selectedBatch?.name ?? 'sheet'}.csv`);
+  }, [students, dateColumns, attendance, summaryMap, selectedBatch]);
+
+  // ── Excel Export (ExcelJS) ────────────────────────────────
+  const exportExcel = useCallback(async () => {
     const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet('Attendance');
+    wb.creator = 'LMS';
 
-    // Header row
-    const headers = ['Student', 'Mobile', 'Batch', ...sheetData.sessions.map((s) => sessionLabel(s.sessionDate))];
-    const headerRow = ws.addRow(headers);
+    // ── Sheet 1: Attendance ──
+    const ws1 = wb.addWorksheet('Attendance');
+    const tealFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F766E' } };
+    const pFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } };
+    const aFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
+    const lFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+
+    const headerRow = ws1.addRow(['Name', 'Reg No', ...dateColumns.map((c) => c.label), 'Total', 'P', 'A', 'L', '%']);
     headerRow.eachCell((cell) => {
+      cell.fill = tealFill;
       cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
       cell.alignment = { horizontal: 'center' };
     });
 
-    // Data rows
-    for (const enr of sheetData.enrollments) {
-      const cells = sheetData.sessions.map((sess) => {
-        const r = sess.attendanceRecords.find((x) => x.studentUserId === enr.student.id);
-        return r?.status || '';
-      });
-      const row = ws.addRow([enr.student.fullName, enr.student.mobile, enr.batch?.name || '', ...cells]);
-      cells.forEach((status, i) => {
-        const cell = row.getCell(4 + i);
-        if (status === 'PRESENT') {
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } };
-        } else if (status === 'ABSENT') {
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
-        } else if (status === 'LATE') {
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+    for (const s of students) {
+      const sm = summaryMap[s.id];
+      const cells = dateColumns.map((c) => attendance[s.id]?.[c.dateStr] ?? '');
+      const row = ws1.addRow([s.fullName, s.regNo, ...cells, sm?.total ?? 0, sm?.p ?? 0, sm?.a ?? 0, sm?.l ?? 0, `${sm?.pct ?? 0}%`]);
+      row.eachCell((cell, colNum) => {
+        const val = String(cell.value ?? '');
+        if (colNum > 2 && colNum <= 2 + dateColumns.length) {
+          if (val === 'P') cell.fill = pFill;
+          else if (val === 'A') cell.fill = aFill;
+          else if (val === 'L') cell.fill = lFill;
+          cell.alignment = { horizontal: 'center' };
         }
       });
     }
+    ws1.getColumn(1).width = 28;
+    ws1.getColumn(2).width = 14;
+    for (let i = 3; i <= 2 + dateColumns.length + 5; i++) ws1.getColumn(i).width = 9;
 
-    // Auto-width columns
-    ws.columns.forEach((col) => {
-      let maxLen = 10;
-      col.eachCell?.({ includeEmpty: true }, (cell) => {
-        const len = String(cell.value ?? '').length;
-        if (len > maxLen) maxLen = len;
+    // ── Sheet 2: Summary ──
+    const ws2 = wb.addWorksheet('Summary');
+    const sh = ws2.addRow(['Name', 'Reg No', 'Total Classes', 'Present', 'Absent', 'Late', 'Attendance %']);
+    sh.eachCell((cell) => { cell.fill = tealFill; cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }; cell.alignment = { horizontal: 'center' }; });
+    for (const s of students) {
+      const sm = summaryMap[s.id];
+      ws2.addRow([s.fullName, s.regNo, sm?.total ?? 0, sm?.p ?? 0, sm?.a ?? 0, sm?.l ?? 0, `${sm?.pct ?? 0}%`]);
+    }
+    ws2.getColumn(1).width = 28;
+    ws2.getColumn(2).width = 14;
+    for (let i = 3; i <= 7; i++) ws2.getColumn(i).width = 14;
+
+    const buf = await wb.xlsx.writeBuffer();
+    downloadBlob(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `attendance_${selectedBatch?.name ?? 'sheet'}.xlsx`);
+  }, [students, dateColumns, attendance, summaryMap, selectedBatch]);
+
+  // ── CSV Import Logic ──────────────────────────────────────
+  const parseCsvPreview = useCallback(() => {
+    setCsvError('');
+    if (!csvText.trim()) { setCsvError('Paste CSV text above.'); return; }
+    const rows = parseCsv(csvText);
+    if (rows.length < 2) { setCsvError('Need at least a header row and one data row.'); return; }
+    setCsvPreview(rows);
+  }, [csvText]);
+
+  const confirmCsvImport = useCallback(() => {
+    if (csvPreview.length < 2) return;
+    const [header, ...dataRows] = csvPreview;
+
+    if (csvMode === 'students') {
+      if (!header[0]?.toLowerCase().includes('name') || !header[1]?.toLowerCase().includes('reg')) {
+        setCsvError('Expected columns: Name, Reg No');
+        return;
+      }
+      const imported: StudentRow[] = dataRows.map((r, i) => ({ id: `imported_${i}_${Date.now()}`, fullName: r[0] ?? '', regNo: r[1] ?? '' }));
+      const merged = [...students, ...imported.filter((imp) => !students.some((s) => s.regNo === imp.regNo && imp.regNo))];
+      setStudents(merged);
+      // add new students to attendance with null for all dates
+      setAttendance((prev) => {
+        const updated = { ...prev };
+        for (const st of imported) {
+          if (!updated[st.id]) {
+            updated[st.id] = {};
+            for (const col of dateColumns) updated[st.id][col.dateStr] = null;
+          }
+        }
+        const stored = loadStored(selectedBatchId);
+        if (stored) { stored.students = merged; stored.attendance = updated; saveStored(stored); }
+        return updated;
       });
-      col.width = Math.min(maxLen + 2, 30);
-    });
+      toast({ title: 'Imported', description: `${imported.length} student(s) added.` });
+    } else {
+      // attendance import: Reg No, date1, date2, ...
+      const dates = header.slice(1);
+      let updated = { ...attendance };
+      let count = 0;
+      for (const row of dataRows) {
+        const regNo = row[0] ?? '';
+        const student = students.find((s) => s.regNo === regNo);
+        if (!student) continue;
+        for (let i = 0; i < dates.length; i++) {
+          const dateStr = dates[i].trim();
+          const val = (row[i + 1] ?? '').trim().toUpperCase() as AttendanceStatus;
+          if (!dateColumns.some((c) => c.dateStr === dateStr)) continue;
+          if (!['P', 'A', 'L'].includes(val)) continue;
+          if (!updated[student.id]) updated[student.id] = {};
+          updated[student.id][dateStr] = val;
+          count++;
+        }
+      }
+      setAttendance(updated);
+      const stored = loadStored(selectedBatchId);
+      if (stored) { stored.attendance = updated; saveStored(stored); }
+      toast({ title: 'Imported', description: `${count} attendance cell(s) updated.` });
+    }
+    setCsvModalOpen(false);
+    setCsvText('');
+    setCsvPreview([]);
+  }, [csvMode, csvPreview, students, attendance, dateColumns, selectedBatchId, toast]);
 
-    const buffer = await wb.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `attendance-${sheetData.course.code}-${Date.now()}.xlsx`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast({ title: 'Excel exported', variant: 'success' });
-  };
+  // ── Step indicator ────────────────────────────────────────
+  const canGenerate = selectedBatchId && startDate && endDate;
 
-  if (fetchingFilters) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center px-4">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-10 w-10 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
-          <p className="text-sm font-semibold text-slate-500">Loading filters…</p>
-        </div>
-      </div>
-    );
-  }
-
+  // ─────────────────────────────────────────────────────────
+  // Render
+  // ─────────────────────────────────────────────────────────
   return (
-    <div className="mx-auto max-w-[1600px] space-y-6 pb-16 text-slate-900 sm:space-y-8 sm:pb-24">
-      {/* Header */}
-      <header className="print:hidden">
-        <div className="relative overflow-hidden rounded-3xl border border-slate-200/80 bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950 px-5 py-8 text-white shadow-xl sm:rounded-[28px] sm:px-8 sm:py-10">
-          <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-indigo-500/20 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-24 left-10 h-48 w-48 rounded-full bg-emerald-500/10 blur-3xl" />
-          <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="space-y-3">
-              <Badge className="border-white/20 bg-white/10 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300">
-                Academic records
-              </Badge>
-              <h1 className="text-2xl font-black tracking-tight sm:text-3xl md:text-4xl">Attendance sheet</h1>
-             
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              {sheetData ? (
-                <>
-                  <label className="flex cursor-pointer items-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold text-white sm:text-sm">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 rounded border-white/40"
-                      checked={editAttendance}
-                      onChange={(e) => setEditAttendance(e.target.checked)}
-                    />
-                    Edit attendance
-                  </label>
-                  <Button
-                    onClick={handleExportCsv}
-                    className="h-11 rounded-2xl bg-white font-bold text-slate-900 hover:bg-slate-100 sm:h-12"
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    Export CSV
-                  </Button>
-                  <Button
-                    onClick={handleExportXlsx}
-                    className="h-11 rounded-2xl bg-emerald-500 font-bold text-white hover:bg-emerald-600 sm:h-12"
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    Export Excel
-                  </Button>
-                  <Button
-                    onClick={handlePrint}
-                    className="h-11 rounded-2xl bg-white font-bold text-slate-900 hover:bg-slate-100 sm:h-12"
-                  >
-                    <Printer className="mr-2 h-4 w-4" />
-                    Print
-                  </Button>
-                </>
-              ) : null}
-            </div>
+    <div className="mx-auto max-w-full space-y-5 p-4 lg:p-6">
+      {/* Page header */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-600 text-white shadow-md">
+            <CalendarDays className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-xl font-medium">Attendance Sheet</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Offline batch-wise attendance — data stored locally.</p>
           </div>
         </div>
-      </header>
+        {generated && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setSettingsOpen(true)}>
+              <Settings2 className="h-4 w-4" /> Settings
+            </Button>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => { setCsvText(''); setCsvPreview([]); setCsvError(''); setCsvModalOpen(true); }}>
+              <Upload className="h-4 w-4" /> Import CSV
+            </Button>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={exportCsv}>
+              <FileText className="h-4 w-4" /> Export CSV
+            </Button>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={exportExcel}>
+              <FileSpreadsheet className="h-4 w-4" /> Export Excel
+            </Button>
+            <Button variant="outline" size="sm" className="gap-1.5 print:hidden" onClick={() => window.print()}>
+              <Printer className="h-4 w-4" /> Print
+            </Button>
+          </div>
+        )}
+      </div>
 
-      {/* Filters */}
-      <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-[28px] sm:p-6 print:hidden">
-        <div className="mb-4 flex flex-wrap items-center gap-2 sm:mb-5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-            <GraduationCap className="h-4 w-4" />
+      {/* ── Selection Panel ── */}
+      <div className="rounded-xl border bg-card p-5 space-y-4">
+        <p className="text-sm font-medium text-muted-foreground">Step 1 — Select batch &amp; date range</p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Program */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-muted-foreground">Program <span className="text-destructive">*</span></Label>
+            <Select value={selectedProgramId || '_none'} onValueChange={handleProgramChange} disabled={loadingPrograms}>
+              <SelectTrigger className="h-9"><SelectValue placeholder="-- Select program --" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none">-- Select program --</SelectItem>
+                {programs.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
-          <h2 className="text-sm font-black uppercase tracking-[0.15em] text-slate-400">Filters</h2>
+          {/* Course */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-muted-foreground">Course <span className="text-destructive">*</span></Label>
+            <Select value={selectedCourseId || '_none'} onValueChange={handleCourseChange} disabled={!selectedProgramId || loadingCourses}>
+              <SelectTrigger className="h-9"><SelectValue placeholder="-- Select course --" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none">-- Select course --</SelectItem>
+                {courses.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          {/* Branch */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-muted-foreground">Branch <span className="text-destructive">*</span></Label>
+            <Select value={selectedBranchId || '_none'} onValueChange={handleBranchChange} disabled={!selectedCourseId || loadingBranches}>
+              <SelectTrigger className="h-9"><SelectValue placeholder="-- Select branch --" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none">-- Select branch --</SelectItem>
+                {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          {/* Batch */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-muted-foreground">Batch <span className="text-destructive">*</span></Label>
+            <Select value={selectedBatchId || '_none'} onValueChange={handleBatchChange} disabled={!selectedBranchId || loadingBatches}>
+              <SelectTrigger className="h-9"><SelectValue placeholder="-- Select batch --" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none">-- Select batch --</SelectItem>
+                {batchList.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:items-end">
-          <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Course</label>
-            <Select
-              value={filters.courseId}
-              onValueChange={(v) => {
-                setFilters({ ...filters, courseId: v, batchId: 'all' });
-                loadBatches(v);
-              }}
-            >
-              <SelectTrigger className="h-11 w-full rounded-2xl border-slate-200 bg-slate-50/80 font-semibold sm:h-12">
-                <SelectValue placeholder="Select course" />
-              </SelectTrigger>
-              <SelectContent className="max-h-[min(60vh,320px)] rounded-2xl">
-                {courses.map((c) => (
-                  <SelectItem key={c.id} value={c.id} className="py-2.5 font-medium">
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        {/* Date range + Generate */}
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-muted-foreground">Start date <span className="text-destructive">*</span></Label>
+            <DatePicker date={startDate} setDate={setStartDate} placeholder="Pick start date" className="h-9 w-44" />
           </div>
-          <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Branch</label>
-            <Select value={filters.branchId} onValueChange={(v) => setFilters({ ...filters, branchId: v })}>
-              <SelectTrigger className="h-11 w-full rounded-2xl border-slate-200 bg-slate-50/80 font-semibold sm:h-12">
-                <SelectValue placeholder="All branches" />
-              </SelectTrigger>
-              <SelectContent className="rounded-2xl">
-                <SelectItem value="all" className="font-medium">
-                  All branches
-                </SelectItem>
-                {branches.map((b) => (
-                  <SelectItem key={b.id} value={b.id} className="font-medium">
-                    {b.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-muted-foreground">End date <span className="text-destructive">*</span></Label>
+            <DatePicker date={endDate} setDate={setEndDate} placeholder="Pick end date" className="h-9 w-44" />
           </div>
-          <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Batch</label>
-            <Select
-              value={filters.batchId}
-              onValueChange={(v) => setFilters({ ...filters, batchId: v })}
-              disabled={!filters.courseId}
-            >
-              <SelectTrigger className="h-11 w-full rounded-2xl border-slate-200 bg-slate-50/80 font-semibold sm:h-12">
-                <SelectValue placeholder="All batches" />
-              </SelectTrigger>
-              <SelectContent className="rounded-2xl">
-                <SelectItem value="all" className="font-medium">
-                  All batches
-                </SelectItem>
-                {batches.map((b) => (
-                  <SelectItem key={b.id} value={b.id} className="font-medium">
-                    {b.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex items-end gap-2">
+            <Button variant="outline" size="sm" className="h-9" onClick={setThisMonth}>
+              This month
+            </Button>
+            <Button variant="outline" size="sm" className="h-9" onClick={setNextMonth}>
+              Next month
+            </Button>
           </div>
           <Button
-            onClick={handleGenerateSheet}
-            disabled={loading || !filters.courseId}
-            className="h-11 w-full rounded-2xl bg-slate-900 font-bold text-white hover:bg-indigo-600 sm:h-12 xl:w-auto"
+            onClick={handleGenerate}
+            disabled={!canGenerate || generating}
+            className="h-9 gap-2 bg-teal-600 text-white hover:bg-teal-700"
           >
-            {loading ? (
-              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Search className="mr-2 h-4 w-4" />
-            )}
-            Generate sheet
+            {generating ? <RefreshCw className="h-4 w-4 animate-spin" /> : <CalendarDays className="h-4 w-4" />}
+            {generating ? 'Generating…' : 'Generate Sheet'}
           </Button>
         </div>
-      </section>
+      </div>
 
-      {sheetData ? (
+      {/* ── Sheet ── */}
+      {generated && (
         <>
-        {/* Session date range filter */}
-        <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-[28px] sm:p-5 print:hidden">
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-              <Calendar className="h-4 w-4" />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sessions from</label>
-              <DatePicker date={sessionRangeStart} setDate={setSessionRangeStart} placeholder="Any start" className="h-10 rounded-xl" />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sessions to</label>
-              <DatePicker date={sessionRangeEnd} setDate={setSessionRangeEnd} placeholder="Any end" className="h-10 rounded-xl" />
-            </div>
-            {(sessionRangeStart || sessionRangeEnd) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-10 rounded-xl font-semibold text-slate-500"
-                onClick={() => { setSessionRangeStart(undefined); setSessionRangeEnd(undefined); }}
-              >
-                Clear filter
-              </Button>
-            )}
-            <Badge variant="outline" className="ml-auto rounded-xl px-3 py-1.5 text-xs font-bold">
-              {filteredSessions.length} / {sheetData.sessions.length} sessions shown
-            </Badge>
-          </div>
-        </section>
-
-        <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-lg shadow-slate-200/40 print:rounded-none print:border-0 print:shadow-none">
-          {/* Print header */}
-          <div className="hidden print:block print:border-b-2 print:border-slate-900 print:p-8">
-            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-              <div>
-                <h1 className="text-2xl font-black uppercase tracking-tight text-slate-900 sm:text-3xl">
-                  Attendance sheet
-                </h1>
-                <p className="mt-2 text-base font-bold text-slate-800">
-                  {sheetData.course.name}{' '}
-                  <span className="font-semibold text-slate-500">({sheetData.course.code})</span>
-                </p>
-                <div className="mt-3 space-y-1 text-sm text-slate-600">
-                  <p className="flex items-center gap-2">
-                    <Building2 className="h-3.5 w-3.5 shrink-0" />
-                    {branchName}
-                  </p>
-                  <p className="flex items-center gap-2">
-                    <Layers className="h-3.5 w-3.5 shrink-0" />
-                    {batchName}
-                  </p>
-                </div>
-              </div>
-              <div className="text-left sm:text-right">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Generated</p>
-                <p className="text-sm font-bold text-slate-900">{new Date().toLocaleString()}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Screen summary bar */}
-          <div className="flex flex-col gap-4 border-b border-slate-100 bg-slate-50/60 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6 print:hidden">
-            <div className="flex min-w-0 items-start gap-3 sm:items-center">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-indigo-600 shadow-sm ring-1 ring-slate-100">
-                <FileText className="h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                <h3 className="truncate text-lg font-black text-slate-900 sm:text-xl">{sheetData.course.name}</h3>
-                <p className="text-xs font-semibold text-slate-500">
-                  {sheetData.enrollments.length} students · {filteredSessions.length} sessions shown · {branchName} ·{' '}
-                  {batchName}
-                </p>
-              </div>
-            </div>
+          {/* Toolbar */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
-              <Tabs value={activeSheetTab} onValueChange={(v) => setActiveSheetTab(v as 'matrix' | 'summary')} className="print:hidden">
-                <TabsList className="h-9 rounded-xl bg-slate-100">
-                  <TabsTrigger value="matrix" className="rounded-lg px-3 text-xs font-bold">
-                    <Table2 className="mr-1.5 h-3.5 w-3.5" />
-                    Matrix
-                  </TabsTrigger>
-                  <TabsTrigger value="summary" className="rounded-lg px-3 text-xs font-bold">
-                    <BarChart3 className="mr-1.5 h-3.5 w-3.5" />
-                    Summary
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-              <div className="flex rounded-2xl border border-slate-200 bg-white p-1 lg:hidden">
-                <button
-                  type="button"
-                  onClick={() => setLayoutMode('cards')}
-                  className={cn(
-                    'flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition-colors sm:px-4',
-                    layoutMode === 'cards' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'
-                  )}
-                >
-                  <LayoutGrid className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Cards</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLayoutMode('table')}
-                  className={cn(
-                    'flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition-colors sm:px-4',
-                    layoutMode === 'table' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'
-                  )}
-                >
-                  <Table2 className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Table</span>
-                </button>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name / reg no…" className="h-9 pl-8 w-56" />
               </div>
+              <Select value={attendanceFilter} onValueChange={(v) => setAttendanceFilter(v as 'ALL' | 'LOW' | 'GOOD')}>
+                <SelectTrigger className="h-9 w-44"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All students</SelectItem>
+                  <SelectItem value="LOW">Low attendance (&lt;75%)</SelectItem>
+                  <SelectItem value="GOOD">Good attendance (≥75%)</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Users className="h-4 w-4" />
+                {filteredStudents.length} / {students.length}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Bulk mark visible:</span>
+              <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs gap-1 text-emerald-700 border-emerald-200 hover:bg-emerald-50" onClick={() => bulkMarkAll('P')}>
+                <Check className="h-3 w-3" /> All P
+              </Button>
+              <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs gap-1 text-rose-700 border-rose-200 hover:bg-rose-50" onClick={() => bulkMarkAll('A')}>
+                <X className="h-3 w-3" /> All A
+              </Button>
+              <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs gap-1" onClick={() => bulkMarkAll(null)}>
+                Reset
+              </Button>
             </div>
           </div>
 
-          {activeSheetTab === 'matrix' ? (<>
-
-          {/* Mobile / default cards */}
-          <div
-            className={cn(
-              'space-y-3 p-4 sm:space-y-4 sm:p-6 lg:hidden',
-              layoutMode === 'table' && 'hidden'
-            )}
-          >
-            <div className="max-h-[70vh] overflow-y-auto pr-1">
-              <div className="space-y-3">
-                {sheetData.enrollments.map((enrollment) => (
-                  <article
-                    key={enrollment.id}
-                    className="rounded-2xl border border-slate-100 bg-slate-50/40 p-4 shadow-sm ring-1 ring-slate-100/80"
-                  >
-                    <div className="mb-3 flex items-center gap-3">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-sm font-black text-indigo-600 shadow-inner ring-1 ring-slate-100">
-                        {enrollment.student.fullName.charAt(0)}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-black text-slate-900">{enrollment.student.fullName}</p>
-                        <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                          {enrollment.batch?.name || 'No batch'} · {enrollment.student.mobile}
-                        </p>
-                      </div>
-                    </div>
-                    {filteredSessions.length === 0 ? (
-                      <p className="text-sm text-slate-400">No sessions in range.</p>
-                    ) : (
-                      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                        {filteredSessions.map((session) => {
-                          const record = session.attendanceRecords.find((r) => r.studentUserId === enrollment.student.id);
-                          const st = record?.status ?? null;
-                          return (
-                            <li
-                              key={session.id}
-                              className="flex items-center justify-between gap-2 rounded-xl border border-slate-200/80 bg-white px-3 py-2"
-                            >
-                              <span className="min-w-0 text-[11px] font-bold text-slate-600">
-                                <Calendar className="mb-0.5 inline h-3 w-3 text-indigo-400" />{' '}
-                                {sessionLabel(session.sessionDate)}
-                              </span>
-                              <button
-                                type="button"
-                                disabled={!editAttendance}
-                                title={editAttendance ? 'Set attendance' : 'Enable editing in the header'}
-                                onClick={() =>
-                                  openAttendanceModal(
-                                    session.id,
-                                    session.sessionDate,
-                                    enrollment.student.id,
-                                    enrollment.student.fullName,
-                                    st
-                                  )
-                                }
-                                className="shrink-0 rounded-lg disabled:cursor-not-allowed disabled:opacity-50"
-                              >
-                                <StatusDot status={st} />
-                              </button>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    )}
-                  </article>
-                ))}
-              </div>
-            </div>
+          {/* Legend */}
+          <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1"><span className="inline-flex h-5 w-5 items-center justify-center rounded bg-emerald-100 text-emerald-700 font-bold text-xs border border-emerald-300">P</span> Present</span>
+            <span className="flex items-center gap-1"><span className="inline-flex h-5 w-5 items-center justify-center rounded bg-rose-100 text-rose-700 font-bold text-xs border border-rose-300">A</span> Absent</span>
+            <span className="flex items-center gap-1"><span className="inline-flex h-5 w-5 items-center justify-center rounded bg-amber-100 text-amber-700 font-bold text-xs border border-amber-300">L</span> Late</span>
+            <span className="flex items-center gap-1"><Lock className="h-3 w-3" /> Locked (no edit)</span>
+            <span className="text-muted-foreground/60">Future dates are disabled. Lock after {lockAfterDays} days.</span>
           </div>
 
-          {/* Tablet: optional table when user picks table */}
-          <div
-            className={cn(
-              'border-t border-slate-100 p-2 sm:p-4 lg:hidden',
-              layoutMode === 'cards' && 'hidden'
-            )}
-          >
-            <p className="mb-2 px-2 text-center text-[10px] font-bold uppercase tracking-widest text-slate-400">
-              Scroll horizontally for all sessions
-            </p>
-            <div className="relative -mx-2 overflow-x-auto overflow-y-auto overscroll-x-contain px-2 pb-2 [scrollbar-width:thin] max-h-[70vh] scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100 dark:scrollbar-thumb-slate-500 dark:scrollbar-track-slate-800">
-              <div className="pointer-events-none absolute bottom-0 left-0 top-0 z-[1] w-8 bg-gradient-to-r from-white to-transparent print:hidden" />
-              <div className="pointer-events-none absolute bottom-0 right-0 top-0 z-[1] w-8 bg-gradient-to-l from-white to-transparent print:hidden" />
-              <table className="w-max min-w-full border-collapse text-left text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50">
-                    <th className="sticky left-0 z-20 min-w-[160px] max-w-[200px] bg-slate-50 px-3 py-3 text-[10px] font-black uppercase tracking-wider text-slate-500 shadow-[4px_0_12px_-6px_rgba(15,23,42,0.15)]">
-                      Student
-                    </th>
-                    {filteredSessions.map((session) => (
-                      <th
-                        key={session.id}
-                        className="min-w-[76px] px-2 py-3 text-center text-[9px] font-black uppercase tracking-wide text-slate-500"
-                      >
-                        {sessionLabel(session.sessionDate)}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {sheetData.enrollments.map((enrollment) => (
-                    <tr key={enrollment.id} className="hover:bg-slate-50/80">
-                      <td className="sticky left-0 z-10 min-w-[160px] max-w-[200px] bg-white px-3 py-3 shadow-[4px_0_12px_-6px_rgba(15,23,42,0.12)]">
-                        <p className="truncate font-bold text-slate-800">{enrollment.student.fullName}</p>
-                        <p className="truncate text-[10px] text-slate-400">{enrollment.batch?.name || '—'}</p>
-                      </td>
-                      {filteredSessions.map((session) => {
-                        const record = session.attendanceRecords.find((r) => r.studentUserId === enrollment.student.id);
-                        return (
-                          <td key={session.id} className="px-2 py-3 text-center">
+          {/* Attendance Table */}
+          <div className="overflow-x-auto overflow-y-hidden rounded-xl border shadow-sm print:shadow-none pb-1" style={{ scrollbarGutter: 'stable both-edges' }}>
+            <table className="min-w-max w-full text-sm border-collapse">
+              <thead>
+                <tr className="bg-teal-600 text-white">
+                  <th className="sticky left-0 z-20 bg-teal-600 px-3 py-2.5 text-left font-semibold min-w-44 whitespace-nowrap">#&nbsp;&nbsp;Name</th>
+                  <th className="sticky left-44 z-20 bg-teal-600 px-3 py-2.5 text-left font-semibold min-w-28 whitespace-nowrap">Reg No</th>
+                  {dateColumns.map((col) => {
+                    const locked = isDateLocked(col.dateStr);
+                    return (
+                      <th key={col.dateStr} className="relative px-1 py-2 text-center font-medium text-xs min-w-12">
+                        <div className="flex flex-col items-center gap-0.5">
+                          <span className={cn('text-xs', col.isFuture && 'opacity-50')}>{col.label}</span>
+                          <span className="text-teal-200 text-xs opacity-60">{DAY_ABBR[col.dayOfWeek]}</span>
+                          <div ref={bulkMenuDate === col.dateStr ? bulkMenuRef : undefined} className="relative">
                             <button
-                              type="button"
-                              disabled={!editAttendance}
-                              title={editAttendance ? 'Set attendance' : 'Enable editing in the header'}
-                              onClick={() =>
-                                openAttendanceModal(
-                                  session.id,
-                                  session.sessionDate,
-                                  enrollment.student.id,
-                                  enrollment.student.fullName,
-                                  record?.status ?? null
-                                )
-                              }
-                              className="mx-auto flex justify-center rounded-lg disabled:cursor-not-allowed disabled:opacity-50"
+                              className="flex items-center gap-0.5 text-teal-200 hover:text-white text-xs"
+                              onClick={() => setBulkMenuDate(bulkMenuDate === col.dateStr ? null : col.dateStr)}
+                              title="Bulk mark this date"
                             >
-                              <StatusDot status={record?.status ?? null} />
+                              <ChevronDown className="h-3 w-3" />
                             </button>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Desktop matrix */}
-          <div className="hidden overflow-x-auto overflow-y-auto max-h-[75vh] lg:block print:block scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100 dark:scrollbar-thumb-slate-500 dark:scrollbar-track-slate-800">
-            <table className="w-full min-w-[640px] border-collapse text-left">
-              <thead className="border-b border-slate-200 bg-slate-50 print:bg-white">
-                <tr>
-                  <th className="sticky left-0 z-20 min-w-[220px] bg-slate-50 px-4 py-4 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 shadow-[6px_0_16px_-8px_rgba(15,23,42,0.2)] print:static print:shadow-none">
-                    Student
-                  </th>
-                  {filteredSessions.map((session) => (
-                    <th
-                      key={session.id}
-                      className="min-w-[96px] border-l border-slate-100 px-3 py-4 text-center text-[10px] font-black uppercase tracking-wide text-slate-500"
-                    >
-                      <div className="flex flex-col items-center gap-1">
-                        <Calendar className="h-3.5 w-3.5 text-indigo-400" />
-                        <span>{sessionLabel(session.sessionDate)}</span>
-                        {editAttendance && (
-                          <button
-                            type="button"
-                            title="Mark all present"
-                            disabled={bulkMarkingSession === session.id}
-                            onClick={() => void handleBulkPresent(session.id)}
-                            className="mt-0.5 flex items-center gap-0.5 rounded-md bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 print:hidden"
-                          >
-                            {bulkMarkingSession === session.id ? (
-                              <RefreshCw className="h-2.5 w-2.5 animate-spin" />
-                            ) : (
-                              <CheckSquare className="h-2.5 w-2.5" />
+                            {bulkMenuDate === col.dateStr && (
+                              <div className="absolute top-5 left-1/2 -translate-x-1/2 z-50 bg-white border rounded-md shadow-lg p-1 flex flex-col gap-0.5 min-w-28">
+                                <button className="px-2 py-1 text-xs text-left hover:bg-emerald-50 rounded text-emerald-700" onClick={() => bulkMarkDate(col.dateStr, 'P')}>Mark all P</button>
+                                <button className="px-2 py-1 text-xs text-left hover:bg-rose-50 rounded text-rose-700" onClick={() => bulkMarkDate(col.dateStr, 'A')}>Mark all A</button>
+                                <button className="px-2 py-1 text-xs text-left hover:bg-amber-50 rounded text-amber-700" onClick={() => bulkMarkDate(col.dateStr, 'L')}>Mark all L</button>
+                                <button className="px-2 py-1 text-xs text-left hover:bg-slate-50 rounded text-slate-600" onClick={() => bulkMarkDate(col.dateStr, null)}>Reset date</button>
+                                <div className="border-t my-0.5" />
+                                <button className="px-2 py-1 text-xs text-left hover:bg-slate-50 rounded text-slate-500 flex items-center gap-1" onClick={() => { toggleDateLock(col.dateStr); setBulkMenuDate(null); }}>
+                                  <Lock className="h-3 w-3" />{locked ? 'Unlock' : 'Lock'} date
+                                </button>
+                              </div>
                             )}
-                            All ✓
-                          </button>
-                        )}
-                      </div>
-                    </th>
-                  ))}
-                  {filteredSessions.length === 0 && (
-                    <th className="px-8 py-10 text-center text-xs font-bold text-slate-400">No sessions</th>
-                  )}
+                          </div>
+                          {locked && <Lock className="h-2.5 w-2.5 text-teal-200 opacity-70" />}
+                        </div>
+                      </th>
+                    );
+                  })}
+                  <th className="px-2 py-2.5 text-center font-semibold text-xs whitespace-nowrap">Total</th>
+                  <th className="px-2 py-2.5 text-center font-semibold text-xs text-emerald-200">P</th>
+                  <th className="px-2 py-2.5 text-center font-semibold text-xs text-rose-200">A</th>
+                  <th className="px-2 py-2.5 text-center font-semibold text-xs text-amber-200">L</th>
+                  <th className="px-2 py-2.5 text-center font-semibold text-xs whitespace-nowrap">%</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                {sheetData.enrollments.map((enrollment) => (
-                  <tr key={enrollment.id} className="hover:bg-slate-50/60 print:hover:bg-transparent">
-                    <td className="sticky left-0 z-10 min-w-[220px] bg-white px-4 py-4 shadow-[6px_0_16px_-8px_rgba(15,23,42,0.15)] print:static print:bg-white print:shadow-none">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-xs font-black text-slate-600">
-                          {enrollment.student.fullName.charAt(0)}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="truncate font-black text-slate-800">{enrollment.student.fullName}</p>
-                          <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                            {enrollment.batch?.name || 'No batch'} · {enrollment.student.mobile}
-                          </p>
-                        </div>
-                      </div>
+              <tbody>
+                {filteredStudents.length === 0 ? (
+                  <tr>
+                    <td colSpan={dateColumns.length + 7} className="py-12 text-center text-muted-foreground text-sm">
+                      No students match the filter.
                     </td>
-                    {filteredSessions.map((session) => {
-                      const record = session.attendanceRecords.find((r) => r.studentUserId === enrollment.student.id);
-                      return (
-                        <td key={session.id} className="border-l border-slate-100 px-3 py-4 text-center">
-                          <button
-                            type="button"
-                            disabled={!editAttendance}
-                            title={editAttendance ? 'Set attendance' : 'Enable editing in the header'}
-                            onClick={() =>
-                              openAttendanceModal(
-                                session.id,
-                                session.sessionDate,
-                                enrollment.student.id,
-                                enrollment.student.fullName,
-                                record?.status ?? null
-                              )
-                            }
-                            className="mx-auto flex justify-center rounded-lg disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            <StatusDot status={record?.status ?? null} />
-                          </button>
-                        </td>
-                      );
-                    })}
                   </tr>
-                ))}
+                ) : (
+                  filteredStudents.map((s, rowIdx) => {
+                    const sm = summaryMap[s.id];
+                    return (
+                      <tr key={s.id} className={cn('border-b transition-colors hover:bg-muted/30', rowIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50')}>
+                        <td className={cn('sticky left-0 z-10 px-3 py-2 font-medium text-sm whitespace-nowrap max-w-44 truncate', rowIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50')}>
+                          <span className="text-muted-foreground mr-1.5 text-xs">{rowIdx + 1}.</span>{s.fullName}
+                        </td>
+                        <td className={cn('sticky left-44 z-10 px-3 py-2 text-xs text-muted-foreground whitespace-nowrap', rowIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50')}>
+                          {s.regNo || '—'}
+                        </td>
+                        {dateColumns.map((col) => {
+                          const locked = isDateLocked(col.dateStr) || col.isFuture;
+                          const val = attendance[s.id]?.[col.dateStr] ?? null;
+                          return (
+                            <td key={col.dateStr} className={cn('px-1 py-1.5 text-center', col.isFuture && 'opacity-40')}>
+                              <StatusCell
+                                status={val}
+                                disabled={locked}
+                                onClick={locked ? undefined : () => toggleCell(s.id, col.dateStr)}
+                              />
+                            </td>
+                          );
+                        })}
+                        <td className="px-2 py-1.5 text-center text-xs font-medium">{sm?.total ?? 0}</td>
+                        <td className="px-2 py-1.5 text-center text-xs font-semibold text-emerald-700">{sm?.p ?? 0}</td>
+                        <td className="px-2 py-1.5 text-center text-xs font-semibold text-rose-700">{sm?.a ?? 0}</td>
+                        <td className="px-2 py-1.5 text-center text-xs font-semibold text-amber-700">{sm?.l ?? 0}</td>
+                        <td className="px-2 py-1.5 text-center text-xs font-semibold">
+                          <Badge variant={(sm?.pct ?? 0) >= 75 ? 'default' : 'destructive'} className={cn('text-xs', (sm?.pct ?? 0) >= 75 ? 'bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100' : '')}>
+                            {sm?.pct ?? 0}%
+                          </Badge>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
 
-          <footer className="border-t border-slate-100 bg-slate-50/40 px-4 py-6 sm:px-8 sm:py-8 print:mt-12 print:border-0 print:bg-white">
-            <div className="hidden print:grid print:grid-cols-3 print:gap-12 print:pt-8">
-              <div className="border-t border-slate-900 pt-2 text-center">
-                <p className="text-[10px] font-black uppercase tracking-widest">Instructor signature</p>
-              </div>
-              <div className="border-t border-slate-900 pt-2 text-center">
-                <p className="text-[10px] font-black uppercase tracking-widest">Branch controller</p>
-              </div>
-              <div className="border-t border-slate-900 pt-2 text-center">
-                <p className="text-[10px] font-black uppercase tracking-widest">Internal audit</p>
-              </div>
-            </div>
-            <p className="text-center text-[10px] font-semibold uppercase tracking-widest text-slate-400 print:hidden">
-              End of attendance registry
-            </p>
-          </footer>
-
-          </>) : (
-          /* ─── Summary tab ──────────────────────────────────────────── */
-          <div className="p-4 sm:p-6">
-            <div className="mb-4 flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-indigo-500" />
-              <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Student attendance summary</h3>
-              <Badge variant="outline" className="ml-auto rounded-xl px-3 text-xs">
-                {filteredSessions.length} session{filteredSessions.length !== 1 ? 's' : ''}
-              </Badge>
-            </div>
-            <div className="overflow-auto rounded-2xl border border-slate-200">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-slate-50">
-                    <TableHead className="font-black">Student</TableHead>
-                    <TableHead className="font-black">Batch</TableHead>
-                    <TableHead className="text-center font-black text-emerald-700">Present</TableHead>
-                    <TableHead className="text-center font-black text-rose-700">Absent</TableHead>
-                    <TableHead className="text-center font-black text-amber-700">Late</TableHead>
-                    <TableHead className="text-center font-black">Total</TableHead>
-                    <TableHead className="text-center font-black">Rate</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {studentSummary.map((s) => (
-                    <TableRow key={s.id} className="hover:bg-slate-50/60">
-                      <TableCell className="font-bold text-slate-800">
-                        <div>
-                          <p className="truncate">{s.name}</p>
-                          <p className="text-[10px] text-slate-400">{s.mobile}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-slate-600">{s.batch}</TableCell>
-                      <TableCell className="text-center font-bold text-emerald-700">{s.present}</TableCell>
-                      <TableCell className="text-center font-bold text-rose-700">{s.absent}</TableCell>
-                      <TableCell className="text-center font-bold text-amber-700">{s.late}</TableCell>
-                      <TableCell className="text-center text-slate-600">{s.total}</TableCell>
-                      <TableCell className="text-center">
-                        {s.rate !== null ? (
-                          <Badge
-                            className={cn(
-                              'rounded-xl font-bold',
-                              s.rate >= 75 ? 'bg-emerald-100 text-emerald-800' :
-                              s.rate >= 50 ? 'bg-amber-100 text-amber-800' :
-                              'bg-rose-100 text-rose-800'
-                            )}
-                          >
-                            {s.rate}%
-                          </Badge>
-                        ) : '—'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+          {/* Footer summary */}
+          <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground rounded-lg border bg-muted/30 px-4 py-3">
+            <span className="flex items-center gap-1"><CalendarDays className="h-3.5 w-3.5" /> {dateColumns.length} class dates</span>
+            <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {students.length} students</span>
+            <span className="flex items-center gap-1 text-emerald-700">Avg attendance: {students.length > 0 ? Math.round(summaries.reduce((acc, s) => acc + s.pct, 0) / summaries.length) : 0}%</span>
+            {autoAbsentEnabled && <Badge variant="outline" className="text-xs">Auto-absent ON</Badge>}
+            <span className="ml-auto">Lock after {lockAfterDays} days</span>
           </div>
-          )}
-
-        </section>
         </>
-      ) : (
-        <section className="flex flex-col items-center justify-center gap-6 rounded-3xl border-2 border-dashed border-slate-200 bg-gradient-to-b from-slate-50/80 to-white px-6 py-16 text-center sm:rounded-[32px] sm:py-20 print:hidden">
-          <div className="flex h-20 w-20 items-center justify-center rounded-3xl border border-slate-200 bg-white shadow-lg shadow-slate-200/40">
-            <Users className="h-10 w-10 text-slate-300" />
-          </div>
-          <div className="max-w-md space-y-2">
-            <h3 className="text-xl font-black text-slate-700">No sheet yet</h3>
-            <p className="text-sm font-medium leading-relaxed text-slate-500">
-              Pick a course (and optionally branch or batch), then tap <strong>Generate sheet</strong>.
-            </p>
-          </div>
-          {courses[0]?.id ? (
-            <Button
-              type="button"
-              variant="outline"
-              className="h-11 rounded-2xl border-slate-200 font-bold text-indigo-600 hover:bg-indigo-50"
-              onClick={() => {
-                const id = courses[0].id;
-                setFilters((f) => ({ ...f, courseId: id, batchId: 'all' }));
-                loadBatches(id);
-              }}
-            >
-              Use first course in list
-            </Button>
-          ) : null}
-        </section>
       )}
 
-      <Dialog
-        open={!!attendanceModal}
-        onOpenChange={(open) => {
-          if (!open) setAttendanceModal(null);
-        }}
-      >
-        <DialogContent className="sm:max-w-md rounded-3xl border-slate-200">
+      {/* ── Settings Dialog ── */}
+      <SettingsDialog
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        lockAfterDays={lockAfterDays}
+        autoAbsent={autoAbsentEnabled}
+        onSave={saveLockSettings}
+      />
+
+      {/* ── CSV Import Dialog ── */}
+      <Dialog open={csvModalOpen} onOpenChange={(o) => { if (!o) { setCsvModalOpen(false); setCsvPreview([]); setCsvError(''); } }}>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="text-lg font-black tracking-tight">Edit attendance</DialogTitle>
-            <DialogDescription className="text-sm text-slate-500">
-              Choose present or absent for this class session.
-            </DialogDescription>
+            <DialogTitle>Import CSV</DialogTitle>
+            <DialogDescription>Import a student list or attendance data from CSV.</DialogDescription>
           </DialogHeader>
-          {attendanceModal ? (
-            <div className="space-y-5 py-2">
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                  Session date
-                </Label>
-                <p className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900">
-                  {sessionDateFull(attendanceModal.sessionDate)}
-                </p>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                  Student
-                </Label>
-                <p className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900">
-                  {attendanceModal.studentName}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                  Status
-                </Label>
-                <Select
-                  value={modalStatus}
-                  onValueChange={(v) => setModalStatus(v as AttendanceStatus)}
-                >
-                  <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/80 font-semibold">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-2xl">
-                    <SelectItem value="PRESENT" className="font-semibold">
-                      Present
-                    </SelectItem>
-                    <SelectItem value="ABSENT" className="font-semibold">
-                      Absent
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+
+          <div className="space-y-4">
+            {/* Mode selector */}
+            <div className="flex items-center gap-3">
+              <Label className="text-xs font-medium">Import type:</Label>
+              <div className="flex gap-2">
+                <Button size="sm" variant={csvMode === 'students' ? 'default' : 'outline'} className={cn('h-8 text-xs', csvMode === 'students' && 'bg-teal-600 hover:bg-teal-700')} onClick={() => { setCsvMode('students'); setCsvPreview([]); }}>
+                  Student List
+                </Button>
+                <Button size="sm" variant={csvMode === 'attendance' ? 'default' : 'outline'} className={cn('h-8 text-xs', csvMode === 'attendance' && 'bg-teal-600 hover:bg-teal-700')} onClick={() => { setCsvMode('attendance'); setCsvPreview([]); }}>
+                  Attendance Data
+                </Button>
               </div>
             </div>
-          ) : null}
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              type="button"
-              variant="outline"
-              className="rounded-2xl font-bold"
-              onClick={() => setAttendanceModal(null)}
-              disabled={modalSaving}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              className="rounded-2xl bg-slate-900 font-bold hover:bg-indigo-600"
-              onClick={() => void saveAttendanceFromModal()}
-              disabled={modalSaving || !attendanceModal}
-            >
-              {modalSaving ? 'Saving…' : 'Save'}
+
+            {/* Format hint */}
+            <div className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground font-mono">
+              {csvMode === 'students'
+                ? 'Name,Reg No\nRahim,REG001\nKarim,REG002'
+                : 'Reg No,2026-04-01,2026-04-03\nREG001,P,A\nREG002,A,P'}
+            </div>
+
+            {/* Text area */}
+            <textarea
+              className="w-full rounded-md border bg-background px-3 py-2 text-xs font-mono h-32 resize-none focus:outline-none focus:ring-1 focus:ring-teal-500"
+              placeholder="Paste CSV here…"
+              value={csvText}
+              onChange={(e) => { setCsvText(e.target.value); setCsvPreview([]); setCsvError(''); }}
+            />
+            {csvError && <p className="text-xs text-destructive">{csvError}</p>}
+            <Button size="sm" variant="outline" onClick={parseCsvPreview}>Parse &amp; Preview</Button>
+
+            {/* Preview */}
+            {csvPreview.length > 0 && (
+              <div className="overflow-x-auto rounded-md border max-h-48 overflow-y-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-muted">
+                      {csvPreview[0].map((h, i) => <th key={i} className="px-2 py-1.5 text-left font-semibold border-b">{h}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {csvPreview.slice(1).map((row, ri) => (
+                      <tr key={ri} className="border-b hover:bg-muted/30">
+                        {row.map((cell, ci) => <td key={ci} className="px-2 py-1">{cell}</td>)}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setCsvModalOpen(false)}>Cancel</Button>
+            <Button size="sm" className="bg-teal-600 text-white hover:bg-teal-700" onClick={confirmCsvImport} disabled={csvPreview.length < 2}>
+              <Download className="h-4 w-4 mr-1.5" /> Import {csvPreview.length > 1 ? `(${csvPreview.length - 1} rows)` : ''}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Settings Dialog (extracted to avoid re-render loop)
+// ─────────────────────────────────────────────────────────────
+function SettingsDialog({
+  open, onClose, lockAfterDays, autoAbsent, onSave,
+}: {
+  open: boolean;
+  onClose: () => void;
+  lockAfterDays: number;
+  autoAbsent: boolean;
+  onSave: (days: number, autoAbsent: boolean) => void;
+}) {
+  const [days, setDays] = useState(lockAfterDays);
+  const [auto, setAuto] = useState(autoAbsent);
+  useEffect(() => { setDays(lockAfterDays); setAuto(autoAbsent); }, [lockAfterDays, autoAbsent, open]);
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Attendance Settings</DialogTitle>
+          <DialogDescription>Configure locking and absence defaults.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-5">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Lock after (days)</Label>
+            <p className="text-xs text-muted-foreground">Cells older than this many days become read-only.</p>
+            <div className="flex items-center gap-3">
+              <Input
+                type="number"
+                min={1} max={365}
+                value={days}
+                onChange={(e) => setDays(Math.max(1, Number(e.target.value)))}
+                className="h-9 w-24"
+              />
+              <span className="text-sm text-muted-foreground">days</span>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <input type="checkbox" id="autoAbsent" checked={auto} onChange={(e) => setAuto(e.target.checked)} className="mt-0.5 h-4 w-4 cursor-pointer accent-teal-600" />
+            <div>
+              <label htmlFor="autoAbsent" className="text-sm font-medium cursor-pointer">Auto-absent for empty cells</label>
+              <p className="text-xs text-muted-foreground mt-0.5">Empty past cells count as Absent in the summary percentage.</p>
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+          <Button size="sm" className="bg-teal-600 text-white hover:bg-teal-700" onClick={() => onSave(days, auto)}>Save settings</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

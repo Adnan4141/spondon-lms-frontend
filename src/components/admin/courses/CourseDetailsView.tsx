@@ -385,7 +385,7 @@ const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>
                         <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white border border-slate-200 text-indigo-600 shadow-sm">
                            <BookOpen className="h-5 w-5" />
                         </div>
-                        <span className="font-mono text-base font-black text-slate-400 tracking-tighter">{course.code}</span>
+                        <span className="font-mono text-base font-black text-slate-400 tracking-tighter">{course.slug}</span>
                      </div>
                      <h2 className="text-3xl font-black tracking-tight text-slate-900">{course.name}</h2>
                      <div className="flex flex-wrap gap-4 pt-2">
@@ -408,11 +408,16 @@ const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>
                {[
                  { label: 'Enrolled', value: course._count?.enrollments || 0, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
                  {
-                   label: course.billingType === 'MONTHLY' ? 'Monthly fee' : 'Course fee',
-                   value: `৳${Number(course.fee).toLocaleString()}`,
+                   label: course.offerPrice != null && Number(course.offerPrice) < Number(course.fee) ? 'Offer Price' : 'Course fee',
+                   value: course.offerPrice != null && Number(course.offerPrice) < Number(course.fee)
+                     ? `৳${Number(course.offerPrice).toLocaleString()}`
+                     : `৳${Number(course.fee).toLocaleString()}`,
                    icon: DollarSign,
                    color: 'text-emerald-600',
                    bg: 'bg-emerald-50',
+                   extra: course.offerPrice != null && Number(course.offerPrice) < Number(course.fee)
+                     ? `৳${Number(course.fee).toLocaleString()} · 🔥 ${Math.round(((Number(course.fee) - Number(course.offerPrice)) / Number(course.fee)) * 100)}% OFF`
+                     : undefined,
                  },
                  { label: 'Classes', value: outline?.totalClasses || 'N/A', icon: Calendar, color: 'text-violet-600', bg: 'bg-violet-50' },
                  { label: 'Duration', value: outline?.duration || 'N/A', icon: Clock, color: 'text-rose-600', bg: 'bg-rose-50' },
@@ -423,33 +428,15 @@ const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>
                     </div>
                     <p className="text-xs font-bold text-slate-500">{stat.label}</p>
                     <p className="mt-1 text-xl font-black text-slate-900">{stat.value}</p>
+                    {'extra' in stat && stat.extra && (
+                      <p className="mt-0.5 text-[10px] font-semibold text-slate-400 line-through-wrapper">
+                        <span className="line-through">{(stat.extra as string).split(' · ')[0]}</span>
+                        <span className="ml-1 text-emerald-600 no-underline">{(stat.extra as string).split(' · ')[1]}</span>
+                      </p>
+                    )}
                  </div>
                ))}
             </div>
-
-            {course.billingType === 'MONTHLY' && (
-              <div className="mb-10 rounded-2xl border border-violet-200 bg-linear-to-br from-violet-50/90 to-indigo-50/50 p-5 sm:p-6 shadow-sm">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs font-black uppercase tracking-widest text-violet-700">Monthly billing course</p>
-                    <p className="text-sm font-medium leading-relaxed text-slate-700 max-w-2xl">
-                      Students need a <strong className="font-bold text-slate-900">billing start month</strong> (YYYY-MM) on
-                      their enrollment. Invoices are generated per calendar month from{' '}
-                      <strong className="font-bold text-slate-900">Admin → Monthly billing</strong> or{' '}
-                      <strong className="font-bold text-slate-900">Invoices</strong>. Benefits (discounts / scholarships) apply
-                      automatically when generating.
-                    </p>
-                  </div>
-                  <Button
-                    asChild
-                    variant="outline"
-                    className="h-11 shrink-0 rounded-xl border-violet-300 bg-white font-bold text-violet-800 hover:bg-violet-50"
-                  >
-                    <Link href="/admin/monthly-billing">Open monthly billing</Link>
-                  </Button>
-                </div>
-              </div>
-            )}
 
             {course.status !== 'ARCHIVED' && (
               <div className="mb-10 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm">
@@ -859,7 +846,7 @@ const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>
                        </div>
                        <div>
                           <h4 className="text-lg font-black text-slate-800 tracking-tight">{assoc.toCourse?.name}</h4>
-                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">{assoc.toCourse?.code}</p>
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">{assoc.toCourse?.slug}</p>
                        </div>
                     </div>
                  </div>

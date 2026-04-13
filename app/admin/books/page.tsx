@@ -1793,7 +1793,7 @@ export default function BooksPage() {
                             </div>
                             <div className="flex flex-col">
                               <span className="font-black text-slate-800 text-base">{cb.course?.name}</span>
-                              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Code: {cb.course?.code}</span>
+                              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Code: {cb.course?.slug}</span>
                             </div>
                           </div>
                           <Badge variant="outline" className={cn(

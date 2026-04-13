@@ -197,8 +197,8 @@ export function ProgramCascadeDeleteModal({ programId, onClose, onDeleted }: Pro
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-black text-slate-800 truncate">{course.name}</p>
-                        {course.code && (
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{course.code}</p>
+                        {course.slug && (
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{course.slug}</p>
                         )}
                       </div>
                       <Badge className={cn('text-[9px] font-black uppercase tracking-widest border-0 rounded-md px-2 py-0.5 shrink-0', statusColor(course.status))}>

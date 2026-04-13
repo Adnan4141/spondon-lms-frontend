@@ -21,7 +21,7 @@ import type { StudentResults } from '@/types/academic';
 type MyCourseRow = {
   id: string;
   courseId: string;
-  course?: { id: string; name: string; code?: string; slug?: string | null };
+  course?: { id: string; name: string; slug?: string | null };
 };
 
 function countResultRows(data: StudentResults | null): number {
@@ -311,7 +311,7 @@ export default function StudentDashboardPage() {
               courseCards.map((row) => {
                 const cid = row.course?.id ?? row.courseId;
                 const name = row.course?.name ?? 'কোর্স';
-                const code = row.course?.code;
+                const code = row.course?.slug;
                 return (
                   <Link
                     key={row.id}

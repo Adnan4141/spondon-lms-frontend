@@ -330,20 +330,16 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
     [selectedCourseIds, courseById],
   );
 
-  /** One-time course fees (billingType = ONE_TIME) */
+  /** One-time course fees (when enrollPaymentMode = ONE_TIME: all course fees) */
   const oneTimeCourseFees = useMemo(
-    () => selectedCourseIds
-      .filter((id) => courseById.get(id)?.billingType !== 'MONTHLY')
-      .reduce((s, id) => s + (Number(courseById.get(id)?.fee) || 0), 0),
-    [selectedCourseIds, courseById],
+    () => enrollPaymentMode === 'ONE_TIME' ? totalCourseFee : 0,
+    [enrollPaymentMode, totalCourseFee],
   );
 
-  /** Monthly course fees (billingType = MONTHLY) */
+  /** Monthly course fees (when enrollPaymentMode = MONTHLY: all course fees) */
   const monthlyCourseFees = useMemo(
-    () => selectedCourseIds
-      .filter((id) => courseById.get(id)?.billingType === 'MONTHLY')
-      .reduce((s, id) => s + (Number(courseById.get(id)?.fee) || 0), 0),
-    [selectedCourseIds, courseById],
+    () => enrollPaymentMode === 'MONTHLY' ? totalCourseFee : 0,
+    [enrollPaymentMode, totalCourseFee],
   );
 
   /**
@@ -477,9 +473,9 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
       setError('Select a branch for enrollment.');
       return false;
     }
-    const needsMonth = selectedCourseIds.some((id) => courseById.get(id)?.billingType === 'MONTHLY');
+    const needsMonth = enrollPaymentMode === 'MONTHLY';
     if (needsMonth && !/^\d{4}-\d{2}$/.test(billingStartMonth.trim())) {
-      setError('Billing month (YYYY-MM) is required for monthly course(s).');
+      setError('Billing month (YYYY-MM) is required for monthly billing.');
       return false;
     }
     // Offline courses must have a batch assigned
@@ -521,31 +517,15 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
     if (step === 2) {
       if (!validateStep2()) return;
       if (!billingStartMonth.trim()) {
-        const needsMonth = selectedCourseIds.some((id) => courseById.get(id)?.billingType === 'MONTHLY');
+        const needsMonth = enrollPaymentMode === 'MONTHLY';
         if (needsMonth) setBillingStartMonth(new Date().toISOString().slice(0, 7));
-      }
-      let sumOffer = 0;
-      let offerNote = '';
-      for (const id of selectedCourseIds) {
-        const c = courseById.get(id);
-        const o =
-          c?.offerDiscountAmount != null && String(c.offerDiscountAmount) !== ''
-            ? Number(c.offerDiscountAmount)
-            : 0;
-        sumOffer += o;
-        if (o > 0 && c?.offerDiscountNote && !offerNote) offerNote = String(c.offerDiscountNote).trim();
       }
       const tf = selectedCourseIds.reduce((s, id) => s + (Number(courseById.get(id)?.fee) || 0), 0);
       const admissionTotal = admissionFeePrograms.reduce(
         (s, p) => s + (Number(admissionFeeOverrides[p.id] ?? p.amount) || 0),
         0,
       );
-      setTotalDiscountAmount(sumOffer > 0 ? String(Math.round(sumOffer * 100) / 100) : '');
-      setDiscountReference(offerNote);
-      setTotalPaymentAmount(String(Math.round(Math.max(tf + admissionTotal - sumOffer, 0) * 100) / 100));
-      // Auto-set payment mode based on selected course billing types
-      const hasMonthly = selectedCourseIds.some((id) => courseById.get(id)?.billingType === 'MONTHLY');
-      setEnrollPaymentMode(hasMonthly ? 'MONTHLY' : 'ONE_TIME');
+      setTotalPaymentAmount(String(Math.round((tf + admissionTotal) * 100) / 100));
     }
     if (step === 3 && !validateStep3()) return;
     setStep((s) => Math.min(4, s + 1));
@@ -602,7 +582,7 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
       const discTotal = Number(totalDiscountAmount) || 0;
       const payTotal = Number(totalPaymentAmount) || 0;
       const refTrim = discountReference.trim();
-      const needsMonth = selectedCourseIds.some((id) => courseById.get(id)?.billingType === 'MONTHLY');
+      const needsMonth = enrollPaymentMode === 'MONTHLY';
 
       const feeOverrides: Record<string, number> = {};
       for (const p of admissionFeePrograms) {
@@ -617,6 +597,7 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
           courseId,
           batchId: batchAssignments[courseId] || undefined,
         })),
+        billingType: enrollPaymentMode,
         billingStartMonth: needsMonth ? monthYm || undefined : undefined,
         paymentMethod,
         paymentAmount: payTotal,
@@ -1127,8 +1108,7 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
                             <div className="mt-1 flex flex-wrap items-center gap-1.5">
                               <CourseDeliveryBadge type={c.type} />
                               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                {c.code} · {Number(c.fee).toFixed(0)} BDT ·{' '}
-                                {c.billingType === 'MONTHLY' ? 'MONTHLY' : 'ONE-TIME'}
+                                {c.slug} · {Number(c.fee).toFixed(0)} BDT
                               </p>
                             </div>
                           </div>
@@ -1289,7 +1269,7 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
 
             {/* ── Categorized fees ── */}
             {/* One-time charges */}
-            {(oneTimeCourseFees > 0 || effectiveAdmissionFeeTotal > 0) && (
+            {enrollPaymentMode === 'ONE_TIME' && (oneTimeCourseFees > 0 || effectiveAdmissionFeeTotal > 0) && (
               <div className="rounded-2xl border border-violet-200 bg-violet-50/30 p-4 space-y-1">
                 <p className="text-[10px] font-black uppercase tracking-widest text-violet-600 mb-2">একবারের চার্জ (One-time)</p>
                 {admissionFeePrograms.length > 0 && (
@@ -1298,7 +1278,7 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
                     <span className="font-mono font-bold">৳{effectiveAdmissionFeeTotal.toLocaleString()}</span>
                   </div>
                 )}
-                {selectedCourseIds.filter((id) => courseById.get(id)?.billingType !== 'MONTHLY').map((cid) => {
+                {selectedCourseIds.map((cid) => {
                   const c = courseById.get(cid);
                   const fee = c?.fee != null ? Number(c.fee) : 0;
                   return (
@@ -1316,10 +1296,10 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
             )}
 
             {/* Monthly charges */}
-            {monthlyCourseFees > 0 && (
+            {enrollPaymentMode === 'MONTHLY' && monthlyCourseFees > 0 && (
               <div className="rounded-2xl border border-sky-200 bg-sky-50/30 p-4 space-y-1">
                 <p className="text-[10px] font-black uppercase tracking-widest text-sky-600 mb-2">মাসিক চার্জ (Monthly recurring)</p>
-                {selectedCourseIds.filter((id) => courseById.get(id)?.billingType === 'MONTHLY').map((cid) => {
+                {selectedCourseIds.map((cid) => {
                   const c = courseById.get(cid);
                   const fee = c?.fee != null ? Number(c.fee) : 0;
                   return (

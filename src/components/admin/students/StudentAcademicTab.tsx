@@ -37,7 +37,7 @@ interface StudentAcademicTabProps {
 
 type SummaryRow = {
   courseId: string;
-  course: { id: string; name: string; code: string } | null;
+  course: { id: string; name: string; slug?: string } | null;
   totalExams: number;
   avgPercentage: number;
   bestPercentage: number;

@@ -220,11 +220,11 @@ export function ProgramDetailsView({ program: initialProgram }: ProgramDetailsVi
                    <div key={course.id} className="group flex items-center justify-between p-6 rounded-[28px] border border-slate-100 bg-white hover:border-indigo-200 hover:shadow-xl transition-all">
                       <div className="flex items-center gap-5">
                          <div className="h-12 w-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-inner font-black text-xs">
-                            {course.code.charAt(0)}
+                           {(course.slug || course.name || '?').charAt(0)}
                          </div>
                          <div>
                             <h4 className="text-base font-black text-slate-800">{course.name}</h4>
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">{course.code} • {course.type}</p>
+                           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">{course.slug || 'no-slug'} • {course.type}</p>
                          </div>
                       </div>
                       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

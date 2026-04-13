@@ -99,7 +99,7 @@ export const PartnerDetailsDialog: React.FC<PartnerDetailsDialogProps> = ({
                   >
                     <div className="flex justify-between items-center">
                       <div className="space-y-1.5">
-                        <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-[0.2em]">{c.code}</p>
+                        <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-[0.2em]">{c.slug}</p>
                         <p className="text-base font-bold text-slate-800 group-hover:text-indigo-600 transition-colors leading-snug">{c.name}</p>
                       </div>
                       <div className="h-10 w-10 rounded-xl bg-slate-50 flex items-center justify-center group-hover:bg-indigo-50 transition-colors">

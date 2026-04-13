@@ -21,7 +21,7 @@ export interface CourseContent {
   course?: {
     id: string;
     name: string;
-    code: string;
+    slug?: string;
   };
 }
 

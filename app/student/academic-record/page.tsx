@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 
 interface CourseSummary {
   courseId: string;
-  course: { id: string; name: string; code: string } | null;
+  course: { id: string; name: string; slug?: string } | null;
   totalExams: number;
   avgPercentage: number;
   bestPercentage: number;
@@ -26,7 +26,7 @@ interface AcademicRecord {
   courseId?: string | null;
   examId?: string | null;
   createdAt: string;
-  course?: { id: string; name: string; code: string } | null;
+  course?: { id: string; name: string; slug?: string } | null;
 }
 
 export default function StudentAcademicRecordPage() {

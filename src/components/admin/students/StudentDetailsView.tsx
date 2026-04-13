@@ -182,7 +182,7 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
     let oneTime = 0;
     const programs = new Set<string>();
     for (const e of enrollments) {
-      if (e.course?.billingType === 'MONTHLY') monthly += 1;
+      if (e.billingType === 'MONTHLY') monthly += 1;
       else oneTime += 1;
       if (e.course?.program?.id) programs.add(e.course.program.id);
     }
@@ -786,14 +786,14 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                                   variant="outline"
                                   className={cn(
                                     'rounded-md px-2 py-0 text-[8px] font-black uppercase tracking-wider',
-                                    c.course?.billingType === 'MONTHLY'
+                                    c.billingType === 'MONTHLY'
                                       ? 'border-violet-200 bg-violet-50 text-violet-800'
                                       : 'border-sky-200 bg-sky-50 text-sky-800'
                                   )}
                                 >
-                                  {c.course?.billingType === 'MONTHLY' ? 'মাসিক বিলিং' : 'এককালীন ফি'}
+                                  {c.billingType === 'MONTHLY' ? 'মাসিক বিলিং' : 'এককালীন ফি'}
                                 </Badge>
-                                {c.course?.billingType === 'MONTHLY' && c.billingStartMonth ? (
+                                {c.billingType === 'MONTHLY' && c.billingStartMonth ? (
                                   <Badge variant="outline" className="rounded-md border-slate-200 bg-white px-2 py-0 text-[8px] font-black uppercase text-slate-600">
                                     শুরু {c.billingStartMonth}
                                   </Badge>

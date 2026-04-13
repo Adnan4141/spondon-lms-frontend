@@ -24,7 +24,7 @@ export interface Benefit {
   course?: {
     id: string;
     name: string;
-    code: string;
+    slug?: string;
   } | null;
   approvedBy?: {
     id: string;

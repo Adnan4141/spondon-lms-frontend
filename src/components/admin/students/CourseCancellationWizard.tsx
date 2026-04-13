@@ -111,7 +111,7 @@ export function CourseCancellationWizard({
   const cancelledMonthlyFee = useMemo(
     () =>
       selectedEnrollments
-        .filter((e) => e.course?.billingType === 'MONTHLY')
+        .filter((e) => e.billingType === 'MONTHLY')
         .reduce((s, e) => s + Number(e.course?.fee || 0), 0),
     [selectedEnrollments],
   );
@@ -119,13 +119,13 @@ export function CourseCancellationWizard({
   const cancelledOnetimeFee = useMemo(
     () =>
       selectedEnrollments
-        .filter((e) => e.course?.billingType !== 'MONTHLY')
+        .filter((e) => e.billingType !== 'MONTHLY')
         .reduce((s, e) => s + Number(e.course?.fee || 0), 0),
     [selectedEnrollments],
   );
 
   const remainingMonthlyEnrollments = useMemo(
-    () => remainingEnrollments.filter((e) => e.course?.billingType === 'MONTHLY'),
+    () => remainingEnrollments.filter((e) => e.billingType === 'MONTHLY'),
     [remainingEnrollments],
   );
 
@@ -135,7 +135,7 @@ export function CourseCancellationWizard({
   );
 
   const hasMonthlyCancel = useMemo(
-    () => selectedEnrollments.some((e) => e.course?.billingType === 'MONTHLY'),
+    () => selectedEnrollments.some((e) => e.billingType === 'MONTHLY'),
     [selectedEnrollments],
   );
 
@@ -333,12 +333,12 @@ export function CourseCancellationWizard({
                           variant="outline"
                           className={cn(
                             'rounded-md px-2 py-0 text-[10px] font-medium',
-                            e.course?.billingType === 'MONTHLY'
+                            e.billingType === 'MONTHLY'
                               ? 'border-amber-200 bg-amber-50 text-amber-700'
                               : 'border-emerald-200 bg-emerald-50 text-emerald-700',
                           )}
                         >
-                          {e.course?.billingType === 'MONTHLY'
+                          {e.billingType === 'MONTHLY'
                             ? `monthly · ${money(e.course?.fee)}`
                             : `one-time · ${money(e.course?.fee)}`}
                         </Badge>
@@ -571,7 +571,7 @@ export function CourseCancellationWizard({
                         variant="outline"
                         className="rounded-md px-2 py-0 text-[10px] font-medium border-slate-200 text-slate-500"
                       >
-                        {e.course?.billingType === 'MONTHLY' ? 'monthly' : 'one-time'}
+                        {e.billingType === 'MONTHLY' ? 'monthly' : 'one-time'}
                       </Badge>
                     </div>
                   </div>

@@ -27,7 +27,7 @@ export interface RoutineSlot {
   teacherUserId?: string;
   mode: string;
   isActive: boolean;
-  course?: { id: string; name: string; code: string };
+  course?: { id: string; name: string; slug?: string };
   batch?: { id: string; name: string };
   branch?: { id: string; name: string };
   teacher?: { id: string; fullName: string };

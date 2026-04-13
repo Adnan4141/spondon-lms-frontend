@@ -11,7 +11,7 @@ export interface CommunityPost {
   attachments?: any;
   createdAt: string;
   author?: { id: string; fullName: string; role?: string };
-  course?: { id: string; name: string; code?: string };
+  course?: { id: string; name: string; slug?: string };
   batch?: { id: string; name: string };
   replies?: CommunityReply[];
   votes?: CommunityVote[];

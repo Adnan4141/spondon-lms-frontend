@@ -6,7 +6,6 @@ import { useModalStore } from '@/store/modalStore';
 import { useToast } from '@/hooks/use-toast';
 import {
   AdmissionStatus,
-  BillingType,
   CourseStatus,
   CourseType,
   CreateCourseDto,
@@ -29,7 +28,6 @@ import { cn } from '@/lib/utils';
 
 const statusOptions: (CourseStatus)[] = ['ACTIVE', 'DISABLED', 'ARCHIVED'];
 const typeOptions: (CourseType)[] = ['ONLINE', 'OFFLINE'];
-const billingOptions: BillingType[] = ['ONE_TIME', 'MONTHLY'];
 const admissionOptions: AdmissionStatus[] = ['OPEN', 'CLOSED'];
 
 const inputClass =
@@ -51,10 +49,8 @@ type EditFormState = {
   programId: string;
   name: string;
   slug: string;
-  code: string;
   thumbnail: string;
   type: CourseType;
-  billingType: BillingType;
   fee: string;
   description: string;
   status: CourseStatus;
@@ -69,10 +65,8 @@ const defaultEditForm: EditFormState = {
   programId: '',
   name: '',
   slug: '',
-  code: '',
   thumbnail: '',
   type: 'ONLINE',
-  billingType: 'ONE_TIME',
   fee: '0',
   description: '',
   status: 'ACTIVE',
@@ -123,8 +117,8 @@ export function CreateCourseForm({
       return;
     }
 
-    if (!createForm.programId || !createForm.name.trim() || !createForm.slug.trim() || !createForm.code.trim()) {
-      setCreateError('Program, name, slug, and code are required.');
+    if (!createForm.programId || !createForm.name.trim() || !createForm.slug.trim()) {
+      setCreateError('Program, name, and slug are required.');
       return;
     }
 
@@ -132,9 +126,7 @@ export function CreateCourseForm({
       programId: createForm.programId,
       name: createForm.name.trim(),
       slug: createForm.slug.trim().toLowerCase(),
-      code: createForm.code.trim(),
       type: createForm.type,
-      billingType: createForm.billingType,
       fee: parsedFee,
       description: createForm.description.trim() || undefined,
       status: createForm.status,
@@ -208,16 +200,6 @@ export function CreateCourseForm({
                 ))}
               </SelectContent>
             </Select>
-          </div>
-
-          <div className="space-y-2">
-            <label className={sectionLabel}>Course Code</label>
-            <Input
-              className={inputClass}
-              value={createForm.code}
-              onChange={(e) => setCreateForm((prev) => ({ ...prev, code: e.target.value.toUpperCase() }))}
-              placeholder="e.g., HSC-PHY-01"
-            />
           </div>
 
           <div className="space-y-2">
@@ -301,27 +283,6 @@ export function CreateCourseForm({
               </SelectTrigger>
               <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
                 {typeOptions.map((option) => (
-                  <SelectItem key={option} value={option} className="text-sm font-medium">
-                    {option}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <label className={sectionLabel}>Billing Structure</label>
-            <Select
-              value={createForm.billingType}
-              onValueChange={(value) =>
-                setCreateForm((prev) => ({ ...prev, billingType: value as BillingType }))
-              }
-            >
-              <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                {billingOptions.map((option) => (
                   <SelectItem key={option} value={option} className="text-sm font-medium">
                     {option}
                   </SelectItem>

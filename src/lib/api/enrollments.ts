@@ -10,6 +10,7 @@ export interface Enrollment {
   batchId?: string | null;
   branchId: string;
   status: EnrollmentStatusType | string;
+  billingType?: 'ONE_TIME' | 'MONTHLY';
   billingStartMonth?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -22,10 +23,9 @@ export interface Enrollment {
   course?: {
     id: string;
     name: string;
-    code: string;
+    slug?: string;
     type?: 'ONLINE' | 'OFFLINE' | string;
     fee?: number | string;
-    billingType?: 'ONE_TIME' | 'MONTHLY';
     program?: {
       id: string;
       name: string;
@@ -191,6 +191,7 @@ export interface OfflineAdmissionDto {
   /** Multiple courses → one invoice with all lines. */
   courses?: OfflineAdmissionCourseLine[];
   branchId: string;
+  billingType?: 'ONE_TIME' | 'MONTHLY';
   billingStartMonth?: string;
   paymentMethod?: PaymentMethodType;
   paymentAmount?: number;

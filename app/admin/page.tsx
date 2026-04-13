@@ -61,7 +61,7 @@ export default function AdminDashboard() {
          try {
             const [tRes, cRes, statsRes, revRes, batchRes, enrollRes, enrollReportRes, testiRes] = await Promise.all([
                getUsers({ role: 'TEACHER', status: 'ACTIVE', limit: 1 }),
-               getCourses({ billingType: 'MONTHLY', status: 'ACTIVE', limit: 1 }),
+               getCourses({ status: 'ACTIVE', limit: 1 }),
                getSystemStats(),
                getRevenueSummary({ period: 'monthly' }),
                getBatches({ status: 'ACTIVE', limit: 1 }),
