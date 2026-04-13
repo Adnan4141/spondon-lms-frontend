@@ -131,6 +131,7 @@ export interface Program {
   thumbnail?: string;
   admissionFeeEnabled?: boolean;
   admissionFeeAmount?: number | null;
+  paymentCircle?: BillingType;
   createdAt: string;
   updatedAt: string;
   _count?: {
@@ -144,6 +145,7 @@ export interface CreateProgramDto {
   thumbnail?: string;
   admissionFeeEnabled?: boolean;
   admissionFeeAmount?: number | null;
+  paymentCircle?: BillingType;
 }
 
 export interface UpdateProgramDto {
@@ -152,6 +154,7 @@ export interface UpdateProgramDto {
   thumbnail?: string;
   admissionFeeEnabled?: boolean;
   admissionFeeAmount?: number | null;
+  paymentCircle?: BillingType;
 }
 
 export interface Course {

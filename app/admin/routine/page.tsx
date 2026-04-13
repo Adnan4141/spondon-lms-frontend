@@ -73,6 +73,7 @@ import {
   FileSpreadsheet,
   RefreshCw,
   Calendar,
+  CalendarRange,
   FileText,
   User,
 } from 'lucide-react';
@@ -80,6 +81,7 @@ import { TeacherCombobox } from '@/components/admin/routine/TeacherCombobox';
 import { RoutineGrid, type GridSlot } from '@/components/admin/routine/RoutineGrid';
 import { SlotWizard, type SlotFormData } from '@/components/admin/routine/SlotWizard';
 import { GridSettings, loadGridSettings, type GridSettingsState } from '@/components/admin/routine/GridSettings';
+import { RecurringScheduleDialog } from '@/components/admin/routine/RecurringScheduleDialog';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -212,6 +214,7 @@ export default function AdminRoutinePage() {
   const [exportWeekStart, setExportWeekStart] = useState<Date | undefined>(undefined);
   const [exportWeekEnd, setExportWeekEnd] = useState<Date | undefined>(undefined);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [recurringOpen, setRecurringOpen] = useState(false);
 
   // ── Generated Routine tab state ─────────────────────────────────
   const [genCourseId, setGenCourseId] = useState('');
@@ -638,6 +641,10 @@ export default function AdminRoutinePage() {
                 <Button size="sm" variant="outline" onClick={() => openTeacherOnlyCreate()} className="gap-2">
                   <User className="h-4 w-4" />
                   New teacher slot
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setRecurringOpen(true)} className="gap-2 border-teal-200 text-teal-700 hover:bg-teal-50">
+                  <CalendarRange className="h-4 w-4" />
+                  Recurring
                 </Button>
               </div>
             </CardHeader>
@@ -1104,6 +1111,16 @@ export default function AdminRoutinePage() {
         existingSlots={gridSlots}
         initialDay={wizardDay}
         initialTime={wizardTime}
+      />
+
+      {/* Recurring Schedule Dialog */}
+      <RecurringScheduleDialog
+        open={recurringOpen}
+        onClose={() => setRecurringOpen(false)}
+        onSuccess={() => loadSlots()}
+        batches={batches}
+        teachers={teacherOptions}
+        slotCounts={slotCounts}
       />
 
       {/* Export PDF Dialog */}

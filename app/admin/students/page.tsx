@@ -7,6 +7,7 @@ import {
   getStudentById,
   lookupStudentUser,
   bulkImportStudents,
+  exportStudentsUrl,
   type Student,
 } from '@/lib/api/students';
 import { getBranches, type Branch } from '@/lib/api/branches';
@@ -41,6 +42,7 @@ import {
   Phone,
   Building2,
   Upload,
+  Download,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
@@ -347,6 +349,21 @@ export default function StudentsPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              className="h-12 rounded-2xl border-slate-200 px-6 font-black uppercase tracking-widest text-[11px] text-slate-600 shadow-sm hover:bg-slate-50"
+              onClick={() => {
+                const url = exportStudentsUrl({
+                  branchId: branchFilter,
+                  status: statusFilter,
+                  search: searchQuery || undefined,
+                });
+                window.open(url, '_blank');
+              }}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Export
+            </Button>
             <Button
               variant="outline"
               className="h-12 rounded-2xl border-slate-200 px-6 font-black uppercase tracking-widest text-[11px] text-slate-600 shadow-sm hover:bg-slate-50"

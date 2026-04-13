@@ -540,7 +540,14 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
               <label className={sectionLabel}>Program</label>
               <Select
                 value={form.programId}
-                onValueChange={(value) => setForm((prev) => ({ ...prev, programId: value }))}
+                onValueChange={(value) => {
+                  const selected = programs.find((p) => p.id === value);
+                  if (selected?.paymentCircle === 'MONTHLY') {
+                    setForm((prev) => ({ ...prev, programId: value, billingType: 'MONTHLY' }));
+                  } else {
+                    setForm((prev) => ({ ...prev, programId: value }));
+                  }
+                }}
               >
                 <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
                   <SelectValue placeholder="Select Program" />
@@ -655,6 +662,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
               <label className={sectionLabel}>Billing Type</label>
               <Select
                 value={form.billingType}
+                disabled={programs.find((p) => p.id === form.programId)?.paymentCircle === 'MONTHLY'}
                 onValueChange={(value) =>
                   setForm((prev) => ({ ...prev, billingType: value as BillingType }))
                 }
@@ -670,7 +678,12 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                   ))}
                 </SelectContent>
               </Select>
-              {form.billingType === 'MONTHLY' && (
+              {programs.find((p) => p.id === form.programId)?.paymentCircle === 'MONTHLY' && (
+                <p className="text-xs font-medium text-amber-600 leading-relaxed">
+                  This program uses monthly billing. All courses under it must use monthly billing type.
+                </p>
+              )}
+              {form.billingType === 'MONTHLY' && !programs.find((p) => p.id === form.programId)?.paymentCircle && (
                 <p className="text-xs font-medium text-slate-500 leading-relaxed">
                   Monthly courses bill students every month. Billing amount is managed at program level. When enrolling students,
                   set their billing start month; run <span className="font-bold text-slate-700">Monthly billing</span> in admin

@@ -45,6 +45,18 @@ export async function deleteCourse(id: string): Promise<ApiResponse<void>> {
   });
 }
 
+export async function toggleCourseVisibility(courseId: string): Promise<ApiResponse<Course>> {
+  return apiRequest<ApiResponse<Course>>(`/courses/${courseId}/toggle-visibility`, {
+    method: 'PATCH',
+  });
+}
+
+export async function toggleCourseFeatured(courseId: string): Promise<ApiResponse<Course>> {
+  return apiRequest<ApiResponse<Course>>(`/courses/${courseId}/toggle-featured`, {
+    method: 'PATCH',
+  });
+}
+
 export async function settleCourse(courseId: string): Promise<ApiResponse<{ message?: string }>> {
   return apiRequest<ApiResponse<{ message?: string }>>(`/courses/${courseId}/settle`, {
     method: 'POST',

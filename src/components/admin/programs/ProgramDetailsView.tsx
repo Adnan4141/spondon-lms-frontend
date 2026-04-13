@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getProgramById } from '@/lib/api/programs';
+import { apiRequest } from '@/lib/api';
 import { updateCourse } from '@/lib/api/courses';
 import { useToast } from '@/hooks/use-toast';
 import { LinkCourseForm } from './LinkCourseForm';
@@ -138,6 +139,45 @@ export function ProgramDetailsView({ program: initialProgram }: ProgramDetailsVi
                     {new Date(program.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </p>
                </div>
+            </div>
+
+            {/* Payment Circle Info */}
+            <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm mb-10">
+              <h3 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-indigo-600 mb-4">
+                <Clock className="h-4 w-4" />
+                Payment Circle
+              </h3>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Badge className={cn(
+                    "px-3 py-1 text-xs font-black uppercase tracking-widest rounded-xl",
+                    program.paymentCircle === 'MONTHLY'
+                      ? 'bg-amber-100 text-amber-700 border-amber-200'
+                      : 'bg-blue-100 text-blue-700 border-blue-200'
+                  )}>
+                    {program.paymentCircle === 'MONTHLY' ? 'Monthly' : 'Program-wise (One-time)'}
+                  </Badge>
+                  {program.paymentCircle === 'MONTHLY' && (
+                    <span className="text-xs font-medium text-slate-500">All courses must use monthly billing</span>
+                  )}
+                </div>
+                {program.paymentCircle === 'MONTHLY' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-xl text-[10px] font-black uppercase tracking-widest"
+                    onClick={async () => {
+                      try {
+                        const res = await apiRequest(`/programs/${program.id}/fix-course-billing`, { method: 'POST' });
+                        toast({ title: 'Done', description: `Course billing types synchronized.`, variant: 'success' });
+                        fetchProgramData();
+                      } catch { toast({ title: 'Failed to fix billing', variant: 'destructive' }); }
+                    }}
+                  >
+                    Fix Course Billing
+                  </Button>
+                )}
+              </div>
             </div>
 
             <div className="space-y-6">

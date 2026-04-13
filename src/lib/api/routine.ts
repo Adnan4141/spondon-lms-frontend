@@ -179,3 +179,28 @@ export async function deleteRoutineSlot(id: string): Promise<ApiResponse<{ messa
     method: 'DELETE',
   });
 }
+
+export interface CreateRecurringData {
+  batchId: string;
+  courseId: string;
+  branchId: string;
+  teacherUserId: string;
+  days: number[];
+  startTime: string;
+  endTime: string;
+  topic?: string;
+  mode?: 'ONLINE' | 'OFFLINE';
+}
+
+export async function createRecurringSlots(data: CreateRecurringData): Promise<ApiResponse<{ created: number; groupId: string }>> {
+  return apiRequest<ApiResponse<{ created: number; groupId: string }>>('/routine/recurring', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteRecurrenceGroup(groupId: string): Promise<ApiResponse<{ deleted: number }>> {
+  return apiRequest<ApiResponse<{ deleted: number }>>(`/routine/recurring/${encodeURIComponent(groupId)}`, {
+    method: 'DELETE',
+  });
+}

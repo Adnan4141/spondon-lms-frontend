@@ -115,3 +115,14 @@ export async function sendCredentialsEmail(userId: string): Promise<ApiResponse<
     method: 'POST',
   });
 }
+
+/** Download student list as XLSX. */
+export function exportStudentsUrl(params?: { branchId?: string; status?: string; search?: string }): string {
+  const { API_BASE_URL } = require('../api');
+  const qs = new URLSearchParams();
+  if (params?.branchId && params.branchId !== 'all') qs.set('branchId', params.branchId);
+  if (params?.status && params.status !== 'all') qs.set('status', params.status);
+  if (params?.search) qs.set('search', params.search);
+  const query = qs.toString();
+  return `${API_BASE_URL}/users/export/students${query ? `?${query}` : ''}`;
+}

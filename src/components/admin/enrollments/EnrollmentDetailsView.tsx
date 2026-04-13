@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { Enrollment } from '@/lib/api/enrollments';
 import { cancelMonthlyEnrollment, getInvoices, getInvoicePdfUrl } from '@/lib/api/invoices';
+import { apiRequest } from '@/lib/api';
 import { API_ORIGIN } from '@/lib/api';
 import type { Invoice } from '@/types/invoice';
 import { Badge } from '@/components/ui/badge';
@@ -74,6 +75,22 @@ export function EnrollmentDetailsView({
   const [monthlyBusy, setMonthlyBusy] = useState(false);
   const [monthlyReason, setMonthlyReason] = useState('');
   const [settleOutstandingOnCancel, setSettleOutstandingOnCancel] = useState(true);
+  const [newScholarship, setNewScholarship] = useState('');
+  const [remainingCourses, setRemainingCourses] = useState<{ enrollmentId: string; courseName: string; fee: number; recurringScholarship: number }[]>([]);
+  const [currentScholarship, setCurrentScholarship] = useState<number>(0);
+
+  useEffect(() => {
+    if (canMonthlyCancel) {
+      apiRequest<any>(`/enrollments/${enrollment.id}/cancel-preview`)
+        .then((res: any) => {
+          if (res.success && res.data) {
+            setRemainingCourses(res.data.remainingCourses || []);
+            setCurrentScholarship(res.data.currentRecurringScholarship || 0);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [enrollment.id, canMonthlyCancel]);
 
   const course = enrollment.course;
   const isMonthly = course?.billingType === 'MONTHLY';
@@ -86,6 +103,7 @@ export function EnrollmentDetailsView({
       const res = await cancelMonthlyEnrollment(enrollment.id, {
         reason: monthlyReason.trim() || undefined,
         settleInvoices: settleOutstandingOnCancel,
+        newRecurringScholarship: newScholarship ? Number(newScholarship) : undefined,
       });
       if (res.success) {
         toast({
@@ -304,6 +322,36 @@ export function EnrollmentDetailsView({
               />
               Also cancel outstanding invoices for this course (invoice settlement)
             </label>
+
+            {remainingCourses.length > 0 && (
+              <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+                <h4 className="text-[10px] font-black uppercase tracking-wider text-amber-800">Remaining Active Courses</h4>
+                <div className="space-y-1">
+                  {remainingCourses.map((rc) => (
+                    <div key={rc.enrollmentId} className="flex items-center justify-between text-sm">
+                      <span className="font-medium text-slate-700">{rc.courseName}</span>
+                      <span className="text-xs text-slate-500">৳{Number(rc.fee).toLocaleString()} (scholarship: ৳{Number(rc.recurringScholarship).toLocaleString()})</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs font-medium text-slate-600">
+                  Current total monthly scholarship: <span className="font-bold text-slate-900">৳{currentScholarship.toLocaleString()}</span>
+                </p>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-amber-800">New Monthly Scholarship (optional)</label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={newScholarship}
+                    onChange={(e) => setNewScholarship(e.target.value)}
+                    placeholder="Leave blank to keep current scholarship"
+                    className="h-10 rounded-xl"
+                  />
+                  <p className="text-[10px] font-medium text-slate-500">If set, this amount will be distributed across the remaining {remainingCourses.length} course(s).</p>
+                </div>
+              </div>
+            )}
+
             <Button
               type="button"
               variant="destructive"

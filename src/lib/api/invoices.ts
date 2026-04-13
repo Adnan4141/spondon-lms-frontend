@@ -107,7 +107,7 @@ export async function createPayment(data: CreatePaymentDto): Promise<ApiResponse
 
 export async function cancelMonthlyEnrollment(
   enrollmentId: string,
-  body?: { reason?: string; settleInvoices?: boolean }
+  body?: { reason?: string; settleInvoices?: boolean; newRecurringScholarship?: number }
 ): Promise<ApiResponse<{ message?: string }>> {
   return apiRequest<ApiResponse<{ message?: string }>>(`/invoices/monthly/cancel/${enrollmentId}`, {
     method: 'POST',

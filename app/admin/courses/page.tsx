@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getPrograms } from '@/lib/api/programs';
-import { getCourseById, getCourses, updateCourse, createCourse, deleteCourse } from '@/lib/api/courses';
+import { getCourseById, getCourses, updateCourse, createCourse, deleteCourse, toggleCourseVisibility, toggleCourseFeatured } from '@/lib/api/courses';
 import {
   getCourseContents,
   createCourseContent,
@@ -68,6 +68,10 @@ import {
   X,
   Layers,
   ArrowUpRight,
+  Eye,
+  EyeOff,
+  Star,
+  MoreVertical,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
@@ -75,6 +79,7 @@ import { useModalStore } from '@/store/modalStore';
 import { CreateCourseForm } from '@/components/admin/courses/CreateCourseForm';
 import { CourseForm } from '@/components/admin/courses/CourseForm';
 import { CourseDetailsView } from '@/components/admin/courses/CourseDetailsView';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
 const statusOptions: (CourseStatus | 'all')[] = ['all', 'ACTIVE', 'DISABLED', 'ARCHIVED'];
@@ -406,9 +411,13 @@ export default function CoursesPage() {
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{course.billingType}</p>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={cn("rounded-lg px-2.5 py-1 text-[10px] font-black uppercase tracking-widest shadow-sm", getStatusBadgeClass(course.status))}>
-                        {course.status}
-                      </Badge>
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant="outline" className={cn("rounded-lg px-2.5 py-1 text-[10px] font-black uppercase tracking-widest shadow-sm", getStatusBadgeClass(course.status))}>
+                          {course.status}
+                        </Badge>
+                        {course.featured && <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />}
+                        {!course.websiteVisible && <EyeOff className="h-3.5 w-3.5 text-slate-300" />}
+                      </div>
                     </TableCell>
                     <TableCell className="px-8">
                       <div className="flex justify-center gap-2">
@@ -428,19 +437,50 @@ export default function CoursesPage() {
                         >
                           Edit
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 rounded-xl border-rose-200 bg-white px-4 text-[10px] font-black uppercase tracking-widest text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all shadow-sm"
-                          onClick={() => handleDeleteClick(course)}
-                          disabled={deletingCourseId === course.id}
-                        >
-                          {deletingCourseId === course.id ? (
-                            <RefreshCw className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <><Trash2 className="h-3 w-3 mr-1" />Delete</>
-                          )}
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-8 w-8 rounded-xl border-slate-200 bg-white p-0 text-slate-600 hover:bg-slate-100 transition-all shadow-sm">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="rounded-xl shadow-xl border-slate-200">
+                            <DropdownMenuItem
+                              onClick={async () => {
+                                try {
+                                  await toggleCourseVisibility(course.id);
+                                  toast({ title: course.websiteVisible ? 'Course hidden from website' : 'Course visible on website', variant: 'success' });
+                                  loadCourses();
+                                } catch { toast({ title: 'Failed to toggle visibility', variant: 'destructive' }); }
+                              }}
+                              className="text-xs font-bold gap-2"
+                            >
+                              {course.websiteVisible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                              {course.websiteVisible ? 'Hide from Website' : 'Show on Website'}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={async () => {
+                                try {
+                                  await toggleCourseFeatured(course.id);
+                                  toast({ title: course.featured ? 'Removed from featured' : 'Marked as featured', variant: 'success' });
+                                  loadCourses();
+                                } catch { toast({ title: 'Failed to toggle featured', variant: 'destructive' }); }
+                              }}
+                              className="text-xs font-bold gap-2"
+                            >
+                              <Star className={cn("h-3.5 w-3.5", course.featured && "fill-amber-400 text-amber-400")} />
+                              {course.featured ? 'Remove Featured' : 'Mark Featured'}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => handleDeleteClick(course)}
+                              disabled={deletingCourseId === course.id}
+                              className="text-xs font-bold text-rose-600 gap-2"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </TableCell>
                   </TableRow>

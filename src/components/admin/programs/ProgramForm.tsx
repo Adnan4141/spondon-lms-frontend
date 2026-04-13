@@ -5,9 +5,10 @@ import { createProgram, updateProgram, uploadProgramThumbnail } from '@/lib/api/
 import { API_ORIGIN } from '@/lib/api';
 import { useModalStore } from '@/store/modalStore';
 import { useToast } from '@/hooks/use-toast';
-import { Program, CreateProgramDto, UpdateProgramDto } from '@/types/course';
+import { Program, CreateProgramDto, UpdateProgramDto, BillingType } from '@/types/course';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -31,6 +32,7 @@ export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
     thumbnail: '',
     admissionFeeEnabled: false,
     admissionFeeAmount: '',
+    paymentCircle: 'ONE_TIME' as BillingType,
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +50,7 @@ export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
         thumbnail: program.thumbnail || '',
         admissionFeeEnabled: program.admissionFeeEnabled || false,
         admissionFeeAmount: program.admissionFeeAmount ? String(program.admissionFeeAmount) : '',
+        paymentCircle: program.paymentCircle || 'ONE_TIME',
       });
       if (program.thumbnail) {
         const url = program.thumbnail.startsWith('/') ? `${API_ORIGIN}${program.thumbnail}` : program.thumbnail;
@@ -63,6 +66,7 @@ export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
         thumbnail: '',
         admissionFeeEnabled: false,
         admissionFeeAmount: '',
+        paymentCircle: 'ONE_TIME',
       });
       setThumbnailPreview(null);
       pendingThumbnailFile.current = null;
@@ -120,6 +124,7 @@ export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
       admissionFeeAmount: form.admissionFeeEnabled && form.admissionFeeAmount.trim()
         ? Number(form.admissionFeeAmount)
         : null,
+      paymentCircle: form.paymentCircle,
     };
 
     try {
@@ -264,6 +269,27 @@ export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
                   placeholder="e.g., 1000"
                 />
               </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <label className={sectionLabel}>Payment Circle</label>
+            <Select
+              value={form.paymentCircle}
+              onValueChange={(value) => setForm((prev) => ({ ...prev, paymentCircle: value as BillingType }))}
+            >
+              <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
+                <SelectItem value="ONE_TIME" className="text-sm font-medium">Program-wise (One-time)</SelectItem>
+                <SelectItem value="MONTHLY" className="text-sm font-medium">Monthly</SelectItem>
+              </SelectContent>
+            </Select>
+            {form.paymentCircle === 'MONTHLY' && (
+              <p className="text-xs font-medium text-amber-600 leading-relaxed">
+                All courses under this program will be forced to use monthly billing.
+              </p>
             )}
           </div>
 
