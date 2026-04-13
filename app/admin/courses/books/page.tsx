@@ -235,7 +235,7 @@ export default function CourseBooksPage() {
                 <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
                   {courses.map((course) => (
                     <SelectItem key={course.id} value={course.id} className="font-bold py-3 uppercase text-[11px] tracking-widest">
-                      {course.name} ({course.code})
+                      {course.name} ({course.slug})
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -404,7 +404,7 @@ export default function EnrollmentsPage() {
                     <TableCell className="py-5">
                        <div className="flex flex-col">
                           <span className="text-sm font-bold text-slate-700">{e.course?.name}</span>
-                          <span className="text-sm font-black text-slate-400 uppercase tracking-widest">Code: {e.course?.code}</span>
+                          <span className="text-sm font-black text-slate-400 uppercase tracking-widest">Code: {e.course?.slug}</span>
                        </div>
                     </TableCell>
                     <TableCell className="py-5">

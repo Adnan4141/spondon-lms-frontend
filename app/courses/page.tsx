@@ -97,7 +97,7 @@ function CoursesPageContent() {
             const prog = course.program?.name?.toLowerCase() ?? '';
             const matchesSearch = !q ||
                 course.name.toLowerCase().includes(q) ||
-                course.code.toLowerCase().includes(q) ||
+                course.slug.toLowerCase().includes(q) ||
                 desc.includes(q) ||
                 prog.includes(q);
             const matchesProgram = selectedProgram === 'all' || course.programId === selectedProgram;

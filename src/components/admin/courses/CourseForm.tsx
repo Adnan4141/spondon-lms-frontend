@@ -1,14 +1,23 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { createCourse, updateCourse, getCourses, getCourseContents, deleteCourseContent, getAssociatedCourses, deleteAssociatedCourse, uploadCourseThumbnail, updateCourseContent } from '@/lib/api/courses';
+import {
+  createCourse,
+  updateCourse,
+  getCourses,
+  getCourseContents,
+  deleteCourseContent,
+  getAssociatedCourses,
+  deleteAssociatedCourse,
+  uploadCourseThumbnail,
+  updateCourseContent,
+} from '@/lib/api/courses';
 import { API_ORIGIN } from '@/lib/api';
 import { resolveAttachmentUrl } from '@/lib/attachment-url';
 import { useModalStore } from '@/store/modalStore';
 import { useToast } from '@/hooks/use-toast';
 import {
   AdmissionStatus,
-  BillingType,
   CourseStatus,
   CourseType,
   CreateCourseDto,
@@ -27,7 +36,6 @@ import {
 import type { ContentType } from '@/types/course-content';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { uploadQuestionImage } from '@/lib/api/question-bank';
 import {
@@ -38,28 +46,30 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
-import { 
-  Info, 
-  FileUp, 
-  Link2, 
-  Plus, 
-  Trash2, 
-  ExternalLink,
+import {
+  Info,
+  FileUp,
+  Link2,
+  Plus,
+  Trash2,
   FileText,
   Video,
   FileCheck,
   Eye,
-  CheckCircle2,
-  Monitor,
-  GraduationCap,
   Upload,
-  ImageIcon,
   ChevronDown,
   ChevronRight,
   ChevronUp,
   Play,
   Clock,
   Pencil,
+  GripVertical,
+  Star,
+  Globe,
+  Users,
+  AlertTriangle,
+  Check,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -74,10 +84,10 @@ import {
   DialogFooter as SimpleDialogFooter,
 } from '@/components/ui/dialog';
 
+/* ─── types ─────────────────────────────────────────────────────────────────── */
 const statusOptions: CourseStatus[] = ['ACTIVE', 'DISABLED', 'ARCHIVED'];
 const typeOptions: CourseType[] = ['ONLINE', 'OFFLINE'];
-const billingOptions: BillingType[] = ['ONE_TIME', 'MONTHLY'];
-const admissionOptions: AdmissionStatus[] = ['OPEN', 'CLOSED'];
+
 
 function buildSlug(name: string): string {
   return name
@@ -95,26 +105,13 @@ const DEFAULT_BENEFITS = [
   'সাপ্তাহিক সলভ ক্লাস',
 ];
 
-const inputClass =
-  'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
-const textareaClass =
-  'w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-base font-bold text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
-const sectionLabel = 'text-[11px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2 block';
-
-function checkboxClass() {
-  return 'h-5 w-5 rounded-lg border-slate-300 text-indigo-600 focus:ring-indigo-500 transition-all cursor-pointer';
-}
-
 type FormState = {
   programId: string;
   name: string;
   slug: string;
   thumbnail: string;
   type: CourseType;
-  billingType: BillingType;
   fee: string;
-  offerDiscountAmount: string;
-  offerDiscountNote: string;
   description: string;
   status: CourseStatus;
   admissionStatus: AdmissionStatus;
@@ -123,9 +120,7 @@ type FormState = {
   enrollmentVisible: boolean;
   settledOptionEnabled: boolean;
   benefits: string[];
-  /** Shown on public `/course/[slug]` between benefits and books */
   websiteSections: CourseWebsiteSection[];
-  /** `outline.publicPageDisplay` — toggles blocks on `/course/[slug]` */
   publicShowBenefits: boolean;
   publicShowWebsiteSections: boolean;
   publicShowBooks: boolean;
@@ -139,10 +134,7 @@ const defaultForm: FormState = {
   slug: '',
   thumbnail: '',
   type: 'ONLINE',
-  billingType: 'ONE_TIME',
   fee: '0',
-  offerDiscountAmount: '',
-  offerDiscountNote: '',
   description: '',
   status: 'ACTIVE',
   admissionStatus: 'OPEN',
@@ -165,6 +157,86 @@ interface CourseFormProps {
   onSuccess: () => Promise<void>;
 }
 
+/* ─── shared style tokens ────────────────────────────────────────────────────── */
+const field =
+  'h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all';
+
+const SectionCard = ({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) => (
+  <div
+    className={cn(
+      'rounded-2xl border border-slate-100 bg-white p-5 shadow-[0_1px_4px_rgba(0,0,0,0.04)]',
+      className,
+    )}
+  >
+    {children}
+  </div>
+);
+
+const SectionTitle = ({ children }: { children: React.ReactNode }) => (
+  <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">{children}</p>
+);
+
+const FieldLabel = ({ children, required }: { children: React.ReactNode; required?: boolean }) => (
+  <label className="mb-1.5 block text-xs font-semibold text-slate-600">
+    {children}
+    {required && <span className="ml-1 text-rose-400">*</span>}
+  </label>
+);
+
+/* ─── toggle checkbox ─────────────────────────────────────────────────────────── */
+const Toggle = ({
+  checked,
+  onChange,
+  label,
+  description,
+  accent = 'indigo',
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+  description?: string;
+  accent?: 'indigo' | 'rose' | 'emerald';
+}) => {
+  const ring =
+    accent === 'rose'
+      ? 'bg-rose-500'
+      : accent === 'emerald'
+        ? 'bg-emerald-500'
+        : 'bg-indigo-500';
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className="flex w-full items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-3 text-left transition-colors hover:bg-white hover:border-slate-200"
+    >
+      <div
+        className={cn(
+          'relative h-5 w-9 shrink-0 rounded-full transition-colors',
+          checked ? ring : 'bg-slate-200',
+        )}
+      >
+        <div
+          className={cn(
+            'absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform',
+            checked ? 'translate-x-4' : 'translate-x-0.5',
+          )}
+        />
+      </div>
+      <div>
+        <p className="text-xs font-semibold text-slate-700">{label}</p>
+        {description && <p className="mt-0.5 text-[10px] text-slate-400">{description}</p>}
+      </div>
+    </button>
+  );
+};
+
+/* ─── main component ─────────────────────────────────────────────────────────── */
 export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
   const { closeModal } = useModalStore();
   const { toast } = useToast();
@@ -173,10 +245,8 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [thumbnailUploading, setThumbnailUploading] = useState(false);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
-  // Start with all subjects/chapters expanded for easier editing
   const [expandedChapters, setExpandedChapters] = useState<Record<string, boolean>>({});
   const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>>({});
-  
   const [activeTab, setActiveTab] = useState<'basic' | 'content' | 'related'>('basic');
   const [resources, setResources] = useState<any[]>([]);
   const [associations, setAssociations] = useState<any[]>([]);
@@ -188,15 +258,15 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
   const [addingChapterOrder, setAddingChapterOrder] = useState<number | null>(null);
   const [addingSubjectTitle, setAddingSubjectTitle] = useState<string | null>(null);
   const [subjectRenaming, setSubjectRenaming] = useState(false);
-  const [renameModal, setRenameModal] = useState<{ open: boolean; subject: string }>({ open: false, subject: '' });
+  const [renameModal, setRenameModal] = useState<{ open: boolean; subject: string }>({
+    open: false,
+    subject: '',
+  });
   const [renameInput, setRenameInput] = useState('');
 
   const isEdit = !!course;
 
-  const billingOptionLabels: Record<BillingType, string> = {
-    ONE_TIME: 'Program-wise',
-    MONTHLY: 'Monthly',
-  };
+
 
   const fetchExtras = async () => {
     if (!course?.id) return;
@@ -204,20 +274,23 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
       const [resRes, assocRes, coursesRes] = await Promise.all([
         getCourseContents({ courseId: course.id }),
         getAssociatedCourses({ fromCourseId: course.id }),
-        getCourses({})
+        getCourses({}),
       ]);
       if (resRes.success) setResources(resRes.data || []);
       if (assocRes.success) setAssociations(assocRes.data || []);
       if (coursesRes.success) setAllCourses(coursesRes.data || []);
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   useEffect(() => {
     if (course) {
       const outlineData = course.outline as any;
-      const loadedBenefits = Array.isArray(outlineData?.benefits) && outlineData.benefits.length > 0
-        ? outlineData.benefits
-        : DEFAULT_BENEFITS;
+      const loadedBenefits =
+        Array.isArray(outlineData?.benefits) && outlineData.benefits.length > 0
+          ? outlineData.benefits
+          : DEFAULT_BENEFITS;
       const loadedWebsiteSections = normalizeCourseWebsiteSections(outlineData?.websiteSections);
       const pub = normalizeCoursePublicPageDisplay(course.outline);
       setForm({
@@ -226,13 +299,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
         slug: course.slug,
         thumbnail: course.thumbnail || '',
         type: course.type,
-        billingType: course.billingType,
         fee: String(course.fee),
-        offerDiscountAmount:
-          course.offerDiscountAmount != null && String(course.offerDiscountAmount) !== ''
-            ? String(course.offerDiscountAmount)
-            : '',
-        offerDiscountNote: course.offerDiscountNote || '',
         description: course.description || '',
         status: course.status,
         admissionStatus: course.admissionStatus,
@@ -249,8 +316,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
         publicCurriculumTypes: [...pub.curriculumContentTypes],
       });
       if (course.thumbnail) {
-        const url = resolveAttachmentUrl(course.thumbnail, API_ORIGIN);
-        setThumbnailPreview(url);
+        setThumbnailPreview(resolveAttachmentUrl(course.thumbnail, API_ORIGIN));
       }
       fetchExtras();
     }
@@ -260,60 +326,46 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-
-    // Show local preview immediately
     const localUrl = URL.createObjectURL(file);
     setThumbnailPreview(localUrl);
-
     if (isEdit && course) {
-      // Upload to server right away for existing courses
       try {
         setThumbnailUploading(true);
         const res = await uploadCourseThumbnail(course.id, file);
         if (res.success && res.data?.thumbnail) {
           const stored = res.data.thumbnail;
-          const url = resolveAttachmentUrl(stored, API_ORIGIN);
           setForm((prev) => ({ ...prev, thumbnail: stored }));
-          setThumbnailPreview(url);
+          setThumbnailPreview(resolveAttachmentUrl(stored, API_ORIGIN));
           toast({ title: 'Thumbnail uploaded', variant: 'success' });
         }
       } catch {
         toast({ title: 'Upload failed', variant: 'destructive' });
-        setThumbnailPreview(form.thumbnail ? resolveAttachmentUrl(form.thumbnail, API_ORIGIN) : null);
+        setThumbnailPreview(
+          form.thumbnail ? resolveAttachmentUrl(form.thumbnail, API_ORIGIN) : null,
+        );
       } finally {
         setThumbnailUploading(false);
       }
     } else {
-      // For new courses, store the file for upload after creation
-      // We'll use the local preview for now, and the URL placeholder
       setForm((prev) => ({ ...prev, thumbnail: '' }));
-      // Store file ref in a data attribute via closure
       (handleThumbnailUpload as any).__pendingFile = file;
     }
   };
 
-  const isSubjectOpen = (subjectKey: string) => expandedSubjects[subjectKey] === true;
-  const toggleSubject = (subjectKey: string) => {
-    setExpandedSubjects((prev) => ({
-      ...prev,
-      [subjectKey]: !isSubjectOpen(subjectKey),
-    }));
-  };
-
-  const isChapterOpen = (chapterKey: string) => expandedChapters[chapterKey] === true;
-  const toggleChapter = (chapter: string) => {
-    setExpandedChapters((prev) => ({ ...prev, [chapter]: !isChapterOpen(chapter) }));
-  };
+  const isSubjectOpen = (k: string) => expandedSubjects[k] === true;
+  const toggleSubject = (k: string) =>
+    setExpandedSubjects((prev) => ({ ...prev, [k]: !isSubjectOpen(k) }));
+  const isChapterOpen = (k: string) => expandedChapters[k] === true;
+  const toggleChapter = (k: string) =>
+    setExpandedChapters((prev) => ({ ...prev, [k]: !isChapterOpen(k) }));
 
   const startRename = (subject: string) => {
-    const current = subject === 'General' ? '' : subject;
-    setRenameInput(current);
+    setRenameInput(subject === 'General' ? '' : subject);
     setRenameModal({ open: true, subject });
   };
 
   const submitRename = async () => {
-    const oldSubject = renameModal.subject;
-    const oldKey = oldSubject === 'General' ? '' : oldSubject;
+    const oldKey = renameModal.subject === 'General' ? '' : renameModal.subject;
     const trimmed = renameInput.trim();
     if (trimmed === oldKey.trim()) {
       setRenameModal({ open: false, subject: '' });
@@ -321,21 +373,18 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
     }
     try {
       setSubjectRenaming(true);
-      const targets = resources.filter((r) => {
-        const s = (r.subjectTitle || '').trim();
-        return (s || '') === oldKey;
-      });
+      const targets = resources.filter((r) => (r.subjectTitle || '').trim() === oldKey);
       await Promise.all(
-        targets.map(async (r) => {
+        targets.map((r) => {
           const fd = new FormData();
           fd.append('subjectTitle', trimmed);
           return updateCourseContent(r.id, fd);
-        })
+        }),
       );
-      toast({ title: 'Subject renamed', description: `${oldSubject || 'General'} → ${trimmed || 'General'}`, variant: 'success' });
+      toast({ title: 'Subject renamed', variant: 'success' });
       await fetchExtras();
     } catch (err) {
-      toast({ title: 'Rename failed', description: err instanceof Error ? err.message : 'Could not rename subject', variant: 'destructive' });
+      toast({ title: 'Rename failed', variant: 'destructive' });
     } finally {
       setSubjectRenaming(false);
       setRenameModal({ open: false, subject: '' });
@@ -359,31 +408,47 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
       const subA = (a[0]?.subjectTitle || '').trim() || 'General';
       const subB = (b[0]?.subjectTitle || '').trim() || 'General';
       const subCmp = subA.localeCompare(subB);
-      if (subCmp !== 0) return subCmp;
-      return aOrder - bOrder;
+      return subCmp !== 0 ? subCmp : aOrder - bOrder;
     });
 
     const subjectGroups = new Map<string, [string, typeof resources][]>();
     for (const row of sortedChapters) {
-      const [compoundKey] = row;
-      const subjectPart = compoundKey.split(':::')[0] || 'General';
+      const subjectPart = row[0].split(':::')[0] || 'General';
       if (!subjectGroups.has(subjectPart)) subjectGroups.set(subjectPart, []);
       subjectGroups.get(subjectPart)!.push(row);
     }
-    const orderedSubjects = [...subjectGroups.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    const orderedSubjects = [...subjectGroups.entries()].sort((a, b) =>
+      a[0].localeCompare(b[0]),
+    );
     return { sortedChapters, orderedSubjects };
   }, [resources]);
 
+  const togglePublicCurriculumType = (t: ContentType) => {
+    setForm((prev) => {
+      const has = prev.publicCurriculumTypes.includes(t);
+      if (has && prev.publicCurriculumTypes.length <= 1) {
+        toast({ title: 'At least one type required', variant: 'destructive' });
+        return prev;
+      }
+      return {
+        ...prev,
+        publicCurriculumTypes: has
+          ? prev.publicCurriculumTypes.filter((x) => x !== t)
+          : [...prev.publicCurriculumTypes, t],
+      };
+    });
+  };
+
   const handleSubmit = async () => {
     if (!form.programId || !form.name.trim()) {
-      setError('Program and name are required.');
+      setError('Program and course name are required.');
       return;
     }
-
     const filteredBenefits = form.benefits.map((b) => b.trim()).filter(Boolean);
-    const existingOutline = (course?.outline && typeof course.outline === 'object' && !Array.isArray(course.outline))
-      ? (course.outline as Record<string, unknown>)
-      : {};
+    const existingOutline =
+      course?.outline && typeof course.outline === 'object' && !Array.isArray(course.outline)
+        ? (course.outline as Record<string, unknown>)
+        : {};
     const websiteSectionsPayload = form.websiteSections
       .map((s) => ({
         id: (s.id && String(s.id).trim()) || newCourseWebsiteSectionId(),
@@ -398,19 +463,19 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
     } else {
       delete outline.websiteSections;
     }
-
     if (form.publicShowCurriculum && form.publicCurriculumTypes.length === 0) {
-      setError('Public curriculum is on — select at least one content type (e.g. Syllabus).');
+      setError('Select at least one curriculum content type.');
       return;
     }
-
     outline.publicPageDisplay = {
       showBenefits: form.publicShowBenefits,
       showWebsiteSections: form.publicShowWebsiteSections,
       showBooks: form.publicShowBooks,
       showCurriculum: form.publicShowCurriculum,
       curriculumContentTypes:
-        form.publicCurriculumTypes.length > 0 ? form.publicCurriculumTypes : [...DEFAULT_PUBLIC_CURRICULUM_TYPES],
+        form.publicCurriculumTypes.length > 0
+          ? form.publicCurriculumTypes
+          : [...DEFAULT_PUBLIC_CURRICULUM_TYPES],
     };
 
     const payload: CreateCourseDto | UpdateCourseDto = {
@@ -418,11 +483,8 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
       name: form.name.trim(),
       thumbnail: form.thumbnail.trim() || undefined,
       type: form.type,
-      billingType: form.billingType,
-      fee: Number(course?.fee ?? form.fee ?? 0),
+      fee: Number(form.fee ?? 0),
       outline: outline as JsonValue,
-      offerDiscountAmount: null,
-      offerDiscountNote: null,
       description: form.description.trim() || undefined,
       status: form.status,
       admissionStatus: form.admissionStatus,
@@ -435,45 +497,31 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
     try {
       setSubmitting(true);
       setError(null);
-      
       if (isEdit && course) {
         await updateCourse(course.id, payload as UpdateCourseDto);
       } else {
         const res = await createCourse(payload as CreateCourseDto);
         if (res.success && res.data) {
-           // Upload pending thumbnail for newly created course
-           const pendingFile = (handleThumbnailUpload as any).__pendingFile as File | undefined;
-           if (pendingFile && res.data.id) {
-             try {
-               await uploadCourseThumbnail(res.data.id, pendingFile);
-             } catch { /* thumbnail upload failed silently */ }
-             (handleThumbnailUpload as any).__pendingFile = undefined;
-           }
-           toast({ title: 'Created', description: 'Course created successfully. You can now add content.', variant: 'success' });
-           // If creation was successful, we might want to stay in edit mode to add resources
-           // but for simplicity, let's just close and refresh
-           closeModal();
-           await onSuccess();
-           return;
+          const pendingFile = (handleThumbnailUpload as any).__pendingFile as File | undefined;
+          if (pendingFile && res.data.id) {
+            try {
+              await uploadCourseThumbnail(res.data.id, pendingFile);
+            } catch {}
+            (handleThumbnailUpload as any).__pendingFile = undefined;
+          }
+          toast({ title: 'Course created successfully', variant: 'success' });
+          closeModal();
+          await onSuccess();
+          return;
         }
       }
-      
-      toast({
-        title: 'Success',
-        description: `Course ${isEdit ? 'updated' : 'created'} successfully`,
-        variant: 'success',
-      });
-      
+      toast({ title: isEdit ? 'Changes saved' : 'Course created', variant: 'success' });
       closeModal();
       await onSuccess();
     } catch (err: any) {
-      const errorMsg = err.message || `Failed to ${isEdit ? 'update' : 'create'} course`;
-      setError(errorMsg);
-      toast({
-        title: 'Error',
-        description: errorMsg,
-        variant: 'destructive',
-      });
+      const msg = err.message || `Failed to ${isEdit ? 'update' : 'create'} course`;
+      setError(msg);
+      toast({ title: 'Error', description: msg, variant: 'destructive' });
     } finally {
       setSubmitting(false);
     }
@@ -481,143 +529,182 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
 
   const getResourceIcon = (type: string) => {
     switch (type) {
-      case 'VIDEO': return <Video className="h-4 w-4" />;
-      case 'SYLLABUS': return <FileCheck className="h-4 w-4" />;
-      case 'LEAFLET': return <Eye className="h-4 w-4" />;
-      case 'SCHEDULE': return <Calendar className="h-4 w-4" />;
-      default: return <FileText className="h-4 w-4" />;
+      case 'VIDEO':
+        return <Video className="h-3.5 w-3.5" />;
+      case 'SYLLABUS':
+        return <FileCheck className="h-3.5 w-3.5" />;
+      case 'LEAFLET':
+        return <Eye className="h-3.5 w-3.5" />;
+      case 'SCHEDULE':
+        return <Calendar className="h-3.5 w-3.5" />;
+      default:
+        return <FileText className="h-3.5 w-3.5" />;
     }
   };
 
-  const togglePublicCurriculumType = (t: ContentType) => {
-    setForm((prev) => {
-      const has = prev.publicCurriculumTypes.includes(t);
-      if (has && prev.publicCurriculumTypes.length <= 1) {
-        toast({
-          title: 'কমপক্ষে একটি টাইপ চাই',
-          description: 'কারিকুলাম চালু থাকলে অন্তত একটি কনটেন্ট টাইপ রাখুন।',
-          variant: 'destructive',
-        });
-        return prev;
-      }
-      const next = has
-        ? prev.publicCurriculumTypes.filter((x) => x !== t)
-        : [...prev.publicCurriculumTypes, t];
-      return { ...prev, publicCurriculumTypes: next };
-    });
-  };
+  /* ─────────────────────────────────── TABS ─────────────────────────────────── */
+  const tabs = [
+    { id: 'basic', label: 'Basic Info', icon: Info },
+    { id: 'content', label: 'Course Content', icon: FileUp, disabled: !isEdit },
+    { id: 'related', label: 'Related Courses', icon: Link2, disabled: !isEdit },
+  ] as const;
 
   return (
-    <div className="flex flex-col h-[85vh] bg-white text-slate-900">
-      {/* Tab Navigation */}
-      <div className="px-8 pt-4 border-b border-slate-100 flex gap-8 bg-slate-50/30 shrink-0">
-        {[
-          { id: 'basic', label: 'Basic Info', icon: Info },
-          { id: 'content', label: 'Course Content', icon: FileUp, disabled: !isEdit },
-          { id: 'related', label: 'Related Courses', icon: Link2, disabled: !isEdit },
-        ].map(tab => (
-          <button
-            key={tab.id}
-            disabled={tab.disabled}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={cn(
-              "pb-4 text-[10px] font-black uppercase tracking-[0.2em] transition-all relative flex items-center gap-2",
-              activeTab === tab.id ? "text-indigo-600" : "text-black hover:text-slate-600",
-              tab.disabled && "opacity-30 cursor-not-allowed"
+    <div className="flex flex-col h-[88vh] bg-[#f8f8fa] text-slate-900 overflow-hidden">
+
+      {/* ── Header ──────────────────────────────────────────────────────────── */}
+      <div className="shrink-0 bg-white border-b border-slate-100 px-6 pt-5 pb-0">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+              {isEdit ? 'Edit Course' : 'Create New Course'}
+            </h2>
+            {isEdit && (
+              <p className="text-xs text-slate-400 mt-0.5 font-medium">{course?.name}</p>
             )}
-          >
-            <tab.icon className="h-3.5 w-3.5" />
-            {tab.label}
-            {activeTab === tab.id && <div className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-600 rounded-t-full" />}
-          </button>
-        ))}
+          </div>
+          {isEdit && (
+            <Badge
+              variant="outline"
+              className={cn(
+                'text-[10px] font-bold uppercase tracking-wider px-2.5 py-1',
+                course?.status === 'ACTIVE'
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-600'
+                  : course?.status === 'DISABLED'
+                    ? 'border-amber-200 bg-amber-50 text-amber-600'
+                    : 'border-slate-200 bg-slate-50 text-slate-500',
+              )}
+            >
+              {course?.status}
+            </Badge>
+          )}
+        </div>
+
+        {/* Tab bar */}
+        <div className="flex gap-0">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              disabled={tab.disabled}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={cn(
+                'relative flex items-center gap-2 px-5 py-3 text-[11px] font-bold uppercase tracking-[0.15em] transition-all border-b-2',
+                activeTab === tab.id
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-slate-400 hover:text-slate-600',
+                tab.disabled && 'opacity-30 cursor-not-allowed pointer-events-none',
+              )}
+            >
+              <tab.icon className="h-3.5 w-3.5" />
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-8 py-8 no-scrollbar">
+      {/* ── Scrollable body ─────────────────────────────────────────────────── */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-6 py-6 space-y-5">
+
+        {/* ══════════════════════════════ BASIC INFO ══════════════════════════ */}
         {activeTab === 'basic' && (
-          <div className="grid gap-8 py-2 sm:grid-cols-2 animate-in fade-in duration-300">
-            <div className="space-y-2">
-              <label className={sectionLabel}>Program</label>
-              <Select
-                value={form.programId}
-                onValueChange={(value) => setForm((prev) => ({ ...prev, programId: value }))}
-              >
-                <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
-                  <SelectValue placeholder="Select Program" />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                  {programs.map((program) => (
-                    <SelectItem key={program.id} value={program.id} className="text-sm font-medium">
-                      {program.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-5 max-w-3xl mx-auto animate-in fade-in duration-200">
 
-            {/* Category and Code removed; slug is auto-generated from name */}
+            {/* ── Program & Identity ── */}
+            <SectionCard>
+              <SectionTitle>Course Identity</SectionTitle>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <FieldLabel required>Program</FieldLabel>
+                  <Select
+                    value={form.programId}
+                    onValueChange={(v) => setForm((p) => ({ ...p, programId: v }))}
+                  >
+                    <SelectTrigger className={field}>
+                      <SelectValue placeholder="Select a program…" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl border-slate-200 shadow-lg">
+                      {programs.map((p) => (
+                        <SelectItem key={p.id} value={p.id} className="text-sm font-medium">
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="space-y-2 sm:col-span-2">
-              <label className={sectionLabel}>Course Title</label>
-              <Input
-                className={inputClass}
-                value={form.name}
-                onChange={(e) => {
-                  const name = e.target.value;
-                  setForm((prev) => ({ ...prev, name, slug: buildSlug(name) }));
-                }}
-                placeholder="Full course name"
-              />
-            </div>
+                <div className="sm:col-span-2">
+                  <FieldLabel required>Course Title</FieldLabel>
+                  <Input
+                    className={field}
+                    value={form.name}
+                    onChange={(e) => {
+                      const name = e.target.value;
+                      setForm((p) => ({ ...p, name, slug: buildSlug(name) }));
+                    }}
+                    placeholder="e.g. HSC Physics Complete Batch 2025"
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <label className={sectionLabel}>Course Slug (auto-generated)</label>
-              <Input
-                className={cn(inputClass, 'bg-slate-100 text-slate-500 cursor-default')}
-                value={form.slug}
-                readOnly
-                placeholder="auto-generated from title"
-              />
-            </div>
+                <div className="sm:col-span-2">
+                  <FieldLabel>URL Slug</FieldLabel>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400 select-none">
+                      /course/
+                    </span>
+                    <Input
+                      className={cn(field, 'pl-[72px] bg-slate-50 text-slate-500 cursor-default')}
+                      value={form.slug}
+                      readOnly
+                      placeholder="auto-generated"
+                    />
+                  </div>
+                </div>
+              </div>
+            </SectionCard>
 
-            <div className="space-y-2 sm:col-span-2">
-              <label className={sectionLabel}>Course Thumbnail</label>
+            {/* ── Thumbnail ── */}
+            <SectionCard>
+              <SectionTitle>Thumbnail</SectionTitle>
               <div className="flex items-start gap-4">
-                {/* Preview */}
-                {(() => {
-                  const preview = thumbnailPreview || (form.thumbnail ? resolveAttachmentUrl(form.thumbnail, API_ORIGIN) : null);
-                  return preview ? (
+                {thumbnailPreview && (
                   <div className="relative shrink-0 group">
                     <img
-                      src={preview}
-                      alt="Thumbnail"
-                      className="h-28 w-44 rounded-2xl border border-slate-200 object-cover shadow-inner"
+                      src={thumbnailPreview}
+                      alt="Thumbnail preview"
+                      className="h-24 w-40 rounded-xl border border-slate-200 object-cover"
                     />
                     <button
                       type="button"
-                      onClick={() => { setThumbnailPreview(null); setForm((prev) => ({ ...prev, thumbnail: '' })); }}
-                      className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-rose-500 text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity shadow"
+                      onClick={() => {
+                        setThumbnailPreview(null);
+                        setForm((p) => ({ ...p, thumbnail: '' }));
+                      }}
+                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-slate-800 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                     >
-                      ✕
+                      <X className="h-3 w-3" />
                     </button>
                   </div>
-                  ) : null;
-                })()}
-                {/* Upload area */}
+                )}
                 <label className="flex-1 cursor-pointer">
-                  <div className={cn(
-                    "flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 py-6 px-4 transition-all hover:border-indigo-400 hover:bg-white",
-                    thumbnailUploading && "opacity-50 pointer-events-none"
-                  )}>
+                  <div
+                    className={cn(
+                      'flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 py-8 px-4 transition-all hover:border-indigo-300 hover:bg-indigo-50/30',
+                      thumbnailUploading && 'opacity-50 pointer-events-none',
+                    )}
+                  >
                     {thumbnailUploading ? (
-                      <span className="text-sm font-bold text-indigo-600 animate-pulse">Uploading...</span>
+                      <p className="text-sm font-semibold text-indigo-500 animate-pulse">
+                        Uploading…
+                      </p>
                     ) : (
                       <>
-                        <Upload className="h-8 w-8 text-slate-300" />
-                        <span className="text-sm font-bold text-slate-500">
-                          {thumbnailPreview ? 'Change thumbnail' : 'Click to upload thumbnail'}
-                        </span>
-                        <span className="text-[10px] text-slate-400">All image formats supported · Max 5MB</span>
+                        <Upload className="h-6 w-6 text-slate-300" />
+                        <p className="text-sm font-semibold text-slate-500">
+                          {thumbnailPreview ? 'Replace thumbnail' : 'Upload thumbnail'}
+                        </p>
+                        <p className="text-[10px] text-slate-400">
+                          Any image format · Max 5 MB
+                        </p>
                       </>
                     )}
                   </div>
@@ -630,206 +717,276 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                   />
                 </label>
               </div>
-            </div>
+            </SectionCard>
 
-            <div className="space-y-2">
-              <label className={sectionLabel}>Course Type</label>
-              <Select
-                value={form.type}
-                onValueChange={(value) => setForm((prev) => ({ ...prev, type: value as CourseType }))}
-              >
-                <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                  {typeOptions.map((option) => (
-                    <SelectItem key={option} value={option} className="text-sm font-medium">
-                      {option}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* ── Pricing & Type ── */}
+            <SectionCard>
+              <SectionTitle>Pricing & Configuration</SectionTitle>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div>
+                  <FieldLabel>Course Type</FieldLabel>
+                  <Select
+                    value={form.type}
+                    onValueChange={(v) => setForm((p) => ({ ...p, type: v as CourseType }))}
+                  >
+                    <SelectTrigger className={field}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      {typeOptions.map((o) => (
+                        <SelectItem key={o} value={o} className="text-sm font-medium">
+                          {o}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="space-y-2">
-              <label className={sectionLabel}>Billing Type</label>
-              <Select
-                value={form.billingType}
-                onValueChange={(value) =>
-                  setForm((prev) => ({ ...prev, billingType: value as BillingType }))
-                }
-              >
-                <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
-                  <SelectValue placeholder="Select billing" />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                  {billingOptions.map((option) => (
-                    <SelectItem key={option} value={option} className="text-sm font-medium">
-                      {billingOptionLabels[option]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {form.billingType === 'MONTHLY' && (
-                <p className="text-xs font-medium text-slate-500 leading-relaxed">
-                  Monthly courses bill students every month. Billing amount is managed at program level. When enrolling students,
-                  set their billing start month; run <span className="font-bold text-slate-700">Monthly billing</span> in admin
-                  to generate invoices.
-                </p>
-              )}
-            </div>
+                <div>
+                  <FieldLabel>Tuition Fee (BDT)</FieldLabel>
+                  <Input
+                    className={field}
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.fee}
+                    onChange={(e) => setForm((p) => ({ ...p, fee: e.target.value }))}
+                    placeholder="0"
+                  />
+                </div>
 
-            <div className="space-y-2 sm:col-span-2">
-              <label className={sectionLabel}>Course Overview</label>
+                <div>
+                  <FieldLabel>Status</FieldLabel>
+                  <Select
+                    value={form.status}
+                    onValueChange={(v) => setForm((p) => ({ ...p, status: v as CourseStatus }))}
+                  >
+                    <SelectTrigger className={field}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      {statusOptions.map((o) => (
+                        <SelectItem key={o} value={o} className="text-sm font-medium">
+                          {o}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <FieldLabel>Admission Status</FieldLabel>
+                  <Select
+                    value={form.admissionStatus}
+                    onValueChange={(v) =>
+                      setForm((p) => ({ ...p, admissionStatus: v as AdmissionStatus }))
+                    }
+                  >
+                    <SelectTrigger className={field}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      {(['OPEN', 'CLOSED'] as AdmissionStatus[]).map((o) => (
+                        <SelectItem key={o} value={o} className="text-sm font-medium">
+                          {o}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+            </SectionCard>
+
+            {/* ── Visibility toggles ── */}
+            <SectionCard>
+              <SectionTitle>Visibility & Access</SectionTitle>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Toggle
+                  checked={form.featured}
+                  onChange={(v) => setForm((p) => ({ ...p, featured: v }))}
+                  label="Featured course"
+                  description="Shown prominently on listings"
+                />
+                <Toggle
+                  checked={form.websiteVisible}
+                  onChange={(v) => setForm((p) => ({ ...p, websiteVisible: v }))}
+                  label="Visible on website"
+                  description="Public can see this course"
+                />
+                <Toggle
+                  checked={form.enrollmentVisible}
+                  onChange={(v) => setForm((p) => ({ ...p, enrollmentVisible: v }))}
+                  label="Show enrollment count"
+                  description="Display number of enrolled students"
+                />
+                <Toggle
+                  checked={form.settledOptionEnabled}
+                  onChange={(v) => setForm((p) => ({ ...p, settledOptionEnabled: v }))}
+                  label="Enable settle option"
+                  description="Admin can mark all dues paid, cancel enrollments"
+                  accent="rose"
+                />
+              </div>
+            </SectionCard>
+
+            {/* ── Description ── */}
+            <SectionCard>
+              <SectionTitle>Course Overview</SectionTitle>
               <RichTextEditor
                 value={form.description}
-                onChange={(html) => setForm((prev) => ({ ...prev, description: html }))}
+                onChange={(html) => setForm((p) => ({ ...p, description: html }))}
                 onImageUpload={async (file) => {
                   const res = await uploadQuestionImage(file);
                   return res.data?.url || '';
                 }}
-                placeholder="Describe the course curriculum..."
-                className="min-h-[200px]"
+                placeholder="Describe the course curriculum, goals, and target audience…"
+                className="min-h-[180px]"
               />
-            </div>
+            </SectionCard>
 
-            {/* Benefits Editor */}
-            <div className="space-y-3 sm:col-span-2 rounded-2xl border border-indigo-100 bg-indigo-50/30 p-4">
-              <div className="flex items-center justify-between">
-                <label className={sectionLabel} style={{ marginBottom: 0 }}>কোর্সের সুবিধাসমূহ (কোর্সটি কেন করবেন?)</label>
+            {/* ── Benefits ── */}
+            <SectionCard>
+              <div className="flex items-center justify-between mb-4">
+                <SectionTitle>কোর্সের সুবিধাসমূহ</SectionTitle>
                 <button
                   type="button"
-                  onClick={() => setForm((prev) => ({ ...prev, benefits: [...prev.benefits, ''] }))}
+                  onClick={() =>
+                    setForm((p) => ({
+                      ...p,
+                      benefits: [...p.benefits, ''],
+                    }))
+                  }
                   disabled={form.benefits.length >= 12}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-colors disabled:opacity-40"
+                  className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-white transition hover:bg-indigo-700 disabled:opacity-40"
                 >
-                  <Plus className="h-3 w-3" /> যোগ করুন
+                  <Plus className="h-3 w-3" /> Add
                 </button>
               </div>
-              <p className="text-[10px] font-bold text-indigo-900/60">কোর্স ডিটেইল পেজে দেখাবে সর্বোচ্চ ১২টি বিল পয়েন্ট দেখাবে।</p>
               <div className="space-y-2">
                 {form.benefits.map((benefit, idx) => (
                   <div key={idx} className="flex items-center gap-2">
-                    <span className="text-[10px] font-black text-slate-400 w-5 text-center shrink-0">{idx + 1}</span>
+                    <span className="w-5 shrink-0 text-center text-[10px] font-bold text-slate-300">
+                      {idx + 1}
+                    </span>
                     <Input
-                      className={inputClass + ' flex-1'}
+                      className={cn(field, 'flex-1')}
                       value={benefit}
-                      onChange={(e) => setForm((prev) => {
-                        const next = [...prev.benefits];
+                      onChange={(e) => {
+                        const next = [...form.benefits];
                         next[idx] = e.target.value;
-                        return { ...prev, benefits: next };
-                      })}
-                      placeholder="সুবিধার বিবরণ লিখুন..."
+                        setForm((p) => ({ ...p, benefits: next }));
+                      }}
+                      placeholder="সুবিধার বিবরণ লিখুন…"
                     />
                     <button
                       type="button"
-                      onClick={() => setForm((prev) => ({
-                        ...prev,
-                        benefits: prev.benefits.filter((_, i) => i !== idx),
-                      }))}
-                      className="h-10 w-10 rounded-xl border border-rose-100 bg-rose-50 text-rose-400 hover:bg-rose-100 hover:text-rose-600 flex items-center justify-center transition-colors shrink-0"
+                      onClick={() =>
+                        setForm((p) => ({
+                          ...p,
+                          benefits: p.benefits.filter((_, i) => i !== idx),
+                        }))
+                      }
+                      className="h-9 w-9 shrink-0 rounded-lg border border-slate-100 text-slate-300 hover:border-rose-100 hover:bg-rose-50 hover:text-rose-400 flex items-center justify-center transition-colors"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 ))}
                 {form.benefits.length === 0 && (
-                  <p className="text-xs font-bold text-slate-400 text-center py-3">কোনো সুবিধা যোগ নেই। দেখানোর জন্য ‘যোগ করুন’ চাপুন।</p>
+                  <p className="py-4 text-center text-xs font-medium text-slate-400">
+                    No benefits added. Click Add to create one.
+                  </p>
                 )}
               </div>
-            </div>
+            </SectionCard>
 
-            {/* Public course page — extra HTML sections (e.g. /course/arts) */}
-            <div className="space-y-3 sm:col-span-2 rounded-2xl border border-slate-200 bg-slate-50/40 p-4">
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <label className={sectionLabel} style={{ marginBottom: 0 }}>
-                    ওয়েবসাইট কোর্স ডিটেইল — ডাইনামিক সেকশন
-                  </label>
-                  <p className="text-[10px] font-bold text-slate-500 mt-1">
-                    পাবলিক URL <span className="font-mono text-slate-700">/course/{form.slug || 'slug'}</span> — সুবিধার নিচে, বই/সিলেবাসের উপরে দেখাবে।
-                  </p>
-                </div>
+            {/* ── Dynamic website sections ── */}
+            <SectionCard>
+              <div className="flex items-center justify-between mb-1">
+                <SectionTitle>Dynamic Website Sections</SectionTitle>
                 <button
                   type="button"
                   onClick={() =>
-                    setForm((prev) => ({
-                      ...prev,
+                    setForm((p) => ({
+                      ...p,
                       websiteSections: [
-                        ...prev.websiteSections,
+                        ...p.websiteSections,
                         { id: newCourseWebsiteSectionId(), title: '', bodyHtml: '' },
                       ],
                     }))
                   }
                   disabled={form.websiteSections.length >= 20}
-                  className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 text-white text-[10px] font-black uppercase tracking-widest hover:bg-slate-900 transition-colors disabled:opacity-40 shrink-0"
+                  className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
                 >
-                  <Plus className="h-3 w-3" /> সেকশন যোগ
+                  <Plus className="h-3 w-3" /> Add Section
                 </button>
               </div>
-              <div className="space-y-4">
+              <p className="mb-4 text-[11px] text-slate-400">
+                Shown on{' '}
+                <code className="rounded bg-slate-100 px-1 font-mono text-slate-600">
+                  /course/{form.slug || 'slug'}
+                </code>{' '}
+                between benefits and books.
+              </p>
+              <div className="space-y-3">
                 {form.websiteSections.map((sec, idx) => (
                   <div
                     key={sec.id}
-                    className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3 shadow-sm"
+                    className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 space-y-3"
                   >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[10px] font-black text-slate-400 w-6 shrink-0">{idx + 1}</span>
+                    <div className="flex items-center gap-2">
+                      <GripVertical className="h-4 w-4 text-slate-300 cursor-grab shrink-0" />
                       <Input
-                        className={inputClass + ' flex-1 min-w-[160px]'}
+                        className={cn(field, 'flex-1')}
                         value={sec.title}
-                        onChange={(e) =>
-                          setForm((prev) => {
-                            const next = [...prev.websiteSections];
-                            next[idx] = { ...next[idx], title: e.target.value };
-                            return { ...prev, websiteSections: next };
-                          })
-                        }
-                        placeholder="সেকশন শিরোনাম (যেমন: কোর্স সম্পর্কে বিস্তারিত)"
+                        onChange={(e) => {
+                          const next = [...form.websiteSections];
+                          next[idx] = { ...next[idx], title: e.target.value };
+                          setForm((p) => ({ ...p, websiteSections: next }));
+                        }}
+                        placeholder="Section heading"
                       />
                       <div className="flex items-center gap-1 shrink-0">
                         <button
                           type="button"
-                          title="উপরে"
                           disabled={idx === 0}
                           onClick={() =>
-                            setForm((prev) => {
-                              if (idx === 0) return prev;
-                              const next = [...prev.websiteSections];
+                            setForm((p) => {
+                              if (idx === 0) return p;
+                              const next = [...p.websiteSections];
                               [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
-                              return { ...prev, websiteSections: next };
+                              return { ...p, websiteSections: next };
                             })
                           }
-                          className="h-9 w-9 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 disabled:opacity-30 flex items-center justify-center"
+                          className="h-8 w-8 rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-slate-600 disabled:opacity-30 flex items-center justify-center"
                         >
-                          <ChevronUp className="h-4 w-4" />
+                          <ChevronUp className="h-3.5 w-3.5" />
                         </button>
                         <button
                           type="button"
-                          title="নিচে"
                           disabled={idx === form.websiteSections.length - 1}
                           onClick={() =>
-                            setForm((prev) => {
-                              if (idx >= prev.websiteSections.length - 1) return prev;
-                              const next = [...prev.websiteSections];
+                            setForm((p) => {
+                              if (idx >= p.websiteSections.length - 1) return p;
+                              const next = [...p.websiteSections];
                               [next[idx + 1], next[idx]] = [next[idx], next[idx + 1]];
-                              return { ...prev, websiteSections: next };
+                              return { ...p, websiteSections: next };
                             })
                           }
-                          className="h-9 w-9 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 disabled:opacity-30 flex items-center justify-center"
+                          className="h-8 w-8 rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-slate-600 disabled:opacity-30 flex items-center justify-center"
                         >
-                          <ChevronDown className="h-4 w-4" />
+                          <ChevronDown className="h-3.5 w-3.5" />
                         </button>
                         <button
                           type="button"
-                          title="মুছুন"
                           onClick={() =>
-                            setForm((prev) => ({
-                              ...prev,
-                              websiteSections: prev.websiteSections.filter((_, i) => i !== idx),
+                            setForm((p) => ({
+                              ...p,
+                              websiteSections: p.websiteSections.filter((_, i) => i !== idx),
                             }))
                           }
-                          className="h-9 w-9 rounded-xl border border-rose-100 bg-rose-50 text-rose-500 hover:bg-rose-100 flex items-center justify-center"
+                          className="h-8 w-8 rounded-lg border border-rose-100 bg-rose-50 text-rose-400 hover:bg-rose-100 flex items-center justify-center"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -837,165 +994,107 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                     </div>
                     <RichTextEditor
                       value={sec.bodyHtml}
-                      onChange={(html) =>
-                        setForm((prev) => {
-                          const next = [...prev.websiteSections];
-                          next[idx] = { ...next[idx], bodyHtml: html };
-                          return { ...prev, websiteSections: next };
-                        })
-                      }
+                      onChange={(html) => {
+                        const next = [...form.websiteSections];
+                        next[idx] = { ...next[idx], bodyHtml: html };
+                        setForm((p) => ({ ...p, websiteSections: next }));
+                      }}
                       onImageUpload={async (file) => {
                         const res = await uploadQuestionImage(file);
                         return res.data?.url || '';
                       }}
-                      placeholder="এখানে বিস্তারিত টেক্সট, তালিকা, ছবি ইত্যাদি লিখুন..."
-                      className="min-h-[160px]"
+                      placeholder="Section body content…"
+                      className="min-h-[140px]"
                     />
                   </div>
                 ))}
                 {form.websiteSections.length === 0 && (
-                  <p className="text-xs font-bold text-slate-400 text-center py-4">
-                    কোনো ডাইনামিক সেকশন নেই। প্রয়োজনে &quot;সেকশন যোগ&quot; চাপুন।
+                  <p className="py-4 text-center text-xs font-medium text-slate-400">
+                    No dynamic sections. Add one above if needed.
                   </p>
                 )}
               </div>
-            </div>
+            </SectionCard>
 
-            {/* What to show on public /course/[slug] */}
-            <div className="space-y-4 sm:col-span-2 rounded-2xl border border-emerald-100 bg-emerald-50/25 p-4">
-              <div>
-                <label className={sectionLabel} style={{ marginBottom: 4 }}>
-                  পাবলিক কোর্স পেজ — দেখানোর অপশন
-                </label>
-                <p className="text-[10px] font-bold text-slate-500">
-                  ওয়েবসাইটের <span className="font-mono">/course/{form.slug || 'slug'}</span> পেজে কোন ব্লক ও কোন ধরনের কোর্স কনটেন্ট দেখাবে।
-                </p>
-              </div>
+            {/* ── Public page display options ── */}
+            <SectionCard>
+              <SectionTitle>Public Course Page — Display Options</SectionTitle>
+              <p className="mb-4 text-[11px] text-slate-400">
+                Control which blocks appear on{' '}
+                <code className="rounded bg-slate-100 px-1 font-mono text-slate-600">
+                  /course/{form.slug || 'slug'}
+                </code>
+              </p>
               <div className="grid gap-2 sm:grid-cols-2">
-                <label className="flex items-center gap-3 rounded-xl border border-white/80 bg-white/90 px-3 py-2.5 cursor-pointer shadow-sm">
-                  <input
-                    type="checkbox"
-                    checked={form.publicShowBenefits}
-                    onChange={(e) => setForm((p) => ({ ...p, publicShowBenefits: e.target.checked }))}
-                    className={checkboxClass()}
+                {(
+                  [
+                    { key: 'publicShowBenefits', label: 'Benefits block', desc: 'Why enroll section' },
+                    { key: 'publicShowWebsiteSections', label: 'Dynamic HTML sections', desc: 'Custom content blocks' },
+                    { key: 'publicShowBooks', label: 'Recommended books', desc: 'Book listing' },
+                    { key: 'publicShowCurriculum', label: 'Curriculum / content list', desc: 'Chapter & segment list' },
+                  ] as const
+                ).map((item) => (
+                  <Toggle
+                    key={item.key}
+                    checked={form[item.key]}
+                    onChange={(v) => setForm((p) => ({ ...p, [item.key]: v }))}
+                    label={item.label}
+                    description={item.desc}
+                    accent="emerald"
                   />
-                  <span className="text-xs font-bold text-slate-700">সুবিধা (কোর্সটি কেন করবেন?)</span>
-                </label>
-                <label className="flex items-center gap-3 rounded-xl border border-white/80 bg-white/90 px-3 py-2.5 cursor-pointer shadow-sm">
-                  <input
-                    type="checkbox"
-                    checked={form.publicShowWebsiteSections}
-                    onChange={(e) => setForm((p) => ({ ...p, publicShowWebsiteSections: e.target.checked }))}
-                    className={checkboxClass()}
-                  />
-                  <span className="text-xs font-bold text-slate-700">ডাইনামিক HTML সেকশন</span>
-                </label>
-                <label className="flex items-center gap-3 rounded-xl border border-white/80 bg-white/90 px-3 py-2.5 cursor-pointer shadow-sm">
-                  <input
-                    type="checkbox"
-                    checked={form.publicShowBooks}
-                    onChange={(e) => setForm((p) => ({ ...p, publicShowBooks: e.target.checked }))}
-                    className={checkboxClass()}
-                  />
-                  <span className="text-xs font-bold text-slate-700">সুপারিশকৃত বই</span>
-                </label>
-                <label className="flex items-center gap-3 rounded-xl border border-white/80 bg-white/90 px-3 py-2.5 cursor-pointer shadow-sm">
-                  <input
-                    type="checkbox"
-                    checked={form.publicShowCurriculum}
-                    onChange={(e) => setForm((p) => ({ ...p, publicShowCurriculum: e.target.checked }))}
-                    className={checkboxClass()}
-                  />
-                  <span className="text-xs font-bold text-slate-700">কারিকুলাম / কনটেন্ট তালিকা</span>
-                </label>
+                ))}
               </div>
-              {form.publicShowCurriculum ? (
-                <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-2">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    তালিকায় যে কনটেন্ট টাইপগুলো দেখাবে
+
+              {form.publicShowCurriculum && (
+                <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50/60 p-4">
+                  <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Visible content types in curriculum
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {PUBLIC_CURRICULUM_CONTENT_TYPES.map((t) => (
-                      <label
-                        key={t}
-                        className="inline-flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50/80 px-2.5 py-1.5 cursor-pointer text-[11px] font-bold text-slate-700"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={form.publicCurriculumTypes.includes(t)}
-                          onChange={() => togglePublicCurriculumType(t)}
-                          className={checkboxClass()}
-                        />
-                        {curriculumContentTypeLabel(t)}
-                        <span className="text-[9px] font-mono text-slate-400">({t})</span>
-                      </label>
-                    ))}
+                    {PUBLIC_CURRICULUM_CONTENT_TYPES.map((t) => {
+                      const active = form.publicCurriculumTypes.includes(t);
+                      return (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => togglePublicCurriculumType(t)}
+                          className={cn(
+                            'flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all',
+                            active
+                              ? 'border-indigo-200 bg-indigo-50 text-indigo-700'
+                              : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300',
+                          )}
+                        >
+                          {active && <Check className="h-3 w-3" />}
+                          {curriculumContentTypeLabel(t)}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
-              ) : null}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:col-span-2 pt-2">
-              <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 transition-all hover:bg-white hover:shadow-md cursor-pointer group">
-                <input
-                  type="checkbox"
-                  checked={form.featured}
-                  onChange={(e) => setForm((prev) => ({ ...prev, featured: e.target.checked }))}
-                  className={checkboxClass()}
-                />
-                <span className="text-[11px] font-black uppercase tracking-widest text-slate-600 group-hover:text-indigo-600 transition-colors">Featured</span>
-              </label>
-              
-              <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 transition-all hover:bg-white hover:shadow-md cursor-pointer group">
-                <input
-                  type="checkbox"
-                  checked={form.websiteVisible}
-                  onChange={(e) => setForm((prev) => ({ ...prev, websiteVisible: e.target.checked }))}
-                  className={checkboxClass()}
-                />
-                <span className="text-[11px] font-black uppercase tracking-widest text-slate-600 group-hover:text-indigo-600 transition-colors">Website Visible</span>
-              </label>
-              <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 transition-all hover:bg-white hover:shadow-md cursor-pointer group">
-                <input
-                  type="checkbox"
-                  checked={form.enrollmentVisible}
-                  onChange={(e) => setForm((prev) => ({ ...prev, enrollmentVisible: e.target.checked }))}
-                  className={checkboxClass()}
-                />
-                <span className="text-[11px] font-black uppercase tracking-widest text-slate-600 group-hover:text-indigo-600 transition-colors">Enrollment No Visible</span>
-              </label>
-              <label className="flex items-center gap-3 rounded-2xl border border-rose-100 bg-rose-50/40 px-4 py-3 transition-all hover:bg-white hover:shadow-md cursor-pointer group sm:col-span-2">
-                <input
-                  type="checkbox"
-                  checked={form.settledOptionEnabled}
-                  onChange={(e) => setForm((prev) => ({ ...prev, settledOptionEnabled: e.target.checked }))}
-                  className={checkboxClass()}
-                />
-                <span className="text-[11px] font-black uppercase tracking-widest text-rose-800 group-hover:text-rose-900 transition-colors">
-                  Settle course option (admin can mark all dues paid, cancel enrollments, remove from student portal)
-                </span>
-              </label>
-            </div>
+              )}
+            </SectionCard>
           </div>
         )}
 
+        {/* ══════════════════════════ COURSE CONTENT ══════════════════════════ */}
         {activeTab === 'content' && course && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+          <div className="space-y-5 max-w-3xl mx-auto animate-in fade-in duration-200">
             <div className="flex items-center justify-between">
-               <h3 className="text-xl font-black tracking-tight">Course Content</h3>
-               <Button
-                 onClick={() => {
-                   setEditingResource(null);
-                   setAddingToChapter(null);
-                   setAddingChapterOrder(null);
-                   setAddingSubjectTitle(null);
-                   setShowResourceForm(true);
-                 }}
-                 size="sm"
-                 className="h-9 rounded-xl bg-slate-900 text-white hover:bg-black font-black uppercase tracking-widest text-[9px]"
-               >
-                 <Plus className="mr-1.5 h-3.5 w-3.5" /> New Chapter
-               </Button>
+              <h3 className="text-base font-bold text-slate-900">Chapters & Segments</h3>
+              <Button
+                onClick={() => {
+                  setEditingResource(null);
+                  setAddingToChapter(null);
+                  setAddingChapterOrder(null);
+                  setAddingSubjectTitle(null);
+                  setShowResourceForm(true);
+                }}
+                size="sm"
+                className="h-9 rounded-xl bg-slate-900 text-white hover:bg-black text-xs font-bold"
+              >
+                <Plus className="mr-1.5 h-3.5 w-3.5" /> New Chapter
+              </Button>
             </div>
 
             {/* Content form dialog */}
@@ -1011,9 +1110,9 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                 }
               }}
             >
-              <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl p-0">
+              <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl p-0">
                 <DialogHeader className="px-6 pt-6 pb-0">
-                  <DialogTitle className="text-lg font-black tracking-tight">
+                  <DialogTitle className="text-base font-bold">
                     {editingResource
                       ? 'Edit Segment'
                       : addingToChapter
@@ -1021,7 +1120,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                         : 'Add new content'}
                   </DialogTitle>
                 </DialogHeader>
-                <div className="px-6 pb-6">
+                <div className="px-6 pb-6 pt-4">
                   <CourseResourceForm
                     key={`${course.id}-${editingResource?.id ?? 'new'}-${addingToChapter ?? 'root'}-${addingSubjectTitle ?? ''}`}
                     courseId={course.id}
@@ -1067,87 +1166,100 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
               </DialogContent>
             </Dialog>
 
-            {/* Subject (expand) → chapter → segment — matches student portal & details view */}
             {contentBySubject.sortedChapters.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-slate-300">
-                <FileText className="h-12 w-12 mb-3" />
-                <p className="text-sm font-bold">No content yet</p>
-                <p className="text-xs mt-1">Click &quot;New Chapter&quot; to start building your course</p>
+              <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 py-16 text-slate-300">
+                <FileText className="h-10 w-10 mb-3" />
+                <p className="text-sm font-semibold">No content yet</p>
+                <p className="text-xs mt-1">Click "New Chapter" to start building your course</p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {contentBySubject.orderedSubjects.map(([subjectTitle, chapterRows]) => {
                   const subjectKey = subjectTitle;
                   const subOpen = isSubjectOpen(subjectKey);
                   const segCount = chapterRows.reduce((n, [, items]) => n + items.length, 0);
-                  const displaySubject = subjectTitle === 'General' ? 'General (no subject)' : subjectTitle;
+                  const displaySubject =
+                    subjectTitle === 'General' ? 'General (no subject)' : subjectTitle;
 
                   return (
                     <div
                       key={subjectKey}
-                      className="rounded-2xl border border-slate-200 bg-slate-50/40 overflow-hidden"
+                      className="rounded-2xl border border-slate-200 bg-white overflow-hidden"
                     >
-                      <div className="flex items-stretch gap-2 border-b border-slate-100 bg-white/80">
+                      {/* Subject header */}
+                      <div className="flex items-center gap-0 border-b border-slate-100">
                         <button
                           type="button"
                           onClick={() => toggleSubject(subjectKey)}
-                          className="flex flex-1 items-center gap-3 p-4 text-left hover:bg-slate-50/80 transition-colors min-w-0"
+                          className="flex flex-1 items-center gap-3 px-4 py-3.5 text-left hover:bg-slate-50 transition-colors min-w-0"
                         >
-                          {subOpen ? (
-                            <ChevronDown className="h-4 w-4 text-indigo-600 shrink-0" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <h4 className="text-[11px] font-black uppercase tracking-widest text-indigo-600 truncate">
-                              Subject
-                            </h4>
-                            <p className="text-sm font-black text-slate-900 truncate">{displaySubject}</p>
-                            <p className="text-[10px] font-bold text-slate-400 mt-0.5">
-                              {chapterRows.length} {chapterRows.length === 1 ? 'chapter' : 'chapters'} · {segCount}{' '}
-                              {segCount === 1 ? 'segment' : 'segments'}
+                          <div
+                            className={cn(
+                              'h-5 w-5 rounded-md flex items-center justify-center transition-colors shrink-0',
+                              subOpen
+                                ? 'bg-indigo-100 text-indigo-600'
+                                : 'bg-slate-100 text-slate-400',
+                            )}
+                          >
+                            {subOpen ? (
+                              <ChevronDown className="h-3 w-3" />
+                            ) : (
+                              <ChevronRight className="h-3 w-3" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-bold text-slate-800 truncate">
+                                {displaySubject}
+                              </p>
+                              <Badge
+                                variant="secondary"
+                                className="text-[9px] font-bold uppercase shrink-0"
+                              >
+                                Subject
+                              </Badge>
+                            </div>
+                            <p className="text-[10px] text-slate-400 mt-0.5">
+                              {chapterRows.length} chapters · {segCount} segments
                             </p>
                           </div>
                         </button>
-                        <div className="flex items-center pr-3">
-                          <Button
+                        <div className="flex items-center gap-1 pr-3">
+                          <button
                             type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-9 rounded-xl text-[9px] font-black uppercase shrink-0"
-                            onClick={(e) => {
-                              e.stopPropagation();
+                            onClick={() => {
                               setEditingResource(null);
                               setAddingToChapter(null);
                               setAddingChapterOrder(null);
-                              setAddingSubjectTitle(subjectTitle === 'General' ? '' : subjectTitle);
+                              setAddingSubjectTitle(
+                                subjectTitle === 'General' ? '' : subjectTitle,
+                              );
                               setShowResourceForm(true);
                             }}
+                            className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-bold uppercase text-slate-600 hover:bg-slate-50 transition-colors"
                           >
-                            <Plus className="mr-1 h-3 w-3" />
-                            Chapter
-                          </Button>
-                          <Button
+                            <Plus className="h-3 w-3" /> Chapter
+                          </button>
+                          <button
                             type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="ml-2 h-9 rounded-xl text-[9px] font-black uppercase shrink-0 text-slate-500 hover:text-indigo-600"
                             disabled={subjectRenaming}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              startRename(subjectTitle);
-                            }}
+                            onClick={() => startRename(subjectTitle)}
+                            className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-bold uppercase text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-40"
                           >
-                            Rename
-                          </Button>
+                            <Pencil className="h-3 w-3" /> Rename
+                          </button>
                         </div>
                       </div>
 
+                      {/* Chapters */}
                       {subOpen && (
-                        <div className="space-y-3 p-3 bg-white/60">
+                        <div className="divide-y divide-slate-50 bg-slate-50/50">
                           {chapterRows.map(([compoundKey, items], chapterIdx) => {
                             const isExpanded = isChapterOpen(compoundKey);
-                            const totalDuration = items.reduce((sum, r) => sum + (r.durationMinutes || 0), 0);
+                            const totalDuration = items.reduce(
+                              (sum, r) => sum + (r.durationMinutes || 0),
+                              0,
+                            );
                             const videoCount = items.filter((r: any) => r.type === 'VIDEO').length;
                             const chapterOrder = items[0]?.topicSortOrder ?? chapterIdx;
                             const chapterPart = compoundKey.split(':::')[1] || 'Ungrouped';
@@ -1159,42 +1271,41 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                                   : chapterPart;
 
                             return (
-                              <div
-                                key={compoundKey}
-                                className="rounded-2xl border border-slate-100 bg-white overflow-hidden"
-                              >
+                              <div key={compoundKey} className="bg-white mx-3 my-2 rounded-xl border border-slate-100 overflow-hidden">
                                 <button
                                   type="button"
                                   onClick={() => toggleChapter(compoundKey)}
-                                  className="flex w-full items-center gap-3 p-4 text-left hover:bg-slate-50/80 transition-colors"
+                                  className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 transition-colors"
                                 >
                                   {isExpanded ? (
-                                    <ChevronDown className="h-4 w-4 text-indigo-500 shrink-0" />
+                                    <ChevronDown className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
                                   ) : (
-                                    <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />
+                                    <ChevronRight className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                                   )}
                                   <div className="flex-1 min-w-0">
-                                    <h4 className="text-sm font-black text-slate-800 truncate">{chapterHeading}</h4>
+                                    <p className="text-sm font-semibold text-slate-700 truncate">
+                                      {chapterHeading}
+                                    </p>
                                     <div className="flex items-center gap-3 mt-0.5">
-                                      <span className="text-[10px] font-bold text-slate-400">
-                                        {items.length} {items.length === 1 ? 'segment' : 'segments'}
+                                      <span className="text-[10px] text-slate-400">
+                                        {items.length} segments
                                       </span>
                                       {videoCount > 0 && (
-                                        <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400">
+                                        <span className="flex items-center gap-1 text-[10px] text-slate-400">
                                           <Play className="h-2.5 w-2.5" /> {videoCount} video
                                           {videoCount !== 1 ? 's' : ''}
                                         </span>
                                       )}
                                       {totalDuration > 0 && (
-                                        <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400">
+                                        <span className="flex items-center gap-1 text-[10px] text-slate-400">
                                           <Clock className="h-2.5 w-2.5" /> {totalDuration} min
                                         </span>
                                       )}
                                     </div>
                                   </div>
-                                  <Badge variant="outline" className="text-[8px] font-black uppercase shrink-0">
+                                  <span className="shrink-0 rounded-md bg-slate-100 px-2 py-0.5 text-[9px] font-bold uppercase text-slate-500">
                                     Ch {chapterIdx + 1}
-                                  </Badge>
+                                  </span>
                                 </button>
 
                                 {isExpanded && (
@@ -1204,37 +1315,38 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                                       .map((res, idx) => (
                                         <div
                                           key={res.id}
-                                          className="group flex items-center gap-3 px-4 py-3 hover:bg-indigo-50/40 transition-colors border-b border-slate-50 last:border-b-0"
+                                          className="group flex items-center gap-3 px-4 py-2.5 border-b border-slate-50 last:border-b-0 hover:bg-indigo-50/30 transition-colors"
                                         >
-                                          <span className="text-[10px] font-black text-slate-300 w-5 text-center shrink-0">
+                                          <span className="w-5 shrink-0 text-center text-[10px] font-bold text-slate-300">
                                             {String(idx + 1).padStart(2, '0')}
                                           </span>
-                                          <div className="h-8 w-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:text-indigo-600 shrink-0">
+                                          <div className="h-7 w-7 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 group-hover:text-indigo-500 shrink-0 transition-colors">
                                             {getResourceIcon(res.type)}
                                           </div>
                                           <div className="flex-1 min-w-0">
-                                            <h5 className="text-[13px] font-bold text-slate-700 truncate">{res.title}</h5>
+                                            <p className="text-[13px] font-semibold text-slate-700 truncate">
+                                              {res.title}
+                                            </p>
                                             <div className="flex items-center gap-2 mt-0.5">
-                                              <Badge variant="outline" className="text-[7px] font-black uppercase">
+                                              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-slate-500">
                                                 {res.type}
-                                              </Badge>
+                                              </span>
                                               {res.isFree && (
-                                                <Badge className="text-[7px] font-black uppercase bg-emerald-50 text-emerald-600 border-emerald-200">
+                                                <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold uppercase text-emerald-600">
                                                   Free
-                                                </Badge>
+                                                </span>
                                               )}
                                               {res.durationMinutes > 0 && (
-                                                <span className="text-[10px] font-bold text-slate-400">
+                                                <span className="text-[10px] text-slate-400">
                                                   {res.durationMinutes} min
                                                 </span>
                                               )}
                                             </div>
                                           </div>
-                                          <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                            <Button
-                                              variant="outline"
-                                              size="icon"
-                                              className="h-7 w-7 rounded-lg border-slate-200"
+                                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                            <button
+                                              type="button"
+                                              className="h-7 w-7 rounded-lg border border-slate-200 bg-white flex items-center justify-center hover:border-amber-200 hover:bg-amber-50 transition-colors"
                                               onClick={() => {
                                                 setEditingResource(res);
                                                 setAddingToChapter(null);
@@ -1242,11 +1354,10 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                                               }}
                                             >
                                               <Pencil className="h-3 w-3 text-amber-500" />
-                                            </Button>
-                                            <Button
-                                              variant="outline"
-                                              size="icon"
-                                              className="h-7 w-7 rounded-lg border-slate-200 hover:bg-rose-50"
+                                            </button>
+                                            <button
+                                              type="button"
+                                              className="h-7 w-7 rounded-lg border border-slate-200 bg-white flex items-center justify-center hover:border-rose-200 hover:bg-rose-50 transition-colors"
                                               onClick={async () => {
                                                 if (confirm('Delete this segment?')) {
                                                   await deleteCourseContent(res.id);
@@ -1254,8 +1365,8 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                                                 }
                                               }}
                                             >
-                                              <Trash2 className="h-3 w-3 text-rose-500" />
-                                            </Button>
+                                              <Trash2 className="h-3 w-3 text-rose-400" />
+                                            </button>
                                           </div>
                                         </div>
                                       ))}
@@ -1268,7 +1379,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                                         setAddingChapterOrder(chapterOrder);
                                         setShowResourceForm(true);
                                       }}
-                                      className="flex w-full items-center justify-center gap-2 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 hover:bg-indigo-50/50 transition-colors border-t border-dashed border-slate-100"
+                                      className="flex w-full items-center justify-center gap-2 py-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-indigo-600 hover:bg-indigo-50/50 transition-colors border-t border-dashed border-slate-100"
                                     >
                                       <Plus className="h-3 w-3" /> Add Segment
                                     </button>
@@ -1287,90 +1398,154 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
           </div>
         )}
 
+        {/* ══════════════════════════ RELATED COURSES ═════════════════════════ */}
         {activeTab === 'related' && course && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+          <div className="space-y-5 max-w-3xl mx-auto animate-in fade-in duration-200">
             <div className="flex items-center justify-between">
-               <h3 className="text-xl font-black tracking-tight">Related Courses</h3>
-               {!showAssociationForm && (
-                 <Button onClick={() => setShowAssociationForm(true)} size="sm" className="h-9 rounded-xl bg-slate-900 text-white hover:bg-black font-black uppercase tracking-widest text-[9px]">
-                    <Plus className="mr-2 h-3.5 w-3.5" /> Add Related Course
-                 </Button>
-               )}
+              <h3 className="text-base font-bold text-slate-900">Related Courses</h3>
+              {!showAssociationForm && (
+                <Button
+                  onClick={() => setShowAssociationForm(true)}
+                  size="sm"
+                  className="h-9 rounded-xl bg-slate-900 text-white hover:bg-black text-xs font-bold"
+                >
+                  <Plus className="mr-1.5 h-3.5 w-3.5" /> Add Related
+                </Button>
+              )}
             </div>
 
             {showAssociationForm && (
-              <CourseAssociationForm 
-                fromCourseId={course.id} 
-                courses={allCourses}
-                onSuccess={() => { setShowAssociationForm(false); fetchExtras(); }}
-                onCancel={() => setShowAssociationForm(false)}
-              />
+              <SectionCard>
+                <CourseAssociationForm
+                  fromCourseId={course.id}
+                  courses={allCourses}
+                  onSuccess={() => {
+                    setShowAssociationForm(false);
+                    fetchExtras();
+                  }}
+                  onCancel={() => setShowAssociationForm(false)}
+                />
+              </SectionCard>
             )}
 
-            <div className="grid gap-4">
-               {associations.map(assoc => (
-                 <div key={assoc.id} className="p-4 rounded-2xl border border-slate-100 bg-white flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                       <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs shadow-inner">
-                          {assoc.type.charAt(0)}
-                       </div>
-                       <div>
-                          <h4 className="text-sm font-black text-slate-800">{assoc.toCourse?.name}</h4>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{assoc.type}</p>
-                       </div>
+            {associations.length === 0 && !showAssociationForm ? (
+              <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 py-14 text-slate-300">
+                <Link2 className="h-10 w-10 mb-3" />
+                <p className="text-sm font-semibold">No related courses</p>
+                <p className="text-xs mt-1">Link related courses to help students discover more</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {associations.map((assoc) => (
+                  <div
+                    key={assoc.id}
+                    className="flex items-center gap-4 rounded-xl border border-slate-100 bg-white px-4 py-3"
+                  >
+                    <div className="h-9 w-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs font-bold shrink-0">
+                      {assoc.type.charAt(0)}
                     </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-rose-500" onClick={async () => { if(confirm('Sever?')){ await deleteAssociatedCourse(assoc.id); fetchExtras(); } }}>
-                       <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                 </div>
-               ))}
-            </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-800 truncate">
+                        {assoc.toCourse?.name}
+                      </p>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        {assoc.type}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="h-8 w-8 rounded-lg border border-slate-100 bg-white text-slate-300 hover:border-rose-100 hover:bg-rose-50 hover:text-rose-400 flex items-center justify-center transition-colors"
+                      onClick={async () => {
+                        if (confirm('Remove this association?')) {
+                          await deleteAssociatedCourse(assoc.id);
+                          fetchExtras();
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
+        {/* Error */}
         {error && (
-          <div className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-base font-bold text-rose-600 uppercase tracking-widest flex items-center gap-3">
-             <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-             {error}
+          <div className="max-w-3xl mx-auto flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+            <AlertTriangle className="h-4 w-4 text-rose-500 mt-0.5 shrink-0" />
+            <p className="text-sm font-medium text-rose-700">{error}</p>
           </div>
         )}
       </div>
 
-      <div className="mt-auto shrink-0 border-t border-slate-100 bg-slate-50/80 px-8 pb-8 pt-6">
-        <div className="flex flex-col sm:flex-row gap-3">
+      {/* ── Footer ──────────────────────────────────────────────────────────── */}
+      <div className="shrink-0 border-t border-slate-100 bg-white px-6 py-4">
+        <div className="max-w-3xl mx-auto flex gap-3">
           <Button
             variant="outline"
-            className="flex-1 h-12 rounded-2xl border-slate-200 bg-white font-black uppercase tracking-[0.2em] text-[11px] text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-all"
             onClick={closeModal}
+            className="flex-1 h-11 rounded-xl border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50"
           >
-            Discard
+            Cancel
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={submitting}
-            className="flex-[2] h-12 rounded-2xl bg-slate-900 font-black uppercase tracking-[0.2em] text-[11px] text-white shadow-xl shadow-slate-200 hover:bg-black hover:scale-[1.02] active:scale-95 transition-all"
+            className="flex-[2] h-11 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 active:scale-[0.99] transition-all shadow-sm shadow-indigo-200"
           >
-            {submitting ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Course'}
+            {submitting ? (
+              <span className="flex items-center gap-2">
+                <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                Saving…
+              </span>
+            ) : isEdit ? (
+              'Save Changes'
+            ) : (
+              'Create Course'
+            )}
           </Button>
         </div>
       </div>
 
-      <SimpleDialog open={renameModal.open} onOpenChange={(open) => setRenameModal((prev) => ({ ...prev, open }))}>
-        <SimpleDialogContent className="sm:max-w-md">
+      {/* ── Rename dialog ─────────────────────────────────────────────────── */}
+      <SimpleDialog
+        open={renameModal.open}
+        onOpenChange={(open) => setRenameModal((prev) => ({ ...prev, open }))}
+      >
+        <SimpleDialogContent className="sm:max-w-sm rounded-2xl">
           <SimpleDialogHeader>
-            <SimpleDialogTitle className="text-lg font-black text-slate-900">Rename subject</SimpleDialogTitle>
+            <SimpleDialogTitle className="text-base font-bold">Rename Subject</SimpleDialogTitle>
           </SimpleDialogHeader>
-          <div className="space-y-3">
-            <p className="text-sm text-slate-600">Update the subject name. This applies to all chapters and segments under it.</p>
+          <div className="space-y-2 py-2">
+            <p className="text-xs text-slate-500">
+              Updates the subject name across all chapters and segments within it.
+            </p>
             <Input
+              className={field}
               value={renameInput}
               onChange={(e) => setRenameInput(e.target.value)}
-              placeholder="e.g., Physics"
+              placeholder="e.g. Physics"
+              autoFocus
             />
           </div>
           <SimpleDialogFooter className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setRenameModal({ open: false, subject: '' })}>Cancel</Button>
-            <Button onClick={submitRename} disabled={subjectRenaming || !renameInput.trim()}>Save</Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setRenameModal({ open: false, subject: '' })}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={submitRename}
+              disabled={subjectRenaming || !renameInput.trim()}
+              className="bg-indigo-600 text-white hover:bg-indigo-700"
+            >
+              {subjectRenaming ? 'Saving…' : 'Save'}
+            </Button>
           </SimpleDialogFooter>
         </SimpleDialogContent>
       </SimpleDialog>

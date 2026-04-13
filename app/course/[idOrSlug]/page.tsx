@@ -611,8 +611,8 @@ export default function CourseDetailsPage() {
                                         <Layout size={20} />
                                     </div>
                                     <div className="flex flex-col">
-                                        <span className="text-[10px] font-black text-slate-400 uppercase">পেমেন্ট মেথড</span>
-                                        <span className="font-bold text-slate-700">{course.billingType === 'MONTHLY' ? 'মাসিক পেমেন্ট' : 'এককালীন পেমেন্ট'}</span>
+                                        <span className="text-[10px] font-black text-slate-400 uppercase">পেমেন্ট</span>
+                                        <span className="font-bold text-slate-700">{course.type === 'ONLINE' ? 'এককালীন পেমেন্ট' : 'ভর্তির সময় নির্ধারিত'}</span>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-4">

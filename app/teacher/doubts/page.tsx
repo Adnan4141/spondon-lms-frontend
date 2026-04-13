@@ -125,7 +125,7 @@ export default function TeacherDoubtsPage() {
               <div className="flex items-center gap-2 mb-3">
                 <BookOpen className="h-4 w-4 text-indigo-500" />
                 <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">
-                  {(doubt as any).course?.code || 'Course'}
+                  {(doubt as any).course?.slug || 'Course'}
                 </span>
               </div>
 

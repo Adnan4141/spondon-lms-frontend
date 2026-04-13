@@ -10,7 +10,6 @@ import {
 } from '@/lib/api/course-contents';
 import {
   AdmissionStatus,
-  BillingType,
   Course,
   CourseDetails,
   CourseStatus,
@@ -72,14 +71,12 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { useModalStore } from '@/store/modalStore';
-import { CreateCourseForm } from '@/components/admin/courses/CreateCourseForm';
 import { CourseForm } from '@/components/admin/courses/CourseForm';
 import { CourseDetailsView } from '@/components/admin/courses/CourseDetailsView';
 import { cn } from '@/lib/utils';
 
 const statusOptions: (CourseStatus | 'all')[] = ['all', 'ACTIVE', 'DISABLED', 'ARCHIVED'];
 const typeOptions: (CourseType | 'all')[] = ['all', 'ONLINE', 'OFFLINE'];
-const billingOptions: BillingType[] = ['ONE_TIME', 'MONTHLY'];
 const admissionOptions: AdmissionStatus[] = ['OPEN', 'CLOSED'];
 
 function getErrorMessage(error: unknown): string {
@@ -112,7 +109,6 @@ export default function CoursesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<CourseStatus | 'all'>('ACTIVE');
   const [typeFilter, setTypeFilter] = useState<CourseType | 'all'>('all');
-  const [billingFilter, setBillingFilter] = useState<BillingType | 'all'>('all');
   const [error, setError] = useState<string | null>(null);
   const [pagination, setPagination] = useState({
     page: 1,
@@ -130,7 +126,6 @@ export default function CoursesPage() {
         limit: pagination.limit,
       };
       if (statusFilter !== 'all') params.status = statusFilter;
-      if (billingFilter !== 'all') params.billingType = billingFilter;
 
       const response = await getCourses(params);
 
@@ -140,7 +135,7 @@ export default function CoursesPage() {
           filteredCourses = filteredCourses.filter(
             (course) =>
               course.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              course.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              course.slug.toLowerCase().includes(searchQuery.toLowerCase()) ||
               course.program?.name.toLowerCase().includes(searchQuery.toLowerCase())
           );
         }
@@ -246,7 +241,7 @@ export default function CoursesPage() {
   };
 
   useEffect(() => { loadPrograms(); }, []);
-  useEffect(() => { loadCourses(); }, [pagination.page, statusFilter, billingFilter]);
+  useEffect(() => { loadCourses(); }, [pagination.page, statusFilter]);
   useEffect(() => {
     const timer = setTimeout(() => {
       if (pagination.page === 1) loadCourses();
@@ -265,7 +260,7 @@ export default function CoursesPage() {
               <div className="relative group">
                 <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
                 <Input
-                  placeholder="Search courses by name, code, or program..."
+                  placeholder="Search courses by name, slug, or program..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all"
@@ -294,22 +289,6 @@ export default function CoursesPage() {
                 {typeOptions.map((opt) => (
                   <SelectItem key={opt} value={opt} className="text-sm font-medium">
                     {opt === 'all' ? 'All Types' : opt}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={billingFilter} onValueChange={(v) => setBillingFilter(v as BillingType | 'all')}>
-              <SelectTrigger className="h-12 w-[200px] rounded-2xl border-slate-200 bg-white text-sm font-medium shadow-sm">
-                <SelectValue placeholder="All billing" />
-              </SelectTrigger>
-              <SelectContent className="rounded-2xl border-slate-200 bg-white text-slate-900 shadow-xl">
-                <SelectItem value="all" className="text-sm font-medium">
-                  All billing
-                </SelectItem>
-                {billingOptions.map((opt) => (
-                  <SelectItem key={opt} value={opt} className="text-sm font-medium">
-                    {opt === 'MONTHLY' ? 'Monthly courses' : 'One-time courses'}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -365,7 +344,7 @@ export default function CoursesPage() {
             <Table>
               <TableHeader className="bg-slate-50/50">
                 <TableRow className="hover:bg-transparent border-b border-slate-100">
-                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Code</TableHead>
+                  <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Slug</TableHead>
                   <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Course Identity</TableHead>
                   <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Program</TableHead>
                   <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Modality</TableHead>
@@ -377,7 +356,7 @@ export default function CoursesPage() {
               <TableBody>
                 {courses.map((course) => (
                   <TableRow key={course.id} className="group border-slate-100 transition-colors hover:bg-slate-50/80">
-                    <TableCell className="px-8 font-mono text-base font-black text-indigo-600 uppercase tracking-tighter">{course.code}</TableCell>
+                    <TableCell className="px-8 font-mono text-base font-black text-indigo-600 uppercase tracking-tighter">{course.slug}</TableCell>
                     <TableCell>
                        <div className="flex items-center gap-4">
                           {course.thumbnail ? (
@@ -403,7 +382,6 @@ export default function CoursesPage() {
                     </TableCell>
                     <TableCell>
                       <p className="font-black text-slate-900 text-base">৳{Number(course.fee).toLocaleString()}</p>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{course.billingType}</p>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className={cn("rounded-lg px-2.5 py-1 text-[10px] font-black uppercase tracking-widest shadow-sm", getStatusBadgeClass(course.status))}>
@@ -494,7 +472,7 @@ export default function CoursesPage() {
           {courseToDelete && (
             <div className="my-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <p className="text-sm font-bold text-slate-900">{courseToDelete.name}</p>
-              <p className="text-xs font-medium text-slate-500 mt-1">Code: {courseToDelete.code}</p>
+              <p className="text-xs font-medium text-slate-500 mt-1">Slug: {courseToDelete.slug}</p>
             </div>
           )}
           <DialogFooter className="gap-2">

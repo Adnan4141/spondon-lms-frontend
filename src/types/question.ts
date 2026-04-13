@@ -12,7 +12,7 @@ export interface QuestionFolder {
   course?: {
     id: string;
     name: string;
-    code: string;
+    slug?: string;
   } | null;
   parent?: QuestionFolder | null;
   children?: QuestionFolder[];

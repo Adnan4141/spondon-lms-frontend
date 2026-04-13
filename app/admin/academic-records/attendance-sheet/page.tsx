@@ -392,7 +392,7 @@ export default function AttendanceSheetPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `attendance-${sheetData.course.code}-${Date.now()}.csv`;
+    a.download = `attendance-${sheetData.course.slug}-${Date.now()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     toast({ title: 'CSV exported', variant: 'success' });
@@ -446,7 +446,7 @@ export default function AttendanceSheetPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `attendance-${sheetData.course.code}-${Date.now()}.xlsx`;
+    a.download = `attendance-${sheetData.course.slug}-${Date.now()}.xlsx`;
     a.click();
     URL.revokeObjectURL(url);
     toast({ title: 'Excel exported', variant: 'success' });
@@ -645,7 +645,7 @@ export default function AttendanceSheetPage() {
                 </h1>
                 <p className="mt-2 text-base font-bold text-slate-800">
                   {sheetData.course.name}{' '}
-                  <span className="font-semibold text-slate-500">({sheetData.course.code})</span>
+                  <span className="font-semibold text-slate-500">({sheetData.course.slug})</span>
                 </p>
                 <div className="mt-3 space-y-1 text-sm text-slate-600">
                   <p className="flex items-center gap-2">

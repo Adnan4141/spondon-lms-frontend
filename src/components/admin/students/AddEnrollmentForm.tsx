@@ -82,15 +82,16 @@ export function AddEnrollmentForm({
   const [internalStep, setInternalStep] = useState(1);
   const nested = nestedInParentWizard;
   const step = nested ? nested.parentStep - 1 : internalStep;
-  const [enrollmentMode, setEnrollmentMode] = useState<'program' | 'monthly'>('program');
+  const [enrollmentMode, setEnrollmentMode] = useState<'program' | 'search'>('program');
+  const [selectedBillingType, setSelectedBillingType] = useState<'ONE_TIME' | 'MONTHLY'>('ONE_TIME');
   const [programs, setPrograms] = useState<Program[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [allCourses, setAllCourses] = useState<Course[]>([]);
   const [programCourses, setProgramCourses] = useState<Course[]>([]);
   const [programId, setProgramId] = useState('');
   const [programSelectedIds, setProgramSelectedIds] = useState<string[]>([]);
-  const [monthlySelectedIds, setMonthlySelectedIds] = useState<string[]>([]);
-  const [monthlySearch, setMonthlySearch] = useState('');
+  const [searchSelectedIds, setSearchSelectedIds] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [loadingCourses, setLoadingCourses] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -191,7 +192,7 @@ export function AddEnrollmentForm({
 
   useEffect(() => {
     setProgramSelectedIds((prev) => prev.filter((id) => !enrolledCourseIds.includes(id)));
-    setMonthlySelectedIds((prev) => prev.filter((id) => !enrolledCourseIds.includes(id)));
+    setSearchSelectedIds((prev) => prev.filter((id) => !enrolledCourseIds.includes(id)));
   }, [enrolledCourseIds]);
 
   useEffect(() => {
@@ -223,24 +224,19 @@ export function AddEnrollmentForm({
   }, [programId, enrolledCourseIds]);
 
   const resolveSelectedIds = (): string[] => {
-    if (enrollmentMode === 'monthly') return monthlySelectedIds;
+    if (enrollmentMode === 'search') return searchSelectedIds;
     return programSelectedIds;
   };
 
-  const monthlyCoursesAll = useMemo(
-    () => allCourses.filter((c) => c.billingType === 'MONTHLY'),
-    [allCourses],
-  );
-
-  const monthlyCoursesFiltered = useMemo(() => {
-    const q = monthlySearch.trim().toLowerCase();
-    if (!q) return monthlyCoursesAll;
-    return monthlyCoursesAll.filter(
+  const searchCoursesFiltered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return allCourses;
+    return allCourses.filter(
       (c) =>
         c.name.toLowerCase().includes(q) ||
-        (c.code && c.code.toLowerCase().includes(q)),
+        (c.slug && c.slug.toLowerCase().includes(q)),
     );
-  }, [monthlyCoursesAll, monthlySearch]);
+  }, [allCourses, searchQuery]);
 
   const enrolledSet = useMemo(() => new Set(enrolledCourseIds), [enrolledCourseIds]);
 
@@ -249,9 +245,9 @@ export function AddEnrollmentForm({
     [programCourses, enrolledSet],
   );
 
-  const monthlyVisibleSelectableIds = useMemo(
-    () => monthlyCoursesFiltered.map((c) => c.id).filter((id) => !enrolledSet.has(id)),
-    [monthlyCoursesFiltered, enrolledSet],
+  const searchVisibleSelectableIds = useMemo(
+    () => searchCoursesFiltered.map((c) => c.id).filter((id) => !enrolledSet.has(id)),
+    [searchCoursesFiltered, enrolledSet],
   );
 
   const courseMap = useMemo(() => {
@@ -279,20 +275,20 @@ export function AddEnrollmentForm({
     }
   };
 
-  const toggleMonthlyCourse = (courseId: string) => {
+  const toggleSearchCourse = (courseId: string) => {
     if (enrolledSet.has(courseId)) return;
-    setMonthlySelectedIds((prev) =>
+    setSearchSelectedIds((prev) =>
       prev.includes(courseId) ? prev.filter((id) => id !== courseId) : [...prev, courseId],
     );
   };
 
-  const toggleAllMonthlyVisible = () => {
-    const visibleIds = monthlyVisibleSelectableIds;
-    const allPicked = visibleIds.length > 0 && visibleIds.every((id) => monthlySelectedIds.includes(id));
+  const toggleAllSearchVisible = () => {
+    const visibleIds = searchVisibleSelectableIds;
+    const allPicked = visibleIds.length > 0 && visibleIds.every((id) => searchSelectedIds.includes(id));
     if (allPicked) {
-      setMonthlySelectedIds((prev) => prev.filter((id) => !visibleIds.includes(id)));
+      setSearchSelectedIds((prev) => prev.filter((id) => !visibleIds.includes(id)));
     } else {
-      setMonthlySelectedIds((prev) => [...new Set([...prev, ...visibleIds])]);
+      setSearchSelectedIds((prev) => [...new Set([...prev, ...visibleIds])]);
     }
   };
 
@@ -324,9 +320,9 @@ export function AddEnrollmentForm({
   };
 
   const ids = useMemo(() => {
-    if (enrollmentMode === 'monthly') return monthlySelectedIds;
+    if (enrollmentMode === 'search') return searchSelectedIds;
     return programSelectedIds;
-  }, [enrollmentMode, monthlySelectedIds, programSelectedIds]);
+  }, [enrollmentMode, searchSelectedIds, programSelectedIds]);
 
   const totalCourseFee = useMemo(
     () => ids.reduce((s, id) => s + (Number(courseMap.get(id)?.fee) || 0), 0),
@@ -336,7 +332,7 @@ export function AddEnrollmentForm({
   /**
    * Admission fee programs: derived from the `programs` list (which carries the full program fields).
    * For program-mode we use the selected programId directly.
-   * For monthly-mode we try to match courses' program.id against the programs list.
+   * For search-mode we try to match courses' program.id against the programs list.
    */
   const admissionFeePrograms = useMemo(() => {
     const seen = new Set<string>();
@@ -348,7 +344,7 @@ export function AddEnrollmentForm({
         out.push({ id: prog.id, name: prog.name, amount: Number(prog.admissionFeeAmount) });
       }
     } else {
-      // monthly mode — derive from courses' program reference
+      // search mode — derive from courses' program reference
       for (const id of ids) {
         const c = courseMap.get(id);
         const progId = (c?.program as { id?: string } | undefined)?.id;
@@ -440,8 +436,8 @@ export function AddEnrollmentForm({
     const sel = resolveSelectedIds();
     if (sel.length === 0 || !branchId) {
       setError(
-        enrollmentMode === 'monthly'
-          ? 'Select at least one monthly course and a branch'
+        enrollmentMode === 'search'
+          ? 'Select at least one course and a branch'
           : 'Select program courses and a branch',
       );
       return false;
@@ -452,9 +448,9 @@ export function AddEnrollmentForm({
       );
       return false;
     }
-    const needsMonth = sel.some((id) => courseMap.get(id)?.billingType === 'MONTHLY');
+    const needsMonth = selectedBillingType === 'MONTHLY';
     if (needsMonth && !/^\d{4}-\d{2}$/.test(billingStartMonth.trim())) {
-      setError('Billing month (YYYY-MM) is required for monthly courses.');
+      setError('Billing month (YYYY-MM) is required for monthly billing.');
       return false;
     }
     setError(null);
@@ -484,8 +480,7 @@ export function AddEnrollmentForm({
     if (step === 1) {
       if (!validateStep1()) return;
       if (!billingStartMonth.trim()) {
-        const sel = resolveSelectedIds();
-        const needsMonth = sel.some((id) => courseMap.get(id)?.billingType === 'MONTHLY');
+        const needsMonth = selectedBillingType === 'MONTHLY';
         if (needsMonth) setBillingStartMonth(defaultMonth());
       }
       const sel = resolveSelectedIds();
@@ -513,7 +508,7 @@ export function AddEnrollmentForm({
           
           if (coursesWithoutBatches.length > 0) {
             setProgramSelectedIds((prev) => prev.filter((id) => !coursesWithoutBatches.includes(id)));
-            setMonthlySelectedIds((prev) => prev.filter((id) => !coursesWithoutBatches.includes(id)));
+            setSearchSelectedIds((prev) => prev.filter((id) => !coursesWithoutBatches.includes(id)));
             
             const courseNames = coursesWithoutBatches.map((id) => courseMap.get(id)?.name ?? id).join(', ');
             toast({
@@ -526,22 +521,9 @@ export function AddEnrollmentForm({
           setLoadingBatches(false);
         }
       }
-      let sumOffer = 0;
-      let refFrom = '';
-      for (const id of sel) {
-        const c = courseMap.get(id);
-        const offer =
-          c?.offerDiscountAmount != null && String(c.offerDiscountAmount) !== ''
-            ? Number(c.offerDiscountAmount)
-            : 0;
-        sumOffer += offer;
-        if (offer > 0 && !refFrom) refFrom = (c?.offerDiscountNote || '').trim();
-      }
       const tFee = sel.reduce((s, id) => s + (Number(courseMap.get(id)?.fee) || 0), 0);
-      setTotalDiscountAmount(sumOffer > 0 ? String(Math.round(sumOffer * 100) / 100) : '');
-      setDiscountReference(refFrom);
-      // Default payment = course fees - discount + admission fees
-      const defaultPayment = Math.max(tFee - sumOffer, 0) + effectiveAdmissionFeeTotal;
+      // Default payment = course fees + admission fees
+      const defaultPayment = tFee + effectiveAdmissionFeeTotal;
       setTotalPaymentAmount(String(Math.round(defaultPayment * 100) / 100));
     }
     if (step === 2) {
@@ -585,7 +567,7 @@ export function AddEnrollmentForm({
     const discTotal = Number(totalDiscountAmount) || 0;
     const payTotal = Number(totalPaymentAmount) || 0;
     const refShared = discountReference.trim();
-    const needsMonth = sel.some((id) => courseMap.get(id)?.billingType === 'MONTHLY');
+    const needsMonth = selectedBillingType === 'MONTHLY';
 
     try {
       setSubmitting(true);
@@ -600,6 +582,7 @@ export function AddEnrollmentForm({
         studentUserId: studentId,
         branchId,
         courses: sel.map((courseId) => ({ courseId, batchId: batchAssignments[courseId] || undefined })),
+        billingType: selectedBillingType,
         billingStartMonth: needsMonth ? monthYm || undefined : undefined,
         paymentMethod,
         paymentAmount: payTotal,
@@ -677,7 +660,7 @@ export function AddEnrollmentForm({
                 <div>
                   <h3 className="text-xs font-black uppercase tracking-widest text-slate-800">How to pick courses</h3>
                   <p className="text-[10px] font-bold text-slate-500">
-                    Program: choose a program and tick multiple courses. Monthly: search and select any monthly-billing courses.
+                    Program: choose a program and tick multiple courses. Search: find and select any course.
                     After you pick a <strong>branch</strong>, courses this student already has at that branch show as{' '}
                     <strong>Already enrolled</strong> and cannot be selected. Each row&apos;s Online / Offline badge is delivery
                     mode, not payment timing.
@@ -701,63 +684,77 @@ export function AddEnrollmentForm({
                 </Button>
                 <Button
                   type="button"
-                  variant={enrollmentMode === 'monthly' ? 'default' : 'outline'}
+                  variant={enrollmentMode === 'search' ? 'default' : 'outline'}
                   className={cn(
                     'h-9 rounded-xl text-[10px] font-black uppercase',
-                    enrollmentMode === 'monthly' && 'bg-slate-900 text-white hover:bg-slate-800 hover:text-white',
+                    enrollmentMode === 'search' && 'bg-slate-900 text-white hover:bg-slate-800 hover:text-white',
                   )}
                   onClick={() => {
-                    setEnrollmentMode('monthly');
-                    setMonthlySelectedIds([]);
-                    setMonthlySearch('');
+                    setEnrollmentMode('search');
+                    setSearchSelectedIds([]);
+                    setSearchQuery('');
                     setError(null);
                   }}
                 >
-                  Monthly courses
+                  Search all courses
                 </Button>
               </div>
             </section>
 
-            {enrollmentMode === 'monthly' && (
+            {/* ── Billing Type Selector ───────────────────────────── */}
+            <div className="space-y-2">
+              <label className={sectionLabel}>Billing type</label>
+              <Select value={selectedBillingType} onValueChange={(v) => setSelectedBillingType(v as 'ONE_TIME' | 'MONTHLY')}>
+                <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-white font-bold shadow-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl">
+                  <SelectItem value="ONE_TIME">One-time payment</SelectItem>
+                  <SelectItem value="MONTHLY">Monthly billing</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {enrollmentMode === 'search' && (
               <div className="space-y-3">
-                <label className={sectionLabel}>Search monthly courses</label>
+                <label className={sectionLabel}>Search courses</label>
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <Input
                     className={cn(inputClass, 'pl-11')}
                     placeholder="Name or code…"
-                    value={monthlySearch}
-                    onChange={(e) => setMonthlySearch(e.target.value)}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                   />
                 </div>
                 <div className="flex justify-between gap-2 text-[10px] font-bold text-slate-500">
                   <span>
-                    {monthlyCoursesFiltered.length} shown · {monthlySelectedIds.length} selected
+                    {searchCoursesFiltered.length} shown · {searchSelectedIds.length} selected
                   </span>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     className="h-8 rounded-lg text-[10px] font-black uppercase"
-                    onClick={toggleAllMonthlyVisible}
+                    onClick={toggleAllSearchVisible}
                     disabled={
-                      monthlyCoursesFiltered.length === 0 || monthlyVisibleSelectableIds.length === 0
+                      searchCoursesFiltered.length === 0 || searchVisibleSelectableIds.length === 0
                     }
                   >
-                    {monthlyVisibleSelectableIds.length > 0 &&
-                    monthlyVisibleSelectableIds.every((id) => monthlySelectedIds.includes(id))
+                    {searchVisibleSelectableIds.length > 0 &&
+                    searchVisibleSelectableIds.every((id) => searchSelectedIds.includes(id))
                       ? 'Deselect listed'
                       : 'Select all listed'}
                   </Button>
                 </div>
                 <div className="max-h-[min(40vh,320px)] space-y-2 overflow-y-auto pr-1">
-                  {monthlyCoursesFiltered.length === 0 ? (
+                  {searchCoursesFiltered.length === 0 ? (
                     <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 py-8 text-center text-sm font-bold text-slate-400">
-                      No monthly courses match your search
+                      No courses match your search
                     </p>
                   ) : (
-                    monthlyCoursesFiltered.map((course) => {
-                      const isSelected = monthlySelectedIds.includes(course.id);
+                    searchCoursesFiltered.map((course) => {
+                      const isSelected = searchSelectedIds.includes(course.id);
                       const alreadyEnrolled = enrolledSet.has(course.id);
                       const existingEnrollment = enrollmentByCourse.get(course.id);
                       const isPaused = existingEnrollment?.status === 'PAUSED';
@@ -766,7 +763,7 @@ export function AddEnrollmentForm({
                           <button
                             type="button"
                             disabled={alreadyEnrolled && !isPaused}
-                            onClick={() => toggleMonthlyCourse(course.id)}
+                            onClick={() => toggleSearchCourse(course.id)}
                             className={cn(
                               'flex w-full items-center justify-between rounded-2xl border p-4 text-left transition-all',
                               alreadyEnrolled && !isPaused && 'cursor-not-allowed opacity-75',
@@ -802,7 +799,7 @@ export function AddEnrollmentForm({
                                 <div className="mt-1 flex flex-wrap items-center gap-1.5">
                                   <CourseDeliveryBadge type={course.type} />
                                   <p className="text-[10px] font-bold text-slate-400">
-                                    {course.code} · ৳{Number(course.fee || 0).toFixed(0)} · Monthly
+                                    {course.slug} · ৳{Number(course.fee || 0).toFixed(0)}
                                   </p>
                                 </div>
                               </div>
@@ -934,7 +931,7 @@ export function AddEnrollmentForm({
                                 <div className="mt-1 flex flex-wrap items-center gap-1.5">
                                   <CourseDeliveryBadge type={course.type} />
                                   <p className="text-[10px] font-bold text-slate-400">
-                                    {course.code} · {course.billingType}
+                                    {course.slug} · ৳{Number(course.fee || 0).toFixed(0)}
                                   </p>
                                 </div>
                               </div>
@@ -970,7 +967,7 @@ export function AddEnrollmentForm({
 
             <div className="border-t border-slate-100 pt-6">
               <div className="space-y-2">
-                <label className={sectionLabel}>Billing month (monthly courses)</label>
+                <label className={sectionLabel}>Billing month (for monthly billing)</label>
                 <MonthYearPicker value={billingStartMonth} onChange={setBillingStartMonth} />
               </div>
 
@@ -1422,7 +1419,7 @@ export function AddEnrollmentForm({
                       <div key={r.id} className="flex items-center justify-between">
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-bold text-slate-800">{c?.name}</p>
-                          <p className="text-[10px] font-medium text-slate-400">{c?.code} · {c?.billingType}</p>
+                          <p className="text-[10px] font-medium text-slate-400">{c?.slug} · {selectedBillingType}</p>
                         </div>
                         <p className="ml-3 font-mono text-sm font-black text-slate-700">৳{r.fee.toLocaleString()}</p>
                       </div>

@@ -56,7 +56,7 @@ export default function MonthlyBillingPage() {
       setLoading(true);
       const [brRes, cRes, eRes] = await Promise.all([
         getBranches(),
-        getCourses({ billingType: 'MONTHLY', status: 'ACTIVE', limit: 200 }),
+        getCourses({ status: 'ACTIVE', limit: 200 }),
         getEnrollments({ status: 'ACTIVE', limit: 500 }),
       ]);
       if (brRes.success && brRes.data) setBranches(brRes.data);
@@ -73,7 +73,7 @@ export default function MonthlyBillingPage() {
     load();
   }, [load]);
 
-  const monthlyEnrollments = enrollments.filter((e) => e.course?.billingType === 'MONTHLY');
+  const monthlyEnrollments = enrollments.filter((e) => e.billingType === 'MONTHLY');
   const filteredPreview = monthlyEnrollments.filter((e) => {
     if (branchId !== 'all' && e.branchId !== branchId) return false;
     if (courseId !== 'all' && e.courseId !== courseId) return false;
@@ -202,7 +202,7 @@ export default function MonthlyBillingPage() {
                 <SelectItem value="all">All monthly courses</SelectItem>
                 {monthlyCourses.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
-                    {c.code} · {c.name}
+                    {c.slug} · {c.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -276,7 +276,7 @@ export default function MonthlyBillingPage() {
                   <TableRow key={e.id}>
                     <TableCell className="font-medium">{e.student?.fullName ?? '—'}</TableCell>
                     <TableCell className="text-slate-600">
-                      {e.course?.code} · {e.course?.name}
+                      {e.course?.slug} · {e.course?.name}
                     </TableCell>
                     <TableCell className="text-slate-600">{e.branch?.name ?? '—'}</TableCell>
                     <TableCell>{e.billingStartMonth || <span className="text-slate-400">Any month</span>}</TableCell>

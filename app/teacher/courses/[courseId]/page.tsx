@@ -309,7 +309,7 @@ export default function TeacherCourseDetailPage() {
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-mono font-bold text-slate-400 mb-1">{course.code}</p>
+          <p className="text-sm font-mono font-bold text-slate-400 mb-1">{course.slug}</p>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">{course.name}</h1>
           {course.program?.name && (
             <p className="mt-2 text-slate-600 font-bold">{course.program.name}</p>

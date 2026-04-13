@@ -74,7 +74,7 @@ export function CourseAssociationForm({ fromCourseId, courses, onSuccess, onCanc
             <SelectContent className="rounded-2xl shadow-xl">
               {availableCourses.map(c => (
                 <SelectItem key={c.id} value={c.id} className="font-bold py-3">
-                  {c.name} <span className="text-slate-400 font-mono text-[10px] ml-2">[{c.code}]</span>
+                  {c.name} <span className="text-slate-400 font-mono text-[10px] ml-2">[{c.slug}]</span>
                 </SelectItem>
               ))}
             </SelectContent>

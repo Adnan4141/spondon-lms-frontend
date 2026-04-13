@@ -5,6 +5,7 @@ export type CourseType = 'ONLINE' | 'OFFLINE';
 export type BillingType = 'ONE_TIME' | 'MONTHLY';
 export type AdmissionStatus = 'OPEN' | 'CLOSED';
 export type CourseStatus = 'ACTIVE' | 'DISABLED' | 'ARCHIVED';
+export type CourseCategory = 'SSC' | 'HSC' | 'ADMISSION' | 'JUNIOR_CADET_JOB';
 export type JsonValue =
   | string
   | number
@@ -161,10 +162,7 @@ export interface Course {
   slug: string;
   thumbnail?: string;
   type: CourseType;
-  billingType: BillingType;
   fee: number | string;
-  offerDiscountAmount?: number | string | null;
-  offerDiscountNote?: string | null;
   description?: string;
   outline?: JsonValue;
   featured: boolean;
@@ -173,6 +171,7 @@ export interface Course {
   branchAccessMode: string;
   admissionStatus: AdmissionStatus;
   status: CourseStatus;
+  category?: CourseCategory;
   settledOptionEnabled: boolean;
   createdAt: string;
   updatedAt: string;
@@ -189,10 +188,7 @@ export interface CreateCourseDto {
   slug?: string;
   thumbnail?: string;
   type: CourseType;
-  billingType: BillingType;
   fee: number;
-  offerDiscountAmount?: number | null;
-  offerDiscountNote?: string | null;
   description?: string;
   outline?: JsonValue;
   featured?: boolean;
@@ -209,10 +205,7 @@ export interface UpdateCourseDto {
   slug?: string;
   thumbnail?: string;
   type?: CourseType;
-  billingType?: BillingType;
   fee?: number;
-  offerDiscountAmount?: number | null;
-  offerDiscountNote?: string | null;
   description?: string;
   outline?: JsonValue;
   featured?: boolean;
@@ -288,7 +281,6 @@ export interface GetCoursesParams {
   programId?: string;
   status?: CourseStatus;
   websiteVisible?: boolean;
-  billingType?: BillingType;
   /** When set, returns courses where this user is on CourseTeacher OR CourseCollaborator. */
   teacherUserId?: string;
   page?: number;

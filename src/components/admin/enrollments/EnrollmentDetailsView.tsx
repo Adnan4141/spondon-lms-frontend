@@ -76,7 +76,7 @@ export function EnrollmentDetailsView({
   const [settleOutstandingOnCancel, setSettleOutstandingOnCancel] = useState(true);
 
   const course = enrollment.course;
-  const isMonthly = course?.billingType === 'MONTHLY';
+  const isMonthly = enrollment.billingType === 'MONTHLY';
   const isActive = String(enrollment.status).toUpperCase() === 'ACTIVE';
   const canMonthlyCancel = isMonthly && isActive;
 
@@ -126,17 +126,17 @@ export function EnrollmentDetailsView({
                   {enrollment.status}
                 </Badge>
                 <CourseDeliveryBadge type={course?.type} className="rounded-lg px-3 py-1 text-[10px]" />
-                {course?.billingType && (
+                {enrollment.billingType && (
                   <Badge
                     variant="outline"
                     className={cn(
                       'rounded-lg px-3 py-1 text-[10px] font-black uppercase tracking-widest',
-                      course.billingType === 'MONTHLY'
+                      enrollment.billingType === 'MONTHLY'
                         ? 'border-violet-200 bg-violet-50 text-violet-800'
                         : 'border-sky-200 bg-sky-50 text-sky-800'
                     )}
                   >
-                    {course.billingType === 'MONTHLY' ? 'মাসিক / Monthly' : 'এককালীন / One-time'}
+                    {enrollment.billingType === 'MONTHLY' ? 'মাসিক / Monthly' : 'এককালীন / One-time'}
                   </Badge>
                 )}
               </div>
@@ -145,7 +145,7 @@ export function EnrollmentDetailsView({
                 <h2 className="text-xl font-black tracking-tight text-slate-900 sm:text-2xl">
                   {course?.name ?? '—'}
                 </h2>
-                <p className="mt-1 font-mono text-xs font-bold text-indigo-600">{course?.code}</p>
+                <p className="mt-1 font-mono text-xs font-bold text-indigo-600">{course?.slug}</p>
               </div>
               <div className="flex flex-wrap gap-4 text-sm font-bold text-slate-600">
                 <span className="inline-flex items-center gap-1.5">
@@ -178,7 +178,7 @@ export function EnrollmentDetailsView({
         <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
             {
-              label: course?.billingType === 'MONTHLY' ? 'Monthly fee' : 'Course fee',
+              label: enrollment.billingType === 'MONTHLY' ? 'Monthly fee' : 'Course fee',
               value: course ? `৳${Number(course.fee).toLocaleString()}` : '—',
               icon: CreditCard,
               bg: 'bg-blue-50',

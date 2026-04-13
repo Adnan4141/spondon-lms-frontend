@@ -124,7 +124,6 @@ export interface PublicTeacher {
     id: string;
     slug?: string;
     name: string;
-    code?: string;
     description?: string;
     fee?: number | string;
     thumbnail?: string;

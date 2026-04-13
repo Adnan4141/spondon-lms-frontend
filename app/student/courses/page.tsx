@@ -9,10 +9,10 @@ import { getMyCourses } from '@/lib/api/student-portal';
 interface Course {
   id: string;
   billingStartMonth?: string | null;
+  billingType?: 'ONE_TIME' | 'MONTHLY';
   course?: {
     id: string;
     name: string;
-    billingType?: 'ONE_TIME' | 'MONTHLY';
   };
   batch?: {
     name: string;
@@ -96,7 +96,7 @@ export default function StudentMyCoursesPage() {
                             {c.batch.name}
                           </span>
                         ) : null}
-                        {c.course?.billingType === 'MONTHLY' ? (
+                        {c.billingType === 'MONTHLY' ? (
                           <span className="inline-block px-3 py-1 rounded-full bg-violet-50 text-violet-700 text-[10px] font-black uppercase tracking-widest">
                             মাসিক বিলিং
                             {c.billingStartMonth ? ` · ${c.billingStartMonth}` : ''}

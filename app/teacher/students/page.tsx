@@ -235,7 +235,7 @@ export default function TeacherStudentsPage() {
                                <BookOpen className="h-4 w-4" />
                             </div>
                             <div className="flex flex-col">
-                               <span className="text-[10px] font-black uppercase tracking-widest text-blue-600">{e.course?.code}</span>
+                               <span className="text-[10px] font-black uppercase tracking-widest text-blue-600">{e.course?.slug}</span>
                                <span className="text-sm font-bold text-slate-700 leading-none">{e.course?.name}</span>
                             </div>
                          </div>

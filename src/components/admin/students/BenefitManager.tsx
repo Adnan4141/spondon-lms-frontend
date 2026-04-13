@@ -81,7 +81,7 @@ export function BenefitManager({ studentId, enrollments, onChanged }: BenefitMan
       subtitle:
         key === 'GLOBAL'
           ? 'Global discount / scholarship'
-          : items[0]?.course?.code || enrollments.find((enrollment) => enrollment.courseId === key)?.course?.code || 'Course benefit',
+          : items[0]?.course?.slug || enrollments.find((enrollment) => enrollment.courseId === key)?.course?.slug || 'Course benefit',
       items,
     }));
   }, [activeBenefits, enrollments]);
@@ -294,7 +294,7 @@ export function BenefitManager({ studentId, enrollments, onChanged }: BenefitMan
                     <div key={enrollment.id} className="flex items-center justify-between gap-3 rounded-2xl bg-white/90 px-4 py-3 shadow-sm ring-1 ring-indigo-100">
                       <div>
                         <p className="text-sm font-black text-slate-900">{enrollment.course?.name}</p>
-                        <p className="text-xs font-medium text-slate-400">{enrollment.course?.code || 'Course'}</p>
+                        <p className="text-xs font-medium text-slate-400">{enrollment.course?.slug || 'Course'}</p>
                       </div>
                       <div className="flex items-center gap-2 text-indigo-700">
                         <span className="text-sm font-black">{courseBenefits.length}</span>

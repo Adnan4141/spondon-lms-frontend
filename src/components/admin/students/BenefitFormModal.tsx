@@ -284,9 +284,9 @@ export function BenefitFormModal({ studentId, enrollments, benefit, onSuccess }:
                 <p className="mt-2 font-black text-slate-900">
                   {courseId === 'GLOBAL' ? 'All current active courses' : selectedEnrollment?.course?.name || 'Specific course'}
                 </p>
-                {selectedEnrollment?.course?.code ? (
+                {selectedEnrollment?.course?.slug ? (
                   <Badge variant="outline" className="mt-2 rounded-full border-slate-200 bg-white text-[10px] font-black uppercase">
-                    {selectedEnrollment.course.code}
+                    {selectedEnrollment.course.slug}
                   </Badge>
                 ) : null}
               </div>
