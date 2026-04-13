@@ -408,11 +408,16 @@ const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>
                {[
                  { label: 'Enrolled', value: course._count?.enrollments || 0, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
                  {
-                   label: 'Course fee',
-                   value: `৳${Number(course.fee).toLocaleString()}`,
+                   label: course.offerPrice != null && Number(course.offerPrice) < Number(course.fee) ? 'Offer Price' : 'Course fee',
+                   value: course.offerPrice != null && Number(course.offerPrice) < Number(course.fee)
+                     ? `৳${Number(course.offerPrice).toLocaleString()}`
+                     : `৳${Number(course.fee).toLocaleString()}`,
                    icon: DollarSign,
                    color: 'text-emerald-600',
                    bg: 'bg-emerald-50',
+                   extra: course.offerPrice != null && Number(course.offerPrice) < Number(course.fee)
+                     ? `৳${Number(course.fee).toLocaleString()} · 🔥 ${Math.round(((Number(course.fee) - Number(course.offerPrice)) / Number(course.fee)) * 100)}% OFF`
+                     : undefined,
                  },
                  { label: 'Classes', value: outline?.totalClasses || 'N/A', icon: Calendar, color: 'text-violet-600', bg: 'bg-violet-50' },
                  { label: 'Duration', value: outline?.duration || 'N/A', icon: Clock, color: 'text-rose-600', bg: 'bg-rose-50' },
@@ -423,6 +428,12 @@ const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>
                     </div>
                     <p className="text-xs font-bold text-slate-500">{stat.label}</p>
                     <p className="mt-1 text-xl font-black text-slate-900">{stat.value}</p>
+                    {'extra' in stat && stat.extra && (
+                      <p className="mt-0.5 text-[10px] font-semibold text-slate-400 line-through-wrapper">
+                        <span className="line-through">{(stat.extra as string).split(' · ')[0]}</span>
+                        <span className="ml-1 text-emerald-600 no-underline">{(stat.extra as string).split(' · ')[1]}</span>
+                      </p>
+                    )}
                  </div>
                ))}
             </div>

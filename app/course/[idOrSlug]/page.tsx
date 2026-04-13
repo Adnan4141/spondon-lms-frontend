@@ -158,7 +158,8 @@ export default function CourseDetailsPage() {
         );
     }, [course, courseBooks, selectedPaidBookIds]);
 
-    const enrollTotal = course ? Number(course.fee) + booksAddonTotal : 0;
+    const effectiveCourseFee = course ? Number(course.offerPrice ?? course.fee) : 0;
+    const enrollTotal = effectiveCourseFee + booksAddonTotal;
 
     const togglePaidBook = (bookId: string) => {
         setSelectedPaidBookIds((prev) =>
@@ -626,9 +627,17 @@ export default function CourseDetailsPage() {
                                     <span className="font-black text-slate-500 uppercase text-xs tracking-widest">মোট ফি</span>
                                     <span className="text-4xl font-black text-[#5C2D91]">৳{enrollTotal.toLocaleString()}</span>
                                 </div>
+                                {course.offerPrice != null && Number(course.offerPrice) < Number(course.fee) && (
+                                    <p className="text-xs font-bold text-right mb-1">
+                                        <span className="text-slate-400 line-through mr-2">৳{Number(course.fee).toLocaleString()}</span>
+                                        <span className="inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-inset ring-emerald-200">
+                                            🔥 {Math.round(((Number(course.fee) - Number(course.offerPrice)) / Number(course.fee)) * 100)}% OFF
+                                        </span>
+                                    </p>
+                                )}
                                 {booksAddonTotal > 0 ? (
                                     <p className="text-[10px] font-bold text-slate-400 mb-6 text-right uppercase tracking-wide">
-                                        কোর্স ৳{Number(course.fee).toLocaleString()} + বই ৳{booksAddonTotal.toLocaleString()}
+                                        কোর্স ৳{effectiveCourseFee.toLocaleString()} + বই ৳{booksAddonTotal.toLocaleString()}
                                     </p>
                                 ) : (
                                     <div className="mb-6" />

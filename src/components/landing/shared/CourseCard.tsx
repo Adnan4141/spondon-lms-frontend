@@ -12,6 +12,7 @@ interface Props {
 }
 
 export const CourseCard: React.FC<Props> = ({ course, handleImageError }) => (
+<Link href={`/course/${course.slug || course.id}`} className="block h-full">
   <motion.div 
     variants={{
       hidden: { opacity: 0, y: 20 },
@@ -45,7 +46,17 @@ export const CourseCard: React.FC<Props> = ({ course, handleImageError }) => (
           </h3>
           <div className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Fee</span>
-            <span className="text-lg sm:text-xl font-black text-[#5C2D91]">৳{String(course.fee)}</span>
+            {course.offerPrice != null && Number(course.offerPrice) < Number(course.fee) ? (
+              <>
+                <span className="text-lg sm:text-xl font-black text-[#5C2D91]">৳{Number(course.offerPrice).toLocaleString()}</span>
+                <span className="text-sm text-slate-400 line-through font-medium">৳{Number(course.fee).toLocaleString()}</span>
+                <span className="inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-inset ring-emerald-200">
+                  🔥 {Math.round(((Number(course.fee) - Number(course.offerPrice)) / Number(course.fee)) * 100)}% OFF
+                </span>
+              </>
+            ) : (
+              <span className="text-lg sm:text-xl font-black text-[#5C2D91]">৳{Number(course.fee).toLocaleString()}</span>
+            )}
           </div>
         </div>
         <Link href={`/course/${course.slug || course.id}`} className="mt-6 block cursor-pointer">
@@ -59,4 +70,6 @@ export const CourseCard: React.FC<Props> = ({ course, handleImageError }) => (
       </div>
     </div>
   </motion.div>
+
+</Link>
 );

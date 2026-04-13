@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   getRoutineSlots,
   getRoutineExportPdfUrl,
@@ -90,6 +91,24 @@ function toYmd(d?: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+function parseYmd(value: string | null): Date | null {
+  if (!value) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+  return date;
+}
+
 function downloadCsv(calendar: CalendarDay[]) {
   const headers = ['Date', 'Day', 'Start Time', 'End Time', 'Course', 'Batch', 'Teacher', 'Topic'];
   const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
@@ -145,6 +164,7 @@ const EMPTY_SLOT_FORM: SlotFormState = {
 
 export default function AdminRoutinePage() {
   const { toast } = useToast();
+  const searchParams = useSearchParams();
 
   // ── Step 1: Selection state ──────────────────────────────────────
   const [programs, setPrograms] = useState<Program[]>([]);
@@ -520,6 +540,45 @@ export default function AdminRoutinePage() {
     setGenEndDate(new Date(now.getFullYear(), now.getMonth() + 2, 0));
   };
 
+  // ── Autofill date range from query params ───────────────────────
+  useEffect(() => {
+    const start = parseYmd(searchParams.get('startDate') || searchParams.get('start'));
+    const end = parseYmd(searchParams.get('endDate') || searchParams.get('end'));
+    if (start && end) {
+      setGenStartDate(start);
+      setGenEndDate(end);
+      return;
+    }
+
+    const presetRaw = (
+      searchParams.get('month') ||
+      searchParams.get('preset') ||
+      searchParams.get('range') ||
+      ''
+    )
+      .toLowerCase()
+      .trim();
+
+    const thisMonthSelected =
+      presetRaw === 'this-month' ||
+      presetRaw === 'this_month' ||
+      presetRaw === 'current' ||
+      presetRaw === 'current-month' ||
+      presetRaw === 'one-month' ||
+      presetRaw === 'one_month' ||
+      searchParams.get('oneMonth') === 'true';
+
+    const nextMonthSelected =
+      presetRaw === 'next-month' ||
+      presetRaw === 'next_month' ||
+      presetRaw === 'next' ||
+      searchParams.get('nextMonth') === 'true';
+
+    if (thisMonthSelected) setThisMonth();
+    if (nextMonthSelected) setNextMonth();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   const handlePublish = async () => {
     setPublishing(true);
     try {
@@ -638,7 +697,7 @@ export default function AdminRoutinePage() {
 
   // ── Render ───────────────────────────────────────────────────────
   return (
-    <div className="mx-auto max-w-7xl space-y-5 p-6">
+    <div className="mx-auto max-w-[90rem] space-y-5 p-6">
       {/* Page header */}
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-600 text-white shadow-md shrink-0">
@@ -846,10 +905,10 @@ export default function AdminRoutinePage() {
               <span className="text-sm">No slots yet — click &quot;Add slot&quot; to start.</span>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
+            <div className="overflow-auto rounded-lg border max-h-96">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-muted/50 hover:bg-muted/50">
+                  <TableRow className="sticky top-0 z-10 bg-muted/90 hover:bg-muted/90">
                     <TableHead className="font-semibold">Day</TableHead>
                     <TableHead className="font-semibold">Time</TableHead>
                     <TableHead className="font-semibold">Topic / subject</TableHead>

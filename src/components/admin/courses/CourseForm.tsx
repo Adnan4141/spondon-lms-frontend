@@ -112,6 +112,7 @@ type FormState = {
   thumbnail: string;
   type: CourseType;
   fee: string;
+  offerPrice: string;
   description: string;
   status: CourseStatus;
   admissionStatus: AdmissionStatus;
@@ -135,6 +136,7 @@ const defaultForm: FormState = {
   thumbnail: '',
   type: 'ONLINE',
   fee: '0',
+  offerPrice: '',
   description: '',
   status: 'ACTIVE',
   admissionStatus: 'OPEN',
@@ -300,6 +302,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
         thumbnail: course.thumbnail || '',
         type: course.type,
         fee: String(course.fee),
+        offerPrice: course.offerPrice != null ? String(course.offerPrice) : '',
         description: course.description || '',
         status: course.status,
         admissionStatus: course.admissionStatus,
@@ -444,6 +447,18 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
       setError('Program and course name are required.');
       return;
     }
+    if (form.offerPrice.trim()) {
+      const opNum = Number(form.offerPrice);
+      const feeNum = Number(form.fee);
+      if (Number.isNaN(opNum) || opNum < 0) {
+        setError('Offer price must be a valid non-negative number.');
+        return;
+      }
+      if (!Number.isNaN(feeNum) && feeNum > 0 && opNum >= feeNum) {
+        setError('Offer price must be less than the actual price.');
+        return;
+      }
+    }
     const filteredBenefits = form.benefits.map((b) => b.trim()).filter(Boolean);
     const existingOutline =
       course?.outline && typeof course.outline === 'object' && !Array.isArray(course.outline)
@@ -484,6 +499,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
       thumbnail: form.thumbnail.trim() || undefined,
       type: form.type,
       fee: Number(form.fee ?? 0),
+      offerPrice: form.offerPrice.trim() ? Number(form.offerPrice) : null,
       outline: outline as JsonValue,
       description: form.description.trim() || undefined,
       status: form.status,
@@ -753,6 +769,47 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                     onChange={(e) => setForm((p) => ({ ...p, fee: e.target.value }))}
                     placeholder="0"
                   />
+                </div>
+
+                <div>
+                  <FieldLabel>Offer Price (BDT)</FieldLabel>
+                  <Input
+                    className={cn(field, (() => {
+                      const op = Number(form.offerPrice);
+                      const f = Number(form.fee);
+                      if (form.offerPrice.trim() && !Number.isNaN(op) && !Number.isNaN(f) && op >= f && f > 0)
+                        return 'border-rose-400 focus:ring-rose-500/20 focus:border-rose-400';
+                      return '';
+                    })())}
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.offerPrice}
+                    onChange={(e) => setForm((p) => ({ ...p, offerPrice: e.target.value }))}
+                    placeholder="Leave empty for no discount"
+                  />
+                  {(() => {
+                    const op = Number(form.offerPrice);
+                    const f = Number(form.fee);
+                    if (!form.offerPrice.trim() || Number.isNaN(op) || Number.isNaN(f) || f <= 0) return null;
+                    if (op >= f) {
+                      return (
+                        <p className="mt-1.5 text-xs font-semibold text-rose-500 flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3" />
+                          Offer price must be less than actual price
+                        </p>
+                      );
+                    }
+                    const pct = Math.round(((f - op) / f) * 100);
+                    return (
+                      <p className="mt-1.5 text-xs font-bold text-emerald-600 flex items-center gap-1">
+                        🔥 {pct}% OFF
+                        <span className="font-normal text-slate-400 ml-1">
+                          ৳{f.toLocaleString()} → ৳{op.toLocaleString()}
+                        </span>
+                      </p>
+                    );
+                  })()}
                 </div>
 
                 <div>

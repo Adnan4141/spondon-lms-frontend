@@ -381,7 +381,19 @@ export default function CoursesPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <p className="font-black text-slate-900 text-base">৳{Number(course.fee).toLocaleString()}</p>
+                      {course.offerPrice != null && Number(course.offerPrice) < Number(course.fee) ? (
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-slate-400 line-through font-medium">৳{Number(course.fee).toLocaleString()}</span>
+                            <span className="inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-inset ring-emerald-200">
+                              🔥 {Math.round(((Number(course.fee) - Number(course.offerPrice)) / Number(course.fee)) * 100)}% OFF
+                            </span>
+                          </div>
+                          <p className="font-black text-emerald-700 text-base">৳{Number(course.offerPrice).toLocaleString()}</p>
+                        </div>
+                      ) : (
+                        <p className="font-black text-slate-900 text-base">৳{Number(course.fee).toLocaleString()}</p>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className={cn("rounded-lg px-2.5 py-1 text-[10px] font-black uppercase tracking-widest shadow-sm", getStatusBadgeClass(course.status))}>

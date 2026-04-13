@@ -162,6 +162,7 @@ export interface Course {
   thumbnail?: string;
   type: CourseType;
   fee: number | string;
+  offerPrice?: number | string | null;
   description?: string;
   outline?: JsonValue;
   featured: boolean;
@@ -187,6 +188,7 @@ export interface CreateCourseDto {
   thumbnail?: string;
   type: CourseType;
   fee: number;
+  offerPrice?: number | null;
   description?: string;
   outline?: JsonValue;
   featured?: boolean;
@@ -204,6 +206,7 @@ export interface UpdateCourseDto {
   thumbnail?: string;
   type?: CourseType;
   fee?: number;
+  offerPrice?: number | null;
   description?: string;
   outline?: JsonValue;
   featured?: boolean;
@@ -261,6 +264,9 @@ export interface CourseDetailCourseBook {
 
 export interface CourseFeeBreakdown {
   courseFee: number;
+  offerPrice?: number | null;
+  effectivePrice?: number;
+  discountPercent?: number | null;
   linkedBooksTotal: number;
   totalWithPaidBooks: number;
 }
