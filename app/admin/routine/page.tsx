@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   getRoutineSlots,
@@ -162,7 +162,7 @@ const EMPTY_SLOT_FORM: SlotFormState = {
 
 // ── Component ───────────────────────────────────────────────────────
 
-export default function AdminRoutinePage() {
+function AdminRoutinePageInner() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
 
@@ -1315,5 +1315,13 @@ export default function AdminRoutinePage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function AdminRoutinePage() {
+  return (
+    <Suspense>
+      <AdminRoutinePageInner />
+    </Suspense>
   );
 }
