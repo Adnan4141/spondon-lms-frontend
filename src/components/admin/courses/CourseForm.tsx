@@ -131,6 +131,8 @@ type FormState = {
   billingType: BillingType;
   grade: string;
   group: string;
+  startDate: string;
+  durationMonths: string;
   benefits: string[];
   websiteSections: CourseWebsiteSection[];
   publicShowBenefits: boolean;
@@ -158,6 +160,8 @@ const defaultForm: FormState = {
   billingType: 'ONE_TIME',
   grade: '',
   group: '',
+  startDate: '',
+  durationMonths: '',
   benefits: DEFAULT_BENEFITS,
   websiteSections: [],
   publicShowBenefits: true,
@@ -329,6 +333,8 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
         billingType: (course.billingType as BillingType) || 'ONE_TIME',
         grade: course.grade || '',
         group: course.group || '',
+        startDate: course.startDate ? course.startDate.slice(0, 10) : '',
+        durationMonths: course.durationMonths != null ? String(course.durationMonths) : '',
         benefits: loadedBenefits,
         websiteSections: loadedWebsiteSections,
         publicShowBenefits: pub.showBenefits,
@@ -530,6 +536,8 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
       billingType: form.billingType,
       grade: form.grade || undefined,
       group: form.group || undefined,
+      startDate: form.startDate || null,
+      durationMonths: form.durationMonths ? Number(form.durationMonths) : null,
     };
 
     try {
@@ -655,11 +663,19 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                     value={form.programId}
                     onValueChange={(value) => {
                       const selected = programs.find((p) => p.id === value);
-                      if (selected?.paymentCircle === 'MONTHLY') {
-                        setForm((prev) => ({ ...prev, programId: value, billingType: 'MONTHLY' }));
-                      } else {
-                        setForm((prev) => ({ ...prev, programId: value }));
+                      const updates: Partial<FormState> = { programId: value };
+                      if (selected?.mode === 'ONLINE') {
+                        updates.type = 'ONLINE';
+                        updates.billingType = 'ONE_TIME';
+                      } else if (selected?.mode === 'OFFLINE') {
+                        updates.type = 'OFFLINE';
+                        if (selected?.paymentCircle === 'MONTHLY') {
+                          updates.billingType = 'MONTHLY';
+                        }
+                      } else if (selected?.paymentCircle === 'MONTHLY') {
+                        updates.billingType = 'MONTHLY';
                       }
+                      setForm((prev) => ({ ...prev, ...updates }));
                     }}
                   >
                     <SelectTrigger className={field}>
@@ -764,6 +780,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                   <FieldLabel>Course Type</FieldLabel>
                   <Select
                     value={form.type}
+                    disabled={!!programs.find((p) => p.id === form.programId)?.mode}
                     onValueChange={(v) => setForm((p) => ({ ...p, type: v as CourseType }))}
                   >
                     <SelectTrigger className={field}>
@@ -820,7 +837,10 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                   <FieldLabel>Billing Type</FieldLabel>
                   <Select
                     value={form.billingType}
-                    disabled={programs.find((p) => p.id === form.programId)?.paymentCircle === 'MONTHLY'}
+                    disabled={(() => {
+                      const sel = programs.find((p) => p.id === form.programId);
+                      return sel?.paymentCircle === 'MONTHLY' || sel?.mode === 'ONLINE';
+                    })()}
                     onValueChange={(value) =>
                       setForm((prev) => ({ ...prev, billingType: value as BillingType }))
                     }
@@ -901,6 +921,45 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div>
+                  <FieldLabel>Start Date</FieldLabel>
+                  <Input
+                    className={field}
+                    type="date"
+                    value={form.startDate}
+                    onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))}
+                  />
+                </div>
+
+                <div>
+                  <FieldLabel>Duration (Months)</FieldLabel>
+                  <Input
+                    className={field}
+                    type="number"
+                    min="1"
+                    value={form.durationMonths}
+                    onChange={(e) => setForm((p) => ({ ...p, durationMonths: e.target.value }))}
+                    placeholder="e.g. 12"
+                  />
+                </div>
+
+                {form.startDate && form.durationMonths && Number(form.durationMonths) > 0 && (
+                  <div>
+                    <FieldLabel>End Date (auto)</FieldLabel>
+                    <Input
+                      className={field + ' bg-slate-50'}
+                      readOnly
+                      value={(() => {
+                        const sd = new Date(form.startDate);
+                        if (isNaN(sd.getTime())) return '';
+                        sd.setMonth(sd.getMonth() + Number(form.durationMonths));
+                        sd.setDate(sd.getDate() - 1);
+                        return sd.toISOString().slice(0, 10);
+                      })()}
+                    />
+                  </div>
+                )}
               </div>
 
               {programs.find((p) => p.id === form.programId)?.paymentCircle === 'MONTHLY' && (

@@ -80,8 +80,8 @@ function TestimonialMedia({ t }: { t: Testimonial }) {
           src={thumbSrc}
           alt={t.name || 'Testimonial'}
           fill
-          className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 90vw, 40vw"
+          className="object-cover h-full transition-transform duration-500 group-hover:scale-[1.02]"
+     
         />
         {videoSrc ? (
           <a

@@ -90,6 +90,12 @@ export function EnrollmentDetailsView({
   const [booksReceivedLocal, setBooksReceivedLocal] = useState<boolean>(enrollment.booksReceived ?? false);
   const [booksReceivedBusy, setBooksReceivedBusy] = useState(false);
 
+  const course = enrollment.course;
+  const isMonthly = enrollment.billingType === 'MONTHLY';
+  const isActive = String(enrollment.status).toUpperCase() === 'ACTIVE';
+  const isSuspended = String(enrollment.status).toUpperCase() === 'SUSPENDED';
+  const canMonthlyCancel = isMonthly && isActive;
+
   useEffect(() => {
     if (canMonthlyCancel) {
       apiRequest<any>(`/enrollments/${enrollment.id}/cancel-preview`)
@@ -102,12 +108,6 @@ export function EnrollmentDetailsView({
         .catch(() => {});
     }
   }, [enrollment.id, canMonthlyCancel]);
-
-  const course = enrollment.course;
-  const isMonthly = enrollment.billingType === 'MONTHLY';
-  const isActive = String(enrollment.status).toUpperCase() === 'ACTIVE';
-  const isSuspended = String(enrollment.status).toUpperCase() === 'SUSPENDED';
-  const canMonthlyCancel = isMonthly && isActive;
 
   const handleRegenerateRoll = async () => {
     try {
@@ -184,7 +184,7 @@ export function EnrollmentDetailsView({
       const res = await cancelMonthlyEnrollment(enrollment.id, {
         reason: monthlyReason.trim() || undefined,
         settleInvoices: settleOutstandingOnCancel,
-        newRecurringScholarship: newScholarship ? Number(newScholarship) : undefined,
+        newMonthlyFlatDiscount: newScholarship ? Number(newScholarship) : undefined,
       });
       if (res.success) {
         toast({
@@ -474,21 +474,21 @@ export function EnrollmentDetailsView({
                   {remainingCourses.map((rc) => (
                     <div key={rc.enrollmentId} className="flex items-center justify-between text-sm">
                       <span className="font-medium text-slate-700">{rc.courseName}</span>
-                      <span className="text-xs text-slate-500">৳{Number(rc.fee).toLocaleString()} (scholarship: ৳{Number(rc.recurringScholarship).toLocaleString()})</span>
+                      <span className="text-xs text-slate-500">৳{Number(rc.fee).toLocaleString()} (discount: ৳{Number(rc.recurringScholarship).toLocaleString()})</span>
                     </div>
                   ))}
                 </div>
                 <p className="text-xs font-medium text-slate-600">
-                  Current total monthly scholarship: <span className="font-bold text-slate-900">৳{currentScholarship.toLocaleString()}</span>
+                  Current total monthly discount: <span className="font-bold text-slate-900">৳{currentScholarship.toLocaleString()}</span>
                 </p>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase tracking-wider text-amber-800">New Monthly Scholarship (optional)</label>
+                  <label className="text-[10px] font-black uppercase tracking-wider text-amber-800">New Monthly Discount (optional)</label>
                   <Input
                     type="number"
                     min="0"
                     value={newScholarship}
                     onChange={(e) => setNewScholarship(e.target.value)}
-                    placeholder="Leave blank to keep current scholarship"
+                    placeholder="Leave blank to keep current discount"
                     className="h-10 rounded-xl"
                   />
                   <p className="text-[10px] font-medium text-slate-500">If set, this amount will be distributed across the remaining {remainingCourses.length} course(s).</p>

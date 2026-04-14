@@ -124,11 +124,14 @@ export function normalizeCoursePublicPageDisplay(outline: unknown): CoursePublic
   };
 }
 
+export type DeliveryMode = 'ONLINE' | 'OFFLINE';
+
 export interface Program {
   id: string;
   name: string;
   description?: string;
   thumbnail?: string;
+  mode?: DeliveryMode;
   admissionFeeEnabled?: boolean;
   admissionFeeAmount?: number | null;
   paymentCircle?: BillingType;
@@ -143,6 +146,7 @@ export interface CreateProgramDto {
   name: string;
   description?: string;
   thumbnail?: string;
+  mode?: DeliveryMode;
   admissionFeeEnabled?: boolean;
   admissionFeeAmount?: number | null;
   paymentCircle?: BillingType;
@@ -152,6 +156,7 @@ export interface UpdateProgramDto {
   name?: string;
   description?: string;
   thumbnail?: string;
+  mode?: DeliveryMode;
   admissionFeeEnabled?: boolean;
   admissionFeeAmount?: number | null;
   paymentCircle?: BillingType;
@@ -178,6 +183,9 @@ export interface Course {
   billingType?: BillingType;
   grade?: string | null;
   group?: string | null;
+  startDate?: string | null;
+  durationMonths?: number | null;
+  endDate?: string | null;
   createdAt: string;
   updatedAt: string;
   program?: Program;
@@ -206,6 +214,8 @@ export interface CreateCourseDto {
   billingType?: BillingType;
   grade?: string;
   group?: string;
+  startDate?: string | null;
+  durationMonths?: number | null;
 }
 
 export interface UpdateCourseDto {
@@ -227,6 +237,8 @@ export interface UpdateCourseDto {
   billingType?: BillingType;
   grade?: string;
   group?: string;
+  startDate?: string | null;
+  durationMonths?: number | null;
 }
 
 export interface CourseDetailBatch {

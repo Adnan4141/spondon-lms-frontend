@@ -13,6 +13,7 @@ export interface Enrollment {
   billingType?: 'ONE_TIME' | 'MONTHLY';
   billingStartMonth?: string | null;
   booksReceived?: boolean;
+  monthlyFlatDiscount?: number | string | null;
   createdAt: string;
   updatedAt: string;
   student?: {
@@ -49,6 +50,8 @@ export interface CreateEnrollmentDto {
   branchId: string;
   status?: EnrollmentStatusType;
   billingStartMonth?: string; // YYYY-MM
+  installmentCount?: number | null; // 2-3, only for OFFLINE ONE_TIME
+  installmentSchedule?: any; // [{amount, dueDate}, ...] for custom splits
 }
 
 export interface UpdateEnrollmentDto {
@@ -57,6 +60,8 @@ export interface UpdateEnrollmentDto {
   billingStartMonth?: string;
   reason?: string;
   appliedByUserId?: string;
+  booksReceived?: boolean;
+  monthlyFlatDiscount?: number | null;
 }
 
 export async function getEnrollments(params?: {
@@ -222,11 +227,13 @@ export interface OfflineAdmissionDto {
   receivedByUserId?: string;
   discountAmount?: number;
   discountReference?: string;
-  monthlyDiscountAmount?: number;
+  monthlyFlatDiscount?: number;
   scholarshipAmount?: number;
-  recurringScholarship?: number;
+  includeBooks?: boolean;
   forceWaitlist?: boolean;
   nextPaymentDueDate?: string;
+  /** Number of installments (2 or 3). Only for ONE_TIME billing. */
+  installmentCount?: number;
   additionalItems?: Array<{
     type?: string;
     refId?: string;
@@ -294,10 +301,45 @@ export interface EnrollmentDiscountLogEntry {
   appliedBy?: { id: string; fullName: string } | null;
 }
 
+export async function updateMonthlyDiscount(
+  enrollmentId: string,
+  monthlyFlatDiscount: number,
+): Promise<ApiResponse<{ invoiceId: string | null }>> {
+  return apiRequest<ApiResponse<{ invoiceId: string | null }>>(`/enrollments/${enrollmentId}/monthly-discount`, {
+    method: 'PATCH',
+    body: JSON.stringify({ monthlyFlatDiscount }),
+  });
+}
+
 export async function getEnrollmentDiscountHistory(
   studentUserId: string,
 ): Promise<ApiResponse<EnrollmentDiscountLogEntry[]>> {
   return apiRequest<ApiResponse<EnrollmentDiscountLogEntry[]>>(
     `/enrollments/discount-history?studentUserId=${encodeURIComponent(studentUserId)}`,
+  );
+}
+
+export interface AdmissionFeeCheckResult {
+  programId: string;
+  programName: string;
+  admissionFeeEnabled: boolean;
+  admissionFeeAmount: number;
+  alreadyPaid: boolean;
+  courseFee: number;
+  courseName: string;
+  totalAmount: number;
+}
+
+export async function checkAdmissionFee(params: {
+  studentUserId: string;
+  programId?: string;
+  courseId?: string;
+}): Promise<ApiResponse<AdmissionFeeCheckResult>> {
+  const queryParams = new URLSearchParams();
+  queryParams.append('studentUserId', params.studentUserId);
+  if (params.programId) queryParams.append('programId', params.programId);
+  if (params.courseId) queryParams.append('courseId', params.courseId);
+  return apiRequest<ApiResponse<AdmissionFeeCheckResult>>(
+    `/enrollments/admission-check?${queryParams.toString()}`,
   );
 }

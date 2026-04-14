@@ -84,6 +84,7 @@ export function AddEnrollmentForm({
   const step = nested ? nested.parentStep - 1 : internalStep;
   const [enrollmentMode, setEnrollmentMode] = useState<'program' | 'search'>('program');
   const [selectedBillingType, setSelectedBillingType] = useState<'ONE_TIME' | 'MONTHLY'>('ONE_TIME');
+  const [installmentCount, setInstallmentCount] = useState<number>(0);
   const [programs, setPrograms] = useState<Program[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [allCourses, setAllCourses] = useState<Course[]>([]);
@@ -121,6 +122,8 @@ export function AddEnrollmentForm({
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('CASH');
   const [paymentTrxId, setPaymentTrxId] = useState('');
   const [nextPaymentDueDate, setNextPaymentDueDate] = useState('');
+  const [monthlyFlatDiscount, setMonthlyFlatDiscount] = useState('');
+  const [includeBooks, setIncludeBooks] = useState(true);
 
   useEffect(() => {
     const loadData = async () => {
@@ -589,8 +592,11 @@ export function AddEnrollmentForm({
         paymentTrxId: payTotal > 0 && paymentMethod !== 'CASH' ? paymentTrxId.trim() || undefined : undefined,
         discountAmount: discTotal > 0 ? discTotal : undefined,
         discountReference: discTotal > 0 ? refShared || undefined : undefined,
+        monthlyFlatDiscount: Number(monthlyFlatDiscount) || undefined,
+        includeBooks,
         nextPaymentDueDate: nextDueIso,
         admissionFeeAmountOverrides: Object.keys(feeOverrides).length > 0 ? feeOverrides : undefined,
+        installmentCount: selectedBillingType === 'ONE_TIME' && installmentCount > 0 ? installmentCount : undefined,
       });
       if (!adm.success) throw new Error(adm.message || 'Admission failed');
       const pdfUrl = adm.data?.pdfUrl;
@@ -714,6 +720,31 @@ export function AddEnrollmentForm({
                 </SelectContent>
               </Select>
             </div>
+
+            {/* ── Installment Selector (ONE_TIME only) ────────────── */}
+            {selectedBillingType === 'ONE_TIME' && (
+              <div className="space-y-2">
+                <label className={sectionLabel}>Installments (optional)</label>
+                <Select
+                  value={String(installmentCount)}
+                  onValueChange={(v) => setInstallmentCount(Number(v))}
+                >
+                  <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-white font-bold shadow-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl">
+                    <SelectItem value="0">Full payment (no installments)</SelectItem>
+                    <SelectItem value="2">2 installments</SelectItem>
+                    <SelectItem value="3">3 installments</SelectItem>
+                  </SelectContent>
+                </Select>
+                {installmentCount > 0 && (
+                  <p className="text-xs font-medium text-amber-600 leading-relaxed">
+                    Fee will be split into {installmentCount} equal invoices. Admission fee (if any) is added to the first installment.
+                  </p>
+                )}
+              </div>
+            )}
 
             {enrollmentMode === 'search' && (
               <div className="space-y-3">
@@ -1247,6 +1278,44 @@ export function AddEnrollmentForm({
                   />
                 </div>
               </div>
+            </div>
+
+            {/* Monthly discount & book inclusion */}
+            {selectedBillingType === 'MONTHLY' && (
+              <div className="rounded-2xl border border-blue-200 bg-blue-50/30 p-4 shadow-sm">
+                <p className="text-[10px] font-black uppercase tracking-widest text-blue-600">Monthly Recurring Discount</p>
+                <p className="mt-1 text-xs text-blue-500">
+                  Flat discount distributed proportionally across all program courses every month.
+                </p>
+                <div className="mt-3">
+                  <label className={sectionLabel}>Monthly flat discount (BDT)</label>
+                  <Input
+                    className={inputClass}
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={monthlyFlatDiscount}
+                    onChange={(e) => setMonthlyFlatDiscount(e.target.value)}
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  id="include-books"
+                  checked={includeBooks}
+                  onCheckedChange={(v) => setIncludeBooks(!!v)}
+                />
+                <label htmlFor="include-books" className="text-sm font-semibold text-slate-700 cursor-pointer">
+                  Include course books in invoice
+                </label>
+              </div>
+              <p className="mt-1 ml-7 text-xs text-slate-500">
+                Auto-adds linked books (free books at ৳0, paid books at book price).
+              </p>
             </div>
 
             <div

@@ -145,10 +145,11 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
   const mobileDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Monthly discount (recurring)
-  const [monthlyDiscountAmount, setMonthlyDiscountAmount] = useState('');
+  const [monthlyFlatDiscount, setMonthlyFlatDiscount] = useState('');
 
   // One-time vs Monthly payment mode
   const [enrollPaymentMode, setEnrollPaymentMode] = useState<'ONE_TIME' | 'MONTHLY'>('MONTHLY');
+  const [installmentCount, setInstallmentCount] = useState<number>(0);
   const [done, setDone] = useState<{
     studentId: string;
     roll: string;
@@ -383,7 +384,7 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
   const totalAdmissionFee = effectiveAdmissionFeeTotal;
 
   const totalDiscountNum = Number(totalDiscountAmount) || 0;
-  const totalMonthlyDiscountNum = enrollPaymentMode === 'ONE_TIME' ? 0 : (Number(monthlyDiscountAmount) || 0);
+  const totalMonthlyDiscountNum = enrollPaymentMode === 'ONE_TIME' ? 0 : (Number(monthlyFlatDiscount) || 0);
   const totalPaymentNum = Number(totalPaymentAmount) || 0;
 
   /** Course + admission (matches backend invoice line total before discounts). */
@@ -604,9 +605,11 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
         paymentTrxId: payTotal > 0 && paymentMethod !== 'CASH' ? paymentTrxId.trim() || undefined : undefined,
         discountAmount: discTotal > 0 ? discTotal : undefined,
         discountReference: discTotal > 0 ? refTrim : undefined,
-        monthlyDiscountAmount: totalMonthlyDiscountNum > 0 ? totalMonthlyDiscountNum : undefined,
+        monthlyFlatDiscount: totalMonthlyDiscountNum > 0 ? totalMonthlyDiscountNum : undefined,
+        includeBooks: true,
         nextPaymentDueDate: nextDueIso,
         admissionFeeAmountOverrides: Object.keys(feeOverrides).length > 0 ? feeOverrides : undefined,
+        installmentCount: enrollPaymentMode === 'ONE_TIME' && installmentCount > 0 ? installmentCount : undefined,
       }, `wizard-${studentUserId}-${Date.now()}`);
 
       if (!adm.success || !adm.data) {
@@ -1267,6 +1270,31 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
               </button>
             </div>
 
+            {/* ── Installment selector (ONE_TIME only) ── */}
+            {enrollPaymentMode === 'ONE_TIME' && (
+              <div className="space-y-2">
+                <label className={sectionLabel}>Installments (optional)</label>
+                <Select
+                  value={String(installmentCount)}
+                  onValueChange={(v) => setInstallmentCount(Number(v))}
+                >
+                  <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-white font-bold shadow-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl">
+                    <SelectItem value="0">Full payment (no installments)</SelectItem>
+                    <SelectItem value="2">2 installments</SelectItem>
+                    <SelectItem value="3">3 installments</SelectItem>
+                  </SelectContent>
+                </Select>
+                {installmentCount > 0 && (
+                  <p className="text-xs font-medium text-amber-600 leading-relaxed">
+                    Fee will be split into {installmentCount} equal invoices. Admission fee (if any) is added to the first installment.
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* ── Categorized fees ── */}
             {/* One-time charges */}
             {enrollPaymentMode === 'ONE_TIME' && (oneTimeCourseFees > 0 || effectiveAdmissionFeeTotal > 0) && (
@@ -1395,11 +1423,11 @@ export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudent
                   type="number"
                   min={0}
                   step="0.01"
-                  value={monthlyDiscountAmount}
-                  onChange={(e) => setMonthlyDiscountAmount(e.target.value)}
+                  value={monthlyFlatDiscount}
+                  onChange={(e) => setMonthlyFlatDiscount(e.target.value)}
                   placeholder="0"
                 />
-                <p className="text-[10px] font-medium text-slate-400">প্রতি মাসে এই পরিমাণ ছাড় পাবেন।</p>
+                <p className="text-[10px] font-medium text-slate-400">প্রতি মাসে এই পরিমাণ ছাড় পাবেন। কোর্স ফি অনুপাতে ভাগ হবে।</p>
               </div>
             )}
 
