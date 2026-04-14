@@ -114,6 +114,8 @@ export default function CoursesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<CourseStatus | 'all'>('ACTIVE');
   const [typeFilter, setTypeFilter] = useState<CourseType | 'all'>('all');
+  const [gradeFilter, setGradeFilter] = useState<string>('');
+  const [groupFilter, setGroupFilter] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [pagination, setPagination] = useState({
     page: 1,
@@ -131,6 +133,8 @@ export default function CoursesPage() {
         limit: pagination.limit,
       };
       if (statusFilter !== 'all') params.status = statusFilter;
+      if (gradeFilter) params.grade = gradeFilter;
+      if (groupFilter) params.group = groupFilter;
 
       const response = await getCourses(params);
 
@@ -246,7 +250,7 @@ export default function CoursesPage() {
   };
 
   useEffect(() => { loadPrograms(); }, []);
-  useEffect(() => { loadCourses(); }, [pagination.page, statusFilter]);
+  useEffect(() => { loadCourses(); }, [pagination.page, statusFilter, gradeFilter, groupFilter]);
   useEffect(() => {
     const timer = setTimeout(() => {
       if (pagination.page === 1) loadCourses();
@@ -295,6 +299,30 @@ export default function CoursesPage() {
                   <SelectItem key={opt} value={opt} className="text-sm font-medium">
                     {opt === 'all' ? 'All Types' : opt}
                   </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={gradeFilter || '_all'} onValueChange={(v) => setGradeFilter(v === '_all' ? '' : v)}>
+              <SelectTrigger className="h-12 w-[150px] rounded-2xl border-slate-200 bg-white text-sm font-medium shadow-sm">
+                <SelectValue placeholder="All Grades" />
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl border-slate-200 bg-white text-slate-900 shadow-xl">
+                <SelectItem value="_all" className="text-sm font-medium">All Grades</SelectItem>
+                {['SSC', 'HSC', 'Admission', 'Junior', 'Cadet', 'Job'].map((g) => (
+                  <SelectItem key={g} value={g} className="text-sm font-medium">{g}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={groupFilter || '_all'} onValueChange={(v) => setGroupFilter(v === '_all' ? '' : v)}>
+              <SelectTrigger className="h-12 w-[150px] rounded-2xl border-slate-200 bg-white text-sm font-medium shadow-sm">
+                <SelectValue placeholder="All Groups" />
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl border-slate-200 bg-white text-slate-900 shadow-xl">
+                <SelectItem value="_all" className="text-sm font-medium">All Groups</SelectItem>
+                {['Science', 'Commerce', 'Arts'].map((g) => (
+                  <SelectItem key={g} value={g} className="text-sm font-medium">{g}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

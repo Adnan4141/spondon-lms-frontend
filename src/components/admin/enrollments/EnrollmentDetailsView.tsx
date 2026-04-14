@@ -5,6 +5,7 @@ import type { Enrollment } from '@/lib/api/enrollments';
 import { cancelMonthlyEnrollment, getInvoices, getInvoicePdfUrl } from '@/lib/api/invoices';
 import { apiRequest } from '@/lib/api';
 import { API_ORIGIN } from '@/lib/api';
+import { regenerateRoll, suspendEnrollment, unsuspendEnrollment, updateEnrollment } from '@/lib/api/enrollments';
 import type { Invoice } from '@/types/invoice';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,6 +33,10 @@ import {
   GraduationCap,
   Tag,
   AlertCircle,
+  RefreshCw,
+  PauseCircle,
+  PlayCircle,
+  Book,
 } from 'lucide-react';
 
 export interface EnrollmentDetailsViewProps {
@@ -50,6 +55,7 @@ function getStatusBadgeClass(status: string) {
   if (s === 'PAUSED') return 'bg-amber-50 text-amber-700 border-amber-100 font-black';
   if (s === 'CANCELLED') return 'bg-rose-50 text-rose-700 border-rose-100 font-black';
   if (s === 'COMPLETED') return 'bg-indigo-50 text-indigo-700 border-indigo-100 font-black';
+  if (s === 'SUSPENDED') return 'bg-orange-50 text-orange-700 border-orange-200 font-black';
   if (s === 'PENDING_PAYMENT') return 'bg-orange-50 text-orange-700 border-orange-200 font-black';
   if (s === 'EXPIRED') return 'bg-red-50 text-red-700 border-red-200 font-black';
   return 'bg-slate-100 text-slate-600 border-slate-200 font-black';
@@ -78,6 +84,11 @@ export function EnrollmentDetailsView({
   const [newScholarship, setNewScholarship] = useState('');
   const [remainingCourses, setRemainingCourses] = useState<{ enrollmentId: string; courseName: string; fee: number; recurringScholarship: number }[]>([]);
   const [currentScholarship, setCurrentScholarship] = useState<number>(0);
+  const [rollBusy, setRollBusy] = useState(false);
+  const [rollNumber, setRollNumber] = useState<number | null>(null);
+  const [suspendBusy, setSuspendBusy] = useState(false);
+  const [booksReceivedLocal, setBooksReceivedLocal] = useState<boolean>(enrollment.booksReceived ?? false);
+  const [booksReceivedBusy, setBooksReceivedBusy] = useState(false);
 
   useEffect(() => {
     if (canMonthlyCancel) {
@@ -95,7 +106,77 @@ export function EnrollmentDetailsView({
   const course = enrollment.course;
   const isMonthly = enrollment.billingType === 'MONTHLY';
   const isActive = String(enrollment.status).toUpperCase() === 'ACTIVE';
+  const isSuspended = String(enrollment.status).toUpperCase() === 'SUSPENDED';
   const canMonthlyCancel = isMonthly && isActive;
+
+  const handleRegenerateRoll = async () => {
+    try {
+      setRollBusy(true);
+      const res = await regenerateRoll(enrollment.id);
+      if (res.success && res.data) {
+        setRollNumber(res.data.rollNumber);
+        toast({ title: 'Roll generated', description: `Roll number: ${res.data.rollNumber}`, variant: 'success' });
+      } else {
+        toast({ title: 'Failed', description: res.message, variant: 'destructive' });
+      }
+    } catch (e: unknown) {
+      toast({ title: 'Error', description: e instanceof Error ? e.message : 'Failed', variant: 'destructive' });
+    } finally {
+      setRollBusy(false);
+    }
+  };
+
+  const handleSuspend = async () => {
+    try {
+      setSuspendBusy(true);
+      const res = await suspendEnrollment(enrollment.id);
+      if (res.success) {
+        toast({ title: 'Enrollment suspended', variant: 'success' });
+        await onAfterMutation?.();
+      } else {
+        toast({ title: 'Failed', description: res.message, variant: 'destructive' });
+      }
+    } catch (e: unknown) {
+      toast({ title: 'Error', description: e instanceof Error ? e.message : 'Failed', variant: 'destructive' });
+    } finally {
+      setSuspendBusy(false);
+    }
+  };
+
+  const handleUnsuspend = async () => {
+    try {
+      setSuspendBusy(true);
+      const res = await unsuspendEnrollment(enrollment.id);
+      if (res.success) {
+        toast({ title: 'Enrollment restored to active', variant: 'success' });
+        await onAfterMutation?.();
+      } else {
+        toast({ title: 'Failed', description: res.message, variant: 'destructive' });
+      }
+    } catch (e: unknown) {
+      toast({ title: 'Error', description: e instanceof Error ? e.message : 'Failed', variant: 'destructive' });
+    } finally {
+      setSuspendBusy(false);
+    }
+  };
+
+  const handleBooksReceived = async (checked: boolean) => {
+    try {
+      setBooksReceivedBusy(true);
+      const res = await updateEnrollment(enrollment.id, { booksReceived: checked });
+      if (res.success) {
+        setBooksReceivedLocal(checked);
+        toast({ title: checked ? 'Books marked received' : 'Books marked not received', variant: 'success' });
+        await onAfterMutation?.();
+      } else {
+        toast({ title: 'Failed', description: res.message, variant: 'destructive' });
+      }
+    } catch (e: unknown) {
+      toast({ title: 'Error', description: e instanceof Error ? e.message : 'Failed', variant: 'destructive' });
+    } finally {
+      setBooksReceivedBusy(false);
+    }
+  };
 
   const handleMonthlyFullCancel = async () => {
     try {
@@ -251,6 +332,69 @@ export function EnrollmentDetailsView({
             </div>
           </div>
         )}
+
+        {/* Books Received + Roll + Suspend section */}
+        <div className="mb-8 space-y-4 rounded-2xl border border-slate-200 bg-slate-50/50 p-5">
+          <h3 className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-500">
+            <Tag className="h-4 w-4" />
+            Enrollment Actions
+          </h3>
+
+          {/* Books received toggle */}
+          <label className="flex cursor-pointer items-center gap-3 text-sm font-bold text-slate-800">
+            <Checkbox
+              checked={booksReceivedLocal}
+              disabled={booksReceivedBusy}
+              onCheckedChange={(c) => handleBooksReceived(c === true)}
+            />
+            <Book className="h-4 w-4 text-amber-600" />
+            Books received
+            {booksReceivedBusy && <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" />}
+          </label>
+
+          {/* Regenerate roll */}
+          <div className="flex items-center gap-4">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 rounded-xl border-indigo-200 bg-white font-bold text-indigo-800 hover:bg-indigo-50"
+              disabled={rollBusy}
+              onClick={handleRegenerateRoll}
+            >
+              {rollBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+              Regenerate roll number
+            </Button>
+            {rollNumber !== null && (
+              <span className="text-sm font-black text-indigo-700">Roll: {rollNumber}</span>
+            )}
+          </div>
+
+          {/* Suspend / Unsuspend */}
+          {isActive && (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 rounded-xl border-orange-200 bg-white font-bold text-orange-800 hover:bg-orange-50"
+              disabled={suspendBusy}
+              onClick={handleSuspend}
+            >
+              {suspendBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PauseCircle className="mr-2 h-4 w-4" />}
+              Suspend enrollment
+            </Button>
+          )}
+          {isSuspended && (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 rounded-xl border-emerald-200 bg-white font-bold text-emerald-800 hover:bg-emerald-50"
+              disabled={suspendBusy}
+              onClick={handleUnsuspend}
+            >
+              {suspendBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlayCircle className="mr-2 h-4 w-4" />}
+              Restore to active
+            </Button>
+          )}
+        </div>
 
         {onRequestSettle && (
           <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/50 p-5">

@@ -43,6 +43,7 @@ import {
   AlertCircle,
   RefreshCw,
 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 
 interface ExamFolderRulesProps {
@@ -118,6 +119,11 @@ function RuleCard({
               {rule.tags.join(', ')}
             </Badge>
           )}
+          {rule.isMandatory && (
+            <Badge className="text-[11px] font-bold bg-rose-50 text-rose-700 border-rose-200 rounded-full px-2 py-0.5">
+              Mandatory
+            </Badge>
+          )}
         </div>
       </div>
       <Button
@@ -144,6 +150,7 @@ interface AddRuleFormValues {
   difficulty: string;
   questionTypes: string[];
   tags: string;
+  isMandatory: boolean;
 }
 
 const defaultForm: AddRuleFormValues = {
@@ -153,6 +160,7 @@ const defaultForm: AddRuleFormValues = {
   difficulty: '',
   questionTypes: [],
   tags: '',
+  isMandatory: false,
 };
 
 export function ExamFolderRules({ examId, sets = [], onGenerated }: ExamFolderRulesProps) {
@@ -221,7 +229,8 @@ export function ExamFolderRules({ examId, sets = [], onGenerated }: ExamFolderRu
         difficulty: form.difficulty || null,
         questionTypes: form.questionTypes.length > 0 ? form.questionTypes : [],
         tags: form.tags.split(',').map((t) => t.trim()).filter(Boolean),
-      };
+        isMandatory: form.isMandatory,
+      };;
       const res = await upsertExamFolderRule(examId, payload);
       if (res.success && res.data) {
         setRules((prev) => {
@@ -539,6 +548,15 @@ export function ExamFolderRules({ examId, sets = [], onGenerated }: ExamFolderRu
                 className="h-11 rounded-xl border-slate-200 bg-slate-50 font-semibold text-sm"
               />
             </div>
+
+            {/* Mandatory toggle */}
+            <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-800">
+              <Checkbox
+                checked={form.isMandatory}
+                onCheckedChange={(c) => setForm((prev) => ({ ...prev, isMandatory: c === true }))}
+              />
+              Mandatory subject (students must answer all questions from this folder)
+            </label>
           </div>
 
           <DialogFooter className="gap-2">

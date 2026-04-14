@@ -75,9 +75,10 @@ import {
   FileSpreadsheet,
   RefreshCw,
   Calendar,
-  CalendarRange,
   FileText,
   Check,
+  LayoutGrid,
+  LayoutList,
 } from 'lucide-react';
 import { RecurringScheduleDialog } from '@/components/admin/routine/RecurringScheduleDialog';
 
@@ -175,40 +176,38 @@ function AdminRoutinePageInner() {
   const [teachers, setTeachers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Main tab
-  const [mainTab, setMainTab] = useState('template');
+  // ── Selection state ──────────────────────────────────────────────
+  const [selectedProgramId, setSelectedProgramId] = useState('');
+  const [selectedCourseId, setSelectedCourseId] = useState('');
+  const [selectedBranchId, setSelectedBranchId] = useState('');
+  const [selectedBatchId, setSelectedBatchId] = useState('');
+  const [branches, setBranches] = useState<Branch[]>([]);
 
-  // ── Template tab state ──────────────────────────────────────────
-  const [filterBranchId, setFilterBranchId] = useState('');
-  const [filterBatchId, setFilterBatchId] = useState('');
-  const [filterTeacherUserId, setFilterTeacherUserId] = useState('');
-  const [filterDayOfWeek, setFilterDayOfWeek] = useState('');
-  const [filterMode, setFilterMode] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [gridSettings, setGridSettings] = useState<GridSettingsState>(() => loadGridSettings());
-  const [wizardOpen, setWizardOpen] = useState(false);
-  const [wizardVariant, setWizardVariant] = useState<'default' | 'teacherOnly'>('default');
-  const [editingSlot, setEditingSlot] = useState<GridSlot | null>(null);
-  const [wizardDay, setWizardDay] = useState<number | undefined>();
-  const [wizardTime, setWizardTime] = useState<string | undefined>();
-  const [exportOpen, setExportOpen] = useState(false);
-  const [exportWeekStart, setExportWeekStart] = useState<Date | undefined>(undefined);
-  const [exportWeekEnd, setExportWeekEnd] = useState<Date | undefined>(undefined);
-  const [deleting, setDeleting] = useState<string | null>(null);
+  // ── Slot management state ────────────────────────────────────────
+  const [slots, setSlots] = useState<RoutineSlot[]>([]);
+  const [filterDay, setFilterDay] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [slotModalOpen, setSlotModalOpen] = useState(false);
+  const [editingSlotId, setEditingSlotId] = useState<string | null>(null);
+  const [slotForm, setSlotForm] = useState<SlotFormState>(EMPTY_SLOT_FORM);
+  const [conflictMessage, setConflictMessage] = useState<string | null>(null);
+  const [savingSlot, setSavingSlot] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [loadingPrograms, setLoadingPrograms] = useState(false);
+  const [loadingCourses, setLoadingCourses] = useState(false);
+  const [loadingBranches, setLoadingBranches] = useState(false);
+  const [loadingBatches, setLoadingBatches] = useState(false);
+  const [loadingSlots, setLoadingSlots] = useState(false);
   const [recurringOpen, setRecurringOpen] = useState(false);
 
-  // ── Generated Routine tab state ─────────────────────────────────
-  const [genCourseId, setGenCourseId] = useState('');
-  const [genBatchId, setGenBatchId] = useState('');
-  const [genBranchId, setGenBranchId] = useState('');
-  const [genMode, setGenMode] = useState<'all' | 'ONLINE' | 'OFFLINE'>('all');
-  const [genTeacherUserId, setGenTeacherUserId] = useState('');
-  const [genRangeStart, setGenRangeStart] = useState<Date | undefined>(undefined);
-  const [genRangeEnd, setGenRangeEnd] = useState<Date | undefined>(undefined);
+  // ── Generate & export state ──────────────────────────────────────
   const [genCalendar, setGenCalendar] = useState<CalendarDay[]>([]);
   const [genTotalClasses, setGenTotalClasses] = useState(0);
   const [genLoading, setGenLoading] = useState(false);
   const [genHasResult, setGenHasResult] = useState(false);
+  const [genStartDate, setGenStartDate] = useState<Date | undefined>(undefined);
+  const [genEndDate, setGenEndDate] = useState<Date | undefined>(undefined);
   const [publishOpen, setPublishOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
 
@@ -725,60 +724,12 @@ function AdminRoutinePageInner() {
         </CardHeader>
       </Card>
 
-      <Tabs value={mainTab} onValueChange={setMainTab} className="space-y-4">
-        <TabsList className="h-11 w-full max-w-md grid grid-cols-2 bg-muted/70 p-1">
-          <TabsTrigger value="template" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <LayoutGrid className="h-4 w-4" />
-            Weekly template
-          </TabsTrigger>
-          <TabsTrigger value="generate" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <Calendar className="h-4 w-4" />
-            Generated routine
-          </TabsTrigger>
-        </TabsList>
-
-        {/* ═══════════════════════════ TEMPLATE TAB ═══════════════════════════ */}
-        <TabsContent value="template" className="mt-0 space-y-4">
-          <Card>
-            <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-4 border-b pb-4">
-              <div>
-                <CardTitle className="text-lg">Template & filters</CardTitle>
-                <CardDescription>Edit slots from the grid or list; filters apply to both views.</CardDescription>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <GridSettings
-                  branchId={filterBranchId || undefined}
-                  settings={gridSettings}
-                  onSettingsChange={setGridSettings}
-                />
-                <Button variant="outline" size="sm" onClick={handleExportTemplateExcel} className="gap-2">
-                  <FileSpreadsheet className="h-4 w-4" />
-                  Excel
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setExportOpen(true)} className="gap-2">
-                  <FileText className="h-4 w-4" />
-                  PDF
-                </Button>
-                <Button size="sm" onClick={() => openCreate()} className="gap-2 bg-teal-600 text-white hover:bg-teal-700 hover:text-white focus-visible:text-white">
-                  <Plus className="h-4 w-4" />
-                  New slot
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => openTeacherOnlyCreate()} className="gap-2">
-                  <User className="h-4 w-4" />
-                  New teacher slot
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => setRecurringOpen(true)} className="gap-2 border-teal-200 text-teal-700 hover:bg-teal-50">
-                  <CalendarRange className="h-4 w-4" />
-                  Recurring
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-6">
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
-            <div>
-              <Label className="text-xs text-muted-foreground mb-1 block">Branch</Label>
-              <Select value={filterBranchId || 'all'} onValueChange={(v) => setFilterBranchId(v === 'all' ? '' : v)}>
-                <SelectTrigger className="h-9"><SelectValue placeholder="All Branches" /></SelectTrigger>
+      {/* ═══════════════════ CARD 1: Select program, course, branch & batch ═══════════════════ */}
+      <Card>
+        <CardHeader className="border-b pb-4">
+          <CardTitle className="text-base">Step 1 — Select program, course, branch &amp; batch</CardTitle>
+          <CardDescription>Each selection filters the next. All four are required before adding slots.</CardDescription>
+        </CardHeader>
         <CardContent className="pt-5">
           <StepIndicator />
 
@@ -901,6 +852,26 @@ function AdminRoutinePageInner() {
             <Badge variant="secondary" className="text-xs">
               {slots.length} slot{slots.length !== 1 ? 's' : ''}
             </Badge>
+            <div className="flex items-center rounded-lg border border-slate-200 p-0.5">
+              <Button
+                size="sm"
+                variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                className="h-7 w-7 p-0"
+                onClick={() => setViewMode('list')}
+                title="List view"
+              >
+                <LayoutList className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                size="sm"
+                variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                className="h-7 w-7 p-0"
+                onClick={() => setViewMode('grid')}
+                title="Calendar grid view"
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+              </Button>
+            </div>
             <Button size="sm" onClick={openAddSlot} className="gap-1.5 bg-teal-600 text-white hover:bg-teal-700">
               <Plus className="h-4 w-4" />
               Add slot
@@ -953,7 +924,7 @@ function AdminRoutinePageInner() {
             )}
           </div>
 
-          {/* Slot table */}
+          {/* Slot table / calendar grid */}
           {loadingSlots ? (
             <div className="flex flex-col items-center gap-3 py-16 text-muted-foreground">
               <RefreshCw className="h-8 w-8 animate-spin text-teal-500" />
@@ -965,6 +936,52 @@ function AdminRoutinePageInner() {
                 <Calendar className="h-5 w-5 text-muted-foreground" />
               </div>
               <span className="text-sm">No slots yet — click &quot;Add slot&quot; to start.</span>
+            </div>
+          ) : viewMode === 'grid' ? (
+            /* ── Weekly calendar grid ── */
+            <div className="overflow-x-auto">
+              <div className="grid min-w-[700px] grid-cols-7 gap-px rounded-lg border border-slate-200 bg-slate-200">
+                {DAY_NAMES.map((dayName, dayIdx) => {
+                  const daySlots = filteredSlots
+                    .filter((s) => s.dayOfWeek === dayIdx)
+                    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+                  return (
+                    <div key={dayIdx} className="flex flex-col bg-white">
+                      <div className="sticky top-0 bg-teal-600 px-2 py-2 text-center">
+                        <span className="text-xs font-bold uppercase tracking-wider text-white">{dayName.slice(0, 3)}</span>
+                        <span className="ml-1 rounded-full bg-white/20 px-1.5 text-[10px] font-bold text-white">{daySlots.length}</span>
+                      </div>
+                      <div className="flex flex-col gap-1.5 p-2 min-h-[120px]">
+                        {daySlots.length === 0 ? (
+                          <button
+                            className="mt-2 flex items-center justify-center rounded-lg border border-dashed border-teal-200 py-3 text-xs text-teal-400 hover:border-teal-400 hover:bg-teal-50 transition-colors"
+                            onClick={() => openAddSlot()}
+                          >
+                            <Plus className="h-3 w-3 mr-1" /> Add
+                          </button>
+                        ) : (
+                          daySlots.map((slot) => (
+                            <button
+                              key={slot.id}
+                              onClick={() => openEditSlot(slot)}
+                              className={cn(
+                                'w-full rounded-lg px-2 py-1.5 text-left text-xs transition-all hover:ring-2 hover:ring-teal-400',
+                                slot.isActive
+                                  ? 'bg-teal-50 border border-teal-200'
+                                  : 'bg-slate-50 border border-slate-200 opacity-60'
+                              )}
+                            >
+                              <div className="font-mono font-bold text-[10px] text-teal-700">{slot.startTime}–{slot.endTime}</div>
+                              {slot.topic && <div className="mt-0.5 truncate text-slate-600">{slot.topic}</div>}
+                              {slot.teacher && <div className="mt-0.5 truncate text-slate-400">{slot.teacher.fullName}</div>}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           ) : (
             <div className="overflow-auto rounded-lg border max-h-96">
@@ -1238,33 +1255,17 @@ function AdminRoutinePageInner() {
         </CardContent>
       </Card>
 
-      {/* Slot Wizard (template tab) */}
-      <SlotWizard
-        open={wizardOpen}
-        onClose={() => { setWizardOpen(false); setWizardVariant('default'); }}
-        onSave={handleSave}
-        editingSlot={editingSlot}
-        variant={editingSlot ? 'default' : wizardVariant}
-        batches={batches}
-        teachers={teacherOptions}
-        slotCounts={slotCounts}
-        existingSlots={gridSlots}
-        initialDay={wizardDay}
-        initialTime={wizardTime}
-      />
-
       {/* Recurring Schedule Dialog */}
       <RecurringScheduleDialog
         open={recurringOpen}
         onClose={() => setRecurringOpen(false)}
-        onSuccess={() => loadSlots()}
-        batches={batches}
-        teachers={teacherOptions}
-        slotCounts={slotCounts}
+        onSuccess={() => loadSlots(selectedBatchId)}
+        batches={batchList}
+        teachers={teachers}
       />
 
-      {/* Export PDF Dialog */}
-      <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+      {/* Add / Edit Slot Dialog */}
+      <Dialog open={slotModalOpen} onOpenChange={(open) => { if (!open) closeSlotModal(); }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{editingSlotId ? 'Edit routine slot' : 'Add routine slot'}</DialogTitle>

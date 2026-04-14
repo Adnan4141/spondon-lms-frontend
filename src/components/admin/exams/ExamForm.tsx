@@ -84,6 +84,7 @@ export function ExamForm({ courses, exam, onSuccess, actingTeacherUserId }: Exam
     solveSheetVisibility: 'HIDDEN',
     solveSheetScheduledAt: undefined,
     language: 'bn',
+    hideResult: false,
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -115,6 +116,7 @@ export function ExamForm({ courses, exam, onSuccess, actingTeacherUserId }: Exam
         solveSheetVisibility: exam.solveSheetVisibility || 'HIDDEN',
         solveSheetScheduledAt: exam.solveSheetScheduledAt ? new Date(exam.solveSheetScheduledAt).toISOString().slice(0, 16) : undefined,
         language: exam.language || 'bn',
+        hideResult: (exam as any).hideResult ?? false,
       });
     }
   }, [exam]);
@@ -271,6 +273,20 @@ export function ExamForm({ courses, exam, onSuccess, actingTeacherUserId }: Exam
                 <Switch
                   checked={form.showLeaderboard ?? false}
                   onCheckedChange={(v) => setForm((p) => ({ ...p, showLeaderboard: v }))}
+                />
+              </div>
+
+              <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/50 px-5 py-4">
+                <div className="flex items-center gap-3">
+                  <Eye className="h-5 w-5 text-rose-500" />
+                  <div>
+                    <span className="text-sm font-black text-slate-700">Hide result</span>
+                    <p className="text-xs text-slate-400">Students cannot see their result immediately</p>
+                  </div>
+                </div>
+                <Switch
+                  checked={(form as any).hideResult ?? false}
+                  onCheckedChange={(v) => setForm((p) => ({ ...p, hideResult: v } as any))}
                 />
               </div>
 

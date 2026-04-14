@@ -13,6 +13,8 @@ export async function getCourses(params?: GetCoursesParams & { type?: string; is
   if (params?.featured !== undefined) queryParams.append('featured', String(params.featured));
   if (params?.websiteVisible !== undefined) queryParams.append('websiteVisible', String(params.websiteVisible));
   if (params?.teacherUserId) queryParams.append('teacherUserId', params.teacherUserId);
+  if (params?.grade) queryParams.append('grade', params.grade);
+  if (params?.group) queryParams.append('group', params.group);
   if (params?.page) queryParams.append('page', String(params.page));
   if (params?.limit) queryParams.append('limit', String(params.limit));
 

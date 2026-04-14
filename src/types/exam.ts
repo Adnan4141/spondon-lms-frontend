@@ -11,6 +11,7 @@ export interface ExamFolderRule {
   questionTypes?: string[];
   difficulty?: string | null;
   tags?: string[];
+  isMandatory?: boolean;
   createdAt: string;
   folder?: {
     id: string;
@@ -208,6 +209,7 @@ export interface CreateExamDto {
   status?: ExamStatus;
   settings?: any;
   showLeaderboard?: boolean;
+  hideResult?: boolean;
   solveSheetVisibility?: string;
   solveSheetScheduledAt?: string;
   language?: string;
@@ -235,6 +237,7 @@ export interface UpdateExamDto {
   status?: ExamStatus;
   settings?: any;
   showLeaderboard?: boolean;
+  hideResult?: boolean;
   solveSheetVisibility?: string;
   solveSheetScheduledAt?: string;
 }

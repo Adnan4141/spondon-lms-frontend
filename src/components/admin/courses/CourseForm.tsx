@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import {
   createCourse,
   updateCourse,
@@ -18,6 +18,7 @@ import { useModalStore } from '@/store/modalStore';
 import { useToast } from '@/hooks/use-toast';
 import {
   AdmissionStatus,
+  BillingType,
   CourseStatus,
   CourseType,
   CreateCourseDto,
@@ -87,6 +88,13 @@ import {
 /* ─── types ─────────────────────────────────────────────────────────────────── */
 const statusOptions: CourseStatus[] = ['ACTIVE', 'DISABLED', 'ARCHIVED'];
 const typeOptions: CourseType[] = ['ONLINE', 'OFFLINE'];
+const billingOptions: BillingType[] = ['ONE_TIME', 'MONTHLY'];
+const billingOptionLabels: Record<BillingType, string> = {
+  ONE_TIME: 'One Time',
+  MONTHLY: 'Monthly',
+};
+const gradeOptions = ['SSC', 'HSC', 'Admission', 'Junior', 'Cadet', 'Job'] as const;
+const groupOptions = ['Science', 'Commerce', 'Arts'] as const;
 
 
 function buildSlug(name: string): string {
@@ -120,6 +128,9 @@ type FormState = {
   websiteVisible: boolean;
   enrollmentVisible: boolean;
   settledOptionEnabled: boolean;
+  billingType: BillingType;
+  grade: string;
+  group: string;
   benefits: string[];
   websiteSections: CourseWebsiteSection[];
   publicShowBenefits: boolean;
@@ -144,6 +155,9 @@ const defaultForm: FormState = {
   websiteVisible: true,
   enrollmentVisible: true,
   settledOptionEnabled: false,
+  billingType: 'ONE_TIME',
+  grade: '',
+  group: '',
   benefits: DEFAULT_BENEFITS,
   websiteSections: [],
   publicShowBenefits: true,
@@ -167,7 +181,7 @@ const SectionCard = ({
   children,
   className,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
 }) => (
   <div
@@ -180,16 +194,18 @@ const SectionCard = ({
   </div>
 );
 
-const SectionTitle = ({ children }: { children: React.ReactNode }) => (
+const SectionTitle = ({ children }: { children: ReactNode }) => (
   <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">{children}</p>
 );
 
-const FieldLabel = ({ children, required }: { children: React.ReactNode; required?: boolean }) => (
+const FieldLabel = ({ children, required }: { children: ReactNode; required?: boolean }) => (
   <label className="mb-1.5 block text-xs font-semibold text-slate-600">
     {children}
     {required && <span className="ml-1 text-rose-400">*</span>}
   </label>
 );
+
+const sectionLabel = 'mb-1.5 block text-xs font-semibold text-slate-600';
 
 /* ─── toggle checkbox ─────────────────────────────────────────────────────────── */
 const Toggle = ({
@@ -310,6 +326,9 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
         websiteVisible: course.websiteVisible,
         enrollmentVisible: course.enrollmentVisible !== false,
         settledOptionEnabled: course.settledOptionEnabled,
+        billingType: (course.billingType as BillingType) || 'ONE_TIME',
+        grade: course.grade || '',
+        group: course.group || '',
         benefits: loadedBenefits,
         websiteSections: loadedWebsiteSections,
         publicShowBenefits: pub.showBenefits,
@@ -508,6 +527,9 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
       websiteVisible: form.websiteVisible,
       enrollmentVisible: form.enrollmentVisible,
       settledOptionEnabled: form.settledOptionEnabled,
+      billingType: form.billingType,
+      grade: form.grade || undefined,
+      group: form.group || undefined,
     };
 
     try {
@@ -560,7 +582,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
 
   /* ─────────────────────────────────── TABS ─────────────────────────────────── */
   const tabs = [
-    { id: 'basic', label: 'Basic Info', icon: Info },
+    { id: 'basic', label: 'Basic Info', icon: Info, disabled: false },
     { id: 'content', label: 'Course Content', icon: FileUp, disabled: !isEdit },
     { id: 'related', label: 'Related Courses', icon: Link2, disabled: !isEdit },
   ] as const;
@@ -623,34 +645,37 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
 
         {/* ══════════════════════════════ BASIC INFO ══════════════════════════ */}
         {activeTab === 'basic' && (
-          <div className="grid gap-8 py-2 sm:grid-cols-2 animate-in fade-in duration-300">
-            <div className="space-y-2">
-              <label className={sectionLabel}>Program</label>
-              <Select
-                value={form.programId}
-                onValueChange={(value) => {
-                  const selected = programs.find((p) => p.id === value);
-                  if (selected?.paymentCircle === 'MONTHLY') {
-                    setForm((prev) => ({ ...prev, programId: value, billingType: 'MONTHLY' }));
-                  } else {
-                    setForm((prev) => ({ ...prev, programId: value }));
-                  }
-                }}
-              >
-                <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
-                  <SelectValue placeholder="Select Program" />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                  {programs.map((program) => (
-                    <SelectItem key={program.id} value={program.id} className="text-sm font-medium">
-                      {program.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="grid gap-5 py-2 sm:grid-cols-2 animate-in fade-in duration-300">
+            <SectionCard className="sm:col-span-2">
+              <SectionTitle>Identity</SectionTitle>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <FieldLabel required>Program</FieldLabel>
+                  <Select
+                    value={form.programId}
+                    onValueChange={(value) => {
+                      const selected = programs.find((p) => p.id === value);
+                      if (selected?.paymentCircle === 'MONTHLY') {
+                        setForm((prev) => ({ ...prev, programId: value, billingType: 'MONTHLY' }));
+                      } else {
+                        setForm((prev) => ({ ...prev, programId: value }));
+                      }
+                    }}
+                  >
+                    <SelectTrigger className={field}>
+                      <SelectValue placeholder="Select program" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      {programs.map((program) => (
+                        <SelectItem key={program.id} value={program.id} className="text-sm font-medium">
+                          {program.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-                <div className="sm:col-span-2">
+                <div>
                   <FieldLabel required>Course Title</FieldLabel>
                   <Input
                     className={field}
@@ -680,7 +705,6 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
               </div>
             </SectionCard>
 
-            {/* ── Thumbnail ── */}
             <SectionCard>
               <SectionTitle>Thumbnail</SectionTitle>
               <div className="flex items-start gap-4">
@@ -697,7 +721,7 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                         setThumbnailPreview(null);
                         setForm((p) => ({ ...p, thumbnail: '' }));
                       }}
-                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-slate-800 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-slate-800 text-white opacity-0 transition-opacity group-hover:opacity-100"
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -706,23 +730,19 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                 <label className="flex-1 cursor-pointer">
                   <div
                     className={cn(
-                      'flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 py-8 px-4 transition-all hover:border-indigo-300 hover:bg-indigo-50/30',
-                      thumbnailUploading && 'opacity-50 pointer-events-none',
+                      'flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-8 transition-all hover:border-indigo-300 hover:bg-indigo-50/30',
+                      thumbnailUploading && 'pointer-events-none opacity-50',
                     )}
                   >
                     {thumbnailUploading ? (
-                      <p className="text-sm font-semibold text-indigo-500 animate-pulse">
-                        Uploading…
-                      </p>
+                      <p className="text-sm font-semibold text-indigo-500 animate-pulse">Uploading…</p>
                     ) : (
                       <>
                         <Upload className="h-6 w-6 text-slate-300" />
                         <p className="text-sm font-semibold text-slate-500">
                           {thumbnailPreview ? 'Replace thumbnail' : 'Upload thumbnail'}
                         </p>
-                        <p className="text-[10px] text-slate-400">
-                          Any image format · Max 5 MB
-                        </p>
+                        <p className="text-[10px] text-slate-400">Any image format · Max 5 MB</p>
                       </>
                     )}
                   </div>
@@ -737,10 +757,9 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
               </div>
             </SectionCard>
 
-            {/* ── Pricing & Type ── */}
             <SectionCard>
               <SectionTitle>Pricing & Configuration</SectionTitle>
-              <div className="grid gap-4 sm:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <FieldLabel>Course Type</FieldLabel>
                   <Select
@@ -751,49 +770,150 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
-                      {typeOptions.map((o) => (
-                        <SelectItem key={o} value={o} className="text-sm font-medium">
-                          {o}
+                      {typeOptions.map((option) => (
+                        <SelectItem key={option} value={option} className="text-sm font-medium">
+                          {option}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
 
-            <div className="space-y-2">
-              <label className={sectionLabel}>Billing Type</label>
-              <Select
-                value={form.billingType}
-                disabled={programs.find((p) => p.id === form.programId)?.paymentCircle === 'MONTHLY'}
-                onValueChange={(value) =>
-                  setForm((prev) => ({ ...prev, billingType: value as BillingType }))
-                }
-              >
-                <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
-                  <SelectValue placeholder="Select billing" />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                  {billingOptions.map((option) => (
-                    <SelectItem key={option} value={option} className="text-sm font-medium">
-                      {billingOptionLabels[option]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <div>
+                  <FieldLabel>Status</FieldLabel>
+                  <Select
+                    value={form.status}
+                    onValueChange={(v) => setForm((p) => ({ ...p, status: v as CourseStatus }))}
+                  >
+                    <SelectTrigger className={field}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      {statusOptions.map((option) => (
+                        <SelectItem key={option} value={option} className="text-sm font-medium">
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <FieldLabel>Admission Status</FieldLabel>
+                  <Select
+                    value={form.admissionStatus}
+                    onValueChange={(v) =>
+                      setForm((p) => ({ ...p, admissionStatus: v as AdmissionStatus }))
+                    }
+                  >
+                    <SelectTrigger className={field}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="OPEN" className="text-sm font-medium">OPEN</SelectItem>
+                      <SelectItem value="CLOSED" className="text-sm font-medium">CLOSED</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <FieldLabel>Billing Type</FieldLabel>
+                  <Select
+                    value={form.billingType}
+                    disabled={programs.find((p) => p.id === form.programId)?.paymentCircle === 'MONTHLY'}
+                    onValueChange={(value) =>
+                      setForm((prev) => ({ ...prev, billingType: value as BillingType }))
+                    }
+                  >
+                    <SelectTrigger className={field}>
+                      <SelectValue placeholder="Select billing" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      {billingOptions.map((option) => (
+                        <SelectItem key={option} value={option} className="text-sm font-medium">
+                          {billingOptionLabels[option]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <FieldLabel>Fee</FieldLabel>
+                  <Input
+                    className={field}
+                    type="number"
+                    min="0"
+                    value={form.fee}
+                    onChange={(e) => setForm((p) => ({ ...p, fee: e.target.value }))}
+                    placeholder="0"
+                  />
+                </div>
+
+                <div>
+                  <FieldLabel>Offer Price</FieldLabel>
+                  <Input
+                    className={field}
+                    type="number"
+                    min="0"
+                    value={form.offerPrice}
+                    onChange={(e) => setForm((p) => ({ ...p, offerPrice: e.target.value }))}
+                    placeholder="Optional discounted price"
+                  />
+                </div>
+
+                <div>
+                  <label className={sectionLabel}>Grade</label>
+                  <Select
+                    value={form.grade || '_all'}
+                    onValueChange={(v) => setForm((p) => ({ ...p, grade: v === '_all' ? '' : v }))}
+                  >
+                    <SelectTrigger className={field}>
+                      <SelectValue placeholder="Select grade" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="_all">All Grades</SelectItem>
+                      {gradeOptions.map((grade) => (
+                        <SelectItem key={grade} value={grade} className="text-sm font-medium">
+                          {grade}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className={sectionLabel}>Group</label>
+                  <Select
+                    value={form.group || '_all'}
+                    onValueChange={(v) => setForm((p) => ({ ...p, group: v === '_all' ? '' : v }))}
+                  >
+                    <SelectTrigger className={field}>
+                      <SelectValue placeholder="Select group" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="_all">All Groups</SelectItem>
+                      {groupOptions.map((group) => (
+                        <SelectItem key={group} value={group} className="text-sm font-medium">
+                          {group}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               {programs.find((p) => p.id === form.programId)?.paymentCircle === 'MONTHLY' && (
-                <p className="text-xs font-medium text-amber-600 leading-relaxed">
+                <p className="mt-3 text-xs font-medium leading-relaxed text-amber-600">
                   This program uses monthly billing. All courses under it must use monthly billing type.
                 </p>
               )}
               {form.billingType === 'MONTHLY' && !programs.find((p) => p.id === form.programId)?.paymentCircle && (
-                <p className="text-xs font-medium text-slate-500 leading-relaxed">
+                <p className="mt-3 text-xs font-medium leading-relaxed text-slate-500">
                   Monthly courses bill students every month. Billing amount is managed at program level. When enrolling students,
-                  set their billing start month; run <span className="font-bold text-slate-700">Monthly billing</span> in admin
-                  to generate invoices.
+                  set their billing start month and run monthly billing from admin to generate invoices.
                 </p>
               )}
-            </div>
-
             </SectionCard>
 
             {/* ── Visibility toggles ── */}

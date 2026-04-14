@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { TimeHmSelect } from '@/components/admin/routine/TimeHmSelect';
 import {
   Dialog,
   DialogContent,
@@ -224,11 +223,21 @@ export function RecurringScheduleDialog({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Start Time *</Label>
-              <TimeHmSelect value={startTime} onChange={setStartTime} label="Start" />
+              <Input
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="h-11 rounded-xl"
+              />
             </div>
             <div className="space-y-1.5">
               <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">End Time *</Label>
-              <TimeHmSelect value={endTime} onChange={setEndTime} label="End" />
+              <Input
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                className="h-11 rounded-xl"
+              />
             </div>
           </div>
 

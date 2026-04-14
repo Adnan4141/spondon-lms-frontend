@@ -35,13 +35,20 @@ export function InstituteCombobox({
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [districtFilter, setDistrictFilter] = useState('');
   const selected = institutes.find((i) => i.id === value);
-  const filtered = institutes.filter(
-    (i) =>
+
+  // Unique districts sorted alphabetically
+  const districts = Array.from(new Set(institutes.map((i) => i.district).filter(Boolean) as string[])).sort();
+
+  const filtered = institutes.filter((i) => {
+    const matchDistrict = !districtFilter || i.district === districtFilter;
+    const matchSearch =
       !search ||
       i.name.toLowerCase().includes(search.toLowerCase()) ||
-      (i.eiin && i.eiin.includes(search))
-  );
+      (i.eiin && i.eiin.includes(search));
+    return matchDistrict && matchSearch;
+  });
   return (
     <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) setSearch(''); }}>
       <PopoverTrigger asChild>
@@ -56,7 +63,20 @@ export function InstituteCombobox({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 rounded-2xl border-slate-200 shadow-xl" align="start">
-        <div className="p-2 border-b border-slate-100">
+        <div className="p-2 border-b border-slate-100 space-y-2">
+          {districts.length > 0 && (
+            <Select value={districtFilter || '_all'} onValueChange={(v) => setDistrictFilter(v === '_all' ? '' : v)}>
+              <SelectTrigger className="h-9 rounded-xl border-slate-200 text-sm font-medium">
+                <SelectValue placeholder="All districts" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border-slate-200 shadow-xl">
+                <SelectItem value="_all" className="text-sm">All districts</SelectItem>
+                {districts.map((d) => (
+                  <SelectItem key={d} value={d} className="text-sm">{d}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input

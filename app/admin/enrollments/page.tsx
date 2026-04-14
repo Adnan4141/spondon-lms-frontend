@@ -60,7 +60,7 @@ import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
 import { cn } from '@/lib/utils';
 import { CourseDeliveryBadge } from '@/lib/course-delivery';
 
-const statusOptions: (EnrollmentStatusType | 'all')[] = ['all', 'ACTIVE', 'PAUSED', 'CANCELLED', 'COMPLETED', 'PENDING_PAYMENT', 'EXPIRED'];
+const statusOptions: (EnrollmentStatusType | 'all')[] = ['all', 'ACTIVE', 'PAUSED', 'SUSPENDED', 'CANCELLED', 'COMPLETED', 'PENDING_PAYMENT', 'EXPIRED'];
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -73,6 +73,7 @@ function getStatusBadgeClass(status: string) {
   if (s === 'PAUSED') return 'bg-amber-50 text-amber-700 border-amber-100 font-black';
   if (s === 'CANCELLED') return 'bg-rose-50 text-rose-700 border-rose-100 font-black';
   if (s === 'COMPLETED') return 'bg-indigo-50 text-indigo-700 border-indigo-100 font-black';
+  if (s === 'SUSPENDED') return 'bg-orange-50 text-orange-700 border-orange-200 font-black';
   if (s === 'PENDING_PAYMENT') return 'bg-orange-50 text-orange-700 border-orange-200 font-black';
   if (s === 'EXPIRED') return 'bg-red-50 text-red-700 border-red-200 font-black';
   return 'bg-slate-100 text-slate-600 border-slate-200 font-black';

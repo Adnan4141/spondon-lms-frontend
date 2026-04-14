@@ -175,6 +175,9 @@ export interface Course {
   admissionStatus: AdmissionStatus;
   status: CourseStatus;
   settledOptionEnabled: boolean;
+  billingType?: BillingType;
+  grade?: string | null;
+  group?: string | null;
   createdAt: string;
   updatedAt: string;
   program?: Program;
@@ -200,6 +203,9 @@ export interface CreateCourseDto {
   admissionStatus?: AdmissionStatus;
   status?: CourseStatus;
   settledOptionEnabled?: boolean;
+  billingType?: BillingType;
+  grade?: string;
+  group?: string;
 }
 
 export interface UpdateCourseDto {
@@ -218,6 +224,9 @@ export interface UpdateCourseDto {
   admissionStatus?: AdmissionStatus;
   status?: CourseStatus;
   settledOptionEnabled?: boolean;
+  billingType?: BillingType;
+  grade?: string;
+  group?: string;
 }
 
 export interface CourseDetailBatch {
@@ -288,6 +297,8 @@ export interface GetCoursesParams {
   programId?: string;
   status?: CourseStatus;
   websiteVisible?: boolean;
+  grade?: string;
+  group?: string;
   /** When set, returns courses where this user is on CourseTeacher OR CourseCollaborator. */
   teacherUserId?: string;
   page?: number;

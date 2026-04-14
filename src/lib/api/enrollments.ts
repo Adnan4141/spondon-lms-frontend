@@ -1,7 +1,7 @@
 import { apiRequest, API_ORIGIN } from '../api';
 import type { ApiResponse } from '@/types/course';
 
-export type EnrollmentStatusType = 'ACTIVE' | 'PAUSED' | 'CANCELLED' | 'COMPLETED' | 'WAITLISTED' | 'PENDING_PAYMENT' | 'EXPIRED';
+export type EnrollmentStatusType = 'ACTIVE' | 'PAUSED' | 'CANCELLED' | 'COMPLETED' | 'WAITLISTED' | 'PENDING_PAYMENT' | 'EXPIRED' | 'SUSPENDED';
 
 export interface Enrollment {
   id: string;
@@ -12,6 +12,7 @@ export interface Enrollment {
   status: EnrollmentStatusType | string;
   billingType?: 'ONE_TIME' | 'MONTHLY';
   billingStartMonth?: string | null;
+  booksReceived?: boolean;
   createdAt: string;
   updatedAt: string;
   student?: {
@@ -160,6 +161,26 @@ export async function bulkChangeBatch(data: {
   return apiRequest<ApiResponse<{ count: number }>>('/enrollments/bulk/batch', {
     method: 'POST',
     body: JSON.stringify(data),
+  });
+}
+
+export async function regenerateRoll(id: string): Promise<ApiResponse<{ rollNumber: number }>> {
+  return apiRequest<ApiResponse<{ rollNumber: number }>>(`/enrollments/${id}/regenerate-roll`, {
+    method: 'POST',
+  });
+}
+
+export async function suspendEnrollment(id: string, reason?: string): Promise<ApiResponse<Enrollment>> {
+  return apiRequest<ApiResponse<Enrollment>>(`/enrollments/${id}/suspend`, {
+    method: 'PATCH',
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export async function unsuspendEnrollment(id: string, reason?: string): Promise<ApiResponse<Enrollment>> {
+  return apiRequest<ApiResponse<Enrollment>>(`/enrollments/${id}/unsuspend`, {
+    method: 'PATCH',
+    body: JSON.stringify({ reason }),
   });
 }
 

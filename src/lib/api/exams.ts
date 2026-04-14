@@ -22,6 +22,7 @@ export interface UpsertExamFolderRuleDto {
   questionTypes?: string[];
   difficulty?: string | null;
   tags?: string[];
+  isMandatory?: boolean;
 }
 
 export interface GenerateFromFoldersDto {
