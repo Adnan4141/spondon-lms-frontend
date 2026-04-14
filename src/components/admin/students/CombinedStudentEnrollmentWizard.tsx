@@ -87,7 +87,7 @@ const emptyProfile: ProfileDraft = {
   smsAlertTo: [],
 };
 
-interface AddStudentWizardProps {
+interface CombinedStudentEnrollmentWizardProps {
   branches: Branch[];
   institutes: Institute[];
   onSuccess: () => Promise<void>;
@@ -95,7 +95,7 @@ interface AddStudentWizardProps {
 
 const WIZARD_STEP_LABELS = ['Profile', 'Courses', 'Payment', 'Confirm'] as const;
 
-export function AddStudentWizard({ branches, institutes, onSuccess }: AddStudentWizardProps) {
+export function CombinedStudentEnrollmentWizard({ branches, institutes, onSuccess }: CombinedStudentEnrollmentWizardProps) {
   const { closeModal } = useModalStore();
   const { toast } = useToast();
 

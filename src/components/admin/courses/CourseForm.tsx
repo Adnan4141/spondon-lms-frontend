@@ -18,7 +18,6 @@ import { useModalStore } from '@/store/modalStore';
 import { useToast } from '@/hooks/use-toast';
 import {
   AdmissionStatus,
-  BillingType,
   CourseStatus,
   CourseType,
   CreateCourseDto,
@@ -88,11 +87,6 @@ import {
 /* ─── types ─────────────────────────────────────────────────────────────────── */
 const statusOptions: CourseStatus[] = ['ACTIVE', 'DISABLED', 'ARCHIVED'];
 const typeOptions: CourseType[] = ['ONLINE', 'OFFLINE'];
-const billingOptions: BillingType[] = ['ONE_TIME', 'MONTHLY'];
-const billingOptionLabels: Record<BillingType, string> = {
-  ONE_TIME: 'One Time',
-  MONTHLY: 'Monthly',
-};
 const gradeOptions = ['SSC', 'HSC', 'Admission', 'Junior', 'Cadet', 'Job'] as const;
 const groupOptions = ['Science', 'Commerce', 'Arts'] as const;
 
@@ -128,11 +122,11 @@ type FormState = {
   websiteVisible: boolean;
   enrollmentVisible: boolean;
   settledOptionEnabled: boolean;
-  billingType: BillingType;
   grade: string;
   group: string;
-  startDate: string;
+  startMonth: string;
   durationMonths: string;
+  bookPrice: string;
   benefits: string[];
   websiteSections: CourseWebsiteSection[];
   publicShowBenefits: boolean;
@@ -157,11 +151,11 @@ const defaultForm: FormState = {
   websiteVisible: true,
   enrollmentVisible: true,
   settledOptionEnabled: false,
-  billingType: 'ONE_TIME',
   grade: '',
   group: '',
-  startDate: '',
+  startMonth: '',
   durationMonths: '',
+  bookPrice: '',
   benefits: DEFAULT_BENEFITS,
   websiteSections: [],
   publicShowBenefits: true,
@@ -330,11 +324,11 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
         websiteVisible: course.websiteVisible,
         enrollmentVisible: course.enrollmentVisible !== false,
         settledOptionEnabled: course.settledOptionEnabled,
-        billingType: (course.billingType as BillingType) || 'ONE_TIME',
         grade: course.grade || '',
         group: course.group || '',
-        startDate: course.startDate ? course.startDate.slice(0, 10) : '',
+        startMonth: course.startMonth ?? '',
         durationMonths: course.durationMonths != null ? String(course.durationMonths) : '',
+        bookPrice: course.bookPrice != null ? String(course.bookPrice) : '',
         benefits: loadedBenefits,
         websiteSections: loadedWebsiteSections,
         publicShowBenefits: pub.showBenefits,
@@ -533,11 +527,11 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
       websiteVisible: form.websiteVisible,
       enrollmentVisible: form.enrollmentVisible,
       settledOptionEnabled: form.settledOptionEnabled,
-      billingType: form.billingType,
       grade: form.grade || undefined,
       group: form.group || undefined,
-      startDate: form.startDate || null,
+      startMonth: form.startMonth || null,
       durationMonths: form.durationMonths ? Number(form.durationMonths) : null,
+      bookPrice: form.bookPrice ? Number(form.bookPrice) : null,
     };
 
     try {
@@ -666,14 +660,14 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                       const updates: Partial<FormState> = { programId: value };
                       if (selected?.mode === 'ONLINE') {
                         updates.type = 'ONLINE';
-                        updates.billingType = 'ONE_TIME';
                       } else if (selected?.mode === 'OFFLINE') {
                         updates.type = 'OFFLINE';
-                        if (selected?.paymentCircle === 'MONTHLY') {
-                          updates.billingType = 'MONTHLY';
-                        }
-                      } else if (selected?.paymentCircle === 'MONTHLY') {
-                        updates.billingType = 'MONTHLY';
+                      }
+                      // Clear timeline fields when switching to ONE_TIME program
+                      if (selected?.paymentCircle !== 'MONTHLY') {
+                        updates.startMonth = '';
+                        updates.durationMonths = '';
+                        updates.bookPrice = '';
                       }
                       setForm((prev) => ({ ...prev, ...updates }));
                     }}
@@ -833,29 +827,34 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                   </Select>
                 </div>
 
+                {/* Billing type — read-only badge derived from program.paymentCircle */}
                 <div>
                   <FieldLabel>Billing Type</FieldLabel>
-                  <Select
-                    value={form.billingType}
-                    disabled={(() => {
-                      const sel = programs.find((p) => p.id === form.programId);
-                      return sel?.paymentCircle === 'MONTHLY' || sel?.mode === 'ONLINE';
-                    })()}
-                    onValueChange={(value) =>
-                      setForm((prev) => ({ ...prev, billingType: value as BillingType }))
+                  {(() => {
+                    const sel = programs.find((p) => p.id === form.programId);
+                    const pc = sel?.paymentCircle;
+                    if (!sel) {
+                      return (
+                        <div className="flex h-11 items-center rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3.5">
+                          <span className="text-xs font-medium text-slate-400 italic">select a program first</span>
+                        </div>
+                      );
                     }
-                  >
-                    <SelectTrigger className={field}>
-                      <SelectValue placeholder="Select billing" />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl">
-                      {billingOptions.map((option) => (
-                        <SelectItem key={option} value={option} className="text-sm font-medium">
-                          {billingOptionLabels[option]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    return (
+                      <div className="flex h-11 items-center rounded-xl border border-slate-100 bg-slate-50 px-3.5 gap-2">
+                        <span className={cn(
+                          'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black',
+                          pc === 'MONTHLY'
+                            ? 'border border-green-200 bg-green-50 text-green-700'
+                            : 'border border-indigo-200 bg-indigo-50 text-indigo-700',
+                        )}>
+                          <span className={cn('h-2 w-2 rounded-full inline-block', pc === 'MONTHLY' ? 'bg-green-500' : 'bg-indigo-500')} />
+                          {pc === 'MONTHLY' ? 'Monthly' : 'One-Time'}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-medium">from program</span>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div>
@@ -922,13 +921,14 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                   </Select>
                 </div>
 
+                {programs.find((p) => p.id === form.programId)?.paymentCircle === 'MONTHLY' && (<>
                 <div>
-                  <FieldLabel>Start Date</FieldLabel>
+                  <FieldLabel>Start Month</FieldLabel>
                   <Input
                     className={field}
-                    type="date"
-                    value={form.startDate}
-                    onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))}
+                    type="month"
+                    value={form.startMonth}
+                    onChange={(e) => setForm((p) => ({ ...p, startMonth: e.target.value }))}
                   />
                 </div>
 
@@ -944,35 +944,32 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                   />
                 </div>
 
-                {form.startDate && form.durationMonths && Number(form.durationMonths) > 0 && (
+                {form.startMonth && form.durationMonths && Number(form.durationMonths) > 0 && (
                   <div>
-                    <FieldLabel>End Date (auto)</FieldLabel>
-                    <Input
-                      className={field + ' bg-slate-50'}
-                      readOnly
-                      value={(() => {
-                        const sd = new Date(form.startDate);
-                        if (isNaN(sd.getTime())) return '';
-                        sd.setMonth(sd.getMonth() + Number(form.durationMonths));
-                        sd.setDate(sd.getDate() - 1);
-                        return sd.toISOString().slice(0, 10);
+                    <FieldLabel>End Month (auto)</FieldLabel>
+                    <div className={field + ' flex items-center bg-slate-50 text-slate-500 font-medium cursor-default select-none'}>
+                      {(() => {
+                        const [y, m] = form.startMonth.split('-').map(Number);
+                        const d = new Date(y, m - 1 + Number(form.durationMonths) - 1, 1);
+                        return d.toLocaleString('default', { month: 'long', year: 'numeric' });
                       })()}
-                    />
+                    </div>
                   </div>
                 )}
-              </div>
 
-              {programs.find((p) => p.id === form.programId)?.paymentCircle === 'MONTHLY' && (
-                <p className="mt-3 text-xs font-medium leading-relaxed text-amber-600">
-                  This program uses monthly billing. All courses under it must use monthly billing type.
-                </p>
-              )}
-              {form.billingType === 'MONTHLY' && !programs.find((p) => p.id === form.programId)?.paymentCircle && (
-                <p className="mt-3 text-xs font-medium leading-relaxed text-slate-500">
-                  Monthly courses bill students every month. Billing amount is managed at program level. When enrolling students,
-                  set their billing start month and run monthly billing from admin to generate invoices.
-                </p>
-              )}
+                <div>
+                  <FieldLabel>Book Price (৳)</FieldLabel>
+                  <Input
+                    className={field}
+                    type="number"
+                    min="0"
+                    value={form.bookPrice}
+                    onChange={(e) => setForm((p) => ({ ...p, bookPrice: e.target.value }))}
+                    placeholder="e.g. 350"
+                  />
+                </div>
+                </>)}
+              </div>
             </SectionCard>
 
             {/* ── Visibility toggles ── */}

@@ -180,12 +180,12 @@ export interface Course {
   admissionStatus: AdmissionStatus;
   status: CourseStatus;
   settledOptionEnabled: boolean;
-  billingType?: BillingType;
   grade?: string | null;
   group?: string | null;
-  startDate?: string | null;
+  startMonth?: string | null;    // "YYYY-MM"
   durationMonths?: number | null;
-  endDate?: string | null;
+  endMonth?: string | null;      // "YYYY-MM" — system-generated
+  bookPrice?: number | string | null;
   createdAt: string;
   updatedAt: string;
   program?: Program;
@@ -211,11 +211,11 @@ export interface CreateCourseDto {
   admissionStatus?: AdmissionStatus;
   status?: CourseStatus;
   settledOptionEnabled?: boolean;
-  billingType?: BillingType;
   grade?: string;
   group?: string;
-  startDate?: string | null;
+  startMonth?: string | null;   // "YYYY-MM"
   durationMonths?: number | null;
+  bookPrice?: number | null;
 }
 
 export interface UpdateCourseDto {
@@ -234,11 +234,11 @@ export interface UpdateCourseDto {
   admissionStatus?: AdmissionStatus;
   status?: CourseStatus;
   settledOptionEnabled?: boolean;
-  billingType?: BillingType;
   grade?: string;
   group?: string;
-  startDate?: string | null;
+  startMonth?: string | null;   // "YYYY-MM"
   durationMonths?: number | null;
+  bookPrice?: number | null;
 }
 
 export interface CourseDetailBatch {
