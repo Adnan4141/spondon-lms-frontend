@@ -190,12 +190,14 @@ export function EnrollmentForm({
       const res = await getEnrollments({ studentUserId: studentId, branchId: watchedBranchId, limit: 500 });
       if (cancelled) return;
       if (res.success && res.data) {
-        const ids = [...new Set(res.data.map((e) => e.courseId))];
+        const ids = [...new Set(res.data.flatMap((e) => (e.enrollmentCourses || []).map(ec => ec.courseId)))];
         setEnrolledCourseIds(ids);
         const map = new Map<string, Enrollment>();
         for (const e of res.data) {
-          const ex = map.get(e.courseId);
-          if (!ex || e.status === 'ACTIVE' || ex.status === 'CANCELLED') map.set(e.courseId, e);
+          for (const ec of (e.enrollmentCourses || [])) {
+            const ex = map.get(ec.courseId);
+            if (!ex || e.status === 'ACTIVE' || ex.status === 'CANCELLED') map.set(ec.courseId, e);
+          }
         }
         setEnrollmentByCourse(map);
       }
@@ -375,7 +377,7 @@ export function EnrollmentForm({
       toast({ title: 'Enrollment resumed', variant: 'success' });
       const updated = await getEnrollments({ studentUserId: studentId, branchId: watchedBranchId, limit: 500 });
       if (updated.success && updated.data) {
-        setEnrolledCourseIds([...new Set(updated.data.map((e) => e.courseId))]);
+        setEnrolledCourseIds([...new Set(updated.data.flatMap((e) => (e.enrollmentCourses || []).map(ec => ec.courseId)))]);
       }
     } else {
       toast({ title: 'Error', description: res.message || 'Resume failed', variant: 'destructive' });
@@ -468,8 +470,9 @@ export function EnrollmentForm({
       }
       const adm = await offlineAdmission({
         studentUserId: studentId,
+        programId: programId,
         branchId: vals.branchId,
-        courses: vals.courses.map(({ courseId, batchId }) => ({ courseId, batchId: batchId || undefined })),
+        courses: vals.courses.map(({ courseId, batchId }) => ({ courseId, batchId: batchId || undefined, includeBook: vals.includeBooks })),
         billingType: vals.billingType,
         billingStartMonth: needsMonth ? vals.billingStartMonth || undefined : undefined,
         paymentMethod: vals.paymentMethod,
@@ -481,7 +484,7 @@ export function EnrollmentForm({
         discountAmount: totalDiscountNum > 0 ? totalDiscountNum : undefined,
         discountReference: totalDiscountNum > 0 ? vals.discountReference.trim() || undefined : undefined,
         monthlyFlatDiscount: Number(vals.monthlyFlatDiscount) || undefined,
-        includeBooks: vals.includeBooks,
+        oneTimeDiscount: totalDiscountNum > 0 && vals.billingType === 'ONE_TIME' ? totalDiscountNum : undefined,
         nextPaymentDueDate: nextDueIso,
         admissionFeeAmountOverrides: Object.keys(feeOverrides).length > 0 ? feeOverrides : undefined,
         installmentCount:

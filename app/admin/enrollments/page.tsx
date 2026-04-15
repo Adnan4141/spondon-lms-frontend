@@ -262,11 +262,13 @@ export default function EnrollmentsPage() {
 
   const filteredEnrollments = enrollments.filter((e) => {
     const q = searchQuery.toLowerCase();
+    const courseNames = (e.enrollmentCourses || []).map(ec => ec.course?.name?.toLowerCase() || '').join(' ');
     return (
       !q ||
       e.student?.fullName.toLowerCase().includes(q) ||
       e.student?.mobile.includes(searchQuery) ||
-      e.course?.name.toLowerCase().includes(q) ||
+      e.program?.name?.toLowerCase().includes(q) ||
+      courseNames.includes(q) ||
       e.branch?.name.toLowerCase().includes(q)
     );
   });
@@ -381,9 +383,8 @@ export default function EnrollmentsPage() {
               <TableHeader className="bg-slate-50/50">
                 <TableRow className="hover:bg-transparent border-b border-slate-100">
                   <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Student</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Course</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Delivery</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Branch / Batch</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Program / Courses</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Branch</TableHead>
                   <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Status</TableHead>
                   <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400 text-center">Manage</TableHead>
                 </TableRow>
@@ -404,22 +405,17 @@ export default function EnrollmentsPage() {
                     </TableCell>
                     <TableCell className="py-5">
                        <div className="flex flex-col">
-                          <span className="text-sm font-bold text-slate-700">{e.course?.name}</span>
-                          <span className="text-sm font-black text-slate-400 uppercase tracking-widest">Code: {e.course?.slug}</span>
+                          <span className="text-sm font-bold text-slate-700">{e.program?.name || '—'}</span>
+                          <span className="text-xs font-medium text-slate-400">
+                            {(e.enrollmentCourses || []).map(ec => ec.course?.name).filter(Boolean).join(', ') || 'No courses'}
+                          </span>
                        </div>
-                    </TableCell>
-                    <TableCell className="py-5">
-                      <CourseDeliveryBadge type={e.course?.type} className="text-[9px]" />
                     </TableCell>
                     <TableCell className="py-5">
                        <div className="flex flex-col gap-1.5">
                           <div className="flex items-center gap-1.5 text-sm font-bold text-slate-600">
                              <Building2 className="h-3.5 w-3.5 text-rose-500" />
                              {e.branch?.name}
-                          </div>
-                          <div className="flex items-center gap-1.5 text-sm font-bold text-slate-400">
-                             <Users className="h-3.5 w-3.5 text-indigo-400" />
-                             {e.batch?.name || 'Unassigned'}
                           </div>
                        </div>
                     </TableCell>

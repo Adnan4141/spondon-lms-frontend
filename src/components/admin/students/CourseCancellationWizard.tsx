@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Ban, Check, ChevronLeft, ChevronRight } from 'lucide-react';
-import { deleteEnrollment, type Enrollment } from '@/lib/api/enrollments';
+import { deleteEnrollment, removeCourseFromEnrollment, type Enrollment, type EnrollmentCourse } from '@/lib/api/enrollments';
 import { getBenefits, updateBenefit, type Benefit } from '@/lib/api/benefits';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -98,45 +98,56 @@ export function CourseCancellationWizard({
     [enrollments],
   );
 
-  const selectedEnrollments = useMemo(
-    () => activeEnrollments.filter((e) => selected.has(e.id)),
-    [activeEnrollments, selected],
+  // Flatten all enrollmentCourses across active enrollments
+  const allEnrollmentCourses = useMemo(() => {
+    const items: (EnrollmentCourse & { enrollmentId: string; billingType?: string })[] = [];
+    for (const e of activeEnrollments) {
+      for (const ec of (e.enrollmentCourses || [])) {
+        items.push({ ...ec, enrollmentId: e.id, billingType: e.billingType });
+      }
+    }
+    return items;
+  }, [activeEnrollments]);
+
+  const selectedCourses = useMemo(
+    () => allEnrollmentCourses.filter((ec) => selected.has(ec.id)),
+    [allEnrollmentCourses, selected],
   );
 
-  const remainingEnrollments = useMemo(
-    () => activeEnrollments.filter((e) => !selected.has(e.id)),
-    [activeEnrollments, selected],
+  const remainingCourses = useMemo(
+    () => allEnrollmentCourses.filter((ec) => !selected.has(ec.id)),
+    [allEnrollmentCourses, selected],
   );
 
   const cancelledMonthlyFee = useMemo(
     () =>
-      selectedEnrollments
-        .filter((e) => e.billingType === 'MONTHLY')
-        .reduce((s, e) => s + Number(e.course?.fee || 0), 0),
-    [selectedEnrollments],
+      selectedCourses
+        .filter((ec) => ec.billingType === 'MONTHLY')
+        .reduce((s, ec) => s + Number(ec.course?.fee || 0), 0),
+    [selectedCourses],
   );
 
   const cancelledOnetimeFee = useMemo(
     () =>
-      selectedEnrollments
-        .filter((e) => e.billingType !== 'MONTHLY')
-        .reduce((s, e) => s + Number(e.course?.fee || 0), 0),
-    [selectedEnrollments],
+      selectedCourses
+        .filter((ec) => ec.billingType !== 'MONTHLY')
+        .reduce((s, ec) => s + Number(ec.course?.fee || 0), 0),
+    [selectedCourses],
   );
 
-  const remainingMonthlyEnrollments = useMemo(
-    () => remainingEnrollments.filter((e) => e.billingType === 'MONTHLY'),
-    [remainingEnrollments],
+  const remainingMonthlyCourses = useMemo(
+    () => remainingCourses.filter((ec) => ec.billingType === 'MONTHLY'),
+    [remainingCourses],
   );
 
   const remainingMonthlyFee = useMemo(
-    () => remainingMonthlyEnrollments.reduce((s, e) => s + Number(e.course?.fee || 0), 0),
-    [remainingMonthlyEnrollments],
+    () => remainingMonthlyCourses.reduce((s, ec) => s + Number(ec.course?.fee || 0), 0),
+    [remainingMonthlyCourses],
   );
 
   const hasMonthlyCancel = useMemo(
-    () => selectedEnrollments.some((e) => e.billingType === 'MONTHLY'),
-    [selectedEnrollments],
+    () => selectedCourses.some((ec) => ec.billingType === 'MONTHLY'),
+    [selectedCourses],
   );
 
   /* ---------- benefit buckets ---------- */
@@ -201,9 +212,27 @@ export function CourseCancellationWizard({
   const handleConfirm = async () => {
     setBusy(true);
     try {
-      /* 1. delete selected enrollments one by one */
-      for (const e of selectedEnrollments) {
-        await deleteEnrollment(e.id);
+      /* 1. Group selected courses by enrollmentId */
+      const byEnrollment = new Map<string, string[]>();
+      for (const ec of selectedCourses) {
+        const list = byEnrollment.get(ec.enrollmentId) || [];
+        list.push(ec.courseId);
+        byEnrollment.set(ec.enrollmentId, list);
+      }
+
+      /* For each enrollment, check if all courses are being removed */
+      for (const [enrollmentId, courseIds] of byEnrollment.entries()) {
+        const enrollment = activeEnrollments.find(e => e.id === enrollmentId);
+        const totalCourses = enrollment?.enrollmentCourses?.length || 0;
+        if (courseIds.length >= totalCourses) {
+          // All courses removed — delete the whole enrollment
+          await deleteEnrollment(enrollmentId);
+        } else {
+          // Remove individual courses
+          for (const courseId of courseIds) {
+            await removeCourseFromEnrollment(enrollmentId, courseId);
+          }
+        }
       }
 
       /* 2. update special benefits proportionally */
@@ -232,10 +261,10 @@ export function CourseCancellationWizard({
         }
       }
 
-      setCancelledNames(selectedEnrollments.map((e) => e.course?.name || e.courseId));
-      setActiveNames(remainingEnrollments.map((e) => e.course?.name || e.courseId));
+      setCancelledNames(selectedCourses.map((ec) => ec.course?.name || ec.courseId));
+      setActiveNames(remainingCourses.map((ec) => ec.course?.name || ec.courseId));
       setStep('done');
-      toast({ title: 'Cancellation complete', description: `${selectedEnrollments.length} course(s) cancelled`, variant: 'success' });
+      toast({ title: 'Cancellation complete', description: `${selectedCourses.length} course(s) cancelled`, variant: 'success' });
       onSuccess();
     } catch (err) {
       toast({
@@ -307,40 +336,40 @@ export function CourseCancellationWizard({
               Enrolled courses — select to cancel
             </p>
             <div className="rounded-xl border border-slate-200 bg-white divide-y divide-slate-100">
-              {activeEnrollments.length === 0 ? (
+              {allEnrollmentCourses.length === 0 ? (
                 <p className="px-4 py-6 text-center text-sm text-slate-400">No active enrollments</p>
               ) : (
-                activeEnrollments.map((e) => (
+                allEnrollmentCourses.map((ec) => (
                   <label
-                    key={e.id}
+                    key={ec.id}
                     className="flex cursor-pointer items-center justify-between gap-4 px-4 py-3 hover:bg-slate-50/50 transition-colors"
                   >
                     <div>
-                      <p className="text-[14px] font-medium text-slate-900">{e.course?.name}</p>
+                      <p className="text-[14px] font-medium text-slate-900">{ec.course?.name || ec.courseId}</p>
                       <div className="mt-1 flex flex-wrap items-center gap-1.5">
                         <Badge
                           variant="outline"
                           className={cn(
                             'rounded-md px-2 py-0 text-[10px] font-medium',
-                            e.course?.type === 'OFFLINE'
+                            ec.course?.type === 'OFFLINE'
                               ? 'border-violet-200 bg-violet-50 text-violet-700'
                               : 'border-sky-200 bg-sky-50 text-sky-700',
                           )}
                         >
-                          {e.course?.type === 'OFFLINE' ? 'offline' : 'online'}
+                          {ec.course?.type === 'OFFLINE' ? 'offline' : 'online'}
                         </Badge>
                         <Badge
                           variant="outline"
                           className={cn(
                             'rounded-md px-2 py-0 text-[10px] font-medium',
-                            e.billingType === 'MONTHLY'
+                            ec.billingType === 'MONTHLY'
                               ? 'border-amber-200 bg-amber-50 text-amber-700'
                               : 'border-emerald-200 bg-emerald-50 text-emerald-700',
                           )}
                         >
-                          {e.billingType === 'MONTHLY'
-                            ? `monthly · ${money(e.course?.fee)}`
-                            : `one-time · ${money(e.course?.fee)}`}
+                          {ec.billingType === 'MONTHLY'
+                            ? `monthly · ${money(ec.course?.fee)}`
+                            : `one-time · ${money(ec.course?.fee)}`}
                         </Badge>
                       </div>
                     </div>
@@ -349,8 +378,8 @@ export function CourseCancellationWizard({
                       <input
                         type="checkbox"
                         className="h-4 w-4 accent-slate-900 cursor-pointer"
-                        checked={selected.has(e.id)}
-                        onChange={() => toggle(e.id)}
+                        checked={selected.has(ec.id)}
+                        onChange={() => toggle(ec.id)}
                       />
                     </div>
                   </label>
@@ -451,7 +480,7 @@ export function CourseCancellationWizard({
                   <p className="text-[12px] text-slate-500">
                     {remainingMonthlyFee === 0
                       ? 'No monthly courses remaining — will be set to ৳0'
-                      : `Applied to ${remainingMonthlyEnrollments.length} remaining monthly course(s) each cycle`}
+                      : `Applied to ${remainingMonthlyCourses.length} remaining monthly course(s) each cycle`}
                   </p>
                 </div>
                 <div className="text-right">
@@ -507,7 +536,7 @@ export function CourseCancellationWizard({
               Updated benefit summary
             </p>
             <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-              <Row label="Remaining monthly courses">{remainingMonthlyEnrollments.length} course(s)</Row>
+              <Row label="Remaining monthly courses">{remainingMonthlyCourses.length} course(s)</Row>
               <Row label="Remaining monthly fee / month">{money(remainingMonthlyFee)}/mo</Row>
               <Row label="New special discount">
                 <span className="text-emerald-700">{money(newSpecial)}</span>
@@ -551,27 +580,27 @@ export function CourseCancellationWizard({
               Courses being cancelled
             </p>
             <div className="rounded-xl border border-rose-200 bg-white divide-y divide-slate-100">
-              {selectedEnrollments.map((e) => (
-                <div key={e.id} className="flex items-center justify-between px-4 py-2.5">
+              {selectedCourses.map((ec) => (
+                <div key={ec.id} className="flex items-center justify-between px-4 py-2.5">
                   <div>
-                    <p className="text-[14px] font-medium text-slate-900">{e.course?.name}</p>
+                    <p className="text-[14px] font-medium text-slate-900">{ec.course?.name || ec.courseId}</p>
                     <div className="mt-0.5 flex items-center gap-1.5">
                       <Badge
                         variant="outline"
                         className={cn(
                           'rounded-md px-2 py-0 text-[10px] font-medium',
-                          e.course?.type === 'OFFLINE'
+                          ec.course?.type === 'OFFLINE'
                             ? 'border-violet-200 bg-violet-50 text-violet-700'
                             : 'border-sky-200 bg-sky-50 text-sky-700',
                         )}
                       >
-                        {e.course?.type === 'OFFLINE' ? 'offline' : 'online'}
+                        {ec.course?.type === 'OFFLINE' ? 'offline' : 'online'}
                       </Badge>
                       <Badge
                         variant="outline"
                         className="rounded-md px-2 py-0 text-[10px] font-medium border-slate-200 text-slate-500"
                       >
-                        {e.billingType === 'MONTHLY' ? 'monthly' : 'one-time'}
+                        {ec.billingType === 'MONTHLY' ? 'monthly' : 'one-time'}
                       </Badge>
                     </div>
                   </div>
@@ -594,7 +623,7 @@ export function CourseCancellationWizard({
           <div>
             <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-400">After cancellation</p>
             <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-              <Row label="Active courses">{remainingEnrollments.length} course(s)</Row>
+              <Row label="Active courses">{remainingCourses.length} course(s)</Row>
               <Row label="Monthly fee / month">{money(remainingMonthlyFee)}/mo</Row>
               <Row label="Net payable / month" className="text-base font-semibold">
                 {money(netMonthly)}/mo

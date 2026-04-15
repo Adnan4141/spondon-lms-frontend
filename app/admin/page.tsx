@@ -281,7 +281,7 @@ export default function AdminDashboard() {
                               <p className="text-base font-bold text-slate-800 leading-tight">
                                  {enroll.student?.fullName || 'Student'} <span className="font-medium text-slate-400">enrolled</span>
                               </p>
-                              <p className="text-base font-black text-indigo-600 truncate mt-0.5">{enroll.course?.name || 'Course'}</p>
+                              <p className="text-base font-black text-indigo-600 truncate mt-0.5">{enroll.program?.name || 'Program'}</p>
                               <p className="mt-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
                                  {formatTimeAgo(enroll.createdAt)}
                               </p>

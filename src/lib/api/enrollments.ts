@@ -3,17 +3,51 @@ import type { ApiResponse } from '@/types/course';
 
 export type EnrollmentStatusType = 'ACTIVE' | 'PAUSED' | 'CANCELLED' | 'COMPLETED' | 'WAITLISTED' | 'PENDING_PAYMENT' | 'EXPIRED' | 'SUSPENDED';
 
+// EnrollmentCourse — child record for each course within a program enrollment
+export interface EnrollmentCourse {
+  id: string;
+  enrollmentId: string;
+  courseId: string;
+  batchId?: string | null;
+  includeBook: boolean;
+  bookPrice?: number | string | null;
+  addedAt: string;
+  course?: {
+    id: string;
+    name: string;
+    slug?: string;
+    type?: 'ONLINE' | 'OFFLINE' | string;
+    fee?: number | string;
+    offerPrice?: number | string | null;
+  };
+  batch?: {
+    id: string;
+    name: string;
+  } | null;
+}
+
+// Settlement — adjustment record for add/remove course
+export interface Settlement {
+  id: string;
+  enrollmentId: string;
+  type: 'ADD' | 'REMOVE' | 'ADJUST';
+  adjustmentType: 'CREDIT' | 'DEBIT';
+  amount: number | string;
+  referenceMonth?: string | null;
+  note?: string | null;
+  createdAt: string;
+}
+
 export interface Enrollment {
   id: string;
   studentUserId: string;
-  courseId: string;
-  batchId?: string | null;
+  programId: string;
   branchId: string;
   status: EnrollmentStatusType | string;
   billingType?: 'ONE_TIME' | 'MONTHLY';
   billingStartMonth?: string | null;
-  booksReceived?: boolean;
   monthlyFlatDiscount?: number | string | null;
+  oneTimeDiscount?: number | string | null;
   createdAt: string;
   updatedAt: string;
   student?: {
@@ -22,46 +56,42 @@ export interface Enrollment {
     email?: string | null;
     mobile: string;
   };
-  course?: {
+  program?: {
     id: string;
     name: string;
-    slug?: string;
-    type?: 'ONLINE' | 'OFFLINE' | string;
-    fee?: number | string;
-    program?: {
-      id: string;
-      name: string;
-    };
   };
-  batch?: {
-    id: string;
-    name: string;
-  } | null;
+  enrollmentCourses?: EnrollmentCourse[];
+  settlements?: Settlement[];
   branch?: {
     id: string;
     name: string;
   };
 }
 
-export interface CreateEnrollmentDto {
-  studentUserId: string;
+export interface CourseEnrollmentItem {
   courseId: string;
   batchId?: string;
+  includeBook?: boolean;
+}
+
+export interface CreateEnrollmentDto {
+  studentUserId: string;
+  programId: string;
+  courses: CourseEnrollmentItem[];
   branchId: string;
   status?: EnrollmentStatusType;
   billingStartMonth?: string; // YYYY-MM
-  installmentCount?: number | null; // 2-3, only for OFFLINE ONE_TIME
-  installmentSchedule?: any; // [{amount, dueDate}, ...] for custom splits
+  installmentCount?: number | null;
+  installmentSchedule?: any;
 }
 
 export interface UpdateEnrollmentDto {
-  batchId?: string;
   status?: EnrollmentStatusType;
   billingStartMonth?: string;
   reason?: string;
   appliedByUserId?: string;
-  booksReceived?: boolean;
   monthlyFlatDiscount?: number | null;
+  oneTimeDiscount?: number | null;
 }
 
 export async function getEnrollments(params?: {
@@ -115,10 +145,10 @@ export async function deleteEnrollment(id: string): Promise<ApiResponse<void>> {
   });
 }
 
-export async function changeEnrollmentBatch(id: string, batchId: string, reason?: string): Promise<ApiResponse<Enrollment>> {
+export async function changeEnrollmentBatch(id: string, courseId: string, batchId: string, reason?: string): Promise<ApiResponse<Enrollment>> {
   return apiRequest<ApiResponse<Enrollment>>(`/enrollments/${id}/batch`, {
     method: 'PUT',
-    body: JSON.stringify({ batchId, reason }),
+    body: JSON.stringify({ courseId, batchId, reason }),
   });
 }
 
@@ -145,10 +175,12 @@ export interface CancelPreviewInvoice {
 
 export interface CancelPreviewData {
   enrollmentId: string;
-  courseName: string;
+  programName: string;
   isMonthly: boolean;
+  courses: { courseId: string; courseName: string; fee: number; bookPrice: number | null }[];
   affectedInvoices: CancelPreviewInvoice[];
   benefitsToEnd: { id: string; type: string; mode: string; value: number }[];
+  settlements: Settlement[];
 }
 
 export async function getCancelPreview(id: string): Promise<ApiResponse<CancelPreviewData>> {
@@ -207,15 +239,13 @@ export type PaymentMethodType = 'CASH' | 'BKASH';
 export interface OfflineAdmissionCourseLine {
   courseId: string;
   batchId?: string | null;
+  includeBook?: boolean;
 }
 
 export interface OfflineAdmissionDto {
   studentUserId: string;
-  /** Single course (legacy). Ignored if `courses` is non-empty. */
-  courseId?: string;
-  batchId?: string;
-  /** Multiple courses → one invoice with all lines. */
-  courses?: OfflineAdmissionCourseLine[];
+  programId: string;
+  courses: OfflineAdmissionCourseLine[];
   branchId: string;
   billingType?: 'ONE_TIME' | 'MONTHLY';
   billingStartMonth?: string;
@@ -229,7 +259,7 @@ export interface OfflineAdmissionDto {
   discountReference?: string;
   monthlyFlatDiscount?: number;
   scholarshipAmount?: number;
-  includeBooks?: boolean;
+  oneTimeDiscount?: number;
   forceWaitlist?: boolean;
   nextPaymentDueDate?: string;
   /** Number of installments (2 or 3). Only for ONE_TIME billing. */
@@ -248,11 +278,10 @@ export interface OfflineAdmissionResult {
   studentId: string;
   registrationNumber: string | null;
   oneTimePassword: string | null;
-  enrollmentIds: string[];
+  enrollmentId: string;
   invoiceId: string;
   invoicePdfUrl: string | null;
   enrollment: Enrollment;
-  enrollments?: Enrollment[];
   invoice: {
     id: string;
     dueAmount: number | string;
@@ -296,7 +325,8 @@ export interface EnrollmentDiscountLogEntry {
   createdAt: string;
   enrollment?: {
     id: string;
-    course?: { id: string; name: string };
+    program?: { id: string; name: string };
+    enrollmentCourses?: { course?: { id: string; name: string } }[];
   };
   appliedBy?: { id: string; fullName: string } | null;
 }
@@ -342,4 +372,49 @@ export async function checkAdmissionFee(params: {
   return apiRequest<ApiResponse<AdmissionFeeCheckResult>>(
     `/enrollments/admission-check?${queryParams.toString()}`,
   );
+}
+
+// --- Add / Remove Course from Enrollment ---
+
+export async function addCourseToEnrollment(
+  enrollmentId: string,
+  data: { courseId: string; batchId?: string; includeBook?: boolean },
+): Promise<ApiResponse<Enrollment>> {
+  return apiRequest<ApiResponse<Enrollment>>(`/enrollments/${enrollmentId}/courses`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function removeCourseFromEnrollment(
+  enrollmentId: string,
+  courseId: string,
+): Promise<ApiResponse<Enrollment>> {
+  return apiRequest<ApiResponse<Enrollment>>(`/enrollments/${enrollmentId}/courses/${courseId}`, {
+    method: 'DELETE',
+  });
+}
+
+// --- Settlements ---
+
+export async function getSettlements(
+  enrollmentId: string,
+): Promise<ApiResponse<Settlement[]>> {
+  return apiRequest<ApiResponse<Settlement[]>>(`/settlements/enrollment/${enrollmentId}`);
+}
+
+export async function createSettlement(
+  enrollmentId: string,
+  data: { type: 'ADD' | 'REMOVE' | 'ADJUST'; adjustmentType: 'CREDIT' | 'DEBIT'; amount: number; referenceMonth?: string; note?: string },
+): Promise<ApiResponse<Settlement>> {
+  return apiRequest<ApiResponse<Settlement>>(`/settlements/enrollment/${enrollmentId}`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteSettlement(id: string): Promise<ApiResponse<void>> {
+  return apiRequest<ApiResponse<void>>(`/settlements/${id}`, {
+    method: 'DELETE',
+  });
 }

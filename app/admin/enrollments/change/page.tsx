@@ -180,7 +180,7 @@ export default function EnrollmentChangePage() {
             toast({ title: 'Error', description: 'Please select a target batch', variant: 'destructive' });
             return;
           }
-          await changeEnrollmentBatch(enrollmentId, newBatchId, reason);
+          await changeEnrollmentBatch(enrollmentId, selectedCourse, newBatchId, reason);
         } else {
           if (!newBranchId) {
             toast({ title: 'Error', description: 'Please select a target branch', variant: 'destructive' });
@@ -440,7 +440,7 @@ export default function EnrollmentChangePage() {
                     </TableCell>
                     <TableCell className="py-5">
                        <Badge variant="outline" className="rounded-lg bg-white border-slate-200 px-3 py-1 font-bold text-slate-700 shadow-sm uppercase tracking-tighter text-[11px]">
-                         {e.batch?.name || 'Unassigned'}
+                         {e.enrollmentCourses?.find(ec => ec.courseId === selectedCourse)?.batch?.name || 'Unassigned'}
                        </Badge>
                     </TableCell>
                     <TableCell className="py-5">

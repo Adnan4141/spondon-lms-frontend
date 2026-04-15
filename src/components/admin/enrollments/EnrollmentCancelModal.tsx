@@ -198,7 +198,7 @@ export function EnrollmentCancelModal({
           <div>
             <h2 className="text-2xl font-black tracking-tight text-slate-900">Remove enrollment</h2>
             <p className="mt-1 text-sm font-bold text-slate-500">
-              {enrollmentName ?? preview?.courseName ?? 'This course'}
+              {enrollmentName ?? preview?.programName ?? 'This enrollment'}
             </p>
           </div>
         </div>
@@ -213,6 +213,26 @@ export function EnrollmentCancelModal({
           </div>
         ) : (
           <>
+            {/* Courses in this enrollment */}
+            {preview && preview.courses.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
+                  <BookOpen className="h-4 w-4" />
+                  Courses being removed ({preview.courses.length})
+                </h3>
+                <div className="space-y-2">
+                  {preview.courses.map(c => (
+                    <div key={c.courseId} className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50/50 px-3 py-2 text-sm">
+                      <span className="font-bold text-slate-700">{c.courseName}</span>
+                      <span className="text-xs text-slate-500">
+                        ৳{money(c.fee)}
+                        {c.bookPrice != null && ` + বই ৳${money(c.bookPrice)}`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {/* Benefits ending */}
             {!noBenefits && (
               <div className="space-y-3">

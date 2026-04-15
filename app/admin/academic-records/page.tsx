@@ -360,10 +360,12 @@ function AcademicRecordsPageContent() {
           </section>
           <AcademicRecordsExplorer
             studentUserId={student.id}
-            enrollmentCourses={student.enrollments?.map((e) => ({
-              id: e.courseId,
-              name: e.course?.name ?? e.courseId,
-            }))}
+            enrollmentCourses={student.enrollments?.flatMap((e) =>
+              (e.enrollmentCourses ?? []).map((ec) => ({
+                id: ec.courseId,
+                name: ec.course?.name ?? ec.courseId,
+              }))
+            )}
           />
         </>
       )}

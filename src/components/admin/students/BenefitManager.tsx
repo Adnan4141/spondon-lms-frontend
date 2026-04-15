@@ -77,11 +77,11 @@ export function BenefitManager({ studentId, enrollments, onChanged }: BenefitMan
       title:
         key === 'GLOBAL'
           ? 'All active courses'
-          : items[0]?.course?.name || enrollments.find((enrollment) => enrollment.courseId === key)?.course?.name || key,
+          : items[0]?.course?.name || enrollments.flatMap((e) => e.enrollmentCourses ?? []).find((ec) => ec.courseId === key)?.course?.name || key,
       subtitle:
         key === 'GLOBAL'
           ? 'Global discount / scholarship'
-          : items[0]?.course?.slug || enrollments.find((enrollment) => enrollment.courseId === key)?.course?.slug || 'Course benefit',
+          : items[0]?.course?.slug || enrollments.flatMap((e) => e.enrollmentCourses ?? []).find((ec) => ec.courseId === key)?.course?.slug || 'Course benefit',
       items,
     }));
   }, [activeBenefits, enrollments]);
@@ -288,13 +288,14 @@ export function BenefitManager({ studentId, enrollments, onChanged }: BenefitMan
             <div className="mt-5 space-y-3">
               {enrollments
                 .filter((enrollment) => String(enrollment.status).toUpperCase() === 'ACTIVE')
-                .map((enrollment) => {
-                  const courseBenefits = activeBenefits.filter((benefit) => benefit.courseId === enrollment.courseId || benefit.courseId === null);
+                .flatMap((enrollment) => (enrollment.enrollmentCourses ?? []).map((ec) => ({ ...ec, enrollmentId: enrollment.id })))
+                .map((ec) => {
+                  const courseBenefits = activeBenefits.filter((benefit) => benefit.courseId === ec.courseId || benefit.courseId === null);
                   return (
-                    <div key={enrollment.id} className="flex items-center justify-between gap-3 rounded-2xl bg-white/90 px-4 py-3 shadow-sm ring-1 ring-indigo-100">
+                    <div key={ec.id} className="flex items-center justify-between gap-3 rounded-2xl bg-white/90 px-4 py-3 shadow-sm ring-1 ring-indigo-100">
                       <div>
-                        <p className="text-sm font-black text-slate-900">{enrollment.course?.name}</p>
-                        <p className="text-xs font-medium text-slate-400">{enrollment.course?.slug || 'Course'}</p>
+                        <p className="text-sm font-black text-slate-900">{ec.course?.name}</p>
+                        <p className="text-xs font-medium text-slate-400">{ec.course?.slug || 'Course'}</p>
                       </div>
                       <div className="flex items-center gap-2 text-indigo-700">
                         <span className="text-sm font-black">{courseBenefits.length}</span>

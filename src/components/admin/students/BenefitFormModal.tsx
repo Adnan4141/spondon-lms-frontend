@@ -56,8 +56,13 @@ export function BenefitFormModal({ studentId, enrollments, benefit, onSuccess }:
     [enrollments],
   );
 
-  const selectedEnrollment = activeEnrollments.find((item) => item.courseId === courseId);
-  const courseFee = Number(selectedEnrollment?.course?.fee ?? 0);
+  const allEnrollmentCourses = useMemo(
+    () => activeEnrollments.flatMap((e) => (e.enrollmentCourses ?? []).map((ec) => ({ ...ec, enrollment: e }))),
+    [activeEnrollments],
+  );
+
+  const selectedEnrollmentCourse = allEnrollmentCourses.find((ec) => ec.courseId === courseId);
+  const courseFee = Number(selectedEnrollmentCourse?.course?.fee ?? 0);
   const numericValue = Number(value || 0);
   const reduction = useMemo(() => {
     if (!numericValue || numericValue <= 0 || !courseFee) return 0;
@@ -207,9 +212,9 @@ export function BenefitFormModal({ studentId, enrollments, benefit, onSuccess }:
                 className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none ring-0 transition focus:border-indigo-300"
               >
                 <option value="GLOBAL">All current courses</option>
-                {activeEnrollments.map((item) => (
-                  <option key={item.id} value={item.courseId}>
-                    {item.course?.name || item.courseId}
+                {allEnrollmentCourses.map((ec) => (
+                  <option key={ec.id} value={ec.courseId}>
+                    {ec.course?.name || ec.courseId}
                   </option>
                 ))}
               </select>
@@ -282,11 +287,11 @@ export function BenefitFormModal({ studentId, enrollments, benefit, onSuccess }:
               <div className="rounded-2xl bg-white/80 p-4 shadow-sm ring-1 ring-indigo-100">
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Selected scope</p>
                 <p className="mt-2 font-black text-slate-900">
-                  {courseId === 'GLOBAL' ? 'All current active courses' : selectedEnrollment?.course?.name || 'Specific course'}
+                  {courseId === 'GLOBAL' ? 'All current active courses' : selectedEnrollmentCourse?.course?.name || 'Specific course'}
                 </p>
-                {selectedEnrollment?.course?.slug ? (
+                {selectedEnrollmentCourse?.course?.slug ? (
                   <Badge variant="outline" className="mt-2 rounded-full border-slate-200 bg-white text-[10px] font-black uppercase">
-                    {selectedEnrollment.course.slug}
+                    {selectedEnrollmentCourse.course.slug}
                   </Badge>
                 ) : null}
               </div>

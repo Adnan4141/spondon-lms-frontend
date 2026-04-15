@@ -87,10 +87,8 @@ export function EnrollmentDetailsView({
   const [rollBusy, setRollBusy] = useState(false);
   const [rollNumber, setRollNumber] = useState<number | null>(null);
   const [suspendBusy, setSuspendBusy] = useState(false);
-  const [booksReceivedLocal, setBooksReceivedLocal] = useState<boolean>(enrollment.booksReceived ?? false);
-  const [booksReceivedBusy, setBooksReceivedBusy] = useState(false);
 
-  const course = enrollment.course;
+  const enrollmentCourses = enrollment.enrollmentCourses || [];
   const isMonthly = enrollment.billingType === 'MONTHLY';
   const isActive = String(enrollment.status).toUpperCase() === 'ACTIVE';
   const isSuspended = String(enrollment.status).toUpperCase() === 'SUSPENDED';
@@ -160,24 +158,6 @@ export function EnrollmentDetailsView({
     }
   };
 
-  const handleBooksReceived = async (checked: boolean) => {
-    try {
-      setBooksReceivedBusy(true);
-      const res = await updateEnrollment(enrollment.id, { booksReceived: checked });
-      if (res.success) {
-        setBooksReceivedLocal(checked);
-        toast({ title: checked ? 'Books marked received' : 'Books marked not received', variant: 'success' });
-        await onAfterMutation?.();
-      } else {
-        toast({ title: 'Failed', description: res.message, variant: 'destructive' });
-      }
-    } catch (e: unknown) {
-      toast({ title: 'Error', description: e instanceof Error ? e.message : 'Failed', variant: 'destructive' });
-    } finally {
-      setBooksReceivedBusy(false);
-    }
-  };
-
   const handleMonthlyFullCancel = async () => {
     try {
       setMonthlyBusy(true);
@@ -224,7 +204,7 @@ export function EnrollmentDetailsView({
                 >
                   {enrollment.status}
                 </Badge>
-                <CourseDeliveryBadge type={course?.type} className="rounded-lg px-3 py-1 text-[10px]" />
+                {enrollmentCourses[0]?.course?.type && <CourseDeliveryBadge type={enrollmentCourses[0].course.type} className="rounded-lg px-3 py-1 text-[10px]" />}
                 {enrollment.billingType && (
                   <Badge
                     variant="outline"
@@ -240,16 +220,18 @@ export function EnrollmentDetailsView({
                 )}
               </div>
               <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Course</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Program</p>
                 <h2 className="text-xl font-black tracking-tight text-slate-900 sm:text-2xl">
-                  {course?.name ?? '—'}
+                  {enrollment.program?.name ?? '—'}
                 </h2>
-                <p className="mt-1 font-mono text-xs font-bold text-indigo-600">{course?.slug}</p>
+                <p className="mt-1 text-xs font-bold text-slate-500">
+                  {enrollmentCourses.map(ec => ec.course?.name).filter(Boolean).join(', ') || 'No courses'}
+                </p>
               </div>
               <div className="flex flex-wrap gap-4 text-sm font-bold text-slate-600">
                 <span className="inline-flex items-center gap-1.5">
                   <Layers className="h-4 w-4 text-indigo-500" />
-                  {course?.program?.name ?? 'No program'}
+                  {enrollmentCourses.length} কোর্স
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <Building2 className="h-4 w-4 text-rose-500" />
@@ -277,9 +259,9 @@ export function EnrollmentDetailsView({
         <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
             {
-              label: enrollment.billingType === 'MONTHLY' ? 'Monthly fee' : 'Course fee',
-              value: course ? `৳${Number(course.fee).toLocaleString()}` : '—',
-              icon: CreditCard,
+              label: 'Courses',
+              value: `${enrollmentCourses.length} কোর্স`,
+              icon: GraduationCap,
               bg: 'bg-blue-50',
               color: 'text-blue-600',
             },
@@ -291,9 +273,9 @@ export function EnrollmentDetailsView({
               color: 'text-violet-600',
             },
             {
-              label: 'Batch',
-              value: enrollment.batch?.name || 'Unassigned',
-              icon: Users,
+              label: 'Branch',
+              value: enrollment.branch?.name || '—',
+              icon: Building2,
               bg: 'bg-emerald-50',
               color: 'text-emerald-600',
             },
@@ -318,6 +300,31 @@ export function EnrollmentDetailsView({
           ))}
         </div>
 
+        {/* Enrolled Courses list */}
+        {enrollmentCourses.length > 0 && (
+          <div className="mb-8 space-y-3 rounded-2xl border border-slate-200 bg-slate-50/50 p-5">
+            <h3 className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-500">
+              <Layers className="h-4 w-4" />
+              Enrolled Courses
+            </h3>
+            {enrollmentCourses.map(ec => (
+              <div key={ec.id} className="flex items-center justify-between rounded-xl border border-slate-100 bg-white p-3">
+                <div>
+                  <p className="text-sm font-bold text-slate-800">{ec.course?.name || ec.courseId}</p>
+                  <p className="text-xs text-slate-500">
+                    {ec.batch?.name || 'No batch'}
+                    {ec.includeBook && ' • 📚 Book included'}
+                    {ec.bookPrice != null && ec.includeBook && ` (৳${Number(ec.bookPrice).toLocaleString()})`}
+                  </p>
+                </div>
+                <span className="text-xs font-bold text-slate-400">
+                  {ec.course?.fee != null ? `৳${Number(ec.course.fee).toLocaleString()}` : ''}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
         {isMonthly && (
           <div className="mb-8 space-y-4 rounded-2xl border border-violet-200 bg-violet-50/40 p-5">
             <div className="flex items-start gap-3">
@@ -339,18 +346,6 @@ export function EnrollmentDetailsView({
             <Tag className="h-4 w-4" />
             Enrollment Actions
           </h3>
-
-          {/* Books received toggle */}
-          <label className="flex cursor-pointer items-center gap-3 text-sm font-bold text-slate-800">
-            <Checkbox
-              checked={booksReceivedLocal}
-              disabled={booksReceivedBusy}
-              onCheckedChange={(c) => handleBooksReceived(c === true)}
-            />
-            <Book className="h-4 w-4 text-amber-600" />
-            Books received
-            {booksReceivedBusy && <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" />}
-          </label>
 
           {/* Regenerate roll */}
           <div className="flex items-center gap-4">

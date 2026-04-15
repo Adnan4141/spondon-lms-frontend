@@ -200,8 +200,8 @@ export default function TeacherStudentsPage() {
                 <TableHeader>
                   <TableRow className="hover:bg-transparent border-b border-slate-100 bg-white">
                     <TableHead className="px-8 py-5 font-black text-[10px] uppercase tracking-widest text-slate-400">Student Identity</TableHead>
-                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Course Assignment</TableHead>
-                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Batch / Group</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Program / Courses</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Branch</TableHead>
                     <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Status</TableHead>
                     <TableHead className="px-8 font-black text-[10px] uppercase tracking-widest text-slate-400">Enrollment Date</TableHead>
                   </TableRow>
@@ -235,15 +235,15 @@ export default function TeacherStudentsPage() {
                                <BookOpen className="h-4 w-4" />
                             </div>
                             <div className="flex flex-col">
-                               <span className="text-[10px] font-black uppercase tracking-widest text-blue-600">{e.course?.slug}</span>
-                               <span className="text-sm font-bold text-slate-700 leading-none">{e.course?.name}</span>
+                               <span className="text-[10px] font-black uppercase tracking-widest text-blue-600">{e.program?.name}</span>
+                               <span className="text-sm font-bold text-slate-700 leading-none">{e.enrollmentCourses?.map((ec) => ec.course?.name).filter(Boolean).join(', ') || '—'}</span>
                             </div>
                          </div>
                       </TableCell>
                       <TableCell className="py-5">
                          <div className="flex items-center gap-2 text-sm font-bold text-slate-600">
                             <Layers className="h-4 w-4 text-slate-300" />
-                            {e.batch?.name || 'Unassigned'}
+                            {e.branch?.name || '—'}
                          </div>
                       </TableCell>
                       <TableCell className="py-5">

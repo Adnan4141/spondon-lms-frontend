@@ -139,16 +139,6 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
     loadInvoices();
   }, [loadEnrollments, loadInvoices]);
 
-  const programEnrollmentCounts = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const e of enrollments) {
-      const pid = e.course?.program?.id;
-      if (!pid) continue;
-      m.set(pid, (m.get(pid) || 0) + 1);
-    }
-    return m;
-  }, [enrollments]);
-
   const invoiceTotals = useMemo(() => {
     let due = 0;
     let paid = 0;
@@ -184,16 +174,10 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
     for (const e of enrollments) {
       if (e.billingType === 'MONTHLY') monthly += 1;
       else oneTime += 1;
-      if (e.course?.program?.id) programs.add(e.course.program.id);
+      if (e.programId) programs.add(e.programId);
     }
     return { monthly, oneTime, programCount: programs.size };
   }, [enrollments]);
-
-  const programSiblingCount = (e: EnrollmentType) => {
-    const pid = e.course?.program?.id;
-    if (!pid) return 1;
-    return programEnrollmentCounts.get(pid) || 1;
-  };
 
   const handleViewInvoice = async (invoiceId: string) => {
     try {
@@ -227,7 +211,7 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
       }
       openModal({
         title: 'Enrollment details',
-        description: res.data.course?.name,
+        description: res.data.program?.name,
         className: 'sm:max-w-3xl',
         content: (
           <EnrollmentDetailsView
@@ -284,12 +268,12 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
   const handleDeleteEnrollment = (enrollment: EnrollmentType) => {
     openModal({
       title: 'Remove enrollment',
-      description: enrollment.course?.name,
+      description: enrollment.program?.name,
       className: 'sm:max-w-2xl',
       content: (
         <EnrollmentCancelModal
           enrollmentId={enrollment.id}
-          enrollmentName={enrollment.course?.name}
+          enrollmentName={enrollment.program?.name}
           onSuccess={refreshEnrollmentsAndBilling}
         />
       ),
@@ -336,15 +320,12 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
   const currentDetailTab = STUDENT_DETAIL_TABS.find((t) => t.value === studentTab) ?? STUDENT_DETAIL_TABS[0];
   const CurrentDetailTabIcon = currentDetailTab.icon;
 
-  const programGroups = Object.values(
-    filteredEnrollments.reduce((acc: Record<string, { id: string; name: string; courses: EnrollmentType[] }>, e) => {
-      const programId = e.course?.program?.id || 'unknown';
-      const programName = e.course?.program?.name || 'No program';
-      if (!acc[programId]) acc[programId] = { id: programId, name: programName, courses: [] };
-      acc[programId].courses.push(e);
-      return acc;
-    }, {})
-  );
+  const programGroups = filteredEnrollments.map((e) => ({
+    id: e.programId || 'unknown',
+    name: e.program?.name || 'No program',
+    enrollment: e,
+    courses: e.enrollmentCourses ?? [],
+  }));
 
   return (
     <div className="flex flex-col h-full bg-white text-slate-900">
@@ -776,31 +757,31 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                       </div>
                       
                       <div className="divide-y divide-slate-50">
-                        {group.courses.map((c) => (
-                          <div key={c.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-3 hover:bg-slate-50/50 transition-colors">
+                        {group.courses.map((ec) => (
+                          <div key={ec.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-3 hover:bg-slate-50/50 transition-colors">
                             <div className="flex min-w-0 flex-col gap-2">
-                              <span className="text-sm font-bold text-slate-700">{c.course?.name}</span>
+                              <span className="text-sm font-bold text-slate-700">{ec.course?.name}</span>
                               <div className="flex flex-wrap items-center gap-1.5">
-                                <CourseDeliveryBadge type={c.course?.type} />
+                                <CourseDeliveryBadge type={ec.course?.type} />
                                 <Badge
                                   variant="outline"
                                   className={cn(
                                     'rounded-md px-2 py-0 text-[8px] font-black uppercase tracking-wider',
-                                    c.billingType === 'MONTHLY'
+                                    group.enrollment.billingType === 'MONTHLY'
                                       ? 'border-violet-200 bg-violet-50 text-violet-800'
                                       : 'border-sky-200 bg-sky-50 text-sky-800'
                                   )}
                                 >
-                                  {c.billingType === 'MONTHLY' ? 'মাসিক বিলিং' : 'এককালীন ফি'}
+                                  {group.enrollment.billingType === 'MONTHLY' ? 'মাসিক বিলিং' : 'এককালীন ফি'}
                                 </Badge>
-                                {c.billingType === 'MONTHLY' && c.billingStartMonth ? (
+                                {group.enrollment.billingType === 'MONTHLY' && group.enrollment.billingStartMonth ? (
                                   <Badge variant="outline" className="rounded-md border-slate-200 bg-white px-2 py-0 text-[8px] font-black uppercase text-slate-600">
-                                    শুরু {c.billingStartMonth}
+                                    শুরু {group.enrollment.billingStartMonth}
                                   </Badge>
                                 ) : null}
-                                {programSiblingCount(c) > 1 ? (
+                                {group.courses.length > 1 ? (
                                   <Badge variant="outline" className="rounded-md border-indigo-200 bg-indigo-50 px-2 py-0 text-[8px] font-black uppercase text-indigo-800">
-                                    প্রোগ্রাম জুড়ে {programSiblingCount(c)} কোর্স
+                                    প্রোগ্রাম জুড়ে {group.courses.length} কোর্স
                                   </Badge>
                                 ) : (
                                   <Badge variant="outline" className="rounded-md border-slate-100 bg-slate-50 px-2 py-0 text-[8px] font-black uppercase text-slate-500">
@@ -809,7 +790,7 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                                 )}
                               </div>
                               <span className="text-[10px] font-bold text-slate-400">
-                                {c.batch?.name || 'Unassigned batch'} · ফি ৳{money(c.course?.fee)}
+                                {ec.batch?.name || 'Unassigned batch'} · ফি ৳{money(ec.course?.fee)}
                               </span>
                             </div>
                             <div className="flex shrink-0 items-center gap-2 sm:gap-3">
@@ -817,10 +798,10 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                                 variant="outline"
                                 className={cn(
                                   'rounded-md border-none px-2 py-0 text-[9px] font-black uppercase',
-                                  getStatusBadgeClass(String(c.status)),
+                                  getStatusBadgeClass(String(group.enrollment.status)),
                                 )}
                               >
-                                {c.status}
+                                {group.enrollment.status}
                               </Badge>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -831,15 +812,15 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                                 <DropdownMenuContent align="end" className="w-48 rounded-xl border-slate-200 bg-white shadow-xl">
                                   <DropdownMenuItem
                                     className="cursor-pointer text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-lg px-3 py-2"
-                                    onClick={() => handleViewEnrollment(c)}
+                                    onClick={() => handleViewEnrollment(group.enrollment)}
                                   >
                                     <Eye className="h-3 w-3 mr-2" />
                                     View
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem className="cursor-pointer text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-lg px-3 py-2" onClick={() => handleEditEnrollment(c)}>
+                                  <DropdownMenuItem className="cursor-pointer text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-lg px-3 py-2" onClick={() => handleEditEnrollment(group.enrollment)}>
                                     Edit
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem className="cursor-pointer text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-lg px-3 py-2" onClick={() => handleDeleteEnrollment(c)}>
+                                  <DropdownMenuItem className="cursor-pointer text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-lg px-3 py-2" onClick={() => handleDeleteEnrollment(group.enrollment)}>
                                     <Ban className="h-3 w-3 mr-2" />
                                     Cancel / Remove
                                   </DropdownMenuItem>
@@ -858,10 +839,12 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
             <TabsContent value="academic" className="m-0 space-y-8">
               <StudentAcademicTab
                 studentId={student.id}
-                enrollmentCourses={enrollments.map((e) => ({
-                  id: e.courseId,
-                  name: e.course?.name ?? e.courseId,
-                }))}
+                enrollmentCourses={enrollments.flatMap((e) =>
+                  (e.enrollmentCourses ?? []).map((ec) => ({
+                    id: ec.courseId,
+                    name: ec.course?.name ?? ec.courseId,
+                  }))
+                )}
               />
             </TabsContent>
 

@@ -76,7 +76,7 @@ export default function MonthlyBillingPage() {
   const monthlyEnrollments = enrollments.filter((e) => e.billingType === 'MONTHLY');
   const filteredPreview = monthlyEnrollments.filter((e) => {
     if (branchId !== 'all' && e.branchId !== branchId) return false;
-    if (courseId !== 'all' && e.courseId !== courseId) return false;
+    if (courseId !== 'all' && !e.enrollmentCourses?.some((ec) => ec.courseId === courseId)) return false;
     if (e.billingStartMonth && e.billingStartMonth > month) return false;
     return true;
   });
@@ -266,7 +266,7 @@ export default function MonthlyBillingPage() {
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="font-bold">Student</TableHead>
-                  <TableHead className="font-bold">Course</TableHead>
+                  <TableHead className="font-bold">Program / Courses</TableHead>
                   <TableHead className="font-bold">Branch</TableHead>
                   <TableHead className="font-bold">Billing start</TableHead>
                 </TableRow>
@@ -276,7 +276,7 @@ export default function MonthlyBillingPage() {
                   <TableRow key={e.id}>
                     <TableCell className="font-medium">{e.student?.fullName ?? '—'}</TableCell>
                     <TableCell className="text-slate-600">
-                      {e.course?.slug} · {e.course?.name}
+                      {e.program?.name ?? '—'} · {e.enrollmentCourses?.map((ec) => ec.course?.name).filter(Boolean).join(', ') || '—'}
                     </TableCell>
                     <TableCell className="text-slate-600">{e.branch?.name ?? '—'}</TableCell>
                     <TableCell>{e.billingStartMonth || <span className="text-slate-400">Any month</span>}</TableCell>
