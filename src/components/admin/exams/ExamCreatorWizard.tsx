@@ -125,9 +125,15 @@ function sortExamSets(sets: ExamSet[] | undefined): ExamSet[] {
 }
 
 function initialSelectedFoldersFromExam(exam: Exam | null | undefined): Set<string> {
-  const rules = exam?.folderRules;
-  if (!rules?.length) return new Set();
-  return new Set(rules.map((r) => r.folderId).filter(Boolean));
+  const subjects = exam?.subjects;
+  if (!subjects?.length) return new Set();
+  const folderIds: string[] = [];
+  for (const sub of subjects) {
+    for (const rule of sub.folderRules ?? []) {
+      if (rule.folderId) folderIds.push(rule.folderId);
+    }
+  }
+  return new Set(folderIds);
 }
 
 function treeFolderAndQuestionTotals(nodes: FolderTreeNode[]): { folders: number; questions: number } {

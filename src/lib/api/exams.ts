@@ -9,26 +9,37 @@ import type {
   StartAttemptResponse,
   AttemptResultResponse,
   ExamStudentView,
-  ExamFolderRule,
+  ExamSubject,
+  ExamSubjectFolderRule,
   SelectionMode,
+  Difficulty,
 } from '@/types/exam';
 
-export type { ExamFolderRule, SelectionMode };
+export type { ExamSubject, ExamSubjectFolderRule, SelectionMode, Difficulty };
 
-export interface UpsertExamFolderRuleDto {
-  folderId: string;
-  selectionMode: SelectionMode;
-  questionCount?: number | null;
-  questionTypes?: string[];
-  difficulty?: string | null;
-  tags?: string[];
+export interface CreateExamSubjectDto {
+  name: string;
+  questionCount: number;
+  marksPerQuestion: number;
+  negativeMarks?: number;
+  passMarks?: number;
   isMandatory?: boolean;
+  sortOrder?: number;
+  folderRules?: { folderId: string; questionCount: number; difficulty?: Difficulty; selectionMode?: SelectionMode }[];
 }
 
-export interface GenerateFromFoldersDto {
-  examSetId: string;
-  marks?: number;
-  negativeMarks?: number;
+export interface UpdateExamSubjectDto extends Partial<CreateExamSubjectDto> {}
+
+export interface UpsertSubjectFolderRuleDto {
+  folderId: string;
+  questionCount: number;
+  difficulty?: Difficulty | null;
+  selectionMode?: SelectionMode;
+}
+
+export interface GenerateFromSubjectsDto {
+  setCount: number;
+  language?: 'bn' | 'en';
   replaceExisting?: boolean;
 }
 
@@ -226,52 +237,7 @@ export async function saveExamAnswers(
   });
 }
 
-export type PaperBlueprintSubject = {
-  subjectId: string;
-  subjectName?: string;
-  type: 'MCQ' | 'CQ' | 'Short' | 'MCQ+CQ' | 'MCQ+Short';
-  setSequence?: number;
-  totalMCQ?: number;
-  singleMCQ?: number;
-  passageMCQ?: number;
-  creativeSets?: number;
-  shortCount?: number;
-};
 
-export type PaperBlueprint = {
-  sets: number;
-  marksPerQuestion?: number;
-  negativeMarking?: number;
-  duration?: number;
-  subjects: PaperBlueprintSubject[];
-};
-
-export async function validateExamBlueprint(body: {
-  blueprint: PaperBlueprint;
-  teacherUserId?: string;
-}): Promise<ApiResponse<{ valid: boolean; errors: string[]; warnings: string[] }>> {
-  return apiRequest(`/exams/validate-blueprint`, {
-    method: 'POST',
-    body: JSON.stringify(body),
-  });
-}
-
-export async function generateExamPaper(
-  examId: string,
-  body: { blueprint: PaperBlueprint; teacherUserId?: string },
-): Promise<
-  ApiResponse<{
-    examId: string;
-    generatedAt: string;
-    setsSummary: { name: string; questionCount: number }[];
-    setNames: string[];
-  }>
-> {
-  return apiRequest(`/exams/${examId}/generate-paper`, {
-    method: 'POST',
-    body: JSON.stringify(body),
-  });
-}
 
 export async function submitExamAttempt(examId: string, data: { studentUserId: string; antiCheatLog?: any }): Promise<ApiResponse<any>> {
   return apiRequest<ApiResponse<any>>(`/exams/${examId}/submit-attempt`, {
@@ -426,25 +392,50 @@ export async function getExamMeritListAll(examId: string): Promise<ApiResponse<E
   return apiRequest<ApiResponse<ExamMeritListPayload>>(`/exams/${examId}/merit-list/all`);
 }
 
-// ─── Exam Folder Rules ──────────────────────────────────────────────────────
+// ─── Exam Subjects & Folder Rules ───────────────────────────────────────────
 
-export async function getExamFolderRules(examId: string): Promise<ApiResponse<ExamFolderRule[]>> {
-  return apiRequest<ApiResponse<ExamFolderRule[]>>(`/exams/${examId}/folder-rules`);
+export async function getExamSubjects(examId: string): Promise<ApiResponse<ExamSubject[]>> {
+  return apiRequest<ApiResponse<ExamSubject[]>>(`/exams/${examId}/subjects`);
 }
 
-export async function upsertExamFolderRule(examId: string, data: UpsertExamFolderRuleDto): Promise<ApiResponse<ExamFolderRule>> {
-  return apiRequest<ApiResponse<ExamFolderRule>>(`/exams/${examId}/folder-rules`, {
+export async function createExamSubject(examId: string, data: CreateExamSubjectDto): Promise<ApiResponse<ExamSubject>> {
+  return apiRequest<ApiResponse<ExamSubject>>(`/exams/${examId}/subjects`, {
     method: 'POST',
     body: JSON.stringify(data),
   });
 }
 
-export async function deleteExamFolderRule(examId: string, ruleId: string): Promise<ApiResponse<void>> {
-  return apiRequest<ApiResponse<void>>(`/exams/${examId}/folder-rules/${ruleId}`, { method: 'DELETE' });
+export async function updateExamSubject(examId: string, subjectId: string, data: UpdateExamSubjectDto): Promise<ApiResponse<ExamSubject>> {
+  return apiRequest<ApiResponse<ExamSubject>>(`/exams/${examId}/subjects/${subjectId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
 }
 
-export async function generateFromFolders(examId: string, data: GenerateFromFoldersDto): Promise<ApiResponse<any>> {
-  return apiRequest<ApiResponse<any>>(`/exams/${examId}/generate-from-folders`, {
+export async function deleteExamSubject(examId: string, subjectId: string): Promise<ApiResponse<void>> {
+  return apiRequest<ApiResponse<void>>(`/exams/${examId}/subjects/${subjectId}`, { method: 'DELETE' });
+}
+
+export async function upsertSubjectFolderRule(examId: string, subjectId: string, data: UpsertSubjectFolderRuleDto): Promise<ApiResponse<ExamSubjectFolderRule>> {
+  return apiRequest<ApiResponse<ExamSubjectFolderRule>>(`/exams/${examId}/subjects/${subjectId}/folder-rules`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteSubjectFolderRule(examId: string, subjectId: string, ruleId: string): Promise<ApiResponse<void>> {
+  return apiRequest<ApiResponse<void>>(`/exams/${examId}/subjects/${subjectId}/folder-rules/${ruleId}`, { method: 'DELETE' });
+}
+
+export async function validateExamSubjects(examId: string, setCount: number = 1): Promise<ApiResponse<{ valid: boolean; errors: string[]; warnings: string[] }>> {
+  return apiRequest<ApiResponse<{ valid: boolean; errors: string[]; warnings: string[] }>>(`/exams/${examId}/validate-subjects`, {
+    method: 'POST',
+    body: JSON.stringify({ setCount }),
+  });
+}
+
+export async function generateFromSubjects(examId: string, data: GenerateFromSubjectsDto): Promise<ApiResponse<any>> {
+  return apiRequest<ApiResponse<any>>(`/exams/${examId}/generate-from-subjects`, {
     method: 'POST',
     body: JSON.stringify(data),
   });

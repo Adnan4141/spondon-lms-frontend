@@ -84,7 +84,7 @@ import { OmrSheetPreview } from './OmrSheetPreview';
 import { OmrGradingPanel } from './OmrGradingPanel';
 import { ExamResultBatchesPanel } from './ExamResultBatchesPanel';
 import { MeritListsTab } from './MeritListsTab';
-import { ExamFolderRules } from './ExamFolderRules';
+import { ExamSubjectBuilder } from './ExamSubjectBuilder';
 
 interface ExamDetailsViewProps {
   exam: Exam;
@@ -1036,9 +1036,8 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
             </div>
           ) : activeTab === 'folder-rules' ? (
             <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <ExamFolderRules
+              <ExamSubjectBuilder
                 examId={exam.id}
-                sets={exam.sets ?? []}
                 onGenerated={fetchExamData}
               />
             </div>

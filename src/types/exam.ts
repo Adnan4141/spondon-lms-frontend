@@ -1,23 +1,37 @@
 // Exam types based on Prisma schema
 export type ExamType = 'PRACTICE' | 'SCHEDULED' | 'MODEL' | 'TALENT_HUNT' | 'UNIVERSITY';
+export type ExamScope = 'COURSE' | 'GLOBAL';
 export type SelectionMode = 'RANDOM' | 'MANUAL';
+export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD';
 
-export interface ExamFolderRule {
+export interface ExamSubjectFolderRule {
   id: string;
-  examId: string;
+  examSubjectId: string;
   folderId: string;
+  questionCount: number;
+  difficulty?: Difficulty | null;
   selectionMode: SelectionMode;
-  questionCount?: number | null;
-  questionTypes?: string[];
-  difficulty?: string | null;
-  tags?: string[];
-  isMandatory?: boolean;
   createdAt: string;
   folder?: {
     id: string;
     name: string;
     _count?: { questions: number };
   };
+}
+
+export interface ExamSubject {
+  id: string;
+  examId: string;
+  name: string;
+  slug: string;
+  questionCount: number;
+  marksPerQuestion: number;
+  negativeMarks?: number | null;
+  passMarks?: number | null;
+  isMandatory: boolean;
+  sortOrder: number;
+  createdAt: string;
+  folderRules?: ExamSubjectFolderRule[];
 }
 export type ExamEngineType =
   | 'REGULAR'
@@ -61,7 +75,6 @@ export interface ExamQuestion {
   negativeMarks?: number | null;
   orderIndex: number;
   sectionKey?: string | null;
-  subjectCourseId?: string | null;
   question?: {
     id: string;
     prompt: string;
@@ -107,6 +120,7 @@ export interface Exam {
   batchId?: string | null;
   title: string;
   type: ExamType;
+  scope?: ExamScope;
   examEngine?: ExamEngineType;
   mode: ExamMode;
   startAt?: string | null;
@@ -134,7 +148,7 @@ export interface Exam {
   batch?: Batch | null;
   sets?: ExamSet[];
   attempts?: ExamAttempt[];
-  folderRules?: ExamFolderRule[];
+  subjects?: ExamSubject[];
   _count?: {
     attempts?: number;
     sets?: number;
@@ -196,6 +210,7 @@ export interface CreateExamDto {
   title: string;
   type: ExamType;
   mode: ExamMode;
+  scope?: ExamScope;
   examEngine?: ExamEngineType;
   showPercentile?: boolean;
   universityName?: string | null;
@@ -223,6 +238,7 @@ export interface UpdateExamDto {
   title?: string;
   type?: ExamType;
   mode?: ExamMode;
+  scope?: ExamScope;
   examEngine?: ExamEngineType;
   showPercentile?: boolean;
   universityName?: string | null;
