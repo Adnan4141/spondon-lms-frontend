@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { CourseDeliveryBadge } from '@/lib/course-delivery';
+import { getEffectiveCoursePrice } from '@/lib/course-pricing';
 import {
   Phone,
   Mail,
@@ -787,7 +788,7 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                                 )}
                               </div>
                               <span className="text-[10px] font-bold text-slate-400">
-                                {ec.batch?.name || 'Unassigned batch'} · ফি ৳{money(ec.course?.fee)}
+                                {ec.batch?.name || 'Unassigned batch'} · ফি ৳{money(getEffectiveCoursePrice(ec.course))}
                               </span>
                             </div>
                             <div className="flex shrink-0 items-center gap-2 sm:gap-3">

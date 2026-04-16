@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -13,6 +13,7 @@ import {
 import { Ban, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { deleteEnrollment, removeCourseFromEnrollment, type Enrollment, type EnrollmentCourse } from '@/lib/api/enrollments';
 import { useToast } from '@/hooks/use-toast';
+import { getEffectiveCoursePrice } from '@/lib/course-pricing';
 import { cn } from '@/lib/utils';
 
 /* ------------------------------------------------------------------ */
@@ -49,7 +50,6 @@ function Row({ label, children, className }: { label: string; children: React.Re
 /*  Main component                                                     */
 /* ------------------------------------------------------------------ */
 export function CourseCancellationWizard({
-  studentId,
   studentName,
   studentReg,
   branchName,
@@ -105,7 +105,7 @@ export function CourseCancellationWizard({
     () =>
       selectedCourses
         .filter((ec) => ec.billingType === 'MONTHLY')
-        .reduce((s, ec) => s + Number(ec.course?.fee || 0), 0),
+        .reduce((s, ec) => s + getEffectiveCoursePrice(ec.course), 0),
     [selectedCourses],
   );
 
@@ -113,7 +113,7 @@ export function CourseCancellationWizard({
     () =>
       selectedCourses
         .filter((ec) => ec.billingType !== 'MONTHLY')
-        .reduce((s, ec) => s + Number(ec.course?.fee || 0), 0),
+        .reduce((s, ec) => s + getEffectiveCoursePrice(ec.course), 0),
     [selectedCourses],
   );
 
@@ -123,7 +123,7 @@ export function CourseCancellationWizard({
   );
 
   const remainingMonthlyFee = useMemo(
-    () => remainingMonthlyCourses.reduce((s, ec) => s + Number(ec.course?.fee || 0), 0),
+    () => remainingMonthlyCourses.reduce((s, ec) => s + getEffectiveCoursePrice(ec.course), 0),
     [remainingMonthlyCourses],
   );
 
@@ -276,8 +276,8 @@ export function CourseCancellationWizard({
                           )}
                         >
                           {ec.billingType === 'MONTHLY'
-                            ? `monthly · ${money(ec.course?.fee)}`
-                            : `one-time · ${money(ec.course?.fee)}`}
+                            ? `monthly · ${money(getEffectiveCoursePrice(ec.course))}`
+                            : `one-time · ${money(getEffectiveCoursePrice(ec.course))}`}
                         </Badge>
                       </div>
                     </div>

@@ -15,6 +15,7 @@ import { distributeProportionalByFee } from '@/lib/admission-distribution';
 import { validateAdmissionPayment, netPayableAfterAdjustments } from '@/lib/admission-payment-zod';
 import { cn } from '@/lib/utils';
 import { CourseDeliveryBadge } from '@/lib/course-delivery';
+import { getEffectiveCoursePrice } from '@/lib/course-pricing';
 import { useToast } from '@/hooks/use-toast';
 import { useModalStore } from '@/store/modalStore';
 import { getCourses, type Course } from '@/lib/api/courses';
@@ -239,6 +240,7 @@ export function EnrollmentForm({
 
   // ─── Selected course IDs (from field array) ─────────────────────────────────
   const selectedCourseIds = useMemo(() => watchedCourses.map((r) => r.courseId), [watchedCourses]);
+  const addCourseRequiresProgram = enrollmentMode === 'program' && !programId;
 
   // ─── Filtered course list for picker ────────────────────────────────────────
   const pickerCourses = useMemo(() => {
@@ -275,7 +277,7 @@ export function EnrollmentForm({
 
   // ─── Fee calculations ────────────────────────────────────────────────────────
   const totalCourseFee = useMemo(
-    () => selectedCourseIds.reduce((s, id) => s + (Number(courseMap.get(id)?.fee) || 0), 0),
+    () => selectedCourseIds.reduce((s, id) => s + getEffectiveCoursePrice(courseMap.get(id)), 0),
     [selectedCourseIds, courseMap],
   );
 
@@ -346,7 +348,7 @@ export function EnrollmentForm({
   };
 
   const distributedPreview = useMemo(() => {
-    const feeFn = (id: string) => Number(courseMap.get(id)?.fee) || 0;
+    const feeFn = (id: string) => getEffectiveCoursePrice(courseMap.get(id));
     const discMap = distributeProportionalByFee(selectedCourseIds, feeFn, totalDiscountNum);
     const payMap = distributeProportionalByFee(selectedCourseIds, feeFn, totalPaymentNum);
     const rows = selectedCourseIds.map((id) => {
@@ -544,7 +546,7 @@ export function EnrollmentForm({
       )}
 
       {/* ── Body ───────────────────────────────────────────────────────────── */}
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 no-scrollbar space-y-6">
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 pb-28 no-scrollbar space-y-6">
 
         {/* ══ STEP 1: Course selection ════════════════════════════════════════ */}
         {step === 1 && (
@@ -655,15 +657,25 @@ export function EnrollmentForm({
             )}
 
             {/* Course picker popover */}
-            <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+            <Popover
+              open={pickerOpen}
+              onOpenChange={(nextOpen) => {
+                if (nextOpen && addCourseRequiresProgram) return;
+                setPickerOpen(nextOpen);
+              }}
+            >
               <PopoverTrigger asChild>
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full h-12 rounded-2xl border-dashed border-slate-300 text-slate-500 font-bold text-sm gap-2 hover:border-indigo-400 hover:text-indigo-600"
+                  disabled={addCourseRequiresProgram}
+                  className={cn(
+                    'w-full h-12 rounded-2xl border-dashed border-slate-300 text-slate-500 font-bold text-sm gap-2 hover:border-indigo-400 hover:text-indigo-600',
+                    addCourseRequiresProgram && 'cursor-not-allowed border-slate-200 text-slate-400 hover:border-slate-200 hover:text-slate-400',
+                  )}
                 >
                   <Plus className="h-4 w-4" />
-                  Add Course
+                  {addCourseRequiresProgram ? 'Select Program First' : 'Add Course'}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-96 p-3 rounded-2xl shadow-xl" align="start">
@@ -694,12 +706,12 @@ export function EnrollmentForm({
                       >
                         <div>
                           <p className="text-sm font-bold text-slate-800 leading-tight">{c.name}</p>
-                          <p className="text-xs text-slate-500 font-medium">৳{Number(c.fee).toLocaleString()}</p>
+                          <p className="text-xs text-slate-500 font-medium">৳{getEffectiveCoursePrice(c).toLocaleString()}</p>
                         </div>
                         <div className="flex items-center gap-2">
                           <CourseDeliveryBadge type={c.type} />
                           {(() => {
-                            const pc = programs.find((p) => p.id === (c as any).programId)?.paymentCircle;
+                            const pc = programs.find((p) => p.id === c.programId)?.paymentCircle;
                             if (!pc) return null;
                             return (
                               <Badge variant="outline" className={cn(
@@ -720,9 +732,23 @@ export function EnrollmentForm({
                 )}
               </PopoverContent>
             </Popover>
+            {addCourseRequiresProgram && (
+              <p className="text-xs font-semibold text-amber-700">
+                Choose a program first, then add courses from that program.
+              </p>
+            )}
 
             {errors.courses && (
               <p className="text-xs text-red-500">{(errors.courses as { message?: string }).message}</p>
+            )}
+
+            {courseFields.length === 0 && (
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 px-4 py-5">
+                <p className="text-sm font-black text-slate-800">No courses selected yet</p>
+                <p className="mt-1 text-xs font-medium text-slate-500">
+                  Add at least one course to continue to payment.
+                </p>
+              </div>
             )}
 
             {/* Selected course rows */}
@@ -745,7 +771,7 @@ export function EnrollmentForm({
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
                           <p className="font-black text-slate-900 text-sm leading-tight truncate">{course?.name ?? field.courseId}</p>
-                          <p className="text-xs font-bold text-indigo-600 mt-0.5">৳{Number(course?.fee ?? 0).toLocaleString()}</p>
+                          <p className="text-xs font-bold text-indigo-600 mt-0.5">৳{getEffectiveCoursePrice(course).toLocaleString()}</p>
                           {start && (
                             <p className="text-[10px] text-slate-400 font-bold mt-0.5">
                               {start} → {end ?? '?'}
@@ -755,7 +781,7 @@ export function EnrollmentForm({
                         <div className="flex items-center gap-2 shrink-0">
                           <CourseDeliveryBadge type={course?.type} />
                           {(() => {
-                            const pc = programs.find((p) => p.id === (course as any)?.programId)?.paymentCircle;
+                            const pc = programs.find((p) => p.id === course?.programId)?.paymentCircle;
                             if (!pc) return null;
                             return (
                               <Badge variant="outline" className={cn(
@@ -908,7 +934,7 @@ export function EnrollmentForm({
             </div>
 
             {/* Discount */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <span className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2 block px-1">Discount (৳)</span>
                 <Controller
@@ -971,7 +997,7 @@ export function EnrollmentForm({
             </div>
 
             {/* Payment section */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <span className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2 block px-1">Collecting now (৳)</span>
                 <Controller
@@ -1119,7 +1145,7 @@ export function EnrollmentForm({
                         <span className="text-sm font-bold text-slate-800">{c?.name ?? f.courseId}</span>
                         {batch && <span className="ml-2 text-xs text-slate-400">@ {batch.name}</span>}
                       </div>
-                      <span className="text-sm font-black text-indigo-700">৳{Number(c?.fee ?? 0).toLocaleString()}</span>
+                      <span className="text-sm font-black text-indigo-700">৳{getEffectiveCoursePrice(c).toLocaleString()}</span>
                     </div>
                   );
                 })}
@@ -1174,7 +1200,7 @@ export function EnrollmentForm({
       </div>
 
       {/* ── Footer nav ──────────────────────────────────────────────────────── */}
-      <div className="border-t border-slate-100 px-5 py-4 flex items-center gap-3">
+      <div className="sticky bottom-0 z-20 shrink-0 border-t border-slate-200 bg-white/95 px-5 py-4 flex items-center gap-3 backdrop-blur supports-[backdrop-filter]:bg-white/85 shadow-[0_-10px_24px_-18px_rgba(15,23,42,0.45)]">
         {(step > 1 || nested) && (
           <Button
             type="button"

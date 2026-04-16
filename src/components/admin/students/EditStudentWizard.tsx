@@ -6,7 +6,6 @@ import { getStudentById, updateStudent } from '@/lib/api/students';
 import {
   CalendarIcon,
   Check,
-  ChevronLeft,
   ChevronRight,
   GraduationCap,
   Lock,
@@ -77,8 +76,8 @@ type FormState = {
   address: string;
   instituteId: string;
   smsAlertTo: SmsAlertTo[];
-  sscInfo: any;
-  hscInfo: any;
+  sscInfo: { gpa?: string | number; [key: string]: unknown };
+  hscInfo: { gpa?: string | number; [key: string]: unknown };
 };
 
 function buildForm(s: Student): FormState {
@@ -100,8 +99,14 @@ function buildForm(s: Student): FormState {
     address: p?.address || '',
     instituteId: p?.instituteId || '',
     smsAlertTo: (p?.smsAlertTo as SmsAlertTo[] | undefined) || [],
-    sscInfo: p?.sscInfo,
-    hscInfo: p?.hscInfo,
+    sscInfo:
+      p?.sscInfo && typeof p.sscInfo === 'object'
+        ? (p.sscInfo as { gpa?: string | number; [key: string]: unknown })
+        : {},
+    hscInfo:
+      p?.hscInfo && typeof p.hscInfo === 'object'
+        ? (p.hscInfo as { gpa?: string | number; [key: string]: unknown })
+        : {},
   };
 }
 
@@ -436,17 +441,19 @@ export function EditStudentWizard({ student, branches, institutes, onSuccess }: 
             )}
           </div>
         ) : (
-          <AddEnrollmentForm
-            key={`${studentRecord.id}-${enrollmentBranchId}`}
-            studentId={studentRecord.id}
-            defaultBranchId={enrollmentBranchId || undefined}
-            onSuccess={handleEnrollSuccess}
-            nestedInParentWizard={{
-              parentStep: step,
-              setParentStep: setStep,
-              onBackToProfile: () => setStep(1),
-            }}
-          />
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <AddEnrollmentForm
+              key={`${studentRecord.id}-${enrollmentBranchId}`}
+              studentId={studentRecord.id}
+              defaultBranchId={enrollmentBranchId || undefined}
+              onSuccess={handleEnrollSuccess}
+              nestedInParentWizard={{
+                parentStep: step,
+                setParentStep: setStep,
+                onBackToProfile: () => setStep(1),
+              }}
+            />
+          </div>
         )}
       </div>
 
