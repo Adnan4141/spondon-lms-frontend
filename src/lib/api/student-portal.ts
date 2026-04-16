@@ -152,26 +152,16 @@ export interface FinancialDashboardData {
     } | null;
     branch?: { id: string; name: string } | null;
     billingStartMonth?: string | null;
-    recurringScholarship?: number | null;
+    monthlyDiscount?: number | null;
+    oneTimeDiscount?: number | null;
     createdAt: string;
   }>;
-  scholarshipBreakdown: Array<{
-    enrollmentId: string;
-    courseId: string;
-    courseName: string;
-    courseCode: string;
-    programName?: string;
-    recurringScholarship: number;
-    status: string;
-  }>;
-  totalMonthlyScholarship: number;
   paymentHistory: Array<{
     id: string;
     month?: string | null;
     status: string;
     totalAmount: number;
     discountAmount: number;
-    scholarshipAmount: number;
     payableAmount: number;
     paidAmount: number;
     dueAmount: number;

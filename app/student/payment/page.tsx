@@ -114,9 +114,6 @@ export default function StudentPaymentPage() {
                         <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-4">
                           <div className="text-right">
                             <p className="text-2xl font-black text-slate-900">৳{inv.payableAmount}</p>
-                            {inv.scholarshipAmount > 0 && (
-                              <p className="text-xs font-bold text-emerald-600">স্কলারশিপ: ৳{inv.scholarshipAmount}</p>
-                            )}
                           </div>
                           <div className="flex items-center gap-2">
                             {isPaid ? (
@@ -177,21 +174,29 @@ export default function StudentPaymentPage() {
             </div>
           </Card>
 
-          {data.scholarshipBreakdown.length > 0 && (
+          {data.enrollments.some(e => Number(e.monthlyDiscount) > 0 || Number(e.oneTimeDiscount) > 0) && (
             <Card className="rounded-[2rem] border-none bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-8">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-6">স্কলারশিপ</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-6">ডিসকাউন্ট</p>
               <div className="space-y-3">
-                {data.scholarshipBreakdown.map((s) => (
-                  <div key={s.enrollmentId} className="flex justify-between items-center">
-                    <span className="text-sm font-bold text-slate-500 truncate max-w-[60%]">{s.courseName}</span>
-                    <span className="text-sm font-black text-emerald-600">৳{s.recurringScholarship}</span>
-                  </div>
-                ))}
-                <div className="h-px bg-slate-100" />
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-bold text-slate-700">মোট মাসিক</span>
-                  <span className="text-lg font-black text-emerald-600">৳{data.totalMonthlyScholarship}</span>
-                </div>
+                {data.enrollments
+                  .filter(e => Number(e.monthlyDiscount) > 0 || Number(e.oneTimeDiscount) > 0)
+                  .map((e) => (
+                    <div key={e.id} className="space-y-1">
+                      <p className="text-sm font-bold text-slate-700 truncate">{e.programName}</p>
+                      {Number(e.monthlyDiscount) > 0 && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-slate-500">মাসিক ডিসকাউন্ট</span>
+                          <span className="text-sm font-black text-emerald-600">৳{Number(e.monthlyDiscount)}</span>
+                        </div>
+                      )}
+                      {Number(e.oneTimeDiscount) > 0 && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-slate-500">এককালীন ডিসকাউন্ট</span>
+                          <span className="text-sm font-black text-emerald-600">৳{Number(e.oneTimeDiscount)}</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
               </div>
             </Card>
           )}

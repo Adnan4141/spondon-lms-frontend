@@ -239,7 +239,7 @@ export default function MonthlyBillingPage() {
           </div>
         </div>
         <p className="text-xs font-medium text-slate-500 leading-relaxed">
-          Discounts and scholarships from the benefits module are applied per student when invoices are created. Use{' '}
+          Discounts from the enrollment settings are applied per student when invoices are created. Use{' '}
           <Link href="/admin/enrollments" className="font-bold text-indigo-600 hover:underline">
             Enrollments
           </Link>{' '}

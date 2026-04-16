@@ -38,7 +38,6 @@ import {
   Smartphone,
   Receipt,
   ExternalLink,
-  Tag,
   BarChart3,
 } from 'lucide-react';
 import {
@@ -54,7 +53,6 @@ import { EnrollmentDetailsView } from '@/components/admin/enrollments/Enrollment
 import { EnrollmentCancelModal } from '@/components/admin/enrollments/EnrollmentCancelModal';
 import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
 import { AddEnrollmentForm } from '@/components/admin/students/AddEnrollmentForm';
-import { BenefitManager } from '@/components/admin/students/BenefitManager';
 import { StudentAcademicTab } from '@/components/admin/students/StudentAcademicTab';
 import { CourseCancellationWizard } from '@/components/admin/students/CourseCancellationWizard';
 import { getInvoices, getInvoiceById } from '@/lib/api/invoices';
@@ -98,7 +96,6 @@ const STUDENT_DETAIL_TABS = [
   { label: 'Profile', value: 'identity', icon: Contact },
   { label: 'Courses', value: 'courses', icon: GraduationCap },
   { label: 'Academic', value: 'academic', icon: BarChart3 },
-  { label: 'Discounts', value: 'discounts', icon: Tag },
   { label: 'Payments', value: 'payments', icon: Wallet },
   { label: 'Financial', value: 'financial', icon: CreditCard },
 ] as const;
@@ -845,14 +842,6 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                     name: ec.course?.name ?? ec.courseId,
                   }))
                 )}
-              />
-            </TabsContent>
-
-            <TabsContent value="discounts" className="m-0 space-y-8">
-              <BenefitManager
-                studentId={student.id}
-                enrollments={enrollments}
-                onChanged={refreshEnrollmentsAndBilling}
               />
             </TabsContent>
 

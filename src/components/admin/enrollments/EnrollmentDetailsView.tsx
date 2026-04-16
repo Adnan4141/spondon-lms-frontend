@@ -81,9 +81,9 @@ export function EnrollmentDetailsView({
   const [monthlyBusy, setMonthlyBusy] = useState(false);
   const [monthlyReason, setMonthlyReason] = useState('');
   const [settleOutstandingOnCancel, setSettleOutstandingOnCancel] = useState(true);
-  const [newScholarship, setNewScholarship] = useState('');
-  const [remainingCourses, setRemainingCourses] = useState<{ enrollmentId: string; courseName: string; fee: number; recurringScholarship: number }[]>([]);
-  const [currentScholarship, setCurrentScholarship] = useState<number>(0);
+  const [newMonthlyDiscount, setNewMonthlyDiscount] = useState('');
+  const [remainingCourses, setRemainingCourses] = useState<{ enrollmentId: string; courseName: string; fee: number }[]>([]);
+  const [currentDiscount, setCurrentDiscount] = useState<number>(0);
   const [rollBusy, setRollBusy] = useState(false);
   const [rollNumber, setRollNumber] = useState<number | null>(null);
   const [suspendBusy, setSuspendBusy] = useState(false);
@@ -100,7 +100,7 @@ export function EnrollmentDetailsView({
         .then((res: any) => {
           if (res.success && res.data) {
             setRemainingCourses(res.data.remainingCourses || []);
-            setCurrentScholarship(res.data.currentRecurringScholarship || 0);
+            setCurrentDiscount(res.data.currentMonthlyDiscount || 0);
           }
         })
         .catch(() => {});
@@ -164,7 +164,7 @@ export function EnrollmentDetailsView({
       const res = await cancelMonthlyEnrollment(enrollment.id, {
         reason: monthlyReason.trim() || undefined,
         settleInvoices: settleOutstandingOnCancel,
-        newMonthlyFlatDiscount: newScholarship ? Number(newScholarship) : undefined,
+        newMonthlyDiscount: newMonthlyDiscount ? Number(newMonthlyDiscount) : undefined,
       });
       if (res.success) {
         toast({
@@ -331,8 +331,8 @@ export function EnrollmentDetailsView({
               <Receipt className="mt-0.5 h-5 w-5 shrink-0 text-violet-600" />
               <div className="space-y-2 text-sm leading-relaxed text-slate-700">
                 <p className="font-black text-violet-900">মাসিক কোর্স / Monthly billing</p>
-                <p>
-                  প্রথম ইনভয়েস মাস হিসেবে <strong>billing start month</strong> ব্যবহার করা হয়। মাসিক বাতিল করলে স্কলারশিপ/
+                <p className="text-sm font-medium text-slate-700">
+                  প্রথম ইনভয়েস মাস হিসেবে <strong>billing start month</strong> ব্যবহার করা হয়। মাসিক বাতিল করলে
                   ডিসকাউন্ট সুবিধার মেয়াদ শেষ এবং এনরোলমেন্ট বাতিল হতে পারে।
                 </p>
               </div>
@@ -419,8 +419,7 @@ export function EnrollmentDetailsView({
               Cancel enrollment
             </h3>
             <p className="text-sm font-medium text-slate-700">
-              Permanently removes this enrollment, ends course-scoped benefits from the current month,
-              and redistributes any remaining discount &amp; scholarship across other active courses on
+              Permanently removes this enrollment and redistributes any remaining discount across other active courses on
               open invoices.
             </p>
             <Button
@@ -442,7 +441,7 @@ export function EnrollmentDetailsView({
               End monthly subscription
             </h3>
             <p className="text-sm font-medium text-slate-700">
-              Cancels this enrollment, ends course-scoped benefits from the current month, and optionally marks related
+              Cancels this enrollment and optionally marks related
               outstanding invoices cancelled (per server rules).
             </p>
             <div className="space-y-2">
@@ -469,20 +468,20 @@ export function EnrollmentDetailsView({
                   {remainingCourses.map((rc) => (
                     <div key={rc.enrollmentId} className="flex items-center justify-between text-sm">
                       <span className="font-medium text-slate-700">{rc.courseName}</span>
-                      <span className="text-xs text-slate-500">৳{Number(rc.fee).toLocaleString()} (discount: ৳{Number(rc.recurringScholarship).toLocaleString()})</span>
+                      <span className="text-xs text-slate-500">৳{Number(rc.fee).toLocaleString()}</span>
                     </div>
                   ))}
                 </div>
                 <p className="text-xs font-medium text-slate-600">
-                  Current total monthly discount: <span className="font-bold text-slate-900">৳{currentScholarship.toLocaleString()}</span>
+                  Current total monthly discount: <span className="font-bold text-slate-900">৳{currentDiscount.toLocaleString()}</span>
                 </p>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase tracking-wider text-amber-800">New Monthly Discount (optional)</label>
                   <Input
                     type="number"
                     min="0"
-                    value={newScholarship}
-                    onChange={(e) => setNewScholarship(e.target.value)}
+                    value={newMonthlyDiscount}
+                    onChange={(e) => setNewMonthlyDiscount(e.target.value)}
                     placeholder="Leave blank to keep current discount"
                     className="h-10 rounded-xl"
                   />

@@ -41,7 +41,6 @@ export interface Invoice {
   discountAmount: number | string;
   discountReference?: string | null;
   monthlyDiscountAmount?: number | string;
-  scholarshipAmount: number | string;
   payableAmount: number | string;
   paidAmount: number | string;
   dueAmount: number | string;
@@ -85,7 +84,6 @@ export interface CreateInvoiceDto {
   month?: string;
   status?: InvoiceStatus;
   discountAmount?: number;
-  scholarshipAmount?: number;
   items: CreateInvoiceItemDto[];
 }
 
@@ -100,7 +98,6 @@ export interface CreateInvoiceItemDto {
 export interface UpdateInvoiceDto {
   status?: InvoiceStatus;
   discountAmount?: number;
-  scholarshipAmount?: number;
 }
 
 export interface ApiResponse<T> {

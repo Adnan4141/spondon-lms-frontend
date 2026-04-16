@@ -58,7 +58,7 @@ const enrollSchema = z.object({
   includeBooks: z.boolean(),
   totalDiscountAmount: z.string(),
   discountReference: z.string(),
-  monthlyFlatDiscount: z.string(),
+  monthlyDiscount: z.string(),
   totalPaymentAmount: z.string(),
   paymentMethod: z.enum(['CASH', 'BKASH']),
   paymentTrxId: z.string(),
@@ -141,7 +141,7 @@ export function EnrollmentForm({
       includeBooks: true,
       totalDiscountAmount: '',
       discountReference: '',
-      monthlyFlatDiscount: '',
+      monthlyDiscount: '',
       totalPaymentAmount: '',
       paymentMethod: 'CASH',
       paymentTrxId: '',
@@ -483,7 +483,7 @@ export function EnrollmentForm({
             : undefined,
         discountAmount: totalDiscountNum > 0 ? totalDiscountNum : undefined,
         discountReference: totalDiscountNum > 0 ? vals.discountReference.trim() || undefined : undefined,
-        monthlyFlatDiscount: Number(vals.monthlyFlatDiscount) || undefined,
+        monthlyDiscount: Number(vals.monthlyDiscount) || undefined,
         oneTimeDiscount: totalDiscountNum > 0 && vals.billingType === 'ONE_TIME' ? totalDiscountNum : undefined,
         nextPaymentDueDate: nextDueIso,
         admissionFeeAmountOverrides: Object.keys(feeOverrides).length > 0 ? feeOverrides : undefined,
@@ -949,11 +949,11 @@ export function EnrollmentForm({
             {watchedBillingType === 'MONTHLY' && (
               <div>
                 <span className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2 block px-1">
-                  Monthly flat discount (৳) — recurring each month
+                  Monthly discount (৳) — recurring each month
                 </span>
                 <Controller
                   control={control}
-                  name="monthlyFlatDiscount"
+                  name="monthlyDiscount"
                   render={({ field }) => (
                     <Input {...field} type="number" min={0} placeholder="0" className={inputClass} />
                   )}

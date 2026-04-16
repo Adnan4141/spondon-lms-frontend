@@ -86,7 +86,6 @@ export function InvoiceDetailsView({ invoice, onRefresh }: InvoiceDetailsViewPro
   const totalAmount = Number(invoice.totalAmount);
   const payableAmount = Number(invoice.payableAmount) || totalAmount;
   const discountAmount = Number(invoice.discountAmount);
-  const scholarshipAmount = Number(invoice.scholarshipAmount);
   const monthlyDisc = Number(invoice.monthlyDiscountAmount ?? 0);
   const status = String(invoice.status).toUpperCase();
   const isPaid = status === 'PAID';
@@ -402,10 +401,10 @@ export function InvoiceDetailsView({ invoice, onRefresh }: InvoiceDetailsViewPro
         {items.length === 0 ? <p className="py-4 text-center text-sm text-slate-400">No line items.</p> : null}
       </div>
 
-      {/* Discounts / benefits */}
-      {(discountAmount > 0 || monthlyDisc > 0 || scholarshipAmount > 0) && (
+      {/* Discounts */}
+      {(discountAmount > 0 || monthlyDisc > 0) && (
         <>
-          <p className={sectionLabel}>Discounts &amp; benefits</p>
+          <p className={sectionLabel}>Discounts</p>
           <div className={cn(cardClass, 'mb-5 space-y-0')}>
             {discountAmount > 0 ? (
               <div className={rowClass}>
@@ -425,14 +424,6 @@ export function InvoiceDetailsView({ invoice, onRefresh }: InvoiceDetailsViewPro
                   <p className="mt-0.5 text-xs text-slate-500">Recurring (this invoice)</p>
                 </div>
                 <span className="text-sm font-medium text-[#A32D2D]">− {formatCurrency(monthlyDisc)}</span>
-              </div>
-            ) : null}
-            {scholarshipAmount > 0 ? (
-              <div className={rowClass}>
-                <div>
-                  <p className="text-sm font-medium text-slate-900">Scholarship</p>
-                </div>
-                <span className="text-sm font-medium text-[#A32D2D]">− {formatCurrency(scholarshipAmount)}</span>
               </div>
             ) : null}
           </div>
@@ -477,12 +468,6 @@ export function InvoiceDetailsView({ invoice, onRefresh }: InvoiceDetailsViewPro
           <div className={rowClass}>
             <span className="text-[13px] text-slate-500">Monthly discount</span>
             <span className="text-sm font-medium text-[#A32D2D]">− {formatCurrency(monthlyDisc)}</span>
-          </div>
-        ) : null}
-        {scholarshipAmount > 0 ? (
-          <div className={rowClass}>
-            <span className="text-[13px] text-slate-500">Scholarship</span>
-            <span className="text-sm font-medium text-[#A32D2D]">− {formatCurrency(scholarshipAmount)}</span>
           </div>
         ) : null}
 

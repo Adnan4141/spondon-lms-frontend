@@ -31,40 +31,14 @@ function money(v: number) {
   return v.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }
 
-function BenefitBadge({ type, mode, value }: { type: string; mode: string; value: number }) {
-  const label =
-    type === 'DISCOUNT'
-      ? mode === 'PERCENT'
-        ? `${value}% Discount`
-        : `৳${money(value)} Discount`
-      : mode === 'PERCENT'
-        ? `${value}% Scholarship`
-        : `৳${money(value)} Scholarship`;
-
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        'rounded-lg px-3 py-1 text-[10px] font-black uppercase tracking-widest',
-        type === 'SCHOLARSHIP'
-          ? 'border-violet-200 bg-violet-50 text-violet-800'
-          : 'border-amber-200 bg-amber-50 text-amber-800',
-      )}
-    >
-      {label}
-    </Badge>
-  );
-}
-
 function InvoiceRow({ inv }: { inv: CancelPreviewInvoice }) {
   const discountChanged = inv.before.discount !== inv.after.discount;
-  const scholarshipChanged = inv.before.scholarship !== inv.after.scholarship;
 
   return (
     <div
       className={cn(
         'rounded-xl border p-4 space-y-3',
-        inv.isOnlyCourse ? 'border-rose-100 bg-rose-50/40' : 'border-slate-100 bg-white',
+        inv.isAllRemoved ? 'border-rose-100 bg-rose-50/40' : 'border-slate-100 bg-white',
       )}
     >
       <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -72,12 +46,12 @@ function InvoiceRow({ inv }: { inv: CancelPreviewInvoice }) {
           <span className="text-xs font-black uppercase tracking-widest text-slate-500">Invoice</span>
           <span className="font-mono text-xs font-bold text-indigo-700">{inv.month}</span>
         </div>
-        {inv.isOnlyCourse && (
+        {inv.isAllRemoved && (
           <Badge
             variant="outline"
             className="rounded-lg border-rose-200 bg-rose-50 text-[10px] font-black uppercase tracking-widest text-rose-700"
           >
-            Only course → zeroed
+            All items removed → zeroed
           </Badge>
         )}
       </div>
@@ -91,16 +65,13 @@ function InvoiceRow({ inv }: { inv: CancelPreviewInvoice }) {
           {inv.before.discount > 0 && (
             <p className="font-medium text-amber-700">Discount: ৳{money(inv.before.discount)}</p>
           )}
-          {inv.before.scholarship > 0 && (
-            <p className="font-medium text-violet-700">Scholarship: ৳{money(inv.before.scholarship)}</p>
-          )}
         </div>
 
         {/* After */}
         <div
           className={cn(
             'space-y-1 rounded-lg border p-3',
-            inv.isOnlyCourse
+            inv.isAllRemoved
               ? 'border-rose-100 bg-rose-50/60'
               : 'border-emerald-100 bg-emerald-50/50',
           )}
@@ -111,13 +82,10 @@ function InvoiceRow({ inv }: { inv: CancelPreviewInvoice }) {
           {(discountChanged || inv.after.discount > 0) && (
             <p className="font-medium text-amber-700">Discount: ৳{money(inv.after.discount)}</p>
           )}
-          {(scholarshipChanged || inv.after.scholarship > 0) && (
-            <p className="font-medium text-violet-700">Scholarship: ৳{money(inv.after.scholarship)}</p>
-          )}
         </div>
       </div>
 
-      {inv.isOnlyCourse && (
+      {inv.isAllRemoved && (
         <div className="flex items-start gap-2 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2">
           <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-rose-600" />
           <p className="text-[11px] font-bold text-rose-700">
@@ -184,7 +152,6 @@ export function EnrollmentCancelModal({
   };
 
   const noInvoices = preview && preview.affectedInvoices.length === 0;
-  const noBenefits = preview && preview.benefitsToEnd.length === 0;
 
   return (
     <div className="flex max-h-[min(90vh,680px)] flex-col overflow-hidden rounded-[40px] bg-white">
@@ -233,21 +200,6 @@ export function EnrollmentCancelModal({
                 </div>
               </div>
             )}
-            {/* Benefits ending */}
-            {!noBenefits && (
-              <div className="space-y-3">
-                <h3 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-amber-800">
-                  <TriangleAlert className="h-4 w-4" />
-                  Benefits ending this month
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {preview!.benefitsToEnd.map((b) => (
-                    <BenefitBadge key={b.id} type={b.type} mode={b.mode} value={b.value} />
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Invoice impact */}
             {!noInvoices ? (
               <div className="space-y-3">

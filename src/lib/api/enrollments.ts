@@ -46,7 +46,7 @@ export interface Enrollment {
   status: EnrollmentStatusType | string;
   billingType?: 'ONE_TIME' | 'MONTHLY';
   billingStartMonth?: string | null;
-  monthlyFlatDiscount?: number | string | null;
+  monthlyDiscount?: number | string | null;
   oneTimeDiscount?: number | string | null;
   createdAt: string;
   updatedAt: string;
@@ -90,7 +90,7 @@ export interface UpdateEnrollmentDto {
   billingStartMonth?: string;
   reason?: string;
   appliedByUserId?: string;
-  monthlyFlatDiscount?: number | null;
+  monthlyDiscount?: number | null;
   oneTimeDiscount?: number | null;
 }
 
@@ -168,9 +168,9 @@ export async function settleEnrollment(id: string): Promise<ApiResponse<void>> {
 export interface CancelPreviewInvoice {
   invoiceId: string;
   month: string;
-  isOnlyCourse: boolean;
-  before: { total: number; discount: number; scholarship: number; payable: number; due: number };
-  after: { total: number; discount: number; scholarship: number; payable: number; due: number };
+  isAllRemoved: boolean;
+  before: { total: number; discount: number; payable: number; due: number };
+  after: { total: number; discount: number; payable: number; due: number };
 }
 
 export interface CancelPreviewData {
@@ -179,8 +179,9 @@ export interface CancelPreviewData {
   isMonthly: boolean;
   courses: { courseId: string; courseName: string; fee: number; bookPrice: number | null }[];
   affectedInvoices: CancelPreviewInvoice[];
-  benefitsToEnd: { id: string; type: string; mode: string; value: number }[];
   settlements: Settlement[];
+  monthlyDiscount: number;
+  oneTimeDiscount: number;
 }
 
 export async function getCancelPreview(id: string): Promise<ApiResponse<CancelPreviewData>> {
@@ -257,8 +258,7 @@ export interface OfflineAdmissionDto {
   receivedByUserId?: string;
   discountAmount?: number;
   discountReference?: string;
-  monthlyFlatDiscount?: number;
-  scholarshipAmount?: number;
+  monthlyDiscount?: number;
   oneTimeDiscount?: number;
   forceWaitlist?: boolean;
   nextPaymentDueDate?: string;
@@ -319,9 +319,8 @@ export interface EnrollmentDiscountLogEntry {
   enrollmentId: string;
   invoiceId?: string | null;
   discountAmount: number | string;
-  discountType: string;
-  reference?: string | null;
-  appliedByUserId?: string | null;
+  reference: string;
+  appliedByUserId: string;
   createdAt: string;
   enrollment?: {
     id: string;
@@ -333,11 +332,11 @@ export interface EnrollmentDiscountLogEntry {
 
 export async function updateMonthlyDiscount(
   enrollmentId: string,
-  monthlyFlatDiscount: number,
+  monthlyDiscount: number,
 ): Promise<ApiResponse<{ invoiceId: string | null }>> {
   return apiRequest<ApiResponse<{ invoiceId: string | null }>>(`/enrollments/${enrollmentId}/monthly-discount`, {
     method: 'PATCH',
-    body: JSON.stringify({ monthlyFlatDiscount }),
+    body: JSON.stringify({ monthlyDiscount }),
   });
 }
 

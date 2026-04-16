@@ -58,10 +58,6 @@ const invoiceCreateSchema = z.object({
     .number()
     .min(0, 'Discount cannot be negative.')
     .optional(),
-  scholarshipAmount: z
-    .number()
-    .min(0, 'Scholarship cannot be negative.')
-    .optional(),
   items: z
     .array(invoiceItemSchema)
     .min(1, 'Add at least one item to the invoice.'),
@@ -72,10 +68,6 @@ const invoiceUpdateSchema = z.object({
   discountAmount: z
     .number()
     .min(0, 'Discount cannot be negative.')
-    .optional(),
-  scholarshipAmount: z
-    .number()
-    .min(0, 'Scholarship cannot be negative.')
     .optional(),
 });
 
@@ -98,7 +90,6 @@ export function InvoiceForm({ branches, students, invoice, onSuccess }: InvoiceF
     month: '',
     status: 'DRAFT',
     discountAmount: 0,
-    scholarshipAmount: 0,
     items: [],
   });
   
@@ -114,7 +105,6 @@ export function InvoiceForm({ branches, students, invoice, onSuccess }: InvoiceF
         month: invoice.month || '',
         status: invoice.status,
         discountAmount: Number(invoice.discountAmount),
-        scholarshipAmount: Number(invoice.scholarshipAmount),
         items: [], // Items are handled differently for edit in API usually, but here we only allow status/adjustments as per original code
       });
     }
@@ -137,8 +127,7 @@ export function InvoiceForm({ branches, students, invoice, onSuccess }: InvoiceF
   const calculateTotals = () => {
     const subtotal = items.reduce((sum, item) => sum + item.unitPrice * item.qty, 0);
     const discount = form.discountAmount || 0;
-    const scholarship = form.scholarshipAmount || 0;
-    const total = subtotal - discount - scholarship;
+    const total = subtotal - discount;
     return { subtotal, total };
   };
 
@@ -147,7 +136,6 @@ export function InvoiceForm({ branches, students, invoice, onSuccess }: InvoiceF
       const payload: UpdateInvoiceDto = {
         status: form.status,
         discountAmount: form.discountAmount,
-        scholarshipAmount: form.scholarshipAmount,
       };
 
       const parsed = invoiceUpdateSchema.safeParse(payload);
@@ -353,14 +341,10 @@ export function InvoiceForm({ branches, students, invoice, onSuccess }: InvoiceF
                 <Hash className="h-4 w-4 text-rose-600" />
                 <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Financial Resolution</h3>
              </div>
-             <div className="grid gap-6 sm:grid-cols-2">
+             <div className="grid gap-6 sm:grid-cols-1">
                 <div className="space-y-2">
                    <label className={sectionLabel}>Global Discount (৳)</label>
                    <Input type="number" className={inputClass} value={form.discountAmount} onChange={e => setForm((p: CreateInvoiceDto) => ({ ...p, discountAmount: Number(e.target.value) }))} placeholder="0.00" />
-                </div>
-                <div className="space-y-2">
-                   <label className={sectionLabel}>Scholarship Grant (৳)</label>
-                   <Input type="number" className={inputClass} value={form.scholarshipAmount} onChange={e => setForm((p: CreateInvoiceDto) => ({ ...p, scholarshipAmount: Number(e.target.value) }))} placeholder="0.00" />
                 </div>
              </div>
 
@@ -372,7 +356,7 @@ export function InvoiceForm({ branches, students, invoice, onSuccess }: InvoiceF
                    </div>
                    <div className="flex justify-between items-center text-rose-400">
                       <span className="text-[10px] font-black uppercase tracking-widest">Adjustments</span>
-                      <span className="text-base font-bold">-৳{Number((form.discountAmount || 0) + (form.scholarshipAmount || 0)).toLocaleString()}</span>
+                      <span className="text-base font-bold">-৳{Number(form.discountAmount || 0).toLocaleString()}</span>
                    </div>
                    <div className="pt-4 border-t border-slate-800 flex justify-between items-center">
                       <div className="flex flex-col">

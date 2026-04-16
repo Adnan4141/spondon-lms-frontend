@@ -88,9 +88,6 @@ function InvoiceRow({ inv }: { inv: Invoice }) {
             {inv.discountAmount > 0 && (
               <span className="text-rose-600">Discount: -৳{money(inv.discountAmount)}</span>
             )}
-            {inv.scholarshipAmount > 0 && (
-              <span className="text-emerald-600">Scholarship: -৳{money(inv.scholarshipAmount)}</span>
-            )}
             <span>Payable: <strong className="text-slate-700">৳{money(inv.payableAmount)}</strong></span>
             <span className={inv.dueAmount > 0 ? 'text-rose-600 font-bold' : 'text-emerald-600'}>
               Due: ৳{money(inv.dueAmount)}
@@ -192,7 +189,7 @@ export function StudentFinancialDashboard({ studentUserId }: Props) {
 
   if (!data) return null;
 
-  const { summary, enrollments, scholarshipBreakdown, totalMonthlyScholarship, paymentHistory } = data;
+  const { summary, enrollments, paymentHistory } = data;
 
   const dueInvoices = paymentHistory.filter((inv) => ['ISSUED', 'PARTIAL'].includes(inv.status));
 
@@ -289,11 +286,11 @@ export function StudentFinancialDashboard({ studentUserId }: Props) {
                     {enr.billingType === 'MONTHLY' && <span className="text-slate-400">/mo</span>}
                   </div>
 
-                  {/* Scholarship */}
-                  {enr.recurringScholarship && enr.recurringScholarship > 0 && (
+                  {/* Monthly Discount */}
+                  {enr.monthlyDiscount && Number(enr.monthlyDiscount) > 0 && (
                     <div className="flex items-center gap-2 text-xs text-emerald-600">
                       <Award className="h-3.5 w-3.5" />
-                      <span className="font-bold">Recurring Scholarship: -৳{money(enr.recurringScholarship)}/mo</span>
+                      <span className="font-bold">Monthly Discount: -৳{money(enr.monthlyDiscount)}/mo</span>
                     </div>
                   )}
 
@@ -322,32 +319,35 @@ export function StudentFinancialDashboard({ studentUserId }: Props) {
         )}
       </div>
 
-      {/* Scholarship Breakdown */}
-      {scholarshipBreakdown.length > 0 && (
+      {/* Discount Breakdown */}
+      {enrollments.some((e) => Number(e.monthlyDiscount) > 0 || Number(e.oneTimeDiscount) > 0) && (
         <div>
           <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-2">
-            <TrendingDown className="h-4 w-4" /> Scholarship Breakdown
+            <TrendingDown className="h-4 w-4" /> Discount Breakdown
           </h3>
           <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50">
             <div className="divide-y divide-emerald-100">
-              {scholarshipBreakdown.map((sch) => (
-                <div key={sch.enrollmentId} className="flex items-center justify-between px-5 py-3">
-                  <div>
-                    <p className="text-sm font-bold text-slate-800">{sch.courseName}</p>
-                    <p className="text-xs text-slate-400">{sch.courseCode} {sch.programName && `• ${sch.programName}`}</p>
+              {enrollments
+                .filter((e) => Number(e.monthlyDiscount) > 0 || Number(e.oneTimeDiscount) > 0)
+                .map((enr) => (
+                  <div key={enr.id} className="flex items-center justify-between px-5 py-3">
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">{enr.courseName}</p>
+                      <p className="text-xs text-slate-400">{enr.courseCode} {enr.programName && `• ${enr.programName}`}</p>
+                    </div>
+                    <div className="text-right space-y-0.5">
+                      {Number(enr.monthlyDiscount) > 0 && (
+                        <p className="text-sm font-black text-emerald-700">-৳{money(enr.monthlyDiscount)}/mo</p>
+                      )}
+                      {Number(enr.oneTimeDiscount) > 0 && (
+                        <p className="text-sm font-black text-emerald-700">-৳{money(enr.oneTimeDiscount)} (one-time)</p>
+                      )}
+                      <Badge className={`text-[9px] font-black uppercase border px-1.5 ${getStatusBadge(enr.status)}`}>
+                        {enr.status}
+                      </Badge>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-black text-emerald-700">-৳{money(sch.recurringScholarship)}/mo</p>
-                    <Badge className={`text-[9px] font-black uppercase border px-1.5 ${getStatusBadge(sch.status)}`}>
-                      {sch.status}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="flex items-center justify-between border-t border-emerald-200 bg-emerald-100/50 px-5 py-3 rounded-b-2xl">
-              <span className="text-sm font-black text-emerald-800">Total Monthly Scholarship (Active)</span>
-              <span className="text-base font-black text-emerald-700">-৳{money(totalMonthlyScholarship)}/mo</span>
+                ))}
             </div>
           </div>
         </div>
