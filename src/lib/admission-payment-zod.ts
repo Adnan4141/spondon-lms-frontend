@@ -12,22 +12,25 @@ export type AdmissionPaymentFields = {
 };
 
 export type ValidateAdmissionPaymentOptions = {
-  /** Extra one-time reductions (e.g. monthly discount on first invoice) counted against the same gross as `totalBillableAmount`. */
+  /** Extra one-time reductions (e.g. monthly discount on first invoice) counted against the same gross as `discountableBillableAmount`. */
   otherDiscountAmount?: number;
+  /** Charges that are never reduced by discounts (e.g. admission fee); added back to net payable after discounts. */
+  admissionFeePortion?: number;
 };
 
 /**
- * Validates totals: special discount (+ optional other discounts) ≤ billable gross; payment ≤ net payable (offline only).
- * Pass `totalBillableAmount` = course fees + admission + any other invoice lines that discounts apply to (same basis as backend `totalAmount`).
+ * Validates totals: discounts apply only to `discountableBillableAmount` (course fees, books, etc.).
+ * Net payable = max(0, discountable − discounts) + (admissionFeePortion ?? 0). Payment must not exceed that net (offline).
  */
 export function validateAdmissionPayment(
-  totalBillableAmount: number,
+  discountableBillableAmount: number,
   channel: AdmissionPaymentChannel,
   fields: AdmissionPaymentFields,
   options?: ValidateAdmissionPaymentOptions,
 ): { ok: true } | { ok: false; message: string } {
-  const fee = Math.max(0, Number(totalBillableAmount) || 0);
+  const fee = Math.max(0, Number(discountableBillableAmount) || 0);
   const otherDisc = Math.max(0, Number(options?.otherDiscountAmount) || 0);
+  const admissionPortion = Math.max(0, Number(options?.admissionFeePortion) || 0);
   const schema = z
     .object({
       totalDiscountAmount: z.string(),
@@ -47,11 +50,11 @@ export function validateAdmissionPayment(
       if (totalDisc > fee + 1e-6) {
         ctx.addIssue({
           code: 'custom',
-          message: `Total discounts cannot exceed billable total (${fee.toFixed(2)} BDT).`,
+          message: `Total discounts cannot exceed discountable fees (${fee.toFixed(2)} BDT; admission fee is not discounted).`,
         });
         return;
       }
-      const net = Math.max(0, fee - totalDisc);
+      const net = Math.max(0, fee - totalDisc) + admissionPortion;
       if (channel === 'offline' && pay > net + 1e-6) {
         ctx.addIssue({
           code: 'custom',

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod/v4';
@@ -124,6 +124,8 @@ export function EnrollmentForm({
   const [loadingBatches, setLoadingBatches] = useState(false);
   const [enrolledCourseIds, setEnrolledCourseIds] = useState<string[]>([]);
   const [enrollmentByCourse, setEnrollmentByCourse] = useState<Map<string, Enrollment>>(new Map());
+  /** Full enrollment rows for this student+branch (used to pre-fill recurring monthly discount). */
+  const [branchEnrollments, setBranchEnrollments] = useState<Enrollment[]>([]);
   const [availableBatches, setAvailableBatches] = useState<Record<string, Batch[]>>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -164,6 +166,7 @@ export function EnrollmentForm({
   const watchedBranchId = watch('branchId');
   const watchedDiscount = watch('totalDiscountAmount');
   const watchedPayment = watch('totalPaymentAmount');
+  const watchedMonthlyDiscount = watch('monthlyDiscount');
 
   // ─── Load initial data ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -185,12 +188,18 @@ export function EnrollmentForm({
 
   // ─── Load enrolled courses for this student+branch ──────────────────────────
   useEffect(() => {
-    if (!studentId || !watchedBranchId) { setEnrolledCourseIds([]); return; }
+    if (!studentId || !watchedBranchId) {
+      setEnrolledCourseIds([]);
+      setBranchEnrollments([]);
+      setEnrollmentByCourse(new Map());
+      return;
+    }
     let cancelled = false;
     (async () => {
       const res = await getEnrollments({ studentUserId: studentId, branchId: watchedBranchId, limit: 500 });
       if (cancelled) return;
       if (res.success && res.data) {
+        setBranchEnrollments(res.data);
         const ids = [...new Set(res.data.flatMap((e) => (e.enrollmentCourses || []).map(ec => ec.courseId)))];
         setEnrolledCourseIds(ids);
         const map = new Map<string, Enrollment>();
@@ -201,6 +210,8 @@ export function EnrollmentForm({
           }
         }
         setEnrollmentByCourse(map);
+      } else {
+        setBranchEnrollments([]);
       }
     })();
     return () => { cancelled = true; };
@@ -241,6 +252,83 @@ export function EnrollmentForm({
   // ─── Selected course IDs (from field array) ─────────────────────────────────
   const selectedCourseIds = useMemo(() => watchedCourses.map((r) => r.courseId), [watchedCourses]);
   const addCourseRequiresProgram = enrollmentMode === 'program' && !programId;
+
+  const programIdForStickyDiscount = useMemo(() => {
+    if (enrollmentMode === 'program' && programId) return programId;
+    const first = selectedCourseIds[0];
+    if (!first) return '';
+    const c = courseMap.get(first);
+    return (c?.program as { id?: string } | undefined)?.id ?? '';
+  }, [enrollmentMode, programId, selectedCourseIds, courseMap]);
+
+  /**
+   * Recurring monthly discount already on file for this student at this branch.
+   * Prefer the enrollment for the program being added; if none, fall back to any
+   * active/paused MONTHLY enrollment at this branch (so adding another program’s
+   * course still shows the student’s existing monthly discount — editable).
+   */
+  const existingEnrollmentMonthlyDiscount = useMemo(() => {
+    const bid = watchedBranchId;
+    if (!bid) return null;
+    const monthlyAtBranch = branchEnrollments.filter(
+      (e) =>
+        e.branchId === bid &&
+        String(e.billingType ?? '').toUpperCase() === 'MONTHLY',
+    );
+    if (monthlyAtBranch.length === 0) return null;
+
+    const newestPositiveDiscount = (list: Enrollment[]): number | null => {
+      const sorted = [...list].sort(
+        (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      );
+      for (const e of sorted) {
+        const n = Number(e.monthlyDiscount);
+        if (Number.isFinite(n) && n > 0) return n;
+      }
+      return null;
+    };
+
+    const pid = programIdForStickyDiscount;
+    if (pid) {
+      const sameProgram = monthlyAtBranch.filter((e) => e.programId === pid);
+      const fromSame = newestPositiveDiscount(sameProgram);
+      if (fromSame != null) return fromSame;
+    }
+    return newestPositiveDiscount(monthlyAtBranch);
+  }, [branchEnrollments, programIdForStickyDiscount, watchedBranchId]);
+
+  const monthlyDiscountContextKey = `${studentId}|${watchedBranchId}|${programIdForStickyDiscount}`;
+  const lastMonthlyDiscountContextRef = useRef<string | null>(null);
+
+  // Pre-fill recurring monthly discount from an existing program enrollment (still editable).
+  useEffect(() => {
+    if (watchedBillingType !== 'MONTHLY') {
+      setValue('monthlyDiscount', '', { shouldDirty: false, shouldTouch: false, shouldValidate: false });
+      lastMonthlyDiscountContextRef.current = null;
+      return;
+    }
+    const ctx = monthlyDiscountContextKey;
+    const sticky = existingEnrollmentMonthlyDiscount;
+    const contextChanged = lastMonthlyDiscountContextRef.current !== ctx;
+    if (contextChanged) {
+      lastMonthlyDiscountContextRef.current = ctx;
+      const def = sticky != null ? String(sticky) : '';
+      setValue('monthlyDiscount', def, { shouldDirty: false, shouldTouch: false, shouldValidate: false });
+      return;
+    }
+    if (sticky != null) {
+      const current = Number(getValues('monthlyDiscount'));
+      if (!Number.isFinite(current) || current <= 0) {
+        setValue('monthlyDiscount', String(sticky), { shouldDirty: false, shouldTouch: false, shouldValidate: false });
+      }
+    }
+  }, [
+    watchedBillingType,
+    monthlyDiscountContextKey,
+    existingEnrollmentMonthlyDiscount,
+    getValues,
+    setValue,
+  ]);
 
   // ─── Filtered course list for picker ────────────────────────────────────────
   const pickerCourses = useMemo(() => {
@@ -321,10 +409,17 @@ export function EnrollmentForm({
 
   const totalDiscountNum = Number(watchedDiscount) || 0;
   const totalPaymentNum = Number(watchedPayment) || 0;
+  const monthlyDiscNum = Number(watchedMonthlyDiscount) || 0;
+  const discountStackOnCourses =
+    totalDiscountNum + (watchedBillingType === 'MONTHLY' ? monthlyDiscNum : 0);
 
+  /** Discounts apply to course fees only; admission is always billed in full. */
   const netPayable = useMemo(
-    () => netPayableAfterAdjustments(grossBeforeDiscount, totalDiscountNum),
-    [grossBeforeDiscount, totalDiscountNum],
+    () =>
+      Math.round(
+        (netPayableAfterAdjustments(totalCourseFee, discountStackOnCourses) + effectiveAdmissionFeeTotal) * 100,
+      ) / 100,
+    [totalCourseFee, effectiveAdmissionFeeTotal, discountStackOnCourses],
   );
 
   const balanceAfterPay = useMemo(
@@ -332,8 +427,12 @@ export function EnrollmentForm({
     [netPayable, totalPaymentNum],
   );
 
-  const adjustmentsOverTotalFees = grossBeforeDiscount > 0 && totalDiscountNum > grossBeforeDiscount + 1e-6;
-  const maxDiscountAllowed = Math.max(0, Math.round(grossBeforeDiscount * 100) / 100);
+  const adjustmentsOverTotalFees =
+    totalCourseFee > 0 && discountStackOnCourses > totalCourseFee + 1e-6;
+  const maxDiscountAllowed = Math.max(
+    0,
+    Math.round((totalCourseFee - (watchedBillingType === 'MONTHLY' ? monthlyDiscNum : 0)) * 100) / 100,
+  );
 
   // Auto-cap payment to net payable
   useEffect(() => {
@@ -414,12 +513,16 @@ export function EnrollmentForm({
 
   const validateStep2 = (): boolean => {
     const vals = getValues();
-    const v = validateAdmissionPayment(grossBeforeDiscount, 'offline', {
+    const monthlyForVal = vals.billingType === 'MONTHLY' ? Number(vals.monthlyDiscount) || 0 : 0;
+    const v = validateAdmissionPayment(totalCourseFee, 'offline', {
       totalDiscountAmount: vals.totalDiscountAmount,
       totalPaymentAmount: vals.totalPaymentAmount,
       discountReference: vals.discountReference,
       paymentMethod: vals.paymentMethod,
       paymentTrxId: vals.paymentTrxId,
+    }, {
+      otherDiscountAmount: monthlyForVal,
+      admissionFeePortion: effectiveAdmissionFeeTotal,
     });
     if (v.ok === false) { setError(v.message); return false; }
     setError(null);
@@ -984,6 +1087,11 @@ export function EnrollmentForm({
                     <Input {...field} type="number" min={0} placeholder="0" className={inputClass} />
                   )}
                 />
+                {existingEnrollmentMonthlyDiscount != null && (
+                  <p className="mt-2 px-1 text-[11px] font-semibold text-slate-500">
+                    Previous monthly discount auto-filled. You can edit this amount.
+                  </p>
+                )}
               </div>
             )}
 

@@ -60,6 +60,7 @@ import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
 import { generateMonthlyInvoices } from '@/lib/api/invoices';
 import { MonthPicker } from '@/components/ui/month-picker';
 import { cn } from '@/lib/utils';
+import { parseDuePaymentReference } from '@/lib/due-payment-reference';
 
 const statusOptions: (InvoiceStatus | 'all')[] = ['all', 'DRAFT', 'ISSUED', 'PAID', 'PARTIAL', 'CANCELLED'];
 
@@ -423,7 +424,9 @@ export default function InvoicesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredInvoices.map((i) => (
+                {filteredInvoices.map((i) => {
+                  const duePaymentMeta = parseDuePaymentReference(i.discountReference);
+                  return (
                   <TableRow key={i.id} className="group border-slate-100 transition-colors hover:bg-slate-50/80">
                     <TableCell className="px-6 py-4">
                        <div className="flex items-center gap-3">
@@ -450,6 +453,11 @@ export default function InvoicesPage() {
                              <Calendar className="h-3.5 w-3.5 shrink-0 text-slate-400" />
                              {i.month || '—'}
                           </div>
+                          {duePaymentMeta ? (
+                            <div className="text-[11px] font-bold text-indigo-700">
+                              Remaining due: {formatCurrency(duePaymentMeta.remainingDue)}
+                            </div>
+                          ) : null}
                        </div>
                     </TableCell>
                     <TableCell className="py-4 text-right text-sm font-medium text-slate-900">{formatCurrency(i.payableAmount)}</TableCell>
@@ -500,7 +508,8 @@ export default function InvoicesPage() {
                        </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </div>

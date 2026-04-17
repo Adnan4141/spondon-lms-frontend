@@ -10,10 +10,12 @@ import {
   getDueSummary,
   getLedgerSummary,
   type RevenueSummaryData,
+  type RevenuePaymentRow,
   type EnrollmentReportData,
   type CourseTransactionData,
   type BookSalesRow,
   type DueSummaryRow,
+  type DueSummaryStudentRow,
   type LedgerSummaryRow,
   type LedgerTypeSummary,
 } from '@/lib/api/reports';
@@ -97,12 +99,17 @@ function FinanceTab({ branches, courses }: { branches: Branch[]; courses: any[] 
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<RevenueSummaryData[]>([]);
   const [totals, setTotals] = useState<{ totalAmount: number; totalTransactions: number } | null>(null);
+  const [transactions, setTransactions] = useState<RevenuePaymentRow[]>([]);
 
   async function load() {
     setLoading(true);
     try {
       const res = await getRevenueSummary({ period, branchId: branchId || undefined, courseId: courseId || undefined, from: from || undefined, to: to || undefined });
-      if (res.success) { setData(res.data); setTotals(res.totals); }
+      if (res.success) {
+        setData(res.data);
+        setTotals(res.totals);
+        setTransactions(res.transactions ?? []);
+      }
     } catch { toast({ title: 'Failed to load revenue', variant: 'destructive' }); }
     finally { setLoading(false); }
   }
@@ -217,6 +224,62 @@ function FinanceTab({ branches, courses }: { branches: Branch[]; courses: any[] 
         </div>
       )}
 
+      {/* Full payment list */}
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/70 px-4 py-3">
+          <h3 className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+            Payment List (Filtered Result)
+          </h3>
+          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+            {fmtNum(transactions.length)} transactions
+          </span>
+        </div>
+        {loading ? (
+          <div className="py-14 text-center">
+            <RefreshCw className="mx-auto h-5 w-5 animate-spin text-indigo-400" />
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-slate-50/40">
+                <TableRow>
+                  {['Paid At', 'Student ID', 'Reg #', 'Student Name', 'Mobile', 'Branch', 'Amount', 'Method', 'TRX / Ref'].map((h) => (
+                    <TableHead key={h} className="text-[10px] font-black uppercase tracking-widest text-slate-400">{h}</TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {transactions.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="py-12 text-center text-sm font-bold text-slate-400">
+                      No payment found for current filters.
+                    </TableCell>
+                  </TableRow>
+                ) : transactions.map((row) => (
+                  <TableRow key={row.id} className="hover:bg-slate-50/60">
+                    <TableCell className="text-xs font-medium text-slate-500">
+                      {new Date(row.paidAt).toLocaleString('en-GB', { hour12: false })}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs text-slate-600">{row.student.id}</TableCell>
+                    <TableCell className="text-xs font-bold text-slate-700">{row.student.registrationNumber || '—'}</TableCell>
+                    <TableCell className="font-bold text-slate-900">{row.student.fullName}</TableCell>
+                    <TableCell className="text-xs text-slate-600">{row.student.mobile}</TableCell>
+                    <TableCell className="text-xs text-slate-600">{row.branch?.name || '—'}</TableCell>
+                    <TableCell className="font-black text-emerald-600">{fmtCur(Number(row.amount || 0))}</TableCell>
+                    <TableCell>
+                      <Badge className="rounded-full bg-indigo-100 text-[10px] font-black uppercase text-indigo-700">
+                        {row.method}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs text-slate-500">{row.trxId || '—'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+
       {data.length === 0 && !loading && (
         <div className="py-20 text-center text-slate-400 text-sm font-bold">Set filters and click Load to view revenue data.</div>
       )}
@@ -231,13 +294,21 @@ function EnrollmentTab({ branches, courses, programs }: { branches: Branch[]; co
   const [branchId, setBranchId] = useState('');
   const [courseId, setCourseId] = useState('');
   const [programId, setProgramId] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<EnrollmentReportData[]>([]);
 
   async function load() {
     setLoading(true);
     try {
-      const res = await getEnrollmentReport({ branchId: branchId || undefined, courseId: courseId || undefined, programId: programId || undefined });
+      const res = await getEnrollmentReport({
+        branchId: branchId || undefined,
+        courseId: courseId || undefined,
+        programId: programId || undefined,
+        from: from || undefined,
+        to: to || undefined,
+      });
       if (res.success) setData(res.data);
     } catch { toast({ title: 'Failed to load enrollment report', variant: 'destructive' }); }
     finally { setLoading(false); }
@@ -280,6 +351,14 @@ function EnrollmentTab({ branches, courses, programs }: { branches: Branch[]; co
               {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
             </SelectContent>
           </Select>
+        </div>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">From</p>
+          <AdminDatePicker className="w-36" value={from} onChange={setFrom} placeholder="From date" />
+        </div>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">To</p>
+          <AdminDatePicker className="w-36" value={to} onChange={setTo} placeholder="To date" />
         </div>
         <Button onClick={load} disabled={loading} className="h-9 bg-indigo-600 text-white hover:bg-indigo-700 hover:text-white gap-2">
           {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
@@ -339,6 +418,8 @@ function EnrollmentTab({ branches, courses, programs }: { branches: Branch[]; co
 function CourseTransactionsTab({ courses }: { courses: any[] }) {
   const { toast } = useToast();
   const [courseId, setCourseId] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<CourseTransactionData[]>([]);
 
@@ -346,14 +427,14 @@ function CourseTransactionsTab({ courses }: { courses: any[] }) {
     if (!courseId) { toast({ title: 'Select a course', variant: 'destructive' }); return; }
     setLoading(true);
     try {
-      const res = await getCourseTransactions({ courseId });
+      const res = await getCourseTransactions({ courseId, from: from || undefined, to: to || undefined });
       if (res.success) setData(res.data);
     } catch { toast({ title: 'Failed to load transactions', variant: 'destructive' }); }
     finally { setLoading(false); }
   }
 
-  const totalPaid = data.reduce((s, r) => s + Number(r.paidAmount ?? 0), 0);
-  const totalDue = data.reduce((s, r) => s + Number(r.dueAmount ?? 0), 0);
+  const totalPaid = data.reduce((s, r) => s + Number(r.selectedCoursePaid ?? r.paidAmount ?? 0), 0);
+  const totalDue = data.reduce((s, r) => s + Number(r.selectedCourseDue ?? r.dueAmount ?? 0), 0);
 
   return (
     <div className="space-y-5">
@@ -367,6 +448,14 @@ function CourseTransactionsTab({ courses }: { courses: any[] }) {
               {courses.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
             </SelectContent>
           </Select>
+        </div>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">From</p>
+          <AdminDatePicker className="w-36" value={from} onChange={setFrom} placeholder="From date" />
+        </div>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">To</p>
+          <AdminDatePicker className="w-36" value={to} onChange={setTo} placeholder="To date" />
         </div>
         <Button onClick={load} disabled={loading} className="h-9 bg-indigo-600 text-white hover:bg-indigo-700 hover:text-white gap-2">
           {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <BarChart3 className="h-4 w-4" />}
@@ -395,7 +484,7 @@ function CourseTransactionsTab({ courses }: { courses: any[] }) {
             <Table>
               <TableHeader className="bg-slate-50/80">
                 <TableRow>
-                  {['Student', 'Branch', 'Payable', 'Paid', 'Due', 'Status', 'Date'].map((h) => (
+                  {['Student', 'Branch', 'Selected Course Payable', 'Selected Course Paid', 'Selected Course Due', 'Status', 'Date'].map((h) => (
                     <TableHead key={h} className="text-[10px] font-black uppercase tracking-widest text-slate-400">{h}</TableHead>
                   ))}
                 </TableRow>
@@ -407,9 +496,9 @@ function CourseTransactionsTab({ courses }: { courses: any[] }) {
                   <TableRow key={row.id} className="hover:bg-slate-50/60">
                     <TableCell className="font-bold text-slate-900">{row.student?.fullName ?? '—'}</TableCell>
                     <TableCell className="text-xs text-slate-500">{row.branch?.name ?? '—'}</TableCell>
-                    <TableCell className="font-bold text-slate-700">{fmtCur(Number(row.totalAmount))}</TableCell>
-                    <TableCell className="font-bold text-emerald-600">{fmtCur(Number(row.paidAmount ?? 0))}</TableCell>
-                    <TableCell className="font-bold text-rose-500">{fmtCur(Number(row.dueAmount ?? 0))}</TableCell>
+                    <TableCell className="font-bold text-slate-700">{fmtCur(Number(row.selectedCourseAmount ?? row.totalAmount ?? 0))}</TableCell>
+                    <TableCell className="font-bold text-emerald-600">{fmtCur(Number(row.selectedCoursePaid ?? row.paidAmount ?? 0))}</TableCell>
+                    <TableCell className="font-bold text-rose-500">{fmtCur(Number(row.selectedCourseDue ?? row.dueAmount ?? 0))}</TableCell>
                     <TableCell>
                       <Badge className={cn('rounded-full text-[10px] font-black uppercase px-2',
                         row.status === 'PAID' ? 'bg-emerald-100 text-emerald-700' :
@@ -548,13 +637,18 @@ function DueCollectionTab({ branches }: { branches: Branch[] }) {
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<DueSummaryRow[]>([]);
+  const [studentRows, setStudentRows] = useState<DueSummaryStudentRow[]>([]);
   const [totals, setTotals] = useState<{ totalPayable: number; totalPaid: number; totalDue: number } | null>(null);
 
   async function load() {
     setLoading(true);
     try {
       const res = await getDueSummary({ branchId: branchId || undefined, month: month || undefined, status: status || undefined });
-      if (res.success) { setData(res.data); setTotals(res.totals); }
+      if (res.success) {
+        setData(res.data);
+        setTotals(res.totals);
+        setStudentRows(res.studentSummaries ?? []);
+      }
     } catch { toast({ title: 'Failed to load due summary', variant: 'destructive' }); }
     finally { setLoading(false); }
   }
@@ -650,6 +744,49 @@ function DueCollectionTab({ branches }: { branches: Branch[] }) {
                     </TableRow>
                   );
                 })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/70 px-4 py-3">
+          <h3 className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+            Due By Student (Full Summary)
+          </h3>
+          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+            {fmtNum(studentRows.length)} students
+          </span>
+        </div>
+        {loading ? (
+          <div className="py-16 text-center"><RefreshCw className="h-6 w-6 animate-spin text-indigo-400 mx-auto" /></div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-slate-50/80">
+                <TableRow>
+                  {['Student ID', 'Reg #', 'Student Name', 'Mobile', 'Branch', 'Invoices', 'Payable', 'Paid', 'Due'].map((h) => (
+                    <TableHead key={h} className="text-[10px] font-black uppercase tracking-widest text-slate-400">{h}</TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {studentRows.length === 0 ? (
+                  <TableRow><TableCell colSpan={9} className="py-12 text-center text-slate-400 text-sm font-bold">No student due found for current filters.</TableCell></TableRow>
+                ) : studentRows.map((row) => (
+                  <TableRow key={`${row.branchId}:${row.studentUserId}`} className="hover:bg-slate-50/60">
+                    <TableCell className="font-mono text-xs text-slate-600">{row.studentUserId}</TableCell>
+                    <TableCell className="text-xs font-bold text-slate-700">{row.registrationNumber || '—'}</TableCell>
+                    <TableCell className="font-bold text-slate-900">{row.fullName}</TableCell>
+                    <TableCell className="text-xs text-slate-600">{row.mobile}</TableCell>
+                    <TableCell className="text-xs text-slate-600">{row.branchName}</TableCell>
+                    <TableCell><Badge className="bg-slate-100 text-slate-700 rounded-full font-black text-[10px]">{row.invoiceCount}</Badge></TableCell>
+                    <TableCell className="font-bold text-slate-700">{fmtCur(row.totalPayable)}</TableCell>
+                    <TableCell className="font-black text-emerald-600">{fmtCur(row.totalPaid)}</TableCell>
+                    <TableCell className="font-black text-rose-500">{fmtCur(row.totalDue)}</TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </div>

@@ -60,9 +60,11 @@ import { getInvoices, getInvoiceById } from '@/lib/api/invoices';
 import type { Invoice } from '@/types/invoice';
 import { InvoiceDetailsView } from '@/components/admin/invoices/InvoiceDetailsView';
 import { StudentFinancialDashboard } from '@/components/admin/students/StudentFinancialDashboard';
+import { parseDuePaymentReference } from '@/lib/due-payment-reference';
 
 interface StudentDetailsViewProps {
   student: Student;
+  initialTab?: (typeof STUDENT_DETAIL_TABS)[number]['value'];
 }
 
 function getStatusBadgeClass(status: string) {
@@ -101,7 +103,7 @@ const STUDENT_DETAIL_TABS = [
   { label: 'Financial', value: 'financial', icon: CreditCard },
 ] as const;
 
-export function StudentDetailsView({ student }: StudentDetailsViewProps) {
+export function StudentDetailsView({ student, initialTab = 'overview' }: StudentDetailsViewProps) {
   const profile = student.studentProfile;
   const { toast } = useToast();
   const { openModal } = useModalStore();
@@ -109,7 +111,11 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loadingInvoices, setLoadingInvoices] = useState(false);
-  const [studentTab, setStudentTab] = useState('overview');
+  const [studentTab, setStudentTab] = useState<(typeof STUDENT_DETAIL_TABS)[number]['value']>(initialTab);
+
+  useEffect(() => {
+    setStudentTab(initialTab);
+  }, [initialTab]);
 
   const loadEnrollments = useCallback(async () => {
     try {
@@ -290,6 +296,24 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
           studentReg={profile?.registrationNumber}
           branchName={student.branch?.name}
           enrollments={enrollments}
+          onSuccess={refreshEnrollmentsAndBilling}
+        />
+      ),
+    });
+  };
+
+  const handleCancelCoursesForEnrollment = (enrollment: EnrollmentType) => {
+    openModal({
+      title: 'Cancel / Remove course',
+      description: enrollment.program?.name || 'Select course(s) to cancel',
+      className: 'sm:max-w-2xl',
+      content: (
+        <CourseCancellationWizard
+          studentId={student.id}
+          studentName={student.fullName}
+          studentReg={profile?.registrationNumber}
+          branchName={student.branch?.name}
+          enrollments={[enrollment]}
           onSuccess={refreshEnrollmentsAndBilling}
         />
       ),
@@ -818,7 +842,7 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                                   <DropdownMenuItem className="cursor-pointer text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-lg px-3 py-2" onClick={() => handleEditEnrollment(group.enrollment)}>
                                     Edit
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem className="cursor-pointer text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-lg px-3 py-2" onClick={() => handleDeleteEnrollment(group.enrollment)}>
+                                  <DropdownMenuItem className="cursor-pointer text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-lg px-3 py-2" onClick={() => handleCancelCoursesForEnrollment(group.enrollment)}>
                                     <Ban className="h-3 w-3 mr-2" />
                                     Cancel / Remove
                                   </DropdownMenuItem>
@@ -920,7 +944,9 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {invoices.map((inv) => (
+                      {invoices.map((inv) => {
+                        const duePaymentMeta = parseDuePaymentReference(inv.discountReference);
+                        return (
                         <tr key={inv.id} className="bg-white hover:bg-slate-50/50">
                           <td className="px-4 py-3">
                             <div className="space-y-1">
@@ -938,7 +964,13 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                             </div>
                           </td>
                           <td className="px-4 py-3 text-xs font-bold text-slate-600">{inv.branch?.name || '—'}</td>
-                          <td className="px-4 py-3 text-xs font-bold text-slate-600">{inv.month || '—'}</td>
+                          {duePaymentMeta ? (
+                            <td className="px-4 py-3 text-xs font-bold text-indigo-700">
+                              {inv.month || '—'} · Remaining {money(duePaymentMeta.remainingDue)}
+                            </td>
+                          ) : (
+                            <td className="px-4 py-3 text-xs font-bold text-slate-600">{inv.month || '—'}</td>
+                          )}
                           <td className="px-4 py-3">
                             <div className="flex flex-wrap items-center gap-2">
                               <Badge variant="outline" className="text-[9px] font-black uppercase">
@@ -1000,7 +1032,8 @@ export function StudentDetailsView({ student }: StudentDetailsViewProps) {
                             </Button>
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

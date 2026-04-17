@@ -163,6 +163,7 @@ export default function BooksPage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [collabDialogOpen, setCollabDialogOpen] = useState(false);
+  const [stockDialogOpen, setStockDialogOpen] = useState(false);
   const [bookDetails, setBookDetails] = useState<Book | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [detailsError, setDetailsError] = useState<string | null>(null);
@@ -200,12 +201,17 @@ export default function BooksPage() {
   const [revenueSummary, setRevenueSummary] = useState<CollaboratorRevenueSummary | null>(null);
   const [revenueSummaryLoading, setRevenueSummaryLoading] = useState(false);
   const [showRevenueDialog, setShowRevenueDialog] = useState(false);
+  const [stockTargetBook, setStockTargetBook] = useState<Book | null>(null);
+  const [stockAction, setStockAction] = useState<'set' | 'add' | 'remove'>('set');
+  const [stockQtyInput, setStockQtyInput] = useState('0');
+  const [stockSubmitting, setStockSubmitting] = useState(false);
 
   // Forms
   const [createForm, setCreateForm] = useState<CreateBookDto>({
     name: '',
     sku: '',
     price: 0,
+    centralQty: 0,
     mrp: undefined,
     author: '',
     description: '',
@@ -219,6 +225,7 @@ export default function BooksPage() {
     name: '',
     sku: '',
     price: 0,
+    centralQty: 0,
     mrp: undefined,
     author: '',
     description: '',
@@ -323,6 +330,7 @@ export default function BooksPage() {
           name: book.name,
           sku: book.sku,
           price: Number(book.price),
+          centralQty: Number(book.centralQty || 0),
           mrp: book.mrp ? Number(book.mrp) : undefined,
           author: book.author || '',
           description: book.description || '',
@@ -465,7 +473,7 @@ export default function BooksPage() {
       await createBook({ ...createForm }, createFile || undefined, createThumbnail || undefined);
       setCreateDialogOpen(false);
       setCreateForm({
-        name: '', sku: '', price: 0, mrp: undefined, author: '', description: '', isEbook: false, featured: false, fileUrl: '', thumbnailUrl: '', programId: undefined,
+        name: '', sku: '', price: 0, centralQty: 0, mrp: undefined, author: '', description: '', isEbook: false, featured: false, fileUrl: '', thumbnailUrl: '', programId: undefined,
       });
       setCreateFile(null);
       setCreateThumbnail(null);
@@ -518,6 +526,47 @@ export default function BooksPage() {
         />
       ),
     });
+  };
+
+  const openStockEditor = (book: Book) => {
+    setStockTargetBook(book);
+    setStockAction('set');
+    setStockQtyInput(String(book.centralQty || 0));
+    setStockDialogOpen(true);
+  };
+
+  const handleStockUpdate = async () => {
+    if (!stockTargetBook) return;
+    const qty = Number(stockQtyInput);
+    if (!Number.isFinite(qty) || qty < 0) {
+      toast({
+        title: 'Error',
+        description: 'Stock quantity must be a valid non-negative number',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const current = Number(stockTargetBook.centralQty || 0);
+    let nextQty = current;
+    if (stockAction === 'set') nextQty = qty;
+    if (stockAction === 'add') nextQty = current + qty;
+    if (stockAction === 'remove') nextQty = Math.max(0, current - qty);
+
+    try {
+      setStockSubmitting(true);
+      await updateBook(stockTargetBook.id, { centralQty: Math.floor(nextQty) });
+      toast({ title: 'Success', description: 'Book stock updated successfully', variant: 'success' });
+      setStockDialogOpen(false);
+      await loadBooks();
+      if (bookDetails?.id === stockTargetBook.id) {
+        await fetchBookDetails(stockTargetBook.id);
+      }
+    } catch (err) {
+      toast({ title: 'Error', description: getErrorMessage(err), variant: 'destructive' });
+    } finally {
+      setStockSubmitting(false);
+    }
   };
 
   const filteredBooks = books.filter((book) => {
@@ -781,6 +830,10 @@ export default function BooksPage() {
                     </TableCell>
                     <TableCell className="py-5">
                        <div className="flex items-center gap-4 text-base font-bold text-slate-600">
+                          <div className="flex items-center gap-1.5" title="Central Stock">
+                             <Warehouse className="h-3.5 w-3.5 text-indigo-500" />
+                             {book.centralQty || 0}
+                          </div>
                           <div className="flex items-center gap-1.5" title="Stock">
                              <Building2 className="h-3.5 w-3.5 text-slate-400" />
                              {book._count?.stocks || 0}
@@ -813,6 +866,15 @@ export default function BooksPage() {
                             title="Manage Collaborators"
                           >
                             <Users className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 rounded-xl border-slate-200 bg-white px-3 text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
+                            onClick={() => openStockEditor(book)}
+                            title="Edit Stock"
+                          >
+                            Stock
                           </Button>
                           <Button
                             variant="outline"
@@ -903,6 +965,24 @@ export default function BooksPage() {
                     className="h-14 rounded-2xl border-slate-200 bg-slate-50/30 px-5 text-base font-black text-indigo-600 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all border-2"
                     value={createForm.price}
                     onChange={(e) => setCreateForm((prev) => ({ ...prev, price: Number(e.target.value) }))}
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-8 sm:grid-cols-2">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 px-1">
+                    <Warehouse className="h-3.5 w-3.5 text-indigo-500" />
+                    <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Initial Stock</label>
+                  </div>
+                  <Input
+                    type="number"
+                    min={0}
+                    className="h-14 rounded-2xl border-slate-200 bg-slate-50/30 px-5 text-base font-black text-indigo-600 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all border-2"
+                    value={createForm.centralQty ?? 0}
+                    onChange={(e) =>
+                      setCreateForm((prev) => ({ ...prev, centralQty: Math.max(0, Number(e.target.value) || 0) }))
+                    }
                   />
                 </div>
               </div>
@@ -1114,6 +1194,24 @@ export default function BooksPage() {
                       className="h-14 rounded-2xl border-slate-200 bg-slate-50/30 px-5 text-base font-black text-amber-600 focus:bg-white focus:ring-4 focus:ring-amber-500/10 transition-all border-2"
                       value={editForm.price}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, price: Number(e.target.value) }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-8 sm:grid-cols-2">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 px-1">
+                      <Warehouse className="h-3.5 w-3.5 text-amber-500" />
+                      <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Central Stock</label>
+                    </div>
+                    <Input
+                      type="number"
+                      min={0}
+                      className="h-14 rounded-2xl border-slate-200 bg-slate-50/30 px-5 text-base font-black text-amber-600 focus:bg-white focus:ring-4 focus:ring-amber-500/10 transition-all border-2"
+                      value={editForm.centralQty ?? 0}
+                      onChange={(e) =>
+                        setEditForm((prev) => ({ ...prev, centralQty: Math.max(0, Number(e.target.value) || 0) }))
+                      }
                     />
                   </div>
                 </div>
@@ -1818,6 +1916,54 @@ export default function BooksPage() {
           <DialogFooter className="px-10 py-8 shrink-0 bg-slate-50/50 border-t border-slate-100">
             <Button className="h-14 w-full rounded-2xl bg-slate-900 font-black uppercase tracking-widest text-[11px] text-white shadow-xl shadow-slate-200 hover:bg-indigo-600 transition-all" onClick={() => setViewDialogOpen(false)}>
               Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Stock Dialog */}
+      <Dialog open={stockDialogOpen} onOpenChange={setStockDialogOpen}>
+        <DialogContent className="sm:max-w-lg rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>Edit Book Stock</DialogTitle>
+            <DialogDescription>
+              {stockTargetBook ? `${stockTargetBook.name} (${stockTargetBook.sku})` : 'Select a book'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-slate-600">
+              Current stock: <span className="font-bold text-slate-900">{stockTargetBook?.centralQty || 0}</span>
+            </p>
+            <div className="space-y-2">
+              <label className="text-xs font-black uppercase tracking-widest text-slate-500">Action</label>
+              <Select value={stockAction} onValueChange={(v) => setStockAction(v as 'set' | 'add' | 'remove')}>
+                <SelectTrigger className="h-11 rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="set">Set exact stock</SelectItem>
+                  <SelectItem value="add">Increase stock (+)</SelectItem>
+                  <SelectItem value="remove">Decrease stock (-)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-black uppercase tracking-widest text-slate-500">
+                {stockAction === 'set' ? 'New stock qty' : 'Quantity'}
+              </label>
+              <Input
+                type="number"
+                min={0}
+                value={stockQtyInput}
+                onChange={(e) => setStockQtyInput(e.target.value)}
+                className="h-11 rounded-xl"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setStockDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleStockUpdate} disabled={stockSubmitting}>
+              {stockSubmitting ? 'Saving...' : 'Update Stock'}
             </Button>
           </DialogFooter>
         </DialogContent>

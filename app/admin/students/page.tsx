@@ -11,6 +11,8 @@ import {
   type Student,
 } from '@/lib/api/students';
 import { getBranches, type Branch } from '@/lib/api/branches';
+import { getCourses, type Course } from '@/lib/api/courses';
+import { getBatches, type Batch } from '@/lib/api/batches';
 import { apiRequest } from '@/lib/api';
 import type { Institute, ApiResponse } from '@/types/student';
 import { Button } from '@/components/ui/button';
@@ -60,6 +62,8 @@ export default function StudentsPage() {
   const { openModal } = useModalStore();
   const [students, setStudents] = useState<Student[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [batches, setBatches] = useState<Batch[]>([]);
   const [institutes, setInstitutes] = useState<Institute[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -67,6 +71,8 @@ export default function StudentsPage() {
   const [quickLookupLoading, setQuickLookupLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [branchFilter, setBranchFilter] = useState<string>('all');
+  const [courseFilter, setCourseFilter] = useState<string>('all');
+  const [batchFilter, setBatchFilter] = useState<string>('all');
 
   const statusOptions = ['all', 'ACTIVE', 'BLOCKED', 'PENDING'];
 
@@ -77,10 +83,18 @@ export default function StudentsPage() {
   }, []);
 
   useEffect(() => {
-    loadStudents();
     loadBranches();
+    loadCourses();
     loadInstitutes();
-  }, [statusFilter, branchFilter]);
+  }, []);
+
+  useEffect(() => {
+    loadStudents();
+  }, [statusFilter, branchFilter, courseFilter, batchFilter]);
+
+  useEffect(() => {
+    void loadBatchOptions(courseFilter !== 'all' ? courseFilter : undefined);
+  }, [courseFilter]);
 
   const loadStudents = async () => {
     try {
@@ -88,6 +102,8 @@ export default function StudentsPage() {
       const params: any = {};
       if (statusFilter !== 'all') params.status = statusFilter;
       if (branchFilter !== 'all') params.branchId = branchFilter;
+      if (courseFilter !== 'all') params.courseId = courseFilter;
+      if (batchFilter !== 'all') params.batchId = batchFilter;
       
       const res = await getStudents(params);
       if (res.success) setStudents(res.data || []);
@@ -101,6 +117,16 @@ export default function StudentsPage() {
   const loadBranches = async () => {
     const res = await getBranches();
     if (res.success) setBranches(res.data || []);
+  };
+
+  const loadCourses = async () => {
+    const res = await getCourses({ status: 'ACTIVE', limit: 500 });
+    if (res.success) setCourses(res.data || []);
+  };
+
+  const loadBatchOptions = async (courseId?: string) => {
+    const res = await getBatches({ status: 'ACTIVE', courseId, limit: 500 });
+    if (res.success) setBatches(res.data || []);
   };
 
   const loadInstitutes = async () => {
@@ -126,7 +152,10 @@ export default function StudentsPage() {
     }
   };
 
-  const handleViewStudent = async (studentId: string) => {
+  const handleViewStudent = async (
+    studentId: string,
+    initialTab: 'overview' | 'identity' | 'courses' | 'academic' | 'payments' | 'financial' = 'overview',
+  ) => {
     try {
       const res = await getStudentById(studentId);
       if (res.success && res.data) {
@@ -142,7 +171,7 @@ export default function StudentsPage() {
           title: 'Student Details',
           description: "See this student's info.",
           className: 'sm:max-w-5xl max-h-[92vh] flex flex-col overflow-hidden',
-          content: <StudentDetailsView student={res.data} />,
+          content: <StudentDetailsView student={res.data} initialTab={initialTab} />,
         });
       } else {
         toast({ title: 'Error', description: res.message || 'Student not found', variant: 'destructive' });
@@ -324,6 +353,40 @@ export default function StudentsPage() {
               </SelectContent>
             </Select>
 
+            <Select
+              value={courseFilter}
+              onValueChange={(v) => {
+                setCourseFilter(v);
+                setBatchFilter('all');
+              }}
+            >
+              <SelectTrigger className="h-12 w-[180px] rounded-2xl border-slate-200 bg-white text-sm font-medium shadow-sm">
+                <SelectValue placeholder="All Courses" />
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
+                <SelectItem value="all" className="text-sm font-medium">All Courses</SelectItem>
+                {courses.map((course) => (
+                  <SelectItem key={course.id} value={course.id} className="text-sm font-medium">
+                    {course.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={batchFilter} onValueChange={setBatchFilter}>
+              <SelectTrigger className="h-12 w-[180px] rounded-2xl border-slate-200 bg-white text-sm font-medium shadow-sm">
+                <SelectValue placeholder="All Batches" />
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
+                <SelectItem value="all" className="text-sm font-medium">All Batches</SelectItem>
+                {batches.map((batch) => (
+                  <SelectItem key={batch.id} value={batch.id} className="text-sm font-medium">
+                    {batch.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             <div className="flex min-w-[220px] max-w-xs flex-1 items-center gap-2">
               <Input
                 placeholder="Open: id, roll, mobile…"
@@ -355,6 +418,8 @@ export default function StudentsPage() {
               onClick={() => {
                 const url = exportStudentsUrl({
                   branchId: branchFilter,
+                  courseId: courseFilter,
+                  batchId: batchFilter,
                   status: statusFilter,
                   search: searchQuery || undefined,
                 });
@@ -479,6 +544,14 @@ export default function StudentsPage() {
                             onClick={() => handleEditStudent(student.id)}
                           >
                             Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 rounded-xl border-slate-200 bg-white px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm"
+                            onClick={() => handleViewStudent(student.id, 'payments')}
+                          >
+                            Payment
                           </Button>
                           <Button
                             variant="outline"

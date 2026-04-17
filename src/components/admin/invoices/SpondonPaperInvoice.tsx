@@ -3,6 +3,7 @@
 import React from 'react';
 import { Invoice } from '@/types/invoice';
 import { cn } from '@/lib/utils';
+import { parseDuePaymentReference } from '@/lib/due-payment-reference';
 
 function formatAmount(value: number | string) {
   return new Intl.NumberFormat('en-BD', { maximumFractionDigits: 0 }).format(Number(value));
@@ -29,6 +30,7 @@ export function SpondonPaperInvoice({
     (a, b) => new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime()
   )[0];
   const regNo = invoice.student?.studentProfile?.registrationNumber || '—';
+  const duePaymentMeta = parseDuePaymentReference(invoice.discountReference);
 
   const statusColor: Record<string, string> = {
     PAID: 'bg-green-50 text-green-700 border border-green-200',
@@ -184,6 +186,14 @@ export function SpondonPaperInvoice({
               {formatAmount(invoice.dueAmount)}
             </span>
           </div>
+          {duePaymentMeta ? (
+            <div className="flex justify-between text-[12px]">
+              <span className="text-slate-500">Remaining due (source)</span>
+              <span className={cn('font-semibold', duePaymentMeta.remainingDue > 0 ? 'text-red-600' : 'text-green-600')}>
+                {formatAmount(duePaymentMeta.remainingDue)}
+              </span>
+            </div>
+          ) : null}
         </div>
       </div>
 

@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useModalStore } from '@/store/modalStore';
 import { RecordPaymentDialog } from '@/components/admin/invoices/RecordPaymentDialog';
+import { parseDuePaymentReference } from '@/lib/due-payment-reference';
 
 interface InvoiceDetailsViewProps {
   invoice: Invoice;
@@ -93,6 +94,7 @@ export function InvoiceDetailsView({ invoice, onRefresh }: InvoiceDetailsViewPro
   const isCancelled = status === 'CANCELLED';
 
   const items = invoice.items ?? [];
+  const duePaymentMeta = parseDuePaymentReference(invoice.discountReference);
   const activeItems = useMemo(() => items.filter((i) => !isItemCancelled(i)), [items]);
   const cancelledItems = useMemo(() => items.filter((i) => isItemCancelled(i)), [items]);
 
@@ -369,6 +371,19 @@ export function InvoiceDetailsView({ invoice, onRefresh }: InvoiceDetailsViewPro
       )}
 
       {/* Line items (enrollment-style list) */}
+      {duePaymentMeta ? (
+        <div className="mb-4 rounded-xl border border-indigo-100 bg-indigo-50/60 px-4 py-3">
+          <p className="text-xs font-black uppercase tracking-widest text-indigo-700">Due Payment Update</p>
+          <p className="mt-1 text-sm font-semibold text-indigo-900">
+            Remaining due after this payment: {formatCurrency(duePaymentMeta.remainingDue)}
+          </p>
+          <p className="mt-0.5 text-xs text-indigo-700/80">
+            Source invoice: {duePaymentMeta.sourceInvoiceId.slice(0, 12)}...
+            {duePaymentMeta.paidNow > 0 ? ` · Paid now ${formatCurrency(duePaymentMeta.paidNow)}` : ''}
+          </p>
+        </div>
+      ) : null}
+
       <p className={sectionLabel}>Charges & line items</p>
       <div className={cn(cardClass, 'mb-5')}>
         {[...activeItems, ...cancelledItems].map((item) => {

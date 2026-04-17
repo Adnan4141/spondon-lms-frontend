@@ -157,7 +157,10 @@ export function CourseCancellationWizard({
       /* For each enrollment, check if all courses are being removed */
       for (const [enrollmentId, courseIds] of byEnrollment.entries()) {
         const enrollment = activeEnrollments.find(e => e.id === enrollmentId);
-        const totalCourses = enrollment?.enrollmentCourses?.length || 0;
+        const totalCourses = enrollment?.enrollmentCourses?.length;
+        if (totalCourses == null || totalCourses === 0) {
+          throw new Error(`Cannot determine course count for enrollment ${enrollmentId}`);
+        }
         if (courseIds.length >= totalCourses) {
           // All courses removed — delete the whole enrollment
           await deleteEnrollment(enrollmentId);

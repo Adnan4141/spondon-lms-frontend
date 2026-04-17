@@ -13,6 +13,25 @@ export interface RevenueSummaryData {
   amount: number;
 }
 
+export interface RevenuePaymentRow {
+  id: string;
+  invoiceId: string;
+  amount: number;
+  method: string;
+  trxId?: string | null;
+  paidAt: string;
+  student: {
+    id: string;
+    fullName: string;
+    mobile: string;
+    registrationNumber?: string | null;
+  };
+  branch: {
+    id: string;
+    name: string;
+  };
+}
+
 export interface RevenueSummaryResponse {
   success: boolean;
   data: RevenueSummaryData[];
@@ -20,12 +39,15 @@ export interface RevenueSummaryResponse {
     totalAmount: number;
     totalTransactions: number;
   };
+  transactions?: RevenuePaymentRow[];
 }
 
 export interface EnrollmentReportParams {
   programId?: string;
   courseId?: string;
   branchId?: string;
+  from?: string;
+  to?: string;
 }
 
 export interface EnrollmentReportData {
@@ -45,6 +67,8 @@ export interface EnrollmentReportResponse {
 
 export interface CourseTransactionParams {
   courseId: string;
+  from?: string;
+  to?: string;
 }
 
 export interface CourseTransactionData {
@@ -54,6 +78,9 @@ export interface CourseTransactionData {
   totalAmount: number;
   paidAmount: number;
   dueAmount: number;
+  selectedCourseAmount?: number;
+  selectedCoursePaid?: number;
+  selectedCourseDue?: number;
   status: string;
   createdAt: string;
   student?: {
@@ -106,6 +133,8 @@ export async function getEnrollmentReport(
   if (params?.programId) queryParams.append('programId', params.programId);
   if (params?.courseId) queryParams.append('courseId', params.courseId);
   if (params?.branchId) queryParams.append('branchId', params.branchId);
+  if (params?.from) queryParams.append('from', params.from);
+  if (params?.to) queryParams.append('to', params.to);
 
   const query = queryParams.toString();
   return apiRequest<EnrollmentReportResponse>(`/reports/enrollments${query ? `?${query}` : ''}`);
@@ -116,6 +145,8 @@ export async function getCourseTransactions(
 ): Promise<CourseTransactionResponse> {
   const queryParams = new URLSearchParams();
   queryParams.append('courseId', params.courseId);
+  if (params.from) queryParams.append('from', params.from);
+  if (params.to) queryParams.append('to', params.to);
 
   return apiRequest<CourseTransactionResponse>(`/reports/course-transactions?${queryParams.toString()}`);
 }
@@ -182,9 +213,23 @@ export interface DueSummaryRow {
   totalDue: number;
 }
 
+export interface DueSummaryStudentRow {
+  studentUserId: string;
+  fullName: string;
+  mobile: string;
+  registrationNumber?: string | null;
+  branchId: string;
+  branchName: string;
+  invoiceCount: number;
+  totalPayable: number;
+  totalPaid: number;
+  totalDue: number;
+}
+
 export interface DueSummaryResponse {
   success: boolean;
   data: DueSummaryRow[];
+  studentSummaries?: DueSummaryStudentRow[];
   totals: { totalPayable: number; totalPaid: number; totalDue: number };
 }
 

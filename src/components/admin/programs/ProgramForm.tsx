@@ -30,7 +30,7 @@ export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
     name: '', 
     description: '', 
     thumbnail: '',
-    mode: 'OFFLINE' as 'ONLINE' | 'OFFLINE',
+    mode: 'OFFLINE' as const,
     admissionFeeEnabled: false,
     admissionFeeAmount: '',
     paymentCircle: 'ONE_TIME' as BillingType,
@@ -49,7 +49,7 @@ export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
         name: program.name,
         description: program.description || '',
         thumbnail: program.thumbnail || '',
-        mode: (program as any).mode || 'OFFLINE',
+        mode: 'OFFLINE' as const,
         admissionFeeEnabled: program.admissionFeeEnabled || false,
         admissionFeeAmount: program.admissionFeeAmount ? String(program.admissionFeeAmount) : '',
         paymentCircle: program.paymentCircle || 'ONE_TIME',
@@ -66,7 +66,7 @@ export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
         name: '', 
         description: '', 
         thumbnail: '',
-        mode: 'OFFLINE',
+        mode: 'OFFLINE' as const,
         admissionFeeEnabled: false,
         admissionFeeAmount: '',
         paymentCircle: 'ONE_TIME',
@@ -123,12 +123,12 @@ export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
     const payload: CreateProgramDto | UpdateProgramDto = {
       name: form.name.trim(),
       description: form.description.trim() || undefined,
-      mode: form.mode,
+      mode: 'OFFLINE',
       admissionFeeEnabled: form.admissionFeeEnabled,
       admissionFeeAmount: form.admissionFeeEnabled && form.admissionFeeAmount.trim()
         ? Number(form.admissionFeeAmount)
         : null,
-      paymentCircle: form.mode === 'ONLINE' ? 'ONE_TIME' as BillingType : form.paymentCircle,
+      paymentCircle: form.paymentCircle,
     };
 
     try {
@@ -244,39 +244,7 @@ export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label className={sectionLabel}>Delivery Mode</label>
-            <div className="flex gap-3">
-              {(['OFFLINE', 'ONLINE'] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => {
-                    setForm((prev) => ({
-                      ...prev,
-                      mode: m,
-                      ...(m === 'ONLINE' ? { paymentCircle: 'ONE_TIME' as BillingType, admissionFeeEnabled: false, admissionFeeAmount: '' } : {}),
-                    }));
-                  }}
-                  className={cn(
-                    'flex-1 h-12 rounded-2xl border-2 text-sm font-black uppercase tracking-[0.15em] transition-all',
-                    form.mode === m
-                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700 shadow-md'
-                      : 'border-slate-200 bg-slate-50/50 text-slate-500 hover:border-slate-300'
-                  )}
-                >
-                  {m === 'OFFLINE' ? 'Offline' : 'Online'}
-                </button>
-              ))}
-            </div>
-            {form.mode === 'ONLINE' && (
-              <p className="text-xs font-medium text-blue-600 leading-relaxed">
-                Online programs use one-time payment only. Admission fee is not available.
-              </p>
-            )}
-          </div>
-
-          {form.mode === 'OFFLINE' && form.paymentCircle === 'MONTHLY' && (
+          {form.paymentCircle === 'MONTHLY' && (
           <div className="space-y-4">
             <label className={sectionLabel}>Admission Fee Settings</label>
             <label className="flex items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/40 px-4 py-3 transition-all hover:bg-white hover:shadow-md cursor-pointer group">
@@ -313,11 +281,10 @@ export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
           <div className="space-y-2">
             <label className={sectionLabel}>Payment Circle</label>
             <Select
-              value={form.mode === 'ONLINE' ? 'ONE_TIME' : form.paymentCircle}
+              value={form.paymentCircle}
               onValueChange={(value) => setForm((prev) => ({ ...prev, paymentCircle: value as BillingType }))}
-              disabled={form.mode === 'ONLINE'}
             >
-              <SelectTrigger className={cn("h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner", form.mode === 'ONLINE' && 'opacity-50')}>
+              <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
