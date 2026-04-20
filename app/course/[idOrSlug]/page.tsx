@@ -403,43 +403,7 @@ export default function CourseDetailsPage() {
                 </div>
             </div>
 
-            {/* Stats Bar */}
-            <div className="bg-white border-b border-slate-100 shadow-sm">
-                <div className="max-w-7xl mx-auto px-6 lg:px-12 py-4 flex flex-wrap gap-6 items-center">
-                    <div className="flex items-center gap-2.5">
-                        <div className="h-9 w-9 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0"><Users size={16} /></div>
-                        <div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ভর্তি</p>
-                            <p className="font-black text-slate-800 text-sm">{course.enrollmentCourses?.length ?? 0}+ শিক্ষার্থী</p>
-                        </div>
-                    </div>
-                    {course.batches?.[0] && (
-                        <div className="flex items-center gap-2.5">
-                            <div className="h-9 w-9 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0"><Calendar size={16} /></div>
-                            <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">চলমান ব্যাচ</p>
-                                <p className="font-black text-slate-800 text-sm">{course.batches[0].name}</p>
-                            </div>
-                        </div>
-                    )}
-                    <div className="flex items-center gap-2.5">
-                        <div className="h-9 w-9 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 shrink-0"><GraduationCap size={16} /></div>
-                        <div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">কোর্স মোড</p>
-                            <p className="font-black text-slate-800 text-sm">{course.type === 'ONLINE' ? 'অনলাইন' : 'অফলাইন'}</p>
-                        </div>
-                    </div>
-                    {course.teachers && course.teachers.length > 0 && (
-                        <div className="flex items-center gap-2.5">
-                            <div className="h-9 w-9 rounded-xl bg-rose-50 flex items-center justify-center text-rose-600 shrink-0"><UserCircle size={16} /></div>
-                            <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">শিক্ষক</p>
-                                <p className="font-black text-slate-800 text-sm">{course.teachers.length} জন</p>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </div>
+      
             {/* Course Content Sections */}
             <div className="max-w-7xl mx-auto px-6 lg:px-12 py-24">
                 <div className="grid lg:grid-cols-3 gap-16">
