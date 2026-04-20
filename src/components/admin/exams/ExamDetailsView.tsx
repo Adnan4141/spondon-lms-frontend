@@ -89,6 +89,7 @@ import { ExamSubjectBuilder } from './ExamSubjectBuilder';
 
 interface ExamDetailsViewProps {
   exam: Exam;
+  actingTeacherUserId?: string | null;
 }
 
 function getStatusBadgeClass(status: string) {
@@ -152,7 +153,7 @@ function SectionCard({
   );
 }
 
-export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
+export function ExamDetailsView({ exam: initialExam, actingTeacherUserId }: ExamDetailsViewProps) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<
     'info' | 'courses' | 'omr' | 'questions' | 'folder-rules' | 'results' | 'merit' | 'leaderboard' | 'evaluate' | 'analytics'

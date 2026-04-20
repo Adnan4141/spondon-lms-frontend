@@ -3,8 +3,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   Save, RotateCcw, Image as ImageIcon, Plus, Trash2, Upload, Link2,
-  Star, BookOpen, Target, Users,
+  Star, BookOpen, Target, Users, Eye, EyeOff, ExternalLink,
 } from 'lucide-react';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -69,6 +70,51 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: 'values', label: 'Core Values', icon: <Users className="w-4 h-4" /> },
   { id: 'mission', label: 'Mission', icon: <Target className="w-4 h-4" /> },
 ];
+
+// ─── Story Body Editor (Tiptap) ───────────────────────────────────────────
+
+function StoryBodyEditor({ value, onChange }: { value: string; onChange: (html: string) => void }) {
+  const [preview, setPreview] = useState(false);
+  const { toast } = useToast();
+
+  async function handleImageUpload(file: File): Promise<string> {
+    try {
+      const res = await uploadSiteContentImage(file);
+      return res.imageUrl.startsWith('/') ? `${API_ORIGIN}${res.imageUrl}` : res.imageUrl;
+    } catch {
+      toast({ title: 'Image upload failed', variant: 'destructive' });
+      throw new Error('Upload failed');
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label className="text-sm font-semibold text-slate-700">Story Body</Label>
+        <button
+          type="button"
+          onClick={() => setPreview((p) => !p)}
+          className="text-xs text-indigo-600 hover:underline flex items-center gap-1"
+        >
+          {preview ? <><EyeOff className="w-3 h-3" /> Edit</> : <><Eye className="w-3 h-3" /> Preview</>}
+        </button>
+      </div>
+      {preview ? (
+        <div
+          className="prose prose-sm max-w-none min-h-[160px] rounded-xl border border-slate-200 bg-slate-50 p-4 text-slate-800"
+          dangerouslySetInnerHTML={{ __html: value }}
+        />
+      ) : (
+        <RichTextEditor
+          value={value}
+          onChange={onChange}
+          onImageUpload={handleImageUpload}
+          placeholder="Write the story body…"
+        />
+      )}
+    </div>
+  );
+}
 
 // ─── Image Field (URL or Upload) ───────────────────────────────────────────
 
@@ -291,6 +337,9 @@ export default function AdminAboutUsPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => window.open('/about-us', '_blank')} className="gap-1.5 text-xs">
+              <ExternalLink className="w-3.5 h-3.5" /> View Page
+            </Button>
             <Button variant="outline" size="sm" onClick={reset} disabled={saving} className="gap-1.5 text-xs">
               <RotateCcw className="w-3.5 h-3.5" /> Reset
             </Button>
@@ -344,7 +393,7 @@ export default function AdminAboutUsPage() {
               <>
                 <SectionTitle>Our Story Section</SectionTitle>
                 <FieldRow label="Section Title" fieldKey="about.story_title" value={values} set={set} />
-                <FieldRow label="Story Body (HTML)" fieldKey="about.story_body" value={values} set={set} multiline rows={6} />
+                <StoryBodyEditor value={values['about.story_body']} onChange={(html) => set('about.story_body', html)} />
                 <ImageField fieldKey="about.story_image_url" label="Story Section Image" value={values['about.story_image_url']} onChange={set} />
                 <FieldRow label="Philosophy Badge Text" fieldKey="about.story_philosophy" value={values} set={set} />
               </>
