@@ -168,18 +168,18 @@ function collectIdsWithChildren(nodes: FolderTreeNode[]): Set<string> {
 function subtreeTypeTotals(n: FolderTreeNode): { mcq: number; cq: number; short: number; questions: number } {
   let mcq = 0;
   let cq = 0;
-  let sh = 0;
+  let short = 0;
   let questions = 0;
   function w(x: FolderTreeNode) {
     const c = x.counts ?? { mcqSingle: 0, mcqPassage: 0, cq: 0, short: 0, total: 0 };
     mcq += (c.mcqSingle ?? 0) + (c.mcqPassage ?? 0);
     cq += c.cq ?? 0;
-    sh += c.short ?? 0;
+    short += c.short ?? 0;
     questions += x.questionCount ?? c.total ?? 0;
     (x.children ?? []).forEach(w);
   }
   w(n);
-  return { mcq, cq, sh, questions };
+  return { mcq, cq, short, questions };
 }
 
 function formatRowCounts(mcq: number, cq: number, short: number): string {
@@ -472,27 +472,63 @@ export function ExamCreatorWizard({ exam, onSuccess, onClose, actingTeacherUserI
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="REGULAR">Standard</SelectItem>
+              <SelectItem value="REGULAR">Standard (MCQ)</SelectItem>
               <SelectItem value="COMPETITIVE">Competitive</SelectItem>
+              <SelectItem value="MULTI_SUBJECT">Multi-Subject</SelectItem>
+              <SelectItem value="UNIVERSITY_SPECIAL">University Special</SelectItem>
+              <SelectItem value="TALENT_HUNT">Talent Hunt</SelectItem>
               <SelectItem value="OMR_BOOK">Hall OMR</SelectItem>
             </SelectContent>
           </Select>
         </FieldWrap>
       </div>
 
+      {/* Engine-specific guidance */}
+      {st.examEngine === 'OMR_BOOK' && (
+        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-xs font-medium text-amber-800">OMR Mode</p>
+          <p className="text-xs text-amber-700 mt-1">Students answer on physical OMR sheets. Upload scanned sheets in the OMR tab after creating the exam. Auto-grading available.</p>
+        </div>
+      )}
+      {st.examEngine === 'MULTI_SUBJECT' && (
+        <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+          <p className="text-xs font-medium text-blue-800">Multi-Subject Exam</p>
+          <p className="text-xs text-blue-700 mt-1">Configure subjects in the Folder Rules tab after creation. Each subject has its own marks allocation and question pool.</p>
+        </div>
+      )}
+      {st.examEngine === 'UNIVERSITY_SPECIAL' && (
+        <div className="mt-3 rounded-lg border border-violet-200 bg-violet-50 px-4 py-3">
+          <p className="text-xs font-medium text-violet-800">University Special</p>
+          <p className="text-xs text-violet-700 mt-1">Designed for admission-style exams. Supports mixed MCQ + Written (CQ) sections with separate scoring.</p>
+        </div>
+      )}
+
       <WizardLabel>Options</WizardLabel>
       <Toggle label="Leaderboard" checked={st.leaderboard} onChange={(v) => update({ leaderboard: v })} />
       <Toggle label="Percentile display" checked={st.percentile} onChange={(v) => update({ percentile: v })} />
       <Toggle label="Solve sheet visible after submission" checked={st.solveSheet} onChange={(v) => update({ solveSheet: v })} />
-      <Toggle label="OMR offline upload enabled" checked={st.omr} onChange={(v) => update({ omr: v })} />
+      {(st.examEngine === 'OMR_BOOK' || st.mode === 'OFFLINE') && (
+        <Toggle label="OMR offline upload enabled" checked={st.omr} onChange={(v) => update({ omr: v })} />
+      )}
     </>
   );
 
   // ─── Step 2: Method ─────────────────────────────────────────────────────
-  const renderMethod = () => (
+  const renderMethod = () => {
+    // Engine-specific method recommendations
+    const isOmr = st.examEngine === 'OMR_BOOK';
+    const isMultiSubject = st.examEngine === 'MULTI_SUBJECT';
+
+    return (
     <>
       <div className="text-[15px] font-medium text-slate-900">Question fill method</div>
-      <div className="text-xs text-slate-400 mb-4">Choose how the paper gets populated.</div>
+      <div className="text-xs text-slate-400 mb-4">
+        {isOmr
+          ? 'OMR exams typically use folder random or manual pick.'
+          : isMultiSubject
+          ? 'Multi-subject exams work best with the blueprint method.'
+          : 'Choose how the paper gets populated.'}
+      </div>
 
       <div className="grid grid-cols-2 gap-3">
         <MethodCard
@@ -531,6 +567,7 @@ export function ExamCreatorWizard({ exam, onSuccess, onClose, actingTeacherUserI
       </div>
     </>
   );
+  };
 
   // ─── Step 3: Sets & Generate ────────────────────────────────────────────
   const renderSetsGenerate = () => (

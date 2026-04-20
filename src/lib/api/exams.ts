@@ -201,6 +201,28 @@ export function getExamPdfDownloadUrl(pdfUrl: string): string {
 }
 
 // Student Exam APIs
+export async function getExamAnalytics(examId: string): Promise<ApiResponse<ExamAnalytics>> {
+  return apiRequest<ApiResponse<ExamAnalytics>>(`/exams/${examId}/analytics`);
+}
+
+export interface ExamAnalytics {
+  totalAttempts: number;
+  totalMarks: number;
+  average: number;
+  highest: number;
+  lowest: number;
+  scoreDistribution: { range: string; count: number }[];
+  passFail: { pass: number; fail: number; passRate: number };
+  perQuestionAccuracy: {
+    questionId: string;
+    type: string;
+    text: string;
+    totalAnswered: number;
+    correctCount: number;
+    accuracy: number;
+  }[];
+}
+
 export async function getStudentExams(studentUserId: string): Promise<ApiResponse<Exam[]>> {
   return apiRequest<ApiResponse<Exam[]>>(`/exams/student/${studentUserId}`);
 }

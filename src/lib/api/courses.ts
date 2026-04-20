@@ -86,6 +86,17 @@ export async function removeCourseTeacher(courseId: string, teacherUserId: strin
   });
 }
 
+export async function updateCourseTeacherPermissions(
+  courseId: string,
+  teacherUserId: string,
+  permissions: Record<string, boolean>
+): Promise<ApiResponse<any>> {
+  return apiRequest(`/courses/${courseId}/teachers/${teacherUserId}/permissions`, {
+    method: 'PATCH',
+    body: JSON.stringify({ permissions }),
+  });
+}
+
 export async function uploadCourseThumbnail(courseId: string, file: File): Promise<ApiResponse<Course>> {
   const formData = new FormData();
   formData.append('thumbnail', file);

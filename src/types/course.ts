@@ -257,6 +257,10 @@ export interface CourseDetailTeacher {
     id: string;
     fullName: string;
     email?: string | null;
+    profileImage?: string | null;
+    designation?: string | null;
+    experienceYears?: number | null;
+    institute?: string | null;
   } | null;
 }
 
@@ -303,6 +307,10 @@ export interface CourseDetails extends Course {
   feeBreakdown?: CourseFeeBreakdown;
   /** Included when loading a single course from the API (e.g. public detail page). */
   contents?: CourseContent[];
+  /** Dynamic course features (icon, label, value) from CourseFeature model */
+  features?: { id: string; icon?: string | null; label: string; value: string; sortOrder: number }[];
+  /** Enrollment courses — limited set returned by getCourseById for stats display */
+  enrollmentCourses?: { id: string }[];
 }
 
 export interface GetCoursesParams {

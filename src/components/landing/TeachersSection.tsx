@@ -46,9 +46,7 @@ function TeacherMarqueeCard({ teacher }: { teacher: PublicTeacher }) {
       </div>
 
       <div className="flex flex-1 flex-col gap-2 p-4">
-        {primaryCourse ? (
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600">{primaryCourse}</p>
-        ) : null}
+     
         <h3 className="text-base font-black leading-snug text-slate-900 sm:text-lg">{teacher.fullName}</h3>
         {subtitle ? (
           <p className="line-clamp-2 text-xs font-medium italic leading-relaxed text-slate-600">{subtitle}</p>

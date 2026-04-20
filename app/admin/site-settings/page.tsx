@@ -3,9 +3,9 @@
 import React, { useEffect, useState } from 'react';
 import {
   Save, RotateCcw, Settings2, Layout, Link2, Facebook,
-  Instagram, Twitter, Linkedin, Youtube, BookOpen, Users, CreditCard,
+  Instagram, MessageCircle, Youtube, BookOpen, Users, CreditCard,
   Briefcase, Handshake, ShieldCheck, FileText, Globe, Phone, Mail,
-  ChevronDown, ChevronUp,
+  ChevronDown, ChevronUp, Plus, Trash2, HelpCircle, Lock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,8 +56,7 @@ const DEFAULTS: Record<string, string> = {
   'footer.email': 'support@spondonpro.com',
   'footer.facebook': '#',
   'footer.instagram': '#',
-  'footer.twitter': '#',
-  'footer.linkedin': '#',
+  'footer.whatsapp': '#',
   'footer.youtube': '#',
   'footer.newsletter_title': 'নতুন কোর্সের আপডেট পেতে চান?',
   'footer.newsletter_subtitle': 'আমাদের নিউজলেটারে সাবস্ক্রাইব করে যুক্ত থাকুন।',
@@ -73,10 +72,13 @@ const DEFAULTS: Record<string, string> = {
   // Link slots
   'footer.link_1_label': 'আমাদের সম্পর্কে', 'footer.link_1_href': '/about-us',
   'footer.link_2_label': 'ক্যারিয়ার',        'footer.link_2_href': '#',
-  'footer.link_3_label': 'প্রাইভেসি পলিসি',  'footer.link_3_href': '#',
-  'footer.link_4_label': 'সচরাচর জিজ্ঞাসা',  'footer.link_4_href': '#',
+  'footer.link_3_label': 'প্রাইভেসি পলিসি',  'footer.link_3_href': '/privacy-policy',
+  'footer.link_4_label': 'সচরাচর জিজ্ঞাসা',  'footer.link_4_href': '/faq',
   'footer.link_5_label': '',                  'footer.link_5_href': '#',
   'footer.link_6_label': '',                  'footer.link_6_href': '#',
+  // Pages
+  'pages.privacy_policy': '',
+  'pages.faq_items': '[]',
 };
 
 const LABELS: Record<string, string> = {
@@ -117,9 +119,11 @@ const LABELS: Record<string, string> = {
   'footer.email': 'Email Address',
   'footer.facebook': 'Facebook URL',
   'footer.instagram': 'Instagram URL',
-  'footer.twitter': 'Twitter/X URL',
-  'footer.linkedin': 'LinkedIn URL',
+  'footer.whatsapp': 'WhatsApp Link (https://wa.me/...)',
   'footer.youtube': 'YouTube Channel URL',
+  'pages.privacy_policy': 'Privacy Policy Content (HTML)',
+  'pages.faq_items': 'FAQ Items (JSON)',
+  // Footer – Link slots (labels & hrefs)
   'footer.newsletter_title': 'Newsletter Card Title',
   'footer.newsletter_subtitle': 'Newsletter Card Subtitle',
   'footer.copyright': 'Copyright Text',
@@ -150,6 +154,7 @@ const MULTILINE = new Set([
   'programs_cta.title',
   'footer.description',
   'footer.newsletter_subtitle',
+  'pages.privacy_policy',
 ]);
 
 // ─── Tab structure ─────────────────────────────────────────────────────────
@@ -223,7 +228,7 @@ const FOOTER_SECTIONS: SectionGroup[] = [
     label: 'Social Media Links',
     icon: <Link2 className="h-4 w-4" />,
     accent: 'border-rose-400 bg-rose-50 text-rose-600',
-    keys: ['footer.facebook', 'footer.instagram', 'footer.twitter', 'footer.linkedin', 'footer.youtube'],
+    keys: ['footer.facebook', 'footer.instagram', 'footer.whatsapp', 'footer.youtube'],
   },
   {
     label: 'Newsletter',
@@ -262,10 +267,61 @@ const FOOTER_SECTIONS: SectionGroup[] = [
 const SOCIAL_ICONS: Record<string, React.ReactNode> = {
   'footer.facebook': <Facebook className="h-4 w-4 text-blue-600" />,
   'footer.instagram': <Instagram className="h-4 w-4 text-pink-500" />,
-  'footer.twitter': <Twitter className="h-4 w-4 text-sky-500" />,
-  'footer.linkedin': <Linkedin className="h-4 w-4 text-blue-700" />,
+  'footer.whatsapp': <MessageCircle className="h-4 w-4 text-green-500" />,
   'footer.youtube': <Youtube className="h-4 w-4 text-red-600" />,
 };
+
+// ─── FAQ Editor ────────────────────────────────────────────────────────────
+
+interface FaqItem { question: string; answer: string; }
+
+function FaqEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const items: FaqItem[] = React.useMemo(() => {
+    try { return JSON.parse(value || '[]'); } catch { return []; }
+  }, [value]);
+
+  const save = (next: FaqItem[]) => onChange(JSON.stringify(next));
+
+  const add = () => save([...items, { question: '', answer: '' }]);
+  const remove = (i: number) => save(items.filter((_, idx) => idx !== i));
+  const update = (i: number, field: 'question' | 'answer', v: string) =>
+    save(items.map((item, idx) => idx === i ? { ...item, [field]: v } : item));
+
+  return (
+    <div className="space-y-4">
+      {items.map((item, i) => (
+        <div key={i} className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-black text-slate-500 uppercase tracking-wide">প্রশ্ন {i + 1}</span>
+            <button type="button" onClick={() => remove(i)} className="text-rose-400 hover:text-rose-600 transition-colors">
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+          <Input
+            value={item.question}
+            onChange={(e) => update(i, 'question', e.target.value)}
+            placeholder="প্রশ্ন লিখুন..."
+            className="text-sm border-slate-200 bg-white focus-visible:ring-violet-400"
+          />
+          <Textarea
+            value={item.answer}
+            onChange={(e) => update(i, 'answer', e.target.value)}
+            placeholder="উত্তর লিখুন..."
+            rows={3}
+            className="text-sm resize-y border-slate-200 bg-white focus-visible:ring-violet-400"
+          />
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={add}
+        className="flex items-center gap-2 text-sm font-bold text-violet-600 hover:text-violet-800 transition-colors"
+      >
+        <Plus className="h-4 w-4" /> নতুন প্রশ্ন যোগ করুন
+      </button>
+    </div>
+  );
+}
 
 // ─── Sub-components ────────────────────────────────────────────────────────
 
@@ -376,11 +432,12 @@ function SectionCard({
 
 // ─── Page ──────────────────────────────────────────────────────────────────
 
-type TabId = 'landing' | 'footer';
+type TabId = 'landing' | 'footer' | 'pages';
 
-const TABS: { id: TabId; label: string; icon: React.ReactNode; sections: SectionGroup[] }[] = [
+const TABS: { id: TabId; label: string; icon: React.ReactNode; sections: SectionGroup[]; fieldCount?: number }[] = [
   { id: 'landing', label: 'Landing Page', icon: <Layout className="h-4 w-4" />, sections: LANDING_SECTIONS },
   { id: 'footer', label: 'Footer', icon: <Globe className="h-4 w-4" />, sections: FOOTER_SECTIONS },
+  { id: 'pages', label: 'Pages', icon: <FileText className="h-4 w-4" />, sections: [], fieldCount: 2 },
 ];
 
 export default function SiteSettingsPage() {
@@ -389,6 +446,7 @@ export default function SiteSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('landing');
+  const [privacyRows, setPrivacyRows] = useState(10);
 
   useEffect(() => {
     async function load() {
@@ -445,7 +503,7 @@ export default function SiteSettingsPage() {
   }
 
   const currentTab = TABS.find((t) => t.id === activeTab)!;
-  const totalFields = currentTab.sections.reduce((s, g) => s + g.keys.length, 0);
+  const totalFields = activeTab === 'pages' ? 2 : currentTab.sections.reduce((s, g) => s + g.keys.length, 0);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -493,7 +551,7 @@ export default function SiteSettingsPage() {
                 'text-[10px] px-1.5 py-0.5 rounded-full font-black transition-colors',
                 activeTab === tab.id ? 'bg-violet-100 text-violet-600' : 'bg-slate-100 text-slate-500',
               )}>
-                {tab.sections.reduce((s, g) => s + g.keys.length, 0)}
+                {tab.id === 'pages' ? (tab.fieldCount ?? 2) : tab.sections.reduce((s, g) => s + g.keys.length, 0)}
               </span>
             </button>
           ))}
@@ -502,15 +560,63 @@ export default function SiteSettingsPage() {
 
       {/* Content */}
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-4">
-        {currentTab.sections.map((section) => (
-          <SectionCard
-            key={section.label}
-            section={section}
-            values={values}
-            onChange={handleChange}
-            onReset={handleReset}
-          />
-        ))}
+        {activeTab === 'pages' ? (
+          <>
+            {/* Privacy Policy */}
+            <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden border-l-4 border-l-indigo-400">
+              <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-100">
+                <div className="h-8 w-8 rounded-xl flex items-center justify-center bg-indigo-50 text-indigo-600">
+                  <Lock className="h-4 w-4" />
+                </div>
+                <h2 className="font-black text-slate-800 text-sm">Privacy Policy</h2>
+                <span className="text-[10px] text-slate-400 font-bold bg-slate-100 px-2 py-0.5 rounded-full">HTML content</span>
+              </div>
+              <div className="p-6">
+                <p className="text-xs text-slate-500 mb-3 font-medium">Raw HTML — this content will be rendered on the <code className="bg-slate-100 px-1 rounded">/privacy-policy</code> page. Use standard HTML tags like &lt;h2&gt;, &lt;p&gt;, &lt;ul&gt;, &lt;li&gt; etc.</p>
+                <Textarea
+                  value={values['pages.privacy_policy'] ?? ''}
+                  onChange={(e) => handleChange('pages.privacy_policy', e.target.value)}
+                  rows={privacyRows}
+                  placeholder="<h2>প্রাইভেসি পলিসি</h2><p>...</p>"
+                  className="text-sm resize-y font-mono border-slate-200 focus-visible:ring-violet-400"
+                />
+                <button
+                  type="button"
+                  onClick={() => setPrivacyRows((r) => r + 10)}
+                  className="mt-2 text-xs text-slate-400 hover:text-violet-600 transition-colors"
+                >
+                  + আরো লাইন যোগ করুন
+                </button>
+              </div>
+            </div>
+            {/* FAQ */}
+            <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden border-l-4 border-l-amber-400">
+              <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-100">
+                <div className="h-8 w-8 rounded-xl flex items-center justify-center bg-amber-50 text-amber-600">
+                  <HelpCircle className="h-4 w-4" />
+                </div>
+                <h2 className="font-black text-slate-800 text-sm">সচরাচর জিজ্ঞাসা (FAQ)</h2>
+                <span className="text-[10px] text-slate-400 font-bold bg-slate-100 px-2 py-0.5 rounded-full">Accordion format</span>
+              </div>
+              <div className="p-6">
+                <FaqEditor
+                  value={values['pages.faq_items'] ?? '[]'}
+                  onChange={(v) => handleChange('pages.faq_items', v)}
+                />
+              </div>
+            </div>
+          </>
+        ) : (
+          currentTab.sections.map((section) => (
+            <SectionCard
+              key={section.label}
+              section={section}
+              values={values}
+              onChange={handleChange}
+              onReset={handleReset}
+            />
+          ))
+        )}
 
         <div className="flex justify-end pt-4 pb-12">
           <Button

@@ -12,15 +12,15 @@ import { enrollInCourse, checkEnrollment, type EnrollCourseDelivery } from '@/li
 import { getInvoicePdfUrl, initInvoicePayment } from '@/lib/api/invoices';
 import { getBatches, type Batch } from '@/lib/api/batches';
 import { API_ORIGIN } from '@/lib/api';
+import { resolveAttachmentUrl } from '@/lib/attachment-url';
+import Image from 'next/image';
 import {
     type CourseDetailCourseBook,
     type CourseDetails,
-    curriculumContentTypeLabel,
     DEFAULT_PUBLIC_COURSE_BENEFIT_BULLETS,
     normalizeCoursePublicPageDisplay,
     normalizeCourseWebsiteSections,
 } from '@/types/course';
-import type { ContentType } from '@/types/course-content';
 import {
     Dialog,
     DialogContent,
@@ -51,6 +51,10 @@ import {
     FileText,
     Receipt,
     Download,
+    Users,
+    Calendar,
+    GraduationCap,
+    UserCircle,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -356,52 +360,86 @@ export default function CourseDetailsPage() {
     const websiteSectionsAll = normalizeCourseWebsiteSections(outline?.websiteSections);
     const websiteSections = publicPage.showWebsiteSections ? websiteSectionsAll : [];
 
-    const contents = course.contents ?? [];
-    const curriculumTypeSet = new Set<ContentType>(publicPage.curriculumContentTypes);
-    const curriculumRows = contents.filter((c) => curriculumTypeSet.has(c.type));
-
     return (
         <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-indigo-100">
             <Toaster toasts={toasts} removeToast={removeToast} />
             <Header />
 
             {/* Hero Section */}
-            <div className="relative bg-[#0F172A] pt-32 pb-24 overflow-hidden">
+            <div className="relative bg-[#0F172A] pt-28 pb-16 md:pb-24 overflow-hidden">
                 <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 blur-[120px] rounded-full" />
                 <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/10 blur-[100px] rounded-full" />
-
-                <div className="max-w-7xl  flex items-center justify-center mx-auto px-6 lg:px-12 relative z-10">
-                    <div className="gap-16 items-center">
-                        <motion.div
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ duration: 0.5 }}
-                        >
-                            <div className="flex items-center flex-wrap gap-3 mb-6">
-                                <span className="px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-400/20 text-indigo-400 text-[10px] font-black uppercase tracking-widest">
-                                    {course.program?.name || 'Academic'}
-                                </span>
-                                <span className="px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-400/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest">
-                                    {course.type === 'ONLINE' ? '• Online Course' : '• Offline Course'}
-                                </span>
+                <div className="max-w-7xl mx-auto px-6 lg:px-12 relative z-10 grid md:grid-cols-2 gap-10 md:gap-16 items-center">
+                    <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5 }}>
+                        <div className="flex items-center flex-wrap gap-3 mb-6">
+                            <span className="px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-400/20 text-indigo-400 text-[10px] font-black uppercase tracking-widest">
+                                {course.program?.name || 'Academic'}
+                            </span>
+                            <span className="px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-400/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest">
+                                {course.type === 'ONLINE' ? '• Online Course' : '• Offline Course'}
+                            </span>
+                        </div>
+                        <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-white mb-6 leading-tight tracking-tighter">
+                            {course.name}
+                        </h1>
+                        <div
+                            className="text-slate-400 text-base md:text-lg font-medium mb-10 max-w-xl leading-relaxed prose prose-invert"
+                            dangerouslySetInnerHTML={{ __html: course.description || 'আপনার স্বপ্ন পূরণের যাত্রায় আমরা আছি আপনার পাশে।' }}
+                        />
+                    </motion.div>
+                    {course.thumbnail ? (
+                        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5, delay: 0.1 }} className="hidden md:block">
+                            <div className="relative aspect-video rounded-3xl overflow-hidden border-4 border-white/10 shadow-2xl">
+                                <Image
+                                    src={resolveAttachmentUrl(course.thumbnail, API_ORIGIN)}
+                                    alt={course.name}
+                                    fill
+                                    className="object-cover"
+                                    sizes="50vw"
+                                />
                             </div>
-                            <h1 className="text-4xl md:text-6xl font-black text-white mb-6 leading-tight tracking-tighter">
-                                {course.name}
-                            </h1>
-                            <div 
-                                className="text-slate-400 text-lg font-medium mb-10 max-w-xl leading-relaxed prose prose-invert"
-                                dangerouslySetInnerHTML={{ __html: course.description || 'আপনার স্বপ্ন পূরণের যাত্রায় আমরা আছি আপনার পাশে। মানসম্মত শিক্ষা এবং সঠিক নির্দেশনায় গড়ে তুলুন আপনার ভবিষ্যৎ।' }}
-                            />
-
-                         
-
                         </motion.div>
-
-                      
-                    </div>
+                    ) : null}
                 </div>
             </div>
 
+            {/* Stats Bar */}
+            <div className="bg-white border-b border-slate-100 shadow-sm">
+                <div className="max-w-7xl mx-auto px-6 lg:px-12 py-4 flex flex-wrap gap-6 items-center">
+                    <div className="flex items-center gap-2.5">
+                        <div className="h-9 w-9 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0"><Users size={16} /></div>
+                        <div>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ভর্তি</p>
+                            <p className="font-black text-slate-800 text-sm">{course.enrollmentCourses?.length ?? 0}+ শিক্ষার্থী</p>
+                        </div>
+                    </div>
+                    {course.batches?.[0] && (
+                        <div className="flex items-center gap-2.5">
+                            <div className="h-9 w-9 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0"><Calendar size={16} /></div>
+                            <div>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">চলমান ব্যাচ</p>
+                                <p className="font-black text-slate-800 text-sm">{course.batches[0].name}</p>
+                            </div>
+                        </div>
+                    )}
+                    <div className="flex items-center gap-2.5">
+                        <div className="h-9 w-9 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 shrink-0"><GraduationCap size={16} /></div>
+                        <div>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">কোর্স মোড</p>
+                            <p className="font-black text-slate-800 text-sm">{course.type === 'ONLINE' ? 'অনলাইন' : 'অফলাইন'}</p>
+                        </div>
+                    </div>
+                    {course.teachers && course.teachers.length > 0 && (
+                        <div className="flex items-center gap-2.5">
+                            <div className="h-9 w-9 rounded-xl bg-rose-50 flex items-center justify-center text-rose-600 shrink-0"><UserCircle size={16} /></div>
+                            <div>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">শিক্ষক</p>
+                                <p className="font-black text-slate-800 text-sm">{course.teachers.length} জন</p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
             {/* Course Content Sections */}
             <div className="max-w-7xl mx-auto px-6 lg:px-12 py-24">
                 <div className="grid lg:grid-cols-3 gap-16">
@@ -455,6 +493,44 @@ export default function CourseDetailsPage() {
                                 </section>
                               ))
                             : null}
+
+                        {/* Teachers */}
+                        {course.teachers && course.teachers.length > 0 && (
+                            <section>
+                                <div className="flex items-center gap-4 mb-8">
+                                    <div className="h-12 w-12 rounded-2xl bg-rose-600 flex items-center justify-center text-white shadow-lg shadow-rose-100">
+                                        <UserCircle size={24} />
+                                    </div>
+                                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">কোর্সের শিক্ষক</h2>
+                                </div>
+                                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                                    {course.teachers.map((ct) => {
+                                        const t = ct.teacher;
+                                        if (!t) return null;
+                                        const imgSrc = t.profileImage ? resolveAttachmentUrl(t.profileImage, API_ORIGIN) : null;
+                                        return (
+                                            <div key={ct.id} className="bg-white rounded-3xl border border-slate-100 p-6 flex flex-col items-center text-center gap-3 hover:shadow-lg transition-all group">
+                                                <div className="w-20 h-20 rounded-2xl overflow-hidden bg-slate-100 flex items-center justify-center shrink-0 border-2 border-white shadow-md">
+                                                    {imgSrc ? (
+                                                        <Image src={imgSrc} alt={t.fullName} width={80} height={80} className="object-cover w-full h-full" />
+                                                    ) : (
+                                                        <UserCircle className="text-slate-400 w-10 h-10" />
+                                                    )}
+                                                </div>
+                                                <div>
+                                                    <p className="font-black text-slate-900 text-base leading-tight">{t.fullName}</p>
+                                                    {t.designation && <p className="text-xs font-bold text-indigo-600 mt-0.5">{t.designation}</p>}
+                                                    {t.institute && <p className="text-xs font-medium text-slate-400 mt-0.5">{t.institute}</p>}
+                                                    {t.experienceYears != null && (
+                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{t.experienceYears} বছরের অভিজ্ঞতা</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </section>
+                        )}
 
                         {publicPage.showBooks && courseBooks.length > 0 ? (
                             <section>
@@ -520,70 +596,7 @@ export default function CourseDetailsPage() {
                             </section>
                         ) : null}
 
-                        {/* Course content list (types chosen in admin) */}
-                        {publicPage.showCurriculum ? (
-                            <section>
-                                <div className="flex items-center gap-4 mb-8">
-                                    <div className="h-12 w-12 rounded-2xl bg-emerald-500 flex items-center justify-center text-white shadow-lg shadow-emerald-100">
-                                        <BookOpen size={24} />
-                                    </div>
-                                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">কোর্স কারিকুলাম</h2>
-                                </div>
-                                <div className="space-y-4">
-                                    {curriculumRows.length > 0 ? (
-                                        curriculumRows.map((item, idx: number) => {
-                                            const meta =
-                                                item.textBody?.trim() ||
-                                                (item.type === 'VIDEO' && item.durationMinutes
-                                                    ? `${item.durationMinutes} মিনিট`
-                                                    : null);
-                                            return (
-                                                <div
-                                                    key={item.id || idx}
-                                                    className="bg-white rounded-3xl border border-slate-100 overflow-hidden transition-all hover:shadow-md"
-                                                >
-                                                    <div className="p-6 flex items-center justify-between gap-4">
-                                                        <div className="flex items-center gap-6 min-w-0">
-                                                            <span className="h-10 w-10 shrink-0 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 font-black text-sm">
-                                                                {String(idx + 1).padStart(2, '0')}
-                                                            </span>
-                                                            <div className="min-w-0">
-                                                                <span className="inline-block text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md mb-1.5">
-                                                                    {curriculumContentTypeLabel(item.type)}
-                                                                </span>
-                                                                <h4 className="font-black text-slate-800 mb-1 truncate">{item.title}</h4>
-                                                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                                                                    {meta || '—'}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex items-center gap-3 shrink-0">
-                                                            {item.fileUrl ? (
-                                                                <a
-                                                                    href={item.fileUrl}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    className="h-8 w-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center transition-colors hover:bg-indigo-600 hover:text-white"
-                                                                >
-                                                                    <FileText size={14} />
-                                                                </a>
-                                                            ) : null}
-                                                            <ArrowRight size={20} className="text-slate-300" />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })
-                                    ) : (
-                                        <div className="bg-white p-12 rounded-[40px] border border-dashed border-slate-200 text-center">
-                                            <p className="text-slate-400 font-bold">
-                                                নির্বাচিত কনটেন্ট টাইপ অনুযায়ী এখনো কোনো আইটেম নেই। অ্যাডমিন থেকে টাইপ বা কনটেন্ট যোগ করুন।
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
-                            </section>
-                        ) : null}
+                  
                     </div>
 
                     {/* Sidebar */}
@@ -592,35 +605,52 @@ export default function CourseDetailsPage() {
                         <div className="bg-white rounded-[40px] p-8 border border-slate-100 shadow-sm sticky top-28">
                             <h3 className="text-xl font-black text-slate-900 mb-8 pb-4 border-b border-slate-50">কোর্স ফিচারসমূহ</h3>
                             
-                            <div className="space-y-6">
-                                <div className="flex items-center gap-4">
-                                    <div className="h-12 w-12 rounded-2xl bg-slate-50 flex items-center justify-center text-indigo-600">
-                                        <Globe size={20} />
+                            {/* Dynamic Features from CourseFeature or Fallback */}
+                            {course.features && course.features.length > 0 ? (
+                                <div className="space-y-5">
+                                    {course.features.map((f) => (
+                                        <div key={f.id} className="flex items-center gap-4">
+                                            <div className="h-11 w-11 rounded-2xl bg-slate-50 flex items-center justify-center text-indigo-600 text-base font-black shrink-0">
+                                                {f.icon || '✦'}
+                                            </div>
+                                            <div className="flex flex-col min-w-0">
+                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest truncate">{f.label}</span>
+                                                <span className="font-bold text-slate-700 text-sm truncate">{f.value}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="space-y-6">
+                                    <div className="flex items-center gap-4">
+                                        <div className="h-12 w-12 rounded-2xl bg-slate-50 flex items-center justify-center text-indigo-600">
+                                            <Globe size={20} />
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase">কোর্স মোড</span>
+                                            <span className="font-bold text-slate-700">{course.type === 'ONLINE' ? 'অনলাইন' : 'অফলাইন'}</span>
+                                        </div>
                                     </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-[10px] font-black text-slate-400 uppercase">কোর্স মোড</span>
-                                        <span className="font-bold text-slate-700">{course.type === 'ONLINE' ? 'অনলাইন' : 'অফলাইন'}</span>
+                                    <div className="flex items-center gap-4">
+                                        <div className="h-12 w-12 rounded-2xl bg-slate-50 flex items-center justify-center text-emerald-600">
+                                            <Layout size={20} />
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase">পেমেন্ট</span>
+                                            <span className="font-bold text-slate-700">{course.type === 'ONLINE' ? 'এককালীন পেমেন্ট' : 'ভর্তির সময় নির্ধারিত'}</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <div className="h-12 w-12 rounded-2xl bg-slate-50 flex items-center justify-center text-amber-600">
+                                            <ShieldCheck size={20} />
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase">সার্টিফিকেট</span>
+                                            <span className="font-bold text-slate-700">কোর্স শেষে সার্টিফিকেট</span>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-4">
-                                    <div className="h-12 w-12 rounded-2xl bg-slate-50 flex items-center justify-center text-emerald-600">
-                                        <Layout size={20} />
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-[10px] font-black text-slate-400 uppercase">পেমেন্ট</span>
-                                        <span className="font-bold text-slate-700">{course.type === 'ONLINE' ? 'এককালীন পেমেন্ট' : 'ভর্তির সময় নির্ধারিত'}</span>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-4">
-                                    <div className="h-12 w-12 rounded-2xl bg-slate-50 flex items-center justify-center text-amber-600">
-                                        <ShieldCheck size={20} />
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-[10px] font-black text-slate-400 uppercase">সার্টিফিকেট</span>
-                                        <span className="font-bold text-slate-700">কোর্স শেষে সার্টিফিকেট</span>
-                                    </div>
-                                </div>
-                            </div>
+                            )}
 
                             <div className="mt-10 pt-10 border-t border-slate-50">
                                 <div className="flex items-center justify-between mb-2">

@@ -63,7 +63,7 @@ export function Header() {
   const navLinks = [
     { name: 'সকল কোর্স', href: '/courses', icon: BookOpen },
     { name: 'বইসমূহ', href: '/books', icon: Library },
-    { name: 'যোগাযোগ', href: '/branches', icon: MapPin },
+    { name: 'শাখা সমূহ', href: '/branches', icon: MapPin },
     { name: 'আমাদের সম্পর্কে', href: '/about-us', icon: Info }
   ]
 

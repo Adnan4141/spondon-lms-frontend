@@ -64,6 +64,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { getExamById, regenerateExamPdf, regenerateSolveSheet, getExamPdfDownloadUrl } from '@/lib/api/exams';
+import { getExamAnalytics, type ExamAnalytics } from '@/lib/api/exams';
 import {
   getOmrScans,
   uploadOmrScan,
@@ -154,7 +155,7 @@ function SectionCard({
 export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<
-    'info' | 'courses' | 'omr' | 'questions' | 'folder-rules' | 'results' | 'merit' | 'leaderboard' | 'evaluate'
+    'info' | 'courses' | 'omr' | 'questions' | 'folder-rules' | 'results' | 'merit' | 'leaderboard' | 'evaluate' | 'analytics'
   >('info');
   const [exam, setExam] = useState(initialExam);
   const [pdfLoading, setPdfLoading] = useState(false);
@@ -320,7 +321,7 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
   };
 
   const tabs: {
-    id: 'info' | 'courses' | 'omr' | 'questions' | 'folder-rules' | 'results' | 'merit' | 'leaderboard' | 'evaluate';
+    id: 'info' | 'courses' | 'omr' | 'questions' | 'folder-rules' | 'results' | 'merit' | 'leaderboard' | 'evaluate' | 'analytics';
     label: string;
     icon: typeof Info;
   }[] = [
@@ -328,11 +329,16 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
     { id: 'courses', label: 'Courses', icon: GraduationCap },
     ...(showOmrTab ? [{ id: 'omr' as const, label: 'OMR', icon: ScanLine }] : []),
     { id: 'questions', label: 'Questions & sets', icon: FileSearch },
-    { id: 'folder-rules', label: 'Folder Rules', icon: BookOpen },
+    ...(['MULTI_SUBJECT', 'UNIVERSITY_SPECIAL'].includes(exam.examEngine)
+      ? [{ id: 'folder-rules' as const, label: 'Subjects', icon: BookOpen }]
+      : [{ id: 'folder-rules' as const, label: 'Folder Rules', icon: BookOpen }]),
     { id: 'results', label: 'Results', icon: ClipboardCheck },
     { id: 'merit', label: 'Merit', icon: BarChart3 },
-    { id: 'leaderboard', label: 'Leaderboard', icon: Trophy },
-    ...(exam.mode === 'WRITTEN' ? [{ id: 'evaluate' as const, label: 'Evaluate', icon: PencilLine }] : []),
+    ...(exam.showLeaderboard ? [{ id: 'leaderboard' as const, label: 'Leaderboard', icon: Trophy }] : []),
+    ...(exam.mode === 'WRITTEN' || questionMix.cq > 0
+      ? [{ id: 'evaluate' as const, label: 'Evaluate', icon: PencilLine }]
+      : []),
+    { id: 'analytics', label: 'Analytics', icon: Activity },
   ];
 
   const startLabel = formatDateTime(exam.startAt) ?? 'No start — open when published';
@@ -1045,6 +1051,8 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
             <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <WrittenEvaluationPanel examId={exam.id} teacherUserId="admin" />
             </div>
+          ) : activeTab === 'analytics' ? (
+            <ExamAnalyticsPanel examId={exam.id} />
           ) : (
             <ExamQuestionBuilder examId={exam.id} exam={exam} sets={exam.sets || []} onRefresh={fetchExamData} />
           )}
@@ -1077,6 +1085,134 @@ export function ExamDetailsView({ exam: initialExam }: ExamDetailsViewProps) {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// ─── Analytics Panel ──────────────────────────────────────────────────────────
+
+function ExamAnalyticsPanel({ examId }: { examId: string }) {
+  const [analytics, setAnalytics] = useState<ExamAnalytics | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const res = await getExamAnalytics(examId);
+      if (res.success && res.data) setAnalytics(res.data);
+      setLoading(false);
+    })();
+  }, [examId]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <RefreshCw className="h-5 w-5 animate-spin text-slate-400" />
+        <span className="ml-2 text-sm text-slate-500">Loading analytics...</span>
+      </div>
+    );
+  }
+
+  if (!analytics || analytics.totalAttempts === 0) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center">
+        <BarChart3 className="mx-auto h-10 w-10 text-slate-300 mb-3" />
+        <p className="text-sm text-slate-500">No submitted attempts yet. Analytics will appear after students complete the exam.</p>
+      </div>
+    );
+  }
+
+  const maxBucket = Math.max(...analytics.scoreDistribution.map((b) => b.count), 1);
+
+  return (
+    <div className="space-y-6">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <StatCard label="Total Attempts" value={analytics.totalAttempts} />
+        <StatCard label="Average Score" value={`${analytics.average}/${analytics.totalMarks}`} />
+        <StatCard label="Highest" value={analytics.highest} accent="text-emerald-600" />
+        <StatCard label="Lowest" value={analytics.lowest} accent="text-rose-600" />
+      </div>
+
+      {/* Pass/Fail */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-6">
+        <h3 className="text-sm font-semibold text-slate-800 mb-3">Pass / Fail (40% threshold)</h3>
+        <div className="flex items-center gap-4">
+          <div className="flex-1 rounded-lg bg-emerald-50 px-4 py-3 text-center">
+            <div className="text-2xl font-bold text-emerald-700">{analytics.passFail.pass}</div>
+            <div className="text-xs text-emerald-600">Passed ({analytics.passFail.passRate}%)</div>
+          </div>
+          <div className="flex-1 rounded-lg bg-rose-50 px-4 py-3 text-center">
+            <div className="text-2xl font-bold text-rose-700">{analytics.passFail.fail}</div>
+            <div className="text-xs text-rose-600">Failed</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Score Distribution */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-6">
+        <h3 className="text-sm font-semibold text-slate-800 mb-4">Score Distribution</h3>
+        <div className="flex items-end gap-2" style={{ height: 160 }}>
+          {analytics.scoreDistribution.map((bucket) => (
+            <div key={bucket.range} className="flex-1 flex flex-col items-center">
+              <span className="text-[10px] text-slate-500 mb-1">{bucket.count}</span>
+              <div
+                className="w-full rounded-t bg-indigo-500 transition-all"
+                style={{ height: `${Math.max(4, (bucket.count / maxBucket) * 140)}px` }}
+              />
+              <span className="mt-1 text-[9px] text-slate-400 whitespace-nowrap">{bucket.range}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Per-Question Accuracy */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-6">
+        <h3 className="text-sm font-semibold text-slate-800 mb-3">Per-Question Accuracy</h3>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-xs">#</TableHead>
+                <TableHead className="text-xs">Type</TableHead>
+                <TableHead className="text-xs">Question</TableHead>
+                <TableHead className="text-xs text-right">Answered</TableHead>
+                <TableHead className="text-xs text-right">Correct</TableHead>
+                <TableHead className="text-xs text-right">Accuracy</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {analytics.perQuestionAccuracy.map((q, i) => (
+                <TableRow key={q.questionId}>
+                  <TableCell className="text-xs text-slate-500">{i + 1}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="text-[10px]">
+                      {q.type}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-xs max-w-[200px] truncate">{q.text}</TableCell>
+                  <TableCell className="text-xs text-right">{q.totalAnswered}</TableCell>
+                  <TableCell className="text-xs text-right">{q.correctCount}</TableCell>
+                  <TableCell className="text-xs text-right font-medium">
+                    <span className={q.accuracy >= 70 ? 'text-emerald-600' : q.accuracy >= 40 ? 'text-amber-600' : 'text-rose-600'}>
+                      {q.accuracy}%
+                    </span>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ label, value, accent }: { label: string; value: string | number; accent?: string }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+      <div className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">{label}</div>
+      <div className={cn('text-xl font-bold mt-1', accent || 'text-slate-800')}>{value}</div>
     </div>
   );
 }

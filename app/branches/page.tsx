@@ -60,14 +60,7 @@ export default function BranchesPage() {
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/10 blur-[100px] rounded-full" />
         
         <div className="mx-auto max-w-7xl px-6 lg:px-12 relative z-10 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-black uppercase tracking-widest mb-6 backdrop-blur-sm"
-          >
-            <Navigation className="h-3 w-3" />
-            আমাদের নেটওয়ার্ক
-          </motion.div>
+    
           <motion.h1 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

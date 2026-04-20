@@ -30,6 +30,7 @@ import {
   Pencil,
   Ban,
   Scale,
+  Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -54,11 +55,17 @@ import {
 import { getUsers } from '@/lib/api/users';
 import type { CourseDetailTeacher } from '@/types/course';
 import { getCourseSchedules, createCourseSchedule, deleteCourseSchedule } from '@/lib/api/course-schedules';
+import { getCourseFeatures, createCourseFeature, updateCourseFeature, deleteCourseFeature, type CourseFeature } from '@/lib/api/course-features';
+import { updateCourseTeacherPermissions } from '@/lib/api/courses';
 import { useToast } from '@/hooks/use-toast';
 import { CourseResourceForm } from './CourseResourceForm';
 import { CourseAssociationForm } from './CourseAssociationForm';
 import { CourseScheduleSection } from './CourseScheduleSection';
 import { buildCourseContentTree } from '@/lib/course-outline';
+import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
+import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 
 interface CourseDetailsViewProps {
   course: CourseDetails;
@@ -85,7 +92,12 @@ const getResourceIcon = (type: string) => {
 
 export function CourseDetailsView({ course, onAfterMutation }: CourseDetailsViewProps) {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<'info' | 'resources' | 'schedule' | 'links'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'resources' | 'schedule' | 'links' | 'features'>('info');
+  const [features, setFeatures] = useState<CourseFeature[]>([]);
+  const [featuresLoading, setFeaturesLoading] = useState(false);
+  const [editingFeature, setEditingFeature] = useState<CourseFeature | null>(null);
+  const [featureForm, setFeatureForm] = useState({ icon: '', label: '', value: '' });
+  const [showFeatureForm, setShowFeatureForm] = useState(false);
   const [resources, setResources] = useState<any[]>([]);
   const [associations, setAssociations] = useState<any[]>([]);
   const [schedules, setSchedules] = useState<any[]>([]);
@@ -196,6 +208,15 @@ const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>
       cancelled = true;
     };
   }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== 'features') return;
+    setFeaturesLoading(true);
+    getCourseFeatures(course.id)
+      .then((res) => { if (res.success && res.data) setFeatures(res.data); })
+      .catch(() => {})
+      .finally(() => setFeaturesLoading(false));
+  }, [activeTab, course.id]);
 
   const fetchData = async () => {
     try {
@@ -334,6 +355,7 @@ const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>
               { id: 'resources', label: 'Course Content', icon: FileUp },
               { id: 'schedule', label: 'Schedule', icon: Calendar },
               { id: 'links', label: 'Related Courses', icon: Link2 },
+              { id: 'features', label: 'Features', icon: Zap },
             ].map(tab => (
               <button
                 key={tab.id}
@@ -510,26 +532,73 @@ const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>
                 <p className="text-sm text-slate-500 font-medium">No teachers assigned yet.</p>
               ) : (
                 <ul className="space-y-2">
-                  {assignedTeachers.map((row) => (
-                    <li
-                      key={row.id}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-2.5"
-                    >
-                      <span className="font-bold text-slate-800">{row.teacher?.fullName || '—'}</span>
-                      {row.teacher?.id ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-slate-400 hover:text-rose-600"
-                          disabled={teacherActionLoading}
-                          onClick={() => handleRemoveTeacher(row.teacher.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      ) : null}
-                    </li>
-                  ))}
+                  {assignedTeachers.map((row) => {
+                    const perms = (row as any).permissions || { contentUpload: true, examManage: true };
+                    return (
+                      <li
+                        key={row.id}
+                        className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <span className="font-bold text-slate-800 block">{row.teacher?.fullName || '—'}</span>
+                          <div className="flex items-center gap-4 mt-2">
+                            <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
+                              <Checkbox
+                                checked={perms.contentUpload !== false}
+                                disabled={teacherActionLoading}
+                                onCheckedChange={async (checked) => {
+                                  if (!row.teacher?.id) return;
+                                  const newPerms = { ...perms, contentUpload: !!checked };
+                                  setTeacherActionLoading(true);
+                                  try {
+                                    const res = await updateCourseTeacherPermissions(course.id, row.teacher.id, newPerms);
+                                    if (res.success) {
+                                      setAssignedTeachers((prev) => prev.map((t) => t.id === row.id ? { ...t, permissions: newPerms } as any : t));
+                                      toast({ title: 'Permission updated' });
+                                    }
+                                  } catch { toast({ title: 'Failed', variant: 'destructive' }); }
+                                  finally { setTeacherActionLoading(false); }
+                                }}
+                              />
+                              Content Upload
+                            </label>
+                            <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
+                              <Checkbox
+                                checked={perms.examManage !== false}
+                                disabled={teacherActionLoading}
+                                onCheckedChange={async (checked) => {
+                                  if (!row.teacher?.id) return;
+                                  const newPerms = { ...perms, examManage: !!checked };
+                                  setTeacherActionLoading(true);
+                                  try {
+                                    const res = await updateCourseTeacherPermissions(course.id, row.teacher.id, newPerms);
+                                    if (res.success) {
+                                      setAssignedTeachers((prev) => prev.map((t) => t.id === row.id ? { ...t, permissions: newPerms } as any : t));
+                                      toast({ title: 'Permission updated' });
+                                    }
+                                  } catch { toast({ title: 'Failed', variant: 'destructive' }); }
+                                  finally { setTeacherActionLoading(false); }
+                                }}
+                              />
+                              Exam Manage
+                            </label>
+                          </div>
+                        </div>
+                        {row.teacher?.id ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-slate-400 hover:text-rose-600 shrink-0"
+                            disabled={teacherActionLoading}
+                            onClick={() => handleRemoveTeacher(row.teacher.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        ) : null}
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </div>
@@ -857,6 +926,163 @@ const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>
                     <p className="text-sm font-bold text-slate-400">No linked courses</p>
                  </div>
                )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Features Tab ─────────────────────────────────────────────── */}
+        {activeTab === 'features' && (
+          <div className="p-8 space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-bold tracking-tight">Course Features</h3>
+                <p className="text-sm text-slate-500 mt-1">সাইডবারে দেখানো ফিচার লিস্ট (admin থেকে যোগ / সম্পাদনা / মুছুন)</p>
+              </div>
+              <Button
+                onClick={() => { setEditingFeature(null); setFeatureForm({ icon: '', label: '', value: '' }); setShowFeatureForm(true); }}
+                className="h-10 rounded-xl bg-slate-900 text-white font-bold text-xs hover:bg-slate-800"
+              >
+                <Plus className="mr-2 h-4 w-4" /> Add Feature
+              </Button>
+            </div>
+
+            {showFeatureForm && (
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-3">
+                <h4 className="text-sm font-black text-slate-800">{editingFeature ? 'Edit Feature' : 'New Feature'}</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-slate-600 mb-1 block">Icon (emoji or symbol)</label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={featureForm.icon}
+                        onChange={(e) => setFeatureForm((f) => ({ ...f, icon: e.target.value }))}
+                        placeholder="📚 or ✓"
+                        className="flex-1 h-9 rounded-xl border-slate-200"
+                      />
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl border-slate-200 shrink-0 text-lg">
+                            😀
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0 border-0" align="start">
+                          <EmojiPicker
+                            onEmojiClick={(emojiData: EmojiClickData) => {
+                              setFeatureForm((f) => ({ ...f, icon: emojiData.emoji }));
+                            }}
+                            width={320}
+                            height={400}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-600 mb-1 block">Label</label>
+                    <Input
+                      value={featureForm.label}
+                      onChange={(e) => setFeatureForm((f) => ({ ...f, label: e.target.value }))}
+                      placeholder="e.g. কোর্স মোড"
+                      className="h-9 rounded-xl border-slate-200"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-600 mb-1 block">Value</label>
+                    <Input
+                      value={featureForm.value}
+                      onChange={(e) => setFeatureForm((f) => ({ ...f, value: e.target.value }))}
+                      placeholder="e.g. অনলাইন"
+                      className="h-9 rounded-xl border-slate-200"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    size="sm"
+                    className="rounded-xl text-xs bg-indigo-600 hover:bg-indigo-700"
+                    disabled={featuresLoading}
+                    onClick={async () => {
+                      if (!featureForm.label.trim() || !featureForm.value.trim()) {
+                        toast({ title: 'Label and Value are required', variant: 'destructive' });
+                        return;
+                      }
+                      setFeaturesLoading(true);
+                      try {
+                        if (editingFeature) {
+                          const res = await updateCourseFeature(editingFeature.id, featureForm);
+                          if (res.success) {
+                            setFeatures((prev) => prev.map((f) => f.id === editingFeature.id ? { ...f, ...featureForm } : f));
+                            toast({ title: 'Feature updated' });
+                          }
+                        } else {
+                          const res = await createCourseFeature({ courseId: course.id, ...featureForm, sortOrder: features.length });
+                          if (res.success && res.data) {
+                            setFeatures((prev) => [...prev, res.data!]);
+                            toast({ title: 'Feature added' });
+                          }
+                        }
+                        setShowFeatureForm(false);
+                        setEditingFeature(null);
+                      } catch {
+                        toast({ title: 'Failed', variant: 'destructive' });
+                      } finally {
+                        setFeaturesLoading(false);
+                      }
+                    }}
+                  >
+                    {featuresLoading ? 'Saving...' : editingFeature ? 'Update' : 'Add'}
+                  </Button>
+                  <Button size="sm" variant="outline" className="rounded-xl text-xs" onClick={() => { setShowFeatureForm(false); setEditingFeature(null); }}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              {featuresLoading && features.length === 0 && (
+                <div className="text-center py-8 text-slate-400 text-sm">Loading…</div>
+              )}
+              {features.length === 0 && !featuresLoading && (
+                <div className="flex flex-col items-center justify-center py-16 text-slate-300 border-2 border-dashed border-slate-100 rounded-3xl">
+                  <Zap className="h-10 w-10 mb-3" />
+                  <p className="text-sm font-bold">No features yet</p>
+                  <p className="text-xs mt-1">Click &quot;Add Feature&quot; to add sidebar features for this course</p>
+                </div>
+              )}
+              {features.map((f, idx) => (
+                <div key={f.id} className="group flex items-center gap-4 px-5 py-4 bg-white rounded-2xl border border-slate-100 hover:border-indigo-100 hover:shadow-sm transition-all">
+                  <span className="text-xl w-8 text-center shrink-0">{f.icon || '✦'}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{f.label}</p>
+                    <p className="font-bold text-slate-800 text-sm truncate">{f.value}</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    <Button
+                      variant="outline" size="icon"
+                      className="h-7 w-7 rounded-lg border-slate-200"
+                      onClick={() => { setEditingFeature(f); setFeatureForm({ icon: f.icon, label: f.label, value: f.value }); setShowFeatureForm(true); }}
+                    >
+                      <Pencil className="h-3 w-3 text-amber-500" />
+                    </Button>
+                    <Button
+                      variant="outline" size="icon"
+                      className="h-7 w-7 rounded-lg border-slate-200 hover:bg-rose-50"
+                      onClick={async () => {
+                        if (!confirm('Remove this feature?')) return;
+                        const res = await deleteCourseFeature(f.id);
+                        if (res.success) {
+                          setFeatures((prev) => prev.filter((x) => x.id !== f.id));
+                          toast({ title: 'Feature removed' });
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3 text-rose-500" />
+                    </Button>
+                  </div>
+                  <span className="text-[10px] text-slate-300 font-bold w-4 text-center shrink-0">#{idx + 1}</span>
+                </div>
+              ))}
             </div>
           </div>
         )}

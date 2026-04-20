@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { Facebook, Instagram, Twitter, Linkedin, Youtube, Phone, Mail, Send } from 'lucide-react';
+import { Facebook, Instagram, MessageCircle, Youtube, Phone, Mail, Send } from 'lucide-react';
 
 interface FooterProps {
   siteSettings?: Record<string, string>;
@@ -17,8 +17,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   'footer.email': 'support@spondonpro.com',
   'footer.facebook': '#',
   'footer.instagram': '#',
-  'footer.twitter': '#',
-  'footer.linkedin': '#',
+  'footer.whatsapp': '#',
   'footer.youtube': '#',
   'footer.newsletter_title': 'নতুন কোর্সের আপডেট পেতে চান?',
   'footer.newsletter_subtitle': 'আমাদের নিউজলেটারে সাবস্ক্রাইব করে যুক্ত থাকুন।',
@@ -41,9 +40,9 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   'footer.link_2_label': 'ক্যারিয়ার',
   'footer.link_2_href': '#',
   'footer.link_3_label': 'প্রাইভেসি পলিসি',
-  'footer.link_3_href': '#',
+  'footer.link_3_href': '/privacy-policy',
   'footer.link_4_label': 'সচরাচর জিজ্ঞাসা',
-  'footer.link_4_href': '#',
+  'footer.link_4_href': '/faq',
   'footer.link_5_label': '',
   'footer.link_5_href': '#',
   'footer.link_6_label': '',
@@ -53,8 +52,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
 const SOCIAL_LINKS = [
   { Icon: Facebook, settingKey: 'footer.facebook', label: 'Facebook' },
   { Icon: Instagram, settingKey: 'footer.instagram', label: 'Instagram' },
-  { Icon: Twitter, settingKey: 'footer.twitter', label: 'Twitter' },
-  { Icon: Linkedin, settingKey: 'footer.linkedin', label: 'LinkedIn' },
+  { Icon: MessageCircle, settingKey: 'footer.whatsapp', label: 'WhatsApp' },
   { Icon: Youtube, settingKey: 'footer.youtube', label: 'YouTube' },
 ];
 

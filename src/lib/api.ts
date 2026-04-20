@@ -9,12 +9,21 @@ export async function apiRequest<T>(
   const url = `${API_BASE_URL}${endpoint}`;
   const isFormData = options.body instanceof FormData;
 
+  // Attach JWT token from localStorage if available
+  const authHeaders: Record<string, string> = {};
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      authHeaders['Authorization'] = `Bearer ${token}`;
+    }
+  }
+
   const response = await fetch(url, {
     ...options,
     credentials: options.credentials ?? 'include',
     headers: {
-      // Only set JSON content type when not sending FormData
       ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+      ...authHeaders,
       ...options.headers,
     },
   });
