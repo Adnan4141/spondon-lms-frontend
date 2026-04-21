@@ -89,7 +89,10 @@ function buildMenuSections(role: string | null): MenuSection[] {
     { title: 'Routine', href: '/admin/routine', icon: CalendarRange, color: 'text-teal-500', bg: 'bg-teal-50' },
     { title: 'Attendance Sheet', href: '/admin/academic-records/attendance-sheet', icon: ClipboardList, color: 'text-emerald-500', bg: 'bg-emerald-50' },
   ];
-  const showCourse = !isAccounts;
+  const visibleCourseItems = isBranchAdmin
+    ? courseItems.filter((item) => ['/admin/batches', '/admin/routine', '/admin/academic-records/attendance-sheet'].includes(item.href))
+    : courseItems;
+  const showCourse = !isAccounts && visibleCourseItems.length > 0;
 
   // ----- Question System -----
   const questionItems: MenuItem[] = [
@@ -153,7 +156,7 @@ function buildMenuSections(role: string | null): MenuSection[] {
   ];
 
   if (studentItems.length > 0) sections.push({ label: 'Student', items: studentItems });
-  if (showCourse) sections.push({ label: 'Course', items: courseItems });
+  if (showCourse) sections.push({ label: 'Course', items: visibleCourseItems });
   if (showQuestions) sections.push({ label: 'Question System', items: questionItems });
   if (showExam) sections.push({ label: 'Exam', items: examItems });
   if (managementItems.length > 0) sections.push({ label: 'Management', items: managementItems });

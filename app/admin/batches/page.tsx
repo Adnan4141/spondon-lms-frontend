@@ -81,6 +81,23 @@ export default function BatchesPage() {
   const [statusFilter, setStatusFilter] = useState<BatchStatusType | 'all'>('ACTIVE');
   const [courseFilter, setCourseFilter] = useState<string>('all');
   const [branchFilter, setBranchFilter] = useState<string>('all');
+  const [scopedBranchId, setScopedBranchId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = localStorage.getItem('user');
+      const user = raw ? JSON.parse(raw) : null;
+      const branchAdmin = user?.role === 'BRANCH_ADMIN';
+      const ownBranch = user?.branchId ? String(user.branchId) : null;
+      setScopedBranchId(branchAdmin ? ownBranch : null);
+      if (branchAdmin && ownBranch) {
+        setBranchFilter(ownBranch);
+      }
+    } catch {
+      setScopedBranchId(null);
+    }
+  }, []);
 
   const loadCourses = async () => {
     try {
@@ -102,7 +119,8 @@ export default function BatchesPage() {
       setError(null);
       const params: any = {};
       if (courseFilter !== 'all') params.courseId = courseFilter;
-      if (branchFilter !== 'all') params.branchId = branchFilter;
+      if (scopedBranchId) params.branchId = scopedBranchId;
+      else if (branchFilter !== 'all') params.branchId = branchFilter;
       if (statusFilter !== 'all') params.status = statusFilter;
       const response = await getBatches(params);
       if (response.success && response.data) {
@@ -189,7 +207,7 @@ export default function BatchesPage() {
       title: 'Authorize New Batch',
       description: 'Initialize a new operational batch for a specific course and branch.',
       className: 'sm:max-w-2xl',
-      content: <BatchForm courses={courses} branches={branches} onSuccess={loadBatches} />,
+      content: <BatchForm courses={courses} branches={scopedBranchId ? branches.filter((b) => b.id === scopedBranchId) : branches} onSuccess={loadBatches} />,
     });
   };
 

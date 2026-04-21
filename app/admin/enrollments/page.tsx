@@ -103,11 +103,28 @@ export default function EnrollmentsPage() {
   const [courseFilter, setCourseFilter] = useState<string>('all');
   const [branchFilter, setBranchFilter] = useState<string>('all');
   const [batchFilter, setBatchFilter] = useState<string>('all');
+  const [isBranchAdmin, setIsBranchAdmin] = useState(false);
+  const [scopedBranchId, setScopedBranchId] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const bid = new URLSearchParams(window.location.search).get('branchId');
     if (bid) setBranchFilter(bid);
+
+    try {
+      const raw = localStorage.getItem('user');
+      const user = raw ? JSON.parse(raw) : null;
+      const branchAdmin = user?.role === 'BRANCH_ADMIN';
+      const ownBranch = user?.branchId ? String(user.branchId) : null;
+      setIsBranchAdmin(branchAdmin);
+      setScopedBranchId(branchAdmin ? ownBranch : null);
+      if (branchAdmin && ownBranch) {
+        setBranchFilter(ownBranch);
+      }
+    } catch {
+      setIsBranchAdmin(false);
+      setScopedBranchId(null);
+    }
   }, []);
 
   const loadCourses = async () => {
@@ -141,7 +158,8 @@ export default function EnrollmentsPage() {
       setError(null);
       const params: any = {};
       if (courseFilter !== 'all') params.courseId = courseFilter;
-      if (branchFilter !== 'all') params.branchId = branchFilter;
+      if (scopedBranchId) params.branchId = scopedBranchId;
+      else if (branchFilter !== 'all') params.branchId = branchFilter;
       if (batchFilter !== 'all') params.batchId = batchFilter;
       if (statusFilter !== 'all') params.status = statusFilter;
       
@@ -309,13 +327,15 @@ export default function EnrollmentsPage() {
             </Button>
           </div>
 
-          <Button
-            className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95"
-            onClick={() => window.open('/admin/enrollments/change', '_blank')}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Change Batch / Branch
-          </Button>
+          {!isBranchAdmin && (
+            <Button
+              className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95"
+              onClick={() => window.open('/admin/enrollments/change', '_blank')}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Change Batch / Branch
+            </Button>
+          )}
         </div>
 
         <div className="flex flex-wrap gap-4 pt-4 border-t border-slate-100">
@@ -329,13 +349,15 @@ export default function EnrollmentsPage() {
             </SelectContent>
           </Select>
 
-          <Select value={branchFilter} onValueChange={setBranchFilter}>
+          <Select value={branchFilter} onValueChange={setBranchFilter} disabled={isBranchAdmin}>
             <SelectTrigger className="h-10 flex-1 rounded-xl border-slate-200 bg-slate-50/50 font-bold text-[10px] uppercase tracking-widest text-slate-500">
               <SelectValue placeholder="All Branches" />
             </SelectTrigger>
             <SelectContent className="rounded-xl border-slate-200">
-              <SelectItem value="all" className="text-[10px] font-bold uppercase py-2">All Branches</SelectItem>
-              {branches.map(b => <SelectItem key={b.id} value={b.id} className="text-[10px] font-bold uppercase py-2">{b.name}</SelectItem>)}
+              {!isBranchAdmin && <SelectItem value="all" className="text-[10px] font-bold uppercase py-2">All Branches</SelectItem>}
+              {branches
+                .filter((b) => !scopedBranchId || b.id === scopedBranchId)
+                .map((b) => <SelectItem key={b.id} value={b.id} className="text-[10px] font-bold uppercase py-2">{b.name}</SelectItem>)}
             </SelectContent>
           </Select>
 

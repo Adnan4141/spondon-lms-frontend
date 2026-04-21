@@ -73,6 +73,8 @@ export default function StudentsPage() {
   const [branchFilter, setBranchFilter] = useState<string>('all');
   const [courseFilter, setCourseFilter] = useState<string>('all');
   const [batchFilter, setBatchFilter] = useState<string>('all');
+  const [isBranchAdmin, setIsBranchAdmin] = useState(false);
+  const [scopedBranchId, setScopedBranchId] = useState<string | null>(null);
 
   const statusOptions = ['all', 'ACTIVE', 'BLOCKED', 'PENDING'];
 
@@ -80,6 +82,21 @@ export default function StudentsPage() {
     if (typeof window === 'undefined') return;
     const bid = new URLSearchParams(window.location.search).get('branchId');
     if (bid) setBranchFilter(bid);
+
+    try {
+      const raw = localStorage.getItem('user');
+      const user = raw ? JSON.parse(raw) : null;
+      const branchAdmin = user?.role === 'BRANCH_ADMIN';
+      const ownBranch = user?.branchId ? String(user.branchId) : null;
+      setIsBranchAdmin(branchAdmin);
+      setScopedBranchId(branchAdmin ? ownBranch : null);
+      if (branchAdmin && ownBranch) {
+        setBranchFilter(ownBranch);
+      }
+    } catch {
+      setIsBranchAdmin(false);
+      setScopedBranchId(null);
+    }
   }, []);
 
   useEffect(() => {
@@ -101,7 +118,8 @@ export default function StudentsPage() {
       setLoading(true);
       const params: any = {};
       if (statusFilter !== 'all') params.status = statusFilter;
-      if (branchFilter !== 'all') params.branchId = branchFilter;
+      if (scopedBranchId) params.branchId = scopedBranchId;
+      else if (branchFilter !== 'all') params.branchId = branchFilter;
       if (courseFilter !== 'all') params.courseId = courseFilter;
       if (batchFilter !== 'all') params.batchId = batchFilter;
       
@@ -339,13 +357,15 @@ export default function StudentsPage() {
               </SelectContent>
             </Select>
 
-            <Select value={branchFilter} onValueChange={setBranchFilter}>
+            <Select value={branchFilter} onValueChange={setBranchFilter} disabled={isBranchAdmin}>
               <SelectTrigger className="h-12 w-[180px] rounded-2xl border-slate-200 bg-white text-sm font-medium shadow-sm">
                 <SelectValue placeholder="All Branches" />
               </SelectTrigger>
               <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                <SelectItem value="all" className="text-sm font-medium">All Branches</SelectItem>
-                {branches.map((branch) => (
+                {!isBranchAdmin && <SelectItem value="all" className="text-sm font-medium">All Branches</SelectItem>}
+                {branches
+                  .filter((branch) => !scopedBranchId || branch.id === scopedBranchId)
+                  .map((branch) => (
                   <SelectItem key={branch.id} value={branch.id} className="text-sm font-medium">
                     {branch.name}
                   </SelectItem>
@@ -417,7 +437,7 @@ export default function StudentsPage() {
               className="h-12 rounded-2xl border-slate-200 px-6 font-black uppercase tracking-widest text-[11px] text-slate-600 shadow-sm hover:bg-slate-50"
               onClick={() => {
                 const url = exportStudentsUrl({
-                  branchId: branchFilter,
+                  branchId: scopedBranchId ?? branchFilter,
                   courseId: courseFilter,
                   batchId: batchFilter,
                   status: statusFilter,
