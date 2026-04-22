@@ -1,23 +1,36 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import {
   Menu,
   Search,
   Bell,
-  Layers,
   ChevronDown,
   Command,
 } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { GlobalModal } from './GlobalModal';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
+import { Toaster } from '@/components/ui/toast';
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const pathname = usePathname();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const msg = (e as CustomEvent<string>).detail;
+      if (msg) {
+        toast({ description: msg, variant: 'destructive' });
+      }
+    };
+    window.addEventListener('api-error', handler);
+    return () => window.removeEventListener('api-error', handler);
+  }, [toast]);
 
   const getBreadcrumbs = () => {
     if (!pathname) return [{ label: 'Admin', active: true }];
@@ -187,6 +200,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
         <GlobalModal />
       </div>
+      <Toaster />
     </div>
   );
 }

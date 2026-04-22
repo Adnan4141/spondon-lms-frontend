@@ -56,7 +56,11 @@ export async function apiRequest<T>(
         msg = snippet;
       }
     }
-    throw new Error(msg || `Something went wrong (${response.status}). Try again.`);
+    const errMsg = msg || `Something went wrong (${response.status}). Try again.`;
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('api-error', { detail: errMsg }));
+    }
+    throw new Error(errMsg);
   }
 
   const text = await response.text();

@@ -23,6 +23,19 @@ export interface User {
   demoClassUrl?: string | null;
   showMobile?: boolean;
   displayOrder?: number;
+  // Student profile fields (returned by getUserById)
+  studentProfile?: {
+    registrationNumber?: string;
+    fatherName?: string;
+    motherName?: string;
+    fatherMobile?: string;
+    motherMobile?: string;
+    dob?: string | null;
+    bloodGroup?: string;
+    gender?: string;
+    address?: string;
+    smsAlertTo?: string[];
+  };
 }
 
 export type CreateUserPayload = {
@@ -50,6 +63,15 @@ export type UpdateUserPayload = {
   experienceYears?: number | null;
   demoClassUrl?: string;
   showMobile?: boolean;
+  // Student profile fields
+  fatherName?: string;
+  motherName?: string;
+  fatherMobile?: string;
+  motherMobile?: string;
+  bloodGroup?: string;
+  gender?: string;
+  address?: string;
+  smsAlertTo?: ('SELF' | 'FATHER' | 'MOTHER')[];
 };
 
 export async function getUsers(params?: {

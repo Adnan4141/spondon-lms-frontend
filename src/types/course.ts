@@ -211,6 +211,7 @@ export interface CreateCourseDto {
   admissionStatus?: AdmissionStatus;
   status?: CourseStatus;
   settledOptionEnabled?: boolean;
+  branchAccessMode?: string;
   grade?: string;
   group?: string;
   startMonth?: string | null;   // "YYYY-MM"
@@ -234,6 +235,7 @@ export interface UpdateCourseDto {
   admissionStatus?: AdmissionStatus;
   status?: CourseStatus;
   settledOptionEnabled?: boolean;
+  branchAccessMode?: string;
   grade?: string;
   group?: string;
   startMonth?: string | null;   // "YYYY-MM"

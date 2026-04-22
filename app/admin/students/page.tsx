@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Plus,
   X,
@@ -38,7 +38,8 @@ import { getPrograms } from '@/lib/api/programs';
 import { getCourses } from '@/lib/api/courses';
 import { getBatches } from '@/lib/api/batches';
 import { getBranches } from '@/lib/api/branches';
-import { getUsers, createUser } from '@/lib/api/users';
+import { getUsers } from '@/lib/api/users';
+import { AddStudentModal, EditStudentModal, type Student } from './_components';
 import {
   getEnrollments,
   offlineAdmission,
@@ -48,7 +49,7 @@ import {
   type Enrollment as ApiEnrollment,
   type OfflineAdmissionDto,
 } from '@/lib/api/enrollments';
-import { getInvoices, getInvoicePdfUrl, processMonthPayment } from '@/lib/api/invoices';
+import { getInvoices, getInvoicePdfUrl, processMonthPayment, generateAdvanceInvoices } from '@/lib/api/invoices';
 import { API_ORIGIN } from '@/lib/api';
 
 function normPdfUrl(raw: string): string {
@@ -56,6 +57,7 @@ function normPdfUrl(raw: string): string {
 }
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
+// Student type is imported from ./_components (shared with the modals)
 
 interface Program {
   id: string;
@@ -74,18 +76,6 @@ interface Course {
   startMonth: string;
   endMonth: string;
   batches: { id: string; name: string }[];
-}
-
-interface Student {
-  id: string;
-  regNo: string;
-  fullName: string;
-  mobile: string;
-  email: string | null;
-  status: 'ACTIVE' | 'BLOCKED';
-  branchId: string;
-  createdAt: string;
-  _count?: { enrollments?: number };
 }
 
 interface EnrolledCourse {
@@ -114,10 +104,10 @@ interface Invoice {
   month: string;
   amount: number;
   paidAmount: number;
-  status: 'PAID' | 'DUE';
+  status: 'PAID' | 'DUE' | 'WAIVED' | 'PARTIAL';
   dueDate: string;
   branchName?: string;
-  items?: { title: string; unitPrice: number; qty: number }[];
+  items?: { title: string; unitPrice: number; qty: number; type?: string }[];
 }
 
 interface CourseWithDiscount extends Course {
@@ -179,7 +169,7 @@ function distributeDiscount(courses: Course[], total: number): CourseWithDiscoun
 
 // ─── SHARED BADGE ─────────────────────────────────────────────────────────────
 
-type BadgeColor = 'green' | 'red' | 'amber' | 'blue' | 'slate' | 'orange';
+type BadgeColor = 'green' | 'red' | 'amber' | 'blue' | 'slate' | 'orange' | 'purple';
 
 function AppBadge({ label, color = 'slate' }: { label: string; color?: BadgeColor }) {
   const styles: Record<BadgeColor, string> = {
@@ -189,6 +179,7 @@ function AppBadge({ label, color = 'slate' }: { label: string; color?: BadgeColo
     blue: 'bg-indigo-50 text-indigo-700',
     slate: 'bg-slate-100 text-slate-600',
     orange: 'bg-orange-50 text-orange-700',
+    purple: 'bg-purple-50 text-purple-700',
   };
   return (
     <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold whitespace-nowrap', styles[color])}>
@@ -1134,168 +1125,6 @@ function EnrolledCoursesView({
   );
 }
 
-// ─── ADD STUDENT MODAL ────────────────────────────────────────────────────────
-
-function AddStudentModal({
-  onClose, onSave,
-}: {
-  onClose: () => void;
-  onSave: (student: Student) => void;
-}) {
-  const [form, setForm] = useState({
-    fullName: '', mobile: '', email: '', fatherName: '', motherName: '',
-    fatherMobile: '', gender: '', bloodGroup: '', address: '',
-  });
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
-  const set = (k: string) => (v: string) => setForm(f => ({ ...f, [k]: v }));
-
-  const validate = () => {
-    const e: Record<string, string> = {};
-    if (!form.fullName.trim()) e.fullName = 'Name is required';
-    if (!form.mobile.trim()) e.mobile = 'Mobile is required';
-    else if (!/^01[3-9]\d{8}$/.test(form.mobile.replace(/^88/, ''))) e.mobile = 'Invalid BD mobile (01XXXXXXXXX)';
-    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Invalid email';
-    return e;
-  };
-
-  const handleSave = async () => {
-    const e = validate();
-    if (Object.keys(e).length) { setErrors(e); return; }
-    setSaving(true);
-    try {
-      const res = await createUser({
-        fullName: form.fullName,
-        mobile: form.mobile,
-        email: form.email || undefined,
-        role: 'STUDENT',
-      });
-      if (res.success && res.data) {
-        type CreatedUser = typeof res.data & { studentProfile?: { registrationNumber?: string } };
-        const u = res.data as CreatedUser;
-        onSave({
-          id: u.id,
-          regNo: u.studentProfile?.registrationNumber ?? '—',
-          fullName: u.fullName,
-          mobile: u.mobile,
-          email: u.email ?? null,
-          status: 'ACTIVE',
-          branchId: u.branchId ?? '',
-          createdAt: u.createdAt ?? new Date().toISOString().slice(0, 10),
-        });
-      } else {
-        const errMsg = (res as { message?: string }).message ?? 'Failed to create student';
-        setErrors({ submit: errMsg });
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <AppModal open onClose={onClose} title="Add New Student">
-      <div className="grid grid-cols-2 gap-x-4">
-        <div className="col-span-2">
-          <Field label="Full Name" required error={errors.fullName}>
-            <Input
-              value={form.fullName}
-              onChange={e => set('fullName')(e.target.value)}
-              placeholder="Student's full name"
-              className="focus-visible:ring-indigo-400"
-            />
-          </Field>
-        </div>
-        <Field label="Mobile Number" required hint="Format: 01XXXXXXXXX" error={errors.mobile}>
-          <Input
-            value={form.mobile}
-            onChange={e => set('mobile')(e.target.value)}
-            placeholder="01XXXXXXXXX"
-            className="focus-visible:ring-indigo-400"
-          />
-        </Field>
-        <Field label="Email Address" error={errors.email}>
-          <Input
-            type="email"
-            value={form.email}
-            onChange={e => set('email')(e.target.value)}
-            placeholder="Optional"
-            className="focus-visible:ring-indigo-400"
-          />
-        </Field>
-        <Field label="Father's Name">
-          <Input
-            value={form.fatherName}
-            onChange={e => set('fatherName')(e.target.value)}
-            placeholder="Father's full name"
-            className="focus-visible:ring-indigo-400"
-          />
-        </Field>
-        <Field label="Mother's Name">
-          <Input
-            value={form.motherName}
-            onChange={e => set('motherName')(e.target.value)}
-            placeholder="Mother's full name"
-            className="focus-visible:ring-indigo-400"
-          />
-        </Field>
-        <Field label="Father's Mobile">
-          <Input
-            value={form.fatherMobile}
-            onChange={e => set('fatherMobile')(e.target.value)}
-            placeholder="01XXXXXXXXX"
-            className="focus-visible:ring-indigo-400"
-          />
-        </Field>
-        <Field label="Gender">
-          <AppSelect
-            value={form.gender}
-            onChange={set('gender')}
-            placeholder="Select gender"
-            options={[{ value: 'MALE', label: 'Male' }, { value: 'FEMALE', label: 'Female' }, { value: 'OTHER', label: 'Other' }]}
-          />
-        </Field>
-        <Field label="Blood Group">
-          <AppSelect
-            value={form.bloodGroup}
-            onChange={set('bloodGroup')}
-            placeholder="Select"
-            options={['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(x => ({ value: x, label: x }))}
-          />
-        </Field>
-        <div className="col-span-2">
-          <Field label="Address">
-            <Input
-              value={form.address}
-              onChange={e => set('address')(e.target.value)}
-              placeholder="Full address"
-              className="focus-visible:ring-indigo-400"
-            />
-          </Field>
-        </div>
-      </div>
-      <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 mb-5 flex gap-2 items-center">
-        <Info className="h-4 w-4 text-emerald-600 shrink-0" />
-        <p className="text-xs text-emerald-800">
-          Registration number will be <strong>auto-generated</strong> as a 7-digit unique ID on save.
-        </p>
-      </div>
-      {errors.submit && (
-        <p className="text-sm text-rose-600 font-semibold mb-3">{errors.submit}</p>
-      )}
-      <div className="flex justify-end gap-2.5">
-        <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
-        <Button
-          onClick={handleSave}
-          disabled={saving}
-          className="gap-2 bg-slate-900 text-white hover:bg-indigo-600 transition-all"
-        >
-          <Check className="h-4 w-4" /> {saving ? 'Saving…' : 'Save Student'}
-        </Button>
-      </div>
-    </AppModal>
-  );
-}
-
 // ─── ENROLLMENT MODAL ─────────────────────────────────────────────────────────
 
 function EnrollmentModal({
@@ -1318,6 +1147,9 @@ function EnrollmentModal({
   const [courseBatches, setCourseBatches] = useState<Record<string, { id: string; name: string }[]>>({});
   const [saving, setSaving] = useState(false);
   const [enrollError, setEnrollError] = useState('');
+  // Already-enrolled detection
+  const [enrolledCourseIds, setEnrolledCourseIds] = useState<Set<string>>(new Set());
+  const [loadingEnrolled, setLoadingEnrolled] = useState(false);
 
   // Initialize branchId from the logged-in user's profile or first available branch
   useEffect(() => {
@@ -1352,9 +1184,31 @@ function EnrollmentModal({
       });
   }, [programId, branchId]);
 
+  // Detect already-enrolled courses when program changes
+  useEffect(() => {
+    if (!programId) { setEnrolledCourseIds(new Set()); return; }
+    setLoadingEnrolled(true);
+    getEnrollments({ studentUserId: student.id, limit: 50 })
+      .then(res => {
+        if (res.success && res.data) {
+          // Filter by current program client-side (API doesn't support programId filter)
+          const ids = new Set(
+            res.data
+              .filter(e => e.programId === programId)
+              .flatMap(e => (e.enrollmentCourses ?? []).map((ec: { courseId: string }) => ec.courseId))
+          );
+          setEnrolledCourseIds(ids);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingEnrolled(false));
+  }, [programId, student.id]);
+
   const program = programs.find(p => p.id === programId);
   const courses = programId ? allCourses.filter(c => c.programId === programId) : [];
-  const selected = courses.filter(c => selCourses[c.id]?.checked);
+  const availableCourses = courses.filter(c => !enrolledCourseIds.has(c.id));
+  const alreadyEnrolledCourses = courses.filter(c => enrolledCourseIds.has(c.id));
+  const selected = availableCourses.filter(c => selCourses[c.id]?.checked);
   const totalFee = selected.reduce((s, c) => s + c.fee, 0);
   const distributed = distributeDiscount(selected, Number(monthlyDiscount) || 0);
   const netMonthly = totalFee - (Number(monthlyDiscount) || 0);
@@ -1453,69 +1307,131 @@ function EnrollmentModal({
 
             {programId && (
               <div>
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2.5">Available Courses</p>
-                <div className="flex flex-col gap-2">
-                  {courses.map(c => {
-                    const sel = selCourses[c.id];
-                    return (
-                      <div
-                        key={c.id}
-                        className={cn(
-                          'border rounded-xl p-3.5 transition-all',
-                          sel?.checked ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-white hover:border-slate-300',
-                        )}
-                      >
-                        <label className="flex items-start gap-2.5 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={!!sel?.checked}
-                            onChange={() => toggle(c.id)}
-                            className="mt-0.5 accent-rose-600"
-                          />
-                          <div className="flex-1">
-                            <div className="flex justify-between">
-                              <span className="font-bold text-sm text-slate-900">{c.name}</span>
-                              <span className="font-black text-rose-700 text-sm">{fmt(c.fee)}/month</span>
-                            </div>
-                            <div className="flex gap-2 mt-1">
-                              <AppBadge label={c.type} color={c.type === 'OFFLINE' ? 'amber' : 'blue'} />
-                              <span className="text-xs text-slate-400">Payment mode: monthly</span>
-                            </div>
-                          </div>
-                        </label>
-                        {sel?.checked && (
-                          <div className={cn(
-                            'grid gap-2.5 mt-3 pt-3 border-t border-dashed border-rose-200',
-                            c.type === 'OFFLINE' ? 'grid-cols-3' : 'grid-cols-2',
-                          )}>
-                            {c.type === 'OFFLINE' && (
-                              <Field label="Batch" required>
-                                <AppSelect
-                                  value={sel.batch || ''}
-                                  onChange={v => setCF(c.id, 'batch', v)}
-                                  placeholder="Select batch"
-                                  options={(courseBatches[c.id] ?? []).map(b => ({ value: b.id, label: b.name }))}
-                                />
-                                {!sel.batch && <p className="text-[11px] text-rose-600 mt-1">Required</p>}
-                              </Field>
-                            )}
-                            <Field label="Start Month">
-                              <MonthInput
-                                value={sel.startMonth || billingStart}
-                                onChange={v => setCF(c.id, 'startMonth', v)}
-                                min={c.startMonth}
-                                max={c.endMonth}
-                              />
-                            </Field>
-                            <Field label="End Month">
-                              <MonthInput value={c.endMonth} disabled />
-                            </Field>
-                          </div>
-                        )}
+                {loadingEnrolled ? (
+                  <p className="text-sm text-slate-400 text-center py-6">Checking enrollment status…</p>
+                ) : (
+                  <>
+                    {/* Available (not yet enrolled) courses */}
+                    {availableCourses.length > 0 && (
+                      <div className="mb-4">
+                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2.5">Available Courses</p>
+                        <div className="flex flex-col gap-2">
+                          {availableCourses.map(c => {
+                            const sel = selCourses[c.id];
+                            return (
+                              <div
+                                key={c.id}
+                                className={cn(
+                                  'border rounded-xl p-3.5 transition-all',
+                                  sel?.checked ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-white hover:border-slate-300',
+                                )}
+                              >
+                                <label className="flex items-start gap-2.5 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={!!sel?.checked}
+                                    onChange={() => toggle(c.id)}
+                                    className="mt-0.5 accent-rose-600"
+                                  />
+                                  <div className="flex-1">
+                                    <div className="flex justify-between">
+                                      <span className="font-bold text-sm text-slate-900">{c.name}</span>
+                                      <span className="font-black text-rose-700 text-sm">{fmt(c.fee)}/month</span>
+                                    </div>
+                                    <div className="flex gap-2 mt-1">
+                                      <AppBadge label={c.type} color={c.type === 'OFFLINE' ? 'amber' : 'blue'} />
+                                      <span className="text-xs text-slate-400">Payment mode: monthly</span>
+                                    </div>
+                                  </div>
+                                </label>
+                                {sel?.checked && (
+                                  <div className={cn(
+                                    'grid gap-2.5 mt-3 pt-3 border-t border-dashed border-rose-200',
+                                    c.type === 'OFFLINE' ? 'grid-cols-3' : 'grid-cols-2',
+                                  )}>
+                                    {c.type === 'OFFLINE' && (
+                                      <Field label="Batch" required>
+                                        <AppSelect
+                                          value={sel.batch || ''}
+                                          onChange={v => setCF(c.id, 'batch', v)}
+                                          placeholder="Select batch"
+                                          options={(courseBatches[c.id] ?? []).map(b => ({ value: b.id, label: b.name }))}
+                                        />
+                                        {!sel.batch && <p className="text-[11px] text-rose-600 mt-1">Required</p>}
+                                      </Field>
+                                    )}
+                                    <Field label="Start Month">
+                                      <MonthInput
+                                        value={sel.startMonth || billingStart}
+                                        onChange={v => setCF(c.id, 'startMonth', v)}
+                                        min={c.startMonth}
+                                        max={c.endMonth}
+                                      />
+                                    </Field>
+                                    <Field label="End Month">
+                                      <MonthInput value={c.endMonth} disabled />
+                                    </Field>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    );
-                  })}
-                </div>
+                    )}
+
+                    {/* Already-enrolled courses — shown at bottom, disabled */}
+                    {alreadyEnrolledCourses.length > 0 && (
+                      <div>
+                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2.5">
+                          Already Enrolled
+                        </p>
+                        <div className="flex flex-col gap-2 mb-2">
+                          {alreadyEnrolledCourses.map(c => (
+                            <div
+                              key={c.id}
+                              className="border border-slate-200 bg-slate-50 rounded-xl p-3.5 opacity-60"
+                            >
+                              <div className="flex items-start gap-2.5">
+                                <input
+                                  type="checkbox"
+                                  disabled
+                                  className="mt-0.5 accent-rose-600 cursor-not-allowed"
+                                />
+                                <div className="flex-1">
+                                  <div className="flex justify-between items-start">
+                                    <span className="font-bold text-sm text-slate-500">{c.name}</span>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-black text-slate-400 text-sm">{fmt(c.fee)}/month</span>
+                                      <AppBadge label="Already Enrolled" color="slate" />
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-2 mt-1">
+                                    <AppBadge label={c.type} color={c.type === 'OFFLINE' ? 'amber' : 'blue'} />
+                                    <span className="text-xs text-slate-400">Payment mode: monthly</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* All enrolled or no courses */}
+                    {availableCourses.length === 0 && alreadyEnrolledCourses.length > 0 && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex gap-2 items-start mt-2">
+                        <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                        <p className="text-sm text-amber-800 font-semibold">
+                          All courses in this program are already enrolled.
+                        </p>
+                      </div>
+                    )}
+                    {availableCourses.length === 0 && alreadyEnrolledCourses.length === 0 && (
+                      <p className="text-sm text-slate-400 text-center py-5">No courses found in this program.</p>
+                    )}
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -1719,32 +1635,41 @@ function CollectPaymentModal({
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [pdfLoading, setPdfLoading] = useState<string | null>(null);
+  const [waiving, setWaiving] = useState(false);
+  const [waiveReason, setWaiveReason] = useState('');
+  const [waiveSubmitting, setWaiveSubmitting] = useState(false);
 
-  const fetchInvoices = () => {
+  const fetchInvoices = async () => {
     setLoadingInvoices(true);
     setFetchError(null);
-    getInvoices({ studentUserId: student.id, limit: 100 })
-      .then(res => {
-        const mapped: Invoice[] = (res.data ?? []).map(inv => ({
-          id: inv.id,
-          month: inv.month ?? '',
-          amount: Number(inv.payableAmount),
-          paidAmount: Number(inv.paidAmount),
-          status: inv.status === 'PAID' ? 'PAID' : 'DUE',
-          dueDate: inv.nextPaymentDueDate ?? '',
-          branchName: (inv as { branch?: { name?: string } }).branch?.name,
-          items: (inv as { items?: { title: string; unitPrice: number; qty: number }[] }).items,
-        }));
-        // Sort descending — most recent month first
-        mapped.sort((a, b) => b.month.localeCompare(a.month));
-        setInvoices(mapped);
-        if (mapped.length > 0) setSelMonth(mapped[0].month);
-        setLoadingInvoices(false);
-      })
-      .catch(err => {
-        setFetchError((err as Error).message ?? 'Failed to load invoices');
-        setLoadingInvoices(false);
-      });
+    try {
+      // Generate invoices for all enrollment months (up to 24 months ahead)
+      await generateAdvanceInvoices({ studentUserId: student.id, months: 24 }).catch(() => {});
+      const res = await getInvoices({ studentUserId: student.id, limit: 200 });
+      const mapped: Invoice[] = (res.data ?? []).map(inv => ({
+        id: inv.id,
+        month: inv.month ?? '',
+        amount: Number(inv.payableAmount),
+        paidAmount: Number(inv.paidAmount),
+        status: (
+          inv.status === 'PAID' ? 'PAID'
+          : inv.status === 'WAIVED' ? 'WAIVED'
+          : inv.status === 'PARTIAL' ? 'PARTIAL'
+          : 'DUE'
+        ) as Invoice['status'],
+        dueDate: inv.nextPaymentDueDate ?? '',
+        branchName: (inv as { branch?: { name?: string } }).branch?.name,
+        items: (inv as { items?: { title: string; unitPrice: number; qty: number; type?: string }[] }).items,
+      }));
+      // Sort descending — most recent month first
+      mapped.sort((a, b) => b.month.localeCompare(a.month));
+      setInvoices(mapped);
+      if (mapped.length > 0) setSelMonth(mapped[0].month);
+    } catch (err) {
+      setFetchError((err as Error).message ?? 'Failed to load invoices');
+    } finally {
+      setLoadingInvoices(false);
+    }
   };
 
   useEffect(() => { fetchInvoices(); }, [student.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1759,11 +1684,6 @@ function CollectPaymentModal({
     }
   };
 
-  const monthInvs = invoices.filter(i => i.month === selMonth);
-  const totalDue = monthInvs.reduce((s, i) => s + i.amount, 0);
-  const netDue = Math.max(0, totalDue - (Number(addDiscount) || 0));
-  const allMonths = [...new Set(invoices.map(i => i.month))];
-
   const methods = [
     { id: 'CASH', label: 'Cash', icon: '💵' },
     { id: 'BKASH', label: 'bKash', icon: '🔴' },
@@ -1771,6 +1691,67 @@ function CollectPaymentModal({
     { id: 'CARD', label: 'Card', icon: '💳' },
     { id: 'CHEQUE', label: 'Cheque', icon: '📄' },
   ];
+
+  // ── Aggregate status per month ──────────────────────────────────────────────
+  const monthGroups = useMemo(() => {
+    const map = new Map<string, Invoice[]>();
+    for (const inv of invoices) {
+      if (!map.has(inv.month)) map.set(inv.month, []);
+      map.get(inv.month)!.push(inv);
+    }
+    return map;
+  }, [invoices]);
+
+  const sortedMonths = useMemo(
+    () => [...monthGroups.keys()].sort((a, b) => b.localeCompare(a)),
+    [monthGroups],
+  );
+
+  const displayInvoices = useMemo(
+    () => monthGroups.get(selMonth) ?? [],
+    [monthGroups, selMonth],
+  );
+
+  const getMonthAggStatus = (invs: Invoice[]): 'PAID' | 'WAIVED' | 'PARTIAL' | 'DUE' => {
+    if (!invs.length) return 'DUE';
+    if (invs.every(i => i.status === 'PAID')) return 'PAID';
+    if (invs.every(i => i.status === 'WAIVED' || i.status === 'PAID')) return 'WAIVED';
+    if (invs.some(i => i.status === 'PARTIAL' || i.paidAmount > 0)) return 'PARTIAL';
+    return 'DUE';
+  };
+
+  const statusBadgeColor: Record<string, BadgeColor> = {
+    PAID: 'green', WAIVED: 'purple', PARTIAL: 'amber', DUE: 'red',
+  };
+
+  const totalDue = displayInvoices.reduce((s, i) => s + i.amount, 0);
+  const admissionFeeTotal = displayInvoices.reduce((s, inv) =>
+    s + (inv.items ?? []).filter(it => it.type === 'ADMISSION_FEE').reduce((a, it) => a + it.unitPrice * it.qty, 0), 0);
+  const discountable = Math.max(0, totalDue - admissionFeeTotal);
+  const requestedDiscount = Number(addDiscount) || 0;
+  const discount = Math.min(requestedDiscount, discountable);
+  const netDue = Math.max(0, totalDue - discount);
+  const discountCapped = requestedDiscount > discountable && discountable >= 0 && requestedDiscount > 0;
+  const monthStatus = getMonthAggStatus(displayInvoices);
+  const canWaive = displayInvoices.every(i => i.paidAmount <= 0);
+
+  const handleWaive = async () => {
+    if (waiveReason.trim().length < 5) return;
+    setWaiveSubmitting(true);
+    try {
+      await processMonthPayment({
+        studentUserId: student.id,
+        month: selMonth,
+        waive: true,
+        waiveReason: waiveReason.trim(),
+      });
+      setWaiving(false);
+      setWaiveReason('');
+      fetchInvoices();
+    } finally {
+      setWaiveSubmitting(false);
+    }
+  };
 
   return (
     <AppModal
@@ -1800,12 +1781,12 @@ function CollectPaymentModal({
               <p className="text-sm text-slate-400">Loading invoices…</p>
             ) : (
               <div className="flex flex-wrap gap-1.5">
-                {allMonths.map(m => {
-                  const inv = invoices.find(i => i.month === m);
+                {sortedMonths.map(m => {
+                  const aggStatus = getMonthAggStatus(monthGroups.get(m) ?? []);
                   return (
                     <button
                       key={m}
-                      onClick={() => setSelMonth(m)}
+                      onClick={() => { setSelMonth(m); setWaiving(false); setWaiveReason(''); }}
                       className={cn(
                         'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-bold transition-colors cursor-pointer',
                         selMonth === m
@@ -1814,7 +1795,7 @@ function CollectPaymentModal({
                       )}
                     >
                       {fmtMonth(m)}
-                      <AppBadge label={inv?.status || 'N/A'} color={inv?.status === 'PAID' ? 'green' : 'red'} />
+                      <AppBadge label={aggStatus} color={statusBadgeColor[aggStatus] ?? 'red'} />
                     </button>
                   );
                 })}
@@ -1828,7 +1809,7 @@ function CollectPaymentModal({
                 Invoices — {fmtMonth(selMonth)}
               </p>
             </div>
-            {monthInvs.length > 0 ? (
+            {displayInvoices.length > 0 ? (
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr className="bg-slate-50/50">
@@ -1843,7 +1824,7 @@ function CollectPaymentModal({
                   </tr>
                 </thead>
                 <tbody>
-                  {monthInvs.map(inv => (
+                  {displayInvoices.map(inv => (
                     <>
                       <tr key={inv.id} className="border-b border-slate-100">
                         <td className="px-3 py-2.5 font-semibold text-slate-900">
@@ -1852,7 +1833,15 @@ function CollectPaymentModal({
                         <td className="px-3 py-2.5 text-slate-500 text-xs">{inv.branchName || '—'}</td>
                         <td className="px-3 py-2.5 font-bold text-rose-700">{fmt(inv.amount)}</td>
                         <td className="px-3 py-2.5">
-                          <AppBadge label={inv.status} color={inv.status === 'PAID' ? 'green' : 'red'} />
+                          <AppBadge
+                            label={inv.status}
+                            color={
+                              inv.status === 'PAID' ? 'green'
+                              : inv.status === 'WAIVED' ? 'purple'
+                              : inv.status === 'PARTIAL' ? 'amber'
+                              : 'red'
+                            }
+                          />
                         </td>
                         <td className="px-3 py-2.5 text-slate-500 text-xs">{inv.dueDate}</td>
                         <td className="px-3 py-2.5">
@@ -1888,77 +1877,154 @@ function CollectPaymentModal({
 
         {/* Right: payment panel */}
         <div>
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-3.5">
-            <div className="flex justify-between mb-2">
-              <span className="text-sm text-slate-500">Total dues</span>
-              <span className="font-bold text-sm">{fmt(totalDue)}</span>
-            </div>
-            <div className="flex justify-between mb-3">
-              <span className="text-sm text-slate-500">Monthly scholarship(−)</span>
-              <span className="font-semibold text-sm text-slate-400">৳0</span>
-            </div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Additional discount(−)</p>
-            <Input
-              type="number"
-              min={0}
-              value={addDiscount}
-              onChange={e => setAddDiscount(e.target.value)}
-              className="text-right mb-3 focus-visible:ring-indigo-400"
-            />
-            <div className="bg-rose-50 border border-rose-200 rounded-lg px-3.5 py-2.5">
-              <div className="flex justify-between items-center">
-                <span className="font-bold text-sm text-slate-900">Due amount</span>
-                <span className="font-black text-2xl text-rose-700">{fmt(netDue)}</span>
+          {monthStatus === 'PAID' || monthStatus === 'WAIVED' ? (
+            /* Already settled — show status instead of payment form */
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 text-center mb-3.5">
+              <div className="flex justify-center mb-3">
+                <AppBadge
+                  label={monthStatus === 'PAID' ? '✓ Payment Complete' : '✓ Month Waived'}
+                  color={monthStatus === 'PAID' ? 'green' : 'purple'}
+                />
               </div>
+              <p className="text-sm text-slate-500">
+                {monthStatus === 'PAID'
+                  ? 'This month has been fully paid.'
+                  : 'This month has been waived — no payment required.'}
+              </p>
             </div>
-          </div>
-
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Payment Method</p>
-          <div className="grid grid-cols-2 gap-2 mb-3.5">
-            {methods.map(m => (
-              <button
-                key={m.id}
-                onClick={() => setMethod(m.id)}
-                className={cn(
-                  'flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-lg border-2 text-sm font-bold transition-all cursor-pointer',
-                  method === m.id
-                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
+          ) : (
+            /* Payment form */
+            <>
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-3.5">
+                <div className="flex justify-between mb-2">
+                  <span className="text-sm text-slate-500">Total dues</span>
+                  <span className="font-bold text-sm">{fmt(totalDue)}</span>
+                </div>
+                <div className="flex justify-between mb-3">
+                  <span className="text-sm text-slate-500">Monthly scholarship(−)</span>
+                  <span className="font-semibold text-sm text-slate-400">৳0</span>
+                </div>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Additional discount(−)</p>
+                <Input
+                  type="number"
+                  min={0}
+                  value={addDiscount}
+                  onChange={e => setAddDiscount(e.target.value)}
+                  className="text-right focus-visible:ring-indigo-400"
+                />
+                {discountCapped && (
+                  <p className="mt-1 mb-2 text-[11px] text-amber-700 font-semibold flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3 shrink-0" />
+                    Capped at {fmt(discountable)} — admission fees cannot be discounted.
+                  </p>
                 )}
+                {!discountCapped && <div className="mb-3" />}
+                <div className="bg-rose-50 border border-rose-200 rounded-lg px-3.5 py-2.5">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-sm text-slate-900">Due amount</span>
+                    <span className="font-black text-2xl text-rose-700">{fmt(netDue)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Payment Method</p>
+              <div className="grid grid-cols-2 gap-2 mb-3.5">
+                {methods.map(m => (
+                  <button
+                    key={m.id}
+                    onClick={() => setMethod(m.id)}
+                    className={cn(
+                      'flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-lg border-2 text-sm font-bold transition-all cursor-pointer',
+                      method === m.id
+                        ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
+                    )}
+                  >
+                    <span>{m.icon}</span> {m.label}
+                    {method === m.id && <span className="w-2 h-2 rounded-full bg-indigo-600 shrink-0" />}
+                  </button>
+                ))}
+              </div>
+
+              <Button
+                className="w-full gap-2 bg-indigo-600 text-white hover:bg-indigo-700 transition-all mb-3"
+                disabled={netDue <= 0 || saving || loadingInvoices}
+                onClick={async () => {
+                  setSaving(true);
+                  try {
+                    const paidInv = displayInvoices[0];
+                    await processMonthPayment({
+                      studentUserId: student.id,
+                      month: selMonth,
+                      payment: { amount: netDue, method },
+                    });
+                    fetchInvoices();
+                    if (paidInv) {
+                      getInvoicePdfUrl(paidInv.id)
+                        .then(r => { if (r.data?.pdfUrl) window.open(normPdfUrl(r.data.pdfUrl), '_blank'); })
+                        .catch(() => {});
+                    }
+                    onSave({ student, month: selMonth, method, amount: netDue });
+                  } finally {
+                    setSaving(false);
+                  }
+                }}
               >
-                <span>{m.icon}</span> {m.label}
-                {method === m.id && <span className="w-2 h-2 rounded-full bg-indigo-600 shrink-0" />}
-              </button>
-            ))}
-          </div>
-          <Button
-            className="w-full gap-2 bg-indigo-600 text-white hover:bg-indigo-700 transition-all"
-            disabled={netDue <= 0 || saving || loadingInvoices}
-            onClick={async () => {
-              setSaving(true);
-              try {
-                const paidInv = monthInvs[0];
-                await processMonthPayment({
-                  studentUserId: student.id,
-                  month: selMonth,
-                  payment: { amount: netDue, method },
-                });
-                // Refetch invoices to reflect updated status
-                fetchInvoices();
-                // Auto-open PDF for the paid invoice
-                if (paidInv) {
-                  getInvoicePdfUrl(paidInv.id)
-                    .then(r => { if (r.data?.pdfUrl) window.open(normPdfUrl(r.data.pdfUrl), '_blank'); })
-                    .catch(() => {});
-                }
-                onSave({ student, month: selMonth, method, amount: netDue });
-              } finally {
-                setSaving(false);
-              }
-            }}
-          >
-            <Check className="h-4 w-4" /> {saving ? 'Processing…' : `Collect ${method} Payment`}
-          </Button>
+                <Check className="h-4 w-4" /> {saving ? 'Processing…' : `Collect ${method} Payment`}
+              </Button>
+
+              {/* Waive this month */}
+              <div className="border-t border-slate-100 pt-3">
+                {!waiving ? (
+                  <button
+                    onClick={() => setWaiving(true)}
+                    disabled={!canWaive || displayInvoices.length === 0}
+                    title={!canWaive ? 'Cannot waive: payment already received for this month' : 'Mark this month as waived without payment'}
+                    className={cn(
+                      'w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg border text-sm font-semibold transition-colors cursor-pointer',
+                      canWaive && displayInvoices.length > 0
+                        ? 'border-purple-200 text-purple-700 bg-purple-50 hover:bg-purple-100'
+                        : 'border-slate-200 text-slate-400 bg-slate-50 cursor-not-allowed',
+                    )}
+                  >
+                    Waive This Month
+                  </button>
+                ) : (
+                  <div className="border border-purple-200 rounded-xl p-3.5 bg-purple-50">
+                    <p className="text-xs font-bold text-purple-700 uppercase tracking-wider mb-1.5">
+                      Waive Reason <span className="text-rose-600">*</span>
+                    </p>
+                    <textarea
+                      value={waiveReason}
+                      onChange={e => setWaiveReason(e.target.value)}
+                      placeholder="Enter reason for waiving this month (min 5 characters)…"
+                      rows={2}
+                      className="w-full text-sm border border-purple-200 rounded-lg px-3 py-2 bg-white resize-none focus:outline-none focus:ring-2 focus:ring-purple-300 mb-2"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => { setWaiving(false); setWaiveReason(''); }}
+                        className="flex-1 text-xs"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleWaive}
+                        disabled={waiveReason.trim().length < 5 || waiveSubmitting}
+                        className="flex-1 text-xs bg-purple-600 text-white hover:bg-purple-700 gap-1"
+                      >
+                        <Check className="h-3 w-3" />
+                        {waiveSubmitting ? 'Waiving…' : 'Confirm Waive'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </AppModal>
@@ -2042,6 +2108,7 @@ export default function StudentsPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [modal, setModal] = useState<{ type: string; student?: Student } | null>(null);
+  const [editStudent, setEditStudent] = useState<Student | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -2103,6 +2170,7 @@ export default function StudentsPage() {
     if (action === 'enrollments') { setActiveStudent(student); setView('enrollments'); }
     else if (action === 'enroll') setModal({ type: 'enroll', student });
     else if (action === 'payment') setModal({ type: 'payment', student });
+    else if (action === 'edit') setEditStudent(student);
     else showToast(`"${action}" action for ${student.fullName}`, 'info');
   };
 
@@ -2347,6 +2415,18 @@ export default function StudentsPage() {
           onSave={data => {
             setModal(null);
             showToast(`${fmt(data.amount)} collected via ${data.method} for ${fmtMonth(data.month)}`, 'success');
+          }}
+        />
+      )}
+
+      {editStudent && (
+        <EditStudentModal
+          student={editStudent}
+          onClose={() => setEditStudent(null)}
+          onSave={updated => {
+            setStudents(prev => prev.map(s => s.id === updated.id ? { ...s, ...updated } : s));
+            setEditStudent(null);
+            showToast(`${updated.fullName}'s profile updated successfully`, 'success');
           }}
         />
       )}
