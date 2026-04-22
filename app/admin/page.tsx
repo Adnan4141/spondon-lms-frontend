@@ -59,12 +59,13 @@ export default function AdminDashboard() {
       let cancelled = false;
       (async () => {
          try {
+            const hasToken = typeof window !== 'undefined' && Boolean(localStorage.getItem('auth_token'));
             const [tRes, cRes, statsRes, revRes, batchRes, enrollRes, enrollReportRes, testiRes] = await Promise.all([
                getUsers({ role: 'TEACHER', status: 'ACTIVE', limit: 1 }),
                getCourses({ status: 'ACTIVE', limit: 1 }),
                getSystemStats(),
                getRevenueSummary({ period: 'monthly' }),
-               getBatches({ status: 'ACTIVE', limit: 1 }),
+               hasToken ? getBatches({ status: 'ACTIVE', limit: 1 }) : Promise.resolve({ data: [], pagination: undefined }),
                getEnrollments({ page: 1, limit: 6 }),
                getEnrollmentReport(),
                getAllTestimonials({ approved: false }),

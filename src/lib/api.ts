@@ -29,6 +29,17 @@ export async function apiRequest<T>(
   });
 
   if (!response.ok) {
+    // Redirect to login on 401 when on an admin page
+    if (
+      response.status === 401 &&
+      typeof window !== 'undefined' &&
+      window.location.pathname.startsWith('/admin')
+    ) {
+      localStorage.removeItem('auth_token');
+      window.location.href = '/login';
+      throw new Error('Session expired. Please log in again.');
+    }
+
     const raw = await response.text();
     let msg = '';
     if (raw) {

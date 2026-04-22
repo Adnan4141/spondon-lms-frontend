@@ -19,16 +19,25 @@ import {
   ArrowLeftRight,
   Tag,
   Info,
+  FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { getPrograms } from '@/lib/api/programs';
 import { getCourses } from '@/lib/api/courses';
 import { getBatches } from '@/lib/api/batches';
+import { getBranches } from '@/lib/api/branches';
 import { getUsers, createUser } from '@/lib/api/users';
 import {
   getEnrollments,
@@ -39,7 +48,12 @@ import {
   type Enrollment as ApiEnrollment,
   type OfflineAdmissionDto,
 } from '@/lib/api/enrollments';
-import { getInvoices, processMonthPayment } from '@/lib/api/invoices';
+import { getInvoices, getInvoicePdfUrl, processMonthPayment } from '@/lib/api/invoices';
+import { API_ORIGIN } from '@/lib/api';
+
+function normPdfUrl(raw: string): string {
+  return raw.startsWith('http') ? raw : `${API_ORIGIN}${raw.startsWith('/') ? '' : '/'}${raw}`;
+}
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -102,6 +116,8 @@ interface Invoice {
   paidAmount: number;
   status: 'PAID' | 'DUE';
   dueDate: string;
+  branchName?: string;
+  items?: { title: string; unitPrice: number; qty: number }[];
 }
 
 interface CourseWithDiscount extends Course {
@@ -200,7 +216,7 @@ function Field({
   );
 }
 
-// ─── NATIVE SELECT ────────────────────────────────────────────────────────────
+// ─── SHADCN SELECT WRAPPER ────────────────────────────────────────────────────
 
 function AppSelect({
   value, onChange, options, placeholder, disabled,
@@ -212,22 +228,16 @@ function AppSelect({
   disabled?: boolean;
 }) {
   return (
-    <select
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      disabled={disabled}
-      className={cn(
-        'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white text-slate-800 outline-none transition-colors',
-        'focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100',
-        'disabled:bg-slate-50 disabled:cursor-not-allowed',
-        !value && 'text-slate-400',
-      )}
-    >
-      {placeholder && <option value="">{placeholder}</option>}
-      {options.map(o => (
-        <option key={o.value} value={o.value}>{o.label}</option>
-      ))}
-    </select>
+    <Select value={value} onValueChange={onChange} disabled={disabled}>
+      <SelectTrigger className="w-full h-9 text-sm border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-100 bg-white">
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map(o => (
+          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -239,19 +249,14 @@ function MonthInput({
   value: string; onChange?: (v: string) => void; min?: string; max?: string; disabled?: boolean;
 }) {
   return (
-    <input
+    <Input
       type="month"
       value={value}
       onChange={e => onChange?.(e.target.value)}
       min={min}
       max={max}
       disabled={disabled}
-      className={cn(
-        'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none transition-colors',
-        disabled
-          ? 'bg-slate-50 text-slate-400 cursor-not-allowed'
-          : 'bg-white text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100',
-      )}
+      className={cn('w-full text-sm', disabled ? 'cursor-not-allowed' : 'focus-visible:ring-indigo-400')}
     />
   );
 }
@@ -278,6 +283,8 @@ function AppModal({
         showCloseButton={false}
         className={cn('p-0 gap-0 max-h-[92vh] w-[95vw] flex flex-col overflow-hidden', maxWidth, smMaxWidth)}
       >
+        <DialogTitle className="sr-only">{title}</DialogTitle>
+        <DialogDescription className="sr-only">{subtitle || `${title} dialog`}</DialogDescription>
         <div className="flex items-start justify-between px-6 py-5 border-b border-slate-200 bg-slate-50 shrink-0">
           <div>
             <h2 className="text-base font-black text-slate-900">{title}</h2>
@@ -488,13 +495,14 @@ function DiscountAdjustmentPanel({
 // ─── SUCCESS SUMMARY ──────────────────────────────────────────────────────────
 
 function SuccessSummary({
-  action, courseName, effectiveMonth, netMonthly, newDiscount, onClose,
+  action, courseName, effectiveMonth, netMonthly, newDiscount, pdfUrl, onClose,
 }: {
   action: 'ADD' | 'REMOVE';
   courseName: string;
   effectiveMonth: string;
   netMonthly: number;
   newDiscount: number;
+  pdfUrl?: string | null;
   onClose: () => void;
 }) {
   const rows = [
@@ -523,12 +531,23 @@ function SuccessSummary({
           </div>
         ))}
       </div>
-      <Button
-        onClick={onClose}
-        className="w-full gap-2 bg-slate-900 text-white hover:bg-indigo-600 transition-all"
-      >
-        <Check className="h-4 w-4" /> Done
-      </Button>
+      <div className="flex gap-2.5 justify-center">
+        {pdfUrl && (
+          <Button
+            variant="outline"
+            onClick={() => window.open(pdfUrl, '_blank')}
+            className="gap-2"
+          >
+            View Invoice PDF
+          </Button>
+        )}
+        <Button
+          onClick={onClose}
+          className="gap-2 bg-slate-900 text-white hover:bg-indigo-600 transition-all"
+        >
+          <Check className="h-4 w-4" /> Done
+        </Button>
+      </div>
     </div>
   );
 }
@@ -536,17 +555,19 @@ function SuccessSummary({
 // ─── CANCEL COURSE MODAL ──────────────────────────────────────────────────────
 
 function CancelCourseModal({
-  course, enrollment, allCourses, onClose, onDone,
+  course, enrollment, allCourses, studentUserId, onClose, onDone,
 }: {
   course: Course;
   enrollment: Enrollment;
   allCourses: Course[];
+  studentUserId: string;
   onClose: () => void;
   onDone: () => void;
 }) {
   const [step, setStep] = useState<'confirm' | 'discount' | 'success'>('confirm');
   const [appliedDiscount, setAppliedDiscount] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [invoicePdfUrl, setInvoicePdfUrl] = useState<string | null>(null);
   const effMonth = nextMonth();
 
   const remainingCourses = enrollment.courses
@@ -563,6 +584,17 @@ function CancelCourseModal({
         await updateEnrollment(enrollment.id, { monthlyDiscount: disc });
       }
       setAppliedDiscount(disc);
+      // Fetch the regenerated invoice PDF for next month
+      getInvoices({ studentUserId, month: effMonth, limit: 5 })
+        .then(r => {
+          const firstId = r.data?.[0]?.id;
+          if (firstId) return getInvoicePdfUrl(firstId);
+          return null;
+        })
+        .then(r => {
+          if (r?.data?.pdfUrl) setInvoicePdfUrl(normPdfUrl(r.data.pdfUrl));
+        })
+        .catch(() => {});
       setStep('success');
     } catch (err: unknown) {
       alert((err as Error).message ?? 'Operation failed');
@@ -640,6 +672,7 @@ function CancelCourseModal({
           effectiveMonth={effMonth}
           netMonthly={netMonthly}
           newDiscount={appliedDiscount}
+          pdfUrl={invoicePdfUrl}
           onClose={() => { onDone(); onClose(); }}
         />
       )}
@@ -650,11 +683,12 @@ function CancelCourseModal({
 // ─── ADD COURSE MODAL ─────────────────────────────────────────────────────────
 
 function AddCourseModal({
-  enrollment, allCourses, programs, onClose, onDone,
+  enrollment, allCourses, programs, studentUserId, onClose, onDone,
 }: {
   enrollment: Enrollment;
   allCourses: Course[];
   programs: Program[];
+  studentUserId: string;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -663,14 +697,19 @@ function AddCourseModal({
   const [batch, setBatch] = useState('');
   const [startMonth, setStartMonth] = useState(nextMonth());
   const [appliedDiscount, setAppliedDiscount] = useState(0);
+  const [invoicePdfUrl, setInvoicePdfUrl] = useState<string | null>(null);
   const [courseBatches, setCourseBatches] = useState<{ id: string; name: string }[]>([]);
   const effMonth = nextMonth();
 
   useEffect(() => {
     if (!selectedCourseId) { setCourseBatches([]); return; }
-    getBatches({ courseId: selectedCourseId, limit: 100 }).then(res => {
-      if (res.success && res.data) setCourseBatches(res.data.map(b => ({ id: b.id, name: b.name })));
-    });
+    getBatches({ courseId: selectedCourseId, limit: 100 })
+      .then(res => {
+        if (res.success && res.data) setCourseBatches(res.data.map(b => ({ id: b.id, name: b.name })));
+      })
+      .catch(() => {
+        setCourseBatches([]);
+      });
   }, [selectedCourseId]);
 
   const enrolledCourseIds = enrollment.courses.filter(ec => ec.status === 'ACTIVE').map(ec => ec.courseId);
@@ -705,6 +744,17 @@ function AddCourseModal({
         await updateEnrollment(enrollment.id, { monthlyDiscount: disc });
       }
       setAppliedDiscount(disc);
+      // Fetch the regenerated invoice PDF for next month
+      getInvoices({ studentUserId, month: effMonth, limit: 5 })
+        .then(r => {
+          const firstId = r.data?.[0]?.id;
+          if (firstId) return getInvoicePdfUrl(firstId);
+          return null;
+        })
+        .then(r => {
+          if (r?.data?.pdfUrl) setInvoicePdfUrl(normPdfUrl(r.data.pdfUrl));
+        })
+        .catch(() => {});
       setStep('success');
     } catch (err: unknown) {
       alert((err as Error).message ?? 'Operation failed');
@@ -793,6 +843,7 @@ function AddCourseModal({
           effectiveMonth={effMonth}
           netMonthly={netMonthly}
           newDiscount={appliedDiscount}
+          pdfUrl={invoicePdfUrl}
           onClose={() => { onDone(); onClose(); }}
         />
       )}
@@ -933,7 +984,7 @@ function EnrolledCoursesView({
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-slate-200">
-                    {['Course', 'Enrolled at', 'Program', 'Branch', 'Batch', 'Roll', 'Course Type', 'Books', 'Status', ''].map(h => (
+                    {['Course', 'Enrolled at', 'Program', 'Branch', 'Batch', 'Course Type', 'Books', 'Status', ''].map(h => (
                       <th
                         key={h}
                         className="px-3.5 py-2.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-wide whitespace-nowrap"
@@ -944,7 +995,7 @@ function EnrolledCoursesView({
                   </tr>
                 </thead>
                 <tbody>
-                  {enrollment.courses.map((ec, idx) => {
+                  {enrollment.courses.map((ec) => {
                     const course = allCourses.find(c => c.id === ec.courseId);
                     if (!course) return null;
                     return (
@@ -961,7 +1012,7 @@ function EnrolledCoursesView({
                           <p className="text-[11px] text-slate-400 mt-0.5">{enrollment.billingType}</p>
                         </td>
                         <td className="px-3.5 py-3 text-xs text-slate-600">
-                          ALGORITHM<br />RUPNAGAR
+                          {enrollment.branchId}
                         </td>
                         <td className="px-3.5 py-3">
                           {ec.batchId
@@ -969,7 +1020,6 @@ function EnrolledCoursesView({
                             : <span className="text-xs text-slate-400">—</span>
                           }
                         </td>
-                        <td className="px-3.5 py-3 font-bold text-slate-900 font-mono text-sm">{100000 + idx}</td>
                         <td className="px-3.5 py-3">
                           <AppBadge label={course.type.toLowerCase()} color={course.type === 'OFFLINE' ? 'amber' : 'blue'} />
                         </td>
@@ -1055,6 +1105,7 @@ function EnrolledCoursesView({
           course={cancelModal.course}
           enrollment={cancelModal.enrollment}
           allCourses={allCourses}
+          studentUserId={student.id}
           onClose={() => setCancelModal(null)}
           onDone={() => {
             showToast(`${cancelModal.course.name} cancelled. Invoices updated from ${fmtMonth(nextMonth())}.`, 'success');
@@ -1069,6 +1120,7 @@ function EnrolledCoursesView({
           enrollment={addModal}
           allCourses={allCourses}
           programs={programs}
+          studentUserId={student.id}
           onClose={() => setAddModal(null)}
           onDone={() => {
             showToast('Course added and invoices regenerated!', 'success');
@@ -1247,17 +1299,18 @@ function AddStudentModal({
 // ─── ENROLLMENT MODAL ─────────────────────────────────────────────────────────
 
 function EnrollmentModal({
-  student, programs, allCourses, onClose, onSave,
+  student, programs, allCourses, branches, onClose, onSave,
 }: {
   student: Student;
   programs: Program[];
   allCourses: Course[];
+  branches: { id: string; name: string }[];
   onClose: () => void;
   onSave: (data: { student: Student; program: Program | undefined; netMonthly: number; admFee: number }) => void;
 }) {
   const [step, setStep] = useState(1);
   const [programId, setProgramId] = useState('');
-  const [branchId, setBranchId] = useState('b1');
+  const [branchId, setBranchId] = useState('');
   const [selCourses, setSelCourses] = useState<Record<string, SelCourseState>>({});
   const [monthlyDiscount, setMonthlyDiscount] = useState('0');
   const [admDiscount, setAdmDiscount] = useState('0');
@@ -1266,19 +1319,38 @@ function EnrollmentModal({
   const [saving, setSaving] = useState(false);
   const [enrollError, setEnrollError] = useState('');
 
+  // Initialize branchId from the logged-in user's profile or first available branch
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('user');
+      const u = raw ? JSON.parse(raw) : null;
+      if (u?.branchId) {
+        setBranchId(String(u.branchId));
+      } else if (branches.length > 0) {
+        setBranchId(branches[0].id);
+      }
+    } catch {
+      if (branches.length > 0) setBranchId(branches[0].id);
+    }
+  }, [branches]);
+
   useEffect(() => {
     if (!programId) { setCourseBatches({}); return; }
-    getBatches({ programId, limit: 200 }).then(res => {
-      if (res.success && res.data) {
-        const map: Record<string, { id: string; name: string }[]> = {};
-        for (const b of res.data) {
-          map[b.courseId] ??= [];
-          map[b.courseId].push({ id: b.id, name: b.name });
+    getBatches({ branchId: branchId || undefined, limit: 200 })
+      .then(res => {
+        if (res.success && res.data) {
+          const map: Record<string, { id: string; name: string }[]> = {};
+          for (const b of res.data) {
+            map[b.courseId] ??= [];
+            map[b.courseId].push({ id: b.id, name: b.name });
+          }
+          setCourseBatches(map);
         }
-        setCourseBatches(map);
-      }
-    });
-  }, [programId]);
+      })
+      .catch(() => {
+        setCourseBatches({});
+      });
+  }, [programId, branchId]);
 
   const program = programs.find(p => p.id === programId);
   const courses = programId ? allCourses.filter(c => c.programId === programId) : [];
@@ -1317,6 +1389,8 @@ function EnrollmentModal({
       };
       const res = await offlineAdmission(dto);
       if (res.success) {
+        const pdf = res.data?.pdfUrl || res.data?.invoicePdfUrl;
+        if (pdf) window.open(pdf, '_blank');
         onSave({ student, program, netMonthly, admFee });
       } else {
         setEnrollError((res as { message?: string }).message ?? 'Enrollment failed');
@@ -1371,11 +1445,8 @@ function EnrollmentModal({
                 <AppSelect
                   value={branchId}
                   onChange={setBranchId}
-                  options={[
-                    { value: 'b1', label: 'ALGORITHM RUPNAGAR+RAINKHOLA' },
-                    { value: 'b2', label: 'Mirpur Branch' },
-                    { value: 'b3', label: 'Uttara Branch' },
-                  ]}
+                  placeholder="Select branch"
+                  options={branches.map(b => ({ value: b.id, label: b.name }))}
                 />
               </Field>
             </div>
@@ -1645,29 +1716,53 @@ function CollectPaymentModal({
   const [addDiscount, setAddDiscount] = useState('0');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loadingInvoices, setLoadingInvoices] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchInvoices = () => {
     setLoadingInvoices(true);
-    getInvoices({ studentUserId: student.id, limit: 100 }).then(res => {
-      const mapped: Invoice[] = (res.data ?? []).map(inv => ({
-        id: inv.id,
-        month: inv.month ?? '',
-        amount: Number(inv.payableAmount),
-        paidAmount: Number(inv.paidAmount),
-        status: inv.status === 'PAID' ? 'PAID' : 'DUE',
-        dueDate: inv.nextPaymentDueDate ?? '',
-      }));
-      setInvoices(mapped);
-      if (mapped.length > 0) setSelMonth(mapped[0].month);
-      setLoadingInvoices(false);
-    });
-  }, [student.id]);
+    setFetchError(null);
+    getInvoices({ studentUserId: student.id, limit: 100 })
+      .then(res => {
+        const mapped: Invoice[] = (res.data ?? []).map(inv => ({
+          id: inv.id,
+          month: inv.month ?? '',
+          amount: Number(inv.payableAmount),
+          paidAmount: Number(inv.paidAmount),
+          status: inv.status === 'PAID' ? 'PAID' : 'DUE',
+          dueDate: inv.nextPaymentDueDate ?? '',
+          branchName: (inv as { branch?: { name?: string } }).branch?.name,
+          items: (inv as { items?: { title: string; unitPrice: number; qty: number }[] }).items,
+        }));
+        // Sort descending — most recent month first
+        mapped.sort((a, b) => b.month.localeCompare(a.month));
+        setInvoices(mapped);
+        if (mapped.length > 0) setSelMonth(mapped[0].month);
+        setLoadingInvoices(false);
+      })
+      .catch(err => {
+        setFetchError((err as Error).message ?? 'Failed to load invoices');
+        setLoadingInvoices(false);
+      });
+  };
+
+  useEffect(() => { fetchInvoices(); }, [student.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const openInvoicePdf = async (invoiceId: string) => {
+    setPdfLoading(invoiceId);
+    try {
+      const res = await getInvoicePdfUrl(invoiceId);
+      if (res.data?.pdfUrl) window.open(normPdfUrl(res.data.pdfUrl), '_blank');
+    } finally {
+      setPdfLoading(null);
+    }
+  };
 
   const monthInvs = invoices.filter(i => i.month === selMonth);
   const totalDue = monthInvs.reduce((s, i) => s + i.amount, 0);
   const netDue = Math.max(0, totalDue - (Number(addDiscount) || 0));
-  const allMonths = [...new Set(invoices.map(i => i.month))].sort();
+  const allMonths = [...new Set(invoices.map(i => i.month))];
 
   const methods = [
     { id: 'CASH', label: 'Cash', icon: '💵' },
@@ -1690,26 +1785,41 @@ function CollectPaymentModal({
         <div>
           <div className="mb-4">
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Select Month</p>
-            <div className="flex flex-wrap gap-1.5">
-              {allMonths.map(m => {
-                const inv = invoices.find(i => i.month === m);
-                return (
-                  <button
-                    key={m}
-                    onClick={() => setSelMonth(m)}
-                    className={cn(
-                      'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-bold transition-colors cursor-pointer',
-                      selMonth === m
-                        ? 'border-rose-300 bg-rose-50 text-rose-700'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
-                    )}
-                  >
-                    {fmtMonth(m)}
-                    <AppBadge label={inv?.status || 'N/A'} color={inv?.status === 'PAID' ? 'green' : 'red'} />
-                  </button>
-                );
-              })}
-            </div>
+            {fetchError ? (
+              <div className="flex items-center gap-3 px-4 py-3 bg-rose-50 border border-rose-200 rounded-xl">
+                <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0" />
+                <p className="text-sm text-rose-700 flex-1">{fetchError}</p>
+                <button
+                  onClick={fetchInvoices}
+                  className="text-xs font-bold text-rose-600 hover:underline cursor-pointer"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : loadingInvoices ? (
+              <p className="text-sm text-slate-400">Loading invoices…</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {allMonths.map(m => {
+                  const inv = invoices.find(i => i.month === m);
+                  return (
+                    <button
+                      key={m}
+                      onClick={() => setSelMonth(m)}
+                      className={cn(
+                        'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-bold transition-colors cursor-pointer',
+                        selMonth === m
+                          ? 'border-rose-300 bg-rose-50 text-rose-700'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
+                      )}
+                    >
+                      {fmtMonth(m)}
+                      <AppBadge label={inv?.status || 'N/A'} color={inv?.status === 'PAID' ? 'green' : 'red'} />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="border border-slate-200 rounded-xl overflow-hidden">
@@ -1722,7 +1832,7 @@ function CollectPaymentModal({
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr className="bg-slate-50/50">
-                    {['Program', 'Course', 'Branch', 'Amount', 'Status', 'Due Date'].map(h => (
+                    {['Description', 'Branch', 'Amount', 'Status', 'Due Date', ''].map(h => (
                       <th
                         key={h}
                         className="px-3 py-2 text-left text-[11px] font-bold text-slate-400 uppercase border-b border-slate-200"
@@ -1734,16 +1844,39 @@ function CollectPaymentModal({
                 </thead>
                 <tbody>
                   {monthInvs.map(inv => (
-                    <tr key={inv.id} className="border-b border-slate-100">
-                      <td className="px-3 py-2.5 text-slate-500 text-xs">HSC Academic</td>
-                      <td className="px-3 py-2.5 font-semibold text-slate-900">{inv.month} Courses</td>
-                      <td className="px-3 py-2.5 text-slate-500 text-xs">ALGORITHM RUPNAGAR</td>
-                      <td className="px-3 py-2.5 font-bold text-rose-700">{fmt(inv.amount)}</td>
-                      <td className="px-3 py-2.5">
-                        <AppBadge label={inv.status} color={inv.status === 'PAID' ? 'green' : 'red'} />
-                      </td>
-                      <td className="px-3 py-2.5 text-slate-500 text-xs">{inv.dueDate}</td>
-                    </tr>
+                    <>
+                      <tr key={inv.id} className="border-b border-slate-100">
+                        <td className="px-3 py-2.5 font-semibold text-slate-900">
+                          {fmtMonth(inv.month)} — Monthly Fee
+                        </td>
+                        <td className="px-3 py-2.5 text-slate-500 text-xs">{inv.branchName || '—'}</td>
+                        <td className="px-3 py-2.5 font-bold text-rose-700">{fmt(inv.amount)}</td>
+                        <td className="px-3 py-2.5">
+                          <AppBadge label={inv.status} color={inv.status === 'PAID' ? 'green' : 'red'} />
+                        </td>
+                        <td className="px-3 py-2.5 text-slate-500 text-xs">{inv.dueDate}</td>
+                        <td className="px-3 py-2.5">
+                          <button
+                            onClick={() => openInvoicePdf(inv.id)}
+                            disabled={pdfLoading === inv.id}
+                            title="Download Invoice PDF"
+                            className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer disabled:opacity-40"
+                          >
+                            <FileText className="h-4 w-4" />
+                          </button>
+                        </td>
+                      </tr>
+                      {inv.items?.map((item, ii) => (
+                        <tr key={`${inv.id}-item-${ii}`} className="bg-slate-50/60 border-b border-slate-100">
+                          <td className="px-3 py-1.5 text-xs text-slate-500 pl-7" colSpan={2}>
+                            ↳ {item.title}
+                            {item.qty > 1 && <span className="text-slate-400 ml-1">×{item.qty}</span>}
+                          </td>
+                          <td className="px-3 py-1.5 text-xs text-slate-500">{fmt(item.unitPrice * item.qty)}</td>
+                          <td colSpan={3} />
+                        </tr>
+                      ))}
+                    </>
                   ))}
                 </tbody>
               </table>
@@ -1804,11 +1937,20 @@ function CollectPaymentModal({
             onClick={async () => {
               setSaving(true);
               try {
+                const paidInv = monthInvs[0];
                 await processMonthPayment({
                   studentUserId: student.id,
                   month: selMonth,
                   payment: { amount: netDue, method },
                 });
+                // Refetch invoices to reflect updated status
+                fetchInvoices();
+                // Auto-open PDF for the paid invoice
+                if (paidInv) {
+                  getInvoicePdfUrl(paidInv.id)
+                    .then(r => { if (r.data?.pdfUrl) window.open(normPdfUrl(r.data.pdfUrl), '_blank'); })
+                    .catch(() => {});
+                }
                 onSave({ student, month: selMonth, method, amount: netDue });
               } finally {
                 setSaving(false);
@@ -1894,6 +2036,7 @@ export default function StudentsPage() {
   const [loadingStudents, setLoadingStudents] = useState(true);
   const [programs, setPrograms] = useState<Program[]>([]);
   const [allCourses, setAllCourses] = useState<Course[]>([]);
+  const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   const [view, setView] = useState<'list' | 'enrollments'>('list');
   const [activeStudent, setActiveStudent] = useState<Student | null>(null);
   const [search, setSearch] = useState('');
@@ -1924,6 +2067,9 @@ export default function StudentsPage() {
     });
     getPrograms().then(res => {
       if (res.success && res.data) setPrograms(res.data as Program[]);
+    });
+    getBranches().then(res => {
+      if (res.success && res.data) setBranches(res.data.map(b => ({ id: b.id, name: b.name })));
     });
     getCourses({ limit: 200 }).then(res => {
       if (res.success && res.data) {
@@ -2088,13 +2234,14 @@ export default function StudentsPage() {
                         <div>
                           <p className="font-bold text-slate-900">{s.fullName}</p>
                           {s.email && <p className="text-[11px] text-slate-400">{s.email}</p>}
+                          <p className="text-[11px] text-rose-600 font-mono mt-0.5">{s.regNo}</p>
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-3.5 text-slate-600 font-mono text-xs">{s.mobile}</td>
                     <td className="px-4 py-3.5">
                       <AppBadge
-                        label={s.branchId === 'b1' ? 'Rupnagar' : s.branchId === 'b2' ? 'Mirpur' : 'Uttara'}
+                        label={branches.find(b => b.id === s.branchId)?.name ?? (s.branchId || '—')}
                         color="slate"
                       />
                     </td>
@@ -2185,6 +2332,7 @@ export default function StudentsPage() {
           student={modal.student}
           programs={programs}
           allCourses={allCourses}
+          branches={branches}
           onClose={() => setModal(null)}
           onSave={data => {
             setModal(null);
