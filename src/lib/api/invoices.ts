@@ -114,3 +114,26 @@ export async function cancelMonthlyEnrollment(
     body: JSON.stringify(body ?? {}),
   });
 }
+
+export interface ProcessMonthlyPaymentDto {
+  studentUserId: string;
+  month: string;
+  branchId?: string;
+  payment?: {
+    amount: number;
+    method: string;
+    trxId?: string;
+    receivedByUserId?: string;
+  };
+  waive?: boolean;
+  waiveReason?: string;
+}
+
+export async function processMonthPayment(
+  body: ProcessMonthlyPaymentDto,
+): Promise<ApiResponse<unknown>> {
+  return apiRequest<ApiResponse<unknown>>('/invoices/monthly/process', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}

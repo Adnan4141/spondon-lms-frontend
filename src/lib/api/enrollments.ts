@@ -373,27 +373,6 @@ export async function checkAdmissionFee(params: {
   );
 }
 
-// --- Add / Remove Course from Enrollment ---
-
-export async function addCourseToEnrollment(
-  enrollmentId: string,
-  data: { courseId: string; batchId?: string; includeBook?: boolean },
-): Promise<ApiResponse<Enrollment>> {
-  return apiRequest<ApiResponse<Enrollment>>(`/enrollments/${enrollmentId}/courses`, {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
-}
-
-export async function removeCourseFromEnrollment(
-  enrollmentId: string,
-  courseId: string,
-): Promise<ApiResponse<Enrollment>> {
-  return apiRequest<ApiResponse<Enrollment>>(`/enrollments/${enrollmentId}/courses/${courseId}`, {
-    method: 'DELETE',
-  });
-}
-
 // --- Settlements ---
 
 export async function getSettlements(
@@ -414,6 +393,25 @@ export async function createSettlement(
 
 export async function deleteSettlement(id: string): Promise<ApiResponse<void>> {
   return apiRequest<ApiResponse<void>>(`/settlements/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function addCourseToEnrollment(
+  enrollmentId: string,
+  body: { courseId: string; batchId?: string | null; includeBook?: boolean },
+): Promise<ApiResponse<EnrollmentCourse>> {
+  return apiRequest<ApiResponse<EnrollmentCourse>>(`/enrollments/${enrollmentId}/courses`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function removeCourseFromEnrollment(
+  enrollmentId: string,
+  courseId: string,
+): Promise<ApiResponse<{ message: string }>> {
+  return apiRequest<ApiResponse<{ message: string }>>(`/enrollments/${enrollmentId}/courses/${courseId}`, {
     method: 'DELETE',
   });
 }

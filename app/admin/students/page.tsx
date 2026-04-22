@@ -26,6 +26,20 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
+import { getPrograms } from '@/lib/api/programs';
+import { getCourses } from '@/lib/api/courses';
+import { getBatches } from '@/lib/api/batches';
+import { getUsers, createUser } from '@/lib/api/users';
+import {
+  getEnrollments,
+  offlineAdmission,
+  updateEnrollment,
+  addCourseToEnrollment,
+  removeCourseFromEnrollment,
+  type Enrollment as ApiEnrollment,
+  type OfflineAdmissionDto,
+} from '@/lib/api/enrollments';
+import { getInvoices, processMonthPayment } from '@/lib/api/invoices';
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -45,7 +59,7 @@ interface Course {
   type: 'OFFLINE' | 'ONLINE';
   startMonth: string;
   endMonth: string;
-  batches: string[];
+  batches: { id: string; name: string }[];
 }
 
 interface Student {
@@ -57,6 +71,7 @@ interface Student {
   status: 'ACTIVE' | 'BLOCKED';
   branchId: string;
   createdAt: string;
+  _count?: { enrollments?: number };
 }
 
 interface EnrolledCourse {
@@ -99,76 +114,9 @@ interface SelCourseState {
   startMonth?: string;
 }
 
-// ─── MOCK DATA ────────────────────────────────────────────────────────────────
-
-const PROGRAMS: Program[] = [
-  { id: 'p1', name: 'HSC Academic Program 2027', paymentCircle: 'MONTHLY', admissionFeeEnabled: true, admissionFeeAmount: 2000 },
-  { id: 'p2', name: 'SSC Academic Program 2026', paymentCircle: 'MONTHLY', admissionFeeEnabled: true, admissionFeeAmount: 1500 },
-  { id: 'p3', name: 'Engineering Admission', paymentCircle: 'ONE_TIME', admissionFeeEnabled: false, admissionFeeAmount: 0 },
-];
-
-const ALL_COURSES: Course[] = [
-  { id: 'c1', programId: 'p1', name: 'Math', fee: 2000, type: 'OFFLINE', startMonth: '2026-01', endMonth: '2026-12', batches: ['Batch A', 'Batch B', 'DCC 2027 EV'] },
-  { id: 'c2', programId: 'p1', name: 'Chemistry', fee: 1500, type: 'OFFLINE', startMonth: '2026-01', endMonth: '2026-12', batches: ['Batch A', 'Batch B'] },
-  { id: 'c3', programId: 'p1', name: 'Physics', fee: 1500, type: 'OFFLINE', startMonth: '2026-01', endMonth: '2026-12', batches: ['Batch A', 'Batch B'] },
-  { id: 'c4', programId: 'p1', name: 'Biology', fee: 1200, type: 'ONLINE', startMonth: '2026-01', endMonth: '2026-12', batches: [] },
-  { id: 'c5', programId: 'p1', name: 'English', fee: 1000, type: 'ONLINE', startMonth: '2026-01', endMonth: '2026-12', batches: [] },
-  { id: 'c6', programId: 'p2', name: 'SSC Math', fee: 1800, type: 'OFFLINE', startMonth: '2026-02', endMonth: '2027-01', batches: ['A', 'B'] },
-  { id: 'c7', programId: 'p2', name: 'SSC English', fee: 1200, type: 'ONLINE', startMonth: '2026-02', endMonth: '2027-01', batches: [] },
-];
-
-const STUDENTS: Student[] = [
-  { id: 's1', regNo: '2600001', fullName: 'Tusher Ahmed', mobile: '8801400000001', email: 'tusher@example.com', status: 'ACTIVE', branchId: 'b1', createdAt: '2025-12-01' },
-  { id: 's2', regNo: '2500139', fullName: 'Byazid Azad', mobile: '8801766537454', email: null, status: 'ACTIVE', branchId: 'b1', createdAt: '2025-12-23' },
-  { id: 's3', regNo: '2600042', fullName: 'Rafi Hossain', mobile: '8801811223344', email: null, status: 'ACTIVE', branchId: 'b2', createdAt: '2026-01-05' },
-  { id: 's4', regNo: '2600078', fullName: 'Nadia Sultana', mobile: '8801912345678', email: 'nadia@example.com', status: 'BLOCKED', branchId: 'b1', createdAt: '2026-02-10' },
-  { id: 's5', regNo: '2600099', fullName: 'Karim Uddin', mobile: '8801523456789', email: null, status: 'ACTIVE', branchId: 'b3', createdAt: '2026-03-15' },
-];
-
-const ENROLLMENTS: Record<string, Enrollment[]> = {
-  s1: [
-    {
-      id: 'e1', programId: 'p1', branchId: 'b1', status: 'ACTIVE', billingType: 'MONTHLY',
-      monthlyDiscount: 500, billingStartMonth: '2026-01',
-      courses: [
-        { id: 'ec1', courseId: 'c1', batchId: 'Batch A', status: 'ACTIVE', startMonth: '2026-01', endMonth: '2026-12', includeBook: false },
-        { id: 'ec2', courseId: 'c2', batchId: 'Batch B', status: 'ACTIVE', startMonth: '2026-01', endMonth: '2026-12', includeBook: false },
-        { id: 'ec3', courseId: 'c3', batchId: 'Batch A', status: 'ACTIVE', startMonth: '2026-01', endMonth: '2026-12', includeBook: false },
-      ],
-    },
-  ],
-  s2: [
-    {
-      id: 'e2', programId: 'p1', branchId: 'b1', status: 'ACTIVE', billingType: 'MONTHLY',
-      monthlyDiscount: 0, billingStartMonth: '2025-12',
-      courses: [
-        { id: 'ec4', courseId: 'c2', batchId: 'Batch B', status: 'ACTIVE', startMonth: '2025-12', endMonth: '2026-12', includeBook: false },
-      ],
-    },
-  ],
-};
-
-const INVOICES: Record<string, Invoice[]> = {
-  s1: [
-    { id: 'inv1', month: '2026-01', amount: 4500, paidAmount: 4500, status: 'PAID', dueDate: '08 Jan 2026' },
-    { id: 'inv2', month: '2026-02', amount: 4500, paidAmount: 4500, status: 'PAID', dueDate: '08 Feb 2026' },
-    { id: 'inv3', month: '2026-03', amount: 4500, paidAmount: 0, status: 'DUE', dueDate: '08 Mar 2026' },
-    { id: 'inv4', month: '2026-04', amount: 4500, paidAmount: 0, status: 'DUE', dueDate: '08 Apr 2026' },
-    { id: 'inv5', month: '2026-05', amount: 4500, paidAmount: 0, status: 'DUE', dueDate: '08 May 2026' },
-  ],
-  s2: [
-    { id: 'inv6', month: '2025-12', amount: 6000, paidAmount: 6000, status: 'PAID', dueDate: '08 Dec 2025' },
-    { id: 'inv7', month: '2026-01', amount: 6000, paidAmount: 6000, status: 'PAID', dueDate: '08 Jan 2026' },
-    { id: 'inv8', month: '2026-02', amount: 6000, paidAmount: 0, status: 'DUE', dueDate: '08 Feb 2026' },
-    { id: 'inv9', month: '2026-03', amount: 6000, paidAmount: 0, status: 'DUE', dueDate: '08 Mar 2026' },
-    { id: 'inv10', month: '2026-04', amount: 6000, paidAmount: 0, status: 'DUE', dueDate: '08 Apr 2026' },
-  ],
-};
-
 // ─── UTILS ────────────────────────────────────────────────────────────────────
 
 const fmt = (n: number | string) => '৳' + Number(n || 0).toLocaleString('en-BD');
-const genReg = () => String(2600100 + Math.floor(Math.random() * 899));
 const nextMonth = () => {
   const d = new Date();
   d.setMonth(d.getMonth() + 1);
@@ -179,6 +127,27 @@ const fmtMonth = (m: string) => {
   const [y, mo] = m.split('-');
   return new Date(Number(y), Number(mo) - 1).toLocaleString('en', { month: 'short', year: 'numeric' });
 };
+
+function toLocalEnrollment(e: ApiEnrollment): Enrollment {
+  return {
+    id: e.id,
+    programId: e.programId,
+    branchId: e.branchId,
+    status: (['ACTIVE', 'WAITLISTED'].includes(e.status as string) ? 'ACTIVE' : 'CANCELLED') as 'ACTIVE' | 'CANCELLED',
+    billingType: (e.billingType ?? 'MONTHLY') as 'MONTHLY' | 'ONE_TIME',
+    monthlyDiscount: Number(e.monthlyDiscount ?? 0),
+    billingStartMonth: e.billingStartMonth ?? '',
+    courses: (e.enrollmentCourses ?? []).map(ec => ({
+      id: ec.id,
+      courseId: ec.courseId,
+      batchId: ec.batchId ?? null,
+      status: 'ACTIVE' as const,
+      startMonth: '',
+      endMonth: '',
+      includeBook: ec.includeBook,
+    })),
+  };
+}
 
 function distributeDiscount(courses: Course[], total: number): CourseWithDiscount[] {
   const sum = courses.reduce((s, c) => s + c.fee, 0);
@@ -567,21 +536,40 @@ function SuccessSummary({
 // ─── CANCEL COURSE MODAL ──────────────────────────────────────────────────────
 
 function CancelCourseModal({
-  course, enrollment, onClose, onDone,
+  course, enrollment, allCourses, onClose, onDone,
 }: {
   course: Course;
   enrollment: Enrollment;
+  allCourses: Course[];
   onClose: () => void;
   onDone: () => void;
 }) {
   const [step, setStep] = useState<'confirm' | 'discount' | 'success'>('confirm');
   const [appliedDiscount, setAppliedDiscount] = useState(0);
+  const [saving, setSaving] = useState(false);
   const effMonth = nextMonth();
 
   const remainingCourses = enrollment.courses
     .filter(ec => ec.courseId !== course.id && ec.status === 'ACTIVE')
-    .map(ec => ALL_COURSES.find(c => c.id === ec.courseId))
+    .map(ec => allCourses.find(c => c.id === ec.courseId))
     .filter((c): c is Course => Boolean(c));
+
+  const handleApply = async (disc: number) => {
+    setSaving(true);
+    try {
+      const res = await removeCourseFromEnrollment(enrollment.id, course.id);
+      if (!res.success) throw new Error((res as { message?: string }).message ?? 'Failed to remove course');
+      if (disc !== enrollment.monthlyDiscount) {
+        await updateEnrollment(enrollment.id, { monthlyDiscount: disc });
+      }
+      setAppliedDiscount(disc);
+      setStep('success');
+    } catch (err: unknown) {
+      alert((err as Error).message ?? 'Operation failed');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const netMonthly = remainingCourses.reduce((s, c) => s + c.fee, 0) - appliedDiscount;
 
@@ -640,8 +628,8 @@ function CancelCourseModal({
           triggerType="REMOVE"
           changedCourse={course}
           effectiveMonth={effMonth}
-          onApply={(disc) => { setAppliedDiscount(disc); setStep('success'); }}
-          onBack={() => setStep('confirm')}
+          onApply={handleApply}
+          onBack={saving ? () => undefined : () => setStep('confirm')}
         />
       )}
 
@@ -662,9 +650,11 @@ function CancelCourseModal({
 // ─── ADD COURSE MODAL ─────────────────────────────────────────────────────────
 
 function AddCourseModal({
-  enrollment, onClose, onDone,
+  enrollment, allCourses, programs, onClose, onDone,
 }: {
   enrollment: Enrollment;
+  allCourses: Course[];
+  programs: Program[];
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -673,25 +663,52 @@ function AddCourseModal({
   const [batch, setBatch] = useState('');
   const [startMonth, setStartMonth] = useState(nextMonth());
   const [appliedDiscount, setAppliedDiscount] = useState(0);
+  const [courseBatches, setCourseBatches] = useState<{ id: string; name: string }[]>([]);
   const effMonth = nextMonth();
 
+  useEffect(() => {
+    if (!selectedCourseId) { setCourseBatches([]); return; }
+    getBatches({ courseId: selectedCourseId, limit: 100 }).then(res => {
+      if (res.success && res.data) setCourseBatches(res.data.map(b => ({ id: b.id, name: b.name })));
+    });
+  }, [selectedCourseId]);
+
   const enrolledCourseIds = enrollment.courses.filter(ec => ec.status === 'ACTIVE').map(ec => ec.courseId);
-  const available = ALL_COURSES.filter(c => c.programId === enrollment.programId && !enrolledCourseIds.includes(c.id));
-  const selectedCourse = ALL_COURSES.find(c => c.id === selectedCourseId);
+  const available = allCourses.filter(c => c.programId === enrollment.programId && !enrolledCourseIds.includes(c.id));
+  const selectedCourse = allCourses.find(c => c.id === selectedCourseId);
   const activeCourses = enrollment.courses
     .filter(ec => ec.status === 'ACTIVE')
-    .map(ec => ALL_COURSES.find(c => c.id === ec.courseId))
+    .map(ec => allCourses.find(c => c.id === ec.courseId))
     .filter((c): c is Course => Boolean(c));
   const allCoursesAfterAdd = selectedCourse ? [...activeCourses, selectedCourse] : activeCourses;
   const canProceed = selectedCourseId && (selectedCourse?.type === 'ONLINE' || batch);
   const netMonthly = allCoursesAfterAdd.reduce((s, c) => s + c.fee, 0) - appliedDiscount;
 
-  const program = PROGRAMS.find(p => p.id === enrollment.programId);
+  const program = programs.find(p => p.id === enrollment.programId);
   const titles = { select: 'Add Course to Enrollment', discount: 'Adjust Monthly Discount', success: 'Course Added' };
   const subtitles = {
     select: `Program: ${program?.name ?? ''}`,
     discount: `Effective from ${fmtMonth(effMonth)}`,
     success: '',
+  };
+
+  const handleApply = async (disc: number) => {
+    if (!selectedCourseId) return;
+    try {
+      const res = await addCourseToEnrollment(enrollment.id, {
+        courseId: selectedCourseId,
+        batchId: batch || null,
+        includeBook: false,
+      });
+      if (!res.success) throw new Error((res as { message?: string }).message ?? 'Failed to add course');
+      if (disc !== enrollment.monthlyDiscount) {
+        await updateEnrollment(enrollment.id, { monthlyDiscount: disc });
+      }
+      setAppliedDiscount(disc);
+      setStep('success');
+    } catch (err: unknown) {
+      alert((err as Error).message ?? 'Operation failed');
+    }
   };
 
   return (
@@ -729,7 +746,7 @@ function AddCourseModal({
                       value={batch}
                       onChange={setBatch}
                       placeholder="Select batch"
-                      options={selectedCourse.batches.map(b => ({ value: b, label: b }))}
+                      options={courseBatches.map(b => ({ value: b.id, label: b.name }))}
                     />
                     {!batch && <p className="text-[11px] text-rose-600 mt-1">Required for offline</p>}
                   </Field>
@@ -738,7 +755,7 @@ function AddCourseModal({
                   <MonthInput value={startMonth} onChange={setStartMonth} min={effMonth} max={selectedCourse.endMonth} />
                 </Field>
                 <Field label="End Month">
-                  <MonthInput value={selectedCourse.endMonth} disabled />
+                  <MonthInput value={selectedCourse.endMonth || ''} disabled />
                 </Field>
               </div>
             </div>
@@ -764,7 +781,7 @@ function AddCourseModal({
           triggerType="ADD"
           changedCourse={selectedCourse}
           effectiveMonth={effMonth}
-          onApply={(disc) => { setAppliedDiscount(disc); setStep('success'); }}
+          onApply={handleApply}
           onBack={() => setStep('select')}
         />
       )}
@@ -786,17 +803,27 @@ function AddCourseModal({
 // ─── ENROLLED COURSES VIEW ────────────────────────────────────────────────────
 
 function EnrolledCoursesView({
-  student, onBack, showToast,
+  student, onBack, showToast, programs, allCourses,
 }: {
   student: Student;
   onBack: () => void;
   showToast: (msg: string, type?: string) => void;
+  programs: Program[];
+  allCourses: Course[];
 }) {
-  const enrollments = ENROLLMENTS[student.id] || [];
+  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [loadingEnrollments, setLoadingEnrollments] = useState(true);
   const [cancelModal, setCancelModal] = useState<{ course: Course; enrollment: Enrollment } | null>(null);
   const [addModal, setAddModal] = useState<Enrollment | null>(null);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const dropRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    getEnrollments({ studentUserId: student.id, limit: 50 }).then(res => {
+      if (res.success && res.data) setEnrollments(res.data.map(toLocalEnrollment));
+      setLoadingEnrollments(false);
+    });
+  }, [student.id]);
 
   useEffect(() => {
     const h = (e: MouseEvent) => {
@@ -861,10 +888,15 @@ function EnrolledCoursesView({
       </div>
 
       {/* Per-enrollment sections */}
-      {enrollments.map(enrollment => {
-        const program = PROGRAMS.find(p => p.id === enrollment.programId);
+      {loadingEnrollments && (
+        <div className="bg-white border border-slate-200 rounded-2xl py-10 text-center">
+          <p className="text-slate-400 text-base">Loading enrollments…</p>
+        </div>
+      )}
+      {!loadingEnrollments && enrollments.map(enrollment => {
+        const program = programs.find(p => p.id === enrollment.programId);
         const totalFee = enrollment.courses.filter(ec => ec.status === 'ACTIVE').reduce((s, ec) => {
-          const c = ALL_COURSES.find(x => x.id === ec.courseId);
+          const c = allCourses.find(x => x.id === ec.courseId);
           return s + (c?.fee || 0);
         }, 0);
         const netFee = totalFee - (enrollment.monthlyDiscount || 0);
@@ -913,7 +945,7 @@ function EnrolledCoursesView({
                 </thead>
                 <tbody>
                   {enrollment.courses.map((ec, idx) => {
-                    const course = ALL_COURSES.find(c => c.id === ec.courseId);
+                    const course = allCourses.find(c => c.id === ec.courseId);
                     if (!course) return null;
                     return (
                       <tr key={ec.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
@@ -961,7 +993,7 @@ function EnrolledCoursesView({
                               <MoreVertical className="h-4 w-4" />
                             </button>
                             {activeDropdown === ec.id && (
-                              <div className="absolute right-0 top-[calc(100%+4px)] bg-white border border-slate-200 rounded-xl shadow-xl min-w-[185px] z-50 overflow-hidden">
+                              <div className="absolute right-0 top-[calc(100%+4px)] bg-white border border-slate-200 rounded-xl shadow-xl min-w-48 z-50 overflow-hidden">
                                 {[
                                   { id: 'batch', icon: ArrowLeftRight, label: 'Change Batch' },
                                   { id: 'branch', icon: ArrowLeftRight, label: 'Change Branch' },
@@ -1012,7 +1044,7 @@ function EnrolledCoursesView({
         );
       })}
 
-      {enrollments.length === 0 && (
+      {!loadingEnrollments && enrollments.length === 0 && (
         <div className="bg-white border border-slate-200 rounded-2xl py-10 text-center">
           <p className="text-slate-400 text-base">No enrollments found for this student.</p>
         </div>
@@ -1022,15 +1054,28 @@ function EnrolledCoursesView({
         <CancelCourseModal
           course={cancelModal.course}
           enrollment={cancelModal.enrollment}
+          allCourses={allCourses}
           onClose={() => setCancelModal(null)}
-          onDone={() => showToast(`${cancelModal.course.name} cancelled. Invoices updated from ${fmtMonth(nextMonth())}.`, 'success')}
+          onDone={() => {
+            showToast(`${cancelModal.course.name} cancelled. Invoices updated from ${fmtMonth(nextMonth())}.`, 'success');
+            getEnrollments({ studentUserId: student.id, limit: 50 }).then(res => {
+              if (res.success && res.data) setEnrollments(res.data.map(toLocalEnrollment));
+            });
+          }}
         />
       )}
       {addModal && (
         <AddCourseModal
           enrollment={addModal}
+          allCourses={allCourses}
+          programs={programs}
           onClose={() => setAddModal(null)}
-          onDone={() => showToast('Course added and invoices regenerated!', 'success')}
+          onDone={() => {
+            showToast('Course added and invoices regenerated!', 'success');
+            getEnrollments({ studentUserId: student.id, limit: 50 }).then(res => {
+              if (res.success && res.data) setEnrollments(res.data.map(toLocalEnrollment));
+            });
+          }}
         />
       )}
     </div>
@@ -1050,6 +1095,7 @@ function AddStudentModal({
     fatherMobile: '', gender: '', bloodGroup: '', address: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
   const set = (k: string) => (v: string) => setForm(f => ({ ...f, [k]: v }));
 
   const validate = () => {
@@ -1061,18 +1107,37 @@ function AddStudentModal({
     return e;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const e = validate();
     if (Object.keys(e).length) { setErrors(e); return; }
-    onSave({
-      ...form,
-      id: Date.now().toString(),
-      regNo: genReg(),
-      status: 'ACTIVE',
-      email: form.email || null,
-      branchId: 'b1',
-      createdAt: new Date().toISOString().slice(0, 10),
-    });
+    setSaving(true);
+    try {
+      const res = await createUser({
+        fullName: form.fullName,
+        mobile: form.mobile,
+        email: form.email || undefined,
+        role: 'STUDENT',
+      });
+      if (res.success && res.data) {
+        type CreatedUser = typeof res.data & { studentProfile?: { registrationNumber?: string } };
+        const u = res.data as CreatedUser;
+        onSave({
+          id: u.id,
+          regNo: u.studentProfile?.registrationNumber ?? '—',
+          fullName: u.fullName,
+          mobile: u.mobile,
+          email: u.email ?? null,
+          status: 'ACTIVE',
+          branchId: u.branchId ?? '',
+          createdAt: u.createdAt ?? new Date().toISOString().slice(0, 10),
+        });
+      } else {
+        const errMsg = (res as { message?: string }).message ?? 'Failed to create student';
+        setErrors({ submit: errMsg });
+      }
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -1162,13 +1227,17 @@ function AddStudentModal({
           Registration number will be <strong>auto-generated</strong> as a 7-digit unique ID on save.
         </p>
       </div>
+      {errors.submit && (
+        <p className="text-sm text-rose-600 font-semibold mb-3">{errors.submit}</p>
+      )}
       <div className="flex justify-end gap-2.5">
-        <Button variant="outline" onClick={onClose}>Cancel</Button>
+        <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
         <Button
           onClick={handleSave}
+          disabled={saving}
           className="gap-2 bg-slate-900 text-white hover:bg-indigo-600 transition-all"
         >
-          <Check className="h-4 w-4" /> Save Student
+          <Check className="h-4 w-4" /> {saving ? 'Saving…' : 'Save Student'}
         </Button>
       </div>
     </AppModal>
@@ -1178,9 +1247,11 @@ function AddStudentModal({
 // ─── ENROLLMENT MODAL ─────────────────────────────────────────────────────────
 
 function EnrollmentModal({
-  student, onClose, onSave,
+  student, programs, allCourses, onClose, onSave,
 }: {
   student: Student;
+  programs: Program[];
+  allCourses: Course[];
   onClose: () => void;
   onSave: (data: { student: Student; program: Program | undefined; netMonthly: number; admFee: number }) => void;
 }) {
@@ -1190,10 +1261,27 @@ function EnrollmentModal({
   const [selCourses, setSelCourses] = useState<Record<string, SelCourseState>>({});
   const [monthlyDiscount, setMonthlyDiscount] = useState('0');
   const [admDiscount, setAdmDiscount] = useState('0');
-  const [billingStart, setBillingStart] = useState('2026-04');
+  const [billingStart, setBillingStart] = useState(() => nextMonth());
+  const [courseBatches, setCourseBatches] = useState<Record<string, { id: string; name: string }[]>>({});
+  const [saving, setSaving] = useState(false);
+  const [enrollError, setEnrollError] = useState('');
 
-  const program = PROGRAMS.find(p => p.id === programId);
-  const courses = programId ? ALL_COURSES.filter(c => c.programId === programId) : [];
+  useEffect(() => {
+    if (!programId) { setCourseBatches({}); return; }
+    getBatches({ programId, limit: 200 }).then(res => {
+      if (res.success && res.data) {
+        const map: Record<string, { id: string; name: string }[]> = {};
+        for (const b of res.data) {
+          map[b.courseId] ??= [];
+          map[b.courseId].push({ id: b.id, name: b.name });
+        }
+        setCourseBatches(map);
+      }
+    });
+  }, [programId]);
+
+  const program = programs.find(p => p.id === programId);
+  const courses = programId ? allCourses.filter(c => c.programId === programId) : [];
   const selected = courses.filter(c => selCourses[c.id]?.checked);
   const totalFee = selected.reduce((s, c) => s + c.fee, 0);
   const distributed = distributeDiscount(selected, Number(monthlyDiscount) || 0);
@@ -1207,6 +1295,36 @@ function EnrollmentModal({
     setSelCourses(p => ({ ...p, [cid]: { ...p[cid], checked: !p[cid]?.checked, startMonth: billingStart } }));
   const setCF = (cid: string, f: string, v: string) =>
     setSelCourses(p => ({ ...p, [cid]: { ...p[cid], [f]: v } }));
+
+  const handleConfirm = async () => {
+    setSaving(true);
+    setEnrollError('');
+    try {
+      const coursePayload = selected.map(c => ({
+        courseId: c.id,
+        batchId: selCourses[c.id]?.batch || null,
+        includeBook: false,
+      }));
+      const dto: OfflineAdmissionDto = {
+        studentUserId: student.id,
+        programId,
+        courses: coursePayload,
+        branchId,
+        billingType: program?.paymentCircle === 'MONTHLY' ? 'MONTHLY' : 'ONE_TIME',
+        billingStartMonth: billingStart,
+        monthlyDiscount: Number(monthlyDiscount) || 0,
+        admissionFeeAmountOverrides: program?.admissionFeeEnabled ? { [programId]: admFee } : undefined,
+      };
+      const res = await offlineAdmission(dto);
+      if (res.success) {
+        onSave({ student, program, netMonthly, admFee });
+      } else {
+        setEnrollError((res as { message?: string }).message ?? 'Enrollment failed');
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <AppModal
@@ -1246,7 +1364,7 @@ function EnrollmentModal({
                   value={programId}
                   onChange={v => { setProgramId(v); setSelCourses({}); }}
                   placeholder="Select program"
-                  options={PROGRAMS.map(p => ({ value: p.id, label: p.name }))}
+                  options={programs.map(p => ({ value: p.id, label: p.name }))}
                 />
               </Field>
               <Field label="Branch">
@@ -1305,7 +1423,7 @@ function EnrollmentModal({
                                   value={sel.batch || ''}
                                   onChange={v => setCF(c.id, 'batch', v)}
                                   placeholder="Select batch"
-                                  options={c.batches.map(b => ({ value: b, label: b }))}
+                                  options={(courseBatches[c.id] ?? []).map(b => ({ value: b.id, label: b.name }))}
                                 />
                                 {!sel.batch && <p className="text-[11px] text-rose-600 mt-1">Required</p>}
                               </Field>
@@ -1495,14 +1613,16 @@ function EnrollmentModal({
           )}
 
           <div className="flex justify-end gap-2.5">
-            <Button variant="outline" onClick={() => setStep(1)} className="gap-2">
+            <Button variant="outline" onClick={() => setStep(1)} className="gap-2" disabled={saving}>
               <ArrowLeft className="h-4 w-4" /> Go Back
             </Button>
+            {enrollError && <p className="text-sm text-rose-600 font-semibold self-center">{enrollError}</p>}
             <Button
-              onClick={() => onSave({ student, program, netMonthly, admFee })}
+              onClick={handleConfirm}
+              disabled={saving}
               className="gap-2 bg-slate-900 text-white hover:bg-indigo-600 transition-all"
             >
-              <Check className="h-4 w-4" /> Confirm Admission
+              <Check className="h-4 w-4" /> {saving ? 'Processing…' : 'Confirm Admission'}
             </Button>
           </div>
         </div>
@@ -1520,11 +1640,30 @@ function CollectPaymentModal({
   onClose: () => void;
   onSave: (data: { student: Student; month: string; method: string; amount: number }) => void;
 }) {
-  const [selMonth, setSelMonth] = useState('2026-04');
+  const [selMonth, setSelMonth] = useState('');
   const [method, setMethod] = useState('CASH');
   const [addDiscount, setAddDiscount] = useState('0');
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [loadingInvoices, setLoadingInvoices] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const invoices = INVOICES[student.id] || [];
+  useEffect(() => {
+    setLoadingInvoices(true);
+    getInvoices({ studentUserId: student.id, limit: 100 }).then(res => {
+      const mapped: Invoice[] = (res.data ?? []).map(inv => ({
+        id: inv.id,
+        month: inv.month ?? '',
+        amount: Number(inv.payableAmount),
+        paidAmount: Number(inv.paidAmount),
+        status: inv.status === 'PAID' ? 'PAID' : 'DUE',
+        dueDate: inv.nextPaymentDueDate ?? '',
+      }));
+      setInvoices(mapped);
+      if (mapped.length > 0) setSelMonth(mapped[0].month);
+      setLoadingInvoices(false);
+    });
+  }, [student.id]);
+
   const monthInvs = invoices.filter(i => i.month === selMonth);
   const totalDue = monthInvs.reduce((s, i) => s + i.amount, 0);
   const netDue = Math.max(0, totalDue - (Number(addDiscount) || 0));
@@ -1661,10 +1800,22 @@ function CollectPaymentModal({
           </div>
           <Button
             className="w-full gap-2 bg-indigo-600 text-white hover:bg-indigo-700 transition-all"
-            disabled={netDue <= 0}
-            onClick={() => onSave({ student, month: selMonth, method, amount: netDue })}
+            disabled={netDue <= 0 || saving || loadingInvoices}
+            onClick={async () => {
+              setSaving(true);
+              try {
+                await processMonthPayment({
+                  studentUserId: student.id,
+                  month: selMonth,
+                  payment: { amount: netDue, method },
+                });
+                onSave({ student, month: selMonth, method, amount: netDue });
+              } finally {
+                setSaving(false);
+              }
+            }}
           >
-            <Check className="h-4 w-4" /> Collect {method} Payment
+            <Check className="h-4 w-4" /> {saving ? 'Processing…' : `Collect ${method} Payment`}
           </Button>
         </div>
       </div>
@@ -1714,7 +1865,7 @@ function RowActions({
         <MoreVertical className="h-4 w-4" />
       </button>
       {open && (
-        <div className="absolute right-0 top-[calc(100%+4px)] bg-white border border-slate-200 rounded-xl shadow-xl min-w-[192px] z-50 overflow-hidden">
+        <div className="absolute right-0 top-[calc(100%+4px)] bg-white border border-slate-200 rounded-xl shadow-xl min-w-48 z-50 overflow-hidden">
           {actions.map((a, i) => (
             <button
               key={a.id}
@@ -1739,13 +1890,56 @@ function RowActions({
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 
 export default function StudentsPage() {
-  const [students, setStudents] = useState<Student[]>(STUDENTS);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loadingStudents, setLoadingStudents] = useState(true);
+  const [programs, setPrograms] = useState<Program[]>([]);
+  const [allCourses, setAllCourses] = useState<Course[]>([]);
   const [view, setView] = useState<'list' | 'enrollments'>('list');
   const [activeStudent, setActiveStudent] = useState<Student | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [modal, setModal] = useState<{ type: string; student?: Student } | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    getUsers({ role: 'STUDENT', limit: 200 }).then(res => {
+      if (res.success && res.data) {
+        type ApiStudentUser = typeof res.data[0] & {
+          studentProfile?: { registrationNumber?: string };
+          _count?: { enrollments?: number };
+        };
+        setStudents((res.data as ApiStudentUser[]).map(u => ({
+          id: u.id,
+          regNo: u.studentProfile?.registrationNumber ?? '—',
+          fullName: u.fullName,
+          mobile: u.mobile,
+          email: u.email ?? null,
+          status: u.status as 'ACTIVE' | 'BLOCKED',
+          branchId: u.branchId ?? '',
+          createdAt: u.createdAt ?? '',
+          _count: u._count,
+        })));
+      }
+      setLoadingStudents(false);
+    });
+    getPrograms().then(res => {
+      if (res.success && res.data) setPrograms(res.data as Program[]);
+    });
+    getCourses({ limit: 200 }).then(res => {
+      if (res.success && res.data) {
+        setAllCourses(res.data.map(c => ({
+          id: c.id,
+          name: c.name,
+          programId: c.programId,
+          fee: Number(c.fee ?? 0),
+          type: (c.type === 'OFFLINE' ? 'OFFLINE' : 'ONLINE') as 'OFFLINE' | 'ONLINE',
+          startMonth: c.startMonth ?? '',
+          endMonth: c.endMonth ?? '',
+          batches: [],
+        })));
+      }
+    });
+  }, []);
 
   const showToast = (msg: string, type = 'success') => {
     toast({ title: msg, variant: type === 'error' ? 'destructive' : 'default' });
@@ -1775,6 +1969,8 @@ export default function StudentsPage() {
           student={activeStudent}
           onBack={() => setView('list')}
           showToast={showToast}
+          programs={programs}
+          allCourses={allCourses}
         />
         <Toaster />
       </div>
@@ -1782,19 +1978,9 @@ export default function StudentsPage() {
   }
 
   return (
-    <div className="min-h-screen space-y-6 p-6 bg-slate-50/50">
+    <div className="min-h-screen space-y-6 p-6 sm:p-0 bg-slate-50/50">
       {/* Page header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-600 text-white shadow-lg shadow-rose-200">
-            <Users className="h-6 w-6" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-black text-slate-900">Student Management</h1>
-            <p className="text-sm text-slate-500 font-medium">Manage students, enrollments, and payments</p>
-          </div>
-        </div>
-      </div>
+   
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -1830,14 +2016,14 @@ export default function StudentsPage() {
               {filtered.length}
             </span>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 ">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
               <Input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Search name, mobile, reg no..."
-                className="pl-8 w-56 text-sm focus-visible:ring-indigo-400"
+                className="pl-8 w-72 text-sm focus-visible:ring-indigo-400"
               />
             </div>
             <AppSelect
@@ -1874,8 +2060,15 @@ export default function StudentsPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(s => {
-                const enrollCount = (ENROLLMENTS[s.id] || []).length;
+              {loadingStudents && (
+                <tr>
+                  <td colSpan={7} className="px-4 py-10 text-center text-slate-400 text-sm">
+                    Loading students…
+                  </td>
+                </tr>
+              )}
+              {!loadingStudents && filtered.map(s => {
+                const enrollCount = s._count?.enrollments ?? 0;
                 const hue = s.fullName.charCodeAt(0) * 13 % 360;
                 return (
                   <tr key={s.id} className="border-b border-slate-100 hover:bg-slate-50/80 transition-colors">
@@ -1944,7 +2137,7 @@ export default function StudentsPage() {
                   </tr>
                 );
               })}
-              {filtered.length === 0 && (
+              {!loadingStudents && filtered.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-4 py-10 text-center text-slate-400 text-sm">
                     No students found matching your search.
@@ -1990,6 +2183,8 @@ export default function StudentsPage() {
       {modal?.type === 'enroll' && modal.student && (
         <EnrollmentModal
           student={modal.student}
+          programs={programs}
+          allCourses={allCourses}
           onClose={() => setModal(null)}
           onSave={data => {
             setModal(null);
