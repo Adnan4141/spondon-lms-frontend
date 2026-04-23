@@ -6,9 +6,10 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Check, X, Info, Eye, Pencil, Trash2, Plus, Minus,
-  ChevronRight, Zap, List, Loader2,
+  ChevronRight, Zap, List, Loader2, Settings,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -819,6 +820,7 @@ export function ExamRow({
   onDelete: (id: string) => void;
   onPublish: (id: string) => void;
 }) {
+  const router = useRouter();
   const engineCfg = ENGINE_CONFIG[exam.examEngine ?? 'REGULAR'] ?? ENGINE_CONFIG.REGULAR;
   const modeCfg   = MODE_CONFIG[exam.mode];
   const statusCfg = STATUS_CONFIG[exam.status];
@@ -859,6 +861,11 @@ export function ExamRow({
       </td>
       <td className="px-3 py-3">
         <div className="flex gap-1.5 justify-end">
+          <button
+            onClick={() => router.push(`/admin/exams/${exam.id}`)}
+            className="bg-slate-900 hover:bg-slate-700 text-white px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors">
+            <Settings className="h-3 w-3" /> Manage
+          </button>
           {exam.status === 'DRAFT' && (
             <button onClick={() => onPublish(exam.id)}
               className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors">
