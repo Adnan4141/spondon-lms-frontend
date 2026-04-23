@@ -1607,7 +1607,9 @@ function EnrollmentModal({
                     <td className="px-3.5 py-3">
                       <AppBadge label={c.type} color={c.type === 'OFFLINE' ? 'amber' : 'blue'} />
                     </td>
-                    <td className="px-3.5 py-3 text-slate-500">{selCourses[c.id]?.batch || '—'}</td>
+                    <td className="px-3.5 py-3 text-slate-500">
+                      {courseBatches[c.id]?.find(b => b.id === selCourses[c.id]?.batch)?.name || '—'}
+                    </td>
                     <td className="px-3.5 py-3 text-right font-semibold">{fmt(c.fee)}</td>
                     <td className="px-3.5 py-3 text-right text-rose-500 font-semibold">
                       {c.discount > 0 ? `−${fmt(c.discount)}` : '—'}
@@ -2069,13 +2071,16 @@ function CollectPaymentModal({
                   if (amountToCollect <= 0) return;
                   setSaving(true);
                   try {
-                    await processMonthPayment({
+                    const payResult = await processMonthPayment({
                       studentUserId: student.id,
                       month: selMonth,
                       payment: { amount: amountToCollect, method },
                     });
                     setPaymentAmount('');
                     await fetchInvoices(true); // silent refresh — updates invoice status/paidAmount before modal closes
+                    // Auto-open updated invoice PDF in a new tab
+                    const invoiceId = payResult?.data?.invoice?.id;
+                    if (invoiceId) openInvoicePdf(invoiceId);
                     onSave({ student, month: selMonth, method, amount: amountToCollect });
                   } finally {
                     setSaving(false);

@@ -131,8 +131,8 @@ export interface ProcessMonthlyPaymentDto {
 
 export async function processMonthPayment(
   body: ProcessMonthlyPaymentDto,
-): Promise<ApiResponse<unknown>> {
-  return apiRequest<ApiResponse<unknown>>('/invoices/monthly/process', {
+): Promise<ApiResponse<{ invoice: { id: string }; payment: unknown; replacedInvoiceId: string | null }>> {
+  return apiRequest('/invoices/monthly/process', {
     method: 'POST',
     body: JSON.stringify(body),
   });
