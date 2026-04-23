@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo, Fragment } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Plus,
   X,
@@ -214,7 +215,7 @@ function AppSelect({
 }: {
   value: string;
   onChange: (v: string) => void;
-  options: { value: string; label: string }[];
+  options: { value: string; label: string; disabled?: boolean }[];
   placeholder?: string;
   disabled?: boolean;
 }) {
@@ -225,7 +226,7 @@ function AppSelect({
       </SelectTrigger>
       <SelectContent>
         {options.map(o => (
-          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+          <SelectItem key={o.value} value={o.value} disabled={o.disabled}>{o.label}</SelectItem>
         ))}
       </SelectContent>
     </Select>
@@ -559,24 +560,39 @@ function CancelCourseModal({
   const [appliedDiscount, setAppliedDiscount] = useState(0);
   const [saving, setSaving] = useState(false);
   const [invoicePdfUrl, setInvoicePdfUrl] = useState<string | null>(null);
+  const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([course.id]);
   const effMonth = nextMonth();
 
+  const activeCourses = enrollment.courses
+    .filter(ec => ec.status === 'ACTIVE')
+    .map(ec => allCourses.find(c => c.id === ec.courseId))
+    .filter((c): c is Course => Boolean(c));
+
+  const selectedCancelCourses = activeCourses.filter(c => selectedCourseIds.includes(c.id));
+
   const remainingCourses = enrollment.courses
-    .filter(ec => ec.courseId !== course.id && ec.status === 'ACTIVE')
+    .filter(ec => !selectedCourseIds.includes(ec.courseId) && ec.status === 'ACTIVE')
     .map(ec => allCourses.find(c => c.id === ec.courseId))
     .filter((c): c is Course => Boolean(c));
 
   const handleApply = async (disc: number) => {
+    if (selectedCourseIds.length === 0) return;
     setSaving(true);
     try {
-      const res = await removeCourseFromEnrollment(enrollment.id, course.id);
-      if (!res.success) throw new Error((res as { message?: string }).message ?? 'Failed to remove course');
+      for (const courseId of selectedCourseIds) {
+        const res = await removeCourseFromEnrollment(enrollment.id, courseId);
+        if (!res.success) throw new Error((res as { message?: string }).message ?? 'Failed to remove course');
+      }
       if (disc !== enrollment.monthlyDiscount) {
+        // Backend will regenerate invoices with the new discount applied
         await updateEnrollment(enrollment.id, { monthlyDiscount: disc });
       }
       setAppliedDiscount(disc);
-      // Fetch the regenerated invoice PDF for next month
-      getInvoices({ studentUserId, month: effMonth, limit: 5 })
+      // Ensure the effective month invoice exists (advance gen), then fetch its refreshed PDF.
+      // The backend has already regenerated existing unpaid invoices; this fills any gaps.
+      generateAdvanceInvoices({ studentUserId, months: 3 })
+        .catch(() => {})
+        .then(() => getInvoices({ studentUserId, month: effMonth, limit: 5 }))
         .then(r => {
           const firstId = r.data?.[0]?.id;
           if (firstId) return getInvoicePdfUrl(firstId);
@@ -598,7 +614,9 @@ function CancelCourseModal({
 
   const titles = { confirm: 'Cancel Course', discount: 'Adjust Monthly Discount', success: 'Changes Applied' };
   const subtitles = {
-    confirm: `Removing ${course.name} from enrollment`,
+    confirm: selectedCancelCourses.length > 1
+      ? `Removing ${selectedCancelCourses.length} courses from enrollment`
+      : `Removing ${selectedCancelCourses[0]?.name || course.name} from enrollment`,
     discount: `Effective from ${fmtMonth(effMonth)}`,
     success: '',
   };
@@ -616,13 +634,47 @@ function CancelCourseModal({
               </p>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-2.5 mb-5">
-            {[['Course', course.name], ['Fee', `${fmt(course.fee)}/month`], ['Effective From', fmtMonth(effMonth)]].map(([k, v]) => (
-              <div key={k} className="bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2.5">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">{k}</p>
-                <p className="font-bold text-sm text-slate-900">{v}</p>
-              </div>
-            ))}
+          <div className="mb-5">
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2.5">Select course(s) to cancel</p>
+            <div className="flex flex-col gap-2">
+              {activeCourses.map(c => {
+                const checked = selectedCourseIds.includes(c.id);
+                return (
+                  <label
+                    key={c.id}
+                    className={cn(
+                      'flex items-center justify-between gap-3 border rounded-xl px-3.5 py-2.5 cursor-pointer transition-colors',
+                      checked ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-white hover:bg-slate-50',
+                    )}
+                  >
+                    <span className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => setSelectedCourseIds(prev => (
+                          checked ? prev.filter(id => id !== c.id) : [...prev, c.id]
+                        ))}
+                        className="accent-rose-600"
+                      />
+                      <span className="font-semibold text-sm text-slate-900">{c.name}</span>
+                    </span>
+                    <span className="text-xs font-bold text-rose-700">{fmt(c.fee)}/month</span>
+                  </label>
+                );
+              })}
+            </div>
+            <div className="grid grid-cols-3 gap-2.5 mt-3">
+              {[
+                ['Selected', String(selectedCourseIds.length)],
+                ['Selected Fee', `${fmt(selectedCancelCourses.reduce((s, c) => s + c.fee, 0))}/month`],
+                ['Effective From', fmtMonth(effMonth)],
+              ].map(([k, v]) => (
+                <div key={k} className="bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2.5">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">{k}</p>
+                  <p className="font-bold text-sm text-slate-900">{v}</p>
+                </div>
+              ))}
+            </div>
           </div>
           {remainingCourses.length === 0 && (
             <div className="bg-rose-50 border border-rose-200 rounded-xl px-4 py-3 mb-4 flex gap-2">
@@ -635,6 +687,7 @@ function CancelCourseModal({
           <div className="flex justify-end gap-2.5">
             <Button variant="outline" onClick={onClose}>Cancel</Button>
             <Button
+              disabled={selectedCourseIds.length === 0}
               onClick={() => setStep('discount')}
               className="gap-2 bg-rose-600 text-white hover:bg-rose-700"
             >
@@ -649,7 +702,7 @@ function CancelCourseModal({
           courses={remainingCourses}
           currentDiscount={enrollment.monthlyDiscount}
           triggerType="REMOVE"
-          changedCourse={course}
+          changedCourse={selectedCancelCourses[0] || course}
           effectiveMonth={effMonth}
           onApply={handleApply}
           onBack={saving ? () => undefined : () => setStep('confirm')}
@@ -659,7 +712,7 @@ function CancelCourseModal({
       {step === 'success' && (
         <SuccessSummary
           action="REMOVE"
-          courseName={course.name}
+          courseName={selectedCancelCourses.length > 1 ? `${selectedCancelCourses.length} Courses` : (selectedCancelCourses[0]?.name || course.name)}
           effectiveMonth={effMonth}
           netMonthly={netMonthly}
           newDiscount={appliedDiscount}
@@ -684,41 +737,42 @@ function AddCourseModal({
   onDone: () => void;
 }) {
   const [step, setStep] = useState<'select' | 'discount' | 'success'>('select');
-  const [selectedCourseId, setSelectedCourseId] = useState('');
-  const [batch, setBatch] = useState('');
-  const [startMonth, setStartMonth] = useState(nextMonth());
+  const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);
+  const [selectedMeta, setSelectedMeta] = useState<Record<string, { batch: string; startMonth: string }>>({});
   const [appliedDiscount, setAppliedDiscount] = useState(0);
   const [invoicePdfUrl, setInvoicePdfUrl] = useState<string | null>(null);
-  const [courseBatches, setCourseBatches] = useState<{ id: string; name: string }[]>([]);
+  const [courseBatches, setCourseBatches] = useState<Record<string, { id: string; name: string }[]>>({});
   const effMonth = nextMonth();
 
-  // Reset startMonth to the selected course's startMonth whenever the course changes
   useEffect(() => {
-    if (!selectedCourseId) return;
-    const course = allCourses.find(c => c.id === selectedCourseId);
-    if (course?.startMonth) setStartMonth(course.startMonth);
-  }, [selectedCourseId, allCourses]);
-
-  useEffect(() => {
-    if (!selectedCourseId) { setCourseBatches([]); return; }
-    getBatches({ courseId: selectedCourseId, limit: 100 })
-      .then(res => {
-        if (res.success && res.data) setCourseBatches(res.data.map(b => ({ id: b.id, name: b.name })));
-      })
-      .catch(() => {
-        setCourseBatches([]);
-      });
-  }, [selectedCourseId]);
+    selectedCourseIds.forEach((cid) => {
+      if (courseBatches[cid]) return;
+      getBatches({ courseId: cid, limit: 100 })
+        .then(res => {
+          if (!res.success || !res.data) return;
+          setCourseBatches(prev => ({
+            ...prev,
+            [cid]: res.data!.map(b => ({ id: b.id, name: b.name })),
+          }));
+        })
+        .catch(() => {
+          setCourseBatches(prev => ({ ...prev, [cid]: [] }));
+        });
+    });
+  }, [selectedCourseIds, courseBatches]);
 
   const enrolledCourseIds = enrollment.courses.filter(ec => ec.status === 'ACTIVE').map(ec => ec.courseId);
   const available = allCourses.filter(c => c.programId === enrollment.programId && !enrolledCourseIds.includes(c.id));
-  const selectedCourse = allCourses.find(c => c.id === selectedCourseId);
+  const selectedCourses = available.filter(c => selectedCourseIds.includes(c.id));
   const activeCourses = enrollment.courses
     .filter(ec => ec.status === 'ACTIVE')
     .map(ec => allCourses.find(c => c.id === ec.courseId))
     .filter((c): c is Course => Boolean(c));
-  const allCoursesAfterAdd = selectedCourse ? [...activeCourses, selectedCourse] : activeCourses;
-  const canProceed = selectedCourseId && (selectedCourse?.type === 'ONLINE' || batch);
+  const allCoursesAfterAdd = [...activeCourses, ...selectedCourses];
+  const canProceed = selectedCourses.length > 0 && selectedCourses.every(c => {
+    const meta = selectedMeta[c.id];
+    return c.type === 'ONLINE' || !!meta?.batch;
+  });
   const netMonthly = allCoursesAfterAdd.reduce((s, c) => s + c.fee, 0) - appliedDiscount;
 
   const program = programs.find(p => p.id === enrollment.programId);
@@ -730,21 +784,28 @@ function AddCourseModal({
   };
 
   const handleApply = async (disc: number) => {
-    if (!selectedCourseId) return;
+    if (selectedCourses.length === 0) return;
     try {
-      const res = await addCourseToEnrollment(enrollment.id, {
-        courseId: selectedCourseId,
-        batchId: batch || null,
-        includeBook: false,
-        startMonth,
-      });
-      if (!res.success) throw new Error((res as { message?: string }).message ?? 'Failed to add course');
+      for (const c of selectedCourses) {
+        const meta = selectedMeta[c.id] || { batch: '', startMonth: c.startMonth || effMonth };
+        const res = await addCourseToEnrollment(enrollment.id, {
+          courseId: c.id,
+          batchId: meta.batch || null,
+          includeBook: false,
+          startMonth: meta.startMonth || c.startMonth || effMonth,
+        });
+        if (!res.success) throw new Error((res as { message?: string }).message ?? 'Failed to add course');
+      }
       if (disc !== enrollment.monthlyDiscount) {
+        // Backend will regenerate invoices with the new discount applied
         await updateEnrollment(enrollment.id, { monthlyDiscount: disc });
       }
       setAppliedDiscount(disc);
-      // Fetch the regenerated invoice PDF for next month
-      getInvoices({ studentUserId, month: effMonth, limit: 5 })
+      // Ensure the effective month invoice exists (advance gen), then fetch its refreshed PDF.
+      // The backend has already regenerated existing unpaid invoices; this fills any gaps.
+      generateAdvanceInvoices({ studentUserId, months: 3 })
+        .catch(() => {})
+        .then(() => getInvoices({ studentUserId, month: effMonth, limit: 5 }))
         .then(r => {
           const firstId = r.data?.[0]?.id;
           if (firstId) return getInvoicePdfUrl(firstId);
@@ -764,51 +825,92 @@ function AddCourseModal({
     <AppModal open onClose={onClose} title={titles[step]} subtitle={subtitles[step]}>
       {step === 'select' && (
         <div>
-          <Field label="Select Course" required>
-            <AppSelect
-              value={selectedCourseId}
-              onChange={v => { setSelectedCourseId(v); setBatch(''); }}
-              placeholder="Choose a course to add"
-              options={available.map(c => ({ value: c.id, label: `${c.name} — ${fmt(c.fee)}/month (${c.type})` }))}
-            />
-          </Field>
+          <Field label="Select Course(s)" required>
+            <div className="flex flex-col gap-2">
+              {available.map(c => {
+                const checked = selectedCourseIds.includes(c.id);
+                const meta = selectedMeta[c.id] || { batch: '', startMonth: c.startMonth || effMonth };
+                return (
+                  <div
+                    key={c.id}
+                    className={cn(
+                      'border rounded-xl p-3.5 transition-all',
+                      checked ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-white hover:border-slate-300',
+                    )}
+                  >
+                    <label className="flex items-start gap-2.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => {
+                          setSelectedCourseIds(prev => (
+                            checked ? prev.filter(id => id !== c.id) : [...prev, c.id]
+                          ));
+                          if (!checked) {
+                            setSelectedMeta(prev => ({
+                              ...prev,
+                              [c.id]: {
+                                batch: prev[c.id]?.batch || '',
+                                startMonth: prev[c.id]?.startMonth || c.startMonth || effMonth,
+                              },
+                            }));
+                          }
+                        }}
+                        className="mt-0.5 accent-emerald-600"
+                      />
+                      <div className="flex-1">
+                        <div className="flex justify-between">
+                          <span className="font-bold text-sm text-slate-900">{c.name}</span>
+                          <span className="font-black text-rose-700 text-sm">{fmt(c.fee)}/month</span>
+                        </div>
+                        <div className="flex gap-2 mt-1">
+                          <AppBadge label={c.type} color={c.type === 'OFFLINE' ? 'amber' : 'blue'} />
+                          <span className="text-xs text-slate-400">Payment mode: monthly</span>
+                        </div>
+                      </div>
+                    </label>
 
-          {selectedCourse && (
-            <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 mb-4">
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <p className="font-black text-base text-slate-900">{selectedCourse.name}</p>
-                  <div className="flex gap-2 mt-1">
-                    <AppBadge label={selectedCourse.type} color={selectedCourse.type === 'OFFLINE' ? 'amber' : 'blue'} />
-                    <span className="text-xs text-slate-500">Monthly</span>
+                    {checked && (
+                      <div className={cn(
+                        'grid gap-2.5 mt-3 pt-3 border-t border-dashed border-emerald-200',
+                        c.type === 'OFFLINE' ? 'grid-cols-3' : 'grid-cols-2',
+                      )}>
+                        {c.type === 'OFFLINE' && (
+                          <Field label="Batch" required>
+                            <AppSelect
+                              value={meta.batch}
+                              onChange={v => setSelectedMeta(prev => ({
+                                ...prev,
+                                [c.id]: { ...meta, batch: v },
+                              }))}
+                              placeholder="Select batch"
+                              options={(courseBatches[c.id] ?? []).map(b => ({ value: b.id, label: b.name }))}
+                            />
+                            {!meta.batch && <p className="text-[11px] text-rose-600 mt-1">Required for offline</p>}
+                          </Field>
+                        )}
+                        <Field label="Start Month">
+                          <MonthInput
+                            value={meta.startMonth}
+                            onChange={v => setSelectedMeta(prev => ({
+                              ...prev,
+                              [c.id]: { ...meta, startMonth: v },
+                            }))}
+                            min={c.startMonth || effMonth}
+                            max={c.endMonth}
+                          />
+                        </Field>
+                        <Field label="End Month">
+                          <MonthInput value={c.endMonth || ''} disabled />
+                        </Field>
+                      </div>
+                    )}
                   </div>
-                </div>
-                <span className="text-lg font-black text-rose-700">{fmt(selectedCourse.fee)}/mo</span>
-              </div>
-              <div className={cn(
-                'grid gap-2.5',
-                selectedCourse.type === 'OFFLINE' ? 'grid-cols-3' : 'grid-cols-2',
-              )}>
-                {selectedCourse.type === 'OFFLINE' && (
-                  <Field label="Batch" required>
-                    <AppSelect
-                      value={batch}
-                      onChange={setBatch}
-                      placeholder="Select batch"
-                      options={courseBatches.map(b => ({ value: b.id, label: b.name }))}
-                    />
-                    {!batch && <p className="text-[11px] text-rose-600 mt-1">Required for offline</p>}
-                  </Field>
-                )}
-                <Field label="Start Month">
-                  <MonthInput value={startMonth} onChange={setStartMonth} min={selectedCourse.startMonth || effMonth} max={selectedCourse.endMonth} />
-                </Field>
-                <Field label="End Month">
-                  <MonthInput value={selectedCourse.endMonth || ''} disabled />
-                </Field>
-              </div>
+                );
+              })}
+              {available.length === 0 && <p className="text-sm text-slate-400 text-center py-3">No available courses to add.</p>}
             </div>
-          )}
+          </Field>
 
           <div className="flex justify-end gap-2.5">
             <Button variant="outline" onClick={onClose}>Cancel</Button>
@@ -823,22 +925,22 @@ function AddCourseModal({
         </div>
       )}
 
-      {step === 'discount' && selectedCourse && (
+      {step === 'discount' && selectedCourses.length > 0 && (
         <DiscountAdjustmentPanel
           courses={allCoursesAfterAdd}
           currentDiscount={enrollment.monthlyDiscount}
           triggerType="ADD"
-          changedCourse={selectedCourse}
+          changedCourse={selectedCourses[0]}
           effectiveMonth={effMonth}
           onApply={handleApply}
           onBack={() => setStep('select')}
         />
       )}
 
-      {step === 'success' && selectedCourse && (
+      {step === 'success' && selectedCourses.length > 0 && (
         <SuccessSummary
           action="ADD"
-          courseName={selectedCourse.name}
+          courseName={selectedCourses.length > 1 ? `${selectedCourses.length} Courses` : selectedCourses[0].name}
           effectiveMonth={effMonth}
           netMonthly={netMonthly}
           newDiscount={appliedDiscount}
@@ -867,8 +969,10 @@ function EnrolledCoursesView({
   const [cancelModal, setCancelModal] = useState<{ course: Course; enrollment: Enrollment } | null>(null);
   const [addModal, setAddModal] = useState<Enrollment | null>(null);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const [dropMenuPos, setDropMenuPos] = useState<{ top?: number; bottom?: number; right: number }>({ right: 0 });
   const [batchesMap, setBatchesMap] = useState<Map<string, string>>(new Map());
-  const dropRef = useRef<HTMLDivElement>(null);
+  const dropBtnRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const dropMenuRef = useRef<HTMLDivElement>(null);
 
   // Load all batches and build a lookup map
   useEffect(() => {
@@ -893,11 +997,39 @@ function EnrolledCoursesView({
 
   useEffect(() => {
     const h = (e: MouseEvent) => {
-      if (dropRef.current && !dropRef.current.contains(e.target as Node)) setActiveDropdown(null);
+      const btn = activeDropdown ? dropBtnRefs.current.get(activeDropdown) : null;
+      if (
+        (!btn || !btn.contains(e.target as Node)) &&
+        (!dropMenuRef.current || !dropMenuRef.current.contains(e.target as Node))
+      ) {
+        setActiveDropdown(null);
+      }
     };
+    const onScroll = () => { if (activeDropdown) setActiveDropdown(null); };
     document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, []);
+    window.addEventListener('scroll', onScroll, true);
+    return () => {
+      document.removeEventListener('mousedown', h);
+      window.removeEventListener('scroll', onScroll, true);
+    };
+  }, [activeDropdown]);
+
+  const COURSE_MENU_HEIGHT = 130; // ~3 items
+  const handleDropdownToggle = (ecId: string) => {
+    if (activeDropdown === ecId) { setActiveDropdown(null); return; }
+    const btn = dropBtnRefs.current.get(ecId);
+    if (btn) {
+      const rect = btn.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const right = window.innerWidth - rect.right;
+      if (spaceBelow < COURSE_MENU_HEIGHT && rect.top > COURSE_MENU_HEIGHT) {
+        setDropMenuPos({ bottom: window.innerHeight - rect.top + 4, right });
+      } else {
+        setDropMenuPos({ top: rect.bottom + 4, right });
+      }
+    }
+    setActiveDropdown(ecId);
+  };
 
   const avatarHue = student.fullName.charCodeAt(0) * 13 % 360;
 
@@ -1045,45 +1177,18 @@ function EnrolledCoursesView({
                           <AppBadge label={ec.status || 'Active'} color={ec.status === 'ACTIVE' ? 'green' : 'red'} />
                         </td>
                         <td className="px-3.5 py-3">
-                          <div ref={activeDropdown === ec.id ? dropRef : null} className="relative">
-                            <button
-                              onClick={() => setActiveDropdown(activeDropdown === ec.id ? null : ec.id)}
-                              className={cn(
-                                'p-1.5 rounded-md border transition-colors cursor-pointer',
-                                activeDropdown === ec.id
-                                  ? 'bg-slate-100 border-slate-300 text-slate-700'
-                                  : 'bg-transparent border-transparent text-slate-400 hover:bg-slate-100 hover:border-slate-200',
-                              )}
-                            >
-                              <MoreVertical className="h-4 w-4" />
-                            </button>
-                            {activeDropdown === ec.id && (
-                              <div className="absolute right-0 top-[calc(100%+4px)] bg-white border border-slate-200 rounded-xl shadow-xl min-w-48 z-50 overflow-hidden">
-                                {[
-                                  { id: 'batch', icon: ArrowLeftRight, label: 'Change Batch' },
-                                  { id: 'branch', icon: ArrowLeftRight, label: 'Change Branch' },
-                                  { id: 'cancel', icon: Ban, label: 'Cancel This Course', danger: true },
-                                ].map((a, ai) => (
-                                  <button
-                                    key={a.id}
-                                    onClick={() => {
-                                      setActiveDropdown(null);
-                                      if (a.id === 'cancel') setCancelModal({ course, enrollment });
-                                    }}
-                                    className={cn(
-                                      'w-full px-3.5 py-2.5 text-left text-sm font-semibold flex items-center gap-2.5 transition-colors cursor-pointer',
-                                      ai > 0 && 'border-t border-slate-100',
-                                      a.danger
-                                        ? 'text-rose-600 hover:bg-rose-50'
-                                        : 'text-slate-800 hover:bg-slate-50',
-                                    )}
-                                  >
-                                    <a.icon className="h-3.5 w-3.5" /> {a.label}
-                                  </button>
-                                ))}
-                              </div>
+                          <button
+                            ref={(el) => { if (el) dropBtnRefs.current.set(ec.id, el); else dropBtnRefs.current.delete(ec.id); }}
+                            onClick={() => handleDropdownToggle(ec.id)}
+                            className={cn(
+                              'p-1.5 rounded-md border transition-colors cursor-pointer',
+                              activeDropdown === ec.id
+                                ? 'bg-slate-100 border-slate-300 text-slate-700'
+                                : 'bg-transparent border-transparent text-slate-400 hover:bg-slate-100 hover:border-slate-200',
                             )}
-                          </div>
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </button>
                         </td>
                       </tr>
                     );
@@ -1114,6 +1219,46 @@ function EnrolledCoursesView({
           <p className="text-slate-400 text-base">No enrollments found for this student.</p>
         </div>
       )}
+
+      {/* Course action dropdown portal */}
+      {activeDropdown && (() => {
+        let activeCourse: Course | undefined;
+        let activeEnrollment: Enrollment | undefined;
+        for (const enr of enrollments) {
+          const ec = enr.courses.find(c => c.id === activeDropdown);
+          if (ec) { activeCourse = allCourses.find(c => c.id === ec.courseId); activeEnrollment = enr; break; }
+        }
+        if (!activeCourse || !activeEnrollment) return null;
+        return createPortal(
+          <div
+            ref={dropMenuRef}
+            style={{ position: 'fixed', ...dropMenuPos }}
+            className="bg-white border border-slate-200 rounded-xl shadow-xl min-w-48 z-9999 overflow-hidden"
+          >
+            {([
+              { id: 'batch', icon: ArrowLeftRight, label: 'Change Batch' },
+              { id: 'branch', icon: ArrowLeftRight, label: 'Change Branch' },
+              { id: 'cancel', icon: Ban, label: 'Cancel This Course', danger: true },
+            ] as { id: string; icon: React.FC<{ className?: string }>; label: string; danger?: boolean }[]).map((a, ai) => (
+              <button
+                key={a.id}
+                onClick={() => {
+                  setActiveDropdown(null);
+                  if (a.id === 'cancel') setCancelModal({ course: activeCourse!, enrollment: activeEnrollment! });
+                }}
+                className={cn(
+                  'w-full px-3.5 py-2.5 text-left text-sm font-semibold flex items-center gap-2.5 transition-colors cursor-pointer',
+                  ai > 0 && 'border-t border-slate-100',
+                  a.danger ? 'text-rose-600 hover:bg-rose-50' : 'text-slate-800 hover:bg-slate-50',
+                )}
+              >
+                <a.icon className="h-3.5 w-3.5" /> {a.label}
+              </button>
+            ))}
+          </div>,
+          document.body,
+        );
+      })()}
 
       {cancelModal && (
         <CancelCourseModal
@@ -1173,7 +1318,20 @@ function EnrollmentModal({
   const [enrollError, setEnrollError] = useState('');
   // Already-enrolled detection
   const [enrolledCourseIds, setEnrolledCourseIds] = useState<Set<string>>(new Set());
+  const [enrolledProgramIds, setEnrolledProgramIds] = useState<Set<string>>(new Set());
   const [loadingEnrolled, setLoadingEnrolled] = useState(false);
+
+  useEffect(() => {
+    getEnrollments({ studentUserId: student.id, limit: 50 })
+      .then(res => {
+        if (res.success && res.data) {
+          setEnrolledProgramIds(new Set(res.data.map(e => e.programId)));
+        }
+      })
+      .catch(() => {
+        setEnrolledProgramIds(new Set());
+      });
+  }, [student.id]);
 
   // Initialize branchId from the logged-in user's profile or first available branch
   useEffect(() => {
@@ -1208,14 +1366,17 @@ function EnrollmentModal({
       });
   }, [programId, branchId]);
 
-  // Detect already-enrolled courses when program changes
+  // Detect already-enrolled programs/courses for this student
   useEffect(() => {
-    if (!programId) { setEnrolledCourseIds(new Set()); return; }
+    if (!programId) {
+      setEnrolledCourseIds(new Set());
+      return;
+    }
     setLoadingEnrolled(true);
     getEnrollments({ studentUserId: student.id, limit: 50 })
       .then(res => {
         if (res.success && res.data) {
-          // Filter by current program client-side (API doesn't support programId filter)
+          // Filter by selected program client-side (API doesn't support programId filter)
           const ids = new Set(
             res.data
               .filter(e => e.programId === programId)
@@ -1327,7 +1488,11 @@ function EnrollmentModal({
                   value={programId}
                   onChange={v => { setProgramId(v); setSelCourses({}); }}
                   placeholder="Select program"
-                  options={programs.map(p => ({ value: p.id, label: p.name }))}
+                  options={programs.map(p => ({
+                    value: p.id,
+                    label: enrolledProgramIds.has(p.id) ? `${p.name} (Already Enrolled)` : p.name,
+                    disabled: enrolledProgramIds.has(p.id),
+                  }))}
                 />
               </Field>
               <Field label="Branch">
@@ -2157,17 +2322,47 @@ function RowActions({
   onAction: (action: string, student: Student) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [menuPos, setMenuPos] = useState<{ top?: number; bottom?: number; right: number }>({ right: 0 });
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const h = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (
+        btnRef.current && !btnRef.current.contains(e.target as Node) &&
+        menuRef.current && !menuRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false);
+      }
     };
+    const onScroll = () => { if (open) setOpen(false); };
     document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, []);
+    window.addEventListener('scroll', onScroll, true);
+    return () => {
+      document.removeEventListener('mousedown', h);
+      window.removeEventListener('scroll', onScroll, true);
+    };
+  }, [open]);
 
-  const actions = [
+  const MENU_ESTIMATED_HEIGHT = 260; // px — approx height of 6 items
+
+  const handleToggle = () => {
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const right = window.innerWidth - rect.right;
+      if (spaceBelow < MENU_ESTIMATED_HEIGHT && rect.top > MENU_ESTIMATED_HEIGHT) {
+        // Flip upward
+        setMenuPos({ bottom: window.innerHeight - rect.top + 4, right });
+      } else {
+        // Default: open downward
+        setMenuPos({ top: rect.bottom + 4, right });
+      }
+    }
+    setOpen(o => !o);
+  };
+
+  const actions: { id: string; icon: React.FC<{ className?: string }>; label: string; danger?: boolean }[] = [
     { id: 'view', icon: Eye, label: 'View Profile' },
     { id: 'edit', icon: Pencil, label: 'Edit Student' },
     { id: 'enrollments', icon: BookOpen, label: 'View Enrollments' },
@@ -2177,9 +2372,10 @@ function RowActions({
   ];
 
   return (
-    <div ref={ref} className="relative">
+    <>
       <button
-        onClick={() => setOpen(o => !o)}
+        ref={btnRef}
+        onClick={handleToggle}
         className={cn(
           'p-1.5 rounded-md border transition-colors cursor-pointer',
           open
@@ -2189,8 +2385,12 @@ function RowActions({
       >
         <MoreVertical className="h-4 w-4" />
       </button>
-      {open && (
-        <div className="absolute right-0 top-[calc(100%+4px)] bg-white border border-slate-200 rounded-xl shadow-xl min-w-48 z-50 overflow-hidden">
+      {open && createPortal(
+        <div
+          ref={menuRef}
+          style={{ position: 'fixed', ...menuPos }}
+          className="bg-white border border-slate-200 rounded-xl shadow-xl min-w-48 z-9999 overflow-hidden"
+        >
           {actions.map((a, i) => (
             <button
               key={a.id}
@@ -2206,9 +2406,10 @@ function RowActions({
               <a.icon className="h-3.5 w-3.5" /> {a.label}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body,
       )}
-    </div>
+    </>
   );
 }
 

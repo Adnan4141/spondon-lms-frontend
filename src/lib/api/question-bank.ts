@@ -51,6 +51,24 @@ export async function deleteQuestionFolder(id: string): Promise<ApiResponse<void
   });
 }
 
+export async function moveQuestionFolder(
+  id: string,
+  newParentId: string | null,
+): Promise<ApiResponse<QuestionFolder>> {
+  return apiRequest<ApiResponse<QuestionFolder>>(`/question-bank/folders/${id}/move`, {
+    method: 'POST',
+    body: JSON.stringify({ newParentId }),
+  });
+}
+
+export async function getQuestionFolderDescendants(
+  id: string,
+): Promise<ApiResponse<{ folderId: string; folderIds: string[]; count: number }>> {
+  return apiRequest<ApiResponse<{ folderId: string; folderIds: string[]; count: number }>>(
+    `/question-bank/folders/${id}/descendants`,
+  );
+}
+
 export async function getQuestions(
   folderId?: string,
   type?: string,

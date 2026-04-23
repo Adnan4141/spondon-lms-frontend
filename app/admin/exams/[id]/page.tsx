@@ -1,35 +1,67 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+/**
+ * Admin Exam detail — shell with 4 shadcn Tabs (Builder / Questions / Results /
+ * Leaderboard). Top navbar and stat cards are both shadcn-only.
+ */
+
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  ArrowLeft, Pencil, Eye, EyeOff, Download, RefreshCw,
-  BookOpen, Zap, FileText, BarChart2, Settings,
-  Clock, Hash, Layers, Users, TrendingUp,
+  ArrowLeft,
+  BookOpen,
+  ClipboardList,
+  Download,
+  Eye,
+  EyeOff,
+  Hash,
+  Layers,
+  Pencil,
+  Settings2,
+  Trophy,
+  Users,
 } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Toaster } from '@/components/ui/toast';
-import { getExamById, updateExam, getExamPdfDownloadUrl, regenerateExamPdf, getExamAnalytics } from '@/lib/api/exams';
+import { useToast } from '@/hooks/use-toast';
+
+import {
+  getExamById,
+  getExamPdfDownloadUrl,
+  getExamAnalytics,
+  getExamBundleZipUrl,
+  regenerateExamPdf,
+  updateExam,
+} from '@/lib/api/exams';
 import type { Exam } from '@/types/exam';
+
 import { ENGINE_CONFIG, MODE_CONFIG, STATUS_CONFIG, ExamFormModal } from '../_components';
-import { QuestionBankTab } from './_question-bank';
-import { PaperGenerationTab } from './_paper-generation';
-import { SolveSheetTab } from './_solve-sheet';
-import { ResultsTab } from './_results';
-import { SettingsTab } from './_settings';
+import { BuilderTab } from './_builder-tab';
+import { QuestionsTab } from './_questions-tab';
+import { ResultsTab } from './_results-tab';
+import { LeaderboardTab } from './_leaderboard-tab';
 
-const NAVY = '#1e3a5f';
+// Deep Navy / Warm Gold / Clean White — central token map
+const C = {
+  navy: '#0F1E3C',
+  navyInk: '#0B1730',
+  gold: '#C9A85C',
+  goldSoft: '#F3E7C7',
+  paper: '#FFFFFF',
+  mist: '#F5F7FB',
+} as const;
 
-type TabId = 'questions' | 'paper' | 'solve' | 'results' | 'settings';
+type TabId = 'builder' | 'questions' | 'results' | 'leaderboard';
 
-const TABS: { id: TabId; icon: React.ReactNode; label: string }[] = [
-  { id: 'questions', icon: <BookOpen className="h-4 w-4" />, label: 'Question Bank' },
-  { id: 'paper',     icon: <Zap className="h-4 w-4" />,       label: 'Paper Generation' },
-  { id: 'solve',     icon: <FileText className="h-4 w-4" />,  label: 'Solve Sheet' },
-  { id: 'results',   icon: <BarChart2 className="h-4 w-4" />, label: 'Results' },
-  { id: 'settings',  icon: <Settings className="h-4 w-4" />,  label: 'Settings' },
+const TABS: { id: TabId; label: string }[] = [
+  { id: 'builder', label: 'Builder' },
+  { id: 'questions', label: 'Questions' },
+  { id: 'results', label: 'Results' },
+  { id: 'leaderboard', label: 'Leaderboard' },
 ];
 
 export default function ExamDetailPage() {
@@ -37,11 +69,16 @@ export default function ExamDetailPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const [exam, setExam]       = useState<Exam | null>(null);
+  const [exam, setExam] = useState<Exam | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<TabId>('questions');
+  const [activeTab, setActiveTab] = useState<TabId>('builder');
   const [editOpen, setEditOpen] = useState(false);
-  const [analytics, setAnalytics] = useState<{ totalAttempts: number; average: number; highest: number; passFail: { passRate: number } } | null>(null);
+  const [analytics, setAnalytics] = useState<{
+    totalAttempts: number;
+    average: number;
+    highest: number;
+    passFail: { passRate: number };
+  } | null>(null);
 
   const loadExam = useCallback(async () => {
     setLoading(true);
@@ -50,38 +87,43 @@ export default function ExamDetailPage() {
     setLoading(false);
   }, [id]);
 
-  useEffect(() => { loadExam(); }, [loadExam]);
+  useEffect(() => {
+    loadExam();
+  }, [loadExam]);
 
   useEffect(() => {
     if (!id) return;
-    getExamAnalytics(id).then(r => {
-      if (r.success && r.data) setAnalytics(r.data as any);
+    getExamAnalytics(id).then((r) => {
+      if (r.success && r.data) setAnalytics(r.data as typeof analytics);
     });
   }, [id]);
 
-  // Sync tab with URL hash
+  // Hash-sync active tab
   useEffect(() => {
     const hash = window.location.hash.replace('#', '') as TabId;
-    if (TABS.some(t => t.id === hash)) setActiveTab(hash);
+    if (TABS.some((t) => t.id === hash)) setActiveTab(hash);
     const onHash = () => {
       const h = window.location.hash.replace('#', '') as TabId;
-      if (TABS.some(t => t.id === h)) setActiveTab(h);
+      if (TABS.some((t) => t.id === h)) setActiveTab(h);
     };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
 
-  const switchTab = (tab: TabId) => {
-    setActiveTab(tab);
+  const switchTab = (tab: string) => {
+    setActiveTab(tab as TabId);
     window.location.hash = tab;
   };
 
   const handlePublish = async () => {
     if (!exam) return;
-    const res = await updateExam(exam.id, { status: 'PUBLISHED' });
+    const nextStatus = exam.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED';
+    const res = await updateExam(exam.id, { status: nextStatus });
     if (res.success && res.data) {
       setExam(res.data);
-      toast({ description: 'Exam published!' });
+      toast({
+        description: nextStatus === 'PUBLISHED' ? 'Exam published' : 'Exam unpublished',
+      });
     }
   };
 
@@ -93,173 +135,237 @@ export default function ExamDetailPage() {
     }
     const res = await regenerateExamPdf(exam.id);
     if (res.success && res.data?.pdfUrl) {
-      setExam(prev => prev ? { ...prev, pdfUrl: res.data!.pdfUrl } : prev);
+      setExam((prev) => (prev ? { ...prev, pdfUrl: res.data!.pdfUrl } : prev));
       window.open(getExamPdfDownloadUrl(res.data.pdfUrl), '_blank');
     }
   };
 
-  const handleExamUpdated = (updated: Exam) => {
-    setExam(updated);
-    setEditOpen(false);
-    toast({ description: 'Exam updated!' });
+  const handleDownloadZip = () => {
+    if (!exam) return;
+    window.open(getExamBundleZipUrl(exam.id), '_blank');
   };
 
   if (loading) {
     return (
-      <div className="space-y-5">
-        <div className="h-8 w-64 bg-slate-100 rounded-xl animate-pulse" />
-        <div className="h-24 bg-slate-100 rounded-xl animate-pulse" />
-        <div className="h-10 bg-slate-100 rounded-xl animate-pulse" />
+      <div className="space-y-4">
+        <div className="h-10 w-full animate-pulse rounded-md bg-muted" />
+        <div className="h-24 w-full animate-pulse rounded-md bg-muted" />
+        <div className="h-10 w-full animate-pulse rounded-md bg-muted" />
       </div>
     );
   }
 
   if (!exam) {
     return (
-      <div className="text-center py-20">
-        <p className="text-slate-400 text-sm">Exam not found.</p>
-        <Button variant="outline" className="mt-4" onClick={() => router.push('/admin/exams')}>
-          Back to Exams
+      <div className="flex flex-col items-center gap-3 py-20 text-center">
+        <p className="text-sm text-muted-foreground">Exam not found.</p>
+        <Button variant="outline" onClick={() => router.push('/admin/exams')}>
+          Back to exams
         </Button>
       </div>
     );
   }
 
   const engineCfg = ENGINE_CONFIG[exam.examEngine ?? 'REGULAR'] ?? ENGINE_CONFIG.REGULAR;
-  const modeCfg   = MODE_CONFIG[exam.mode];
+  const modeCfg = MODE_CONFIG[exam.mode];
   const statusCfg = STATUS_CONFIG[exam.status];
-  const s = (exam.settings ?? {}) as Record<string, unknown>;
+  const settings = (exam.settings ?? {}) as Record<string, unknown>;
 
   return (
     <>
-      <div className="space-y-5">
-
-        {/* ── Header ── */}
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <button
-              onClick={() => router.push('/admin/exams')}
-              className="flex items-center gap-1.5 text-slate-500 hover:text-slate-800 transition-colors text-sm font-medium shrink-0"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Exams
-            </button>
-            <span className="text-slate-300 shrink-0">/</span>
-            <h1 className="text-lg font-black text-slate-900 truncate">{exam.title}</h1>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            {exam.status === 'DRAFT' && (
-              <Button size="sm" onClick={handlePublish} className="gap-1.5 text-white" style={{ background: NAVY }}>
-                <Eye className="h-3.5 w-3.5" /> Publish
-              </Button>
-            )}
-            {exam.status === 'PUBLISHED' && (
-              <Button size="sm" variant="outline" onClick={handlePublish}>
-                <EyeOff className="h-3.5 w-3.5" />
-              </Button>
-            )}
-            <Button size="sm" variant="outline" onClick={handleDownloadPdf} className="gap-1.5">
-              <Download className="h-3.5 w-3.5" /> PDF
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => setEditOpen(true)} className="gap-1.5">
-              <Pencil className="h-3.5 w-3.5" /> Edit
-            </Button>
-          </div>
+      {/* ── Navy top bar ────────────────────────────────────────────────── */}
+      <div
+        className="-mx-4 mb-5 flex items-center justify-between gap-4 px-4 py-3 sm:-mx-6 sm:px-6"
+        style={{ backgroundColor: C.navy, color: C.paper }}
+      >
+        <div className="flex min-w-0 items-center gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push('/admin/exams')}
+            className="text-white hover:bg-white/10 hover:text-white"
+          >
+            <ArrowLeft className="mr-1 h-4 w-4" />
+            Exams
+          </Button>
+          <span className="opacity-60">/</span>
+          <h1 className="truncate text-base font-semibold">{exam.title}</h1>
         </div>
-
-        {/* ── Badges + stat chips ── */}
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
-          {/* Badges */}
-          <div className="flex items-center gap-2 flex-wrap mb-4">
-            <span className={cn('px-2.5 py-0.5 rounded-full text-[11px] font-bold', engineCfg.bg, engineCfg.tc)}>
-              {engineCfg.label}
-            </span>
-            <span className={cn('px-2.5 py-0.5 rounded-full text-[11px] font-bold', modeCfg.bg, modeCfg.tc)}>
-              {modeCfg.label}
-            </span>
-            <span className={cn('px-2.5 py-0.5 rounded-full text-[11px] font-bold', statusCfg.bg, statusCfg.tc)}>
-              {statusCfg.label}
-            </span>
-            {exam.scope === 'GLOBAL' && (
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-50 text-purple-600">
-                Global
-              </span>
+        <div className="flex shrink-0 items-center gap-2">
+          <Badge
+            variant="outline"
+            className="border-white/40 text-white"
+            style={{ backgroundColor: 'transparent' }}
+          >
+            {statusCfg.label}
+          </Badge>
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-white/40 bg-transparent text-white hover:bg-white/10 hover:text-white"
+            onClick={handleDownloadZip}
+          >
+            <Download className="mr-1 h-3.5 w-3.5" />
+            Bundle (ZIP)
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-white/40 bg-transparent text-white hover:bg-white/10 hover:text-white"
+            onClick={handleDownloadPdf}
+          >
+            <Download className="mr-1 h-3.5 w-3.5" />
+            PDF
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-white/40 bg-transparent text-white hover:bg-white/10 hover:text-white"
+            onClick={() => setEditOpen(true)}
+          >
+            <Pencil className="mr-1 h-3.5 w-3.5" />
+            Edit
+          </Button>
+          <Button
+            size="sm"
+            onClick={handlePublish}
+            style={{ backgroundColor: C.gold, color: C.navyInk }}
+          >
+            {exam.status === 'PUBLISHED' ? (
+              <>
+                <EyeOff className="mr-1 h-3.5 w-3.5" />
+                Unpublish
+              </>
+            ) : (
+              <>
+                <Eye className="mr-1 h-3.5 w-3.5" />
+                Publish
+              </>
             )}
-          </div>
-
-          {/* Stat chips */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            {[
-              { icon: <Hash className="h-3.5 w-3.5" />,        label: 'Questions',  val: (s.questionCount as number) ?? '—', tc: 'text-blue-600',   bg: 'bg-blue-50'   },
-              { icon: <Clock className="h-3.5 w-3.5" />,       label: 'Duration',   val: exam.durationMinutes ? `${exam.durationMinutes}m` : '—', tc: 'text-amber-600', bg: 'bg-amber-50' },
-              { icon: <Layers className="h-3.5 w-3.5" />,      label: 'Sets',       val: exam.totalSets ?? 1, tc: 'text-teal-600',   bg: 'bg-teal-50'   },
-              { icon: <Users className="h-3.5 w-3.5" />,       label: 'Attempts',   val: analytics?.totalAttempts ?? (exam._count?.attempts ?? 0), tc: 'text-purple-600', bg: 'bg-purple-50' },
-              { icon: <TrendingUp className="h-3.5 w-3.5" />,  label: 'Pass Rate',  val: analytics ? `${Math.round(analytics.passFail.passRate * 100)}%` : '—', tc: 'text-emerald-600', bg: 'bg-emerald-50' },
-            ].map(chip => (
-              <div key={chip.label} className={cn('flex items-center gap-2 px-3 py-2 rounded-lg', chip.bg)}>
-                <span className={chip.tc}>{chip.icon}</span>
-                <div>
-                  <p className={cn('text-sm font-black leading-none', chip.tc)}>{chip.val}</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">{chip.label}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* ── Tab bar ── */}
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-          <div className="flex border-b border-slate-100 overflow-x-auto">
-            {TABS.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => switchTab(tab.id)}
-                className={cn(
-                  'flex items-center gap-2 px-5 py-3.5 text-sm font-semibold whitespace-nowrap border-b-2 transition-all shrink-0',
-                  activeTab === tab.id
-                    ? 'border-rose-600 text-rose-600 bg-rose-50/40'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50',
-                )}
-              >
-                {tab.icon}
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* ── Tab panels ── */}
-          <div className="p-5">
-            {activeTab === 'questions' && (
-              <QuestionBankTab exam={exam} onExamChange={setExam} />
-            )}
-            {activeTab === 'paper' && (
-              <PaperGenerationTab exam={exam} onExamChange={setExam} />
-            )}
-            {activeTab === 'solve' && (
-              <SolveSheetTab exam={exam} onExamChange={setExam} />
-            )}
-            {activeTab === 'results' && (
-              <ResultsTab exam={exam} onExamChange={setExam} />
-            )}
-            {activeTab === 'settings' && (
-              <SettingsTab exam={exam} onExamChange={setExam} />
-            )}
-          </div>
+          </Button>
         </div>
       </div>
 
-      {/* Edit modal */}
+      <div className="space-y-5">
+        {/* ── Exam header + stat cards ─────────────────────────────────── */}
+        <Card>
+          <CardContent className="space-y-4 py-4">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Badge variant={engineCfg.variant}>{engineCfg.label}</Badge>
+              <Badge variant="outline">{modeCfg.label}</Badge>
+              {exam.scope === 'GLOBAL' && <Badge variant="secondary">Global</Badge>}
+              {exam.language && <Badge variant="outline">{exam.language.toUpperCase()}</Badge>}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+              <StatCard
+                icon={Hash}
+                label="Questions"
+                value={
+                  (settings.questionCount as number) ??
+                  exam.sets?.[0]?.questions?.length ??
+                  '—'
+                }
+              />
+              <StatCard
+                icon={ClipboardList}
+                label="Duration"
+                value={exam.durationMinutes ? `${exam.durationMinutes} min` : '—'}
+              />
+              <StatCard
+                icon={BookOpen}
+                label="Total Marks"
+                value={(settings.totalMarks as number) ?? '—'}
+              />
+              <StatCard icon={Layers} label="Sets" value={exam.totalSets ?? 1} />
+              <StatCard
+                icon={Users}
+                label="Attempts"
+                value={analytics?.totalAttempts ?? exam._count?.attempts ?? 0}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ── 4-tab body ──────────────────────────────────────────────── */}
+        <Tabs value={activeTab} onValueChange={switchTab}>
+          <TabsList className="grid w-full max-w-2xl grid-cols-4">
+            <TabsTrigger value="builder">
+              <Settings2 className="mr-1.5 h-3.5 w-3.5" />
+              Builder
+            </TabsTrigger>
+            <TabsTrigger value="questions">
+              <BookOpen className="mr-1.5 h-3.5 w-3.5" />
+              Questions
+            </TabsTrigger>
+            <TabsTrigger value="results">
+              <ClipboardList className="mr-1.5 h-3.5 w-3.5" />
+              Results
+            </TabsTrigger>
+            <TabsTrigger value="leaderboard">
+              <Trophy className="mr-1.5 h-3.5 w-3.5" />
+              Leaderboard
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="builder" className="mt-4">
+            <BuilderTab exam={exam} onExamChange={setExam} />
+          </TabsContent>
+          <TabsContent value="questions" className="mt-4">
+            <QuestionsTab exam={exam} />
+          </TabsContent>
+          <TabsContent value="results" className="mt-4">
+            <ResultsTab exam={exam} onExamChange={setExam} />
+          </TabsContent>
+          <TabsContent value="leaderboard" className="mt-4">
+            <LeaderboardTab exam={exam} />
+          </TabsContent>
+        </Tabs>
+      </div>
+
       <ExamFormModal
         open={editOpen}
         exam={exam}
-        courses={exam.course ? [exam.course as any] : []}
-        branches={exam.branch ? [exam.branch as any] : []}
+        courses={exam.course ? [{ id: exam.course.id, name: exam.course.name }] : []}
+        branches={exam.branch ? [exam.branch] : []}
         onClose={() => setEditOpen(false)}
-        onSaved={handleExamUpdated}
+        onSaved={(updated) => {
+          setExam(updated);
+          setEditOpen(false);
+          toast({ description: 'Exam updated' });
+        }}
       />
 
       <Toaster />
     </>
+  );
+}
+
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: number | string;
+}) {
+  return (
+    <div className="flex items-center gap-2 rounded-md border px-3 py-2">
+      <div
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
+        style={{ backgroundColor: '#F3E7C7', color: '#0B1730' }}
+      >
+        <Icon className="h-3.5 w-3.5" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-sm font-semibold leading-none" style={{ color: '#0B1730' }}>
+          {value}
+        </p>
+        <p className="mt-1 truncate text-[10px] uppercase tracking-wider text-muted-foreground">
+          {label}
+        </p>
+      </div>
+    </div>
   );
 }

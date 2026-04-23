@@ -333,8 +333,10 @@ export function AddStudentModal({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
-  const change = (key: keyof StudentForm, value: string | string[]) =>
+  const change = (key: keyof StudentForm, value: string | string[]) => {
     setForm(f => ({ ...f, [key]: value }));
+    if (errors[key as string]) setErrors(e => { const n = { ...e }; delete n[key as string]; return n; });
+  };
 
   const validate = (): Record<string, string> => {
     const e: Record<string, string> = {};
@@ -371,7 +373,19 @@ export function AddStudentModal({
           createdAt: u.createdAt ?? new Date().toISOString().slice(0, 10),
         });
       } else {
-        setErrors({ submit: (res as { message?: string }).message ?? 'Failed to create student' });
+        const msg = (res as { message?: string }).message ?? 'Failed to create student';
+        if (/mobile|phone|number|already/i.test(msg)) {
+          setErrors({ mobile: msg });
+        } else {
+          setErrors({ submit: msg });
+        }
+      }
+    } catch (err: unknown) {
+      const msg = (err as Error).message ?? 'Failed to create student';
+      if (/mobile|phone|number|already/i.test(msg)) {
+        setErrors({ mobile: msg });
+      } else {
+        setErrors({ submit: msg });
       }
     } finally {
       setSaving(false);

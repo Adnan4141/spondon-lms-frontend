@@ -463,3 +463,98 @@ export async function generateFromSubjects(examId: string, data: GenerateFromSub
   });
 }
 
+// ─── Blueprint (sections × folder rules × difficulty %) ────────────────────
+
+export type DifficultyPct = { easy: number; medium: number; hard: number };
+
+export interface BlueprintFolderRule {
+  folderId: string;
+  folderName?: string;
+  questionCount: number;
+  includeDescendants?: boolean;
+  selectionMode?: 'RANDOM' | 'MANUAL';
+  difficulty?: Difficulty | null;
+}
+
+export interface BlueprintSection {
+  id?: string;
+  name: string;
+  type: 'MCQ' | 'CQ' | 'SHORT';
+  questionCount: number;
+  marksPerQuestion: number;
+  negativeMarks?: number;
+  passMarks?: number;
+  isMandatory?: boolean;
+  difficultyDistribution: DifficultyPct;
+  folderRules: BlueprintFolderRule[];
+}
+
+export interface BlueprintSettings {
+  totalSets: number;
+  durationMinutes: number;
+  shuffleQuestions?: boolean;
+  shuffleOptions?: boolean;
+  uniqueSets?: boolean;
+  language?: 'bn' | 'en';
+  negativeMarking?: boolean;
+}
+
+export interface ExamBlueprint {
+  sections: BlueprintSection[];
+  settings: BlueprintSettings;
+}
+
+export interface BlueprintValidationResult {
+  valid: boolean;
+  errors: { field: string; message: string }[];
+  warnings: string[];
+  availability: Array<{
+    sectionName: string;
+    type: 'MCQ' | 'CQ' | 'SHORT';
+    folderRules: Array<{
+      folderId: string;
+      folderName?: string;
+      needed: number;
+      neededForAllSets: number;
+      available: number;
+      availableByDifficulty: { EASY: number; MEDIUM: number; HARD: number };
+    }>;
+  }>;
+}
+
+export async function getExamBlueprint(examId: string): Promise<ApiResponse<ExamBlueprint | null>> {
+  return apiRequest<ApiResponse<ExamBlueprint | null>>(`/exams/${examId}/blueprint`);
+}
+
+export async function validateExamBlueprint(
+  examId: string,
+  blueprint: ExamBlueprint,
+): Promise<ApiResponse<BlueprintValidationResult>> {
+  return apiRequest<ApiResponse<BlueprintValidationResult>>(
+    `/exams/${examId}/blueprint/validate`,
+    { method: 'POST', body: JSON.stringify(blueprint) },
+  );
+}
+
+export async function generateFromBlueprint(
+  examId: string,
+  blueprint: ExamBlueprint,
+): Promise<
+  ApiResponse<{
+    setNames: string[];
+    setsSummary: { name: string; questionCount: number }[];
+    errors: { field: string; message: string }[];
+    warnings: string[];
+  }>
+> {
+  return apiRequest(`/exams/${examId}/blueprint/generate`, {
+    method: 'POST',
+    body: JSON.stringify(blueprint),
+  });
+}
+
+/** Build a direct URL for downloading the ZIP bundle of all set PDFs + solve sheet + answer keys. */
+export function getExamBundleZipUrl(examId: string): string {
+  return `${API_ORIGIN}/api/exams/${examId}/bundle.zip`;
+}
+
