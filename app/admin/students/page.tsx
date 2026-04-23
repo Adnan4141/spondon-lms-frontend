@@ -853,20 +853,36 @@ function AddCourseModal({
 // ─── ENROLLED COURSES VIEW ────────────────────────────────────────────────────
 
 function EnrolledCoursesView({
-  student, onBack, showToast, programs, allCourses,
+  student, onBack, showToast, programs, allCourses, branches,
 }: {
   student: Student;
   onBack: () => void;
   showToast: (msg: string, type?: string) => void;
   programs: Program[];
   allCourses: Course[];
+  branches: { id: string; name: string }[];
 }) {
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [loadingEnrollments, setLoadingEnrollments] = useState(true);
   const [cancelModal, setCancelModal] = useState<{ course: Course; enrollment: Enrollment } | null>(null);
   const [addModal, setAddModal] = useState<Enrollment | null>(null);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const [batchesMap, setBatchesMap] = useState<Map<string, string>>(new Map());
   const dropRef = useRef<HTMLDivElement>(null);
+
+  // Load all batches and build a lookup map
+  useEffect(() => {
+    const map = new Map<string, string>();
+    // Load first batch of batches (this is a simple approach; for larger datasets, paginate)
+    getBatches({ limit: 500 })
+      .then(res => {
+        if (res.success && res.data) {
+          res.data.forEach(b => map.set(b.id, b.name));
+        }
+        setBatchesMap(map);
+      })
+      .catch(() => setBatchesMap(new Map()));
+  }, []);
 
   useEffect(() => {
     getEnrollments({ studentUserId: student.id, limit: 50 }).then(res => {
@@ -1011,11 +1027,11 @@ function EnrolledCoursesView({
                           <p className="text-[11px] text-slate-400 mt-0.5">{enrollment.billingType}</p>
                         </td>
                         <td className="px-3.5 py-3 text-xs text-slate-600">
-                          {enrollment.branchId}
+                          {branches.find(b => b.id === enrollment.branchId)?.name ?? enrollment.branchId}
                         </td>
                         <td className="px-3.5 py-3">
                           {ec.batchId
-                            ? <AppBadge label={ec.batchId} color="slate" />
+                            ? <AppBadge label={batchesMap.get(ec.batchId) ?? ec.batchId} color="slate" />
                             : <span className="text-xs text-slate-400">—</span>
                           }
                         </td>
@@ -1658,6 +1674,8 @@ function CollectPaymentModal({
   const [waiveReason, setWaiveReason] = useState('');
   const [waiveSubmitting, setWaiveSubmitting] = useState(false);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  // Prevent StrictMode double-invoke from firing generateAdvanceInvoices twice per mount
+  const advanceFiredRef = useRef(false);
 
   // bgRefresh = true means: quietly re-fetch without showing a spinner (used after background advance generation)
   const fetchInvoices = async (bgRefresh = false) => {
@@ -1692,16 +1710,17 @@ function CollectPaymentModal({
       mapped.sort((a, b) => b.month.localeCompare(a.month));
       setInvoices(mapped);
       if (!bgRefresh) {
-        // Auto-select current month; fall back to most recent invoice month
+        // Always default to current month
         const curMonth = new Date().toISOString().slice(0, 7);
-        if (mapped.some(i => i.month === curMonth)) setSelMonth(curMonth);
-        else if (mapped.length > 0) setSelMonth(mapped[0].month);
+        setSelMonth(curMonth);
         // Fire advance invoice generation in background — do NOT await it.
-        // This keeps the modal fast: data shows immediately, new months appear
-        // silently once generation finishes.
-        generateAdvanceInvoices({ studentUserId: student.id, months: 12 })
-          .catch(() => {})
-          .then(() => fetchInvoices(true)); // silent refresh when done
+        // Guard: only fire once per mount (StrictMode double-invokes useEffect in dev).
+        if (!advanceFiredRef.current) {
+          advanceFiredRef.current = true;
+          generateAdvanceInvoices({ studentUserId: student.id, months: 12 })
+            .catch(() => {})
+            .then(() => fetchInvoices(true)); // silent refresh when done
+        }
       }
     } catch (err) {
       if (!bgRefresh) setFetchError((err as Error).message ?? 'Failed to load invoices');
@@ -2008,18 +2027,12 @@ function CollectPaymentModal({
                 onClick={async () => {
                   setSaving(true);
                   try {
-                    const paidInv = displayInvoices[0];
                     await processMonthPayment({
                       studentUserId: student.id,
                       month: selMonth,
                       payment: { amount: netDue, method },
                     });
                     fetchInvoices();
-                    if (paidInv) {
-                      getInvoicePdfUrl(paidInv.id)
-                        .then(r => { if (r.data?.pdfUrl) window.open(normPdfUrl(r.data.pdfUrl), '_blank'); })
-                        .catch(() => {});
-                    }
                     onSave({ student, month: selMonth, method, amount: netDue });
                   } finally {
                     setSaving(false);
@@ -2163,6 +2176,7 @@ export default function StudentsPage() {
   const [activeStudent, setActiveStudent] = useState<Student | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [branchFilter, setBranchFilter] = useState('ALL');
   const [modal, setModal] = useState<{ type: string; student?: Student } | null>(null);
   const [editStudent, setEditStudent] = useState<Student | null>(null);
   const { toast } = useToast();
@@ -2218,7 +2232,8 @@ export default function StudentsPage() {
     const q = search.toLowerCase();
     return (
       (s.fullName.toLowerCase().includes(q) || s.mobile.includes(q) || s.regNo.includes(q)) &&
-      (statusFilter === 'ALL' || s.status === statusFilter)
+      (statusFilter === 'ALL' || s.status === statusFilter) &&
+      (branchFilter === 'ALL' || s.branchId === branchFilter)
     );
   });
 
@@ -2241,6 +2256,7 @@ export default function StudentsPage() {
           showToast={showToast}
           programs={programs}
           allCourses={allCourses}
+          branches={branches}
         />
         <Toaster />
       </div>
@@ -2296,6 +2312,14 @@ export default function StudentsPage() {
                 className="pl-8 w-72 text-sm focus-visible:ring-indigo-400"
               />
             </div>
+            <AppSelect
+              value={branchFilter}
+              onChange={setBranchFilter}
+              options={[
+                { value: 'ALL', label: 'All Branches' },
+                ...branches.map(b => ({ value: b.id, label: b.name })),
+              ]}
+            />
             <AppSelect
               value={statusFilter}
               onChange={setStatusFilter}
