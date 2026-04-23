@@ -1665,6 +1665,7 @@ function CollectPaymentModal({
   const [selMonth, setSelMonth] = useState('');
   const [method, setMethod] = useState('CASH');
   const [addDiscount, setAddDiscount] = useState('0');
+  const [paymentAmount, setPaymentAmount] = useState('');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loadingInvoices, setLoadingInvoices] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -1710,9 +1711,11 @@ function CollectPaymentModal({
       mapped.sort((a, b) => b.month.localeCompare(a.month));
       setInvoices(mapped);
       if (!bgRefresh) {
-        // Always default to current month
-        const curMonth = new Date().toISOString().slice(0, 7);
-        setSelMonth(curMonth);
+      // Sort ascending to find the earliest (oldest) unpaid/partial month
+      const sortedAsc = [...mapped].sort((a, b) => a.month.localeCompare(b.month));
+      const firstUnpaidOrPartial = sortedAsc.find(i => i.status === 'DUE' || i.status === 'PARTIAL');
+      if (firstUnpaidOrPartial) setSelMonth(firstUnpaidOrPartial.month);
+      else if (sortedAsc.length > 0) setSelMonth(sortedAsc[sortedAsc.length - 1].month); // latest if all settled
         // Fire advance invoice generation in background — do NOT await it.
         // Guard: only fire once per mount (StrictMode double-invokes useEffect in dev).
         if (!advanceFiredRef.current) {
@@ -1799,13 +1802,15 @@ function CollectPaymentModal({
     PAID: 'green', WAIVED: 'purple', PARTIAL: 'amber', DUE: 'red',
   };
 
-  const totalDue = displayInvoices.reduce((s, i) => s + i.amount, 0);
+  const totalPayable = displayInvoices.reduce((s, i) => s + i.amount, 0);
+  const totalAlreadyPaid = displayInvoices.reduce((s, i) => s + i.paidAmount, 0);
   const admissionFeeTotal = displayInvoices.reduce((s, inv) =>
     s + (inv.items ?? []).filter(it => it.type === 'ADMISSION_FEE').reduce((a, it) => a + it.unitPrice * it.qty, 0), 0);
-  const discountable = Math.max(0, totalDue - admissionFeeTotal);
+  const discountable = Math.max(0, totalPayable - admissionFeeTotal);
   const requestedDiscount = Number(addDiscount) || 0;
   const discount = Math.min(requestedDiscount, discountable);
-  const netDue = Math.max(0, totalDue - discount);
+  // Remaining due = (payable − additional discount) − already paid
+  const netDue = Math.max(0, totalPayable - discount - totalAlreadyPaid);
   const discountCapped = requestedDiscount > discountable && discountable >= 0 && requestedDiscount > 0;
   const monthStatus = getMonthAggStatus(displayInvoices);
   const canWaive = displayInvoices.every(i => i.paidAmount <= 0);
@@ -1846,7 +1851,7 @@ function CollectPaymentModal({
                 <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0" />
                 <p className="text-sm text-rose-700 flex-1">{fetchError}</p>
                 <button
-                  onClick={fetchInvoices}
+                  onClick={() => fetchInvoices()}
                   className="text-xs font-bold text-rose-600 hover:underline cursor-pointer"
                 >
                   Retry
@@ -1861,7 +1866,7 @@ function CollectPaymentModal({
                   return (
                     <button
                       key={m}
-                      onClick={() => { setSelMonth(m); setWaiving(false); setWaiveReason(''); }}
+                      onClick={() => { setSelMonth(m); setWaiving(false); setWaiveReason(''); setAddDiscount('0'); setPaymentAmount(''); }}
                       className={cn(
                         'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-bold transition-colors cursor-pointer',
                         selMonth === m
@@ -1906,7 +1911,16 @@ function CollectPaymentModal({
                           {fmtMonth(inv.month)} — Monthly Fee
                         </td>
                         <td className="px-3 py-2.5 text-slate-500 text-xs">{inv.branchName || '—'}</td>
-                        <td className="px-3 py-2.5 font-bold text-rose-700">{fmt(inv.amount)}</td>
+                        <td className="px-3 py-2.5">
+                          {inv.status === 'PARTIAL' ? (
+                            <>
+                              <span className="font-bold text-rose-700 block">{fmt(inv.amount - inv.paidAmount)}</span>
+                              <span className="text-[11px] text-emerald-600 font-semibold">{fmt(inv.paidAmount)} paid</span>
+                            </>
+                          ) : (
+                            <span className="font-bold text-rose-700">{fmt(inv.amount)}</span>
+                          )}
+                        </td>
                         <td className="px-3 py-2.5">
                           <AppBadge
                             label={inv.status}
@@ -1972,9 +1986,15 @@ function CollectPaymentModal({
             <>
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-3.5">
                 <div className="flex justify-between mb-2">
-                  <span className="text-sm text-slate-500">Total dues</span>
-                  <span className="font-bold text-sm">{fmt(totalDue)}</span>
+                  <span className="text-sm text-slate-500">Total payable</span>
+                  <span className="font-bold text-sm">{fmt(totalPayable)}</span>
                 </div>
+                {totalAlreadyPaid > 0 && (
+                  <div className="flex justify-between mb-2">
+                    <span className="text-sm text-slate-500">Already paid(−)</span>
+                    <span className="font-semibold text-sm text-emerald-600">−{fmt(totalAlreadyPaid)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between mb-3">
                   <span className="text-sm text-slate-500">Monthly scholarship(−)</span>
                   <span className="font-semibold text-sm text-slate-400">৳0</span>
@@ -1994,12 +2014,32 @@ function CollectPaymentModal({
                   </p>
                 )}
                 {!discountCapped && <div className="mb-3" />}
-                <div className="bg-rose-50 border border-rose-200 rounded-lg px-3.5 py-2.5">
+                <div className="bg-rose-50 border border-rose-200 rounded-lg px-3.5 py-2.5 mb-3">
                   <div className="flex justify-between items-center">
                     <span className="font-bold text-sm text-slate-900">Due amount</span>
                     <span className="font-black text-2xl text-rose-700">{fmt(netDue)}</span>
                   </div>
                 </div>
+
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Payment Amount (Enter amount or leave blank for full payment)</p>
+                <Input
+                  type="number"
+                  min={0}
+                  max={netDue}
+                  value={paymentAmount}
+                  onChange={e => {
+                    const val = Number(e.target.value) || 0;
+                    setPaymentAmount(val > netDue ? String(netDue) : e.target.value);
+                  }}
+                  placeholder={fmt(netDue)}
+                  className="text-right focus-visible:ring-indigo-400 mb-2"
+                />
+                {paymentAmount && Number(paymentAmount) < netDue && (
+                  <p className="text-xs text-amber-700 font-semibold mb-2 flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3 shrink-0" />
+                    Partial payment: {fmt(Number(paymentAmount))} of {fmt(netDue)} will be collected
+                  </p>
+                )}
               </div>
 
               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Payment Method</p>
@@ -2023,17 +2063,20 @@ function CollectPaymentModal({
 
               <Button
                 className="w-full gap-2 bg-indigo-600 text-white hover:bg-indigo-700 transition-all mb-3"
-                disabled={netDue <= 0 || saving || loadingInvoices}
+                disabled={(paymentAmount ? Number(paymentAmount) <= 0 : netDue <= 0) || saving || loadingInvoices}
                 onClick={async () => {
+                  const amountToCollect = paymentAmount ? Number(paymentAmount) : netDue;
+                  if (amountToCollect <= 0) return;
                   setSaving(true);
                   try {
                     await processMonthPayment({
                       studentUserId: student.id,
                       month: selMonth,
-                      payment: { amount: netDue, method },
+                      payment: { amount: amountToCollect, method },
                     });
-                    fetchInvoices();
-                    onSave({ student, month: selMonth, method, amount: netDue });
+                    setPaymentAmount('');
+                    await fetchInvoices(true); // silent refresh — updates invoice status/paidAmount before modal closes
+                    onSave({ student, month: selMonth, method, amount: amountToCollect });
                   } finally {
                     setSaving(false);
                   }
