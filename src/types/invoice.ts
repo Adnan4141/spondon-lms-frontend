@@ -1,4 +1,4 @@
-export type InvoiceStatus = 'DRAFT' | 'ISSUED' | 'PAID' | 'PARTIAL' | 'CANCELLED';
+export type InvoiceStatus = 'DRAFT' | 'ISSUED' | 'PAID' | 'PARTIAL' | 'CANCELLED' | 'WAIVED';
 export type InvoiceItemType = 'COURSE' | 'BOOK' | 'FEE' | 'ADMISSION_FEE' | 'OTHER';
 
 export interface InvoiceItem {

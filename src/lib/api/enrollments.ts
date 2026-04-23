@@ -19,6 +19,8 @@ export interface EnrollmentCourse {
     type?: 'ONLINE' | 'OFFLINE' | string;
     fee?: number | string;
     offerPrice?: number | string | null;
+    startMonth?: string | null;
+    endMonth?: string | null;
   };
   batch?: {
     id: string;
@@ -241,6 +243,8 @@ export interface OfflineAdmissionCourseLine {
   courseId: string;
   batchId?: string | null;
   includeBook?: boolean;
+  startMonth?: string; // "YYYY-MM" per-course enrollment start (defaults to course.startMonth on backend)
+  endMonth?: string;  // "YYYY-MM" snapshot of course end month
 }
 
 export interface OfflineAdmissionDto {
@@ -399,7 +403,7 @@ export async function deleteSettlement(id: string): Promise<ApiResponse<void>> {
 
 export async function addCourseToEnrollment(
   enrollmentId: string,
-  body: { courseId: string; batchId?: string | null; includeBook?: boolean },
+  body: { courseId: string; batchId?: string | null; includeBook?: boolean; startMonth?: string },
 ): Promise<ApiResponse<EnrollmentCourse>> {
   return apiRequest<ApiResponse<EnrollmentCourse>>(`/enrollments/${enrollmentId}/courses`, {
     method: 'POST',

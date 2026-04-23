@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, Fragment } from 'react';
 import {
   Plus,
   X,
@@ -148,8 +148,8 @@ function toLocalEnrollment(e: ApiEnrollment): Enrollment {
       courseId: ec.courseId,
       batchId: ec.batchId ?? null,
       status: 'ACTIVE' as const,
-      startMonth: '',
-      endMonth: '',
+      startMonth: (ec as { startMonth?: string | null }).startMonth ?? ec.course?.startMonth ?? '',
+      endMonth: (ec as { endMonth?: string | null }).endMonth ?? ec.course?.endMonth ?? '',
       includeBook: ec.includeBook,
     })),
   };
@@ -692,6 +692,13 @@ function AddCourseModal({
   const [courseBatches, setCourseBatches] = useState<{ id: string; name: string }[]>([]);
   const effMonth = nextMonth();
 
+  // Reset startMonth to the selected course's startMonth whenever the course changes
+  useEffect(() => {
+    if (!selectedCourseId) return;
+    const course = allCourses.find(c => c.id === selectedCourseId);
+    if (course?.startMonth) setStartMonth(course.startMonth);
+  }, [selectedCourseId, allCourses]);
+
   useEffect(() => {
     if (!selectedCourseId) { setCourseBatches([]); return; }
     getBatches({ courseId: selectedCourseId, limit: 100 })
@@ -729,6 +736,7 @@ function AddCourseModal({
         courseId: selectedCourseId,
         batchId: batch || null,
         includeBook: false,
+        startMonth,
       });
       if (!res.success) throw new Error((res as { message?: string }).message ?? 'Failed to add course');
       if (disc !== enrollment.monthlyDiscount) {
@@ -793,7 +801,7 @@ function AddCourseModal({
                   </Field>
                 )}
                 <Field label="Start Month">
-                  <MonthInput value={startMonth} onChange={setStartMonth} min={effMonth} max={selectedCourse.endMonth} />
+                  <MonthInput value={startMonth} onChange={setStartMonth} min={selectedCourse.startMonth || effMonth} max={selectedCourse.endMonth} />
                 </Field>
                 <Field label="End Month">
                   <MonthInput value={selectedCourse.endMonth || ''} disabled />
@@ -1218,7 +1226,16 @@ function EnrollmentModal({
   const canNext = selected.length > 0 && selected.every(c => c.type === 'ONLINE' || selCourses[c.id]?.batch);
 
   const toggle = (cid: string) =>
-    setSelCourses(p => ({ ...p, [cid]: { ...p[cid], checked: !p[cid]?.checked, startMonth: billingStart } }));
+    setSelCourses(p => ({
+      ...p,
+      [cid]: {
+        ...p[cid],
+        checked: !p[cid]?.checked,
+        // Default start month to the course's own startMonth so billing starts when the course begins,
+        // not at the enrollment-level billingStart.
+        startMonth: availableCourses.find(c => c.id === cid)?.startMonth ?? billingStart,
+      },
+    }));
   const setCF = (cid: string, f: string, v: string) =>
     setSelCourses(p => ({ ...p, [cid]: { ...p[cid], [f]: v } }));
 
@@ -1230,6 +1247,8 @@ function EnrollmentModal({
         courseId: c.id,
         batchId: selCourses[c.id]?.batch || null,
         includeBook: false,
+        startMonth: selCourses[c.id]?.startMonth || c.startMonth || billingStart,
+        endMonth: c.endMonth,
       }));
       const dto: OfflineAdmissionDto = {
         studentUserId: student.id,
@@ -1638,14 +1657,22 @@ function CollectPaymentModal({
   const [waiving, setWaiving] = useState(false);
   const [waiveReason, setWaiveReason] = useState('');
   const [waiveSubmitting, setWaiveSubmitting] = useState(false);
+  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
 
-  const fetchInvoices = async () => {
-    setLoadingInvoices(true);
-    setFetchError(null);
+  // bgRefresh = true means: quietly re-fetch without showing a spinner (used after background advance generation)
+  const fetchInvoices = async (bgRefresh = false) => {
+    if (!bgRefresh) {
+      setLoadingInvoices(true);
+      setFetchError(null);
+    }
     try {
-      // Generate invoices for all enrollment months (up to 24 months ahead)
-      await generateAdvanceInvoices({ studentUserId: student.id, months: 24 }).catch(() => {});
-      const res = await getInvoices({ studentUserId: student.id, limit: 200 });
+      const [res, enrollRes] = await Promise.all([
+        getInvoices({ studentUserId: student.id, limit: 200 }),
+        getEnrollments({ studentUserId: student.id, limit: 50 }),
+      ]);
+      if (enrollRes.success && enrollRes.data) {
+        setEnrollments(enrollRes.data.map(toLocalEnrollment));
+      }
       const mapped: Invoice[] = (res.data ?? []).map(inv => ({
         id: inv.id,
         month: inv.month ?? '',
@@ -1661,14 +1688,25 @@ function CollectPaymentModal({
         branchName: (inv as { branch?: { name?: string } }).branch?.name,
         items: (inv as { items?: { title: string; unitPrice: number; qty: number; type?: string }[] }).items,
       }));
-      // Sort descending — most recent month first
+      // Sort descending so mapped[0] is most-recent for default selection logic below
       mapped.sort((a, b) => b.month.localeCompare(a.month));
       setInvoices(mapped);
-      if (mapped.length > 0) setSelMonth(mapped[0].month);
+      if (!bgRefresh) {
+        // Auto-select current month; fall back to most recent invoice month
+        const curMonth = new Date().toISOString().slice(0, 7);
+        if (mapped.some(i => i.month === curMonth)) setSelMonth(curMonth);
+        else if (mapped.length > 0) setSelMonth(mapped[0].month);
+        // Fire advance invoice generation in background — do NOT await it.
+        // This keeps the modal fast: data shows immediately, new months appear
+        // silently once generation finishes.
+        generateAdvanceInvoices({ studentUserId: student.id, months: 12 })
+          .catch(() => {})
+          .then(() => fetchInvoices(true)); // silent refresh when done
+      }
     } catch (err) {
-      setFetchError((err as Error).message ?? 'Failed to load invoices');
+      if (!bgRefresh) setFetchError((err as Error).message ?? 'Failed to load invoices');
     } finally {
-      setLoadingInvoices(false);
+      if (!bgRefresh) setLoadingInvoices(false);
     }
   };
 
@@ -1702,10 +1740,28 @@ function CollectPaymentModal({
     return map;
   }, [invoices]);
 
-  const sortedMonths = useMemo(
-    () => [...monthGroups.keys()].sort((a, b) => b.localeCompare(a)),
-    [monthGroups],
-  );
+  // Build the full month range from enrollment dates, merged with invoice months
+  const allMonths = useMemo(() => {
+    const monthSet = new Set<string>(monthGroups.keys());
+    for (const enr of enrollments) {
+      if (!enr.billingStartMonth) continue;
+      // Find the latest endMonth across all courses in this enrollment
+      const ends = enr.courses.map(c => c.endMonth).filter(Boolean);
+      const endMonth = ends.length > 0 ? ends.reduce((a, b) => (a > b ? a : b)) : '';
+      if (!endMonth) continue;
+      // Walk month-by-month and add all months in range
+      let cur = enr.billingStartMonth;
+      while (cur <= endMonth) {
+        monthSet.add(cur);
+        const [y, mo] = cur.split('-').map(Number);
+        // Use UTC to avoid timezone-shift bugs (local midnight → prev day in UTC)
+        const next = new Date(Date.UTC(y, mo, 1)); // mo is 1-based; Date.UTC(y, mo) = next month
+        cur = next.toISOString().slice(0, 7);
+      }
+    }
+    // Ascending order: Jan 2026 → Dec 2026 (natural billing timeline)
+    return [...monthSet].sort((a, b) => a.localeCompare(b));
+  }, [monthGroups, enrollments]);
 
   const displayInvoices = useMemo(
     () => monthGroups.get(selMonth) ?? [],
@@ -1781,7 +1837,7 @@ function CollectPaymentModal({
               <p className="text-sm text-slate-400">Loading invoices…</p>
             ) : (
               <div className="flex flex-wrap gap-1.5">
-                {sortedMonths.map(m => {
+                {allMonths.map(m => {
                   const aggStatus = getMonthAggStatus(monthGroups.get(m) ?? []);
                   return (
                     <button
@@ -1794,7 +1850,7 @@ function CollectPaymentModal({
                           : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
                       )}
                     >
-                      {fmtMonth(m)}
+                    {fmtMonth(m)}
                       <AppBadge label={aggStatus} color={statusBadgeColor[aggStatus] ?? 'red'} />
                     </button>
                   );
@@ -1825,8 +1881,8 @@ function CollectPaymentModal({
                 </thead>
                 <tbody>
                   {displayInvoices.map(inv => (
-                    <>
-                      <tr key={inv.id} className="border-b border-slate-100">
+                    <Fragment key={inv.id}>
+                      <tr className="border-b border-slate-100">
                         <td className="px-3 py-2.5 font-semibold text-slate-900">
                           {fmtMonth(inv.month)} — Monthly Fee
                         </td>
@@ -1865,7 +1921,7 @@ function CollectPaymentModal({
                           <td colSpan={3} />
                         </tr>
                       ))}
-                    </>
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
