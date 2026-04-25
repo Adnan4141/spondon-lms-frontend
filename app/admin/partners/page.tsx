@@ -16,8 +16,8 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { useModalStore } from '@/store/modalStore';
-import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
-import { PartnerAdminForm } from '@/components/admin/partners/PartnerAdminForm';
+import { ConfirmationModal } from '@/features/admin/shared';
+import { PartnerAdminForm } from '@/features/admin/partners';
 import {
   deletePartner,
   getAllPartners,
@@ -30,7 +30,7 @@ import {
 import { getCourseById } from '@/lib/api/courses';
 import { getBookById } from '@/lib/api/books';
 import type { CourseDetails } from '@/types/course';
-import { CourseDetailsView } from '@/components/admin/courses/CourseDetailsView';
+import { CourseDetailsView } from '@/features/admin/courses';
 import { API_ORIGIN } from '@/lib/api';
 import {
   Dialog,

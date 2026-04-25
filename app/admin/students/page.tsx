@@ -1,22 +1,23 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Toaster } from '@/components/ui/toast';
 import { useToast } from '@/hooks/use-toast';
 import { getPrograms } from '@/lib/api/programs';
 import { getCourses } from '@/lib/api/courses';
 import { getBranches } from '@/lib/api/branches';
 import { getUsers } from '@/lib/api/users';
-import { AddStudentModal } from './AddStudentModal';
-import { CollectPaymentModal } from './CollectPaymentModal';
-import { EditStudentModal } from './EditStudentModal';
-import { EnrolledCoursesView } from './EnrolledCoursesView';
-import { EnrollmentModal } from './EnrollmentModal';
-import { StudentsStats } from './StudentsStats';
-import { StudentsTable } from './StudentsTable';
-import { StudentsToolbar } from './StudentsToolbar';
-import type { BranchOption, Course, Program, Student } from './types';
-import { fmt, fmtMonth } from './utils';
+import { AddStudentModal } from '@/features/admin/students';
+import { CollectPaymentModal } from '@/features/admin/students';
+import { EditStudentModal } from '@/features/admin/students';
+import { EnrolledCoursesView } from '@/features/admin/students';
+import { EnrollmentModal } from '@/features/admin/students';
+import { StudentsStats } from '@/features/admin/students';
+import { StudentsTable } from '@/features/admin/students';
+import { StudentsToolbar } from '@/features/admin/students';
+import type { BranchOption, Course, Program, Student } from '@/features/admin/students';
+import { fmt, fmtMonth } from '@/features/admin/students';
 
 export default function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
@@ -32,6 +33,7 @@ export default function StudentsPage() {
   const [modal, setModal] = useState<{ type: string; student?: Student } | null>(null);
   const [editStudent, setEditStudent] = useState<Student | null>(null);
   const { toast } = useToast();
+  const router = useRouter();
 
   useEffect(() => {
     getUsers({ role: 'STUDENT', limit: 200 }).then(res => {
@@ -95,7 +97,8 @@ export default function StudentsPage() {
   };
 
   const handleAction = (action: string, student: Student) => {
-    if (action === 'enrollments') openEnrollments(student);
+    if (action === 'view') router.push(`/admin/students/${student.id}`);
+    else if (action === 'enrollments') openEnrollments(student);
     else if (action === 'enroll') setModal({ type: 'enroll', student });
     else if (action === 'payment') setModal({ type: 'payment', student });
     else if (action === 'edit') setEditStudent(student);

@@ -1,4 +1,4 @@
-import { TrustFeaturesManager } from '@/components/admin/site-content/TrustFeaturesManager';
+import { TrustFeaturesManager } from '@/features/admin/shared/site-content/TrustFeaturesManager';
 
 export default function TrustFeaturesPage() {
   return (

@@ -47,10 +47,10 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { useModalStore } from '@/store/modalStore';
-import { BatchForm } from '@/components/admin/batches/BatchForm';
-import { BatchDetailsView } from '@/components/admin/batches/BatchDetailsView';
-import { BatchRoutineModal } from '@/components/admin/batches/BatchRoutineModal';
-import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
+import { BatchForm } from '@/features/admin/batches';
+import { BatchDetailsView } from '@/features/admin/batches';
+import { BatchRoutineModal } from '@/features/admin/batches';
+import { ConfirmationModal } from '@/features/admin/shared';
 import { cn } from '@/lib/utils';
 
 const statusOptions: (BatchStatusType | 'all')[] = ['all', 'ACTIVE', 'INACTIVE', 'COMPLETED', 'ARCHIVED'];

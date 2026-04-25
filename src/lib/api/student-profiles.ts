@@ -50,6 +50,14 @@ export async function getStudentProfileByUserId(
   );
 }
 
+export async function getStudentProfileByRegistrationNumber(
+  regNo: string
+): Promise<ApiResponse<StudentProfileRecord & { user?: { id: string; fullName: string; mobile: string; email?: string | null; branchId?: string; status: string; createdAt?: string; studentProfile?: { registrationNumber?: string } } }>> {
+  return apiRequest<ApiResponse<StudentProfileRecord & { user?: { id: string; fullName: string; mobile: string; email?: string | null; branchId?: string; status: string; createdAt?: string; studentProfile?: { registrationNumber?: string } } }>>(
+    `/student-profiles/by-registration/${encodeURIComponent(regNo)}`
+  );
+}
+
 export async function upsertStudentProfile(
   body: UpsertStudentProfilePayload
 ): Promise<ApiResponse<StudentProfileRecord>> {

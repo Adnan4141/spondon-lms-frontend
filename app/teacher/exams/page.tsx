@@ -50,9 +50,8 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { useModalStore } from '@/store/modalStore';
-import { ExamForm } from '@/components/admin/exams/ExamForm';
-import { ExamDetailsView } from '@/components/admin/exams/ExamDetailsView';
-import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
+import { ExamForm, ExamOverviewPanel } from '@/features/admin/exams';
+import { ConfirmationModal } from '@/features/admin/shared';
 import { cn } from '@/lib/utils';
 
 const examStatusOptions: (ExamStatus | 'all')[] = ['all', 'DRAFT', 'PUBLISHED', 'CLOSED'];
@@ -161,7 +160,11 @@ export default function TeacherExamsPage() {
           title: 'Exam Details',
           description: 'Questions, PDFs, offline results, leaderboard.',
           className: 'sm:max-w-5xl w-[min(100vw-2rem,56rem)] max-h-[92vh]',
-          content: <ExamDetailsView exam={res.data} actingTeacherUserId={userId} />,
+          content: (
+            <div className="overflow-y-auto max-h-[80vh] p-4">
+              <ExamOverviewPanel exam={res.data} onRefresh={() => {}} />
+            </div>
+          ),
         });
       }
     } catch (err) {

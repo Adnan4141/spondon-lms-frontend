@@ -62,11 +62,11 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useModalStore } from '@/store/modalStore';
-import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
+import { ConfirmationModal } from '@/features/admin/shared';
 import { Badge } from '@/components/ui/badge';
 import { Toaster } from '@/components/ui/toast';
-import { SmsLogDetails } from './SmsLogDetails';
-import { cardClass, inputClass, labelClass } from './smsStyles';
+import { SmsLogDetails } from '@/features/admin/sms';
+import { cardClass, inputClass, labelClass } from '@/features/admin/sms';
 
 export default function SmsManagementPage() {
   const { toast, toasts, removeToast } = useToast();

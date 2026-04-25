@@ -94,8 +94,8 @@ import type { Course } from '@/types/course';
 import { getUsers } from '@/lib/api/users';
 import { cn } from '@/lib/utils';
 import { useModalStore } from '@/store/modalStore';
-import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
-import { SortableBookRow } from './SortableBookRow';
+import { ConfirmationModal } from '@/features/admin/shared';
+import { SortableBookRow } from '@/features/admin/books';
 
 type BookFilter = 'all' | 'physical' | 'ebook';
 type FeaturedFilter = 'all' | 'featured' | 'not_featured';

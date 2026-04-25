@@ -31,9 +31,9 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { useModalStore } from '@/store/modalStore';
-import { ProgramForm } from './ProgramForm';
-import { ProgramDetailsView } from './ProgramDetailsView';
-import { ProgramCascadeDeleteModal } from './ProgramCascadeDeleteModal';
+import { ProgramForm } from '@/features/admin/programs';
+import { ProgramDetailsView } from '@/features/admin/programs';
+import { ProgramCascadeDeleteModal } from '@/features/admin/programs';
 import { cn } from '@/lib/utils';
 
 function getErrorMessage(error: unknown): string {

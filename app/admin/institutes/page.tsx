@@ -24,7 +24,7 @@ import { Building2, Plus, RefreshCw, Search, Trash2, Hash } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { useModalStore } from '@/store/modalStore';
-import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
+import { ConfirmationModal } from '@/features/admin/shared';
 import { cn } from '@/lib/utils';
 
 export default function InstitutesPage() {

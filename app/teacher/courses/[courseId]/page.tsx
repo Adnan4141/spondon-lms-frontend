@@ -23,7 +23,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { CourseResourceForm } from '@/components/admin/courses/CourseResourceForm';
+import { CourseResourceForm } from '@/features/admin/courses';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 

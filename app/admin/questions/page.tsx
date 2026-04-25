@@ -63,14 +63,14 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { useModalStore } from '@/store/modalStore';
-import { FolderForm } from './FolderForm';
-import { PassageForm } from './PassageForm';
-import { QuestionForm } from './QuestionForm';
-import { CqForm } from './CqForm';
-import { ShortQuestionForm } from './ShortQuestionForm';
-import { QuestionDetailsView } from './QuestionDetailsView';
-import { FolderTree } from './FolderTree';
-import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
+import { FolderForm } from '@/features/admin/questions';
+import { PassageForm } from '@/features/admin/questions';
+import { QuestionForm } from '@/features/admin/questions';
+import { CqForm } from '@/features/admin/questions';
+import { ShortQuestionForm } from '@/features/admin/questions';
+import { QuestionDetailsView } from '@/features/admin/questions';
+import { FolderTree } from '@/features/admin/questions';
+import { ConfirmationModal } from '@/features/admin/shared';
 import { cn } from '@/lib/utils';
 
 type ActiveTab = 'MCQ_SIMPLE' | 'MCQ_PASSAGE' | 'CQ' | 'SHORT';

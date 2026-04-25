@@ -42,7 +42,7 @@ import {
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
-import { AdminDatePicker } from '@/components/admin/form/AdminField';
+import { AdminDatePicker } from '@/features/admin/shared/form/AdminField';
 import { cn } from '@/lib/utils';
 import {
   Wallet,

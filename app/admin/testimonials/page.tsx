@@ -37,7 +37,7 @@ import {
 import { Toaster } from '@/components/ui/toast';
 import { useToast } from '@/hooks/use-toast';
 import { useModalStore } from '@/store/modalStore';
-import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
+import { ConfirmationModal } from '@/features/admin/shared';
 import {
   approveTestimonial,
   createAdminTestimonial,

@@ -44,9 +44,9 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { useModalStore } from '@/store/modalStore';
-import { TeacherForm } from './TeacherForm';
-import { TeacherDetailsView } from './TeacherDetailsView';
-import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
+import { TeacherForm } from '@/features/admin/teachers';
+import { TeacherDetailsView } from '@/features/admin/teachers';
+import { ConfirmationModal } from '@/features/admin/shared';
 import {
   GraduationCap,
   GripVertical,

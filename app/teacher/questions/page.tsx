@@ -63,11 +63,11 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { useModalStore } from '@/store/modalStore';
-import { FolderForm } from '@/components/admin/questions/FolderForm';
-import { PassageForm } from '@/components/admin/questions/PassageForm';
-import { QuestionForm } from '@/components/admin/questions/QuestionForm';
-import { CqForm } from '@/components/admin/questions/CqForm';
-import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
+import { FolderForm } from '@/features/admin/questions';
+import { PassageForm } from '@/features/admin/questions';
+import { QuestionForm } from '@/features/admin/questions';
+import { CqForm } from '@/features/admin/questions';
+import { ConfirmationModal } from '@/features/admin/shared';
 import { cn } from '@/lib/utils';
 
 const difficultyOptions: (Difficulty | 'all')[] = ['all', 'EASY', 'MEDIUM', 'HARD'];

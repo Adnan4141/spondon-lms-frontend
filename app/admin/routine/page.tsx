@@ -80,7 +80,7 @@ import {
   LayoutGrid,
   LayoutList,
 } from 'lucide-react';
-import { RecurringScheduleDialog } from './RecurringScheduleDialog';
+import { RecurringScheduleDialog } from '@/features/admin/routine';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 

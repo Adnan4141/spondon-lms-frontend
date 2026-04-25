@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { Toaster } from '@/components/ui/toast';
 import type { Course } from '@/types/course';
-import { CourseDetailView } from './CourseDetailView';
-import { CoursesListView } from './CoursesListView';
+import { CourseDetailView } from '@/features/admin/courses';
+import { CoursesListView } from '@/features/admin/courses';
 
 export default function AdminCoursesPage() {
   const [contentCourse, setContentCourse] = useState<Course | null>(null);

@@ -52,6 +52,13 @@ export interface GenerateFromSubjectsDto {
   replaceExisting?: boolean;
 }
 
+export interface ExamsPagination {
+  page: number;
+  limit: number;
+  total: number;
+  pages: number;
+}
+
 export async function getExams(params?: {
   courseId?: string;
   branchId?: string;
@@ -61,7 +68,7 @@ export async function getExams(params?: {
   teacherUserId?: string;
   page?: number;
   limit?: number;
-}): Promise<ApiResponse<Exam[]>> {
+}): Promise<ApiResponse<Exam[]> & { pagination?: ExamsPagination }> {
   const queryParams = new URLSearchParams();
   if (params?.courseId) queryParams.append('courseId', params.courseId);
   if (params?.branchId) queryParams.append('branchId', params.branchId);
@@ -650,3 +657,215 @@ export async function deleteTalentHuntPrize(id: string, prizeId: string): Promis
   return apiRequest(`/exams/talent-hunts/${id}/prizes/${prizeId}`, { method: 'DELETE' });
 }
 
+// ─── Exam Sections (Multi-Exam Papers) ──────────────────────────────────────
+
+export interface ExamSectionDto {
+  name: string;
+  type: 'MCQ' | 'CQ' | 'SHORT';
+  sortOrder?: number;
+  durationMinutes?: number;
+  totalMarks?: number;
+  questionCount?: number;
+  marksPerQuestion?: number;
+  negativeMarks?: number;
+  passMarks?: number;
+  isMandatory?: boolean;
+  difficultyDistribution?: { easy: number; medium: number; hard: number };
+  folderRules?: Array<{ folderId: string; questionCount: number; includeDescendants?: boolean; difficulty?: string }>;
+}
+
+export interface ExamSection {
+  id: string;
+  examId: string;
+  name: string;
+  type: 'MCQ' | 'CQ' | 'SHORT';
+  sortOrder: number;
+  durationMinutes?: number;
+  totalMarks?: number;
+  questionCount: number;
+  marksPerQuestion?: number;
+  negativeMarks?: number;
+  passMarks?: number;
+  isMandatory: boolean;
+  difficultyDistribution?: { easy: number; medium: number; hard: number };
+  folderRules?: any[];
+  sets?: Array<{ id: string; name: string; _count: { questions: number } }>;
+}
+
+export async function getExamSections(examId: string): Promise<ApiResponse<ExamSection[]>> {
+  return apiRequest<ApiResponse<ExamSection[]>>(`/exams/${examId}/sections`);
+}
+
+export async function getExamSection(examId: string, sectionId: string): Promise<ApiResponse<ExamSection>> {
+  return apiRequest<ApiResponse<ExamSection>>(`/exams/${examId}/sections/${sectionId}`);
+}
+
+export async function createExamSection(examId: string, data: ExamSectionDto): Promise<ApiResponse<ExamSection>> {
+  return apiRequest<ApiResponse<ExamSection>>(`/exams/${examId}/sections`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateExamSection(examId: string, sectionId: string, data: Partial<ExamSectionDto>): Promise<ApiResponse<ExamSection>> {
+  return apiRequest<ApiResponse<ExamSection>>(`/exams/${examId}/sections/${sectionId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteExamSection(examId: string, sectionId: string): Promise<ApiResponse<void>> {
+  return apiRequest<ApiResponse<void>>(`/exams/${examId}/sections/${sectionId}`, { method: 'DELETE' });
+}
+
+export async function reorderExamSections(examId: string, sectionIds: string[]): Promise<ApiResponse<ExamSection[]>> {
+  return apiRequest<ApiResponse<ExamSection[]>>(`/exams/${examId}/sections/reorder`, {
+    method: 'PUT',
+    body: JSON.stringify({ sectionIds }),
+  });
+}
+
+export async function getExamSectionResults(examId: string, studentUserId: string): Promise<ApiResponse<{
+  sections: Array<{
+    sectionId: string;
+    sectionName: string;
+    type: string;
+    isMandatory: boolean;
+    totalMarks: number;
+    obtainedMarks: number;
+    correct: number;
+    wrong: number;
+    unanswered: number;
+    passed: boolean | null;
+  }>;
+  overall: { totalMarks: number; obtainedMarks: number; allMandatoryPassed: boolean } | null;
+}>> {
+  return apiRequest(`/exams/${examId}/sections/results?studentUserId=${encodeURIComponent(studentUserId)}`);
+}
+
+// ─── Exam Blueprint Presets (Rule Set / Preset System) ──────────────────────
+
+export interface ExamBlueprintPreset {
+  id: string;
+  name: string;
+  description?: string;
+  courseId?: string;
+  structure: ExamBlueprint;
+  totalMarks?: number;
+  duration?: number;
+  isDefault: boolean;
+  createdBy?: string;
+  course?: { id: string; name: string };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function listBlueprintPresets(courseId?: string): Promise<ApiResponse<ExamBlueprintPreset[]>> {
+  const q = courseId ? `?courseId=${encodeURIComponent(courseId)}` : '';
+  return apiRequest<ApiResponse<ExamBlueprintPreset[]>>(`/exams/blueprints/list${q}`);
+}
+
+export async function getBlueprintPreset(id: string): Promise<ApiResponse<ExamBlueprintPreset>> {
+  return apiRequest<ApiResponse<ExamBlueprintPreset>>(`/exams/blueprints/${id}`);
+}
+
+export async function createBlueprintPreset(data: {
+  name: string;
+  description?: string;
+  courseId?: string;
+  structure: ExamBlueprint;
+  totalMarks?: number;
+  duration?: number;
+  isDefault?: boolean;
+  createdBy?: string;
+}): Promise<ApiResponse<ExamBlueprintPreset>> {
+  return apiRequest<ApiResponse<ExamBlueprintPreset>>('/exams/blueprints', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateBlueprintPreset(id: string, data: Partial<{
+  name: string;
+  description: string;
+  courseId: string;
+  structure: ExamBlueprint;
+  totalMarks: number;
+  duration: number;
+  isDefault: boolean;
+}>): Promise<ApiResponse<ExamBlueprintPreset>> {
+  return apiRequest<ApiResponse<ExamBlueprintPreset>>(`/exams/blueprints/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteBlueprintPreset(id: string): Promise<ApiResponse<void>> {
+  return apiRequest<ApiResponse<void>>(`/exams/blueprints/${id}`, { method: 'DELETE' });
+}
+
+export async function duplicateBlueprintPreset(id: string, name?: string): Promise<ApiResponse<ExamBlueprintPreset>> {
+  return apiRequest<ApiResponse<ExamBlueprintPreset>>(`/exams/blueprints/${id}/duplicate`, {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function applyBlueprintToExam(
+  blueprintId: string,
+  examId: string,
+): Promise<ApiResponse<ExamSection[]>> {
+  return apiRequest<ApiResponse<ExamSection[]>>(
+    `/exams/blueprints/${blueprintId}/apply-to/${examId}`,
+    { method: 'POST' },
+  );
+}
+
+// ─── Folder Stats (Question Distribution Analytics) ─────────────────────────
+
+export interface FolderStats {
+  folderId: string;
+  folderCount: number;
+  total: number;
+  byType: { mcqSingle: number; mcqPassage: number; cq: number; short: number };
+  byDifficulty: { easy: number; medium: number; hard: number; untagged: number };
+  passages: number;
+  byYear: Array<{ year: number; count: number }>;
+  typeByDifficulty: Record<string, Record<string, number>>;
+}
+
+export async function getFolderStats(folderId: string, includeDescendants = false): Promise<ApiResponse<FolderStats>> {
+  const q = includeDescendants ? '?includeDescendants=true' : '';
+  return apiRequest<ApiResponse<FolderStats>>(`/question-bank/folders/${folderId}/stats${q}`);
+}
+
+// ─── Section Set Generation ──────────────────────────────────────────────────
+
+export interface GenerateSectionSetsDto {
+  folderIds: string[];
+  setCount?: number;
+  shuffleQuestions?: boolean;
+  mcqSingleCount?: number;
+  mcqPassageCount?: number;
+  cqCount?: number;
+  shortCount?: number;
+  marksPerQuestion?: number;
+  negativeMarks?: number;
+}
+
+export interface GeneratedSectionSet {
+  id: string;
+  name: string;
+  questionCount: number;
+}
+
+export async function generateSectionSets(
+  examId: string,
+  sectionId: string,
+  data: GenerateSectionSetsDto,
+): Promise<ApiResponse<GeneratedSectionSet[]>> {
+  return apiRequest<ApiResponse<GeneratedSectionSet[]>>(
+    `/exams/${examId}/sections/${sectionId}/generate`,
+    { method: 'POST', body: JSON.stringify(data) },
+  );
+}
