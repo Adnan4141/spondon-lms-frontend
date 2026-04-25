@@ -26,6 +26,7 @@ import {
 import { getPrograms } from '@/lib/api/programs';
 import type { Course, Program, CreateCourseDto, UpdateCourseDto } from '@/types/course';
 import type { CourseContent, ContentType } from '@/types/course-content';
+import Image from 'next/image';
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
@@ -1000,7 +1001,7 @@ function CoursesListView({
           <h1 className="text-xl font-black text-slate-900">Course Manager</h1>
           <p className="text-sm text-slate-500 mt-0.5">{courses.length} courses total</p>
         </div>
-        <Button onClick={() => setEditCourse('new')} className="gap-2 text-white" style={{ background: RED }}>
+        <Button onClick={() => setEditCourse('new')} className="gap-2 text-white bg-black" >
           <Plus className="h-4 w-4" /> Create Course
         </Button>
       </div>
@@ -1063,9 +1064,13 @@ function CoursesListView({
                     <tr key={course.id} className="hover:bg-slate-50/70 transition-colors">
                       {/* Course name + slug */}
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
+                        <div className="flex flex-col items-start gap-3">
                           <div className="w-9 h-9 rounded-lg bg-rose-50 flex items-center justify-center shrink-0">
-                            <BookOpen className="h-4 w-4 text-rose-600" />
+                         
+                           <Image src={course.thumbnail|| `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='450'%3E%3Crect width='800' height='450' fill='%235C2D91'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-size='28' font-family='sans-serif'%3ECourse%3C/text%3E%3C/svg%3E`}
+                           alt={course.name}
+                            height={36} width={36} className="w-full h-full object-cover rounded-lg" />
+                         
                           </div>
                           <div>
                             <p className="font-bold text-slate-900 text-sm leading-tight">{course.name}</p>

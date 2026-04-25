@@ -25,7 +25,7 @@ import {
   upsertStudentProfile,
   type SmsAlertTo,
 } from '@/lib/api/student-profiles';
-import { InstituteCombobox } from '@/components/admin/students/StudentForm';
+import { InstituteCombobox } from '@/components/admin/students/InstituteCombobox';
 import type { Institute } from '@/types/student';
 
 const inputClass =
