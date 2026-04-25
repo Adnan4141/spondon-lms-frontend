@@ -74,6 +74,7 @@ export default function StudentDetailPage() {
   const [branches, setBranches] = useState<BranchOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [fetchError, setFetchError] = useState('');
   const [userId, setUserId] = useState('');
 
   // UI state
@@ -83,7 +84,20 @@ export default function StudentDetailPage() {
 
   const fetchData = async () => {
     // Step 1: resolve userId from registration number
-    const profileByRegRes = await getStudentProfileByRegistrationNumber(registrationNumber);
+    let profileByRegRes;
+    try {
+      profileByRegRes = await getStudentProfileByRegistrationNumber(registrationNumber);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '';
+      // apiRequest throws with the server message on non-2xx;
+      // treat "not found" messages as 404, everything else as a load error
+      if (msg.toLowerCase().includes('not found') || msg.toLowerCase().includes('404')) {
+        setNotFound(true);
+      } else {
+        setFetchError(msg || 'Failed to load student data. Please try again.');
+      }
+      return;
+    }
     if (!profileByRegRes.success || !profileByRegRes.data) { setNotFound(true); return; }
     const resolvedUserId = profileByRegRes.data.userId;
     setUserId(resolvedUserId);
@@ -153,7 +167,15 @@ export default function StudentDetailPage() {
   useEffect(() => {
     setLoading(true);
     setNotFound(false);
-    fetchData().catch(() => {}).finally(() => setLoading(false));
+    setFetchError('');
+    fetchData().catch((err: unknown) => {
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.toLowerCase().includes('not found') || msg.toLowerCase().includes('404')) {
+        setNotFound(true);
+      } else {
+        setFetchError(msg || 'Failed to load student data.');
+      }
+    }).finally(() => setLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [registrationNumber]);
 
@@ -173,6 +195,19 @@ export default function StudentDetailPage() {
     return (
       <div className="min-h-screen p-6 bg-slate-50/50 flex items-center justify-center">
         <p className="text-slate-400">Loading student profile…</p>
+      </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <div className="min-h-screen p-6 bg-slate-50/50 flex flex-col items-center justify-center gap-4">
+        <p className="text-rose-600 font-semibold">Error loading student</p>
+        <p className="text-slate-500 text-sm max-w-sm text-center">{fetchError}</p>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => { setFetchError(''); setLoading(true); fetchData().catch((err: unknown) => { const msg = err instanceof Error ? err.message : ''; setFetchError(msg || 'Failed to load.'); }).finally(() => setLoading(false)); }}>Retry</Button>
+          <Button variant="outline" size="sm" onClick={() => router.push('/admin/students')}>← Back to Students</Button>
+        </div>
       </div>
     );
   }
