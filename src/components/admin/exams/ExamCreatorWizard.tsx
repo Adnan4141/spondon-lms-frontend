@@ -21,11 +21,12 @@ import type { Course } from '@/types/course';
 import type { Branch } from '@/lib/api/branches';
 import type { CreateExamDto, Exam, ExamEngineType, ExamSet, ExamType, ExamMode, ExamStatus } from '@/types/exam';
 import { useToast } from '@/hooks/use-toast';
-import { Check, ChevronRight, Search, X, Folder, FileText, Download, Send, Save, ArrowLeft, ArrowRight, AlertTriangle, Loader2 } from 'lucide-react';
+import { Check, ChevronRight, Search, X, Folder, FileText, Download, Send, Save, ArrowLeft, ArrowRight, AlertTriangle, Loader2, ChevronsUpDown, BookOpen } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface WizardState {
@@ -196,6 +197,8 @@ export function ExamCreatorWizard({ exam, onSuccess, onClose, actingTeacherUserI
   const [step, setStep] = useState(0);
   const [maxStep, setMaxStep] = useState(0);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [courseComboOpen, setCourseComboOpen] = useState(false);
+  const [courseSearch, setCourseSearch] = useState('');
   const [branches, setBranches] = useState<Branch[]>([]);
   const [batches, setBatches] = useState<{ id: string; name: string }[]>([]);
   const [folderTree, setFolderTree] = useState<FolderTreeNode[]>([]);
@@ -362,19 +365,70 @@ export function ExamCreatorWizard({ exam, onSuccess, onClose, actingTeacherUserI
 
       <div className="grid grid-cols-1 gap-3 mt-3 sm:grid-cols-2">
         <FieldWrap label="Course">
-          <Select value={st.courseId || '__none__'} onValueChange={(v) => update({ courseId: v === '__none__' ? '' : v, batchId: '' })}>
-            <SelectTrigger className="h-9 w-full">
-              <SelectValue placeholder="Select course" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__">— Select —</SelectItem>
-              {courses.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {(() => {
+            const selectedCourse = courses.find(c => c.id === st.courseId);
+            const filteredCourses = courseSearch.trim()
+              ? courses.filter(c => c.name.toLowerCase().includes(courseSearch.trim().toLowerCase()))
+              : courses;
+            return (
+              <Popover open={courseComboOpen} onOpenChange={(o) => { setCourseComboOpen(o); if (!o) setCourseSearch(''); }}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={courseComboOpen}
+                    className="h-9 w-full justify-between text-sm font-normal"
+                  >
+                    <span className={cn('truncate text-left', !selectedCourse && 'text-muted-foreground')}>
+                      {selectedCourse ? selectedCourse.name : 'Select course…'}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <div className="border-b p-2">
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                      <Input
+                        placeholder="Search courses…"
+                        className="h-8 pl-8 text-sm"
+                        value={courseSearch}
+                        onChange={(e) => setCourseSearch(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto p-1">
+                    <button
+                      type="button"
+                      onClick={() => { update({ courseId: '', batchId: '' }); setCourseComboOpen(false); }}
+                      className="w-full rounded-md px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted"
+                    >
+                      — None —
+                    </button>
+                    {filteredCourses.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => { update({ courseId: c.id, batchId: '' }); setCourseComboOpen(false); setCourseSearch(''); }}
+                        className={cn(
+                          'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-muted',
+                          st.courseId === c.id && 'bg-primary/10 font-medium',
+                        )}
+                      >
+                        <BookOpen className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <span className="flex-1 truncate">{c.name}</span>
+                        {st.courseId === c.id && <Check className="h-3.5 w-3.5 text-primary" />}
+                      </button>
+                    ))}
+                    {filteredCourses.length === 0 && (
+                      <p className="px-3 py-6 text-center text-sm text-muted-foreground">No courses found</p>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            );
+          })()}
         </FieldWrap>
         <FieldWrap label="Branch">
           <Select value={st.branchId || '__all__'} onValueChange={(v) => update({ branchId: v === '__all__' ? '' : v })}>
