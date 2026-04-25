@@ -1,5 +1,5 @@
 // Question types based on Prisma schema
-export type QuestionType = 'MCQ' | 'CQ';
+export type QuestionType = 'MCQ' | 'CQ' | 'SHORT';
 export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD';
 export type McqType = 'SINGLE' | 'PASSAGE_CHILD';
 
@@ -119,6 +119,16 @@ export interface BulkCopyQuestionsDto {
 
 export interface BulkDeleteQuestionsDto {
   questionIds: string[];
+}
+
+export interface CreateShortQuestionDto {
+  folderId: string;
+  difficulty?: Difficulty;
+  year?: number;
+  prompt: string;
+  explanation?: string;
+  meta?: { answer?: string };
+  tags?: string[];
 }
 
 export interface ApiResponse<T> {

@@ -100,9 +100,8 @@ function buildMenuSections(role: string | null): MenuSection[] {
 
   // ----- Exam -----
   const examItems: MenuItem[] = [
-    { title: 'Exam Setup', href: '/admin/exams', icon: ClipboardList, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-    { title: 'Exam Results', href: '/admin/exam-results', icon: Award, color: 'text-amber-500', bg: 'bg-amber-50' },
-    { title: 'Result Approvals', href: '/admin/results/approvals', icon: ListChecks, color: 'text-teal-600', bg: 'bg-teal-50' },
+    { title: 'Exam', href: '/admin/exams', icon: ClipboardList, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+   
   ];
   const showExam = !isAccounts;
 

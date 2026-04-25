@@ -1497,15 +1497,26 @@ function FolderTreePanel({
     onSelectionChange(next);
   }, [selectedFolders, onSelectionChange]);
 
+  const clearSelection = useCallback(() => {
+    onSelectionChange(new Set());
+  }, [onSelectionChange]);
+
+  const selectTopLevelFolders = useCallback(() => {
+    const next = new Set<string>();
+    const walk = (n: FolderTreeNode) => {
+      next.add(n.id);
+      (n.children ?? []).forEach(walk);
+    };
+    tree.forEach(walk);
+    onSelectionChange(next);
+  }, [tree, onSelectionChange]);
+
   const selectAll = useCallback((node: FolderTreeNode, checked: boolean) => {
     const next = new Set(selectedFolders);
     function walk(n: FolderTreeNode) {
-      const kids = n.children ?? [];
-      if (kids.length === 0) {
-        if (checked) next.add(n.id);
-        else next.delete(n.id);
-      }
-      kids.forEach(walk);
+      if (checked) next.add(n.id);
+      else next.delete(n.id);
+      (n.children ?? []).forEach(walk);
     }
     walk(node);
     onSelectionChange(next);
@@ -1552,6 +1563,26 @@ function FolderTreePanel({
           />
         </div>
         <div className="flex shrink-0 items-center gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-[11px] text-slate-600"
+            disabled={treeLoading || !tree.length}
+            onClick={selectTopLevelFolders}
+          >
+            Select roots
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-[11px] text-slate-600"
+            disabled={treeLoading || selectedFolders.size === 0}
+            onClick={clearSelection}
+          >
+            Clear
+          </Button>
           <Button
             type="button"
             variant="ghost"
@@ -1624,14 +1655,19 @@ function FolderTreePanel({
         {selectedLeafNames.length === 0 ? (
           <span className="text-[11px] text-slate-400">No folders selected — browse and check above</span>
         ) : (
-          selectedLeafNames.map(leaf => (
-            <div key={leaf.id} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 rounded text-[11px] font-medium text-blue-800">
-              {leaf.name}
-              <button className="text-blue-700 hover:text-blue-900" onClick={() => toggleSelect(leaf.id)}>
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          ))
+          <>
+            <span className="inline-flex items-center rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+              {selectedLeafNames.length} selected
+            </span>
+            {selectedLeafNames.map(leaf => (
+              <div key={leaf.id} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 rounded text-[11px] font-medium text-blue-800">
+                {leaf.name}
+                <button className="text-blue-700 hover:text-blue-900" onClick={() => toggleSelect(leaf.id)}>
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </>
         )}
       </div>
     </div>
@@ -1657,15 +1693,15 @@ function FolderTreeNodes({ nodes, depth, expandedIds, selectedFolders, searchQue
         const c = node.counts ?? { mcqSingle: 0, mcqPassage: 0, cq: 0, short: 0, total: 0 };
         const leafMcq = (c.mcqSingle ?? 0) + (c.mcqPassage ?? 0);
 
-        // Check if any children (recursively) are selected
-        function hasSelectedChild(n: FolderTreeNode): boolean {
-          if (selectedFolders.has(n.id)) return true;
-          return (n.children ?? []).some(hasSelectedChild);
+        // Returns true if this node AND every descendant is in selectedFolders
+        function allSubtreeSelected(n: FolderTreeNode): boolean {
+          if (!selectedFolders.has(n.id)) return false;
+          return (n.children ?? []).every(allSubtreeSelected);
         }
-        function allLeavesSelected(n: FolderTreeNode): boolean {
-          const kids = n.children ?? [];
-          if (kids.length === 0) return selectedFolders.has(n.id);
-          return kids.every(allLeavesSelected);
+        // Returns true if this node OR any descendant is in selectedFolders
+        function anySubtreeSelected(n: FolderTreeNode): boolean {
+          if (selectedFolders.has(n.id)) return true;
+          return (n.children ?? []).some(anySubtreeSelected);
         }
 
         if (searchQuery && !subtreeMatchesSearch(node, searchQuery)) return null;
@@ -1696,8 +1732,8 @@ function FolderTreeNodes({ nodes, depth, expandedIds, selectedFolders, searchQue
         }
 
         // Folder node (not leaf)
-        const allSelected = allLeavesSelected(node);
-        const someSelected = hasSelectedChild(node);
+        const allSelected = allSubtreeSelected(node);
+        const someSelected = anySubtreeSelected(node);
         const agg = subtreeTypeTotals(node);
         const subfolderCount = node.childCount ?? children.length;
 

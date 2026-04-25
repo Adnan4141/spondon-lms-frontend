@@ -25,8 +25,16 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
-import { Plus, X, CheckCircle2, ListFilter, Type, BarChart3, Calendar, FolderOpen, FileText } from 'lucide-react';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Plus, X, CheckCircle2, ListFilter, Type, BarChart3, CalendarIcon, FolderOpen, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+const CURRENT_YEAR = new Date().getFullYear();
+const YEAR_OPTIONS = Array.from({ length: 30 }, (_, i) => CURRENT_YEAR - i);
 
 const inputClass =
   'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
@@ -45,6 +53,10 @@ interface QuestionFormProps {
 const questionTypeOptions: QuestionType[] = ['MCQ', 'CQ'];
 const difficultyOptions: Difficulty[] = ['EASY', 'MEDIUM', 'HARD'];
 const mcqTypeOptions: McqType[] = ['SINGLE', 'PASSAGE_CHILD'];
+const MCQ_TYPE_LABELS: Record<McqType, string> = {
+  SINGLE: 'Simple MCQ',
+  PASSAGE_CHILD: 'Passage-Based MCQ',
+};
 
 export function QuestionForm({ 
   folders, 
@@ -74,6 +86,7 @@ export function QuestionForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
+  const [yearOpen, setYearOpen] = useState(false);
   
   const optionsEndRef = useRef<HTMLDivElement | null>(null);
   const isEdit = !!question;
@@ -320,13 +333,17 @@ export function QuestionForm({
 
                 {form.type === 'MCQ' && (
                   <div className="space-y-2">
-                     <label className={sectionLabel}><ListFilter className="inline h-3 w-3 mr-1" /> MCQ Logic</label>
+                     <label className={sectionLabel}><ListFilter className="inline h-3 w-3 mr-1" /> MCQ Subtype</label>
                      <Select value={form.mcqType} onValueChange={(v) => setForm(p => ({ ...p, mcqType: v as McqType }))}>
                         <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700">
                            <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                           {mcqTypeOptions.map(o => <SelectItem key={o} value={o} className="text-sm font-medium">{o.replace('_', ' ')}</SelectItem>)}
+                           {mcqTypeOptions.map(o => (
+                             <SelectItem key={o} value={o} className="text-sm font-medium">
+                               {MCQ_TYPE_LABELS[o]}
+                             </SelectItem>
+                           ))}
                         </SelectContent>
                      </Select>
                   </div>
@@ -368,14 +385,43 @@ export function QuestionForm({
                 </div>
 
                 <div className="space-y-2">
-                   <label className={sectionLabel}><Calendar className="inline h-3 w-3 mr-1" /> Year</label>
-                   <Input 
-                     type="number" 
-                     className={inputClass} 
-                     value={form.year || ''} 
-                     onChange={(e) => setForm(p => ({ ...p, year: e.target.value ? Number(e.target.value) : undefined }))}
-                     placeholder="e.g., 2024"
-                   />
+                   <label className={sectionLabel}><CalendarIcon className="inline h-3 w-3 mr-1" /> Year</label>
+                   <Popover open={yearOpen} onOpenChange={setYearOpen}>
+                     <PopoverTrigger asChild>
+                       <Button
+                         variant="outline"
+                         className={cn(
+                           'w-full h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold justify-start shadow-inner',
+                           form.year ? 'text-slate-900' : 'text-slate-400'
+                         )}
+                       >
+                         <CalendarIcon className="mr-2 h-4 w-4" />
+                         {form.year ? form.year : 'Select Year'}
+                       </Button>
+                     </PopoverTrigger>
+                     <PopoverContent className="w-44 p-2 rounded-2xl border-slate-200 bg-white shadow-xl" align="start">
+                       <div className="max-h-48 overflow-y-auto space-y-0.5 no-scrollbar">
+                         <button
+                           className="w-full text-left px-3 py-2 rounded-xl text-sm font-medium text-slate-400 hover:bg-slate-50"
+                           onClick={() => { setForm(p => ({ ...p, year: undefined })); setYearOpen(false); }}
+                         >
+                           None
+                         </button>
+                         {YEAR_OPTIONS.map(y => (
+                           <button
+                             key={y}
+                             className={cn(
+                               'w-full text-left px-3 py-2 rounded-xl text-sm font-bold transition-colors',
+                               form.year === y ? 'bg-indigo-600 text-white' : 'text-slate-700 hover:bg-slate-50'
+                             )}
+                             onClick={() => { setForm(p => ({ ...p, year: y })); setYearOpen(false); }}
+                           >
+                             {y}
+                           </button>
+                         ))}
+                       </div>
+                     </PopoverContent>
+                   </Popover>
                 </div>
              </div>
 
