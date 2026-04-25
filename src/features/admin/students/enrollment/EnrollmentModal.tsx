@@ -32,7 +32,8 @@ export function EnrollmentModal({
   const [monthlyDiscount, setMonthlyDiscount] = useState('0');
   const [admDiscount, setAdmDiscount] = useState('0');
   const [billingStart, setBillingStart] = useState(() => nextMonth());
-  const [courseBatches, setCourseBatches] = useState<Record<string, { id: string; name: string }[]>>({});
+  const [courseBatches, setCourseBatches] = useState<Record<string, { id: string; name: string; status: string }[]>>({});
+  const [loadingBatches, setLoadingBatches] = useState(false);
   const [saving, setSaving] = useState(false);
   const [enrollError, setEnrollError] = useState('');
   // Already-enrolled detection
@@ -52,8 +53,9 @@ export function EnrollmentModal({
       });
   }, [student.id]);
 
-  // Initialize branchId from the logged-in user's profile or first available branch
+  // Initialize branchId: prefer student's own branch, then logged-in admin branch, then first available
   useEffect(() => {
+    if (student.branchId) { setBranchId(student.branchId); return; }
     try {
       const raw = localStorage.getItem('user');
       const u = raw ? JSON.parse(raw) : null;
@@ -65,24 +67,26 @@ export function EnrollmentModal({
     } catch {
       if (branches.length > 0) setBranchId(branches[0].id);
     }
-  }, [branches]);
+  }, [branches, student.branchId]);
 
   useEffect(() => {
     if (!programId) { setCourseBatches({}); return; }
+    setLoadingBatches(true);
     getBatches({ branchId: branchId || undefined, limit: 200 })
       .then(res => {
         if (res.success && res.data) {
-          const map: Record<string, { id: string; name: string }[]> = {};
+          const map: Record<string, { id: string; name: string; status: string }[]> = {};
           for (const b of res.data) {
             map[b.courseId] ??= [];
-            map[b.courseId].push({ id: b.id, name: b.name });
+            map[b.courseId].push({ id: b.id, name: b.name, status: b.status as string });
           }
           setCourseBatches(map);
         }
       })
       .catch(() => {
         setCourseBatches({});
-      });
+      })
+      .finally(() => setLoadingBatches(false));
   }, [programId, branchId]);
 
   // Detect already-enrolled programs/courses for this student
@@ -112,6 +116,13 @@ export function EnrollmentModal({
   const courses = programId ? allCourses.filter(c => c.programId === programId) : [];
   const availableCourses = courses.filter(c => !enrolledCourseIds.has(c.id));
   const alreadyEnrolledCourses = courses.filter(c => enrolledCourseIds.has(c.id));
+  // Sort: ONLINE or OFFLINE-with-active-batches first; OFFLINE-without-active-batches last
+  const coursesWithBatches = loadingBatches
+    ? availableCourses
+    : availableCourses.filter(c => c.type === 'ONLINE' || courseBatches[c.id]?.some(b => b.status === 'ACTIVE'));
+  const coursesNoBatch = loadingBatches
+    ? []
+    : availableCourses.filter(c => c.type === 'OFFLINE' && !courseBatches[c.id]?.some(b => b.status === 'ACTIVE'));
   const selected = availableCourses.filter(c => selCourses[c.id]?.checked);
   const totalFee = selected.reduce((s, c) => s + c.fee, 0);
   const distributed = distributeDiscount(selected, Number(monthlyDiscount) || 0);
@@ -231,73 +242,112 @@ export function EnrollmentModal({
                 ) : (
                   <>
                     {/* Available (not yet enrolled) courses */}
-                    {availableCourses.length > 0 && (
-                      <div className="mb-4">
-                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2.5">Available Courses</p>
-                        <div className="flex flex-col gap-2">
-                          {availableCourses.map(c => {
-                            const sel = selCourses[c.id];
-                            return (
-                              <div
-                                key={c.id}
-                                className={cn(
-                                  'border rounded-xl p-3.5 transition-all',
-                                  sel?.checked ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-white hover:border-slate-300',
-                                )}
-                              >
-                                <label className="flex items-start gap-2.5 cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={!!sel?.checked}
-                                    onChange={() => toggle(c.id)}
-                                    className="mt-0.5 accent-rose-600"
-                                  />
-                                  <div className="flex-1">
-                                    <div className="flex justify-between">
-                                      <span className="font-bold text-sm text-slate-900">{c.name}</span>
-                                      <span className="font-black text-rose-700 text-sm">{fmt(c.fee)}/month</span>
-                                    </div>
-                                    <div className="flex gap-2 mt-1">
-                                      <AppBadge label={c.type} color={c.type === 'OFFLINE' ? 'amber' : 'blue'} />
-                                      <span className="text-xs text-slate-400">Payment mode: monthly</span>
-                                    </div>
-                                  </div>
-                                </label>
-                                {sel?.checked && (
-                                  <div className={cn(
-                                    'grid gap-2.5 mt-3 pt-3 border-t border-dashed border-rose-200',
-                                    c.type === 'OFFLINE' ? 'grid-cols-3' : 'grid-cols-2',
-                                  )}>
-                                    {c.type === 'OFFLINE' && (
-                                      <Field label="Batch" required>
-                                        <AppSelect
-                                          value={sel.batch || ''}
-                                          onChange={v => setCF(c.id, 'batch', v)}
-                                          placeholder="Select batch"
-                                          options={(courseBatches[c.id] ?? []).map(b => ({ value: b.id, label: b.name }))}
-                                        />
-                                        {!sel.batch && <p className="text-[11px] text-rose-600 mt-1">Required</p>}
-                                      </Field>
-                                    )}
-                                    <Field label="Start Month">
-                                      <MonthInput
-                                        value={sel.startMonth || billingStart}
-                                        onChange={v => setCF(c.id, 'startMonth', v)}
-                                        min={c.startMonth}
-                                        max={c.endMonth}
-                                      />
-                                    </Field>
-                                    <Field label="End Month">
-                                      <MonthInput value={c.endMonth} disabled />
-                                    </Field>
-                                  </div>
-                                )}
+                    {availableCourses.length > 0 && (() => {
+                      const renderCourseCard = (c: Course, noBatch = false) => {
+                        const sel = selCourses[c.id];
+                        const activeBatches = (courseBatches[c.id] ?? []).filter(b => b.status === 'ACTIVE');
+                        return (
+                          <div
+                            key={c.id}
+                            className={cn(
+                              'border rounded-xl p-3.5 transition-all',
+                              sel?.checked
+                                ? 'border-rose-300 bg-rose-50'
+                                : noBatch
+                                  ? 'border-amber-200 bg-amber-50/50 hover:border-amber-300'
+                                  : 'border-slate-200 bg-white hover:border-slate-300',
+                            )}
+                          >
+                            <label className="flex items-start gap-2.5 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={!!sel?.checked}
+                                onChange={() => toggle(c.id)}
+                                className="mt-0.5 accent-rose-600"
+                              />
+                              <div className="flex-1">
+                                <div className="flex justify-between">
+                                  <span className="font-bold text-sm text-slate-900">{c.name}</span>
+                                  <span className="font-black text-rose-700 text-sm">{fmt(c.fee)}/month</span>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5 mt-1 items-center">
+                                  <AppBadge label={c.type} color={c.type === 'OFFLINE' ? 'amber' : 'blue'} />
+                                  {c.type === 'OFFLINE' && !loadingBatches && (
+                                    activeBatches.length > 0
+                                      ? <AppBadge label={`${activeBatches.length} Batch${activeBatches.length > 1 ? 'es' : ''}`} color="green" />
+                                      : <AppBadge label="No Active Batch" color="red" />
+                                  )}
+                                  <span className="text-xs text-slate-400">Payment mode: monthly</span>
+                                </div>
                               </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
+                            </label>
+                            {sel?.checked && (
+                              <div className={cn(
+                                'grid gap-2.5 mt-3 pt-3 border-t border-dashed',
+                                noBatch ? 'border-amber-200' : 'border-rose-200',
+                                c.type === 'OFFLINE' ? 'grid-cols-3' : 'grid-cols-2',
+                              )}>
+                                {c.type === 'OFFLINE' && (
+                                  <Field label="Batch" required>
+                                    <AppSelect
+                                      value={sel.batch || ''}
+                                      onChange={v => setCF(c.id, 'batch', v)}
+                                      placeholder="Select batch"
+                                      options={(courseBatches[c.id] ?? []).map(b => ({
+                                        value: b.id,
+                                        label: b.status === 'ACTIVE'
+                                          ? b.name
+                                          : `${b.name} (${b.status.charAt(0) + b.status.slice(1).toLowerCase()})`,
+                                      }))}
+                                    />
+                                    {!sel.batch && <p className="text-[11px] text-rose-600 mt-1">Required</p>}
+                                  </Field>
+                                )}
+                                <Field label="Start Month">
+                                  <MonthInput
+                                    value={sel.startMonth || billingStart}
+                                    onChange={v => setCF(c.id, 'startMonth', v)}
+                                    min={c.startMonth}
+                                    max={c.endMonth}
+                                  />
+                                </Field>
+                                <Field label="End Month">
+                                  <MonthInput value={c.endMonth} disabled />
+                                </Field>
+                              </div>
+                            )}
+                            {noBatch && !sel?.checked && (
+                              <div className="mt-2 flex items-center gap-1.5 text-amber-600">
+                                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                                <span className="text-xs font-semibold">No active batch available for this course</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      };
+                      return (
+                        <>
+                          {coursesWithBatches.length > 0 && (
+                            <div className="mb-4">
+                              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2.5">Available Courses</p>
+                              <div className="flex flex-col gap-2">
+                                {coursesWithBatches.map(c => renderCourseCard(c))}
+                              </div>
+                            </div>
+                          )}
+                          {coursesNoBatch.length > 0 && (
+                            <div className="mb-4">
+                              <p className="text-[11px] font-bold text-amber-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                <AlertTriangle className="h-3.5 w-3.5" /> Courses Without Active Batch
+                              </p>
+                              <div className="flex flex-col gap-2">
+                                {coursesNoBatch.map(c => renderCourseCard(c, true))}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
 
                     {/* Already-enrolled courses — shown at bottom, disabled */}
                     {alreadyEnrolledCourses.length > 0 && (

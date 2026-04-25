@@ -97,7 +97,7 @@ export default function StudentsPage() {
   };
 
   const handleAction = (action: string, student: Student) => {
-    if (action === 'view') router.push(`/admin/students/${student.id}`);
+    if (action === 'view') router.push(`/admin/students/${student.regNo}`);
     else if (action === 'enrollments') openEnrollments(student);
     else if (action === 'enroll') setModal({ type: 'enroll', student });
     else if (action === 'payment') setModal({ type: 'payment', student });
@@ -166,6 +166,11 @@ export default function StudentsPage() {
           branches={branches}
           onClose={() => setModal(null)}
           onSave={data => {
+            setStudents(prev => prev.map(s =>
+              s.id === data.student.id
+                ? { ...s, _count: { ...s._count, enrollments: (s._count?.enrollments ?? 0) + 1 } }
+                : s
+            ));
             setModal(null);
             showToast(`Enrollment confirmed for ${data.student.fullName}!`, 'success');
           }}

@@ -16,7 +16,7 @@ import { getInstituteById } from '@/lib/api/institutes';
 import { getInvoices } from '@/lib/api/invoices';
 import { getCourses } from '@/lib/api/courses';
 import { getPrograms } from '@/lib/api/programs';
-import { getStudentProfileByUserId } from '@/lib/api/student-profiles';
+import { getStudentProfileByRegistrationNumber, getStudentProfileByUserId } from '@/lib/api/student-profiles';
 import { getUserById } from '@/lib/api/users';
 import type { Invoice } from '@/types/invoice';
 import { StudentAdminBadge as AppBadge } from '@/features/admin/students/components/StudentAdminBadge';
@@ -58,7 +58,7 @@ function InfoRow({ icon: Icon, label, value }: {
 
 export default function StudentDetailPage() {
   const params = useParams();
-  const studentId = params.studentId as string;
+  const registrationNumber = params.registrationNumber as string;
   const router = useRouter();
   const { toast } = useToast();
   const showToast = (msg: string, type = 'success') =>
@@ -73,6 +73,8 @@ export default function StudentDetailPage() {
   const [allCourses, setAllCourses] = useState<Course[]>([]);
   const [branches, setBranches] = useState<BranchOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+  const [userId, setUserId] = useState('');
 
   // UI state
   const [showEdit, setShowEdit] = useState(false);
@@ -80,12 +82,18 @@ export default function StudentDetailPage() {
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchData = async () => {
+    // Step 1: resolve userId from registration number
+    const profileByRegRes = await getStudentProfileByRegistrationNumber(registrationNumber);
+    if (!profileByRegRes.success || !profileByRegRes.data) { setNotFound(true); return; }
+    const resolvedUserId = profileByRegRes.data.userId;
+    setUserId(resolvedUserId);
+
     const [userRes, profileRes, enrollRes, invoiceRes, programRes, courseRes, branchRes] =
       await Promise.all([
-        getUserById(studentId),
-        getStudentProfileByUserId(studentId),
-        getEnrollments({ studentUserId: studentId, limit: 50 }),
-        getInvoices({ studentUserId: studentId, limit: 12 }),
+        getUserById(resolvedUserId),
+        getStudentProfileByUserId(resolvedUserId),
+        getEnrollments({ studentUserId: resolvedUserId, limit: 50 }),
+        getInvoices({ studentUserId: resolvedUserId, limit: 12 }),
         getPrograms(),
         getCourses({ limit: 200 }),
         getBranches(),
@@ -144,25 +152,36 @@ export default function StudentDetailPage() {
 
   useEffect(() => {
     setLoading(true);
+    setNotFound(false);
     fetchData().catch(() => {}).finally(() => setLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studentId]);
+  }, [registrationNumber]);
 
   const refreshEnrollments = async () => {
+    if (!userId) return;
     setRefreshing(true);
     const [enrollRes, invoiceRes] = await Promise.all([
-      getEnrollments({ studentUserId: studentId, limit: 50 }),
-      getInvoices({ studentUserId: studentId, limit: 12 }),
+      getEnrollments({ studentUserId: userId, limit: 50 }),
+      getInvoices({ studentUserId: userId, limit: 12 }),
     ]);
     if (enrollRes.success && enrollRes.data) setApiEnrollments(enrollRes.data);
     if (invoiceRes.success && invoiceRes.data) setInvoices(invoiceRes.data as unknown as Invoice[]);
     setRefreshing(false);
   };
 
-  if (loading || !student) {
+  if (loading) {
     return (
       <div className="min-h-screen p-6 bg-slate-50/50 flex items-center justify-center">
         <p className="text-slate-400">Loading student profile…</p>
+      </div>
+    );
+  }
+
+  if (notFound || !student) {
+    return (
+      <div className="min-h-screen p-6 bg-slate-50/50 flex flex-col items-center justify-center gap-4">
+        <p className="text-slate-500 font-semibold">Student not found — Reg: {registrationNumber}</p>
+        <Button variant="outline" size="sm" onClick={() => router.push('/admin/students')}>← Back to Students</Button>
       </div>
     );
   }
