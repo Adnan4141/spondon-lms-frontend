@@ -25,14 +25,75 @@ export interface ExamSubject {
   name: string;
   slug: string;
   questionCount: number;
+  mcqSingleCount: number;
+  mcqPassageCount: number;
+  cqCount: number;
+  shortCount: number;
   marksPerQuestion: number;
   negativeMarks?: number | null;
   passMarks?: number | null;
   isMandatory: boolean;
   sortOrder: number;
+  color?: string | null;
+  timeLimitMinutes?: number | null;
   createdAt: string;
   folderRules?: ExamSubjectFolderRule[];
 }
+
+// ─── Talent Hunt types ──────────────────────────────────────────────────────
+export type TalentHuntStatus = 'DRAFT' | 'ACTIVE' | 'CLOSED';
+export type TalentHuntStageStatus = 'PENDING' | 'OPEN' | 'SCORING' | 'CLOSED';
+
+export interface TalentHuntStage {
+  id: string;
+  talentHuntId: string;
+  stageNumber: number;
+  name: string;
+  linkedExamId?: string | null;
+  cutoffScore: number;
+  topNAdvance: number;
+  opensAt?: string | null;
+  closesAt?: string | null;
+  status: TalentHuntStageStatus;
+  createdAt: string;
+  advancements?: TalentHuntAdvancement[];
+}
+
+export interface TalentHuntPrize {
+  id: string;
+  talentHuntId: string;
+  stageId?: string | null;
+  rankFrom: number;
+  rankTo: number;
+  prizeType: string;
+  amount: string;
+  label: string;
+}
+
+export interface TalentHuntAdvancement {
+  id: string;
+  stageId: string;
+  studentId: string;
+  score: number;
+  rank: number;
+  advancedToNextStage: boolean;
+  createdAt: string;
+}
+
+export interface TalentHunt {
+  id: string;
+  examId: string;
+  title: string;
+  courseId?: string | null;
+  registrationOpensAt?: string | null;
+  registrationClosesAt?: string | null;
+  status: TalentHuntStatus;
+  autoAdvance: boolean;
+  createdAt: string;
+  stages: TalentHuntStage[];
+  prizes: TalentHuntPrize[];
+}
+
 export type ExamEngineType =
   | 'REGULAR'
   | 'COMPETITIVE'

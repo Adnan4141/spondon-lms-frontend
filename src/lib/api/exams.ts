@@ -13,18 +13,27 @@ import type {
   ExamSubjectFolderRule,
   SelectionMode,
   Difficulty,
+  TalentHunt,
+  TalentHuntStage,
+  TalentHuntPrize,
 } from '@/types/exam';
 
 export type { ExamSubject, ExamSubjectFolderRule, SelectionMode, Difficulty };
 
 export interface CreateExamSubjectDto {
   name: string;
-  questionCount: number;
+  questionCount?: number;
+  mcqSingleCount?: number;
+  mcqPassageCount?: number;
+  cqCount?: number;
+  shortCount?: number;
   marksPerQuestion: number;
   negativeMarks?: number;
   passMarks?: number;
   isMandatory?: boolean;
   sortOrder?: number;
+  color?: string;
+  timeLimitMinutes?: number;
   folderRules?: { folderId: string; questionCount: number; difficulty?: Difficulty; selectionMode?: SelectionMode }[];
 }
 
@@ -556,5 +565,88 @@ export async function generateFromBlueprint(
 /** Build a direct URL for downloading the ZIP bundle of all set PDFs + solve sheet + answer keys. */
 export function getExamBundleZipUrl(examId: string): string {
   return `${API_ORIGIN}/api/exams/${examId}/bundle.zip`;
+}
+
+// ─── Talent Hunt API ─────────────────────────────────────────────────────────
+
+export interface CreateTalentHuntDto {
+  examId: string;
+  title: string;
+  courseId?: string;
+  registrationOpensAt?: string;
+  registrationClosesAt?: string;
+  autoAdvance?: boolean;
+}
+
+export interface UpdateTalentHuntDto {
+  title?: string;
+  courseId?: string;
+  registrationOpensAt?: string | null;
+  registrationClosesAt?: string | null;
+  status?: 'DRAFT' | 'ACTIVE' | 'CLOSED';
+  autoAdvance?: boolean;
+}
+
+export interface CreateTalentHuntStageDto {
+  stageNumber?: number;
+  name: string;
+  linkedExamId?: string;
+  cutoffScore?: number;
+  topNAdvance?: number;
+  opensAt?: string;
+  closesAt?: string;
+}
+
+export interface CreateTalentHuntPrizeDto {
+  stageId?: string;
+  rankFrom: number;
+  rankTo: number;
+  prizeType: string;
+  amount: string;
+  label: string;
+}
+
+export async function createTalentHunt(data: CreateTalentHuntDto): Promise<{ success: boolean; data?: TalentHunt; message?: string }> {
+  return apiRequest('/exams/talent-hunts', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export async function getTalentHuntByExamId(examId: string): Promise<{ success: boolean; data?: TalentHunt; message?: string }> {
+  return apiRequest(`/exams/talent-hunts/by-exam/${examId}`);
+}
+
+export async function getTalentHuntById(id: string): Promise<{ success: boolean; data?: TalentHunt; message?: string }> {
+  return apiRequest(`/exams/talent-hunts/${id}`);
+}
+
+export async function updateTalentHunt(id: string, data: UpdateTalentHuntDto): Promise<{ success: boolean; data?: TalentHunt; message?: string }> {
+  return apiRequest(`/exams/talent-hunts/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+}
+
+export async function addTalentHuntStage(id: string, data: CreateTalentHuntStageDto): Promise<{ success: boolean; data?: TalentHuntStage; message?: string }> {
+  return apiRequest(`/exams/talent-hunts/${id}/stages`, { method: 'POST', body: JSON.stringify(data) });
+}
+
+export async function updateTalentHuntStage(id: string, stageId: string, data: Partial<CreateTalentHuntStageDto> & { status?: string; stageNumber?: number }): Promise<{ success: boolean; data?: TalentHuntStage; message?: string }> {
+  return apiRequest(`/exams/talent-hunts/${id}/stages/${stageId}`, { method: 'PUT', body: JSON.stringify(data) });
+}
+
+export async function deleteTalentHuntStage(id: string, stageId: string): Promise<{ success: boolean; message?: string }> {
+  return apiRequest(`/exams/talent-hunts/${id}/stages/${stageId}`, { method: 'DELETE' });
+}
+
+export async function runTalentHuntAdvancement(id: string, stageId: string): Promise<{ success: boolean; data?: { advanced: number; total: number }; message?: string }> {
+  return apiRequest(`/exams/talent-hunts/${id}/stages/${stageId}/advance`, { method: 'POST' });
+}
+
+export async function addTalentHuntPrize(id: string, data: CreateTalentHuntPrizeDto): Promise<{ success: boolean; data?: TalentHuntPrize; message?: string }> {
+  return apiRequest(`/exams/talent-hunts/${id}/prizes`, { method: 'POST', body: JSON.stringify(data) });
+}
+
+export async function updateTalentHuntPrize(id: string, prizeId: string, data: Partial<CreateTalentHuntPrizeDto>): Promise<{ success: boolean; data?: TalentHuntPrize; message?: string }> {
+  return apiRequest(`/exams/talent-hunts/${id}/prizes/${prizeId}`, { method: 'PUT', body: JSON.stringify(data) });
+}
+
+export async function deleteTalentHuntPrize(id: string, prizeId: string): Promise<{ success: boolean; message?: string }> {
+  return apiRequest(`/exams/talent-hunts/${id}/prizes/${prizeId}`, { method: 'DELETE' });
 }
 

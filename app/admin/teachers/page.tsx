@@ -44,8 +44,8 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { useModalStore } from '@/store/modalStore';
-import { TeacherForm } from '@/components/admin/teachers/TeacherForm';
-import { TeacherDetailsView } from '@/components/admin/teachers/TeacherDetailsView';
+import { TeacherForm } from './TeacherForm';
+import { TeacherDetailsView } from './TeacherDetailsView';
 import { ConfirmationModal } from '@/components/admin/ConfirmationModal';
 import {
   GraduationCap,

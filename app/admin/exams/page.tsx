@@ -64,7 +64,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { useModalStore } from '@/store/modalStore';
-import { ExamCreatorWizard } from '@/components/admin/exams/ExamCreatorWizard';
+import { ExamCreatorWizard } from './ExamCreatorWizard';
 import { cn } from '@/lib/utils';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
