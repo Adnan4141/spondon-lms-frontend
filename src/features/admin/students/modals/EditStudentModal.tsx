@@ -9,10 +9,7 @@ import { getStudentProfileByUserId, upsertStudentProfile } from '@/lib/api/stude
 import { updateUser, getUserById } from '@/lib/api/users';
 import type { Student } from '../types';
 import { StudentAdminBadge } from '../components/StudentAdminBadge';
-import { StudentAdminField } from '../components/StudentAdminField';
 import { StudentAdminModal } from '../components/StudentAdminModal';
-import { StudentAdminSelect } from '../components/StudentAdminSelect';
-import { SearchableSelect } from '../components/SearchableSelect';
 import { StudentFormFields, type StudentForm } from '../components/StudentFormFields';
 
 export function EditStudentModal({
@@ -97,6 +94,8 @@ export function EditStudentModal({
       e.mobile = 'Invalid BD mobile (01XXXXXXXXX)';
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
       e.email = 'Invalid email';
+    if (!branchId) e.branchId = 'Branch is required';
+    if (!instituteId) e.instituteId = 'Institute is required';
     return e;
   };
 
@@ -184,34 +183,30 @@ export function EditStudentModal({
             <StudentAdminBadge label={student.status} color={student.status === 'ACTIVE' ? 'green' : 'red'} />
           </div>
 
-          <StudentFormFields form={form} onChange={change} errors={errors} />
-
-          <StudentAdminField
-            label="Institute (School/College/University)"
-            error={errors.instituteId}
-          >
-            <SearchableSelect
-              value={instituteId}
-              onChange={setInstituteId}
-              disabled={saving}
-              placeholder="Search institute..."
-              options={institutes.map(ins => ({
-                value: ins.id,
-                label: `${ins.name}${ins.type ? ` (${ins.type})` : ''}`,
-                sublabel: [ins.district, ins.eiin ? `EIIN: ${ins.eiin}` : null].filter(Boolean).join(' · ') || undefined,
-              }))}
-            />
-          </StudentAdminField>
-
-          <StudentAdminField label="Branch">
-            <StudentAdminSelect
-              value={branchId}
-              onChange={setBranchId}
-              disabled={saving}
-              placeholder="Select branch (optional)"
-              options={branches.map(b => ({ value: b.id, label: b.name }))}
-            />
-          </StudentAdminField>
+          <StudentFormFields
+            form={form}
+            onChange={change}
+            errors={errors}
+            branchId={branchId}
+            onBranchChange={(value) => {
+              setBranchId(value);
+              if (errors.branchId) setErrors(prev => { const n = { ...prev }; delete n.branchId; return n; });
+            }}
+            branchOptions={branches.map(b => ({ value: b.id, label: b.name }))}
+            branchDisabled={saving || loading}
+            instituteId={instituteId}
+            onInstituteChange={(value) => {
+              setInstituteId(value);
+              if (errors.instituteId) setErrors(prev => { const n = { ...prev }; delete n.instituteId; return n; });
+            }}
+            instituteOptions={institutes.map(ins => ({
+              value: ins.id,
+              label: `${ins.name}${ins.type ? ` (${ins.type})` : ''}`,
+              sublabel: [ins.district, ins.eiin ? `EIIN: ${ins.eiin}` : null].filter(Boolean).join(' · ') || undefined,
+            }))}
+            instituteDisabled={saving || loading}
+            loadingInstituteHint={loading ? 'Loading institutes...' : undefined}
+          />
 
           {errors.submit && (
             <p className="text-sm text-rose-600 font-semibold mb-3">{errors.submit}</p>

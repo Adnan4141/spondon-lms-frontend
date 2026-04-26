@@ -4,6 +4,7 @@ import { Check, Phone, MessageSquare } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { StudentAdminField } from './StudentAdminField';
+import { SearchableSelect } from './SearchableSelect';
 import { StudentAdminSelect } from './StudentAdminSelect';
 
 export interface StudentForm {
@@ -31,11 +32,21 @@ export const EMPTY_FORM: StudentForm = {
 // ─── SHARED STUDENT FORM FIELDS ───────────────────────────────────────────────
 
 export function StudentFormFields({
-  form, onChange, errors,
+  form, onChange, errors, branchId, onBranchChange, branchOptions, branchDisabled,
+  instituteId, onInstituteChange, instituteOptions, instituteDisabled, loadingInstituteHint,
 }: {
   form: StudentForm;
   onChange: (key: keyof StudentForm, value: string | string[]) => void;
   errors: Record<string, string>;
+  branchId: string;
+  onBranchChange: (value: string) => void;
+  branchOptions: { value: string; label: string }[];
+  branchDisabled?: boolean;
+  instituteId: string;
+  onInstituteChange: (value: string) => void;
+  instituteOptions: { value: string; label: string; sublabel?: string }[];
+  instituteDisabled?: boolean;
+  loadingInstituteHint?: string;
 }) {
   const SMS_OPTIONS: { id: string; label: string; icon: React.ReactNode }[] = [
     { id: 'SELF', label: 'Student', icon: <Phone className="h-3 w-3" /> },
@@ -67,6 +78,31 @@ export function StudentFormFields({
           onChange={e => onChange('mobile', e.target.value)}
           placeholder="01XXXXXXXXX"
           className="focus-visible:ring-indigo-400"
+        />
+      </StudentAdminField>
+
+      <StudentAdminField label="Branch" required error={errors.branchId}>
+        <StudentAdminSelect
+          value={branchId}
+          onChange={onBranchChange}
+          disabled={branchDisabled}
+          placeholder="Select branch"
+          options={branchOptions}
+        />
+      </StudentAdminField>
+
+      <StudentAdminField
+        label="Institute (School/College/University)"
+        required
+        error={errors.instituteId}
+        hint={loadingInstituteHint}
+      >
+        <SearchableSelect
+          value={instituteId}
+          onChange={onInstituteChange}
+          disabled={instituteDisabled}
+          placeholder={loadingInstituteHint ? 'Loading...' : 'Search institute...'}
+          options={instituteOptions}
         />
       </StudentAdminField>
 

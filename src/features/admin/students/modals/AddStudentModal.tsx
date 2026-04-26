@@ -8,11 +8,13 @@ import { createUser } from '@/lib/api/users';
 import { getInstitutes, type Institute } from '@/lib/api/institutes';
 import { upsertStudentProfile } from '@/lib/api/student-profiles';
 import type { Student } from '../types';
-import { StudentAdminField } from '../components/StudentAdminField';
 import { StudentAdminModal } from '../components/StudentAdminModal';
-import { StudentAdminSelect } from '../components/StudentAdminSelect';
-import { SearchableSelect } from '../components/SearchableSelect';
 import { EMPTY_FORM, StudentFormFields, type StudentForm } from '../components/StudentFormFields';
+
+const ADD_STUDENT_DEFAULT_FORM: StudentForm = {
+  ...EMPTY_FORM,
+  smsAlertTo: ['SELF'],
+};
 
 export function AddStudentModal({
   onClose, onSave,
@@ -20,7 +22,7 @@ export function AddStudentModal({
   onClose: () => void;
   onSave: (student: Student) => void;
 }) {
-  const [form, setForm] = useState<StudentForm>(EMPTY_FORM);
+  const [form, setForm] = useState<StudentForm>(ADD_STUDENT_DEFAULT_FORM);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [instituteId, setInstituteId] = useState('');
@@ -67,6 +69,7 @@ export function AddStudentModal({
       e.mobile = 'Invalid BD mobile (01XXXXXXXXX)';
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
       e.email = 'Invalid email';
+    if (!branchId) e.branchId = 'Branch is required';
     if (!instituteId) e.instituteId = 'Institute is required';
     return e;
   };
@@ -136,7 +139,7 @@ export function AddStudentModal({
       setProfileUser(null);
       setInstituteId('');
       setBranchId('');
-      setForm(EMPTY_FORM);
+      setForm(ADD_STUDENT_DEFAULT_FORM);
       setErrors({});
     } catch (err: unknown) {
       const msg = (err as Error).message ?? 'Failed to create student';
@@ -152,39 +155,30 @@ export function AddStudentModal({
 
   return (
     <StudentAdminModal open onClose={onClose} title="Add New Student">
-      <StudentFormFields form={form} onChange={change} errors={errors} />
-
-      <StudentAdminField
-        label="Institute (School/College/University)"
-        required
-        error={errors.instituteId}
-        hint={loadingInstitutes ? 'Loading institutes...' : undefined}
-      >
-        <SearchableSelect
-          value={instituteId}
-          onChange={(v) => {
-            setInstituteId(v);
-            if (errors.instituteId) setErrors(prev => { const n = { ...prev }; delete n.instituteId; return n; });
-          }}
-          disabled={loadingInstitutes || saving}
-          placeholder={loadingInstitutes ? 'Loading...' : 'Search institute...'}
-          options={institutes.map((ins) => ({
-            value: ins.id,
-            label: `${ins.name}${ins.type ? ` (${ins.type})` : ''}`,
-            sublabel: [ins.district, ins.eiin ? `EIIN: ${ins.eiin}` : null].filter(Boolean).join(' · ') || undefined,
-          }))}
-        />
-      </StudentAdminField>
-
-      <StudentAdminField label="Branch">
-        <StudentAdminSelect
-          value={branchId}
-          onChange={setBranchId}
-          disabled={loadingBranches || saving}
-          placeholder={loadingBranches ? 'Loading...' : 'Select branch (optional)'}
-          options={branches.map(b => ({ value: b.id, label: b.name }))}
-        />
-      </StudentAdminField>
+      <StudentFormFields
+        form={form}
+        onChange={change}
+        errors={errors}
+        branchId={branchId}
+        onBranchChange={(value) => {
+          setBranchId(value);
+          if (errors.branchId) setErrors(prev => { const n = { ...prev }; delete n.branchId; return n; });
+        }}
+        branchOptions={branches.map(b => ({ value: b.id, label: b.name }))}
+        branchDisabled={loadingBranches || saving}
+        instituteId={instituteId}
+        onInstituteChange={(value) => {
+          setInstituteId(value);
+          if (errors.instituteId) setErrors(prev => { const n = { ...prev }; delete n.instituteId; return n; });
+        }}
+        instituteOptions={institutes.map((ins) => ({
+          value: ins.id,
+          label: `${ins.name}${ins.type ? ` (${ins.type})` : ''}`,
+          sublabel: [ins.district, ins.eiin ? `EIIN: ${ins.eiin}` : null].filter(Boolean).join(' · ') || undefined,
+        }))}
+        instituteDisabled={loadingInstitutes || saving}
+        loadingInstituteHint={loadingInstitutes ? 'Loading institutes...' : undefined}
+      />
 
       <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 mb-5 flex gap-2 items-center">
         <Info className="h-4 w-4 text-emerald-600 shrink-0" />
