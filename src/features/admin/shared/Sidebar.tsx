@@ -100,8 +100,7 @@ function buildMenuSections(role: string | null): MenuSection[] {
 
   // ----- Exam -----
   const examItems: MenuItem[] = [
-    { title: 'Exam', href: '/admin/exams', icon: ClipboardList, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-   
+    { title: 'Exam engine', href: '/admin/exam', icon: ClipboardList, color: 'text-emerald-500', bg: 'bg-emerald-50' },
   ];
   const showExam = !isAccounts;
 

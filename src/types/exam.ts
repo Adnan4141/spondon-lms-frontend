@@ -11,6 +11,8 @@ export interface ExamSubjectFolderRule {
   questionCount: number;
   difficulty?: Difficulty | null;
   selectionMode: SelectionMode;
+  pinnedQuestionIds?: string[];
+  excludedQuestionIds?: string[];
   createdAt: string;
   folder?: {
     id: string;

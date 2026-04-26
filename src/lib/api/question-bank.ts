@@ -138,13 +138,17 @@ export interface FolderTreeNode {
 
 export async function getQuestionFolderTree(
   courseId?: string,
-  teacherUserId?: string
+  teacherUserId?: string,
+  init?: RequestInit,
 ): Promise<ApiResponse<FolderTreeNode[]>> {
   const queryParams = new URLSearchParams();
   if (courseId) queryParams.append('courseId', courseId);
   if (teacherUserId) queryParams.append('teacherUserId', teacherUserId);
   const query = queryParams.toString();
-  return apiRequest<ApiResponse<FolderTreeNode[]>>(`/question-bank/folders/tree${query ? `?${query}` : ''}`);
+  return apiRequest<ApiResponse<FolderTreeNode[]>>(
+    `/question-bank/folders/tree${query ? `?${query}` : ''}`,
+    init,
+  );
 }
 
 export async function bulkCopyQuestions(data: BulkCopyQuestionsDto): Promise<ApiResponse<Question[]>> {

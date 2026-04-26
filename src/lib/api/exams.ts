@@ -34,7 +34,14 @@ export interface CreateExamSubjectDto {
   sortOrder?: number;
   color?: string;
   timeLimitMinutes?: number;
-  folderRules?: { folderId: string; questionCount: number; difficulty?: Difficulty; selectionMode?: SelectionMode }[];
+  folderRules?: {
+    folderId: string;
+    questionCount: number;
+    difficulty?: Difficulty;
+    selectionMode?: SelectionMode;
+    pinnedQuestionIds?: string[];
+    excludedQuestionIds?: string[];
+  }[];
 }
 
 export interface UpdateExamSubjectDto extends Partial<CreateExamSubjectDto> {}
@@ -44,6 +51,8 @@ export interface UpsertSubjectFolderRuleDto {
   questionCount: number;
   difficulty?: Difficulty | null;
   selectionMode?: SelectionMode;
+  pinnedQuestionIds?: string[];
+  excludedQuestionIds?: string[];
 }
 
 export interface GenerateFromSubjectsDto {
@@ -671,7 +680,15 @@ export interface ExamSectionDto {
   passMarks?: number;
   isMandatory?: boolean;
   difficultyDistribution?: { easy: number; medium: number; hard: number };
-  folderRules?: Array<{ folderId: string; questionCount: number; includeDescendants?: boolean; difficulty?: string }>;
+  folderRules?: Array<{
+    folderId: string;
+    questionCount: number;
+    includeDescendants?: boolean;
+    difficulty?: string;
+    selectionMode?: SelectionMode;
+    excludedQuestionIds?: string[];
+    pinnedQuestionIds?: string[];
+  }>;
 }
 
 export interface ExamSection {
@@ -851,6 +868,9 @@ export interface GenerateSectionSetsDto {
   shortCount?: number;
   marksPerQuestion?: number;
   negativeMarks?: number;
+  excludedQuestionIds?: string[];
+  pinnedQuestionIds?: string[];
+  selectionMode?: SelectionMode;
 }
 
 export interface GeneratedSectionSet {

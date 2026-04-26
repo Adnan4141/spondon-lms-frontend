@@ -82,11 +82,11 @@ export function StudentFormFields({
       </StudentAdminField>
 
       <StudentAdminField label="Branch" required error={errors.branchId}>
-        <StudentAdminSelect
+        <SearchableSelect
           value={branchId}
           onChange={onBranchChange}
           disabled={branchDisabled}
-          placeholder="Select branch"
+          placeholder="Search branch..."
           options={branchOptions}
         />
       </StudentAdminField>
