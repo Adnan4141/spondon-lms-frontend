@@ -2,7 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { ExamWizardState, WizardSection } from '../../types';
 import { SEC_TYPES } from '../constants';
-import { setLabelsForPreview } from '../wizardHelpers';
+import { sectionMcqPassageGoal, setLabelsForPreview } from '../wizardHelpers';
 
 type Props = {
   state: ExamWizardState;
@@ -67,7 +67,9 @@ export function PaperPreview({ state, step, className }: Props) {
                       {idx + 1}. {s.label}
                     </span>
                     <Badge variant="secondary" className="text-[10px]">
-                      {s.count} × {s.marks}m
+                      {s.type === 'MCQ' && sectionMcqPassageGoal(s) > 0
+                        ? `${s.count} slots · ≤${sectionMcqPassageGoal(s)} passage · ${s.marks}m`
+                        : `${s.count} × ${s.marks}m`}
                       {s.neg ? ` · −${s.neg}` : ''}
                     </Badge>
                   </div>

@@ -3,16 +3,19 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
+import { ConfirmationModal } from '@/features/admin/shared';
+import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
+import { useModalStore } from '@/store/modalStore';
 import { getCourses } from '@/lib/api/courses';
 import { getBranches } from '@/lib/api/branches';
 import {
   createExam,
   updateExam,
   createExamSection,
+  deleteExam,
   deleteExamSection,
   generateSectionSets,
   getExamSections,
@@ -78,7 +81,8 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
   const { tree, loading: folderLoading } = useExamWizardFolderTree(state.courseId, step, 3);
   const leaves = useMemo(() => flattenFolders(tree), [tree]);
 
-  const { toast } = useToast();
+  const toast = useAdminToast();
+  const { openModal } = useModalStore();
 
   useEffect(() => {
     dispatch({ type: 'SET_STEP', step });
@@ -163,6 +167,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
           label: s.name,
           type: s.type as SectionTypeUi,
           count: s.questionCount || 0,
+          ...(s.type === 'MCQ' ? { mcqPassageCount: s.mcqPassageCount ?? 0 } : {}),
           marks: Number(s.marksPerQuestion ?? 1),
           neg: Number(s.negativeMarks ?? 0),
           difficulty: 'MIXED',
@@ -270,6 +275,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
               name: s.label,
               type: s.type,
               questionCount: s.count,
+              mcqPassageCount: s.type === 'MCQ' ? (s.mcqPassageCount ?? 0) : 0,
               marksPerQuestion: s.marks,
               negativeMarks: s.neg,
               folderRules,
@@ -285,6 +291,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
                 setCount: Number(state.nSets) || 1,
                 shuffleQuestions: state.shuffle !== 'ORDER',
                 mcqSingleCount: s.type === 'MCQ' ? s.count : 0,
+                mcqPassageCount: s.type === 'MCQ' ? (s.mcqPassageCount ?? 0) : 0,
                 cqCount: s.type === 'CQ' ? s.count : 0,
                 shortCount: s.type === 'SHORT' ? s.count : 0,
                 marksPerQuestion: s.marks,
@@ -345,8 +352,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
             /* ignore */
           }
         }
-        router.push(`/admin/exam/${id}`);
-        if (examId) await refreshServerExam();
+        router.push(`/admin/exam/${id}/details`);
       }
     } finally {
       saveInFlightRef.current = false;
@@ -386,13 +392,66 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
     router.push(`${pathname}?step=${step - 1}`, { scroll: false });
   };
 
+  const openDeleteExamWizard = () => {
+    if (!examId) return;
+    const label = state.title.trim() || 'this exam';
+    openModal({
+      title: 'Delete exam',
+      description: 'Removes this exam and all sections, sets, and related data.',
+      className: 'sm:max-w-lg',
+      content: (
+        <ConfirmationModal
+          title="Delete this exam?"
+          description={`“${label}” will be permanently deleted. This cannot be undone.`}
+          confirmLabel="Delete exam"
+          variant="danger"
+          onConfirm={async () => {
+            try {
+              const r = await deleteExam(examId);
+              if (r.success) {
+                try {
+                  localStorage.removeItem(draftStorageKey(examId));
+                } catch {
+                  /* ignore */
+                }
+                toast({ title: 'Exam deleted', description: `“${label}” was removed.` });
+                router.push('/admin/exam');
+              } else {
+                toast({
+                  title: 'Delete failed',
+                  description: r.message ?? 'Could not delete this exam.',
+                  variant: 'destructive',
+                });
+              }
+            } catch (err) {
+              toast({
+                title: 'Delete failed',
+                description: err instanceof Error ? err.message : 'Could not delete this exam.',
+                variant: 'destructive',
+              });
+            }
+          }}
+        />
+      ),
+    });
+  };
+
   const showStep3 = state.uiCategory !== 'MULTI' && state.uiCategory !== 'OMRB';
 
   return (
     <div className="min-h-0 flex-1 space-y-4 pb-8">
       {examId ? (
-        <div className="flex justify-end">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <ExamEngineSubnav examId={examId} />
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="shrink-0 border-rose-200 text-rose-700 hover:bg-rose-50"
+            onClick={openDeleteExamWizard}
+          >
+            <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Delete exam
+          </Button>
         </div>
       ) : null}
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-1 shadow-sm">

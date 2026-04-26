@@ -17,7 +17,13 @@ export interface WizardSection {
   localId: string;
   label: string;
   type: SectionTypeUi;
+  /** Total question slots (MCQ/CQ/SHORT). For MCQ this is the generator cap (singles + passage MCQs). */
   count: number;
+  /**
+   * MCQ only: max number of whole passage blocks to include before filling with standalone MCQs.
+   * 0 = greedy (pack as many passage blocks as fit within `count`).
+   */
+  mcqPassageCount?: number;
   marks: number;
   neg: number;
   difficulty: 'MIXED' | 'EASY' | 'MEDIUM' | 'HARD';

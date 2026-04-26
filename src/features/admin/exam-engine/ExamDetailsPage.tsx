@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, Download, ExternalLink, FileText, Loader2, RefreshCw } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ChevronLeft, Download, ExternalLink, FileText, Loader2, RefreshCw, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
+  deleteExam,
   getExamById,
   getExamSections,
   generateSetPdf,
@@ -15,7 +17,9 @@ import {
   type ExamSection,
 } from '@/lib/api/exams';
 import type { Exam, ExamSet } from '@/types/exam';
-import { useToast } from '@/hooks/use-toast';
+import { ConfirmationModal } from '@/features/admin/shared';
+import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
+import { useModalStore } from '@/store/modalStore';
 import { ExamEngineSubnav } from './components/ExamEngineSubnav';
 import { ExamPdfPreviewDialog } from './components/ExamPdfPreviewDialog';
 
@@ -24,7 +28,9 @@ function sectionMarks(s: ExamSection): number {
 }
 
 export function ExamDetailsPage({ examId }: { examId: string }) {
-  const { toast } = useToast();
+  const router = useRouter();
+  const { openModal } = useModalStore();
+  const toast = useAdminToast();
   const [exam, setExam] = useState<Exam | null>(null);
   const [sections, setSections] = useState<ExamSection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,6 +110,45 @@ export function ExamDetailsPage({ examId }: { examId: string }) {
     }
   };
 
+  const openDeleteExam = () => {
+    if (!exam) return;
+    const title = exam.title;
+    openModal({
+      title: 'Delete exam',
+      description: 'This removes the exam and related sections, sets, attempts, and PDFs.',
+      className: 'sm:max-w-lg',
+      content: (
+        <ConfirmationModal
+          title="Delete this exam?"
+          description={`“${title}” (${exam.status}) will be permanently deleted. This cannot be undone.`}
+          confirmLabel="Delete exam"
+          variant="danger"
+          onConfirm={async () => {
+            try {
+              const r = await deleteExam(examId);
+              if (r.success) {
+                toast({ title: 'Exam deleted', description: `“${title}” was removed.` });
+                router.push('/admin/exam');
+              } else {
+                toast({
+                  title: 'Delete failed',
+                  description: r.message ?? 'Could not delete this exam.',
+                  variant: 'destructive',
+                });
+              }
+            } catch (err) {
+              toast({
+                title: 'Delete failed',
+                description: err instanceof Error ? err.message : 'Could not delete this exam.',
+                variant: 'destructive',
+              });
+            }
+          }}
+        />
+      ),
+    });
+  };
+
   const generateSet = async (setId: string, name: string) => {
     setSetPdfBusyId(setId);
     try {
@@ -160,6 +205,14 @@ export function ExamDetailsPage({ examId }: { examId: string }) {
         </Button>
         <Button variant="outline" asChild>
           <Link href={`/admin/exam/${examId}/results`}>Results & analytics</Link>
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="border-rose-200 text-rose-700 hover:bg-rose-50"
+          onClick={() => openDeleteExam()}
+        >
+          <Trash2 className="mr-2 h-4 w-4" /> Delete exam
         </Button>
       </div>
 

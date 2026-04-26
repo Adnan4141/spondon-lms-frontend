@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import {
   Menu,
@@ -12,25 +12,12 @@ import {
 import { Sidebar } from './Sidebar';
 import { GlobalModal } from './GlobalModal';
 import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
-import { Toaster } from '@/components/ui/toast';
+import { AdminToastProvider } from './AdminToastProvider';
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const pathname = usePathname();
-  const { toast } = useToast();
-
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const msg = (e as CustomEvent<string>).detail;
-      if (msg) {
-        toast({ description: msg, variant: 'destructive' });
-      }
-    };
-    window.addEventListener('api-error', handler);
-    return () => window.removeEventListener('api-error', handler);
-  }, [toast]);
 
   const getBreadcrumbs = () => {
     if (!pathname) return [{ label: 'Admin', active: true }];
@@ -91,6 +78,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   const breadcrumbs = getBreadcrumbs();
 
   return (
+    <AdminToastProvider>
     <div className="relative min-h-screen bg-[#FDFDFF] text-slate-900 font-sans selection:bg-indigo-100 selection:text-indigo-700">
       {/* Premium Background Effects */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
@@ -200,7 +188,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
         <GlobalModal />
       </div>
-      <Toaster />
     </div>
+    </AdminToastProvider>
   );
 }

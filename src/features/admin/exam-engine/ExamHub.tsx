@@ -2,24 +2,72 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus, ClipboardList, BarChart3, LayoutList, Pencil, Trophy } from 'lucide-react';
+import { Plus, ClipboardList, BarChart3, LayoutList, Pencil, Trophy, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { getExams } from '@/lib/api/exams';
+import { ConfirmationModal } from '@/features/admin/shared';
+import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
+import { useModalStore } from '@/store/modalStore';
+import { deleteExam, getExams } from '@/lib/api/exams';
 import type { Exam } from '@/types/exam';
 
 export function ExamHub() {
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(true);
+  const { openModal } = useModalStore();
+  const toast = useAdminToast();
 
-  useEffect(() => {
+  const loadDrafts = () => {
+    setLoading(true);
     getExams({ limit: 50, status: 'DRAFT' })
       .then((r) => {
         if (r.success && r.data) setExams(r.data);
+        else setExams([]);
       })
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadDrafts();
   }, []);
+
+  const openDeleteExam = (e: Exam) => {
+    openModal({
+      title: 'Delete exam',
+      description: 'This removes the exam and related sections, sets, and configuration.',
+      className: 'sm:max-w-lg',
+      content: (
+        <ConfirmationModal
+          title="Delete this exam?"
+          description={`“${e.title}” will be permanently deleted. This cannot be undone.`}
+          confirmLabel="Delete exam"
+          variant="danger"
+          onConfirm={async () => {
+            try {
+              const r = await deleteExam(e.id);
+              if (r.success) {
+                toast({ title: 'Exam deleted', description: `“${e.title}” was removed.` });
+                setExams((prev) => prev.filter((x) => x.id !== e.id));
+              } else {
+                toast({
+                  title: 'Delete failed',
+                  description: r.message ?? 'Could not delete this exam.',
+                  variant: 'destructive',
+                });
+              }
+            } catch (err) {
+              toast({
+                title: 'Delete failed',
+                description: err instanceof Error ? err.message : 'Could not delete this exam.',
+                variant: 'destructive',
+              });
+            }
+          }}
+        />
+      ),
+    });
+  };
 
   return (
     <div className="mx-auto space-y-8 px-4 py-8 sm:px-2">
@@ -89,6 +137,15 @@ export function ExamHub() {
                       <Link href={`/admin/exam/${e.id}/results`} className="gap-1">
                         <BarChart3 className="h-3.5 w-3.5" /> Results
                       </Link>
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-8 border-rose-200 text-xs text-rose-700 hover:bg-rose-50"
+                      onClick={() => openDeleteExam(e)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Delete
                     </Button>
                   </div>
                 </li>

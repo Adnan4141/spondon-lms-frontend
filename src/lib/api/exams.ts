@@ -675,6 +675,8 @@ export interface ExamSectionDto {
   durationMinutes?: number;
   totalMarks?: number;
   questionCount?: number;
+  /** MCQ: max whole passage blocks in random generation (0 = greedy). */
+  mcqPassageCount?: number;
   marksPerQuestion?: number;
   negativeMarks?: number;
   passMarks?: number;
@@ -700,6 +702,7 @@ export interface ExamSection {
   durationMinutes?: number;
   totalMarks?: number;
   questionCount: number;
+  mcqPassageCount?: number;
   marksPerQuestion?: number;
   negativeMarks?: number;
   passMarks?: number;

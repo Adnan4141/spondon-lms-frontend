@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { regenerateExamPdf, getExamPdfDownloadUrl } from '@/lib/api/exams';
 import type { ExamStatus } from '@/types/exam';
-import { useToast } from '@/hooks/use-toast';
+import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
 import type { ExamWizardState } from '../../types';
 import { PaperPreview } from '../components/PaperPreview';
 import { ExamPdfPreviewDialog } from '../../components/ExamPdfPreviewDialog';
@@ -35,7 +35,7 @@ export function Step6PreviewPublish({
   onPublish,
   onRefreshMeta,
 }: Props) {
-  const { toast } = useToast();
+  const toast = useAdminToast();
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [masterPdfBusy, setMasterPdfBusy] = useState(false);
 

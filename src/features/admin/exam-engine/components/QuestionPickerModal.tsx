@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import {
   Dialog,
   DialogContent,
@@ -35,6 +36,35 @@ function stripHtml(s: string, max = 160) {
   return t.length > max ? `${t.slice(0, max)}…` : t;
 }
 
+/** Expand partial passage pins to all MCQs under the same passage (stable id order). */
+function mergePassagePinsInto(ids: string[], pool: Question[]): string[] {
+  const out: string[] = [];
+  const seenPassage = new Set<string>();
+  const added = new Set<string>();
+  const byId = new Map(pool.map((q) => [q.id, q]));
+  for (const id of ids) {
+    const q = byId.get(id);
+    if (!q || q.type !== 'MCQ') continue;
+    if (q.passageId) {
+      if (seenPassage.has(q.passageId)) continue;
+      seenPassage.add(q.passageId);
+      pool
+        .filter((x) => x.passageId === q.passageId && x.type === 'MCQ')
+        .sort((a, b) => a.id.localeCompare(b.id))
+        .forEach((x) => {
+          if (!added.has(x.id)) {
+            added.add(x.id);
+            out.push(x.id);
+          }
+        });
+    } else if (!added.has(q.id)) {
+      added.add(q.id);
+      out.push(q.id);
+    }
+  }
+  return out;
+}
+
 export function QuestionPickerModal({
   open,
   onOpenChange,
@@ -51,6 +81,7 @@ export function QuestionPickerModal({
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const [pinned, setPinned] = useState<string[]>([]);
   const [tab, setTab] = useState<'exclude' | 'pin'>('exclude');
+  const passageMergeDone = useRef(false);
 
   const load = useCallback(async () => {
     if (!folderId) return;
@@ -67,6 +98,14 @@ export function QuestionPickerModal({
   }, [folderId, questionType]);
 
   useEffect(() => {
+    if (!open) passageMergeDone.current = false;
+  }, [open]);
+
+  useEffect(() => {
+    passageMergeDone.current = false;
+  }, [folderId]);
+
+  useEffect(() => {
     if (open && folderId) {
       setExcluded(new Set(excludedIds));
       setPinned([...pinnedIds]);
@@ -75,6 +114,13 @@ export function QuestionPickerModal({
       void load();
     }
   }, [open, folderId, excludedIds, pinnedIds, load]);
+
+  /** After questions load, expand any passage pins once so the list matches server generation rules. */
+  useEffect(() => {
+    if (!open || questionType !== 'MCQ' || questions.length === 0 || passageMergeDone.current) return;
+    passageMergeDone.current = true;
+    setPinned(mergePassagePinsInto([...pinnedIds], questions));
+  }, [open, questionType, questions, pinnedIds]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -92,7 +138,28 @@ export function QuestionPickerModal({
   };
 
   const togglePin = (id: string) => {
-    setPinned((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    const q = questions.find((x) => x.id === id);
+    setPinned((prev) => {
+      if (questionType === 'MCQ' && q?.passageId) {
+        const sibIds = questions
+          .filter((x) => x.passageId === q.passageId && x.type === 'MCQ')
+          .map((x) => x.id);
+        const isOn = sibIds.some((sid) => prev.includes(sid));
+        if (isOn) {
+          return prev.filter((x) => !sibIds.includes(x));
+        }
+        const merged = [...prev.filter((x) => !sibIds.includes(x))];
+        const orderedSibs = questions
+          .filter((x) => x.passageId === q.passageId && x.type === 'MCQ')
+          .sort((a, b) => a.id.localeCompare(b.id))
+          .map((x) => x.id);
+        for (const sid of orderedSibs) {
+          if (!merged.includes(sid)) merged.push(sid);
+        }
+        return merged;
+      }
+      return prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+    });
   };
 
   const handleSave = () => {
@@ -115,6 +182,16 @@ export function QuestionPickerModal({
           <DialogDescription className="text-slate-600">
             {folderName ? `${folderName} · ` : ''}
             Remove unwanted items from the random pool, or pin an exact ordered set for offline papers.
+            {questionType === 'MCQ' ? (
+              <>
+                {' '}
+                Passage MCQs are always taken as a full block in generated sets. Edit passages in{' '}
+                <Link href="/admin/questions" className="font-medium text-[#0D1B35] underline underline-offset-2">
+                  Question bank
+                </Link>
+                .
+              </>
+            ) : null}
           </DialogDescription>
         </DialogHeader>
 
@@ -207,7 +284,14 @@ export function QuestionPickerModal({
                         className="mt-0.5 border-slate-400 data-[state=checked]:border-emerald-700 data-[state=checked]:bg-emerald-700"
                       />
                       <div className="min-w-0 flex-1">
-                        <p className="line-clamp-3 text-xs leading-relaxed text-slate-800">{stripHtml(q.prompt)}</p>
+                        <div className="flex flex-wrap gap-1">
+                          {q.passageId ? (
+                            <Badge variant="outline" className="text-[10px] text-amber-900">
+                              Passage
+                            </Badge>
+                          ) : null}
+                        </div>
+                        <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-slate-800">{stripHtml(q.prompt)}</p>
                       </div>
                     </li>
                   ))}
@@ -216,6 +300,9 @@ export function QuestionPickerModal({
             </div>
             <p className="mt-2 text-[11px] text-slate-500">
               Order follows your selection order. Saving with pins switches this rule to manual selection for generators that support it.
+              {questionType === 'MCQ'
+                ? ' Pinning one passage question selects every MCQ under that passage.'
+                : null}
             </p>
           </TabsContent>
         </Tabs>

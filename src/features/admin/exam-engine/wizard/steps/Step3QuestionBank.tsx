@@ -11,7 +11,7 @@ import type { FolderTreeNode } from '@/lib/api/question-bank';
 import type { ExamWizardState, FolderRuleDraft } from '../../types';
 import type { WizardFormAction } from '../examWizardReducer';
 import { SEC_TYPES } from '../constants';
-import { sectionAllocatedTotal } from '../wizardHelpers';
+import { sectionAllocatedTotal, sectionMcqPassageGoal } from '../wizardHelpers';
 
 type PickerTarget = { sectionLocalId: string; rule: FolderRuleDraft } | null;
 
@@ -148,6 +148,9 @@ export function Step3QuestionBank({
                   <div className="h-3 w-1 rounded-full" style={{ background: t?.color }} />
                   <CardTitle className="text-sm font-bold">
                     {t?.short} — target {s.count}Q
+                    {s.type === 'MCQ' && sectionMcqPassageGoal(s) > 0 ? (
+                      <span className="font-normal text-slate-500"> · ≤{sectionMcqPassageGoal(s)} passage block(s)</span>
+                    ) : null}
                   </CardTitle>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">

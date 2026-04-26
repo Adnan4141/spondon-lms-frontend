@@ -26,6 +26,7 @@ export function defaultSectionsFor(cat: UiExamCategory): WizardSection[] {
         type: 'MCQ',
         label: 'MCQ',
         count: 30,
+        mcqPassageCount: 0,
         marks: 1,
         neg: 0.25,
         difficulty: 'MIXED',
@@ -49,6 +50,7 @@ export function defaultSectionsFor(cat: UiExamCategory): WizardSection[] {
       type: 'MCQ',
       label: 'MCQ',
       count: 25,
+      mcqPassageCount: 0,
       marks: 1,
       neg: 0.25,
       difficulty: 'MIXED',
@@ -72,6 +74,12 @@ export function flattenFolders(
 
 export function sectionAllocatedTotal(s: WizardSection): number {
   return s.folderRules.reduce((acc, r) => acc + r.questionCount, 0);
+}
+
+/** MCQ passage block goal for UI / generator (0 = greedy). */
+export function sectionMcqPassageGoal(s: WizardSection): number {
+  if (s.type !== 'MCQ') return 0;
+  return Math.max(0, Math.min(500, s.mcqPassageCount ?? 0));
 }
 
 export function parseStepParam(raw: string | null): number {

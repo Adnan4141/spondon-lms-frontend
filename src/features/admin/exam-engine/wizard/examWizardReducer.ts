@@ -168,6 +168,7 @@ export function buildSectionFromType(tid: SectionTypeUi): WizardSection {
     type: tid,
     label: t.label,
     count: tid === 'MCQ' ? 30 : tid === 'CQ' ? 8 : 10,
+    ...(tid === 'MCQ' ? { mcqPassageCount: 0 as const } : {}),
     marks: t.dm,
     neg: t.dn,
     difficulty: 'MIXED',

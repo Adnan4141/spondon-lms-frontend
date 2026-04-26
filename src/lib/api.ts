@@ -46,10 +46,11 @@ export async function apiRequest<T>(
       try {
         const body = JSON.parse(raw) as { message?: string; error?: unknown };
         if (body && typeof body === 'object') {
-          msg = String(
-            body.message ||
-              (typeof body.error === 'string' ? body.error : ''),
-          ).trim();
+          const apiMsg = typeof body.message === 'string' ? body.message.trim() : '';
+          const apiErr = typeof body.error === 'string' ? body.error.trim() : '';
+          // Prefer concrete `error` (e.g. generator validation) over generic `message`.
+          if (apiErr && apiMsg) msg = `${apiMsg}: ${apiErr}`;
+          else msg = apiErr || apiMsg;
         }
       } catch {
         const snippet = raw.replace(/\s+/g, ' ').trim().slice(0, 200);

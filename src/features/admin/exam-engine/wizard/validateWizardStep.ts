@@ -42,6 +42,27 @@ export function validateStep(state: ExamWizardState, step: number): StepValidati
     if (state.sections.length === 0) {
       return { ok: false, summary: 'Add at least one section.' };
     }
+    for (const s of state.sections) {
+      const n = Number(s.count);
+      if (!Number.isFinite(n) || n < 1) {
+        return { ok: false, summary: `Section "${s.label || s.type}" needs at least 1 question slot.` };
+      }
+      if (n > 500) {
+        return { ok: false, summary: `Section "${s.label || s.type}" exceeds the 500 slot limit.` };
+      }
+      if (s.type === 'MCQ') {
+        const pg = Math.max(0, s.mcqPassageCount ?? 0);
+        if (pg > 500) {
+          return { ok: false, summary: `Section "${s.label || 'MCQ'}" has an invalid passage block count.` };
+        }
+        if (pg > n) {
+          return {
+            ok: false,
+            summary: `Section "${s.label || 'MCQ'}": whole passage blocks (${pg}) cannot exceed total slots (${n}).`,
+          };
+        }
+      }
+    }
     return { ok: true };
   }
   return { ok: true };

@@ -14,12 +14,22 @@ import type { ExamWizardState, SectionTypeUi, WizardSection } from '../../types'
 import type { WizardFormAction } from '../examWizardReducer';
 import { buildSectionFromType } from '../examWizardReducer';
 import { SEC_TYPES } from '../constants';
+import { sectionMcqPassageGoal } from '../wizardHelpers';
 
 type Props = {
   state: ExamWizardState;
   dispatch: React.Dispatch<WizardFormAction>;
   onAddSection: (section: ReturnType<typeof buildSectionFromType>) => void;
 };
+
+function mcqCompositionLine(s: WizardSection): string {
+  const total = Math.max(0, s.count);
+  const pg = sectionMcqPassageGoal(s);
+  if (pg <= 0) {
+    return `Up to ${total} MCQ slots — whole passages fill first (greedy), then standalone items.`;
+  }
+  return `Up to ${pg} whole passage block(s) within ${total} total slots; remaining slots use standalone MCQs.`;
+}
 
 export function Step2Sections({ state, dispatch, onAddSection }: Props) {
   if (state.uiCategory === 'MULTI') {
@@ -99,6 +109,128 @@ export function Step2Sections({ state, dispatch, onAddSection }: Props) {
         ) : (
           state.sections.map((s) => {
             const t = SEC_TYPES.find((x) => x.id === s.type);
+            const isMcq = s.type === 'MCQ';
+
+            if (isMcq) {
+              const pg = sectionMcqPassageGoal(s);
+              return (
+                <div key={s.localId} className="space-y-2 rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="h-7 w-1 shrink-0 rounded-full" style={{ background: t?.color }} />
+                    <Input
+                      value={s.label}
+                      onChange={(e) =>
+                        dispatch({ type: 'UPDATE_SECTION', localId: s.localId, patch: { label: e.target.value } })
+                      }
+                      className="h-9 min-w-[120px] flex-1 border-slate-200 text-sm font-semibold"
+                    />
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="shrink-0 text-rose-600"
+                      onClick={() => dispatch({ type: 'REMOVE_SECTION', localId: s.localId })}
+                    >
+                      ✕
+                    </Button>
+                  </div>
+                  <p className="text-[11px] leading-snug text-slate-600">{mcqCompositionLine(s)}</p>
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Total slots</span>
+                      <Input
+                        type="number"
+                        min={1}
+                        className="h-9 border-slate-200 text-sm"
+                        value={s.count}
+                        onChange={(e) =>
+                          dispatch({
+                            type: 'UPDATE_SECTION',
+                            localId: s.localId,
+                            patch: { count: Math.max(0, Number(e.target.value) || 0) },
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Passage blocks (max)</span>
+                      <Input
+                        type="number"
+                        min={0}
+                        title="0 = greedy: pack as many whole passages as fit. Otherwise cap distinct passage groups."
+                        className="h-9 border-slate-200 text-sm"
+                        value={pg}
+                        onChange={(e) => {
+                          const raw = Math.max(0, Number(e.target.value) || 0);
+                          const capped = Math.min(500, raw, Math.max(0, s.count));
+                          dispatch({
+                            type: 'UPDATE_SECTION',
+                            localId: s.localId,
+                            patch: { mcqPassageCount: capped },
+                          });
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Marks</span>
+                      <Input
+                        type="number"
+                        step="0.25"
+                        className="h-9 border-slate-200 text-sm"
+                        value={s.marks}
+                        onChange={(e) =>
+                          dispatch({
+                            type: 'UPDATE_SECTION',
+                            localId: s.localId,
+                            patch: { marks: Number(e.target.value) },
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Neg</span>
+                      <Input
+                        type="number"
+                        step="0.25"
+                        className="h-9 border-slate-200 text-sm"
+                        value={s.neg}
+                        onChange={(e) =>
+                          dispatch({
+                            type: 'UPDATE_SECTION',
+                            localId: s.localId,
+                            patch: { neg: Number(e.target.value) },
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1 sm:col-span-2 lg:col-span-2">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Difficulty mix</span>
+                      <Select
+                        value={s.difficulty}
+                        onValueChange={(v) =>
+                          dispatch({
+                            type: 'UPDATE_SECTION',
+                            localId: s.localId,
+                            patch: { difficulty: v as WizardSection['difficulty'] },
+                          })
+                        }
+                      >
+                        <SelectTrigger className="h-9 border-slate-200 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="MIXED">Mixed</SelectItem>
+                          <SelectItem value="EASY">Easy</SelectItem>
+                          <SelectItem value="MEDIUM">Medium</SelectItem>
+                          <SelectItem value="HARD">Hard</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <div
                 key={s.localId}
