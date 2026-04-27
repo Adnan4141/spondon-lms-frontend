@@ -501,7 +501,14 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
       setError('Select at least one curriculum content type.');
       return;
     }
+    const prevPub =
+      existingOutline.publicPageDisplay &&
+      typeof existingOutline.publicPageDisplay === 'object' &&
+      !Array.isArray(existingOutline.publicPageDisplay)
+        ? { ...(existingOutline.publicPageDisplay as Record<string, unknown>) }
+        : {};
     outline.publicPageDisplay = {
+      ...prevPub,
       showBenefits: form.publicShowBenefits,
       showWebsiteSections: form.publicShowWebsiteSections,
       showBooks: form.publicShowBooks,

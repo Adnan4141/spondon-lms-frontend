@@ -370,6 +370,27 @@ export default function CourseDetailsPage() {
             ? outline.sidebarTitle.trim()
             : 'কোর্স ফিচারসমূহ';
 
+    const heroHeading =
+        typeof outline?.heroTitle === 'string' && outline.heroTitle.trim()
+            ? outline.heroTitle.trim()
+            : course.name;
+    const benefitsSectionTitle =
+        typeof outline?.whyTakeTitle === 'string' && outline.whyTakeTitle.trim()
+            ? outline.whyTakeTitle.trim()
+            : 'কোর্সটি কেন করবেন?';
+    const booksSectionTitle =
+        typeof outline?.booksSectionTitle === 'string' && outline.booksSectionTitle.trim()
+            ? outline.booksSectionTitle.trim()
+            : 'সুপারিশকৃত বই';
+    const booksSectionSubtitle =
+        typeof outline?.booksSectionSubtitle === 'string' && outline.booksSectionSubtitle.trim()
+            ? outline.booksSectionSubtitle.trim()
+            : '';
+    const teachersSectionTitle =
+        typeof outline?.teachersSectionTitle === 'string' && outline.teachersSectionTitle.trim()
+            ? outline.teachersSectionTitle.trim()
+            : 'কোর্সের শিক্ষক';
+
     return (
         <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-indigo-100">
             <Toaster toasts={toasts} removeToast={removeToast} />
@@ -390,7 +411,7 @@ export default function CourseDetailsPage() {
                             </span>
                         </div>
                         <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-white mb-6 leading-tight tracking-tighter">
-                            {course.name}
+                            {heroHeading}
                         </h1>
                         <div
                             className="text-slate-400 text-base md:text-lg font-medium mb-10 max-w-xl leading-relaxed prose prose-invert"
@@ -426,7 +447,7 @@ export default function CourseDetailsPage() {
                                     <div className="h-12 w-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-100">
                                         <Zap size={24} />
                                     </div>
-                                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">কোর্সটি কেন করবেন?</h2>
+                                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">{benefitsSectionTitle}</h2>
                                 </div>
                                 <div className="grid sm:grid-cols-2 gap-4">
                                     {benefits.map((benefit: string, idx: number) => (
@@ -469,13 +490,13 @@ export default function CourseDetailsPage() {
                             : null}
 
                         {/* Teachers */}
-                        {course.teachers && course.teachers.length > 0 && (
+                        {publicPage.showTeachers && course.teachers && course.teachers.length > 0 ? (
                             <section>
                                 <div className="flex items-center gap-4 mb-8">
-                                    <div className="h-12 w-12 rounded-2xl bg-rose-600 flex items-center justify-center text-white shadow-lg shadow-rose-100">
+                                    <div className="h-12 w-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-100">
                                         <UserCircle size={24} />
                                     </div>
-                                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">কোর্সের শিক্ষক</h2>
+                                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">{teachersSectionTitle}</h2>
                                 </div>
                                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
                                     {course.teachers.map((ct) => {
@@ -504,7 +525,7 @@ export default function CourseDetailsPage() {
                                     })}
                                 </div>
                             </section>
-                        )}
+                        ) : null}
 
                         {publicPage.showBooks && courseBooks.length > 0 ? (
                             <section>
@@ -513,10 +534,10 @@ export default function CourseDetailsPage() {
                                         <FileText size={24} />
                                     </div>
                                     <div>
-                                        <h2 className="text-3xl font-black text-slate-900 tracking-tight">সুপারিশকৃত বই</h2>
-                                        <p className="text-sm font-medium text-slate-500 mt-1">
-                                            পেইড বই টিক দিলে ভর্তির ইনভয়েসে যুক্ত হবে। বিনামূল্যে চিহ্নিত বই কোর্সের সাথে অন্তর্ভুক্ত।
-                                        </p>
+                                        <h2 className="text-3xl font-black text-slate-900 tracking-tight">{booksSectionTitle}</h2>
+                                        {booksSectionSubtitle ? (
+                                            <p className="text-sm font-medium text-slate-500 mt-1">{booksSectionSubtitle}</p>
+                                        ) : null}
                                     </div>
                                 </div>
                                 <div className="grid sm:grid-cols-2 gap-4">

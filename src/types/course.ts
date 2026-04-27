@@ -108,6 +108,8 @@ export interface CoursePublicPageDisplay {
   showWebsiteSections: boolean;
   showBooks: boolean;
   showSidebar: boolean;
+  /** Public `/course/[slug]` teachers grid; default on when unset. */
+  showTeachers: boolean;
   showCurriculum: boolean;
   curriculumContentTypes: ContentType[];
 }
@@ -153,6 +155,7 @@ export function normalizeCoursePublicPageDisplay(outline: unknown): CoursePublic
     showWebsiteSections: o.showWebsiteSections !== false,
     showBooks: o.showBooks !== false,
     showSidebar: o.showSidebar !== false,
+    showTeachers: o.showTeachers !== false,
     showCurriculum: o.showCurriculum !== false,
     curriculumContentTypes,
   };

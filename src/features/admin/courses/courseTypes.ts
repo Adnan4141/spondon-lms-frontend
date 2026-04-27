@@ -43,10 +43,15 @@ export interface CourseForm {
   showWebsiteSections: boolean;
   showBooks: boolean;
   showSidebar: boolean;
+  showTeachers: boolean;
   benefitsText: string;
   /** Heading above feature rows on `/course/[slug]`; empty = default copy. */
   sidebarTitle: string;
   sidebarFeatures: CourseFormSidebarFeature[];
+  /** `outline.*` — optional overrides for section headings on the public course page. */
+  booksSectionTitle: string;
+  booksSectionSubtitle: string;
+  teachersSectionTitle: string;
 }
 
 export const EMPTY_CONTENT_FORM: ContentForm = {
@@ -62,6 +67,7 @@ export const EMPTY_COURSE_FORM: CourseForm = {
   featured: false, websiteVisible: true, enrollmentVisible: true,
   heroTitle: '', whyTakeTitle: '',
   fee: '', offerPrice: '', bookPrice: '', includePrintedBooks: false,
-  showBenefits: true, showWebsiteSections: true, showBooks: true, showSidebar: true, benefitsText: '',
+  showBenefits: true, showWebsiteSections: true, showBooks: true, showSidebar: true, showTeachers: true, benefitsText: '',
   sidebarTitle: '', sidebarFeatures: [],
+  booksSectionTitle: '', booksSectionSubtitle: '', teachersSectionTitle: '',
 };

@@ -1,4 +1,4 @@
-import { normalizeCourseSidebarFeatures, type Course } from '@/types/course';
+import { normalizeCoursePublicPageDisplay, normalizeCourseSidebarFeatures, type Course } from '@/types/course';
 import type { CourseContent } from '@/types/course-content';
 import type { CourseForm, SubjectGroup } from './courseTypes';
 
@@ -29,10 +29,7 @@ export function courseToForm(course: Course): CourseForm {
   const outline = (course.outline && typeof course.outline === 'object' && !Array.isArray(course.outline))
     ? course.outline as Record<string, unknown>
     : {};
-  const publicPageDisplay =
-    outline.publicPageDisplay && typeof outline.publicPageDisplay === 'object' && !Array.isArray(outline.publicPageDisplay)
-      ? outline.publicPageDisplay as Record<string, unknown>
-      : {};
+  const ppd = normalizeCoursePublicPageDisplay(course.outline);
   const benefits = Array.isArray(outline.benefits)
     ? outline.benefits.map(v => typeof v === 'string' ? v.trim() : '').filter(Boolean).join('\n')
     : '';
@@ -66,12 +63,16 @@ export function courseToForm(course: Course): CourseForm {
     offerPrice: course.offerPrice != null ? String(course.offerPrice) : '',
     bookPrice: course.bookPrice != null ? String(course.bookPrice) : '',
     includePrintedBooks: Boolean(outline.includePrintedBooks),
-    showBenefits: publicPageDisplay.showBenefits !== false,
-    showWebsiteSections: publicPageDisplay.showWebsiteSections !== false,
-    showBooks: publicPageDisplay.showBooks !== false,
-    showSidebar: publicPageDisplay.showSidebar !== false,
+    showBenefits: ppd.showBenefits,
+    showWebsiteSections: ppd.showWebsiteSections,
+    showBooks: ppd.showBooks,
+    showSidebar: ppd.showSidebar,
+    showTeachers: ppd.showTeachers,
     benefitsText: benefits,
     sidebarTitle: typeof outline.sidebarTitle === 'string' ? outline.sidebarTitle : '',
     sidebarFeatures,
+    booksSectionTitle: typeof outline.booksSectionTitle === 'string' ? outline.booksSectionTitle : '',
+    booksSectionSubtitle: typeof outline.booksSectionSubtitle === 'string' ? outline.booksSectionSubtitle : '',
+    teachersSectionTitle: typeof outline.teachersSectionTitle === 'string' ? outline.teachersSectionTitle : '',
   };
 }
