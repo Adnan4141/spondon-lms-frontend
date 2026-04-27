@@ -115,6 +115,10 @@ export function EnrolledCoursesView({
         }, 0);
         const netFee = totalFee - (enrollment.monthlyDiscount || 0);
 
+        const canManageEnrollment =
+          enrollment.status === 'ACTIVE' &&
+          enrollment.courses.some(ec => ec.status === 'ACTIVE');
+
         return (
           <div key={enrollment.id} className="bg-white border border-slate-200 rounded-2xl mb-5 overflow-hidden shadow-sm">
             {/* Program header */}
@@ -135,8 +139,19 @@ export function EnrolledCoursesView({
               </div>
               <Button
                 size="sm"
-                onClick={() => setManageModal({ enrollment })}
-                className="gap-1.5 bg-slate-900 text-white hover:bg-indigo-600 transition-all shrink-0"
+                disabled={!canManageEnrollment}
+                title={
+                  !canManageEnrollment
+                    ? enrollment.status !== 'ACTIVE'
+                      ? 'Only active enrollments can be managed'
+                      : 'No active courses in this enrollment'
+                    : undefined
+                }
+                onClick={() => canManageEnrollment && setManageModal({ enrollment })}
+                className={cn(
+                  'gap-1.5 bg-slate-900 text-white hover:bg-indigo-600 transition-all shrink-0',
+                  !canManageEnrollment && 'opacity-50 cursor-not-allowed',
+                )}
               >
                 <Plus className="h-3.5 w-3.5" /> Manage Enrollment
               </Button>
@@ -193,7 +208,7 @@ export function EnrolledCoursesView({
                           <AppBadge label={ec.status || 'Active'} color={ec.status === 'ACTIVE' ? 'green' : 'red'} />
                         </td>
                         <td className="px-3.5 py-3">
-                          {ec.status === 'ACTIVE' && (
+                          {canManageEnrollment && ec.status === 'ACTIVE' && (
                             <button
                               onClick={() => setManageModal({ enrollment, initialCancelCourseId: ec.courseId })}
                               className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-rose-200 text-rose-600 bg-rose-50 hover:bg-rose-100 text-xs font-semibold transition-colors cursor-pointer"

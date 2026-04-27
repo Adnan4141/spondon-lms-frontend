@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Toaster } from '@/components/ui/toast';
 import { useToast } from '@/hooks/use-toast';
@@ -30,39 +30,58 @@ export default function StudentsPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [branchFilter, setBranchFilter] = useState('ALL');
+  const [programFilter, setProgramFilter] = useState('ALL');
   const [modal, setModal] = useState<{ type: string; student?: Student } | null>(null);
   const [editStudent, setEditStudent] = useState<Student | null>(null);
   const { toast } = useToast();
   const router = useRouter();
 
+  const mapUsersToStudents = useCallback((data: NonNullable<Awaited<ReturnType<typeof getUsers>>['data']>) => {
+    type ApiStudentUser = (typeof data)[0] & {
+      studentProfile?: { registrationNumber?: string };
+      _count?: { enrollments?: number };
+    };
+    return (data as ApiStudentUser[]).map(u => ({
+      id: u.id,
+      regNo: u.studentProfile?.registrationNumber ?? '—',
+      fullName: u.fullName,
+      mobile: u.mobile,
+      email: u.email ?? null,
+      status: u.status as 'ACTIVE' | 'BLOCKED',
+      branchId: u.branchId ?? '',
+      createdAt: u.createdAt ?? '',
+      _count: u._count,
+    }));
+  }, []);
+
+  const loadStudents = useCallback(() => {
+    setLoadingStudents(true);
+    getUsers({
+      role: 'STUDENT',
+      limit: 500,
+      ...(branchFilter !== 'ALL' ? { branchId: branchFilter } : {}),
+      ...(statusFilter !== 'ALL' ? { status: statusFilter } : {}),
+      ...(programFilter !== 'ALL' ? { programId: programFilter } : {}),
+    })
+      .then(res => {
+        if (res.success && res.data) setStudents(mapUsersToStudents(res.data));
+        else setStudents([]);
+      })
+      .finally(() => setLoadingStudents(false));
+  }, [branchFilter, statusFilter, programFilter, mapUsersToStudents]);
+
   useEffect(() => {
-    getUsers({ role: 'STUDENT', limit: 200 }).then(res => {
-      if (res.success && res.data) {
-        type ApiStudentUser = typeof res.data[0] & {
-          studentProfile?: { registrationNumber?: string };
-          _count?: { enrollments?: number };
-        };
-        setStudents((res.data as ApiStudentUser[]).map(u => ({
-          id: u.id,
-          regNo: u.studentProfile?.registrationNumber ?? '—',
-          fullName: u.fullName,
-          mobile: u.mobile,
-          email: u.email ?? null,
-          status: u.status as 'ACTIVE' | 'BLOCKED',
-          branchId: u.branchId ?? '',
-          createdAt: u.createdAt ?? '',
-          _count: u._count,
-        })));
-      }
-      setLoadingStudents(false);
-    });
+    loadStudents();
+  }, [loadStudents]);
+
+  useEffect(() => {
     getPrograms().then(res => {
       if (res.success && res.data) setPrograms(res.data as Program[]);
     });
     getBranches().then(res => {
       if (res.success && res.data) setBranches(res.data.map(b => ({ id: b.id, name: b.name })));
     });
-    getCourses({ limit: 200 }).then(res => {
+    getCourses({ limit: 500 }).then(res => {
       if (res.success && res.data) {
         setAllCourses(res.data.map(c => ({
           id: c.id,
@@ -124,19 +143,23 @@ export default function StudentsPage() {
   return (
     <div className="min-h-screen space-y-6 p-6 sm:p-0 bg-slate-50/50">
       <StudentsStats students={students} />
-
+           
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
         <StudentsToolbar
           count={filtered.length}
           search={search}
           onSearchChange={setSearch}
+          programFilter={programFilter}
+          onProgramFilterChange={setProgramFilter}
           branchFilter={branchFilter}
           onBranchFilterChange={setBranchFilter}
           statusFilter={statusFilter}
           onStatusFilterChange={setStatusFilter}
+          programs={programs}
           branches={branches}
           onAddStudent={() => setModal({ type: 'addStudent' })}
         />
+
         <StudentsTable
           students={filtered}
           totalStudents={students.length}

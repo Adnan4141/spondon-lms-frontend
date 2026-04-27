@@ -33,6 +33,7 @@ export function CollectPaymentModal({
   const [waiveReason, setWaiveReason] = useState('');
   const [waiveSubmitting, setWaiveSubmitting] = useState(false);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [advanceNotice, setAdvanceNotice] = useState<string | null>(null);
   // Prevent StrictMode double-invoke from firing generateAdvanceInvoices twice per mount
   const advanceFiredRef = useRef(false);
 
@@ -41,15 +42,21 @@ export function CollectPaymentModal({
     if (!bgRefresh) {
       setLoadingInvoices(true);
       setFetchError(null);
+      setAdvanceNotice(null);
     }
     try {
       const [res, enrollRes] = await Promise.all([
         getInvoices({ studentUserId: student.id, limit: 200 }),
         getEnrollments({ studentUserId: student.id, limit: 50 }),
       ]);
+      const localEnrolls =
+        enrollRes.success && enrollRes.data ? enrollRes.data.map(toLocalEnrollment) : [];
       if (enrollRes.success && enrollRes.data) {
-        setEnrollments(enrollRes.data.map(toLocalEnrollment));
+        setEnrollments(localEnrolls);
       }
+      const hasMonthlyActive = localEnrolls.some(
+        e => e.status === 'ACTIVE' && e.billingType === 'MONTHLY',
+      );
       const mapped: Invoice[] = (res.data ?? []).map(inv => ({
         id: inv.id,
         month: inv.month ?? '',
@@ -69,18 +76,36 @@ export function CollectPaymentModal({
       mapped.sort((a, b) => b.month.localeCompare(a.month));
       setInvoices(mapped);
       if (!bgRefresh) {
-      // Sort ascending to find the earliest (oldest) unpaid/partial month
-      const sortedAsc = [...mapped].sort((a, b) => a.month.localeCompare(b.month));
-      const firstUnpaidOrPartial = sortedAsc.find(i => i.status === 'DUE' || i.status === 'PARTIAL');
-      if (firstUnpaidOrPartial) setSelMonth(firstUnpaidOrPartial.month);
-      else if (sortedAsc.length > 0) setSelMonth(sortedAsc[sortedAsc.length - 1].month); // latest if all settled
-        // Fire advance invoice generation in background — do NOT await it.
-        // Guard: only fire once per mount (StrictMode double-invokes useEffect in dev).
+        // Sort ascending to find the earliest (oldest) unpaid/partial month
+        const sortedAsc = [...mapped].sort((a, b) => a.month.localeCompare(b.month));
+        const firstUnpaidOrPartial = sortedAsc.find(i => i.status === 'DUE' || i.status === 'PARTIAL');
+        if (firstUnpaidOrPartial) setSelMonth(firstUnpaidOrPartial.month);
+        else if (sortedAsc.length > 0) setSelMonth(sortedAsc[sortedAsc.length - 1].month); // latest if all settled
+        // Advance generation: only when at least one ACTIVE MONTHLY enrollment; surface API errors.
         if (!advanceFiredRef.current) {
           advanceFiredRef.current = true;
-          generateAdvanceInvoices({ studentUserId: student.id, months: 12 })
-            .catch(() => {})
-            .then(() => fetchInvoices(true)); // silent refresh when done
+          if (hasMonthlyActive) {
+            generateAdvanceInvoices({ studentUserId: student.id, months: 12 })
+              .then(advRes => {
+                if (advRes && typeof advRes === 'object' && advRes.success === false) {
+                  setAdvanceNotice(
+                    typeof advRes.message === 'string' && advRes.message.trim()
+                      ? advRes.message.trim()
+                      : 'Could not generate advance invoices.',
+                  );
+                }
+              })
+              .catch(err => {
+                setAdvanceNotice((err as Error).message ?? 'Could not generate advance invoices.');
+              })
+              .finally(() => {
+                void fetchInvoices(true);
+              });
+          } else {
+            setAdvanceNotice(
+              'No active monthly enrollment — advance months are only created for monthly billing. One-time fees use program invoices or other tools.',
+            );
+          }
         }
       }
     } catch (err) {
@@ -90,7 +115,10 @@ export function CollectPaymentModal({
     }
   };
 
-  useEffect(() => { fetchInvoices(); }, [student.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    advanceFiredRef.current = false;
+    void fetchInvoices();
+  }, [student.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const openInvoicePdf = async (invoiceId: string) => {
     setPdfLoading(invoiceId);
@@ -215,29 +243,46 @@ export function CollectPaymentModal({
                   Retry
                 </button>
               </div>
-            ) : loadingInvoices ? (
-              <p className="text-sm text-slate-400">Loading invoices…</p>
             ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {allMonths.map(m => {
-                  const aggStatus = getMonthAggStatus(monthGroups.get(m) ?? []);
-                  return (
+              <>
+                {advanceNotice && (
+                  <div className="flex items-start gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl mb-3">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                    <p className="text-sm text-amber-900 flex-1">{advanceNotice}</p>
                     <button
-                      key={m}
-                      onClick={() => { setSelMonth(m); setWaiving(false); setWaiveReason(''); setAddDiscount('0'); setPaymentAmount(''); }}
-                      className={cn(
-                        'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-bold transition-colors cursor-pointer',
-                        selMonth === m
-                          ? 'border-rose-300 bg-rose-50 text-rose-700'
-                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
-                      )}
+                      type="button"
+                      onClick={() => setAdvanceNotice(null)}
+                      className="text-xs font-bold text-amber-800 hover:underline cursor-pointer shrink-0"
                     >
-                    {fmtMonth(m)}
-                      <AppBadge label={aggStatus} color={statusBadgeColor[aggStatus] ?? 'red'} />
+                      Dismiss
                     </button>
-                  );
-                })}
-              </div>
+                  </div>
+                )}
+                {loadingInvoices ? (
+                  <p className="text-sm text-slate-400">Loading invoices…</p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {allMonths.map(m => {
+                      const aggStatus = getMonthAggStatus(monthGroups.get(m) ?? []);
+                      return (
+                        <button
+                          key={m}
+                          onClick={() => { setSelMonth(m); setWaiving(false); setWaiveReason(''); setAddDiscount('0'); setPaymentAmount(''); }}
+                          className={cn(
+                            'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-bold transition-colors cursor-pointer',
+                            selMonth === m
+                              ? 'border-rose-300 bg-rose-50 text-rose-700'
+                              : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
+                          )}
+                        >
+                          {fmtMonth(m)}
+                          <AppBadge label={aggStatus} color={statusBadgeColor[aggStatus] ?? 'red'} />
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
             )}
           </div>
 

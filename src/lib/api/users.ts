@@ -78,6 +78,9 @@ export async function getUsers(params?: {
   role?: string;
   branchId?: string;
   status?: string;
+  programId?: string;
+  courseId?: string;
+  batchId?: string;
   page?: number;
   limit?: number;
 }): Promise<ApiResponse<User[]>> {
@@ -85,6 +88,9 @@ export async function getUsers(params?: {
   if (params?.role) queryParams.append('role', params.role);
   if (params?.branchId) queryParams.append('branchId', params.branchId);
   if (params?.status) queryParams.append('status', params.status);
+  if (params?.programId) queryParams.append('programId', params.programId);
+  if (params?.courseId) queryParams.append('courseId', params.courseId);
+  if (params?.batchId) queryParams.append('batchId', params.batchId);
   if (params?.page) queryParams.append('page', String(params.page));
   if (params?.limit) queryParams.append('limit', String(params.limit));
 

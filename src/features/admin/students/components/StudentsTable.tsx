@@ -65,7 +65,18 @@ export function StudentsTable({
                   <td className="px-4 py-3.5">
                     <div className="flex items-center gap-1.5">
                       <Button size="sm" variant="outline" onClick={() => onAction('enroll', s)} className="gap-1.5 h-7 px-2.5 text-xs"><BookOpen className="h-3 w-3" /> Enroll</Button>
-                      <Button size="sm" onClick={() => onAction('payment', s)} className="gap-1.5 h-7 px-2.5 text-xs bg-indigo-600 text-white hover:bg-indigo-700"><CreditCard className="h-3 w-3" /> Pay</Button>
+                      <Button
+                        size="sm"
+                        disabled={enrollCount === 0}
+                        title={enrollCount === 0 ? 'Add an enrollment first' : undefined}
+                        onClick={() => onAction('payment', s)}
+                        className={cn(
+                          'gap-1.5 h-7 px-2.5 text-xs bg-indigo-600 text-white hover:bg-indigo-700',
+                          enrollCount === 0 && 'opacity-50 cursor-not-allowed',
+                        )}
+                      >
+                        <CreditCard className="h-3 w-3" /> Pay
+                      </Button>
                       <RowActions student={s} onAction={onAction} />
                     </div>
                   </td>

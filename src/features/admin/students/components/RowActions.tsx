@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Ban, BookOpen, CreditCard, Eye, MoreVertical, Pencil, Tag } from 'lucide-react';
+import { BookOpen, CreditCard, Eye, MoreVertical, Pencil, Tag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Student } from '../types';
 
@@ -53,13 +53,27 @@ export function RowActions({
     setOpen(o => !o);
   };
 
-  const actions: { id: string; icon: React.FC<{ className?: string }>; label: string; danger?: boolean }[] = [
+  const hasEnrollments = (student._count?.enrollments ?? 0) > 0;
+
+  const actions: {
+    id: string;
+    icon: React.FC<{ className?: string }>;
+    label: string;
+    danger?: boolean;
+    disabled?: boolean;
+    title?: string;
+  }[] = [
     { id: 'view', icon: Eye, label: 'View Profile' },
     { id: 'edit', icon: Pencil, label: 'Edit Student' },
     { id: 'enrollments', icon: BookOpen, label: 'View Enrollments' },
     { id: 'enroll', icon: Tag, label: 'New Enrollment' },
-    { id: 'payment', icon: CreditCard, label: 'Collect Payment' },
-  
+    {
+      id: 'payment',
+      icon: CreditCard,
+      label: 'Collect Payment',
+      disabled: !hasEnrollments,
+      title: !hasEnrollments ? 'Add an enrollment first' : undefined,
+    },
   ];
 
   return (
@@ -85,13 +99,22 @@ export function RowActions({
           {actions.map((a, i) => (
             <button
               key={a.id}
-              onClick={() => { onAction(a.id, student); setOpen(false); }}
+              type="button"
+              title={a.title}
+              disabled={a.disabled}
+              onClick={() => {
+                if (a.disabled) return;
+                onAction(a.id, student);
+                setOpen(false);
+              }}
               className={cn(
-                'w-full px-3.5 py-2.5 text-left text-sm font-semibold flex items-center gap-2.5 transition-colors cursor-pointer',
+                'w-full px-3.5 py-2.5 text-left text-sm font-semibold flex items-center gap-2.5 transition-colors',
                 i === 4 && 'border-t border-slate-100',
-                a.danger
-                  ? 'text-rose-600 hover:bg-rose-50'
-                  : 'text-slate-800 hover:bg-slate-50',
+                a.disabled
+                  ? 'text-slate-400 cursor-not-allowed opacity-60'
+                  : a.danger
+                    ? 'text-rose-600 hover:bg-rose-50 cursor-pointer'
+                    : 'text-slate-800 hover:bg-slate-50 cursor-pointer',
               )}
             >
               <a.icon className="h-3.5 w-3.5" /> {a.label}
