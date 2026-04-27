@@ -85,10 +85,10 @@ function buildMenuSections(role: string | null): MenuSection[] {
     { title: 'Courses', href: '/admin/courses', icon: BookOpen, color: 'text-indigo-500', bg: 'bg-indigo-50' },
     { title: 'Batches', href: '/admin/batches', icon: Calendar, color: 'text-sky-500', bg: 'bg-sky-50' },
     { title: 'Routine', href: '/admin/routine', icon: CalendarRange, color: 'text-teal-500', bg: 'bg-teal-50' },
-    { title: 'Attendance Sheet', href: '/admin/academic-records/attendance-sheet', icon: ClipboardList, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+    { title: 'Attendance Sheet', href: '/admin/attendance-sheet', icon: ClipboardList, color: 'text-emerald-500', bg: 'bg-emerald-50' },
   ];
   const visibleCourseItems = isBranchAdmin
-    ? courseItems.filter((item) => ['/admin/batches', '/admin/routine', '/admin/academic-records/attendance-sheet'].includes(item.href))
+    ? courseItems.filter((item) => ['/admin/batches', '/admin/routine', '/admin/attendance-sheet'].includes(item.href))
     : courseItems;
   const showCourse = !isAccounts && visibleCourseItems.length > 0;
 
