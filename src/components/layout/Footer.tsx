@@ -57,9 +57,17 @@ const SOCIAL_LINKS = [
   { Icon: Youtube, settingKey: 'footer.youtube', label: 'YouTube' },
 ];
 
+const CONTACT_FALLBACK_KEYS = ['footer.email', 'footer.phone', 'footer.phone_href'] as const;
+
 export function Footer({ siteSettings = {} }: FooterProps) {
   const contextualSettings = useFooterSettings();
-  const s = { ...DEFAULT_SETTINGS, ...contextualSettings, ...siteSettings };
+  const merged = { ...DEFAULT_SETTINGS, ...contextualSettings, ...siteSettings };
+  const s = { ...merged };
+  for (const key of CONTACT_FALLBACK_KEYS) {
+    if (!String(s[key] ?? '').trim()) {
+      s[key] = DEFAULT_SETTINGS[key];
+    }
+  }
 
   const courseLinks = Array.from({ length: 6 }, (_, i) => ({
     label: s[`footer.course_${i + 1}_label`] ?? '',

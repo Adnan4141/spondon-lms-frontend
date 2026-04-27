@@ -204,7 +204,10 @@ export interface SiteSetting {
 
 export async function getSiteSettings(group?: string): Promise<ApiResponse<SiteSetting[]>> {
   const q = group ? `?group=${encodeURIComponent(group)}` : '';
-  return apiRequest<ApiResponse<SiteSetting[]>>(`/site-content/settings${q}`);
+  // RSC/layout fetches must not use the Data Cache with a stale empty body; home loads settings on the client separately.
+  const cacheOpt =
+    typeof window === 'undefined' ? ({ cache: 'no-store' } satisfies Pick<RequestInit, 'cache'>) : {};
+  return apiRequest<ApiResponse<SiteSetting[]>>(`/site-content/settings${q}`, cacheOpt);
 }
 
 export async function upsertSiteSettings(data: Record<string, string>, labels?: Record<string, string>): Promise<ApiResponse<SiteSetting[]>> {
