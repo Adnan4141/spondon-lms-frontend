@@ -4,6 +4,14 @@ import type { Course, CourseWithDiscount, Enrollment } from './types';
 
 export const fmt = (n: number | string) => '৳' + Number(n || 0).toLocaleString('en-BD');
 
+/** First day of the current calendar month in local time (YYYY-MM). */
+export const currentMonth = () => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = d.getMonth() + 1;
+  return `${y}-${String(m).padStart(2, '0')}`;
+};
+
 export const nextMonth = () => {
   const d = new Date();
   d.setMonth(d.getMonth() + 1);
@@ -25,7 +33,9 @@ export function toLocalEnrollment(e: ApiEnrollment): Enrollment {
     id: e.id,
     programId: e.programId,
     branchId: e.branchId,
-    status: (['ACTIVE', 'WAITLISTED'].includes(e.status as string) ? 'ACTIVE' : 'CANCELLED') as 'ACTIVE' | 'CANCELLED',
+    status: e.status as string,
+    source: e.source as string | undefined,
+    accessStatus: e.accessStatus as string | undefined,
     billingType: (e.billingType ?? 'MONTHLY') as 'MONTHLY' | 'ONE_TIME',
     monthlyDiscount: Number(e.monthlyDiscount ?? 0),
     billingStartMonth: e.billingStartMonth ?? '',

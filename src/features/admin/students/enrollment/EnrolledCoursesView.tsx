@@ -128,6 +128,11 @@ export function EnrolledCoursesView({
                 <div className="flex items-center flex-wrap gap-2 mt-1">
                   <AppBadge label={enrollment.billingType} color="blue" />
                   <AppBadge label={enrollment.status} color={enrollment.status === 'ACTIVE' ? 'green' : 'red'} />
+                  <AppBadge
+                    label={enrollment.accessStatus || 'NO_ACCESS'}
+                    color={enrollment.accessStatus === 'FULL_ACCESS' ? 'green' : 'amber'}
+                  />
+                  {enrollment.source && <AppBadge label={enrollment.source} color="slate" />}
                   <span className="text-xs text-slate-500">From: {fmtMonth(enrollment.billingStartMonth)}</span>
                   <span className="text-xs text-slate-500">
                     Discount: <strong className="text-rose-600">{fmt(enrollment.monthlyDiscount)}/mo</strong>

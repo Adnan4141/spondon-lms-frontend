@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import { getBatches } from '@/lib/api/batches';
 import { getEnrollments, offlineAdmission, type OfflineAdmissionDto } from '@/lib/api/enrollments';
 import type { BranchOption, Course, Program, SelCourseState, Student } from '../types';
-import { distributeDiscount, fmt, nextMonth } from '../utils';
+import { currentMonth, distributeDiscount, fmt } from '../utils';
 import { StudentAdminBadge as AppBadge } from '../components/StudentAdminBadge';
 import { StudentAdminField as Field } from '../components/StudentAdminField';
 import { StudentAdminModal as AppModal } from '../components/StudentAdminModal';
@@ -31,7 +31,9 @@ export function EnrollmentModal({
   const [selCourses, setSelCourses] = useState<Record<string, SelCourseState>>({});
   const [monthlyDiscount, setMonthlyDiscount] = useState('0');
   const [admDiscount, setAdmDiscount] = useState('0');
-  const [billingStart, setBillingStart] = useState(() => nextMonth());
+  const [payNowAmount, setPayNowAmount] = useState('0');
+  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'BKASH'>('CASH');
+  const [billingStart, setBillingStart] = useState(() => currentMonth());
   const [courseBatches, setCourseBatches] = useState<Record<string, { id: string; name: string; status: string }[]>>({});
   const [loadingBatches, setLoadingBatches] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -130,6 +132,11 @@ export function EnrollmentModal({
   const admFee = program?.admissionFeeEnabled
     ? Math.max(0, program.admissionFeeAmount - (Number(admDiscount) || 0))
     : 0;
+  const coursePayable = program?.paymentCircle === 'MONTHLY' ? netMonthly : totalFee;
+  const totalPayable = Math.max(0, coursePayable + admFee);
+  const payNow = Math.min(Number(payNowAmount) || 0, totalPayable);
+  const dueAfterPay = Math.max(0, totalPayable - payNow);
+  const accessPreview = payNow > 0 ? 'FULL_ACCESS' : 'NO_ACCESS';
   const canNext = selected.length > 0 && selected.every(c => c.type === 'ONLINE' || selCourses[c.id]?.batch);
 
   const toggle = (cid: string) =>
@@ -166,6 +173,8 @@ export function EnrollmentModal({
         billingStartMonth: billingStart,
         monthlyDiscount: Number(monthlyDiscount) || 0,
         admissionFeeAmountOverrides: program?.admissionFeeEnabled ? { [programId]: admFee } : undefined,
+        paymentAmount: payNow > 0 ? payNow : undefined,
+        paymentMethod: payNow > 0 ? paymentMethod : undefined,
       };
       const res = await offlineAdmission(dto);
       if (res.success) {
@@ -569,6 +578,83 @@ export function EnrollmentModal({
               <span className="font-black text-lg text-rose-700">{fmt(admFee)}</span>
             </div>
           )}
+
+          <div className="grid grid-cols-[1fr_320px] gap-4 mb-5">
+            <div className="border border-slate-200 rounded-xl p-4">
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3">Payment at Admission</p>
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                {[
+                  { label: 'No payment', value: 0 },
+                  { label: 'Admission only', value: admFee, disabled: admFee <= 0 },
+                  { label: 'Full payment', value: totalPayable },
+                ].map(option => (
+                  <button
+                    key={option.label}
+                    type="button"
+                    disabled={option.disabled}
+                    onClick={() => setPayNowAmount(String(Math.min(option.value, totalPayable)))}
+                    className={cn(
+                      'px-3 py-2 rounded-lg border text-xs font-bold transition-colors',
+                      option.disabled
+                        ? 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700 cursor-pointer',
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              <Field label="Pay Now Amount">
+                <Input
+                  type="number"
+                  min={0}
+                  max={totalPayable}
+                  value={payNowAmount}
+                  onChange={e => {
+                    const next = Number(e.target.value) || 0;
+                    setPayNowAmount(next > totalPayable ? String(totalPayable) : e.target.value);
+                  }}
+                  className="text-right focus-visible:ring-indigo-400"
+                />
+              </Field>
+              <div className="grid grid-cols-2 gap-2">
+                {(['CASH', 'BKASH'] as const).map(method => (
+                  <button
+                    key={method}
+                    type="button"
+                    onClick={() => setPaymentMethod(method)}
+                    disabled={payNow <= 0}
+                    className={cn(
+                      'px-3 py-2 rounded-lg border text-sm font-bold transition-colors',
+                      paymentMethod === method && payNow > 0
+                        ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
+                      payNow <= 0 && 'opacity-50 cursor-not-allowed',
+                    )}
+                  >
+                    {method === 'CASH' ? 'Cash' : 'bKash'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="border border-slate-200 rounded-xl p-4 bg-slate-50">
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3">Payment Preview</p>
+              {[
+                ['Total payable', fmt(totalPayable)],
+                ['Pay now', fmt(payNow)],
+                ['Due after admission', fmt(dueAfterPay)],
+                ['Invoice status', payNow <= 0 ? 'ISSUED' : dueAfterPay > 0 ? 'PARTIAL' : 'PAID'],
+                ['Enrollment status', payNow > 0 ? 'ACTIVE' : 'PENDING_PAYMENT'],
+                ['Access status', accessPreview],
+              ].map(([k, v]) => (
+                <div key={k} className="flex justify-between gap-3 py-1.5 border-b border-slate-200 last:border-0">
+                  <span className="text-sm text-slate-500">{k}</span>
+                  <span className="text-sm font-black text-slate-900 text-right">{v}</span>
+                </div>
+              ))}
+            </div>
+          </div>
 
           <div className="flex justify-end gap-2.5">
             <Button variant="outline" onClick={() => setStep(1)} className="gap-2" disabled={saving}>

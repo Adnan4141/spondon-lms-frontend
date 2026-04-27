@@ -53,7 +53,9 @@ export interface Enrollment {
   id: string;
   programId: string;
   branchId: string;
-  status: 'ACTIVE' | 'CANCELLED';
+  status: string;
+  source?: string;
+  accessStatus?: string;
   billingType: 'MONTHLY' | 'ONE_TIME';
   monthlyDiscount: number;
   billingStartMonth: string;
@@ -68,7 +70,16 @@ export interface Invoice {
   status: 'PAID' | 'DUE' | 'WAIVED' | 'PARTIAL';
   dueDate: string;
   branchName?: string;
-  items?: { title: string; unitPrice: number; qty: number; type?: string }[];
+  items?: {
+    title: string;
+    unitPrice: number;
+    qty: number;
+    type?: string;
+    payableAmount?: number;
+    paidAmount?: number;
+    dueAmount?: number;
+    allocationPriority?: number;
+  }[];
 }
 
 export interface CourseWithDiscount extends Course {

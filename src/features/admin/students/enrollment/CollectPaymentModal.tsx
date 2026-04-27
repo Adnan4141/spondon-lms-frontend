@@ -70,7 +70,27 @@ export function CollectPaymentModal({
         ) as Invoice['status'],
         dueDate: inv.nextPaymentDueDate ?? '',
         branchName: (inv as { branch?: { name?: string } }).branch?.name,
-        items: (inv as { items?: { title: string; unitPrice: number; qty: number; type?: string }[] }).items,
+        items: (inv as {
+          items?: {
+            title: string;
+            unitPrice: number | string;
+            qty: number;
+            type?: string;
+            payableAmount?: number | string;
+            paidAmount?: number | string;
+            dueAmount?: number | string;
+            allocationPriority?: number;
+          }[];
+        }).items?.map(item => ({
+          title: item.title,
+          unitPrice: Number(item.unitPrice),
+          qty: item.qty,
+          type: item.type,
+          payableAmount: Number(item.payableAmount ?? Number(item.unitPrice) * item.qty),
+          paidAmount: Number(item.paidAmount ?? 0),
+          dueAmount: Number(item.dueAmount ?? Math.max(0, Number(item.unitPrice) * item.qty)),
+          allocationPriority: item.allocationPriority,
+        })),
       }));
       // Sort descending so mapped[0] is most-recent for default selection logic below
       mapped.sort((a, b) => b.month.localeCompare(a.month));
@@ -200,6 +220,24 @@ export function CollectPaymentModal({
   const discountCapped = requestedDiscount > discountable && discountable >= 0 && requestedDiscount > 0;
   const monthStatus = getMonthAggStatus(displayInvoices);
   const canWaive = displayInvoices.every(i => i.paidAmount <= 0);
+  const itemRows = displayInvoices.flatMap(inv =>
+    (inv.items ?? []).map(item => {
+      const total = Number(item.payableAmount ?? item.unitPrice * item.qty);
+      const paid = Number(item.paidAmount ?? 0);
+      return {
+        ...item,
+        total,
+        paid,
+        due: Number(item.dueAmount ?? Math.max(0, total - paid)),
+      };
+    }),
+  );
+  const admissionDue = itemRows
+    .filter(item => item.type === 'ADMISSION_FEE')
+    .reduce((sum, item) => sum + item.due, 0);
+  const courseDue = itemRows
+    .filter(item => item.type === 'COURSE')
+    .reduce((sum, item) => sum + item.due, 0);
 
   const handleWaive = async () => {
     if (waiveReason.trim().length < 5) return;
@@ -275,7 +313,7 @@ export function CollectPaymentModal({
                               : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
                           )}
                         >
-                          {fmtMonth(m)}
+                          {m ? fmtMonth(m) : 'One-Time / Program'}
                           <AppBadge label={aggStatus} color={statusBadgeColor[aggStatus] ?? 'red'} />
                         </button>
                       );
@@ -289,14 +327,14 @@ export function CollectPaymentModal({
           <div className="border border-slate-200 rounded-xl overflow-hidden">
             <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200">
               <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                Invoices — {fmtMonth(selMonth)}
+                Invoices — {selMonth ? fmtMonth(selMonth) : 'One-Time / Program'}
               </p>
             </div>
             {displayInvoices.length > 0 ? (
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr className="bg-slate-50/50">
-                    {['Description', 'Branch', 'Amount', 'Status', 'Due Date', ''].map(h => (
+                    {['Description', 'Branch', 'Total', 'Paid', 'Due', 'Status', 'Due Date', ''].map(h => (
                       <th
                         key={h}
                         className="px-3 py-2 text-left text-[11px] font-bold text-slate-400 uppercase border-b border-slate-200"
@@ -307,22 +345,25 @@ export function CollectPaymentModal({
                   </tr>
                 </thead>
                 <tbody>
-                  {displayInvoices.map(inv => (
+                  {displayInvoices.map(inv => {
+                    const invoiceDue = Math.max(0, inv.amount - inv.paidAmount);
+                    return (
                     <Fragment key={inv.id}>
                       <tr className="border-b border-slate-100">
                         <td className="px-3 py-2.5 font-semibold text-slate-900">
-                          {fmtMonth(inv.month)} — Monthly Fee
+                          {inv.month ? `${fmtMonth(inv.month)} — Monthly Invoice` : 'One-Time / Program Invoice'}
                         </td>
                         <td className="px-3 py-2.5 text-slate-500 text-xs">{inv.branchName || '—'}</td>
                         <td className="px-3 py-2.5">
-                          {inv.status === 'PARTIAL' ? (
-                            <>
-                              <span className="font-bold text-rose-700 block">{fmt(inv.amount - inv.paidAmount)}</span>
-                              <span className="text-[11px] text-emerald-600 font-semibold">{fmt(inv.paidAmount)} paid</span>
-                            </>
-                          ) : (
-                            <span className="font-bold text-rose-700">{fmt(inv.amount)}</span>
-                          )}
+                          <span className="font-bold text-slate-900">{fmt(inv.amount)}</span>
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <span className="font-semibold text-emerald-600">{fmt(inv.paidAmount)}</span>
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <span className={cn('font-bold', invoiceDue > 0 ? 'text-rose-700' : 'text-slate-400')}>
+                            {fmt(invoiceDue)}
+                          </span>
                         </td>
                         <td className="px-3 py-2.5">
                           <AppBadge
@@ -347,18 +388,33 @@ export function CollectPaymentModal({
                           </button>
                         </td>
                       </tr>
-                      {inv.items?.map((item, ii) => (
-                        <tr key={`${inv.id}-item-${ii}`} className="bg-slate-50/60 border-b border-slate-100">
-                          <td className="px-3 py-1.5 text-xs text-slate-500 pl-7" colSpan={2}>
-                            ↳ {item.title}
-                            {item.qty > 1 && <span className="text-slate-400 ml-1">×{item.qty}</span>}
-                          </td>
-                          <td className="px-3 py-1.5 text-xs text-slate-500">{fmt(item.unitPrice * item.qty)}</td>
-                          <td colSpan={3} />
-                        </tr>
-                      ))}
+                      {inv.items?.map((item, ii) => {
+                        const itemTotal = Number(item.payableAmount ?? item.unitPrice * item.qty);
+                        const itemPaid = Number(item.paidAmount ?? 0);
+                        const itemDue = Number(item.dueAmount ?? Math.max(0, itemTotal - itemPaid));
+                        return (
+                          <tr key={`${inv.id}-item-${ii}`} className="bg-slate-50/60 border-b border-slate-100">
+                            <td className="px-3 py-1.5 text-xs text-slate-500 pl-7">
+                              ↳ {item.title}
+                              {item.qty > 1 && <span className="text-slate-400 ml-1">×{item.qty}</span>}
+                            </td>
+                            <td className="px-3 py-1.5 text-xs text-slate-400">—</td>
+                            <td className="px-3 py-1.5 text-xs text-slate-500">
+                              {fmt(itemTotal)}
+                            </td>
+                            <td className="px-3 py-1.5 text-xs font-semibold text-emerald-600">
+                              {fmt(itemPaid)}
+                            </td>
+                            <td className={cn('px-3 py-1.5 text-xs font-semibold', itemDue > 0 ? 'text-rose-600' : 'text-slate-400')}>
+                              {fmt(itemDue)}
+                            </td>
+                            <td colSpan={3} />
+                          </tr>
+                        );
+                      })}
                     </Fragment>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             ) : (
@@ -425,6 +481,33 @@ export function CollectPaymentModal({
                 </div>
 
                 <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Payment Amount (Enter amount or leave blank for full payment)</p>
+                <div className="grid gap-1.5 mb-2">
+                  {[
+                    { label: 'Pay Admission Due', amount: admissionDue, disabled: admissionDue <= 0 },
+                    {
+                      label: selMonth ? 'Pay Monthly Course Due' : 'Pay One-Time Course Due',
+                      amount: courseDue,
+                      disabled: courseDue <= 0 || admissionDue > 0,
+                    },
+                    { label: 'Pay Full Due', amount: netDue, disabled: netDue <= 0 },
+                  ].map(action => (
+                    <button
+                      key={action.label}
+                      type="button"
+                      disabled={action.disabled}
+                      onClick={() => setPaymentAmount(String(Math.min(action.amount, netDue)))}
+                      className={cn(
+                        'flex justify-between px-2.5 py-1.5 rounded-md border text-xs font-bold transition-colors',
+                        action.disabled
+                          ? 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700 cursor-pointer',
+                      )}
+                    >
+                      <span>{action.label}</span>
+                      <span>{fmt(action.amount)}</span>
+                    </button>
+                  ))}
+                </div>
                 <Input
                   type="number"
                   min={0}

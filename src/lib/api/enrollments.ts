@@ -2,6 +2,8 @@ import { apiRequest, API_ORIGIN } from '../api';
 import type { ApiResponse } from '@/types/course';
 
 export type EnrollmentStatusType = 'ACTIVE' | 'PAUSED' | 'CANCELLED' | 'COMPLETED' | 'WAITLISTED' | 'PENDING_PAYMENT' | 'EXPIRED' | 'SUSPENDED';
+export type EnrollmentSourceType = 'ADMIN' | 'STUDENT_SELF';
+export type EnrollmentAccessStatusType = 'NO_ACCESS' | 'LIMITED_ACCESS' | 'FULL_ACCESS';
 
 // EnrollmentCourse — child record for each course within a program enrollment
 export interface EnrollmentCourse {
@@ -46,6 +48,8 @@ export interface Enrollment {
   programId: string;
   branchId: string;
   status: EnrollmentStatusType | string;
+  source?: EnrollmentSourceType | string;
+  accessStatus?: EnrollmentAccessStatusType | string;
   billingType?: 'ONE_TIME' | 'MONTHLY';
   billingStartMonth?: string | null;
   monthlyDiscount?: number | string | null;
@@ -82,6 +86,8 @@ export interface CreateEnrollmentDto {
   courses: CourseEnrollmentItem[];
   branchId: string;
   status?: EnrollmentStatusType;
+  source?: EnrollmentSourceType;
+  accessStatus?: EnrollmentAccessStatusType;
   billingStartMonth?: string; // YYYY-MM
   installmentCount?: number | null;
   installmentSchedule?: any;
@@ -89,6 +95,7 @@ export interface CreateEnrollmentDto {
 
 export interface UpdateEnrollmentDto {
   status?: EnrollmentStatusType;
+  accessStatus?: EnrollmentAccessStatusType;
   billingStartMonth?: string;
   reason?: string;
   appliedByUserId?: string;

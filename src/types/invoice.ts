@@ -10,6 +10,10 @@ export interface InvoiceItem {
   qty: number;
   unitPrice: number | string;
   lineTotal: number | string;
+  payableAmount?: number | string;
+  paidAmount?: number | string;
+  dueAmount?: number | string;
+  allocationPriority?: number;
   /** Mid-month cancellation / revision — line excluded from active subtotal in UI */
   cancelled?: boolean;
   proRatedFrom?: string | null;
