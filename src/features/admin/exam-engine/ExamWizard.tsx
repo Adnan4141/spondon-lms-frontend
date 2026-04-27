@@ -20,9 +20,11 @@ import {
   generateSectionSets,
   getExamSections,
   getExamById,
+  getExams,
   type ExamSection,
 } from '@/lib/api/exams';
 import type { Course } from '@/types/course';
+import type { ExamSubject } from '@/types/exam';
 import type { Branch } from '@/lib/api/branches';
 import type { CreateExamDto, ExamStatus, UpdateExamDto } from '@/types/exam';
 import { QuestionPickerModal } from './components/QuestionPickerModal';
@@ -32,6 +34,7 @@ import {
   type FolderRuleDraft,
   type UiExamCategory,
   type WizardSection,
+  type WizardSubject,
   type SectionTypeUi,
   WIZARD_STEPS,
   mapDeliveryToExamMode,
@@ -44,9 +47,11 @@ import {
   deserializeWizardForm,
   draftStorageKey,
   flattenFolders,
+  newLocalId,
   parseStepParam,
   serializeWizardForm,
 } from './wizard/wizardHelpers';
+import { EXAM_WIZARD_ALL_BRANCHES } from './wizard/constants';
 import { useExamWizardFolderTree } from './wizard/useExamWizardFolderTree';
 import { validateStep, type Step1FieldKey } from './wizard/validateWizardStep';
 import { Step1CategoryInfo } from './wizard/steps/Step1CategoryInfo';
@@ -74,6 +79,8 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
   const [picker, setPicker] = useState<PickerTarget>(null);
   const [step1FieldErrors, setStep1FieldErrors] = useState<Partial<Record<Step1FieldKey, boolean>>>({});
   const [serverExam, setServerExam] = useState<{ status: ExamStatus; pdfUrl?: string | null } | null>(null);
+  const [importSourceExams, setImportSourceExams] = useState<{ id: string; title: string }[]>([]);
+  const [importBusy, setImportBusy] = useState(false);
 
   const draftHydratedRef = useRef(false);
   const urlInitializedRef = useRef(false);
@@ -104,6 +111,20 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
       if (r.success && r.data?.length) setBranches(r.data);
     });
   }, []);
+
+  useEffect(() => {
+    if (!state.courseId) {
+      setImportSourceExams([]);
+      return;
+    }
+    void getExams({ courseId: state.courseId, limit: 100 }).then((r) => {
+      if (r.success && r.data) {
+        setImportSourceExams(
+          r.data.filter((e) => e.id !== examId).map((e) => ({ id: e.id, title: e.title })),
+        );
+      } else setImportSourceExams([]);
+    });
+  }, [state.courseId, examId]);
 
   useEffect(() => {
     if (examId || draftHydratedRef.current) return;
@@ -153,7 +174,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
           patch: {
             title: ex.data.title,
             courseId: ex.data.courseId,
-            branchId: ex.data.branchId ?? '',
+            branchId: ex.data.branchId ?? EXAM_WIZARD_ALL_BRANCHES,
             language: ex.data.language ?? 'bn',
             durationMinutes: String(ex.data.durationMinutes ?? 60),
             deliveryMode: ex.data.mode === 'ONLINE' ? 'ONLINE' : 'OFFLINE',
@@ -205,17 +226,19 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
 
   const persistExam = useCallback(
     async (finalize: boolean) => {
-      if (!state.courseId || !state.branchId || !state.title.trim()) {
+      if (!state.courseId || !state.title.trim()) {
         toast({
           title: 'Missing fields',
-          description: 'Course, branch, and title are required.',
+          description: 'Course and title are required.',
           variant: 'destructive',
         });
         return null;
       }
+      const branchResolved =
+        !state.branchId || state.branchId === EXAM_WIZARD_ALL_BRANCHES ? null : state.branchId;
       const dto: CreateExamDto = {
         courseId: state.courseId,
-        branchId: state.branchId,
+        branchId: branchResolved,
         title: state.title.trim(),
         type: mapUiCategoryToExamType(state.uiCategory as UiExamCategory),
         mode: mapDeliveryToExamMode(state.deliveryMode),
@@ -241,7 +264,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
       try {
         let id = examId;
         if (examId) {
-          const up = await updateExam(examId, dto as UpdateExamDto);
+          const up = await updateExam(examId, { ...dto, branchId: branchResolved } as UpdateExamDto);
           if (!up.success) {
             toast({ title: 'Update failed', description: up.message, variant: 'destructive' });
             return null;
@@ -314,6 +337,92 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
       }
     },
     [examId, serverExam, state, toast],
+  );
+
+  const applyImportFromExam = useCallback(
+    async (sourceExamId: string) => {
+      setImportBusy(true);
+      try {
+        const [exRes, secRes] = await Promise.all([
+          getExamById(sourceExamId),
+          getExamSections(sourceExamId),
+        ]);
+        if (!exRes.success || !exRes.data) {
+          toast({
+            title: 'Import failed',
+            description: (exRes as { message?: string }).message ?? 'Could not load source exam',
+            variant: 'destructive',
+          });
+          return;
+        }
+        const ex = exRes.data;
+        const w = ex.settings?.examWizard as Record<string, unknown> | undefined;
+        const nextCat = ((w?.uiCategory as UiExamCategory | undefined) || state.uiCategory) as UiExamCategory | '';
+
+        const common: Partial<ExamWizardState> = {
+          courseId: ex.courseId,
+          deliveryMode: ex.mode === 'ONLINE' ? 'ONLINE' : 'OFFLINE',
+          durationMinutes: String(ex.durationMinutes ?? 60),
+          language: ex.language ?? 'bn',
+          nSets: String(ex.totalSets ?? 4),
+          showLeaderboard: ex.showLeaderboard ?? true,
+          hideResult: ex.hideResult ?? false,
+          showPct: ex.showPercentile ?? false,
+          showSolve: typeof w?.showSolve === 'boolean' ? w.showSolve : true,
+          shuffle: typeof w?.shuffle === 'string' ? (w.shuffle as string) : 'FULL',
+          setNaming: (w?.setNaming as ExamWizardState['setNaming']) ?? 'ALPHA',
+          instituteLabel: typeof w?.instituteLabel === 'string' ? (w.instituteLabel as string) : '',
+          paperCode: typeof w?.paperCode === 'string' ? (w.paperCode as string) : '',
+          resultModes: Array.isArray(w?.resultModes) ? (w.resultModes as string[]) : ['AUTO'],
+        };
+        if (nextCat) common.uiCategory = nextCat;
+
+        if (nextCat === 'MULTI' && ex.subjects && ex.subjects.length > 0) {
+          const subjects: WizardSubject[] = (ex.subjects as ExamSubject[]).map((s) => ({
+            localId: newLocalId(),
+            name: s.name,
+            count: s.questionCount,
+            marks: Number(s.marksPerQuestion ?? 1),
+            neg: Number(s.negativeMarks ?? 0),
+            passMarks: s.passMarks != null ? String(s.passMarks) : '',
+            compulsory: s.isMandatory,
+          }));
+          dispatch({ type: 'MERGE', patch: { ...common, subjects, sections: [] } });
+          setActiveSectionId(null);
+        } else if (secRes.success && secRes.data?.length) {
+          const mapped: WizardSection[] = secRes.data.map((s: ExamSection) => ({
+            localId: newLocalId(),
+            label: s.name,
+            type: s.type as SectionTypeUi,
+            count: s.questionCount || 0,
+            ...(s.type === 'MCQ' ? { mcqPassageCount: s.mcqPassageCount ?? 0 } : {}),
+            marks: Number(s.marksPerQuestion ?? 1),
+            neg: Number(s.negativeMarks ?? 0),
+            difficulty: 'MIXED',
+            folderRules: Array.isArray(s.folderRules)
+              ? (s.folderRules as FolderRuleDraft[]).map((r) => ({
+                  folderId: r.folderId,
+                  questionCount: r.questionCount,
+                  selectionMode: r.selectionMode ?? 'RANDOM',
+                  excludedQuestionIds: r.excludedQuestionIds ?? [],
+                  pinnedQuestionIds: r.pinnedQuestionIds ?? [],
+                }))
+              : [],
+          }));
+          dispatch({ type: 'MERGE', patch: { ...common, sections: mapped, subjects: [] } });
+          setActiveSectionId(mapped[0]?.localId ?? null);
+        } else {
+          dispatch({ type: 'MERGE', patch: { ...common } });
+        }
+        toast({
+          title: 'Config imported',
+          description: 'Review steps and click Save Draft to persist.',
+        });
+      } finally {
+        setImportBusy(false);
+      }
+    },
+    [dispatch, state.uiCategory, toast],
   );
 
   const goSaveDraft = async () => {
@@ -499,6 +608,9 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
           fieldErrors={step1FieldErrors}
           onSelectCategory={applyCategory}
           clearFieldError={(k) => setStep1FieldErrors((prev) => ({ ...prev, [k]: false }))}
+          importSourceExams={importSourceExams}
+          importBusy={importBusy}
+          onImportFromExam={(id) => void applyImportFromExam(id)}
         />
       ) : null}
 

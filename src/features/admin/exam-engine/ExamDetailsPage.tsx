@@ -191,7 +191,9 @@ export function ExamDetailsPage({ examId }: { examId: string }) {
       <div>
         <h1 className="font-serif text-2xl font-normal tracking-tight text-[#0D1B35] md:text-3xl">{exam.title}</h1>
         <p className="mt-1 text-sm text-slate-600">
-          {exam.course?.name ?? 'Course'} · {exam.branch?.name ?? 'Branch'} · {exam.mode} · {exam.durationMinutes ?? '—'}{' '}
+          {exam.course?.name ?? 'Course'} ·{' '}
+          {exam.branch?.name ?? (exam.branchId == null ? 'All branches' : 'Branch')} · {exam.mode} ·{' '}
+          {exam.durationMinutes ?? '—'}{' '}
           min · <Badge variant="secondary">{exam.status}</Badge>
         </p>
       </div>

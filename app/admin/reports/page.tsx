@@ -13,6 +13,7 @@ import {
   type RevenuePaymentRow,
   type EnrollmentReportData,
   type CourseTransactionData,
+  type CourseTransactionTotals,
   type BookSalesRow,
   type DueSummaryRow,
   type DueSummaryStudentRow,
@@ -415,26 +416,49 @@ function EnrollmentTab({ branches, courses, programs }: { branches: Branch[]; co
 
 // ─── Course Transactions Tab ──────────────────────────────────────────────────
 
-function CourseTransactionsTab({ courses }: { courses: any[] }) {
+function CourseTransactionsTab({ courses, branches }: { courses: any[]; branches: Branch[] }) {
   const { toast } = useToast();
   const [courseId, setCourseId] = useState('');
+  const [branchId, setBranchId] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [paymentStatus, setPaymentStatus] = useState<'ALL' | 'PAID' | 'PARTIAL' | 'UNPAID'>('ALL');
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<CourseTransactionData[]>([]);
+  const [totals, setTotals] = useState<CourseTransactionTotals | null>(null);
 
-  async function load() {
-    if (!courseId) { toast({ title: 'Select a course', variant: 'destructive' }); return; }
+  async function load(payOverride?: typeof paymentStatus) {
+    if (!courseId) {
+      toast({ title: 'Select a course', variant: 'destructive' });
+      return;
+    }
+    const pay = payOverride ?? paymentStatus;
     setLoading(true);
     try {
-      const res = await getCourseTransactions({ courseId, from: from || undefined, to: to || undefined });
-      if (res.success) setData(res.data);
-    } catch { toast({ title: 'Failed to load transactions', variant: 'destructive' }); }
-    finally { setLoading(false); }
+      const res = await getCourseTransactions({
+        courseId,
+        from: from || undefined,
+        to: to || undefined,
+        branchId: branchId || undefined,
+        paymentStatus: pay === 'ALL' ? undefined : pay,
+      });
+      if (res.success) {
+        setData(res.data);
+        setTotals(res.totals ?? null);
+      }
+    } catch {
+      toast({ title: 'Failed to load transactions', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
   }
 
-  const totalPaid = data.reduce((s, r) => s + Number(r.selectedCoursePaid ?? r.paidAmount ?? 0), 0);
-  const totalDue = data.reduce((s, r) => s + Number(r.selectedCourseDue ?? r.dueAmount ?? 0), 0);
+  const statusCards: { key: typeof paymentStatus; label: string }[] = [
+    { key: 'ALL', label: 'All' },
+    { key: 'PAID', label: 'Paid' },
+    { key: 'PARTIAL', label: 'Partial' },
+    { key: 'UNPAID', label: 'Unpaid' },
+  ];
 
   return (
     <div className="space-y-5">
@@ -445,7 +469,27 @@ function CourseTransactionsTab({ courses }: { courses: any[] }) {
             <SelectTrigger className="h-9 rounded-xl text-sm"><SelectValue placeholder="Select a course…" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="none">Select a course…</SelectItem>
-              {courses.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              {courses.map((c: any) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Branch</p>
+          <Select value={branchId || 'all'} onValueChange={(v) => setBranchId(v === 'all' ? '' : v)}>
+            <SelectTrigger className="h-9 w-44 rounded-xl text-sm">
+              <SelectValue placeholder="All branches" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All branches</SelectItem>
+              {branches.map((b) => (
+                <SelectItem key={b.id} value={b.id}>
+                  {b.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -457,60 +501,147 @@ function CourseTransactionsTab({ courses }: { courses: any[] }) {
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">To</p>
           <AdminDatePicker className="w-36" value={to} onChange={setTo} placeholder="To date" />
         </div>
-        <Button onClick={load} disabled={loading} className="h-9 bg-indigo-600 text-white hover:bg-indigo-700 hover:text-white gap-2">
+        <Button
+          onClick={() => void load()}
+          disabled={loading}
+          className="h-9 bg-indigo-600 text-white hover:bg-indigo-700 hover:text-white gap-2"
+        >
           {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <BarChart3 className="h-4 w-4" />}
           Load
         </Button>
       </div>
 
-      {data.length > 0 && (
-        <div className="grid grid-cols-2 gap-4">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-2xl font-black text-emerald-600">{fmtCur(totalPaid)}</p>
-            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-1">Total Paid</p>
+      <div className="flex flex-wrap gap-2">
+        {statusCards.map((c) => (
+          <button
+            key={c.key}
+            type="button"
+            onClick={() => {
+              setPaymentStatus(c.key);
+              if (courseId) void load(c.key);
+            }}
+            className={cn(
+              'rounded-full border px-4 py-1.5 text-xs font-bold transition-colors',
+              paymentStatus === c.key
+                ? 'border-indigo-600 bg-indigo-600 text-white'
+                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50',
+            )}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
+
+      {totals && data.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-lg font-black text-slate-800">{fmtCur(totals.netPayable)}</p>
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-1">Net payable</p>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-2xl font-black text-rose-500">{fmtCur(totalDue)}</p>
-            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-1">Total Due</p>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-lg font-black text-emerald-600">{fmtCur(totals.paid)}</p>
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-1">Paid</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-lg font-black text-rose-600">{fmtCur(totals.due)}</p>
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-1">Due</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-lg font-black text-indigo-600">{totals.collectionPercent}%</p>
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-1">Collection</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-lg font-black text-slate-800">
+              {totals.paidCount}/{totals.partialCount}/{totals.unpaidCount}
+            </p>
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-1">Paid / Part / Unpaid</p>
           </div>
         </div>
       )}
 
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         {loading ? (
-          <div className="py-16 text-center"><RefreshCw className="h-6 w-6 animate-spin text-indigo-400 mx-auto" /></div>
+          <div className="py-16 text-center">
+            <RefreshCw className="h-6 w-6 animate-spin text-indigo-400 mx-auto" />
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader className="bg-slate-50/80">
                 <TableRow>
-                  {['Student', 'Branch', 'Selected Course Payable', 'Selected Course Paid', 'Selected Course Due', 'Status', 'Date'].map((h) => (
-                    <TableHead key={h} className="text-[10px] font-black uppercase tracking-widest text-slate-400">{h}</TableHead>
+                  {[
+                    'Student',
+                    'Reg #',
+                    'Mobile',
+                    'Branch',
+                    'Invoice / Month',
+                    'Gross',
+                    'Discount',
+                    'Net',
+                    'Paid',
+                    'Due',
+                    'Progress',
+                    'Course status',
+                    'Invoice',
+                    'Due date',
+                  ].map((h) => (
+                    <TableHead key={h} className="text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">
+                      {h}
+                    </TableHead>
                   ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {data.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="py-12 text-center text-slate-400 text-sm font-bold">Select a course and click Load.</TableCell></TableRow>
-                ) : data.map((row) => (
-                  <TableRow key={row.id} className="hover:bg-slate-50/60">
-                    <TableCell className="font-bold text-slate-900">{row.student?.fullName ?? '—'}</TableCell>
-                    <TableCell className="text-xs text-slate-500">{row.branch?.name ?? '—'}</TableCell>
-                    <TableCell className="font-bold text-slate-700">{fmtCur(Number(row.selectedCourseAmount ?? row.totalAmount ?? 0))}</TableCell>
-                    <TableCell className="font-bold text-emerald-600">{fmtCur(Number(row.selectedCoursePaid ?? row.paidAmount ?? 0))}</TableCell>
-                    <TableCell className="font-bold text-rose-500">{fmtCur(Number(row.selectedCourseDue ?? row.dueAmount ?? 0))}</TableCell>
-                    <TableCell>
-                      <Badge className={cn('rounded-full text-[10px] font-black uppercase px-2',
-                        row.status === 'PAID' ? 'bg-emerald-100 text-emerald-700' :
-                        row.status === 'PARTIAL' ? 'bg-amber-100 text-amber-700' :
-                        row.status === 'ISSUED' ? 'bg-indigo-100 text-indigo-700' :
-                        'bg-slate-100 text-slate-700')}>
-                        {row.status}
-                      </Badge>
+                  <TableRow>
+                    <TableCell colSpan={14} className="py-12 text-center text-slate-400 text-sm font-bold">
+                      Select a course and click Load.
                     </TableCell>
-                    <TableCell className="text-xs text-slate-400">{new Date(row.createdAt).toLocaleDateString('en-GB')}</TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  data.map((row) => (
+                    <TableRow key={row.id} className="hover:bg-slate-50/60">
+                      <TableCell className="font-bold text-slate-900">{row.student?.fullName ?? '—'}</TableCell>
+                      <TableCell className="text-xs font-mono text-slate-600">
+                        {row.student?.registrationNumber ?? '—'}
+                      </TableCell>
+                      <TableCell className="text-xs text-slate-600">{row.student?.mobile ?? '—'}</TableCell>
+                      <TableCell className="text-xs text-slate-500">{row.branch?.name ?? '—'}</TableCell>
+                      <TableCell className="text-xs text-slate-600">
+                        <span className="font-mono">{row.invoiceId.slice(0, 8)}…</span>
+                        {row.month ? <span className="block text-slate-400">{row.month}</span> : null}
+                      </TableCell>
+                      <TableCell className="text-right text-sm font-semibold text-slate-700">{fmtCur(row.gross)}</TableCell>
+                      <TableCell className="text-right text-sm text-slate-500">−{fmtCur(row.discount)}</TableCell>
+                      <TableCell className="text-right text-sm font-bold text-slate-800">{fmtCur(row.net)}</TableCell>
+                      <TableCell className="text-right text-sm font-semibold text-emerald-600">{fmtCur(row.paid)}</TableCell>
+                      <TableCell className="text-right text-sm font-bold text-rose-600">{fmtCur(row.due)}</TableCell>
+                      <TableCell className="text-xs text-slate-600 max-w-[140px]">{row.progressLabel}</TableCell>
+                      <TableCell>
+                        <Badge
+                          className={cn(
+                            'rounded-full text-[10px] font-black uppercase px-2',
+                            row.courseStatus === 'PAID' && 'bg-emerald-100 text-emerald-700',
+                            row.courseStatus === 'PARTIAL' && 'bg-amber-100 text-amber-700',
+                            row.courseStatus === 'UNPAID' && 'bg-rose-100 text-rose-700',
+                          )}
+                        >
+                          {row.courseStatus}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-[10px] font-bold uppercase">
+                          {row.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-slate-500 whitespace-nowrap">
+                        {row.nextPaymentDueDate
+                          ? new Date(row.nextPaymentDueDate).toLocaleDateString('en-GB')
+                          : '—'}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>
@@ -997,7 +1128,9 @@ function ReportsPageContent() {
         <div>
           {activeTab === 'finance' && <FinanceTab branches={branches} courses={courses} />}
           {activeTab === 'enrollment' && <EnrollmentTab branches={branches} courses={courses} programs={programs} />}
-          {activeTab === 'course-transactions' && <CourseTransactionsTab courses={courses} />}
+          {activeTab === 'course-transactions' && (
+            <CourseTransactionsTab courses={courses} branches={branches} />
+          )}
           {activeTab === 'book-sales' && <BookSalesTab branches={branches} />}
           {activeTab === 'due-collection' && <DueCollectionTab branches={branches} />}
           {activeTab === 'ledger' && <LedgerSummaryTab branches={branches} />}

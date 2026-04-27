@@ -1,5 +1,6 @@
 import type { FolderTreeNode } from '@/lib/api/question-bank';
 import type { ExamWizardState, UiExamCategory, WizardSection } from '../types';
+import { EXAM_WIZARD_ALL_BRANCHES } from './constants';
 
 export function newLocalId() {
   return `w_${Math.random().toString(36).slice(2, 11)}`;
@@ -104,7 +105,7 @@ export const WIZARD_FORM_INITIAL: ExamWizardState = {
   deliveryMode: 'ONLINE',
   title: '',
   courseId: '',
-  branchId: '',
+  branchId: EXAM_WIZARD_ALL_BRANCHES,
   language: 'bn',
   durationMinutes: '60',
   instituteLabel: '',
@@ -140,6 +141,7 @@ export function deserializeWizardForm(json: string): ExamWizardState | null {
     const base = { ...WIZARD_FORM_INITIAL, ...o } as ExamWizardState;
     if (o.scheduleAt && typeof o.scheduleAt === 'string') base.scheduleAt = new Date(o.scheduleAt);
     if (o.solveAt && typeof o.solveAt === 'string') base.solveAt = new Date(o.solveAt);
+    if (!base.branchId) base.branchId = EXAM_WIZARD_ALL_BRANCHES;
     return base;
   } catch {
     return null;

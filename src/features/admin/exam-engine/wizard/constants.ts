@@ -1,5 +1,8 @@
 import type { UiExamCategory, SectionTypeUi } from '../types';
 
+/** Select value for branchless exams → saved as `branchId: null` on the server */
+export const EXAM_WIZARD_ALL_BRANCHES = '__all__';
+
 export const EXAM_CATS: { id: UiExamCategory; icon: string; name: string; desc: string }[] = [
   { id: 'MCQ', icon: '📝', name: 'MCQ Exam', desc: 'Online / offline · auto-graded' },
   { id: 'CQ', icon: '✍️', name: 'CQ / Written', desc: 'Teacher evaluation · set-wise PDF' },

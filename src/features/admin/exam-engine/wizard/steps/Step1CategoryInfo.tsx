@@ -1,6 +1,7 @@
 'use client';
 
-import { Info } from 'lucide-react';
+import { useState } from 'react';
+import { Info, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,7 +20,7 @@ import type { Course } from '@/types/course';
 import type { Branch } from '@/lib/api/branches';
 import type { ExamWizardState, UiExamCategory } from '../../types';
 import type { WizardFormAction } from '../examWizardReducer';
-import { EXAM_CATS } from '../constants';
+import { EXAM_CATS, EXAM_WIZARD_ALL_BRANCHES } from '../constants';
 import type { Step1FieldKey } from '../validateWizardStep';
 
 type Props = {
@@ -30,6 +31,9 @@ type Props = {
   fieldErrors?: Partial<Record<Step1FieldKey, boolean>>;
   onSelectCategory: (id: UiExamCategory) => void;
   clearFieldError: (k: Step1FieldKey) => void;
+  importSourceExams: { id: string; title: string }[];
+  importBusy: boolean;
+  onImportFromExam: (sourceExamId: string) => void;
 };
 
 export function Step1CategoryInfo({
@@ -40,8 +44,12 @@ export function Step1CategoryInfo({
   fieldErrors,
   onSelectCategory,
   clearFieldError,
+  importSourceExams,
+  importBusy,
+  onImportFromExam,
 }: Props) {
   const err = (k: Step1FieldKey) => Boolean(fieldErrors?.[k]);
+  const [importPick, setImportPick] = useState<string>('');
 
   return (
     <div className="space-y-4">
@@ -150,18 +158,18 @@ export function Step1CategoryInfo({
               {err('courseId') ? <p className="text-xs text-rose-600">Course is required.</p> : null}
             </div>
             <div className="space-y-2">
-              <Label>Branch *</Label>
+              <Label>Branch (optional)</Label>
               <Select
-                value={state.branchId}
+                value={state.branchId || EXAM_WIZARD_ALL_BRANCHES}
                 onValueChange={(v) => {
-                  clearFieldError('branchId');
                   dispatch({ type: 'MERGE', patch: { branchId: v } });
                 }}
               >
-                <SelectTrigger className={cn('border-slate-200', err('branchId') && 'border-rose-400')}>
-                  <SelectValue placeholder="Select branch" />
+                <SelectTrigger className="border-slate-200">
+                  <SelectValue placeholder="Branch scope" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value={EXAM_WIZARD_ALL_BRANCHES}>All branches</SelectItem>
                   {branches.map((b) => (
                     <SelectItem key={b.id} value={b.id}>
                       {b.name}
@@ -169,7 +177,9 @@ export function Step1CategoryInfo({
                   ))}
                 </SelectContent>
               </Select>
-              {err('branchId') ? <p className="text-xs text-rose-600">Branch is required.</p> : null}
+              <p className="text-[11px] text-slate-500">
+                All branches: any eligible enrolled student can see this exam regardless of centre.
+              </p>
             </div>
             <div className="space-y-2">
               <Label>Language</Label>
@@ -237,6 +247,53 @@ export function Step1CategoryInfo({
                 </div>
               </>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {state.uiCategory && (
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader>
+            <CardTitle className="font-serif text-base text-[#0D1B35]">Import config</CardTitle>
+            <CardDescription>
+              Copy category, delivery, duration, language, sets, shuffle/naming, result visibility, sections (or
+              multi-subject rules) from an existing exam in the same course. Branch, title, questions, attempts, and
+              results are not copied. Use Save Draft to persist.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-end gap-3">
+            <div className="min-w-56 flex-1 space-y-2">
+              <Label>Source exam</Label>
+              <Select
+                value={importPick || '_none'}
+                onValueChange={(v) => setImportPick(v === '_none' ? '' : v)}
+                disabled={!state.courseId}
+              >
+                <SelectTrigger className="border-slate-200">
+                  <SelectValue placeholder={state.courseId ? 'Select source…' : 'Select a course first'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">Select source exam…</SelectItem>
+                  {importSourceExams.map((e) => (
+                    <SelectItem key={e.id} value={e.id}>
+                      {e.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              className="shrink-0"
+              disabled={!importPick || importBusy}
+              onClick={() => {
+                if (importPick) onImportFromExam(importPick);
+              }}
+            >
+              {importBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Apply import
+            </Button>
           </CardContent>
         </Card>
       )}

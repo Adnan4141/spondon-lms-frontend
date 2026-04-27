@@ -69,35 +69,61 @@ export interface CourseTransactionParams {
   courseId: string;
   from?: string;
   to?: string;
+  branchId?: string;
+  /** ALL | PAID | PARTIAL | UNPAID — filters by selected course line allocation status */
+  paymentStatus?: string;
 }
 
 export interface CourseTransactionData {
   id: string;
-  studentId: string;
+  invoiceId: string;
+  studentUserId: string;
   branchId: string;
-  totalAmount: number;
-  paidAmount: number;
-  dueAmount: number;
-  selectedCourseAmount?: number;
-  selectedCoursePaid?: number;
-  selectedCourseDue?: number;
+  month: string | null;
   status: string;
   createdAt: string;
+  nextPaymentDueDate?: string | null;
+  gracePeriodEnd?: string | null;
+  gross: number;
+  discount: number;
+  net: number;
+  paid: number;
+  due: number;
+  collectionPercent: number;
+  progressLabel: string;
+  courseStatus: 'PAID' | 'PARTIAL' | 'UNPAID';
   student?: {
     id: string;
     fullName: string;
+    mobile?: string;
+    registrationNumber?: string | null;
   };
   branch?: {
     id: string;
     name: string;
   };
-  items?: any[];
-  payments?: any[];
+  /** Legacy aliases used by older UI */
+  selectedCourseAmount?: number;
+  selectedCoursePaid?: number;
+  selectedCourseDue?: number;
+}
+
+export interface CourseTransactionTotals {
+  gross: number;
+  discount: number;
+  netPayable: number;
+  paid: number;
+  due: number;
+  collectionPercent: number;
+  paidCount: number;
+  partialCount: number;
+  unpaidCount: number;
 }
 
 export interface CourseTransactionResponse {
   success: boolean;
   data: CourseTransactionData[];
+  totals?: CourseTransactionTotals;
 }
 
 export interface SystemStatsData {
@@ -147,6 +173,8 @@ export async function getCourseTransactions(
   queryParams.append('courseId', params.courseId);
   if (params.from) queryParams.append('from', params.from);
   if (params.to) queryParams.append('to', params.to);
+  if (params.branchId) queryParams.append('branchId', params.branchId);
+  if (params.paymentStatus) queryParams.append('paymentStatus', params.paymentStatus);
 
   return apiRequest<CourseTransactionResponse>(`/reports/course-transactions?${queryParams.toString()}`);
 }

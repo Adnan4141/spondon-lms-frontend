@@ -1,6 +1,6 @@
 import type { ExamWizardState } from '../types';
 
-export type Step1FieldKey = 'uiCategory' | 'title' | 'courseId' | 'branchId';
+export type Step1FieldKey = 'uiCategory' | 'title' | 'courseId';
 
 export type StepValidation = {
   ok: boolean;
@@ -16,15 +16,13 @@ export function validateStep(state: ExamWizardState, step: number): StepValidati
       uiCategory: !state.uiCategory,
       title: state.title.trim().length <= 2,
       courseId: !state.courseId,
-      branchId: !state.branchId,
     };
-    const ok = !step1Fields.uiCategory && !step1Fields.title && !step1Fields.courseId && !step1Fields.branchId;
+    const ok = !step1Fields.uiCategory && !step1Fields.title && !step1Fields.courseId;
     if (ok) return { ok: true };
     const parts: string[] = [];
     if (step1Fields.uiCategory) parts.push('exam category');
     if (step1Fields.title) parts.push('title (min 3 characters)');
     if (step1Fields.courseId) parts.push('course');
-    if (step1Fields.branchId) parts.push('branch');
     return {
       ok: false,
       summary: `Please complete: ${parts.join(', ')}.`,

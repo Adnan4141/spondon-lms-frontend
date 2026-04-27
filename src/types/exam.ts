@@ -195,6 +195,7 @@ export interface Exam {
   pdfUrl?: string | null;
   solveSheetUrl?: string | null;
   showLeaderboard?: boolean;
+  hideResult?: boolean;
   showPercentile?: boolean;
   universityName?: string | null;
   totalSets?: number | null;
@@ -268,7 +269,8 @@ export interface CreateExamDto {
   /** When set, backend enforces CourseTeacher assignment (teacher flows). */
   teacherUserId?: string;
   courseId: string;
-  branchId: string;
+  /** Omit or null = all branches */
+  branchId?: string | null;
   batchId?: string;
   title: string;
   type: ExamType;
@@ -296,11 +298,12 @@ export interface CreateExamDto {
 export interface UpdateExamDto {
   teacherUserId?: string;
   courseId?: string;
-  branchId?: string;
+  branchId?: string | null;
   batchId?: string;
+  mode?: ExamMode;
+  language?: string;
   title?: string;
   type?: ExamType;
-  mode?: ExamMode;
   scope?: ExamScope;
   examEngine?: ExamEngineType;
   showPercentile?: boolean;
