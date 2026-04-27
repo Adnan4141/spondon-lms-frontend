@@ -12,6 +12,9 @@ export function StudentsToolbar({
   onSearchChange,
   programFilter,
   onProgramFilterChange,
+  batchFilter,
+  onBatchFilterChange,
+  batchesForProgram,
   branchFilter,
   onBranchFilterChange,
   statusFilter,
@@ -25,6 +28,9 @@ export function StudentsToolbar({
   onSearchChange: (value: string) => void;
   programFilter: string;
   onProgramFilterChange: (value: string) => void;
+  batchFilter: string;
+  onBatchFilterChange: (value: string) => void;
+  batchesForProgram: { id: string; name: string; course?: { name?: string } }[];
   branchFilter: string;
   onBranchFilterChange: (value: string) => void;
   statusFilter: string;
@@ -33,8 +39,18 @@ export function StudentsToolbar({
   branches: BranchOption[];
   onAddStudent: () => void;
 }) {
+  const programSelected = programFilter !== 'ALL';
+  const batchOptions = [
+    { value: 'ALL', label: 'All batches' },
+    ...batchesForProgram.map((b) => ({
+      value: b.id,
+      label: b.course?.name ? `${b.name} — ${b.course.name}` : b.name,
+    })),
+  ];
+
   return (
-    <div className="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+    <div className="px-5 py-4 border-b border-slate-100 space-y-2">
+    <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-2.5">
         <Users className="h-5 w-5 text-slate-400" />
         <h2 className="text-base font-black text-slate-900">Students</h2>
@@ -57,6 +73,17 @@ export function StudentsToolbar({
             options={[{ value: 'ALL', label: 'All programs' }, ...programs.map(p => ({ value: p.id, label: p.name }))]}
           />
         </div>
+        <div
+          className="w-[min(100%,12rem)] sm:min-w-[12rem] sm:max-w-[20rem] sm:w-auto"
+          title={!programSelected ? 'Choose a program first' : 'Batches for courses under the selected program'}
+        >
+          <StudentAdminSelect
+            value={batchFilter}
+            onChange={onBatchFilterChange}
+            options={batchOptions}
+            disabled={!programSelected}
+          />
+        </div>
         <div className="w-[min(100%,11rem)] sm:w-40">
           <StudentAdminSelect
             value={branchFilter}
@@ -75,6 +102,11 @@ export function StudentsToolbar({
           <Plus className="h-4 w-4" /> Add Student
         </Button>
       </div>
+    </div>
+    <p className="text-[11px] text-slate-500 pl-0.5">
+      Program filters students by enrollment in that program. After you pick a program, the batch list loads batches for
+      that program’s courses; choosing a batch narrows to students enrolled in that batch.
+    </p>
     </div>
   );
 }

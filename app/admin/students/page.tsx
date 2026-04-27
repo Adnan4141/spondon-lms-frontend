@@ -8,6 +8,7 @@ import { getPrograms } from '@/lib/api/programs';
 import { getCourses } from '@/lib/api/courses';
 import { getBranches } from '@/lib/api/branches';
 import { getUsers } from '@/lib/api/users';
+import { getBatches, type Batch } from '@/lib/api/batches';
 import { AddStudentModal } from '@/features/admin/students';
 import { CollectPaymentModal } from '@/features/admin/students';
 import { EditStudentModal } from '@/features/admin/students';
@@ -31,6 +32,8 @@ export default function StudentsPage() {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [branchFilter, setBranchFilter] = useState('ALL');
   const [programFilter, setProgramFilter] = useState('ALL');
+  const [batchFilter, setBatchFilter] = useState('ALL');
+  const [batchesForProgram, setBatchesForProgram] = useState<Batch[]>([]);
   const [modal, setModal] = useState<{ type: string; student?: Student } | null>(null);
   const [editStudent, setEditStudent] = useState<Student | null>(null);
   const { toast } = useToast();
@@ -61,14 +64,17 @@ export default function StudentsPage() {
       limit: 500,
       ...(branchFilter !== 'ALL' ? { branchId: branchFilter } : {}),
       ...(statusFilter !== 'ALL' ? { status: statusFilter } : {}),
-      ...(programFilter !== 'ALL' ? { programId: programFilter } : {}),
+      ...(programFilter !== 'ALL' && batchFilter === 'ALL' ? { programId: programFilter } : {}),
+      ...(programFilter !== 'ALL' && batchFilter !== 'ALL'
+        ? { programId: programFilter, batchId: batchFilter }
+        : {}),
     })
       .then(res => {
         if (res.success && res.data) setStudents(mapUsersToStudents(res.data));
         else setStudents([]);
       })
       .finally(() => setLoadingStudents(false));
-  }, [branchFilter, statusFilter, programFilter, mapUsersToStudents]);
+  }, [branchFilter, statusFilter, programFilter, batchFilter, mapUsersToStudents]);
 
   useEffect(() => {
     loadStudents();
@@ -96,6 +102,28 @@ export default function StudentsPage() {
       }
     });
   }, []);
+
+  useEffect(() => {
+    if (programFilter === 'ALL') {
+      setBatchesForProgram([]);
+      setBatchFilter('ALL');
+      return;
+    }
+    let ignore = false;
+    getBatches({ programId: programFilter, limit: 500 }).then((res) => {
+      if (ignore) return;
+      if (res.success && res.data) {
+        setBatchesForProgram(res.data);
+        setBatchFilter('ALL');
+      } else {
+        setBatchesForProgram([]);
+        setBatchFilter('ALL');
+      }
+    });
+    return () => {
+      ignore = true;
+    };
+  }, [programFilter]);
 
   const showToast = (msg: string, type = 'success') => {
     toast({ title: msg, variant: type === 'error' ? 'destructive' : 'default' });
@@ -151,6 +179,9 @@ export default function StudentsPage() {
           onSearchChange={setSearch}
           programFilter={programFilter}
           onProgramFilterChange={setProgramFilter}
+          batchFilter={batchFilter}
+          onBatchFilterChange={setBatchFilter}
+          batchesForProgram={batchesForProgram}
           branchFilter={branchFilter}
           onBranchFilterChange={setBranchFilter}
           statusFilter={statusFilter}

@@ -52,6 +52,8 @@ export interface CourseForm {
   booksSectionTitle: string;
   booksSectionSubtitle: string;
   teachersSectionTitle: string;
+  /** Public URL or path (e.g. /uploads/course-thumbnails/...). */
+  thumbnail: string;
 }
 
 export const EMPTY_CONTENT_FORM: ContentForm = {
@@ -70,4 +72,5 @@ export const EMPTY_COURSE_FORM: CourseForm = {
   showBenefits: true, showWebsiteSections: true, showBooks: true, showSidebar: true, showTeachers: true, benefitsText: '',
   sidebarTitle: '', sidebarFeatures: [],
   booksSectionTitle: '', booksSectionSubtitle: '', teachersSectionTitle: '',
+  thumbnail: '',
 };
