@@ -50,6 +50,38 @@ export function normalizeCourseWebsiteSections(raw: unknown): CourseWebsiteSecti
   return out;
 }
 
+/** Custom rows for the public course page right sidebar (above pricing); stored in `Course.outline.sidebarFeatures`. */
+export interface PublicCourseSidebarFeature {
+  id: string;
+  icon?: string;
+  label: string;
+  value: string;
+}
+
+export function newPublicCourseSidebarFeatureId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `sf-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export function normalizeCourseSidebarFeatures(raw: unknown): PublicCourseSidebarFeature[] {
+  if (!Array.isArray(raw)) return [];
+  const out: PublicCourseSidebarFeature[] = [];
+  for (let i = 0; i < raw.length; i++) {
+    const item = raw[i];
+    if (!item || typeof item !== 'object') continue;
+    const o = item as Record<string, unknown>;
+    const id = typeof o.id === 'string' && o.id.trim() ? o.id.trim() : newPublicCourseSidebarFeatureId();
+    const label = typeof o.label === 'string' ? o.label : '';
+    const value = typeof o.value === 'string' ? o.value : '';
+    const icon = typeof o.icon === 'string' && o.icon.trim() ? o.icon.trim() : undefined;
+    if (!label.trim() && !value.trim()) continue;
+    out.push({ id, label: label.trim(), value: value.trim(), icon });
+  }
+  return out;
+}
+
 /** Stored at `Course.outline.publicPageDisplay` — controls `/course/[slug]`. */
 export const PUBLIC_CURRICULUM_CONTENT_TYPES: ContentType[] = [
   'SYLLABUS',
@@ -75,6 +107,7 @@ export interface CoursePublicPageDisplay {
   showBenefits: boolean;
   showWebsiteSections: boolean;
   showBooks: boolean;
+  showSidebar: boolean;
   showCurriculum: boolean;
   curriculumContentTypes: ContentType[];
 }
@@ -119,6 +152,7 @@ export function normalizeCoursePublicPageDisplay(outline: unknown): CoursePublic
     showBenefits: o.showBenefits !== false,
     showWebsiteSections: o.showWebsiteSections !== false,
     showBooks: o.showBooks !== false,
+    showSidebar: o.showSidebar !== false,
     showCurriculum: o.showCurriculum !== false,
     curriculumContentTypes,
   };

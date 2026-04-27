@@ -1,28 +1,38 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Eye, GraduationCap, Layers, Settings, Star, DoorOpen, X } from 'lucide-react';
+import { Eye, GraduationCap, Layers, Plus, Settings, Star, DoorOpen, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
-import { createCourse, updateCourse } from '@/lib/api/courses';
-import type { Course, CreateCourseDto, Program, UpdateCourseDto } from '@/types/course';
-import { EMPTY_COURSE_FORM, type CourseForm } from '../courseTypes';
+import { createCourse, updateCourse, getCourseById, addCourseTeacher, removeCourseTeacher } from '@/lib/api/courses';
+import type { User } from '@/lib/api/users';
+import {
+  newPublicCourseSidebarFeatureId,
+  type Course,
+  type CreateCourseDto,
+  type Program,
+  type UpdateCourseDto,
+} from '@/types/course';
+import { EMPTY_COURSE_FORM, type CourseForm, type CourseFormSidebarFeature } from '../courseTypes';
 import { courseToForm, slugify } from '../courseUtils';
 
 export function CourseFormModal({
-  open, onClose, onSaved, initial, programs,
+  open, onClose, onSaved, initial, programs, teachers,
 }: {
   open: boolean;
   onClose: () => void;
   onSaved: (course: Course) => void;
   initial: Course | null;
   programs: Program[];
+  teachers: User[];
 }) {
   const [form, setForm] = useState<CourseForm>(EMPTY_COURSE_FORM);
+  const [selectedTeacherIds, setSelectedTeacherIds] = useState<string[]>([]);
+  const [initialTeacherIds, setInitialTeacherIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('basic');
@@ -30,11 +40,29 @@ export function CourseFormModal({
   useEffect(() => {
     if (open) {
       setForm(initial ? courseToForm(initial) : EMPTY_COURSE_FORM);
+      setSelectedTeacherIds([]);
+      setInitialTeacherIds([]);
       setError('');
       setSaving(false);
       setActiveTab('basic');
     }
   }, [open, initial]);
+
+  useEffect(() => {
+    if (!open || !initial?.id) return;
+    let cancelled = false;
+    getCourseById(initial.id).then((res) => {
+      if (!res.success || !res.data || cancelled) return;
+      const full = res.data as import('@/types/course').CourseDetails;
+      setForm(courseToForm(full));
+      const ids = (full.teachers ?? [])
+        .map(t => t.teacher?.id)
+        .filter((id): id is string => Boolean(id));
+      setSelectedTeacherIds(ids);
+      setInitialTeacherIds(ids);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [open, initial?.id]);
 
   const set = <K extends keyof CourseForm>(k: K, v: CourseForm[K]) =>
     setForm(f => ({ ...f, [k]: v }));
@@ -46,6 +74,30 @@ export function CourseFormModal({
   const fee = Number(form.fee) || 0;
   const offer = Number(form.offerPrice) || 0;
   const discountPct = fee > 0 && offer > 0 && offer < fee ? Math.round((1 - offer / fee) * 100) : 0;
+  const toggleTeacher = (teacherId: string) => {
+    setSelectedTeacherIds(prev =>
+      prev.includes(teacherId) ? prev.filter(id => id !== teacherId) : [...prev, teacherId]
+    );
+  };
+
+  const updateSidebarFeature = (id: string, patch: Partial<CourseFormSidebarFeature>) => {
+    setForm(f => ({
+      ...f,
+      sidebarFeatures: f.sidebarFeatures.map(row => (row.id === id ? { ...row, ...patch } : row)),
+    }));
+  };
+  const addSidebarFeature = () => {
+    setForm(f => ({
+      ...f,
+      sidebarFeatures: [
+        ...f.sidebarFeatures,
+        { id: newPublicCourseSidebarFeatureId(), label: '', value: '', icon: '' },
+      ],
+    }));
+  };
+  const removeSidebarFeature = (id: string) => {
+    setForm(f => ({ ...f, sidebarFeatures: f.sidebarFeatures.filter(r => r.id !== id) }));
+  };
 
   const handleSave = async () => {
     if (!form.name.trim()) { setError('Course name is required'); setActiveTab('basic'); return; }
@@ -54,15 +106,49 @@ export function CourseFormModal({
 
     setSaving(true); setError('');
     try {
-      const outlineExtra = {
+      const benefits = form.benefitsText
+        .split('\n')
+        .map(v => v.trim())
+        .filter(Boolean);
+      const sidebarPayload = form.sidebarFeatures
+        .filter(f => f.label.trim() || f.value.trim())
+        .map(f => ({
+          id: f.id,
+          label: f.label.trim(),
+          value: f.value.trim(),
+          ...(f.icon.trim() ? { icon: f.icon.trim() } : {}),
+        }));
+
+      const outlineExtra: Record<string, unknown> = {
         heroTitle: form.heroTitle || undefined,
         whyTakeTitle: form.whyTakeTitle || undefined,
         includePrintedBooks: form.includePrintedBooks || undefined,
-        lectureCount: form.lectureCount ? Number(form.lectureCount) : undefined,
-        examCount: form.examCount ? Number(form.examCount) : undefined,
-        noteCount: form.noteCount ? Number(form.noteCount) : undefined,
-        bookCount: form.bookCount ? Number(form.bookCount) : undefined,
+        publicPageDisplay: {
+          showBenefits: form.showBenefits,
+          showWebsiteSections: form.showWebsiteSections,
+          showBooks: form.showBooks,
+          showSidebar: form.showSidebar,
+        },
       };
+      if (benefits.length) outlineExtra.benefits = benefits;
+      if (sidebarPayload.length) outlineExtra.sidebarFeatures = sidebarPayload;
+      if (form.sidebarTitle.trim()) outlineExtra.sidebarTitle = form.sidebarTitle.trim();
+
+      const baseOutline =
+        initial?.outline && typeof initial.outline === 'object' && !Array.isArray(initial.outline)
+          ? { ...(initial.outline as Record<string, unknown>) }
+          : {};
+      const mergedOutline: Record<string, unknown> = { ...baseOutline, ...outlineExtra };
+      const prevPP = baseOutline.publicPageDisplay;
+      mergedOutline.publicPageDisplay = {
+        ...(prevPP && typeof prevPP === 'object' && !Array.isArray(prevPP)
+          ? { ...(prevPP as Record<string, unknown>) }
+          : {}),
+        ...(outlineExtra.publicPageDisplay as Record<string, unknown>),
+      };
+      if (!benefits.length) delete mergedOutline.benefits;
+      if (!sidebarPayload.length) delete mergedOutline.sidebarFeatures;
+      if (!form.sidebarTitle.trim()) delete mergedOutline.sidebarTitle;
 
       const dto: CreateCourseDto | UpdateCourseDto = {
         name: form.name.trim(),
@@ -84,7 +170,7 @@ export function CourseFormModal({
         fee: Number(form.fee),
         offerPrice: form.offerPrice ? Number(form.offerPrice) : null,
         bookPrice: form.bookPrice ? Number(form.bookPrice) : null,
-        outline: outlineExtra as unknown as import('@/types/course').JsonValue,
+        outline: mergedOutline as unknown as import('@/types/course').JsonValue,
       };
 
       const res = initial
@@ -92,6 +178,16 @@ export function CourseFormModal({
         : await createCourse(dto as CreateCourseDto);
 
       if (!res.success || !res.data) throw new Error((res as { message?: string }).message ?? 'Save failed');
+
+      const targetIds = [...new Set(selectedTeacherIds)];
+      const baseIds = initial ? [...new Set(initialTeacherIds)] : [];
+      const toAdd = targetIds.filter(id => !baseIds.includes(id));
+      const toRemove = baseIds.filter(id => !targetIds.includes(id));
+      await Promise.all([
+        ...toAdd.map(id => addCourseTeacher(res.data!.id, id).catch(() => null)),
+        ...toRemove.map(id => removeCourseTeacher(res.data!.id, id).catch(() => null)),
+      ]);
+
       onSaved(res.data);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to save');
@@ -153,6 +249,25 @@ export function CourseFormModal({
                       {programs.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Assigned Teachers</label>
+                  <div className="rounded-xl border border-slate-200 bg-white p-3 max-h-36 overflow-y-auto space-y-2">
+                    {teachers.length === 0 ? (
+                      <p className="text-xs text-slate-400">No active teachers found.</p>
+                    ) : teachers.map(t => (
+                      <label key={t.id} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                          checked={selectedTeacherIds.includes(t.id)}
+                          onChange={() => toggleTeacher(t.id)}
+                        />
+                        <span className="font-medium">{t.fullName}</span>
+                        {t.email ? <span className="text-xs text-slate-400">({t.email})</span> : null}
+                      </label>
+                    ))}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Grade</label>
@@ -321,31 +436,116 @@ export function CourseFormModal({
               </div>
             </TabsContent>
 
-            {/* Tab 4: Content counts */}
+            {/* Tab 4: Public page content management */}
             <TabsContent value="content" className="flex-1 overflow-y-auto p-5 space-y-4 mt-0">
               <p className="text-xs text-slate-500 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
-                These are display-only counts shown on the public course page. Actual content is managed via the Content view.
+                Manage the visibility and “Why this course” content for the public course page sections.
               </p>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Lectures</label>
-                  <Input type="number" min={0} value={form.lectureCount} onChange={e => set('lectureCount', e.target.value)} placeholder="e.g. 120" />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Exams</label>
-                  <Input type="number" min={0} value={form.examCount} onChange={e => set('examCount', e.target.value)} placeholder="e.g. 30" />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Notes</label>
-                  <Input type="number" min={0} value={form.noteCount} onChange={e => set('noteCount', e.target.value)} placeholder="e.g. 60" />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Books</label>
-                  <Input type="number" min={0} value={form.bookCount} onChange={e => set('bookCount', e.target.value)} placeholder="e.g. 5" />
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {([
+                  { key: 'showBenefits' as const, label: 'Why This Course', sub: 'Show benefits cards section' },
+                  { key: 'showWebsiteSections' as const, label: 'Website Sections', sub: 'Show custom rich-content sections' },
+                  { key: 'showBooks' as const, label: 'Recommended Books', sub: 'Show books block on public page' },
+                  { key: 'showSidebar' as const, label: 'Right Sidebar Card', sub: 'Show feature/pricing/enroll sidebar' },
+                ]).map(item => (
+                  <button key={item.key} type="button" onClick={() => set(item.key, !form[item.key])}
+                    className={cn('flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all cursor-pointer text-center',
+                      form[item.key] ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white hover:border-slate-300')}>
+                    <span className="text-xs font-bold text-slate-800">{item.label}</span>
+                    <span className="text-[11px] text-slate-500">{item.sub}</span>
+                    <span className={cn('text-[10px] font-black px-2 py-0.5 rounded-full',
+                      form[item.key] ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500')}>
+                      {form[item.key] ? 'ON' : 'OFF'}
+                    </span>
+                  </button>
+                ))}
               </div>
-              <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
-                <p className="text-xs text-slate-500">Associated courses are managed separately via the course association tool.</p>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                  Why This Course Bullets
+                </label>
+                <textarea
+                  value={form.benefitsText}
+                  onChange={e => set('benefitsText', e.target.value)}
+                  rows={6}
+                  placeholder={`One bullet per line\nExperienced faculty\nStructured class routine\nWeekly model tests`}
+                  className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-y"
+                />
+                <p className="mt-1 text-[11px] text-slate-500">
+                  These bullets are shown in the “কোর্সটি কেন করবেন?” section on the public page.
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Right sidebar feature rows</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Shown above fee and enroll on the public course page. If empty, linked CourseFeature rows or defaults are used.
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Sidebar card title</label>
+                  <Input
+                    value={form.sidebarTitle}
+                    onChange={e => set('sidebarTitle', e.target.value)}
+                    placeholder="কোর্স ফিচারসমূহ"
+                    className="text-sm"
+                  />
+                </div>
+                <div className="space-y-3">
+                  {form.sidebarFeatures.map(row => (
+                    <div key={row.id} className="flex flex-wrap gap-2 items-end border border-slate-100 rounded-lg p-3 bg-slate-50/50">
+                      <div className="min-w-[140px] flex-1">
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Label</label>
+                        <Input
+                          value={row.label}
+                          onChange={e => updateSidebarFeature(row.id, { label: e.target.value })}
+                          placeholder="e.g. কোর্স মোড"
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                      <div className="min-w-[140px] flex-1">
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Value</label>
+                        <Input
+                          value={row.value}
+                          onChange={e => updateSidebarFeature(row.id, { value: e.target.value })}
+                          placeholder="e.g. অনলাইন"
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                      <div className="w-16 shrink-0">
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Icon</label>
+                        <Input
+                          value={row.icon}
+                          onChange={e => updateSidebarFeature(row.id, { icon: e.target.value })}
+                          placeholder="✦"
+                          className="h-9 text-sm text-center px-1"
+                          maxLength={4}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeSidebarFeature(row.id)}
+                        className="h-9 w-9 shrink-0 rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-rose-600 hover:border-rose-200 flex items-center justify-center cursor-pointer"
+                        aria-label="Remove row"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={addSidebarFeature}>
+                  <Plus className="h-4 w-4" /> Add row
+                </Button>
+              </div>
+
+              <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 space-y-1">
+                <p className="text-xs text-slate-600 font-semibold">Other sections management</p>
+                <p className="text-xs text-slate-500">
+                  Teachers, course books, and database-linked feature cards are managed elsewhere; custom sidebar rows override those on the public page when filled.
+                </p>
               </div>
             </TabsContent>
           </Tabs>

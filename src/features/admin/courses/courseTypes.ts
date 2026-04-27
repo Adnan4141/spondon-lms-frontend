@@ -8,6 +8,14 @@ export interface ContentForm {
   textBody: string; isFree: boolean;
 }
 
+/** One row in the public course page right sidebar; persisted in `outline.sidebarFeatures`. */
+export interface CourseFormSidebarFeature {
+  id: string;
+  label: string;
+  value: string;
+  icon: string;
+}
+
 export interface CourseForm {
   name: string;
   slug: string;
@@ -31,10 +39,14 @@ export interface CourseForm {
   offerPrice: string;
   bookPrice: string;
   includePrintedBooks: boolean;
-  lectureCount: string;
-  examCount: string;
-  noteCount: string;
-  bookCount: string;
+  showBenefits: boolean;
+  showWebsiteSections: boolean;
+  showBooks: boolean;
+  showSidebar: boolean;
+  benefitsText: string;
+  /** Heading above feature rows on `/course/[slug]`; empty = default copy. */
+  sidebarTitle: string;
+  sidebarFeatures: CourseFormSidebarFeature[];
 }
 
 export const EMPTY_CONTENT_FORM: ContentForm = {
@@ -50,5 +62,6 @@ export const EMPTY_COURSE_FORM: CourseForm = {
   featured: false, websiteVisible: true, enrollmentVisible: true,
   heroTitle: '', whyTakeTitle: '',
   fee: '', offerPrice: '', bookPrice: '', includePrintedBooks: false,
-  lectureCount: '', examCount: '', noteCount: '', bookCount: '',
+  showBenefits: true, showWebsiteSections: true, showBooks: true, showSidebar: true, benefitsText: '',
+  sidebarTitle: '', sidebarFeatures: [],
 };

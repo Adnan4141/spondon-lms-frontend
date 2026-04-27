@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { getCourses, toggleCourseFeatured, toggleCourseVisibility, updateCourse } from '@/lib/api/courses';
 import { getPrograms } from '@/lib/api/programs';
+import { getUsers, type User } from '@/lib/api/users';
 import type { Course, Program } from '@/types/course';
 import { CourseFormModal } from '../modals/CourseFormModal';
 
@@ -21,6 +22,7 @@ export function CoursesListView({
   const { toast } = useToast();
   const [courses, setCourses] = useState<Course[]>([]);
   const [programs, setPrograms] = useState<Program[]>([]);
+  const [teachers, setTeachers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [programFilter, setProgramFilter] = useState('ALL');
@@ -29,9 +31,14 @@ export function CoursesListView({
   const [toggling, setToggling] = useState<Record<string, boolean>>({});
 
   const reload = useCallback(async () => {
-    const [cRes, pRes] = await Promise.all([getCourses({ limit: 200 }), getPrograms()]);
+    const [cRes, pRes, tRes] = await Promise.all([
+      getCourses({ limit: 200 }),
+      getPrograms(),
+      getUsers({ role: 'TEACHER', status: 'ACTIVE', limit: 500 }),
+    ]);
     if (cRes.success && cRes.data) setCourses(cRes.data);
     if (pRes.success && pRes.data) setPrograms(pRes.data);
+    if (tRes.success && tRes.data) setTeachers(tRes.data);
   }, []);
 
   useEffect(() => {
@@ -277,6 +284,7 @@ export function CoursesListView({
         onSaved={handleSaved}
         initial={editCourse === 'new' || editCourse === null ? null : editCourse}
         programs={programs}
+        teachers={teachers}
       />
     </div>
   );

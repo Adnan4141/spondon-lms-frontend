@@ -1,4 +1,4 @@
-import type { Course } from '@/types/course';
+import { normalizeCourseSidebarFeatures, type Course } from '@/types/course';
 import type { CourseContent } from '@/types/course-content';
 import type { CourseForm, SubjectGroup } from './courseTypes';
 
@@ -29,6 +29,20 @@ export function courseToForm(course: Course): CourseForm {
   const outline = (course.outline && typeof course.outline === 'object' && !Array.isArray(course.outline))
     ? course.outline as Record<string, unknown>
     : {};
+  const publicPageDisplay =
+    outline.publicPageDisplay && typeof outline.publicPageDisplay === 'object' && !Array.isArray(outline.publicPageDisplay)
+      ? outline.publicPageDisplay as Record<string, unknown>
+      : {};
+  const benefits = Array.isArray(outline.benefits)
+    ? outline.benefits.map(v => typeof v === 'string' ? v.trim() : '').filter(Boolean).join('\n')
+    : '';
+  const sidebarFeaturesNorm = normalizeCourseSidebarFeatures(outline.sidebarFeatures);
+  const sidebarFeatures = sidebarFeaturesNorm.map(r => ({
+    id: r.id,
+    label: r.label,
+    value: r.value,
+    icon: r.icon ?? '',
+  }));
   return {
     name: course.name,
     slug: course.slug,
@@ -52,9 +66,12 @@ export function courseToForm(course: Course): CourseForm {
     offerPrice: course.offerPrice != null ? String(course.offerPrice) : '',
     bookPrice: course.bookPrice != null ? String(course.bookPrice) : '',
     includePrintedBooks: Boolean(outline.includePrintedBooks),
-    lectureCount: String(outline.lectureCount ?? ''),
-    examCount: String(outline.examCount ?? ''),
-    noteCount: String(outline.noteCount ?? ''),
-    bookCount: String(outline.bookCount ?? ''),
+    showBenefits: publicPageDisplay.showBenefits !== false,
+    showWebsiteSections: publicPageDisplay.showWebsiteSections !== false,
+    showBooks: publicPageDisplay.showBooks !== false,
+    showSidebar: publicPageDisplay.showSidebar !== false,
+    benefitsText: benefits,
+    sidebarTitle: typeof outline.sidebarTitle === 'string' ? outline.sidebarTitle : '',
+    sidebarFeatures,
   };
 }

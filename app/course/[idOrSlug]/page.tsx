@@ -13,12 +13,14 @@ import { getInvoicePdfUrl, initInvoicePayment } from '@/lib/api/invoices';
 import { getBatches, type Batch } from '@/lib/api/batches';
 import { API_ORIGIN } from '@/lib/api';
 import { resolveAttachmentUrl } from '@/lib/attachment-url';
+import { useCourseInitialData } from '@/components/course/CourseInitialDataContext';
 import Image from 'next/image';
 import {
     type CourseDetailCourseBook,
     type CourseDetails,
     DEFAULT_PUBLIC_COURSE_BENEFIT_BULLETS,
     normalizeCoursePublicPageDisplay,
+    normalizeCourseSidebarFeatures,
     normalizeCourseWebsiteSections,
 } from '@/types/course';
 import {
@@ -62,8 +64,9 @@ import { cn } from '@/lib/utils';
 export default function CourseDetailsPage() {
     const { idOrSlug } = useParams();
     const { toast, toasts, removeToast } = useToast();
-    const [course, setCourse] = useState<CourseDetails | null>(null);
-    const [loading, setLoading] = useState(true);
+    const initialCourse = useCourseInitialData();
+    const [course, setCourse] = useState<CourseDetails | null>(initialCourse);
+    const [loading, setLoading] = useState(!initialCourse);
     const [error, setError] = useState<string | null>(null);
     const [enrolling, setEnrolling] = useState(false);
     const [alreadyEnrolled, setAlreadyEnrolled] = useState(false);
@@ -103,9 +106,10 @@ export default function CourseDetailsPage() {
 
     useEffect(() => {
         if (idOrSlug) {
+            if (initialCourse) return;
             fetchCourse();
         }
-    }, [idOrSlug, fetchCourse]);
+    }, [idOrSlug, fetchCourse, initialCourse]);
 
     // Fetch batches for OFFLINE courses
     useEffect(() => {
@@ -360,6 +364,12 @@ export default function CourseDetailsPage() {
     const websiteSectionsAll = normalizeCourseWebsiteSections(outline?.websiteSections);
     const websiteSections = publicPage.showWebsiteSections ? websiteSectionsAll : [];
 
+    const sidebarFeaturesCustom = normalizeCourseSidebarFeatures(outline?.sidebarFeatures);
+    const sidebarCardTitle =
+        typeof outline?.sidebarTitle === 'string' && outline.sidebarTitle.trim()
+            ? outline.sidebarTitle.trim()
+            : 'কোর্স ফিচারসমূহ';
+
     return (
         <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-indigo-100">
             <Toaster toasts={toasts} removeToast={removeToast} />
@@ -406,11 +416,11 @@ export default function CourseDetailsPage() {
       
             {/* Course Content Sections */}
             <div className="max-w-7xl mx-auto px-6 lg:px-12 py-24">
-                <div className="grid lg:grid-cols-3 gap-16">
+                <div className={cn('grid gap-16', publicPage.showSidebar ? 'lg:grid-cols-3' : 'lg:grid-cols-1')}>
                     {/* Main Info */}
-                    <div className="lg:col-span-2 space-y-16">
+                    <div className={cn('space-y-16', publicPage.showSidebar ? 'lg:col-span-2' : '')}>
                         {/* Why this course */}
-                        {publicPage.showBenefits ? (
+                     {publicPage.showBenefits ? (
                             <section>
                                 <div className="flex items-center gap-4 mb-8">
                                     <div className="h-12 w-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-100">
@@ -564,13 +574,28 @@ export default function CourseDetailsPage() {
                     </div>
 
                     {/* Sidebar */}
+                    {publicPage.showSidebar ? (
                     <aside className="space-y-8">
                         {/* Course Features Card */}
                         <div className="bg-white rounded-[40px] p-8 border border-slate-100 shadow-sm sticky top-28">
-                            <h3 className="text-xl font-black text-slate-900 mb-8 pb-4 border-b border-slate-50">কোর্স ফিচারসমূহ</h3>
-                            
-                            {/* Dynamic Features from CourseFeature or Fallback */}
-                            {course.features && course.features.length > 0 ? (
+                            <h3 className="text-xl font-black text-slate-900 mb-8 pb-4 border-b border-slate-50">{sidebarCardTitle}</h3>
+
+                            {/* outline.sidebarFeatures → CourseFeature API → default copy */}
+                            {sidebarFeaturesCustom.length > 0 ? (
+                                <div className="space-y-5">
+                                    {sidebarFeaturesCustom.map((f) => (
+                                        <div key={f.id} className="flex items-center gap-4">
+                                            <div className="h-11 w-11 rounded-2xl bg-slate-50 flex items-center justify-center text-indigo-600 text-base font-black shrink-0">
+                                                {f.icon || '✦'}
+                                            </div>
+                                            <div className="flex flex-col min-w-0">
+                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest truncate">{f.label}</span>
+                                                <span className="font-bold text-slate-700 text-sm truncate">{f.value}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : course.features && course.features.length > 0 ? (
                                 <div className="space-y-5">
                                     {course.features.map((f) => (
                                         <div key={f.id} className="flex items-center gap-4">
@@ -682,6 +707,7 @@ export default function CourseDetailsPage() {
 
                      
                     </aside>
+                    ) : null}
                 </div>
             </div>
 
