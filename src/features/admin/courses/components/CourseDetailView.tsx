@@ -26,8 +26,8 @@ export function CourseDetailView({ course, onBack }: { course: Course; onBack: (
         <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold', statusCfg.bg, statusCfg.tc)}>{course.status}</span>
       </div>
       <div className="rounded-xl p-5 mb-5 flex items-center gap-4" style={{ background: '#0f172a' }}>
-        <div className="w-12 h-12 rounded-xl bg-rose-100 flex items-center justify-center shrink-0">
-          <BookOpen className="h-6 w-6 text-rose-600" />
+        <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+          <BookOpen className="h-6 w-6 text-white" />
         </div>
         <div className="flex-1 min-w-0">
           <h2 className="text-lg font-black text-white truncate">{course.name}</h2>
@@ -38,12 +38,12 @@ export function CourseDetailView({ course, onBack }: { course: Course; onBack: (
         </div>
         <div className="text-right shrink-0">
           <p className="text-[10px] text-white/40 uppercase tracking-widest">slug</p>
-          <p className="font-mono text-xs font-bold text-rose-400 mt-0.5">{course.slug}</p>
+          <p className="font-mono text-xs font-bold text-slate-300 mt-0.5">{course.slug}</p>
         </div>
       </div>
       <div className="bg-white border border-slate-200 rounded-xl p-5">
         <div className="flex items-center gap-2 mb-1">
-          <Layers className="h-4 w-4 text-rose-600" />
+          <Layers className="h-4 w-4 text-indigo-600" />
           <h3 className="text-sm font-black text-slate-900">Course Content</h3>
         </div>
         <p className="text-xs text-slate-400 mb-4">Organize subjects, chapters, and lecture materials</p>

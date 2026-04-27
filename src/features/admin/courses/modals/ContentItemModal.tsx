@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { CONTENT_TYPES, RED, TYPE_CONFIG } from '../courseConstants';
+import { isLocalUploadPath, isValidHttpUrl } from '@/lib/attachment-url';
+import { CONTENT_TYPES, TYPE_CONFIG } from '../courseConstants';
 import type { ContentForm } from '../courseTypes';
 
 export function ContentItemModal({
@@ -14,13 +15,19 @@ export function ContentItemModal({
 }: {
   open: boolean;
   onClose: () => void;
-  onSave: (form: ContentForm) => Promise<void>;
+  onSave: (form: ContentForm, attachment: { mode: 'upload' | 'link'; file: File | null }) => Promise<void>;
   initial: ContentForm;
   existingSubjects: string[];
 }) {
   const [form, setForm] = useState<ContentForm>(initial);
+  const [attachmentMode, setAttachmentMode] = useState<'upload' | 'link'>(() => {
+    const u = initial.fileUrl;
+    return u && !isLocalUploadPath(u) && isValidHttpUrl(u) ? 'link' : 'upload';
+  });
+  const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const hasExistingLocalUpload = useMemo(() => isLocalUploadPath(initial.fileUrl), [initial.fileUrl]);
 
   const set = <K extends keyof ContentForm>(k: K, v: ContentForm[K]) =>
     setForm(f => ({ ...f, [k]: v }));
@@ -29,8 +36,16 @@ export function ContentItemModal({
     if (!form.title.trim()) { setError('Title is required'); return; }
     if (!form.subjectTitle.trim()) { setError('Subject is required'); return; }
     if (!form.chapterTitle.trim()) { setError('Chapter is required'); return; }
+    if (attachmentMode === 'link' && form.fileUrl.trim() && !isValidHttpUrl(form.fileUrl.trim())) {
+      setError('Please enter a valid http(s) link');
+      return;
+    }
+    if (attachmentMode === 'upload' && !file && !hasExistingLocalUpload) {
+      setError('Please choose a file for local upload');
+      return;
+    }
     setSaving(true); setError('');
-    try { await onSave(form); } catch (e: unknown) {
+    try { await onSave(form, { mode: attachmentMode, file }); } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to save');
       setSaving(false);
     }
@@ -38,30 +53,30 @@ export function ContentItemModal({
 
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
-      <DialogContent showCloseButton={false} className="p-0 gap-0 max-h-[92vh] w-[95vw] sm:max-w-xl flex flex-col overflow-hidden">
+      <DialogContent showCloseButton={false} className="bg-white p-0 gap-0 max-h-[92vh] w-[95vw] sm:max-w-xl flex flex-col overflow-hidden">
         <DialogTitle className="sr-only">Content Item</DialogTitle>
         <DialogDescription className="sr-only">Course content item form</DialogDescription>
-        <div className="flex items-start justify-between px-5 py-4 border-b border-slate-200 bg-slate-50 shrink-0">
+        <div className="flex items-start justify-between px-5 py-4 border-b border-slate-200 bg-white shrink-0">
           <div>
             <h2 className="text-base font-black text-slate-900">Add / Edit Content Item</h2>
             <p className="text-xs text-slate-500 mt-0.5">Fill in the details for this lecture / material</p>
           </div>
-          <button onClick={onClose} className="bg-red-100 hover:bg-red-200 text-red-700 rounded-lg p-1.5 transition-colors cursor-pointer">
+          <button onClick={onClose} className="bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg p-1.5 transition-colors cursor-pointer">
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div className="flex-1 min-h-0 overflow-y-auto bg-white p-5 space-y-4">
           <div>
-            <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Subject <span className="text-rose-600">*</span></label>
+            <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Subject <span className="text-slate-700">*</span></label>
             <Input list="subjects-dl" value={form.subjectTitle} onChange={e => set('subjectTitle', e.target.value)} placeholder="e.g. Physics" />
             <datalist id="subjects-dl">{existingSubjects.map(s => <option key={s} value={s} />)}</datalist>
           </div>
           <div>
-            <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Chapter <span className="text-rose-600">*</span></label>
+            <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Chapter <span className="text-slate-700">*</span></label>
             <Input value={form.chapterTitle} onChange={e => set('chapterTitle', e.target.value)} placeholder="e.g. Chapter ১ — Motion" />
           </div>
           <div>
-            <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Title <span className="text-rose-600">*</span></label>
+            <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Title <span className="text-slate-700">*</span></label>
             <Input value={form.title} onChange={e => set('title', e.target.value)} placeholder="e.g. লেকচার 01 — Basic Concepts" />
           </div>
           <div>
@@ -80,16 +95,52 @@ export function ContentItemModal({
             </div>
           </div>
           <div>
-            <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">File / URL</label>
-            <Input value={form.fileUrl} onChange={e => set('fileUrl', e.target.value)}
-              placeholder={form.type === 'VIDEO' ? 'https://youtube.com/watch?v=...' : 'https://...'} />
+            <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Upload Method</label>
+            <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setAttachmentMode('upload')}
+                className={cn(
+                  'px-3 py-1.5 text-xs font-bold transition-colors',
+                  attachmentMode === 'upload' ? 'bg-black text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+                )}
+              >
+                Local Upload
+              </button>
+              <button
+                type="button"
+                onClick={() => setAttachmentMode('link')}
+                className={cn(
+                  'px-3 py-1.5 text-xs font-bold border-l border-slate-200 transition-colors',
+                  attachmentMode === 'link' ? 'bg-black text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+                )}
+              >
+                Share Link
+              </button>
+            </div>
           </div>
+          {attachmentMode === 'upload' ? (
+            <div>
+              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Upload File</label>
+              <Input type="file" onChange={e => setFile(e.target.files?.[0] ?? null)} accept={form.type === 'VIDEO' ? 'video/*' : undefined} />
+              {hasExistingLocalUpload && !file && (
+                <p className="text-[11px] text-slate-500 mt-1">Existing uploaded file will be kept unless you choose a new one.</p>
+              )}
+              {file && <p className="text-[11px] text-slate-500 mt-1">Selected: {file.name}</p>}
+            </div>
+          ) : (
+            <div>
+              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">File / URL</label>
+              <Input value={form.fileUrl} onChange={e => set('fileUrl', e.target.value)}
+                placeholder={form.type === 'VIDEO' ? 'https://youtube.com/watch?v=...' : 'https://...'} />
+            </div>
+          )}
           {(form.type === 'NOTE' || form.type === 'OTHER') && (
             <div>
               <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Text / Notes</label>
               <textarea value={form.textBody} onChange={e => set('textBody', e.target.value)}
                 placeholder="Paste note content..." rows={4}
-                className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-200 resize-none" />
+                className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none" />
             </div>
           )}
           <div className="flex items-center gap-3">
@@ -102,11 +153,11 @@ export function ContentItemModal({
               Free access (visible without login)
             </label>
           </div>
-          {error && <p className="text-xs text-rose-600 font-medium">{error}</p>}
+          {error && <p className="text-xs text-destructive font-medium">{error}</p>}
         </div>
-        <div className="px-5 py-4 border-t border-slate-200 bg-slate-50 shrink-0 flex justify-end gap-2">
+        <div className="px-5 py-4 border-t border-slate-200 bg-white shrink-0 flex justify-end gap-2">
           <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button onClick={handleSave} disabled={saving} className="text-white" style={{ background: RED }}>
+          <Button onClick={handleSave} disabled={saving} className="text-white bg-black hover:bg-black/90">
             {saving ? 'Saving…' : 'Save'}
           </Button>
         </div>

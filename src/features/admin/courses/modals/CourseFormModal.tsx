@@ -10,7 +10,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { createCourse, updateCourse } from '@/lib/api/courses';
 import type { Course, CreateCourseDto, Program, UpdateCourseDto } from '@/types/course';
-import { RED } from '../courseConstants';
 import { EMPTY_COURSE_FORM, type CourseForm } from '../courseTypes';
 import { courseToForm, slugify } from '../courseUtils';
 
@@ -103,24 +102,24 @@ export function CourseFormModal({
 
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
-      <DialogContent showCloseButton={false} className="p-0 gap-0 max-h-[93vh] w-[98vw] sm:max-w-2xl flex flex-col overflow-hidden">
+      <DialogContent showCloseButton={false} className="bg-white p-0 gap-0 max-h-[93vh] w-[98vw] sm:max-w-2xl flex flex-col overflow-hidden">
         <DialogTitle className="sr-only">{initial ? 'Edit Course' : 'Create Course'}</DialogTitle>
         <DialogDescription className="sr-only">Course form</DialogDescription>
 
         {/* Header */}
-        <div className="flex items-start justify-between px-5 py-4 border-b border-slate-200 bg-slate-50 shrink-0">
+        <div className="flex items-start justify-between px-5 py-4 border-b border-slate-200 bg-white shrink-0">
           <div>
             <h2 className="text-base font-black text-slate-900">{initial ? 'Edit Course' : 'Create Course'}</h2>
             <p className="text-xs text-slate-500 mt-0.5">{initial ? initial.name : 'Fill in the details below'}</p>
           </div>
-          <button onClick={onClose} className="bg-red-100 hover:bg-red-200 text-red-700 rounded-lg p-1.5 transition-colors cursor-pointer">
+          <button onClick={onClose} className="bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg p-1.5 transition-colors cursor-pointer">
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex-1 overflow-hidden flex flex-col">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 overflow-hidden flex flex-col bg-white min-h-0">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden bg-white">
             <TabsList className="w-full justify-start rounded-none border-b px-4 h-10 bg-white gap-1 shrink-0">
               {[
                 { id: 'basic', label: 'Basic', icon: <Settings className="h-3.5 w-3.5" /> },
@@ -129,17 +128,17 @@ export function CourseFormModal({
                 { id: 'content', label: 'Content', icon: <Layers className="h-3.5 w-3.5" /> },
               ].map(t => (
                 <TabsTrigger key={t.id} value={t.id}
-                  className="flex items-center gap-1.5 text-xs font-bold data-[state=active]:text-rose-600 data-[state=active]:border-b-2 data-[state=active]:border-rose-600 rounded-none px-3 h-full">
+                  className="flex items-center gap-1.5 text-xs font-bold data-[state=active]:text-slate-900 data-[state=active]:border-b-2 data-[state=active]:border-black rounded-none px-3 h-full">
                   {t.icon} {t.label}
                 </TabsTrigger>
               ))}
             </TabsList>
 
             {/* Tab 1: Basic */}
-            <TabsContent value="basic" className="flex-1 overflow-y-auto p-5 space-y-4 mt-0">
+            <TabsContent value="basic" className="flex-1 overflow-y-auto  p-5 space-y-4 mt-0">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
-                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Course Name <span className="text-rose-600">*</span></label>
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Course Name <span className="text-slate-700">*</span></label>
                   <Input value={form.name} onChange={e => handleNameChange(e.target.value)} placeholder="e.g. HSC Physics Special Batch" />
                 </div>
                 <div>
@@ -147,7 +146,7 @@ export function CourseFormModal({
                   <Input value={form.slug} onChange={e => set('slug', e.target.value)} placeholder="auto-generated" className="font-mono text-xs" />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Program <span className="text-rose-600">*</span></label>
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Program <span className="text-slate-700">*</span></label>
                   <Select value={form.programId} onValueChange={v => set('programId', v)}>
                     <SelectTrigger><SelectValue placeholder="Select program" /></SelectTrigger>
                     <SelectContent>
@@ -207,7 +206,7 @@ export function CourseFormModal({
                       <button key={s} type="button" onClick={() => set('admissionStatus', s)}
                         className={cn('flex-1 py-2 rounded-lg border-2 text-xs font-bold transition-all cursor-pointer',
                           form.admissionStatus === s
-                            ? s === 'OPEN' ? 'bg-emerald-50 text-emerald-700 border-emerald-500' : 'bg-rose-50 text-rose-700 border-rose-500'
+                            ? s === 'OPEN' ? 'bg-emerald-50 text-emerald-700 border-emerald-500' : 'bg-slate-100 text-slate-700 border-slate-400'
                             : 'bg-white text-slate-500 border-slate-200')}>
                         {s}
                       </button>
@@ -289,7 +288,7 @@ export function CourseFormModal({
             <TabsContent value="pricing" className="flex-1 overflow-y-auto p-5 space-y-4 mt-0">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Course Fee (৳) <span className="text-rose-600">*</span></label>
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Course Fee (৳) <span className="text-slate-700">*</span></label>
                   <Input type="number" min={0} value={form.fee} onChange={e => set('fee', e.target.value)} placeholder="e.g. 1500" />
                 </div>
                 <div>
@@ -353,11 +352,11 @@ export function CourseFormModal({
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-4 border-t border-slate-200 bg-slate-50 shrink-0 flex items-center justify-between">
-          <p className={cn('text-xs font-semibold', error ? 'text-rose-600' : 'invisible')}>{error || 'ok'}</p>
+        <div className="px-5 py-4 border-t border-slate-200 bg-white shrink-0 flex items-center justify-between">
+          <p className={cn('text-xs font-semibold', error ? 'text-destructive' : 'invisible')}>{error || 'ok'}</p>
           <div className="flex gap-2">
             <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving} className="text-white" style={{ background: RED }}>
+            <Button onClick={handleSave} disabled={saving} className="text-white bg-black hover:bg-black/90">
               {saving ? 'Saving…' : (initial ? 'Update Course' : 'Create Course')}
             </Button>
           </div>

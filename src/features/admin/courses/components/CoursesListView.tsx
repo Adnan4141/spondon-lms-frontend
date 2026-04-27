@@ -11,7 +11,6 @@ import { useToast } from '@/hooks/use-toast';
 import { getCourses, toggleCourseFeatured, toggleCourseVisibility, updateCourse } from '@/lib/api/courses';
 import { getPrograms } from '@/lib/api/programs';
 import type { Course, Program } from '@/types/course';
-import { RED } from '../courseConstants';
 import { CourseFormModal } from '../modals/CourseFormModal';
 
 export function CoursesListView({
@@ -126,8 +125,9 @@ export function CoursesListView({
           {(['ALL', 'ACTIVE', 'DISABLED', 'ARCHIVED'] as const).map(s => (
             <button key={s} onClick={() => setStatusFilter(s)}
               className={cn('px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer',
-                statusFilter === s ? 'text-white border-transparent' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300')}
-              style={statusFilter === s ? { background: RED } : {}}>
+                statusFilter === s
+                  ? 'text-white border-transparent bg-black'
+                  : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300')}>
               {s}
             </button>
           ))}
@@ -167,8 +167,8 @@ export function CoursesListView({
                     <tr key={course.id} className="hover:bg-slate-50/70 transition-colors">
                       {/* Course name + slug */}
                       <td className="px-4 py-3">
-                        <div className="flex flex-col items-start gap-3">
-                          <div className="w-9 h-9 rounded-lg bg-rose-50 flex items-center justify-center shrink-0">
+                        <div className="flex items-start gap-3">
+                          <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
                          
                            <Image src={course.thumbnail|| `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='450'%3E%3Crect width='800' height='450' fill='%235C2D91'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-size='28' font-family='sans-serif'%3ECourse%3C/text%3E%3C/svg%3E`}
                            alt={course.name}
@@ -195,11 +195,11 @@ export function CoursesListView({
                         {offer && pct > 0 ? (
                           <div>
                             <span className="text-[10px] text-slate-400 line-through">৳{fee.toLocaleString()}</span>
-                            <span className="ml-1 font-bold text-sm" style={{ color: RED }}>৳{offer.toLocaleString()}</span>
+                            <span className="ml-1 font-bold text-sm text-slate-900">৳{offer.toLocaleString()}</span>
                             <span className="ml-1.5 bg-emerald-100 text-emerald-700 text-[10px] font-black px-1.5 py-0.5 rounded">{pct}%</span>
                           </div>
                         ) : (
-                          <span className="font-bold text-sm" style={{ color: RED }}>৳{fee.toLocaleString()}</span>
+                          <span className="font-bold text-sm text-slate-900">৳{fee.toLocaleString()}</span>
                         )}
                       </td>
                       {/* Website toggles */}
@@ -223,7 +223,7 @@ export function CoursesListView({
                             onClick={() => handleToggleAdmission(course)}
                             disabled={!!toggling[course.id + '_a']}
                             className={cn('p-1.5 rounded-lg border transition-all cursor-pointer disabled:opacity-40',
-                              course.admissionStatus === 'OPEN' ? 'bg-emerald-50 border-emerald-300 text-emerald-600' : 'bg-rose-50 border-rose-300 text-rose-500')}>
+                              course.admissionStatus === 'OPEN' ? 'bg-emerald-50 border-emerald-300 text-emerald-600' : 'bg-slate-100 border-slate-300 text-slate-600')}>
                             {course.admissionStatus === 'OPEN' ? <ToggleRight className="h-3.5 w-3.5" /> : <ToggleLeft className="h-3.5 w-3.5" />}
                           </button>
                         </div>
@@ -232,7 +232,7 @@ export function CoursesListView({
                       <td className="px-4 py-3 text-center hidden sm:table-cell">
                         <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-bold',
                           course.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700'
-                          : course.status === 'DISABLED' ? 'bg-rose-50 text-rose-600'
+                          : course.status === 'DISABLED' ? 'bg-slate-100 text-slate-700'
                           : 'bg-slate-100 text-slate-500')}>
                           {course.status}
                         </span>
@@ -264,7 +264,7 @@ export function CoursesListView({
             <span className="flex items-center gap-1">
               <DoorOpen className="h-3 w-3 text-emerald-500" /> Admission Open
               <span className="mx-1">/</span>
-              <DoorClosed className="h-3 w-3 text-rose-400" /> Closed
+              <DoorClosed className="h-3 w-3 text-slate-500" /> Closed
             </span>
           </div>
         </div>

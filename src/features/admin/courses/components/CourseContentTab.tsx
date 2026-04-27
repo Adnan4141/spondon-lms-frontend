@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { createCourseContent, deleteCourseContent, getCourseContents, updateCourseContent } from '@/lib/api/courses';
 import type { CourseContent } from '@/types/course-content';
-import { RED, TYPE_CONFIG } from '../courseConstants';
+import { TYPE_CONFIG } from '../courseConstants';
 import { EMPTY_CONTENT_FORM, type ContentForm } from '../courseTypes';
 import { groupContents } from '../courseUtils';
 import { ContentItemModal } from '../modals/ContentItemModal';
@@ -61,7 +61,11 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
     return next;
   });
 
-  const handleSave = async (form: ContentForm, existingId?: string) => {
+  const handleSave = async (
+    form: ContentForm,
+    attachment: { mode: 'upload' | 'link'; file: File | null },
+    existingId?: string
+  ) => {
     const fd = new FormData();
     fd.append('courseId', courseId);
     fd.append('type', form.type);
@@ -69,7 +73,8 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
     if (form.subjectTitle) fd.append('subjectTitle', form.subjectTitle);
     if (form.chapterTitle) fd.append('chapterTitle', form.chapterTitle);
     fd.append('topicTitle', form.topicTitle || form.title);
-    if (form.fileUrl) fd.append('fileUrl', form.fileUrl);
+    if (attachment.mode === 'link' && form.fileUrl) fd.append('fileUrl', form.fileUrl);
+    if (attachment.mode === 'upload' && attachment.file) fd.append('file', attachment.file);
     if (form.textBody) fd.append('textBody', form.textBody);
     fd.append('isFree', String(form.isFree));
 
@@ -99,7 +104,7 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
         {[
           { label: 'Subjects', val: subjects.length,  icon: <BookOpen className="h-4 w-4" />, tc: 'text-violet-600', bg: 'bg-violet-50' },
           { label: 'Items',    val: items.length,      icon: <Layers   className="h-4 w-4" />, tc: 'text-blue-600',   bg: 'bg-blue-50'   },
-          { label: 'Videos',   val: totalVideos,        icon: <Video    className="h-4 w-4" />, tc: 'text-rose-600',   bg: 'bg-rose-50'   },
+          { label: 'Videos',   val: totalVideos,        icon: <Video    className="h-4 w-4" />, tc: 'text-indigo-600', bg: 'bg-indigo-50' },
           { label: 'Notes/PDFs', val: totalNotes,      icon: <FileText className="h-4 w-4" />, tc: 'text-emerald-600',bg: 'bg-emerald-50'},
         ].map(c => (
           <div key={c.label} className="bg-white border border-slate-200 rounded-xl p-3 flex items-center gap-3">
@@ -113,7 +118,7 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
       </div>
 
       <div className="flex justify-end mb-4">
-        <Button onClick={() => setAddCtx({})} className="gap-2 text-white" style={{ background: RED }}>
+        <Button onClick={() => setAddCtx({})} className="gap-2 text-white bg-black hover:bg-black/90">
           <Plus className="h-4 w-4" /> Add Content
         </Button>
       </div>
@@ -140,7 +145,7 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
                   <span className="text-[11px] text-slate-400">{totalItems} items</span>
                 </div>
                 <button onClick={e => { e.stopPropagation(); setAddCtx({ subject: subj.name }); }}
-                  className="text-xs font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer">
+                  className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 cursor-pointer">
                   <Plus className="h-3.5 w-3.5" /> Add
                 </button>
               </div>
@@ -184,7 +189,7 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
                                       <td className="px-3 py-2.5 text-center">
                                         {item.fileUrl ? (
                                           <a href={item.fileUrl} target="_blank" rel="noreferrer"
-                                            className="inline-flex items-center gap-1 text-xs text-rose-600 font-semibold hover:underline">
+                                            className="inline-flex items-center gap-1 text-xs text-indigo-600 font-semibold hover:underline">
                                             <ExternalLink className="h-3 w-3" /> View
                                           </a>
                                         ) : item.textBody ? (
@@ -203,7 +208,7 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
                                             <Pencil className="h-3 w-3" /> Edit
                                           </button>
                                           <button onClick={() => handleDelete(item.id)} disabled={deletingId === item.id}
-                                            className="bg-rose-50 hover:bg-rose-100 text-rose-600 px-2 py-1 rounded-lg text-xs flex items-center transition-colors disabled:opacity-40">
+                                            className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded-lg text-xs flex items-center transition-colors disabled:opacity-40">
                                             <Trash2 className="h-3 w-3" />
                                           </button>
                                         </div>
@@ -228,14 +233,14 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
       {addCtx !== null && (
         <ContentItemModal open onClose={() => setAddCtx(null)} existingSubjects={existingSubjects}
           initial={{ ...EMPTY_CONTENT_FORM, subjectTitle: addCtx.subject ?? '', chapterTitle: addCtx.chapter ?? '' }}
-          onSave={form => handleSave(form)} />
+          onSave={(form, attachment) => handleSave(form, attachment)} />
       )}
       {editItem && (
         <ContentItemModal open onClose={() => setEditItem(null)} existingSubjects={existingSubjects}
           initial={{ subjectTitle: editItem.subjectTitle ?? '', chapterTitle: editItem.chapterTitle ?? '',
             title: editItem.title, topicTitle: editItem.topicTitle ?? '', type: editItem.type,
             fileUrl: editItem.fileUrl ?? '', textBody: editItem.textBody ?? '', isFree: editItem.isFree }}
-          onSave={form => handleSave(form, editItem.id)} />
+          onSave={(form, attachment) => handleSave(form, attachment, editItem.id)} />
       )}
     </div>
   );
