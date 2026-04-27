@@ -225,6 +225,8 @@ export interface Course {
   bookPrice?: number | string | null;
   createdAt: string;
   updatedAt: string;
+  /** Present on getCourseById: number of curriculum nodes (subjects/chapters/lessons). */
+  curriculumNodeCount?: number;
   program?: Program;
   _count?: {
     enrollments?: number;

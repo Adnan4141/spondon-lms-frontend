@@ -24,6 +24,7 @@ interface ContentItem {
   topicTitle?: string;
   durationMinutes?: number;
   sortOrder: number;
+  lessonResourceId?: string | null;
   progress?: { completed: boolean; progressPercent?: number } | null;
 }
 

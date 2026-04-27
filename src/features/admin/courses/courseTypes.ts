@@ -3,9 +3,21 @@ import type { CourseContent, ContentType } from '@/types/course-content';
 export interface SubjectGroup { name: string; chapters: ChapterGroup[]; }
 export interface ChapterGroup { name: string; items: CourseContent[]; }
 export interface ContentForm {
-  subjectTitle: string; chapterTitle: string; title: string;
-  topicTitle: string; type: ContentType; fileUrl: string;
-  textBody: string; isFree: boolean;
+  subjectTitle: string;
+  chapterTitle: string;
+  title: string;
+  /** Shown in student sidebar; defaults to title when saving if empty */
+  topicTitle: string;
+  type: ContentType;
+  fileUrl: string;
+  textBody: string;
+  isFree: boolean;
+  /** Order within chapter (API sortOrder) */
+  sortOrder: string;
+  /** Sidebar / topic ordering (API topicSortOrder) */
+  topicSortOrder: string;
+  /** Video duration in minutes (optional) */
+  durationMinutes: string;
 }
 
 /** One row in the public course page right sidebar; persisted in `outline.sidebarFeatures`. */
@@ -57,8 +69,17 @@ export interface CourseForm {
 }
 
 export const EMPTY_CONTENT_FORM: ContentForm = {
-  subjectTitle: '', chapterTitle: '', title: '', topicTitle: '',
-  type: 'VIDEO', fileUrl: '', textBody: '', isFree: true,
+  subjectTitle: '',
+  chapterTitle: '',
+  title: '',
+  topicTitle: '',
+  type: 'VIDEO',
+  fileUrl: '',
+  textBody: '',
+  isFree: true,
+  sortOrder: '0',
+  topicSortOrder: '0',
+  durationMinutes: '',
 };
 
 export const EMPTY_COURSE_FORM: CourseForm = {

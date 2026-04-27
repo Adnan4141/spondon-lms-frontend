@@ -12,9 +12,12 @@ export function StudentsToolbar({
   onSearchChange,
   programFilter,
   onProgramFilterChange,
+  allCourses,
+  courseFilter,
+  onCourseFilterChange,
   batchFilter,
   onBatchFilterChange,
-  batchesForProgram,
+  batchesForCourse,
   branchFilter,
   onBranchFilterChange,
   statusFilter,
@@ -28,9 +31,12 @@ export function StudentsToolbar({
   onSearchChange: (value: string) => void;
   programFilter: string;
   onProgramFilterChange: (value: string) => void;
+  allCourses: { id: string; name: string; programId: string }[];
+  courseFilter: string;
+  onCourseFilterChange: (value: string) => void;
   batchFilter: string;
   onBatchFilterChange: (value: string) => void;
-  batchesForProgram: { id: string; name: string; course?: { name?: string } }[];
+  batchesForCourse: { id: string; name: string; course?: { name?: string } }[];
   branchFilter: string;
   onBranchFilterChange: (value: string) => void;
   statusFilter: string;
@@ -40,11 +46,21 @@ export function StudentsToolbar({
   onAddStudent: () => void;
 }) {
   const programSelected = programFilter !== 'ALL';
+  const courseSelected = courseFilter !== 'ALL';
+  const coursesInProgram = programSelected
+    ? allCourses
+        .filter((c) => c.programId === programFilter)
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+    : [];
+  const courseOptions = [
+    { value: 'ALL', label: 'All courses' },
+    ...coursesInProgram.map((c) => ({ value: c.id, label: c.name })),
+  ];
   const batchOptions = [
     { value: 'ALL', label: 'All batches' },
-    ...batchesForProgram.map((b) => ({
+    ...batchesForCourse.map((b) => ({
       value: b.id,
-      label: b.course?.name ? `${b.name} — ${b.course.name}` : b.name,
+      label: b.name,
     })),
   ];
 
@@ -74,14 +90,25 @@ export function StudentsToolbar({
           />
         </div>
         <div
-          className="w-[min(100%,12rem)] sm:min-w-[12rem] sm:max-w-[20rem] sm:w-auto"
-          title={!programSelected ? 'Choose a program first' : 'Batches for courses under the selected program'}
+          className="w-[min(100%,12rem)] sm:min-w-[11rem] sm:max-w-xs"
+          title={!programSelected ? 'Select a program first' : 'Courses in this program'}
+        >
+          <StudentAdminSelect
+            value={courseFilter}
+            onChange={onCourseFilterChange}
+            options={courseOptions}
+            disabled={!programSelected}
+          />
+        </div>
+        <div
+          className="w-[min(100%,12rem)] sm:min-w-[10rem] sm:max-w-[20rem] sm:w-auto"
+          title={!courseSelected ? 'Select a course to filter by batch' : 'Batches for the selected course'}
         >
           <StudentAdminSelect
             value={batchFilter}
             onChange={onBatchFilterChange}
             options={batchOptions}
-            disabled={!programSelected}
+            disabled={!courseSelected}
           />
         </div>
         <div className="w-[min(100%,11rem)] sm:w-40">
@@ -104,8 +131,8 @@ export function StudentsToolbar({
       </div>
     </div>
     <p className="text-[11px] text-slate-500 pl-0.5">
-      Program filters students by enrollment in that program. After you pick a program, the batch list loads batches for
-      that program’s courses; choosing a batch narrows to students enrolled in that batch.
+      Order: program first, then course (only for that program), then batch (only for that course). Batches are loaded
+      after you select a course.
     </p>
     </div>
   );

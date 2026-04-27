@@ -459,7 +459,11 @@ export function CourseFormModal({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent
         showCloseButton={false}
-        className="bg-white p-0 gap-0 max-h-[93vh] w-[98vw] sm:max-w-5xl flex flex-col overflow-hidden"
+        className={cn(
+          // Overrides only; base DialogContent keeps positioning, motion, z-index, translate, etc.
+          'bg-white p-0 gap-0 flex flex-col overflow-hidden rounded-xl border-slate-200 shadow-xl',
+          'max-h-[92vh] w-full max-w-[calc(100%-1.5rem)] sm:max-w-5xl',
+        )}
       >
         <DialogTitle className="sr-only">{initial ? 'Edit Course' : 'Create Course'}</DialogTitle>
         <DialogDescription className="sr-only">Course form</DialogDescription>
@@ -478,9 +482,9 @@ export function CourseFormModal({
           </button>
         </div>
 
-        <div className="flex-1 overflow-hidden flex flex-col bg-white min-h-0">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden bg-white">
-            <TabsList className="w-full justify-start rounded-none border-b px-4 h-10 bg-white gap-1 shrink-0">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white">
+            <TabsList className="h-auto min-h-10 w-full shrink-0 flex-wrap justify-start gap-1 rounded-none border-b border-slate-100 bg-white px-3 py-2 sm:px-4">
               {[
                 { id: 'basic', label: 'Basic', icon: <Settings className="h-3.5 w-3.5" /> },
                 { id: 'pricing', label: 'Pricing', icon: <GraduationCap className="h-3.5 w-3.5" /> },
@@ -489,14 +493,14 @@ export function CourseFormModal({
                 <TabsTrigger
                   key={t.id}
                   value={t.id}
-                  className="flex items-center gap-1.5 text-xs font-bold data-[state=active]:text-slate-900 data-[state=active]:border-b-2 data-[state=active]:border-black rounded-none px-3 h-full"
+                  className="flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold data-[state=active]:bg-slate-900 data-[state=active]:text-white data-[state=inactive]:text-slate-500 sm:px-3"
                 >
                   {t.icon} {t.label}
                 </TabsTrigger>
               ))}
             </TabsList>
 
-            <TabsContent value="basic" className="flex-1 overflow-y-auto p-5 space-y-5 mt-0">
+            <TabsContent value="basic" className="mt-0 min-h-0 flex-1 overflow-y-auto p-5 space-y-5">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                 <div className="lg:col-span-8">
                   <label className={labelCls}>

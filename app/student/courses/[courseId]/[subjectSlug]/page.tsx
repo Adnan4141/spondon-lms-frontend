@@ -32,6 +32,8 @@ interface ContentItem {
   topicSortOrder?: number;
   durationMinutes?: number;
   sortOrder: number;
+  /** When set, progress is stored on `LessonResourceProgress` instead of legacy `ContentProgress`. */
+  lessonResourceId?: string | null;
   progress?: { completed: boolean; progressPercent?: number } | null;
 }
 
@@ -131,13 +133,20 @@ export default function StudentCourseSubjectPage() {
   }, [fetchData]);
 
   const markProgress = useCallback(
-    async (contentId: string, completed: boolean, progressPercent?: number) => {
+    async (item: ContentItem, completed: boolean, progressPercent?: number) => {
       if (!studentUserId) return;
       try {
-        await updateContentProgress({ studentUserId, contentId, completed, progressPercent });
+        await updateContentProgress({
+          studentUserId,
+          ...(item.lessonResourceId
+            ? { lessonResourceId: item.lessonResourceId }
+            : { contentId: item.id }),
+          completed,
+          progressPercent,
+        });
         setContents((prev) =>
           prev.map((c) =>
-            c.id === contentId
+            c.id === item.id
               ? {
                   ...c,
                   progress: {
@@ -159,11 +168,11 @@ export default function StudentCourseSubjectPage() {
     const v = videoRef.current;
     if (!v || !selectedContent || !studentUserId) return;
     const pct = v.duration ? Math.min(100, Math.round((v.currentTime / v.duration) * 100)) : 0;
-    if (pct >= 90) markProgress(selectedContent.id, true, 100);
+    if (pct >= 90) markProgress(selectedContent, true, 100);
   };
 
   const handleVideoEnded = () => {
-    if (selectedContent && studentUserId) markProgress(selectedContent.id, true, 100);
+    if (selectedContent && studentUserId) markProgress(selectedContent, true, 100);
   };
 
   const subjectContents = useMemo(
