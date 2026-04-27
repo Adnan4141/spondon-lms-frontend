@@ -231,7 +231,7 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
       </div>
 
       {addCtx !== null && (
-        <ContentItemModal open onClose={() => setAddCtx(null)} existingSubjects={existingSubjects}
+        <ContentItemppModal open onClose={() => setAddCtx(null)} existingSubjects={existingSubjects}
           initial={{ ...EMPTY_CONTENT_FORM, subjectTitle: addCtx.subject ?? '', chapterTitle: addCtx.chapter ?? '' }}
           onSave={(form, attachment) => handleSave(form, attachment)} />
       )}

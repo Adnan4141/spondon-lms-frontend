@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { Facebook, Instagram, MessageCircle, Youtube, Phone, Mail, Send } from 'lucide-react';
+import { useFooterSettings } from './FooterSettingsContext';
 
 interface FooterProps {
   siteSettings?: Record<string, string>;
@@ -57,7 +58,8 @@ const SOCIAL_LINKS = [
 ];
 
 export function Footer({ siteSettings = {} }: FooterProps) {
-  const s = { ...DEFAULT_SETTINGS, ...siteSettings };
+  const contextualSettings = useFooterSettings();
+  const s = { ...DEFAULT_SETTINGS, ...contextualSettings, ...siteSettings };
 
   const courseLinks = Array.from({ length: 6 }, (_, i) => ({
     label: s[`footer.course_${i + 1}_label`] ?? '',

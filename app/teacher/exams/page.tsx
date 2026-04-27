@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { getExams, getExamById, deleteExam } from '@/lib/api/exams';
+import { getExams, deleteExam } from '@/lib/api/exams';
 import { getCourses } from '@/lib/api/courses';
 import { getBranches } from '@/lib/api/branches';
 import type {
@@ -50,7 +50,8 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { useModalStore } from '@/store/modalStore';
-import { ExamForm, ExamOverviewPanel } from '@/features/admin/exams';
+import { ExamWizard } from '@/features/admin/exam-engine/ExamWizard';
+import { ExamDetailsPage } from '@/features/admin/exam-engine/ExamDetailsPage';
 import { ConfirmationModal } from '@/features/admin/shared';
 import { cn } from '@/lib/utils';
 
@@ -153,47 +154,25 @@ export default function TeacherExamsPage() {
   }, [userId, loadExams, loadCourses, loadBranches]);
 
   const handleViewExam = async (examId: string) => {
-    try {
-      const res = await getExamById(examId, { teacherUserId: userId ?? undefined });
-      if (res.success && res.data) {
-        openModal({
-          title: 'Exam Details',
-          description: 'Questions, PDFs, offline results, leaderboard.',
-          className: 'sm:max-w-5xl w-[min(100vw-2rem,56rem)] max-h-[92vh]',
-          content: (
-            <div className="overflow-y-auto max-h-[80vh] p-4">
-              <ExamOverviewPanel exam={res.data} onRefresh={() => {}} />
-            </div>
-          ),
-        });
-      }
-    } catch (err) {
-      toast({ title: 'Error', description: 'Failed to load exam details', variant: 'destructive' });
-    }
+    openModal({
+      title: 'Exam Details',
+      description: 'Questions, PDFs, offline results, leaderboard.',
+      className: 'sm:max-w-6xl w-[min(100vw-2rem,72rem)] max-h-[92vh]',
+      content: (
+        <div className="overflow-y-auto max-h-[80vh] p-2">
+          <ExamDetailsPage examId={examId} />
+        </div>
+      ),
+    });
   };
 
   const handleEditExam = async (examId: string) => {
-    try {
-      const res = await getExamById(examId, { teacherUserId: userId ?? undefined });
-      if (res.success && res.data) {
-        openModal({
-          title: 'Update Exam',
-          description: 'Refine exam scheduling and access rules.',
-          className: 'sm:max-w-6xl w-[min(100vw-2rem,72rem)] max-h-[92vh]',
-          content: (
-            <ExamForm
-              courses={courses}
-              branches={branches}
-              exam={res.data}
-              onSuccess={loadExams}
-              actingTeacherUserId={userId}
-            />
-          ),
-        });
-      }
-    } catch (err) {
-      toast({ title: 'Error', description: 'Failed to load exam for editing', variant: 'destructive' });
-    }
+    openModal({
+      title: 'Update Exam',
+      description: 'Refine exam scheduling and access rules.',
+      className: 'sm:max-w-6xl w-[min(100vw-2rem,72rem)] max-h-[92vh]',
+      content: <ExamWizard examId={examId} />,
+    });
   };
 
   const handleCreateExam = () => {
@@ -201,7 +180,7 @@ export default function TeacherExamsPage() {
           title: 'Create Exam',
           description: 'Online (browser) or offline (hall PDF + OMR / Excel).',
           className: 'sm:max-w-6xl w-[min(100vw-2rem,72rem)] max-h-[92vh]',
-          content: <ExamForm courses={courses} branches={branches} onSuccess={loadExams} actingTeacherUserId={userId} />,
+          content: <ExamWizard />,
         });
   };
 
