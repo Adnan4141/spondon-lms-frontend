@@ -54,6 +54,7 @@ export default function StudentProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [loginMobile, setLoginMobile] = useState('');
   const [institutes, setInstitutes] = useState<Institute[]>([]);
   const [registrationNumber, setRegistrationNumber] = useState<string | null>(null);
 
@@ -64,7 +65,6 @@ export default function StudentProfilePage() {
   const [dob, setDob] = useState('');
   const [bloodGroup, setBloodGroup] = useState('');
   const [gender, setGender] = useState('');
-  const [primaryMobile, setPrimaryMobile] = useState('');
   const [secondaryMobile, setSecondaryMobile] = useState('');
   const [address, setAddress] = useState('');
   const [instituteId, setInstituteId] = useState('');
@@ -94,8 +94,8 @@ export default function StudentProfilePage() {
             : ''
         );
         setBloodGroup(p.bloodGroup || '');
-        setGender(p.gender || '');
-        setPrimaryMobile(p.primaryMobile || '');
+        const g = (p.gender || '').toUpperCase();
+        setGender(g === 'MALE' || g === 'FEMALE' ? g : '');
         setSecondaryMobile(p.secondaryMobile || '');
         setAddress(p.address || '');
         setInstituteId(p.instituteId || '');
@@ -135,6 +135,7 @@ export default function StudentProfilePage() {
       return;
     }
     setUserId(u.id);
+    setLoginMobile((u.mobile || '').trim());
     void load(u.id);
   }, [router, load]);
 
@@ -157,7 +158,6 @@ export default function StudentProfilePage() {
         dob: dob || undefined,
         bloodGroup: bloodGroup || undefined,
         gender: gender || undefined,
-        primaryMobile: primaryMobile || undefined,
         secondaryMobile: secondaryMobile || undefined,
         address: address || undefined,
         instituteId: instituteId || undefined,
@@ -269,11 +269,18 @@ export default function StudentProfilePage() {
               </div>
               <div className="space-y-2">
                 <label className={sectionLabel}>প্রাথমিক মোবাইল</label>
-                <Input
-                  className={inputClass}
-                  value={primaryMobile}
-                  onChange={(e) => setPrimaryMobile(e.target.value)}
-                />
+                <div
+                  className={cn(
+                    inputClass,
+                    'flex cursor-default select-text items-center border-slate-200 bg-slate-100/90 text-slate-800'
+                  )}
+                  title="লগইন মোবাইল নম্বর"
+                >
+                  {loginMobile || '—'}
+                </div>
+                <p className="text-[11px] font-semibold text-slate-400">
+                  লগইন নম্বর—এখান থেকে পরিবর্তন করা যাবে না।
+                </p>
               </div>
               <div className="space-y-2">
                 <label className={sectionLabel}>অন্য মোবাইল</label>
@@ -317,14 +324,13 @@ export default function StudentProfilePage() {
               </div>
               <div className="space-y-2">
                 <label className={sectionLabel}>লিঙ্গ</label>
-                <Select value={gender} onValueChange={setGender}>
+                <Select value={gender || undefined} onValueChange={setGender}>
                   <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 font-bold">
                     <SelectValue placeholder="নির্বাচন করুন" />
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl">
-                    <SelectItem value="MALE">পুরুষ</SelectItem>
-                    <SelectItem value="FEMALE">মহিলা</SelectItem>
-                    <SelectItem value="OTHER">অন্যান্য</SelectItem>
+                    <SelectItem value="MALE">ছাত্র</SelectItem>
+                    <SelectItem value="FEMALE">ছাত্রী</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -406,7 +412,7 @@ export default function StudentProfilePage() {
 
           <Button
             type="button"
-            className="h-12 w-full rounded-2xl bg-slate-900 font-black uppercase tracking-widest text-xs hover:bg-indigo-600 sm:w-auto sm:px-12"
+            className="h-12 w-full rounded-2xl bg-slate-900 font-black uppercase tracking-widest text-xs text-white hover:bg-indigo-600 hover:text-white sm:w-auto sm:px-12"
             disabled={saving}
             onClick={() => void handleSave()}
           >

@@ -74,6 +74,16 @@ export type UpdateUserPayload = {
   smsAlertTo?: ('SELF' | 'FATHER' | 'MOTHER')[];
 };
 
+export async function changeMyPassword(body: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<ApiResponse<Record<string, never>>> {
+  return apiRequest<ApiResponse<Record<string, never>>>('/users/me/change-password', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
 export async function getUsers(params?: {
   role?: string;
   branchId?: string;

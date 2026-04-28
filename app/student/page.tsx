@@ -16,6 +16,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { getMyCourses, getMyBookPurchases, getStudentResults } from '@/lib/api/student-portal';
 import { getStudentExams } from '@/lib/api/exams';
 import { MyBookPurchasesPanel, type MyBookPurchaseRow } from '@/components/student/MyBookPurchasesPanel';
+import { StudentChangePasswordDialog } from '@/components/student/StudentChangePasswordDialog';
 import type { StudentResults } from '@/types/academic';
 
 type MyCourseRow = {
@@ -203,6 +204,7 @@ export default function StudentDashboardPage() {
               >
                 রুটিন দেখুন
               </Link>
+              <StudentChangePasswordDialog />
             </div>
           </div>
           <div className="hidden lg:block">
