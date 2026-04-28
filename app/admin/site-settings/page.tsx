@@ -5,8 +5,9 @@ import {
   Save, RotateCcw, Settings2, Layout, Link2, Facebook,
   Instagram, MessageCircle, Youtube, BookOpen, Users, CreditCard,
   Briefcase, Handshake, ShieldCheck, FileText, Globe, Phone, Mail,
-  ChevronDown, ChevronUp, Plus, Trash2, HelpCircle, Lock,
+  ChevronDown, ChevronUp, HelpCircle, Lock,
 } from 'lucide-react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -76,9 +77,6 @@ const DEFAULTS: Record<string, string> = {
   'footer.link_4_label': 'সচরাচর জিজ্ঞাসা',  'footer.link_4_href': '/faq',
   'footer.link_5_label': '',                  'footer.link_5_href': '#',
   'footer.link_6_label': '',                  'footer.link_6_href': '#',
-  // Pages
-  'pages.privacy_policy': '',
-  'pages.faq_items': '[]',
 };
 
 const LABELS: Record<string, string> = {
@@ -121,8 +119,6 @@ const LABELS: Record<string, string> = {
   'footer.instagram': 'Instagram URL',
   'footer.whatsapp': 'WhatsApp Link (https://wa.me/...)',
   'footer.youtube': 'YouTube Channel URL',
-  'pages.privacy_policy': 'Privacy Policy Content (HTML)',
-  'pages.faq_items': 'FAQ Items (JSON)',
   // Footer – Link slots (labels & hrefs)
   'footer.newsletter_title': 'Newsletter Card Title',
   'footer.newsletter_subtitle': 'Newsletter Card Subtitle',
@@ -154,7 +150,6 @@ const MULTILINE = new Set([
   'programs_cta.title',
   'footer.description',
   'footer.newsletter_subtitle',
-  'pages.privacy_policy',
 ]);
 
 // ─── Tab structure ─────────────────────────────────────────────────────────
@@ -270,58 +265,6 @@ const SOCIAL_ICONS: Record<string, React.ReactNode> = {
   'footer.whatsapp': <MessageCircle className="h-4 w-4 text-green-500" />,
   'footer.youtube': <Youtube className="h-4 w-4 text-red-600" />,
 };
-
-// ─── FAQ Editor ────────────────────────────────────────────────────────────
-
-interface FaqItem { question: string; answer: string; }
-
-function FaqEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const items: FaqItem[] = React.useMemo(() => {
-    try { return JSON.parse(value || '[]'); } catch { return []; }
-  }, [value]);
-
-  const save = (next: FaqItem[]) => onChange(JSON.stringify(next));
-
-  const add = () => save([...items, { question: '', answer: '' }]);
-  const remove = (i: number) => save(items.filter((_, idx) => idx !== i));
-  const update = (i: number, field: 'question' | 'answer', v: string) =>
-    save(items.map((item, idx) => idx === i ? { ...item, [field]: v } : item));
-
-  return (
-    <div className="space-y-4">
-      {items.map((item, i) => (
-        <div key={i} className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-black text-slate-500 uppercase tracking-wide">প্রশ্ন {i + 1}</span>
-            <button type="button" onClick={() => remove(i)} className="text-rose-400 hover:text-rose-600 transition-colors">
-              <Trash2 className="h-4 w-4" />
-            </button>
-          </div>
-          <Input
-            value={item.question}
-            onChange={(e) => update(i, 'question', e.target.value)}
-            placeholder="প্রশ্ন লিখুন..."
-            className="text-sm border-slate-200 bg-white focus-visible:ring-violet-400"
-          />
-          <Textarea
-            value={item.answer}
-            onChange={(e) => update(i, 'answer', e.target.value)}
-            placeholder="উত্তর লিখুন..."
-            rows={3}
-            className="text-sm resize-y border-slate-200 bg-white focus-visible:ring-violet-400"
-          />
-        </div>
-      ))}
-      <button
-        type="button"
-        onClick={add}
-        className="flex items-center gap-2 text-sm font-bold text-violet-600 hover:text-violet-800 transition-colors"
-      >
-        <Plus className="h-4 w-4" /> নতুন প্রশ্ন যোগ করুন
-      </button>
-    </div>
-  );
-}
 
 // ─── Sub-components ────────────────────────────────────────────────────────
 
@@ -446,15 +389,16 @@ export default function SiteSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('landing');
-  const [privacyRows, setPrivacyRows] = useState(10);
-
   useEffect(() => {
     async function load() {
       try {
         const res = await getSiteSettings();
         if (res.success && res.data && res.data.length > 0) {
           const merged = { ...DEFAULTS };
-          for (const s of res.data) merged[s.key] = s.value;
+          for (const s of res.data) {
+            if (s.key === 'pages.privacy_policy') continue;
+            merged[s.key] = s.value;
+          }
           setValues(merged);
         }
       } catch {
@@ -477,7 +421,9 @@ export default function SiteSettingsPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res = await upsertSiteSettings(values, LABELS);
+      const { 'pages.privacy_policy': _removed, ...settingsPayload } = values;
+      void _removed;
+      const res = await upsertSiteSettings(settingsPayload, LABELS);
       if (res.success) {
         toast({ title: 'Saved successfully', description: 'All site settings have been updated.' });
       } else {
@@ -562,47 +508,40 @@ export default function SiteSettingsPage() {
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-4">
         {activeTab === 'pages' ? (
           <>
-            {/* Privacy Policy */}
+            {/* Privacy Policy — managed in dedicated module */}
             <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden border-l-4 border-l-indigo-400">
               <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-100">
                 <div className="h-8 w-8 rounded-xl flex items-center justify-center bg-indigo-50 text-indigo-600">
                   <Lock className="h-4 w-4" />
                 </div>
                 <h2 className="font-black text-slate-800 text-sm">Privacy Policy</h2>
-                <span className="text-[10px] text-slate-400 font-bold bg-slate-100 px-2 py-0.5 rounded-full">HTML content</span>
+                <span className="text-[10px] text-slate-400 font-bold bg-slate-100 px-2 py-0.5 rounded-full">CMS</span>
               </div>
-              <div className="p-6">
-                <p className="text-xs text-slate-500 mb-3 font-medium">Raw HTML — this content will be rendered on the <code className="bg-slate-100 px-1 rounded">/privacy-policy</code> page. Use standard HTML tags like &lt;h2&gt;, &lt;p&gt;, &lt;ul&gt;, &lt;li&gt; etc.</p>
-                <Textarea
-                  value={values['pages.privacy_policy'] ?? ''}
-                  onChange={(e) => handleChange('pages.privacy_policy', e.target.value)}
-                  rows={privacyRows}
-                  placeholder="<h2>প্রাইভেসি পলিসি</h2><p>...</p>"
-                  className="text-sm resize-y font-mono border-slate-200 focus-visible:ring-violet-400"
-                />
-                <button
-                  type="button"
-                  onClick={() => setPrivacyRows((r) => r + 10)}
-                  className="mt-2 text-xs text-slate-400 hover:text-violet-600 transition-colors"
-                >
-                  + আরো লাইন যোগ করুন
-                </button>
+              <div className="p-6 space-y-3">
+                <p className="text-sm text-slate-600">
+                  Privacy policy content is stored in the database and edited with the rich text editor (publish toggle, formatted HTML).
+                </p>
+                <Button asChild className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl">
+                  <Link href="/admin/privacy-policy">Open Privacy Policy Management</Link>
+                </Button>
               </div>
             </div>
-            {/* FAQ */}
+            {/* FAQ — managed in dedicated module */}
             <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden border-l-4 border-l-amber-400">
               <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-100">
                 <div className="h-8 w-8 rounded-xl flex items-center justify-center bg-amber-50 text-amber-600">
                   <HelpCircle className="h-4 w-4" />
                 </div>
                 <h2 className="font-black text-slate-800 text-sm">সচরাচর জিজ্ঞাসা (FAQ)</h2>
-                <span className="text-[10px] text-slate-400 font-bold bg-slate-100 px-2 py-0.5 rounded-full">Accordion format</span>
+                <span className="text-[10px] text-slate-400 font-bold bg-slate-100 px-2 py-0.5 rounded-full">CMS</span>
               </div>
-              <div className="p-6">
-                <FaqEditor
-                  value={values['pages.faq_items'] ?? '[]'}
-                  onChange={(v) => handleChange('pages.faq_items', v)}
-                />
+              <div className="p-6 space-y-3">
+                <p className="text-sm text-slate-600">
+                  FAQ entries are stored in the database and edited from the FAQ Management panel (drag-and-drop order, active/inactive).
+                </p>
+                <Button asChild className="bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl">
+                  <Link href="/admin/faq">Open FAQ Management</Link>
+                </Button>
               </div>
             </div>
           </>

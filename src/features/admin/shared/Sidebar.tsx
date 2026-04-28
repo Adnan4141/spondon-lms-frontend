@@ -35,6 +35,7 @@ import {
   LayoutTemplate,
   Settings2,
   Info,
+  Lock,
 } from 'lucide-react';
 
 type MenuItem = {
@@ -170,6 +171,8 @@ function buildMenuSections(role: string | null): MenuSection[] {
         { title: 'Trust Features', href: '/admin/trust-features', icon: Award, color: 'text-indigo-600', bg: 'bg-indigo-50' },
         { title: 'Site Settings', href: '/admin/site-settings', icon: Settings2, color: 'text-violet-600', bg: 'bg-violet-50' },
         { title: 'About Us CMS', href: '/admin/about-us', icon: Info, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+        { title: 'FAQ', href: '/admin/faq', icon: HelpCircle, color: 'text-amber-600', bg: 'bg-amber-50' },
+        { title: 'Privacy Policy', href: '/admin/privacy-policy', icon: Lock, color: 'text-indigo-600', bg: 'bg-indigo-50' },
       ],
     });
   }
