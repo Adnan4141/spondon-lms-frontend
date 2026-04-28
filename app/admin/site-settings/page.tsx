@@ -5,9 +5,8 @@ import {
   Save, RotateCcw, Settings2, Layout, Link2, Facebook,
   Instagram, MessageCircle, Youtube, BookOpen, Users, CreditCard,
   Briefcase, Handshake, ShieldCheck, FileText, Globe, Phone, Mail,
-  ChevronDown, ChevronUp, HelpCircle, Lock,
+  ChevronDown, ChevronUp,
 } from 'lucide-react';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -375,12 +374,11 @@ function SectionCard({
 
 // ─── Page ──────────────────────────────────────────────────────────────────
 
-type TabId = 'landing' | 'footer' | 'pages';
+type TabId = 'landing' | 'footer';
 
-const TABS: { id: TabId; label: string; icon: React.ReactNode; sections: SectionGroup[]; fieldCount?: number }[] = [
+const TABS: { id: TabId; label: string; icon: React.ReactNode; sections: SectionGroup[] }[] = [
   { id: 'landing', label: 'Landing Page', icon: <Layout className="h-4 w-4" />, sections: LANDING_SECTIONS },
   { id: 'footer', label: 'Footer', icon: <Globe className="h-4 w-4" />, sections: FOOTER_SECTIONS },
-  { id: 'pages', label: 'Pages', icon: <FileText className="h-4 w-4" />, sections: [], fieldCount: 2 },
 ];
 
 export default function SiteSettingsPage() {
@@ -449,7 +447,7 @@ export default function SiteSettingsPage() {
   }
 
   const currentTab = TABS.find((t) => t.id === activeTab)!;
-  const totalFields = activeTab === 'pages' ? 2 : currentTab.sections.reduce((s, g) => s + g.keys.length, 0);
+  const totalFields = currentTab.sections.reduce((s, g) => s + g.keys.length, 0);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -497,7 +495,7 @@ export default function SiteSettingsPage() {
                 'text-[10px] px-1.5 py-0.5 rounded-full font-black transition-colors',
                 activeTab === tab.id ? 'bg-violet-100 text-violet-600' : 'bg-slate-100 text-slate-500',
               )}>
-                {tab.id === 'pages' ? (tab.fieldCount ?? 2) : tab.sections.reduce((s, g) => s + g.keys.length, 0)}
+                {tab.sections.reduce((s, g) => s + g.keys.length, 0)}
               </span>
             </button>
           ))}
@@ -506,56 +504,15 @@ export default function SiteSettingsPage() {
 
       {/* Content */}
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-4">
-        {activeTab === 'pages' ? (
-          <>
-            {/* Privacy Policy — managed in dedicated module */}
-            <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden border-l-4 border-l-indigo-400">
-              <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-100">
-                <div className="h-8 w-8 rounded-xl flex items-center justify-center bg-indigo-50 text-indigo-600">
-                  <Lock className="h-4 w-4" />
-                </div>
-                <h2 className="font-black text-slate-800 text-sm">Privacy Policy</h2>
-                <span className="text-[10px] text-slate-400 font-bold bg-slate-100 px-2 py-0.5 rounded-full">CMS</span>
-              </div>
-              <div className="p-6 space-y-3">
-                <p className="text-sm text-slate-600">
-                  Privacy policy content is stored in the database and edited with the rich text editor (publish toggle, formatted HTML).
-                </p>
-                <Button asChild className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl">
-                  <Link href="/admin/privacy-policy">Open Privacy Policy Management</Link>
-                </Button>
-              </div>
-            </div>
-            {/* FAQ — managed in dedicated module */}
-            <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden border-l-4 border-l-amber-400">
-              <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-100">
-                <div className="h-8 w-8 rounded-xl flex items-center justify-center bg-amber-50 text-amber-600">
-                  <HelpCircle className="h-4 w-4" />
-                </div>
-                <h2 className="font-black text-slate-800 text-sm">সচরাচর জিজ্ঞাসা (FAQ)</h2>
-                <span className="text-[10px] text-slate-400 font-bold bg-slate-100 px-2 py-0.5 rounded-full">CMS</span>
-              </div>
-              <div className="p-6 space-y-3">
-                <p className="text-sm text-slate-600">
-                  FAQ entries are stored in the database and edited from the FAQ Management panel (drag-and-drop order, active/inactive).
-                </p>
-                <Button asChild className="bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl">
-                  <Link href="/admin/faq">Open FAQ Management</Link>
-                </Button>
-              </div>
-            </div>
-          </>
-        ) : (
-          currentTab.sections.map((section) => (
-            <SectionCard
-              key={section.label}
-              section={section}
-              values={values}
-              onChange={handleChange}
-              onReset={handleReset}
-            />
-          ))
-        )}
+        {currentTab.sections.map((section) => (
+          <SectionCard
+            key={section.label}
+            section={section}
+            values={values}
+            onChange={handleChange}
+            onReset={handleReset}
+          />
+        ))}
 
         <div className="flex justify-end pt-4 pb-12">
           <Button
