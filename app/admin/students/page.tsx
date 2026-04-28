@@ -9,7 +9,7 @@ import { getCourses } from '@/lib/api/courses';
 import { getBranches } from '@/lib/api/branches';
 import { getUsers } from '@/lib/api/users';
 import { getBatches, type Batch } from '@/lib/api/batches';
-import { AddStudentModal } from '@/features/admin/students';
+import { AddStudentModal, type AddStudentSaveMeta } from '@/features/admin/students';
 import { BulkImportStudentsModal } from '@/features/admin/students';
 import { CollectPaymentModal } from '@/features/admin/students';
 import { EditStudentModal } from '@/features/admin/students';
@@ -233,10 +233,24 @@ export default function StudentsPage() {
       {modal?.type === 'addStudent' && (
         <AddStudentModal
           onClose={() => setModal(null)}
-          onSave={s => {
+          onSave={(s, meta?: AddStudentSaveMeta) => {
             setStudents(p => [s, ...p]);
             setModal(null);
-            showToast(`Student ${s.fullName} created! Reg: ${s.regNo}`, 'success');
+            if (meta?.oneTimePassword) {
+              toast({
+                title: `Student ${s.fullName} created`,
+                description: `Reg: ${s.regNo}. One-time password: ${meta.oneTimePassword}`,
+                variant: 'success',
+              });
+            } else if (meta?.usedCustomPassword) {
+              toast({
+                title: `Student ${s.fullName} created`,
+                description: `Reg: ${s.regNo}. They can log in with the password you set. Automated SMS credentials do not include custom passwords.`,
+                variant: 'success',
+              });
+            } else {
+              showToast(`Student ${s.fullName} created! Reg: ${s.regNo}`, 'success');
+            }
           }}
         />
       )}
