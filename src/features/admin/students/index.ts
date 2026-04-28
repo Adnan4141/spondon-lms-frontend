@@ -20,6 +20,7 @@ export { ManageEnrollmentModal } from './enrollment/ManageEnrollmentModal';
 
 // ─── Modals ───────────────────────────────────────────────────────────────────
 export { AddStudentModal } from './modals/AddStudentModal';
+export { BulkImportStudentsModal } from './modals/BulkImportStudentsModal';
 export { EditStudentModal } from './modals/EditStudentModal';
 
 // ─── Types & Utils ────────────────────────────────────────────────────────────

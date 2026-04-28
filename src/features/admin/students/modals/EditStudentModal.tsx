@@ -95,7 +95,6 @@ export function EditStudentModal({
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
       e.email = 'Invalid email';
     if (!branchId) e.branchId = 'Branch is required';
-    if (!instituteId) e.instituteId = 'Institute is required';
     return e;
   };
 

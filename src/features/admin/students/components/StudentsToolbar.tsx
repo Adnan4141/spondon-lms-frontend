@@ -1,6 +1,6 @@
 'use client';
 
-import { Plus, Search, Users } from 'lucide-react';
+import { FileUp, Plus, Search, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { BranchOption } from '../types';
@@ -19,6 +19,7 @@ export function StudentsToolbar({
   programs,
   branches,
   onAddStudent,
+  onBulkImport,
 }: {
   count: number;
   search: string;
@@ -32,6 +33,7 @@ export function StudentsToolbar({
   programs: { id: string; name: string }[];
   branches: BranchOption[];
   onAddStudent: () => void;
+  onBulkImport: () => void;
 }) {
   return (
     <div className="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
@@ -71,6 +73,13 @@ export function StudentsToolbar({
             options={[{ value: 'ALL', label: 'All status' }, { value: 'ACTIVE', label: 'Active' }, { value: 'BLOCKED', label: 'Blocked' }]}
           />
         </div>
+        <Button
+          variant="outline"
+          onClick={onBulkImport}
+          className="gap-2 shrink-0"
+        >
+          <FileUp className="h-4 w-4" /> Bulk Import
+        </Button>
         <Button onClick={onAddStudent} className="gap-2 bg-slate-900 text-white hover:bg-indigo-600 transition-all shrink-0">
           <Plus className="h-4 w-4" /> Add Student
         </Button>

@@ -115,9 +115,7 @@ export function EnrolledCoursesView({
         }, 0);
         const netFee = totalFee - (enrollment.monthlyDiscount || 0);
 
-        const canManageEnrollment =
-          enrollment.status === 'ACTIVE' &&
-          enrollment.courses.some(ec => ec.status === 'ACTIVE');
+        const canManageEnrollment = true;
 
         return (
           <div key={enrollment.id} className="bg-white border border-slate-200 rounded-2xl mb-5 overflow-hidden shadow-sm">
@@ -145,13 +143,6 @@ export function EnrolledCoursesView({
               <Button
                 size="sm"
                 disabled={!canManageEnrollment}
-                title={
-                  !canManageEnrollment
-                    ? enrollment.status !== 'ACTIVE'
-                      ? 'Only active enrollments can be managed'
-                      : 'No active courses in this enrollment'
-                    : undefined
-                }
                 onClick={() => canManageEnrollment && setManageModal({ enrollment })}
                 className={cn(
                   'gap-1.5 bg-slate-900 text-white hover:bg-indigo-600 transition-all shrink-0',
@@ -161,6 +152,14 @@ export function EnrolledCoursesView({
                 <Plus className="h-3.5 w-3.5" /> Manage Enrollment
               </Button>
             </div>
+
+            {enrollment.status !== 'ACTIVE' && (
+              <div className="px-5 py-2.5 bg-amber-50 border-b border-amber-100">
+                <p className="text-xs font-semibold text-amber-800">
+                  This enrollment is {enrollment.status.replace('_', ' ').toLowerCase()}; admin can still manage courses, but payment/access state follows invoice rules.
+                </p>
+              </div>
+            )}
 
             {/* Courses table */}
             <div className="overflow-x-auto">

@@ -70,7 +70,6 @@ export function AddStudentModal({
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
       e.email = 'Invalid email';
     if (!branchId) e.branchId = 'Branch is required';
-    if (!instituteId) e.instituteId = 'Institute is required';
     return e;
   };
 
@@ -113,7 +112,7 @@ export function AddStudentModal({
         bloodGroup: form.bloodGroup || undefined,
         gender: form.gender || undefined,
         address: form.address || undefined,
-        instituteId,
+        instituteId: instituteId || undefined,
         smsAlertTo: form.smsAlertTo.length
           ? (form.smsAlertTo as ('SELF' | 'FATHER' | 'MOTHER')[])
           : undefined,

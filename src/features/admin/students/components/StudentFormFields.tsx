@@ -93,7 +93,6 @@ export function StudentFormFields({
 
       <StudentAdminField
         label="Institute (School/College/University)"
-        required
         error={errors.instituteId}
         hint={loadingInstituteHint}
       >

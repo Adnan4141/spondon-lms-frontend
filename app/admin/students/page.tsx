@@ -9,6 +9,7 @@ import { getCourses } from '@/lib/api/courses';
 import { getBranches } from '@/lib/api/branches';
 import { getUsers } from '@/lib/api/users';
 import { AddStudentModal } from '@/features/admin/students';
+import { BulkImportStudentsModal } from '@/features/admin/students';
 import { CollectPaymentModal } from '@/features/admin/students';
 import { EditStudentModal } from '@/features/admin/students';
 import { EnrolledCoursesView } from '@/features/admin/students';
@@ -71,7 +72,7 @@ export default function StudentsPage() {
   }, [branchFilter, statusFilter, programFilter, mapUsersToStudents]);
 
   useEffect(() => {
-    loadStudents();
+    void Promise.resolve().then(loadStudents);
   }, [loadStudents]);
 
   useEffect(() => {
@@ -158,6 +159,7 @@ export default function StudentsPage() {
           programs={programs}
           branches={branches}
           onAddStudent={() => setModal({ type: 'addStudent' })}
+          onBulkImport={() => setModal({ type: 'bulkImport' })}
         />
 
         <StudentsTable
@@ -177,6 +179,18 @@ export default function StudentsPage() {
             setStudents(p => [s, ...p]);
             setModal(null);
             showToast(`Student ${s.fullName} created! Reg: ${s.regNo}`, 'success');
+          }}
+        />
+      )}
+
+      {modal?.type === 'bulkImport' && (
+        <BulkImportStudentsModal
+          branches={branches}
+          defaultBranchId={branchFilter !== 'ALL' ? branchFilter : undefined}
+          onClose={() => setModal(null)}
+          onImported={(result) => {
+            loadStudents();
+            showToast(`Imported ${result.created} student(s). ${result.errors.length} row error(s).`, result.errors.length ? 'error' : 'success');
           }}
         />
       )}
