@@ -74,5 +74,6 @@ export function courseToForm(course: Course): CourseForm {
     booksSectionTitle: typeof outline.booksSectionTitle === 'string' ? outline.booksSectionTitle : '',
     booksSectionSubtitle: typeof outline.booksSectionSubtitle === 'string' ? outline.booksSectionSubtitle : '',
     teachersSectionTitle: typeof outline.teachersSectionTitle === 'string' ? outline.teachersSectionTitle : '',
+    thumbnail: course.thumbnail ?? '',
   };
 }

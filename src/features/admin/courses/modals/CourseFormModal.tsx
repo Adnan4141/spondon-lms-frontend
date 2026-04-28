@@ -1,22 +1,27 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ChevronsUpDown,
   Eye,
   GraduationCap,
+  Image as ImageIcon,
+  ImageOff,
   Layers,
+  Link2,
   Plus,
   Settings,
   Star,
   DoorOpen,
   Trash2,
+  Upload,
   Users,
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -27,7 +32,9 @@ import {
   getCourseById,
   addCourseTeacher,
   removeCourseTeacher,
+  uploadCourseThumbnail,
 } from '@/lib/api/courses';
+import { API_ORIGIN } from '@/lib/api';
 import { getBooks, type Book } from '@/lib/api/books';
 import { getCourseBooks, addCourseBook, updateCourseBook, removeCourseBook } from '@/lib/api/course-books';
 import type { User } from '@/lib/api/users';
@@ -41,6 +48,7 @@ import {
 import EmojiPicker, { type EmojiClickData } from 'emoji-picker-react';
 import { EMPTY_COURSE_FORM, type CourseForm, type CourseFormSidebarFeature } from '../courseTypes';
 import { courseToForm } from '../courseUtils';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export type CourseFormBookLink = { bookId: string; isFree: boolean };
 
@@ -72,6 +80,23 @@ export function CourseFormModal({
   const [bookSearchOpen, setBookSearchOpen] = useState(false);
   const [bookQuery, setBookQuery] = useState('');
   const [sidebarIconPickerId, setSidebarIconPickerId] = useState<string | null>(null);
+  const [thumbUseUrl, setThumbUseUrl] = useState(false);
+  const [thumbUseFile, setThumbUseFile] = useState(false);
+  const [thumbFile, setThumbFile] = useState<File | null>(null);
+  const [thumbDropActive, setThumbDropActive] = useState(false);
+  const [urlPreviewError, setUrlPreviewError] = useState(false);
+  const thumbFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const syncThumbToggles = useCallback((thumbnail?: string | null) => {
+    if (thumbnail?.trim()) {
+      setThumbUseUrl(true);
+      setThumbUseFile(false);
+    } else {
+      setThumbUseUrl(false);
+      setThumbUseFile(false);
+    }
+    setThumbFile(null);
+  }, []);
 
   useEffect(() => {
     if (open) {
@@ -87,8 +112,9 @@ export function CourseFormModal({
       setTeacherSearchOpen(false);
       setBookSearchOpen(false);
       setSidebarIconPickerId(null);
+      syncThumbToggles(initial?.thumbnail);
     }
-  }, [open, initial]);
+  }, [open, initial, syncThumbToggles]);
 
   useEffect(() => {
     if (!open) return;
@@ -104,6 +130,7 @@ export function CourseFormModal({
       if (!res.success || !res.data || cancelled) return;
       const full = res.data as import('@/types/course').CourseDetails;
       setForm(courseToForm(full));
+      syncThumbToggles(full.thumbnail);
       const ids = (full.teachers ?? [])
         .map((t) => t.teacher?.id)
         .filter((id): id is string => Boolean(id));
@@ -118,7 +145,7 @@ export function CourseFormModal({
     return () => {
       cancelled = true;
     };
-  }, [open, initial?.id]);
+  }, [open, initial?.id, syncThumbToggles]);
 
   const bookById = useMemo(() => new Map(allBooks.map((b) => [b.id, b])), [allBooks]);
 
@@ -136,6 +163,78 @@ export function CourseFormModal({
   }, [inheritedBookTotal, courseBooksDraft.length]);
 
   const set = <K extends keyof CourseForm>(k: K, v: CourseForm[K]) => setForm((f) => ({ ...f, [k]: v }));
+
+  const resolveThumbDisplaySrc = (u: string) => {
+    const t = u.trim();
+    if (!t) return '';
+    if (t.startsWith('http://') || t.startsWith('https://')) return t;
+    if (t.startsWith('/')) return `${API_ORIGIN}${t}`;
+    return t;
+  };
+
+  const thumbObjectUrl = useMemo(() => (thumbFile ? URL.createObjectURL(thumbFile) : ''), [thumbFile]);
+  useEffect(() => {
+    return () => {
+      if (thumbObjectUrl) URL.revokeObjectURL(thumbObjectUrl);
+    };
+  }, [thumbObjectUrl]);
+
+  const thumbTab = thumbUseFile ? 'file' : thumbUseUrl ? 'url' : 'none';
+
+  useEffect(() => {
+    setUrlPreviewError(false);
+  }, [form.thumbnail, thumbUseFile, thumbUseUrl]);
+
+  const onThumbTabChange = (v: string) => {
+    if (v === 'none') {
+      setThumbUseUrl(false);
+      setThumbUseFile(false);
+      setThumbFile(null);
+    } else if (v === 'url') {
+      setThumbUseUrl(true);
+      setThumbUseFile(false);
+      setThumbFile(null);
+    } else if (v === 'file') {
+      setThumbUseFile(true);
+      setThumbUseUrl(false);
+      set('thumbnail', '');
+    }
+  };
+
+  const pickThumbFile = (file: File | null) => {
+    if (!file || !file.type.startsWith('image/')) return;
+    setThumbFile(file);
+  };
+
+  const handleThumbDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setThumbDropActive(false);
+    const f = e.dataTransfer.files?.[0];
+    pickThumbFile(f ?? null);
+  };
+
+  const handleThumbDrag = (e: React.DragEvent, over: boolean) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.types?.includes('Files')) {
+      try {
+        e.dataTransfer.dropEffect = 'copy';
+      } catch {
+        /* ignore */
+      }
+    }
+    setThumbDropActive(over);
+  };
+
+  const previewSrc = useMemo(() => {
+    if (thumbUseFile && thumbObjectUrl) return thumbObjectUrl;
+    if (thumbUseUrl && form.thumbnail.trim()) return resolveThumbDisplaySrc(form.thumbnail);
+    if (!thumbUseUrl && !thumbUseFile && initial?.thumbnail?.trim()) {
+      return resolveThumbDisplaySrc(initial.thumbnail);
+    }
+    return null;
+  }, [thumbUseFile, thumbObjectUrl, thumbUseUrl, form.thumbnail, initial?.thumbnail]);
 
   const handleNameChange = (name: string) => {
     setForm((f) => ({ ...f, name }));
@@ -318,6 +417,11 @@ export function CourseFormModal({
         outline: mergedOutline as unknown as import('@/types/course').JsonValue,
       };
 
+      if (thumbUseUrl) {
+        (dto as import('@/types/course').UpdateCourseDto & { thumbnail?: string | null }).thumbnail =
+          form.thumbnail.trim() || null;
+      }
+
       const res = initial
         ? await updateCourse(initial.id, dto as UpdateCourseDto)
         : await createCourse(dto as CreateCourseDto);
@@ -336,7 +440,12 @@ export function CourseFormModal({
         ...toRemove.map((id) => removeCourseTeacher(courseId, id).catch(() => null)),
       ]);
 
-      onSaved(res.data);
+      let savedCourse = res.data;
+      if (thumbUseFile && thumbFile) {
+        const up = await uploadCourseThumbnail(courseId, thumbFile);
+        if (up.success && up.data) savedCourse = up.data;
+      }
+      onSaved(savedCourse);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to save');
     } finally {
@@ -350,7 +459,11 @@ export function CourseFormModal({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent
         showCloseButton={false}
-        className="bg-white p-0 gap-0 max-h-[93vh] w-[98vw] sm:max-w-5xl flex flex-col overflow-hidden"
+        className={cn(
+          // Overrides only; base DialogContent keeps positioning, motion, z-index, translate, etc.
+          'bg-white p-0 gap-0 flex flex-col overflow-hidden rounded-xl border-slate-200 shadow-xl',
+          'max-h-[92vh] w-full max-w-[calc(100%-1.5rem)] sm:max-w-5xl',
+        )}
       >
         <DialogTitle className="sr-only">{initial ? 'Edit Course' : 'Create Course'}</DialogTitle>
         <DialogDescription className="sr-only">Course form</DialogDescription>
@@ -369,9 +482,9 @@ export function CourseFormModal({
           </button>
         </div>
 
-        <div className="flex-1 overflow-hidden flex flex-col bg-white min-h-0">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden bg-white">
-            <TabsList className="w-full justify-start rounded-none border-b px-4 h-10 bg-white gap-1 shrink-0">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white">
+            <TabsList className="h-auto min-h-10 w-full shrink-0 flex-wrap justify-start gap-1 rounded-none border-b border-slate-100 bg-white px-3 py-2 sm:px-4">
               {[
                 { id: 'basic', label: 'Basic', icon: <Settings className="h-3.5 w-3.5" /> },
                 { id: 'pricing', label: 'Pricing', icon: <GraduationCap className="h-3.5 w-3.5" /> },
@@ -380,14 +493,14 @@ export function CourseFormModal({
                 <TabsTrigger
                   key={t.id}
                   value={t.id}
-                  className="flex items-center gap-1.5 text-xs font-bold data-[state=active]:text-slate-900 data-[state=active]:border-b-2 data-[state=active]:border-black rounded-none px-3 h-full"
+                  className="flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold data-[state=active]:bg-slate-900 data-[state=active]:text-white data-[state=inactive]:text-slate-500 sm:px-3"
                 >
                   {t.icon} {t.label}
                 </TabsTrigger>
               ))}
             </TabsList>
 
-            <TabsContent value="basic" className="flex-1 overflow-y-auto p-5 space-y-5 mt-0">
+            <TabsContent value="basic" className="mt-0 min-h-0 flex-1 overflow-y-auto p-5 space-y-5">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                 <div className="lg:col-span-8">
                   <label className={labelCls}>
@@ -718,6 +831,192 @@ export function CourseFormModal({
                     placeholder="Short description (HTML allowed on public page)…"
                     className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-y"
                   />
+                </div>
+
+                <div className="lg:col-span-12">
+                  <div className="rounded-2xl border border-slate-200/90 bg-gradient-to-b from-white via-white to-slate-50/90 p-5 sm:p-6 shadow-sm">
+                    <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                      <div className="min-w-0">
+                        <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          Course thumbnail
+                        </Label>
+                        <p className="text-xs text-slate-500 mt-0.5 max-w-xl">
+                          Shown in the course catalog and on the public page. Add a 16:9 or wide image for best
+                          results.
+                        </p>
+                      </div>
+                    </div>
+
+                    <Tabs value={thumbTab} onValueChange={onThumbTabChange} className="w-full">
+                      <TabsList className="grid h-12 w-full grid-cols-3 gap-0 rounded-xl border border-slate-200/80 bg-slate-100/70 p-1.5 sm:h-11 sm:max-w-2xl">
+                        <TabsTrigger
+                          value="none"
+                          className="cursor-pointer gap-1.5 rounded-lg text-xs font-bold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm"
+                        >
+                          <ImageOff className="h-3.5 w-3.5 opacity-60" />
+                          <span className="hidden sm:inline">No change</span>
+                          <span className="sm:hidden">None</span>
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="url"
+                          className="cursor-pointer gap-1.5 rounded-lg text-xs font-bold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm"
+                        >
+                          <Link2 className="h-3.5 w-3.5 opacity-70" />
+                          Link
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="file"
+                          className="cursor-pointer gap-1.5 rounded-lg text-xs font-bold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm"
+                        >
+                          <Upload className="h-3.5 w-3.5 opacity-70" />
+                          Upload
+                        </TabsTrigger>
+                      </TabsList>
+
+                      <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_minmax(220px,280px)] lg:items-stretch">
+                        <div className="min-w-0 space-y-0">
+                          <TabsContent value="none" className="mt-0 min-h-[120px] max-w-xl">
+                            <div className="flex gap-3 rounded-xl border border-dashed border-slate-200/90 bg-slate-50/50 px-4 py-3.5 text-sm text-slate-600">
+                              <div className="shrink-0 flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+                                <ImageIcon className="h-4 w-4" />
+                              </div>
+                              <p className="pt-0.5 leading-relaxed">
+                                {initial?.id
+                                  ? 'Saves the course without changing the stored thumbnail. Switch to Link or Upload if you need to replace it.'
+                                  : 'No custom image. You can set one later in Link or Upload.'}
+                              </p>
+                            </div>
+                          </TabsContent>
+
+                          <TabsContent value="url" className="mt-0 max-w-2xl space-y-2">
+                            <Label htmlFor="course-thumb-url" className="text-xs text-slate-600">
+                              Image URL or path
+                            </Label>
+                            <Input
+                              id="course-thumb-url"
+                              value={form.thumbnail}
+                              onChange={(e) => set('thumbnail', e.target.value)}
+                              autoComplete="off"
+                              placeholder="https://… or /uploads/…"
+                              className="h-10 text-sm"
+                            />
+                            <p className="text-[11px] text-slate-500">
+                              Leave the field empty when saving to remove the current thumbnail. Supports HTTPS links and
+                              site paths.
+                            </p>
+                          </TabsContent>
+
+                          <TabsContent value="file" className="mt-0 max-w-2xl space-y-3">
+                            <input
+                              ref={thumbFileInputRef}
+                              id="course-thumb-file"
+                              type="file"
+                              accept="image/*"
+                              className="sr-only"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0] ?? null;
+                                e.target.value = '';
+                                pickThumbFile(f);
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => thumbFileInputRef.current?.click()}
+                              onDragOver={(e) => handleThumbDrag(e, true)}
+                              onDragLeave={(e) => handleThumbDrag(e, false)}
+                              onDrop={handleThumbDrop}
+                              className={cn(
+                                'group w-full cursor-pointer rounded-xl border-2 border-dashed text-left transition-all outline-none',
+                                thumbDropActive
+                                  ? 'border-indigo-500 bg-indigo-50/80 ring-2 ring-indigo-200/80'
+                                  : 'border-slate-200/90 bg-slate-50/40 hover:border-slate-300 hover:bg-slate-50/80',
+                                'focus-visible:ring-2 focus-visible:ring-indigo-300/80'
+                              )}
+                            >
+                              <div className="flex flex-col items-center justify-center gap-2 px-4 py-8 sm:py-10">
+                                <div
+                                  className={cn(
+                                    'flex h-12 w-12 items-center justify-center rounded-2xl transition-colors',
+                                    thumbDropActive ? 'bg-indigo-200/50 text-indigo-700' : 'bg-slate-200/70 text-slate-600'
+                                  )}
+                                >
+                                  <Upload className="h-6 w-6" />
+                                </div>
+                                <p className="text-sm font-semibold text-slate-800">Drop an image here</p>
+                                <p className="text-center text-xs text-slate-500">or click to choose · PNG, JPG, WebP</p>
+                                {thumbFile ? (
+                                  <p className="mt-1 max-w-full truncate rounded-md bg-white/80 px-2 py-0.5 text-center text-xs font-medium text-slate-700">
+                                    {thumbFile.name}
+                                  </p>
+                                ) : null}
+                                <div className="pt-1">
+                                  <span className="inline-flex items-center rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-600 shadow-sm">
+                                    Browse files
+                                  </span>
+                                </div>
+                              </div>
+                            </button>
+                            {thumbFile ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-8 text-xs"
+                                onClick={() => {
+                                  setThumbFile(null);
+                                  if (thumbFileInputRef.current) thumbFileInputRef.current.value = '';
+                                }}
+                              >
+                                Remove file
+                              </Button>
+                            ) : null}
+                          </TabsContent>
+                        </div>
+
+                        <div className="flex min-h-0 flex-col gap-2 lg:pl-1">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Preview</span>
+                          <div
+                            className={cn(
+                              'relative w-full flex-1 overflow-hidden rounded-2xl border-2',
+                              previewSrc
+                                ? 'border-slate-200 bg-slate-100'
+                                : 'border-dashed border-slate-200/80 bg-slate-50/60',
+                              'min-h-[140px] aspect-[16/9] max-h-[200px] lg:max-h-none'
+                            )}
+                          >
+                            {thumbTab === 'none' && initial?.thumbnail?.trim() && previewSrc && !urlPreviewError && (
+                              <span className="absolute right-2 top-2 z-10 rounded-md bg-slate-900/85 px-2 py-0.5 text-[10px] font-bold tracking-wide text-white shadow-sm">
+                                Current
+                              </span>
+                            )}
+                            {previewSrc && !urlPreviewError ? (
+                              <img
+                                src={previewSrc}
+                                alt=""
+                                className="h-full w-full object-cover"
+                                onLoad={() => setUrlPreviewError(false)}
+                                onError={() => setUrlPreviewError(true)}
+                              />
+                            ) : null}
+                            {previewSrc && urlPreviewError && thumbUseUrl ? (
+                              <div className="absolute inset-0 z-[5] flex flex-col items-center justify-center gap-2 bg-slate-100/95 p-3 text-center">
+                                <ImageOff className="h-9 w-9 text-rose-300" />
+                                <p className="text-xs text-slate-500">This URL did not load. Check the address.</p>
+                              </div>
+                            ) : null}
+                            {!previewSrc ? (
+                              <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 p-3 text-center">
+                                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-200/50 text-slate-300">
+                                  <ImageIcon className="h-5 w-5" />
+                                </div>
+                                <p className="text-xs text-slate-400">Preview appears here</p>
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+                    </Tabs>
+                  </div>
                 </div>
 
                 <div className="lg:col-span-12 flex items-center gap-3">

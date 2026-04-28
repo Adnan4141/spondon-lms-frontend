@@ -12,6 +12,12 @@ export function StudentsToolbar({
   onSearchChange,
   programFilter,
   onProgramFilterChange,
+  allCourses,
+  courseFilter,
+  onCourseFilterChange,
+  batchFilter,
+  onBatchFilterChange,
+  batchesForCourse,
   branchFilter,
   onBranchFilterChange,
   statusFilter,
@@ -26,6 +32,12 @@ export function StudentsToolbar({
   onSearchChange: (value: string) => void;
   programFilter: string;
   onProgramFilterChange: (value: string) => void;
+  allCourses: { id: string; name: string; programId: string }[];
+  courseFilter: string;
+  onCourseFilterChange: (value: string) => void;
+  batchFilter: string;
+  onBatchFilterChange: (value: string) => void;
+  batchesForCourse: { id: string; name: string; course?: { name?: string } }[];
   branchFilter: string;
   onBranchFilterChange: (value: string) => void;
   statusFilter: string;
@@ -35,8 +47,28 @@ export function StudentsToolbar({
   onAddStudent: () => void;
   onBulkImport: () => void;
 }) {
+  const programSelected = programFilter !== 'ALL';
+  const courseSelected = courseFilter !== 'ALL';
+  const coursesInProgram = programSelected
+    ? allCourses
+        .filter((c) => c.programId === programFilter)
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+    : [];
+  const courseOptions = [
+    { value: 'ALL', label: 'All courses' },
+    ...coursesInProgram.map((c) => ({ value: c.id, label: c.name })),
+  ];
+  const batchOptions = [
+    { value: 'ALL', label: 'All batches' },
+    ...batchesForCourse.map((b) => ({
+      value: b.id,
+      label: b.name,
+    })),
+  ];
+
   return (
-    <div className="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+    <div className="px-5 py-4 border-b border-slate-100 space-y-2">
+    <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-2.5">
         <Users className="h-5 w-5 text-slate-400" />
         <h2 className="text-base font-black text-slate-900">Students</h2>
@@ -57,6 +89,28 @@ export function StudentsToolbar({
             value={programFilter}
             onChange={onProgramFilterChange}
             options={[{ value: 'ALL', label: 'All programs' }, ...programs.map(p => ({ value: p.id, label: p.name }))]}
+          />
+        </div>
+        <div
+          className="w-[min(100%,12rem)] sm:min-w-[11rem] sm:max-w-xs"
+          title={!programSelected ? 'Select a program first' : 'Courses in this program'}
+        >
+          <StudentAdminSelect
+            value={courseFilter}
+            onChange={onCourseFilterChange}
+            options={courseOptions}
+            disabled={!programSelected}
+          />
+        </div>
+        <div
+          className="w-[min(100%,12rem)] sm:min-w-[10rem] sm:max-w-[20rem] sm:w-auto"
+          title={!courseSelected ? 'Select a course to filter by batch' : 'Batches for the selected course'}
+        >
+          <StudentAdminSelect
+            value={batchFilter}
+            onChange={onBatchFilterChange}
+            options={batchOptions}
+            disabled={!courseSelected}
           />
         </div>
         <div className="w-[min(100%,11rem)] sm:w-40">
@@ -84,6 +138,11 @@ export function StudentsToolbar({
           <Plus className="h-4 w-4" /> Add Student
         </Button>
       </div>
+    </div>
+    <p className="text-[11px] text-slate-500 pl-0.5">
+      Order: program first, then course (only for that program), then batch (only for that course). Batches are loaded
+      after you select a course.
+    </p>
     </div>
   );
 }

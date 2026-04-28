@@ -63,7 +63,8 @@ export async function getCourseContentsWithProgress(
 
 export async function updateContentProgress(data: {
   studentUserId: string;
-  contentId: string;
+  contentId?: string;
+  lessonResourceId?: string;
   completed?: boolean;
   progressPercent?: number;
 }): Promise<ApiResponse<any>> {

@@ -8,6 +8,7 @@ import { getPrograms } from '@/lib/api/programs';
 import { getCourses } from '@/lib/api/courses';
 import { getBranches } from '@/lib/api/branches';
 import { getUsers } from '@/lib/api/users';
+import { getBatches, type Batch } from '@/lib/api/batches';
 import { AddStudentModal } from '@/features/admin/students';
 import { BulkImportStudentsModal } from '@/features/admin/students';
 import { CollectPaymentModal } from '@/features/admin/students';
@@ -32,6 +33,9 @@ export default function StudentsPage() {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [branchFilter, setBranchFilter] = useState('ALL');
   const [programFilter, setProgramFilter] = useState('ALL');
+  const [courseFilter, setCourseFilter] = useState('ALL');
+  const [batchFilter, setBatchFilter] = useState('ALL');
+  const [batchesForCourse, setBatchesForCourse] = useState<Batch[]>([]);
   const [modal, setModal] = useState<{ type: string; student?: Student } | null>(null);
   const [editStudent, setEditStudent] = useState<Student | null>(null);
   const { toast } = useToast();
@@ -62,14 +66,25 @@ export default function StudentsPage() {
       limit: 500,
       ...(branchFilter !== 'ALL' ? { branchId: branchFilter } : {}),
       ...(statusFilter !== 'ALL' ? { status: statusFilter } : {}),
-      ...(programFilter !== 'ALL' ? { programId: programFilter } : {}),
+      // Program only
+      ...(programFilter !== 'ALL' && courseFilter === 'ALL'
+        ? { programId: programFilter }
+        : {}),
+      // Program + course (and optional batch)
+      ...(programFilter !== 'ALL' && courseFilter !== 'ALL'
+        ? {
+            programId: programFilter,
+            courseId: courseFilter,
+            ...(batchFilter !== 'ALL' ? { batchId: batchFilter } : {}),
+          }
+        : {}),
     })
       .then(res => {
         if (res.success && res.data) setStudents(mapUsersToStudents(res.data));
         else setStudents([]);
       })
       .finally(() => setLoadingStudents(false));
-  }, [branchFilter, statusFilter, programFilter, mapUsersToStudents]);
+  }, [branchFilter, statusFilter, programFilter, courseFilter, batchFilter, mapUsersToStudents]);
 
   useEffect(() => {
     void Promise.resolve().then(loadStudents);
@@ -97,6 +112,43 @@ export default function StudentsPage() {
       }
     });
   }, []);
+
+  // When program changes, reset course + batch. Courses are listed from allCourses.
+  const handleProgramFilterChange = useCallback((v: string) => {
+    setProgramFilter(v);
+    setCourseFilter('ALL');
+    setBatchFilter('ALL');
+    setBatchesForCourse([]);
+  }, []);
+
+  const handleCourseFilterChange = useCallback((v: string) => {
+    setCourseFilter(v);
+    setBatchFilter('ALL');
+    if (v === 'ALL') setBatchesForCourse([]);
+  }, []);
+
+  // Batches load per selected course (batches belong to a course; courses belong to a program)
+  useEffect(() => {
+    if (programFilter === 'ALL' || courseFilter === 'ALL') {
+      setBatchesForCourse([]);
+      setBatchFilter('ALL');
+      return;
+    }
+    let ignore = false;
+    getBatches({ courseId: courseFilter, limit: 500 }).then((res) => {
+      if (ignore) return;
+      if (res.success && res.data) {
+        setBatchesForCourse(res.data);
+        setBatchFilter('ALL');
+      } else {
+        setBatchesForCourse([]);
+        setBatchFilter('ALL');
+      }
+    });
+    return () => {
+      ignore = true;
+    };
+  }, [programFilter, courseFilter]);
 
   const showToast = (msg: string, type = 'success') => {
     toast({ title: msg, variant: type === 'error' ? 'destructive' : 'default' });
@@ -151,7 +203,13 @@ export default function StudentsPage() {
           search={search}
           onSearchChange={setSearch}
           programFilter={programFilter}
-          onProgramFilterChange={setProgramFilter}
+          onProgramFilterChange={handleProgramFilterChange}
+          allCourses={allCourses}
+          courseFilter={courseFilter}
+          onCourseFilterChange={handleCourseFilterChange}
+          batchFilter={batchFilter}
+          onBatchFilterChange={setBatchFilter}
+          batchesForCourse={batchesForCourse}
           branchFilter={branchFilter}
           onBranchFilterChange={setBranchFilter}
           statusFilter={statusFilter}

@@ -376,7 +376,7 @@ const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>
              href={`/course/${course.slug}`}
              target="_blank"
              rel="noopener noreferrer"
-             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-black transition-colors"
+             className="flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-black"
            >
              <ExternalLink className="h-4 w-4" /> View on website
            </Link>
