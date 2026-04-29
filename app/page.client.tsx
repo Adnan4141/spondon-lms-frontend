@@ -152,6 +152,7 @@ export default function LandingPageClient({ initialHeroSlides }: { initialHeroSl
 
       <CoursesSection
         courses={courses}
+        loading={loading}
         handleImageError={handleImageError}
         badge={siteSettings['courses.badge']}
         title={siteSettings['courses.title']}

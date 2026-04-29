@@ -3,7 +3,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, BookOpen } from 'lucide-react';
 import { SectionHeader } from './shared/SectionHeader';
 import { CourseCard } from './shared/CourseCard';
 import type { Course } from '@/types/course';
@@ -11,6 +11,8 @@ import type { Course } from '@/types/course';
 interface Props {
   courses: Course[];
   handleImageError: (e: React.SyntheticEvent<HTMLImageElement, Event>, text?: string) => void;
+  /** While true and courses empty, show skeletons instead of empty-state */
+  loading?: boolean;
   badge?: string;
   title?: string;
   titleHighlight?: string;
@@ -21,6 +23,7 @@ interface Props {
 export const CoursesSection: React.FC<Props> = ({
   courses,
   handleImageError,
+  loading = false,
   badge = 'Premium Learning',
   title = 'আমাদের সবচেয়ে ',
   titleHighlight = 'জনপ্রিয় কোর্সসমূহ',
@@ -70,10 +73,26 @@ export const CoursesSection: React.FC<Props> = ({
           courses.map((course) => (
             <CourseCard key={course.id} course={course} handleImageError={handleImageError} />
           ))
-        ) : (
+        ) : loading ? (
           [1, 2, 3].map((i) => (
             <div key={i} className="h-[550px] rounded-[40px] bg-white animate-pulse border border-slate-100 shadow-sm" />
           ))
+        ) : (
+          <div className="col-span-full flex flex-col items-center justify-center rounded-[40px] border border-slate-100 bg-white/80 py-16 text-center shadow-sm sm:py-20">
+            <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+              <BookOpen className="h-10 w-10" strokeWidth={1.5} />
+            </div>
+            <h3 className="mb-2 text-2xl font-black text-slate-900">কোনো কোর্স পাওয়া যায়নি</h3>
+            <p className="mb-8 max-w-md px-4 text-slate-500 font-medium">
+              এখন ফিচার্ড কোর্স উপলব্ধ নেই। সম্পূর্ণ কোর্স তালিকা দেখতে নিচের বাটনে যান।
+            </p>
+            <Link href="/courses" className="cursor-pointer">
+              <span className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-8 py-3 text-xs font-black uppercase tracking-widest text-slate-900 shadow-sm transition-colors hover:border-[#5C2D91] hover:bg-[#5C2D91] hover:text-white">
+                সকল কোর্স দেখুন
+                <ArrowRight className="h-4 w-4" />
+              </span>
+            </Link>
+          </div>
         )}
       </motion.div>
       

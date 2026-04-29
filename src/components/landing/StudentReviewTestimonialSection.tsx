@@ -121,7 +121,7 @@ export const StudentReviewTestimonialSection: React.FC<Props> = ({
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.96 }}
                 transition={{ duration: 0.32 }}
-                className="relative h-44 overflow-hidden rounded-[1.45rem] border border-indigo-100 bg-indigo-50 shadow-[0_18px_36px_-18px_rgba(67,56,202,0.35)] sm:h-52 lg:h-48"
+                className="relative h-56 overflow-hidden rounded-[1.45rem] border border-indigo-100 bg-indigo-50 shadow-[0_18px_36px_-18px_rgba(67,56,202,0.35)] sm:h-64 lg:h-72"
               >
                 {activeTestimonial?.thumbnailUrl ? (
                   <>
@@ -129,7 +129,8 @@ export const StudentReviewTestimonialSection: React.FC<Props> = ({
                       src={activeTestimonial.thumbnailUrl}
                       alt={activeTestimonial.name}
                       fill
-                      className="object-cover"
+                      sizes="(max-width: 1024px) 100vw, 420px"
+                      className="object-cover object-center"
                     />
                     {activeTestimonial?.videoUrl && (
                       <button
