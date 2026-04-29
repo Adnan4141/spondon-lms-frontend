@@ -36,7 +36,9 @@ import {
 } from '@/lib/api/courses';
 import { API_ORIGIN } from '@/lib/api';
 import { getBooks, type Book } from '@/lib/api/books';
+import { getBranches, type Branch } from '@/lib/api/branches';
 import { getCourseBooks, addCourseBook, updateCourseBook, removeCourseBook } from '@/lib/api/course-books';
+import { getCourseBranches, syncCourseBranches } from '@/lib/api/course-branches';
 import type { User } from '@/lib/api/users';
 import {
   newPublicCourseSidebarFeatureId,
@@ -49,6 +51,7 @@ import EmojiPicker, { type EmojiClickData } from 'emoji-picker-react';
 import { EMPTY_COURSE_FORM, type CourseForm, type CourseFormSidebarFeature } from '../courseTypes';
 import { courseToForm } from '../courseUtils';
 import { Checkbox } from '@/components/ui/checkbox';
+import { BranchMultiSelect } from '../components/BranchMultiSelect';
 
 export type CourseFormBookLink = { bookId: string; isFree: boolean };
 
@@ -85,6 +88,8 @@ export function CourseFormModal({
   const [thumbFile, setThumbFile] = useState<File | null>(null);
   const [thumbDropActive, setThumbDropActive] = useState(false);
   const [urlPreviewError, setUrlPreviewError] = useState(false);
+  const [allBranches, setAllBranches] = useState<Branch[]>([]);
+  const [allowedBranchIds, setAllowedBranchIds] = useState<string[]>([]);
   const thumbFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const syncThumbToggles = useCallback((thumbnail?: string | null) => {
@@ -113,8 +118,35 @@ export function CourseFormModal({
       setBookSearchOpen(false);
       setSidebarIconPickerId(null);
       syncThumbToggles(initial?.thumbnail);
+      setAllowedBranchIds([]);
     }
   }, [open, initial, syncThumbToggles]);
+
+  useEffect(() => {
+    if (!open) return;
+    void (async () => {
+      try {
+        const res = await getBranches();
+        if (res.success && res.data) setAllBranches(res.data);
+      } catch {
+        setAllBranches([]);
+      }
+    })();
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !initial?.id) return;
+    void (async () => {
+      try {
+        const res = await getCourseBranches(initial.id);
+        if (res.success && res.data) {
+          setAllowedBranchIds(res.data.map((cb) => cb.branchId));
+        }
+      } catch {
+        setAllowedBranchIds([]);
+      }
+    })();
+  }, [open, initial?.id]);
 
   useEffect(() => {
     if (!open) return;
@@ -332,6 +364,11 @@ export function CourseFormModal({
       setActiveTab('basic');
       return;
     }
+    if (form.branchAccessMode === 'SPECIFIC_BRANCH' && allowedBranchIds.length === 0) {
+      setError('Select at least one branch when access is limited to selected branches.');
+      setActiveTab('basic');
+      return;
+    }
     if (!form.fee || Number(form.fee) <= 0) {
       setError('Course fee is required');
       setActiveTab('pricing');
@@ -429,6 +466,14 @@ export function CourseFormModal({
       if (!res.success || !res.data) throw new Error((res as { message?: string }).message ?? 'Save failed');
 
       const courseId = res.data.id;
+      const branchSync = await syncCourseBranches(
+        courseId,
+        form.branchAccessMode === 'SPECIFIC_BRANCH' ? allowedBranchIds : []
+      );
+      if (!branchSync.success) {
+        throw new Error((branchSync as { message?: string }).message ?? 'Failed to sync branch access');
+      }
+
       await syncCourseBooksToServer(courseId, courseBooksDraft);
 
       const targetIds = [...new Set(selectedTeacherIds)];
@@ -817,10 +862,22 @@ export function CourseFormModal({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="ALL_BRANCH">All branches</SelectItem>
-                      <SelectItem value="SPECIFIC_BRANCH">Specific branch</SelectItem>
+                      <SelectItem value="SPECIFIC_BRANCH">Selected branches only</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+
+                {form.branchAccessMode === 'SPECIFIC_BRANCH' ? (
+                  <div className="lg:col-span-12">
+                    <label className={labelCls}>Branches with access</label>
+                    <BranchMultiSelect
+                      branches={allBranches}
+                      value={allowedBranchIds}
+                      onChange={setAllowedBranchIds}
+                      disabled={saving}
+                    />
+                  </div>
+                ) : null}
 
                 <div className="lg:col-span-12">
                   <label className={labelCls}>Description</label>

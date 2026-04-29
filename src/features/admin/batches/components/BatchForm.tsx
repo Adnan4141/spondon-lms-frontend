@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createBatch, updateBatch, type Batch, type BatchStatusType, type CreateBatchDto, type UpdateBatchDto } from '@/lib/api/batches';
 import { useModalStore } from '@/store/modalStore';
 import { useToast } from '@/hooks/use-toast';
@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { DatePicker } from '@/components/ui/date-picker';
 
 const statusOptions: BatchStatusType[] = ['ACTIVE', 'INACTIVE', 'COMPLETED', 'ARCHIVED'];
@@ -61,6 +62,15 @@ export function BatchForm({ courses, branches, batch, onSuccess }: BatchFormProp
     }
   }, [batch]);
 
+  const courseOptions = useMemo(
+    () => courses.map((c) => ({ value: c.id, label: c.name })),
+    [courses]
+  );
+  const branchOptions = useMemo(
+    () => branches.map((b) => ({ value: b.id, label: b.name + (b.code ? ` (${b.code})` : '') })),
+    [branches]
+  );
+
   const handleSubmit = async () => {
     if (!form.name.trim() || !form.courseId || !form.branchId) {
       setError('Name, course, and branch are required.');
@@ -106,7 +116,7 @@ export function BatchForm({ courses, branches, batch, onSuccess }: BatchFormProp
   };
 
   return (
-    <div className="flex flex-col h-full bg-white text-slate-900">
+    <div className="flex flex-col h-full bg-white text-black">
       <div className="flex-1 min-h-0 overflow-y-auto px-8 py-8 no-scrollbar">
         <div className="grid gap-8 py-2 sm:grid-cols-2">
           <div className="space-y-2 sm:col-span-2">
@@ -121,42 +131,28 @@ export function BatchForm({ courses, branches, batch, onSuccess }: BatchFormProp
 
           <div className="space-y-2">
             <label className={sectionLabel}>Academic Course</label>
-            <Select
+            <SearchableSelect
               disabled={isEdit}
+              options={courseOptions}
               value={form.courseId}
               onValueChange={(v) => setForm((prev) => ({ ...prev, courseId: v }))}
-            >
-              <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
-                <SelectValue placeholder="Select Course" />
-              </SelectTrigger>
-              <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                {courses.map((course) => (
-                  <SelectItem key={course.id} value={course.id} className="text-sm font-medium">
-                    {course.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              placeholder="Select course"
+              searchPlaceholder="Search courses…"
+              emptyMessage="No course matches."
+            />
           </div>
 
           <div className="space-y-2">
             <label className={sectionLabel}>Operating Branch</label>
-            <Select
+            <SearchableSelect
               disabled={isEdit}
+              options={branchOptions}
               value={form.branchId}
               onValueChange={(v) => setForm((prev) => ({ ...prev, branchId: v }))}
-            >
-              <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
-                <SelectValue placeholder="Select Branch" />
-              </SelectTrigger>
-              <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                {branches.map((branch) => (
-                  <SelectItem key={branch.id} value={branch.id} className="text-sm font-medium">
-                    {branch.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              placeholder="Select branch"
+              searchPlaceholder="Search branches…"
+              emptyMessage="No branch matches."
+            />
           </div>
 
           <div className="space-y-2">
@@ -220,12 +216,16 @@ export function BatchForm({ courses, branches, batch, onSuccess }: BatchFormProp
                 setForm((prev) => ({ ...prev, status: v as BatchStatusType }))
               }
             >
-              <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
+              <SelectTrigger className="h-12 w-full min-w-0 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-black shadow-inner data-placeholder:text-black/45 [&_svg]:text-black/50">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
+              <SelectContent className="rounded-2xl border-slate-200 bg-white text-black shadow-xl">
                 {statusOptions.map((opt) => (
-                  <SelectItem key={opt} value={opt} className="text-sm font-medium">
+                  <SelectItem
+                    key={opt}
+                    value={opt}
+                    className="text-sm font-medium text-black focus:bg-neutral-100 focus:text-black data-highlighted:bg-neutral-100 data-highlighted:text-black"
+                  >
                     {opt}
                   </SelectItem>
                 ))}

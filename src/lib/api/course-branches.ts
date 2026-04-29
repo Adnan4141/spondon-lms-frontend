@@ -32,6 +32,13 @@ export async function bulkAddCourseBranches(courseId: string, branchIds: string[
   });
 }
 
+export async function syncCourseBranches(courseId: string, branchIds: string[]): Promise<ApiResponse<void>> {
+  return apiRequest<ApiResponse<void>>('/course-branches/sync', {
+    method: 'PUT',
+    body: JSON.stringify({ courseId, branchIds }),
+  });
+}
+
 export async function removeCourseBranch(id: string): Promise<ApiResponse<void>> {
   return apiRequest<ApiResponse<void>>(`/course-branches/${id}`, {
     method: 'DELETE',

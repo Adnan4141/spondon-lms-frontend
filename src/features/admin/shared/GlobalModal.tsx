@@ -14,9 +14,27 @@ export function GlobalModal() {
   const { isOpen, content, title, description, className, closeModal, goBack, stack } = useModalStore();
   const showBack = stack.length > 1;
 
+  const allowInteractionFromPortaledDropdown = (e: { preventDefault: () => void; target: EventTarget | null }) => {
+    const target = e.target as HTMLElement | null;
+    if (
+      target?.closest?.('[data-slot="popover-content"]') ||
+      target?.closest?.('[data-slot="select-content"]')
+    ) {
+      e.preventDefault();
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && closeModal()}>
-      <DialogContent className={cn('max-h-[92vh] gap-0 overflow-hidden border border-slate-200 bg-white text-slate-900 shadow-2xl flex flex-col p-0 rounded-[32px]', className)} showCloseButton={true}>
+      <DialogContent
+        className={cn(
+          'max-h-[92vh] gap-0 overflow-hidden border border-slate-200 bg-white text-slate-900 shadow-2xl flex flex-col p-0 rounded-[32px]',
+          className
+        )}
+        showCloseButton={true}
+        onPointerDownOutside={allowInteractionFromPortaledDropdown}
+        onInteractOutside={allowInteractionFromPortaledDropdown}
+      >
         <DialogHeader className="relative shrink-0 border-b border-slate-100 bg-slate-50/50 px-8 pb-6 pt-8">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.05),transparent_40%)] pointer-events-none" />
           
