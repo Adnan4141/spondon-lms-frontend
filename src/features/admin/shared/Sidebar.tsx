@@ -2,8 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState, type ComponentType } from 'react';
+import { useMemo, type ComponentType } from 'react';
 import { cn } from '@/lib/utils';
+import { API_ORIGIN } from '@/lib/api';
+import { resolveAttachmentUrl } from '@/lib/attachment-url';
+import { clearAuthStorage, useAdminSession } from './admin-session';
 import {
   BookOpen,
   Users,
@@ -184,29 +187,20 @@ type SidebarProps = {
 export function Sidebar({ mobileOpen, onCloseMobile, collapsed, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [role, setRole] = useState<string | null>(null);
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem('user');
-      const u = raw ? (JSON.parse(raw) as { role?: string }) : null;
-      setRole(u?.role ?? null);
-    } catch {
-      setRole(null);
-    }
-  }, []);
+  const { user, initials, roleLabel } = useAdminSession();
+  const role = user?.role ?? null;
 
   const menuSections = useMemo(() => buildMenuSections(role), [role]);
   const homeHref = role === 'BRANCH_ADMIN' ? '/admin/branch' : '/admin';
 
+  const displayName = user?.fullName?.trim() || 'User';
+  const avatarUrl =
+    user?.profileImage?.trim() &&
+    resolveAttachmentUrl(user.profileImage.trim(), API_ORIGIN);
+
   const handleLogout = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user');
-      document.cookie = 'auth_token=; path=/; max-age=0';
-      document.cookie = 'user_role=; path=/; max-age=0';
-      router.push('/login');
-    }
+    clearAuthStorage();
+    router.push('/login');
   };
 
   return (
@@ -329,14 +323,19 @@ export function Sidebar({ mobileOpen, onCloseMobile, collapsed, onToggleCollapse
             <div className="space-y-4">
               <div className="flex items-center gap-3 p-3 rounded-2xl bg-white border border-slate-200 shadow-sm transition-all hover:border-indigo-200 hover:shadow-md group">
                 <div className="relative">
-                  <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-sm">
-                    AD
+                  <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-sm font-bold text-white shadow-sm">
+                    {avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      initials
+                    )}
                   </div>
                   <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-white bg-emerald-500 shadow-sm" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-base font-bold text-slate-800 truncate">Adnan Hussain</p>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Super Admin</p>
+                  <p className="text-base font-bold text-slate-800 truncate">{displayName}</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">{roleLabel}</p>
                 </div>
                 <button onClick={handleLogout} className="text-slate-300 hover:text-rose-500 transition-colors" title="Logout">
                   <LogOut className="h-4 w-4" />
@@ -364,8 +363,13 @@ export function Sidebar({ mobileOpen, onCloseMobile, collapsed, onToggleCollapse
               >
                 <PanelLeftOpen className="h-5 w-5" />
               </button>
-              <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-lg">
-                AD
+              <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-xs font-bold text-white shadow-lg">
+                {avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  initials
+                )}
               </div>
             </div>
           )}

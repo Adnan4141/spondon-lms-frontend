@@ -69,6 +69,11 @@ export interface Invoice {
   amount: number;
   paidAmount: number;
   status: 'PAID' | 'DUE' | 'WAIVED' | 'PARTIAL';
+  displayStatus?: 'PAID' | 'PAID_WITH_WAIVER' | 'WAIVED' | 'PARTIALLY_WAIVED' | 'PARTIAL' | 'SETTLED' | 'DUE' | 'CANCELLED';
+  displayLabel?: string;
+  waivedAmount?: number;
+  discountAmount?: number;
+  settlementAmount?: number;
   dueDate: string;
   branchName?: string;
   items?: {
@@ -77,10 +82,17 @@ export interface Invoice {
     unitPrice: number;
     qty: number;
     type?: string;
+    grossAmount?: number;
     discountAmount?: number;
+    waivedAmount?: number;
+    settlementAmount?: number;
     payableAmount?: number;
     paidAmount?: number;
     dueAmount?: number;
+    lineStatus?: 'PAID' | 'PAID_WITH_WAIVER' | 'WAIVED' | 'PARTIALLY_WAIVED' | 'PARTIAL' | 'SETTLED' | 'DUE' | 'CANCELLED';
+    waiverReason?: string | null;
+    waivedByUserId?: string | null;
+    waivedAt?: string | null;
     allocationPriority?: number;
   }[];
 }

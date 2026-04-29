@@ -82,6 +82,9 @@ export interface BookSale {
   branchId: string;
   studentUserId?: string | null;
   invoiceId?: string | null;
+  sellingPointType?: StockLocationType;
+  sellingPointId?: string | null;
+  sellingPointName?: string | null;
   totalAmount: number;
   soldAt: string;
   createdAt: string;
@@ -146,6 +149,7 @@ export interface CreateBookStockDto {
   bookId: string;
   branchId: string;
   stockQty: number;
+  remarks?: string;
 }
 
 export interface BookSaleDeliveryDto {
@@ -159,6 +163,9 @@ export interface BookSaleDeliveryDto {
 
 export interface CreateBookSaleDto {
   branchId: string;
+  sellingPointType?: StockLocationType;
+  sellingPointId?: string;
+  sellingPointName?: string;
   studentUserId?: string;
   invoiceId?: string;
   items: Array<{
@@ -525,12 +532,78 @@ export interface BookDistribution {
   bookId: string;
   fromBranchId?: string | null;
   toBranchId: string;
+  channelId?: string | null;
   quantity: number;
   note?: string | null;
   distributedAt: string;
   createdByUserId?: string | null;
   book?: { id: string; name: string; sku: string };
   toBranch?: { id: string; name: string };
+  channel?: { id: string; name: string; type?: DistributionChannelType };
+}
+
+export type StockSourceType = 'VENDOR' | 'PRESS' | 'HEAD_OFFICE' | 'BRANCH' | 'INTERNAL_UNIT' | 'OTHER';
+export type DistributionChannelType = 'BRANCH' | 'VENDOR' | 'TEACHER' | 'EVENT' | 'MARKETING' | 'OTHER';
+export type StockLocationType = 'CENTRAL' | 'BRANCH' | 'CHANNEL' | 'SOURCE' | 'CUSTOMER' | 'OTHER';
+export type BookStockMovementType = 'RECEIVE' | 'TRANSFER' | 'DISTRIBUTE' | 'SALE' | 'RETURN' | 'ADJUSTMENT';
+
+export interface StockSource {
+  id: string;
+  name: string;
+  type: StockSourceType;
+  contactPerson?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DistributionChannel {
+  id: string;
+  name: string;
+  type: DistributionChannelType;
+  contactPerson?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StockLocationPayload {
+  type: StockLocationType;
+  id?: string;
+  name?: string;
+}
+
+export interface BookStockMovement {
+  id: string;
+  bookId: string;
+  movementType: BookStockMovementType;
+  quantity: number;
+  sourceType?: StockLocationType | null;
+  sourceId?: string | null;
+  sourceName?: string | null;
+  destinationType?: StockLocationType | null;
+  destinationId?: string | null;
+  destinationName?: string | null;
+  sourceBalanceAfter?: number | null;
+  destinationBalanceAfter?: number | null;
+  movementDate: string;
+  remarks?: string | null;
+  referenceType?: string | null;
+  referenceId?: string | null;
+  createdByUserId?: string | null;
+  createdAt: string;
+  book?: { id: string; name: string; sku: string };
+}
+
+export interface StockSummaryBook extends CentralStockBook {
+  distributedQty: number;
+  channelDistributedQty: number;
+  soldQty: number;
+  totalCurrentStock: number;
 }
 
 export interface CentralStockBook {

@@ -19,13 +19,13 @@ export function StudentAdminModal({
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
       <DialogContent
         showCloseButton={false}
-        className={cn('p-0 gap-0 max-h-[92vh] w-[95vw] flex flex-col overflow-hidden', maxWidth, smMaxWidth)}
+        className={cn('p-0 gap-0 max-h-[92vh] w-[96vw] flex flex-col overflow-hidden sm:w-[95vw]', maxWidth, smMaxWidth)}
       >
         <DialogTitle className="sr-only">{title}</DialogTitle>
         <DialogDescription className="sr-only">{subtitle || `${title} dialog`}</DialogDescription>
-        <div className="flex items-start justify-between px-6 py-5 border-b border-slate-200 bg-slate-50 shrink-0">
-          <div>
-            <h2 className="text-base font-black text-slate-900">{title}</h2>
+        <div className="flex items-start justify-between gap-3 px-4 py-4 border-b border-slate-200 bg-slate-50 shrink-0 sm:px-6 sm:py-5">
+          <div className="min-w-0">
+            <h2 className="truncate text-base font-black text-slate-900">{title}</h2>
             {subtitle && <p className="text-xs text-slate-500 mt-1">{subtitle}</p>}
           </div>
           <button
@@ -35,7 +35,7 @@ export function StudentAdminModal({
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="overflow-y-auto flex-1 p-6 bg-white">{children}</div>
+        <div className="overflow-y-auto flex-1 p-4 bg-white sm:p-6">{children}</div>
       </DialogContent>
     </Dialog>
   );

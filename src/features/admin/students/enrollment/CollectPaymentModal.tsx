@@ -13,6 +13,16 @@ import { fmt, fmtMonth, normPdfUrl, toLocalEnrollment } from '../utils';
 import { StudentAdminBadge as AppBadge } from '../components/StudentAdminBadge';
 import { StudentAdminModal as AppModal } from '../components/StudentAdminModal';
 
+type DisplayStatus =
+  | 'PAID'
+  | 'PAID_WITH_WAIVER'
+  | 'WAIVED'
+  | 'PARTIALLY_WAIVED'
+  | 'PARTIAL'
+  | 'SETTLED'
+  | 'DUE'
+  | 'CANCELLED';
+
 export function CollectPaymentModal({
   student, onClose, onSave,
 }: {
@@ -63,12 +73,17 @@ export function CollectPaymentModal({
         month: inv.month ?? '',
         amount: Number(inv.payableAmount),
         paidAmount: Number(inv.paidAmount),
+        discountAmount: Number(inv.settlementSummary?.discountAmount ?? inv.discountAmount ?? 0),
+        waivedAmount: Number(inv.settlementSummary?.waivedAmount ?? 0),
+        settlementAmount: Number(inv.settlementSummary?.settlementAmount ?? inv.settlementAmount ?? 0),
         status: (
           inv.status === 'PAID' ? 'PAID'
           : inv.status === 'WAIVED' ? 'WAIVED'
           : inv.status === 'PARTIAL' ? 'PARTIAL'
           : 'DUE'
         ) as Invoice['status'],
+        displayStatus: (inv.displayStatus ?? inv.settlementSummary?.displayStatus) as Invoice['displayStatus'],
+        displayLabel: inv.displayLabel ?? inv.settlementSummary?.displayLabel,
         dueDate: inv.nextPaymentDueDate ?? '',
         branchName: (inv as { branch?: { name?: string } }).branch?.name,
         items: (inv as {
@@ -78,10 +93,17 @@ export function CollectPaymentModal({
             unitPrice: number | string;
             qty: number;
             type?: string;
+            grossAmount?: number | string;
             discountAmount?: number | string;
+            waivedAmount?: number | string;
+            settlementAmount?: number | string;
             payableAmount?: number | string;
             paidAmount?: number | string;
             dueAmount?: number | string;
+            lineStatus?: DisplayStatus;
+            waiverReason?: string | null;
+            waivedByUserId?: string | null;
+            waivedAt?: string | null;
             allocationPriority?: number;
           }[];
         }).items?.map(item => ({
@@ -90,10 +112,17 @@ export function CollectPaymentModal({
           unitPrice: Number(item.unitPrice),
           qty: item.qty,
           type: item.type,
+          grossAmount: Number(item.grossAmount ?? Number(item.unitPrice) * item.qty),
           discountAmount: Number(item.discountAmount ?? 0),
+          waivedAmount: Number(item.waivedAmount ?? 0),
+          settlementAmount: Number(item.settlementAmount ?? 0),
           payableAmount: Number(item.payableAmount ?? Number(item.unitPrice) * item.qty),
           paidAmount: Number(item.paidAmount ?? 0),
           dueAmount: Number(item.dueAmount ?? Math.max(0, Number(item.unitPrice) * item.qty)),
+          lineStatus: item.lineStatus,
+          waiverReason: item.waiverReason ?? null,
+          waivedByUserId: item.waivedByUserId ?? null,
+          waivedAt: item.waivedAt ?? null,
           allocationPriority: item.allocationPriority,
         })),
       }));
@@ -201,20 +230,50 @@ export function CollectPaymentModal({
     [monthGroups, selMonth],
   );
 
-  const getMonthAggStatus = (invs: Invoice[]): 'PAID' | 'WAIVED' | 'PARTIAL' | 'DUE' => {
+  const getMonthAggStatus = (invs: Invoice[]): DisplayStatus => {
     if (!invs.length) return 'DUE';
-    if (invs.every(i => i.status === 'PAID')) return 'PAID';
-    if (invs.every(i => i.status === 'WAIVED' || i.status === 'PAID')) return 'WAIVED';
+    const statuses = invs.map(i => (i.displayStatus ?? i.status) as DisplayStatus);
+    const totalDue = invs.reduce((sum, inv) => sum + Math.max(0, inv.amount - inv.paidAmount), 0);
+    if (statuses.every(s => s === 'WAIVED')) return 'WAIVED';
+    if (totalDue <= 0 && (statuses.includes('PAID_WITH_WAIVER') || (statuses.includes('PAID') && statuses.includes('WAIVED')))) {
+      return 'PAID_WITH_WAIVER';
+    }
+    if (totalDue <= 0 && statuses.every(s => s === 'PAID')) return 'PAID';
+    if (totalDue <= 0) return statuses.includes('SETTLED') ? 'SETTLED' : 'PAID';
+    if (statuses.includes('PARTIALLY_WAIVED')) return 'PARTIALLY_WAIVED';
     if (invs.some(i => i.status === 'PARTIAL' || i.paidAmount > 0)) return 'PARTIAL';
     return 'DUE';
   };
 
   const statusBadgeColor: Record<string, BadgeColor> = {
-    PAID: 'green', WAIVED: 'purple', PARTIAL: 'amber', DUE: 'red',
+    PAID: 'green',
+    PAID_WITH_WAIVER: 'blue',
+    WAIVED: 'purple',
+    PARTIALLY_WAIVED: 'purple',
+    PARTIAL: 'amber',
+    SETTLED: 'slate',
+    DUE: 'red',
+    CANCELLED: 'slate',
+  };
+
+  const statusLabel = (status?: string) => {
+    switch (status) {
+      case 'PAID_WITH_WAIVER': return 'Paid + Waived';
+      case 'PARTIALLY_WAIVED': return 'Partially Waived';
+      case 'SETTLED': return 'Settled';
+      case 'WAIVED': return 'Waived';
+      case 'PAID': return 'Paid';
+      case 'PARTIAL': return 'Partial';
+      case 'CANCELLED': return 'Cancelled';
+      default: return 'Due';
+    }
   };
 
   const totalPayable = displayInvoices.reduce((s, i) => s + i.amount, 0);
   const totalAlreadyPaid = displayInvoices.reduce((s, i) => s + i.paidAmount, 0);
+  const totalWaived = displayInvoices.reduce((s, i) => s + (i.waivedAmount ?? 0), 0);
+  const totalDiscounted = displayInvoices.reduce((s, i) => s + (i.discountAmount ?? 0), 0);
+  const totalSettlement = displayInvoices.reduce((s, i) => s + (i.settlementAmount ?? 0), 0);
   const admissionFeeTotal = displayInvoices.reduce((s, inv) =>
     s + (inv.items ?? []).filter(it => it.type === 'ADMISSION_FEE').reduce((a, it) => a + it.unitPrice * it.qty, 0), 0);
   const discountable = Math.max(0, totalPayable - admissionFeeTotal);
@@ -228,8 +287,14 @@ export function CollectPaymentModal({
     (inv.items ?? []).map(item => {
       const total = Number(item.payableAmount ?? item.unitPrice * item.qty);
       const paid = Number(item.paidAmount ?? 0);
+      const gross = Number(item.grossAmount ?? item.unitPrice * item.qty);
+      const waived = Number(item.waivedAmount ?? 0);
+      const discountAmount = Number(item.discountAmount ?? 0);
       return {
         ...item,
+        gross,
+        waived,
+        discountAmount,
         total,
         paid,
         due: Number(item.dueAmount ?? Math.max(0, total - paid)),
@@ -246,13 +311,44 @@ export function CollectPaymentModal({
     .filter(item => item.type === 'COURSE' && item.refId)
     .map(item => ({
       ...item,
-      waiverAmount: Math.max(0, Number(item.unitPrice || 0) - Number(item.discountAmount || 0)),
+      waiverAmount: Math.max(0, item.gross - item.discountAmount - item.waived),
     }))
     .filter(item => item.waiverAmount > 0);
   const selectedCourseWaiverRows = courseWaiverRows.filter(item => selectedWaiveCourseIds.includes(item.refId!));
   const selectedWaiverAmount = selectedCourseWaiverRows.reduce((sum, item) => sum + item.waiverAmount, 0);
   const payableAfterCourseWaiver = Math.max(0, netDue - selectedWaiverAmount);
   const waiverCreatesSettlement = totalAlreadyPaid > 0 || monthStatus === 'PAID' || monthStatus === 'PARTIAL';
+  const auditTrail = displayInvoices.flatMap(inv => {
+    const rows: Array<{ label: string; detail: string; tone: BadgeColor }> = [];
+    if (inv.waivedAmount && inv.waivedAmount > 0) {
+      rows.push({ label: 'Course waiver', detail: `${fmt(inv.waivedAmount)} waived for ${fmtMonth(inv.month)}`, tone: 'purple' });
+    }
+    if (inv.discountAmount && inv.discountAmount > 0) {
+      rows.push({ label: 'Discount', detail: `${fmt(inv.discountAmount)} discount applied`, tone: 'blue' });
+    }
+    if (inv.settlementAmount && inv.settlementAmount !== 0) {
+      rows.push({
+        label: inv.settlementAmount > 0 ? 'Credit settlement' : 'Debit settlement',
+        detail: `${fmt(Math.abs(inv.settlementAmount))} adjusted on this invoice`,
+        tone: inv.settlementAmount > 0 ? 'green' : 'amber',
+      });
+    }
+    for (const item of inv.items ?? []) {
+      if ((item.waivedAmount ?? 0) > 0) {
+        const auditParts = [
+          item.waiverReason ? `Reason: ${item.waiverReason}` : null,
+          item.waivedByUserId ? `By: ${item.waivedByUserId}` : null,
+          item.waivedAt ? `At: ${new Date(item.waivedAt).toLocaleString()}` : null,
+        ].filter(Boolean);
+        rows.push({
+          label: 'Waived row',
+          detail: `${item.title.replace(/^Monthly Fee:\s*/, '')}: ${fmt(item.waivedAmount ?? 0)}${auditParts.length ? ` (${auditParts.join(' · ')})` : ''}`,
+          tone: 'purple',
+        });
+      }
+    }
+    return rows;
+  });
 
   const handleWaive = async () => {
     if (waiveReason.trim().length < 5 || selectedWaiveCourseIds.length === 0) return;
@@ -305,7 +401,7 @@ export function CollectPaymentModal({
                       key={`${courseId}-${item.title}`}
                       className="flex items-center justify-between gap-2 rounded-lg border border-purple-100 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700"
                     >
-                      <span className="flex items-center gap-2">
+                      <span className="flex min-w-0 items-center gap-2">
                         <input
                           type="checkbox"
                           checked={checked}
@@ -314,25 +410,25 @@ export function CollectPaymentModal({
                           ))}
                           className="accent-purple-600"
                         />
-                        {item.title.replace(/^Monthly Fee:\s*/, '')}
+                        <span className="truncate">{item.title.replace(/^Monthly Fee:\s*/, '')}</span>
                       </span>
-                      <span className="font-bold text-purple-700">{fmt(item.waiverAmount)}</span>
+                      <span className="shrink-0 font-bold text-purple-700">{fmt(item.waiverAmount)}</span>
                     </label>
                   );
                 })}
               </div>
               <div className="mt-2 rounded-lg border border-purple-100 bg-white px-2.5 py-2 text-[11px] font-semibold text-slate-600 space-y-1">
-                <div className="flex justify-between">
+                <div className="flex justify-between gap-3">
                   <span>Selected waiver</span>
-                  <span className="text-purple-700">{fmt(selectedWaiverAmount)}</span>
+                  <span className="shrink-0 text-purple-700">{fmt(selectedWaiverAmount)}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between gap-3">
                   <span>Remaining payable after waiver</span>
-                  <span>{fmt(payableAfterCourseWaiver)}</span>
+                  <span className="shrink-0">{fmt(payableAfterCourseWaiver)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Result</span>
-                  <span className="text-right">
+                <div className="flex justify-between gap-3">
+                  <span className="shrink-0">Result</span>
+                  <span className="min-w-0 text-right">
                     {waiverCreatesSettlement ? 'Credit settlement on next unpaid month' : 'Regenerate selected month invoice'}
                   </span>
                 </div>
@@ -351,7 +447,7 @@ export function CollectPaymentModal({
             rows={2}
             className="w-full text-sm border border-purple-200 rounded-lg px-3 py-2 bg-white resize-none focus:outline-none focus:ring-2 focus:ring-purple-300 mb-2"
           />
-          <div className="flex gap-2">
+          <div className="grid gap-2 sm:grid-cols-2">
             <Button
               variant="outline"
               size="sm"
@@ -381,11 +477,11 @@ export function CollectPaymentModal({
       onClose={onClose}
       title={`Collect Payment — ${student.fullName}`}
       subtitle={`Reg: ${student.regNo} · ${student.mobile}`}
-      maxWidth="max-w-5xl"
+      maxWidth="max-w-7xl"
     >
-      <div className="grid grid-cols-[1fr_280px] gap-6">
+      <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px] xl:gap-6">
         {/* Left: month + invoices */}
-        <div>
+        <div className="min-w-0">
           <div className="mb-4">
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Select Month</p>
             {fetchError ? (
@@ -417,7 +513,7 @@ export function CollectPaymentModal({
                 {loadingInvoices ? (
                   <p className="text-sm text-slate-400">Loading invoices…</p>
                 ) : (
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex max-h-36 flex-wrap gap-1.5 overflow-y-auto pr-1 sm:max-h-44">
                     {allMonths.map(m => {
                       const aggStatus = getMonthAggStatus(monthGroups.get(m) ?? []);
                       return (
@@ -432,14 +528,14 @@ export function CollectPaymentModal({
                             setPaymentAmount('');
                           }}
                           className={cn(
-                            'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-bold transition-colors cursor-pointer',
+                            'flex min-w-0 items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-bold transition-colors cursor-pointer sm:px-3 sm:text-sm',
                             selMonth === m
                               ? 'border-rose-300 bg-rose-50 text-rose-700'
                               : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
                           )}
                         >
-                          {m ? fmtMonth(m) : 'One-Time / Program'}
-                          <AppBadge label={aggStatus} color={statusBadgeColor[aggStatus] ?? 'red'} />
+                          <span className="truncate">{m ? fmtMonth(m) : 'One-Time / Program'}</span>
+                          <AppBadge label={statusLabel(aggStatus)} color={statusBadgeColor[aggStatus] ?? 'red'} />
                         </button>
                       );
                     })}
@@ -449,41 +545,52 @@ export function CollectPaymentModal({
             )}
           </div>
 
-          <div className="border border-slate-200 rounded-xl overflow-hidden">
+          <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200">
             <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200">
               <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                 Invoices — {selMonth ? fmtMonth(selMonth) : 'One-Time / Program'}
               </p>
             </div>
             {displayInvoices.length > 0 ? (
-              <table className="w-full text-sm border-collapse">
-                <thead>
-                  <tr className="bg-slate-50/50">
-                    {['Description', 'Branch', 'Total', 'Paid', 'Due', 'Status', 'Due Date', ''].map(h => (
-                      <th
-                        key={h}
-                        className="px-3 py-2 text-left text-[11px] font-bold text-slate-400 uppercase border-b border-slate-200"
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
+              <div className="overflow-x-auto">
+                <table className="min-w-[920px] w-full border-collapse text-sm">
+                  <thead>
+                    <tr className="bg-slate-50/50">
+                      {['Description', 'Branch', 'Gross', 'Discount', 'Waiver', 'Paid', 'Payable', 'Due', 'Status', ''].map(h => (
+                        <th
+                          key={h}
+                          className="px-3 py-2 text-left text-[11px] font-bold text-slate-400 uppercase border-b border-slate-200"
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
                   {displayInvoices.map(inv => {
                     const invoiceDue = Math.max(0, inv.amount - inv.paidAmount);
                     return (
                     <Fragment key={inv.id}>
                       <tr className="border-b border-slate-100">
-                        <td className="px-3 py-2.5 font-semibold text-slate-900">
+                        <td className="max-w-[280px] px-3 py-2.5 font-semibold text-slate-900">
                           {inv.month ? `${fmtMonth(inv.month)} — Monthly Invoice` : 'One-Time / Program Invoice'}
+                          {inv.dueDate ? <span className="block text-[11px] font-medium text-slate-400">Due {inv.dueDate}</span> : null}
                         </td>
                         <td className="px-3 py-2.5 text-slate-500 text-xs">{inv.branchName || '—'}</td>
                         <td className="px-3 py-2.5">
-                          <span className="font-bold text-slate-900">{fmt(inv.amount)}</span>
+                          <span className="font-bold text-slate-900">{fmt((inv.items ?? []).reduce((sum, item) => sum + Number(item.grossAmount ?? item.unitPrice * item.qty), 0))}</span>
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <span className="font-semibold text-blue-600">{inv.discountAmount ? `−${fmt(inv.discountAmount)}` : '—'}</span>
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <span className="font-semibold text-purple-600">{inv.waivedAmount ? `−${fmt(inv.waivedAmount)}` : '—'}</span>
                         </td>
                         <td className="px-3 py-2.5">
                           <span className="font-semibold text-emerald-600">{fmt(inv.paidAmount)}</span>
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <span className="font-bold text-slate-900">{fmt(inv.amount)}</span>
                         </td>
                         <td className="px-3 py-2.5">
                           <span className={cn('font-bold', invoiceDue > 0 ? 'text-rose-700' : 'text-slate-400')}>
@@ -492,16 +599,10 @@ export function CollectPaymentModal({
                         </td>
                         <td className="px-3 py-2.5">
                           <AppBadge
-                            label={inv.status}
-                            color={
-                              inv.status === 'PAID' ? 'green'
-                              : inv.status === 'WAIVED' ? 'purple'
-                              : inv.status === 'PARTIAL' ? 'amber'
-                              : 'red'
-                            }
+                            label={inv.displayLabel ?? statusLabel(inv.displayStatus ?? inv.status)}
+                            color={statusBadgeColor[inv.displayStatus ?? inv.status] ?? 'red'}
                           />
                         </td>
-                        <td className="px-3 py-2.5 text-slate-500 text-xs">{inv.dueDate}</td>
                         <td className="px-3 py-2.5">
                           <button
                             onClick={() => openInvoicePdf(inv.id)}
@@ -514,34 +615,53 @@ export function CollectPaymentModal({
                         </td>
                       </tr>
                       {inv.items?.map((item, ii) => {
+                        const itemGross = Number(item.grossAmount ?? item.unitPrice * item.qty);
+                        const itemDiscount = Number(item.discountAmount ?? 0);
+                        const itemWaived = Number(item.waivedAmount ?? 0);
                         const itemTotal = Number(item.payableAmount ?? item.unitPrice * item.qty);
                         const itemPaid = Number(item.paidAmount ?? 0);
                         const itemDue = Number(item.dueAmount ?? Math.max(0, itemTotal - itemPaid));
                         return (
                           <tr key={`${inv.id}-item-${ii}`} className="bg-slate-50/60 border-b border-slate-100">
-                            <td className="px-3 py-1.5 text-xs text-slate-500 pl-7">
-                              ↳ {item.title}
+                            <td className="max-w-[280px] px-3 py-1.5 pl-7 text-xs text-slate-500">
+                              <span className="inline-block max-w-full truncate align-bottom">↳ {item.title}</span>
                               {item.qty > 1 && <span className="text-slate-400 ml-1">×{item.qty}</span>}
                             </td>
                             <td className="px-3 py-1.5 text-xs text-slate-400">—</td>
                             <td className="px-3 py-1.5 text-xs text-slate-500">
-                              {fmt(itemTotal)}
+                              {fmt(itemGross)}
+                            </td>
+                            <td className="px-3 py-1.5 text-xs text-blue-600">
+                              {itemDiscount > 0 ? `−${fmt(itemDiscount)}` : '—'}
+                            </td>
+                            <td className="px-3 py-1.5 text-xs text-purple-600">
+                              {itemWaived > 0 ? `−${fmt(itemWaived)}` : '—'}
                             </td>
                             <td className="px-3 py-1.5 text-xs font-semibold text-emerald-600">
                               {fmt(itemPaid)}
                             </td>
+                            <td className="px-3 py-1.5 text-xs font-semibold text-slate-600">
+                              {fmt(itemTotal)}
+                            </td>
                             <td className={cn('px-3 py-1.5 text-xs font-semibold', itemDue > 0 ? 'text-rose-600' : 'text-slate-400')}>
                               {fmt(itemDue)}
                             </td>
-                            <td colSpan={3} />
+                            <td className="px-3 py-1.5">
+                              <AppBadge
+                                label={statusLabel(item.lineStatus)}
+                                color={statusBadgeColor[item.lineStatus ?? 'DUE'] ?? 'red'}
+                              />
+                            </td>
+                            <td />
                           </tr>
                         );
                       })}
                     </Fragment>
                     );
                   })}
-                </tbody>
-              </table>
+                  </tbody>
+                </table>
+              </div>
             ) : (
               <p className="text-center py-6 text-slate-400 text-sm">No invoices for this month</p>
             )}
@@ -549,21 +669,23 @@ export function CollectPaymentModal({
         </div>
 
         {/* Right: payment panel */}
-        <div>
-          {monthStatus === 'PAID' || monthStatus === 'WAIVED' ? (
+        <div className="min-w-0 xl:sticky xl:top-0 xl:self-start">
+          {['PAID', 'PAID_WITH_WAIVER', 'WAIVED', 'SETTLED'].includes(monthStatus) ? (
             /* Already settled — show status instead of payment form */
             <>
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 text-center mb-3.5">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center mb-3.5 sm:p-6">
                 <div className="flex justify-center mb-3">
                   <AppBadge
-                    label={monthStatus === 'PAID' ? '✓ Payment Complete' : '✓ Month Waived'}
-                    color={monthStatus === 'PAID' ? 'green' : 'purple'}
+                    label={`✓ ${statusLabel(monthStatus)}`}
+                    color={statusBadgeColor[monthStatus] ?? 'slate'}
                   />
                 </div>
                 <p className="text-sm text-slate-500">
                   {monthStatus === 'PAID'
-                    ? 'This month has been fully paid.'
-                    : 'This month has been waived — no payment required.'}
+                    ? 'This month has been fully paid by cash.'
+                    : monthStatus === 'WAIVED'
+                    ? 'This month has been waived — no payment required.'
+                    : 'This month is settled; due is zero but not only from cash payment.'}
                 </p>
               </div>
               {renderCourseWaiverPanel()}
@@ -571,20 +693,40 @@ export function CollectPaymentModal({
           ) : (
             /* Payment form */
             <>
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-3.5">
-                <div className="flex justify-between mb-2">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 mb-3.5 sm:p-4">
+                <div className="flex justify-between gap-3 mb-2">
                   <span className="text-sm text-slate-500">Total payable</span>
-                  <span className="font-bold text-sm">{fmt(totalPayable)}</span>
+                  <span className="shrink-0 font-bold text-sm">{fmt(totalPayable)}</span>
                 </div>
-                {totalAlreadyPaid > 0 && (
-                  <div className="flex justify-between mb-2">
-                    <span className="text-sm text-slate-500">Already paid(−)</span>
-                    <span className="font-semibold text-sm text-emerald-600">−{fmt(totalAlreadyPaid)}</span>
+                {totalDiscounted > 0 && (
+                  <div className="flex justify-between gap-3 mb-2">
+                    <span className="text-sm text-slate-500">Discount(−)</span>
+                    <span className="shrink-0 font-semibold text-sm text-blue-600">−{fmt(totalDiscounted)}</span>
                   </div>
                 )}
-                <div className="flex justify-between mb-3">
+                {totalWaived > 0 && (
+                  <div className="flex justify-between gap-3 mb-2">
+                    <span className="text-sm text-slate-500">Waived(−)</span>
+                    <span className="shrink-0 font-semibold text-sm text-purple-600">−{fmt(totalWaived)}</span>
+                  </div>
+                )}
+                {totalSettlement !== 0 && (
+                  <div className="flex justify-between gap-3 mb-2">
+                    <span className="text-sm text-slate-500">Settlement</span>
+                    <span className={cn('shrink-0 font-semibold text-sm', totalSettlement > 0 ? 'text-emerald-600' : 'text-amber-600')}>
+                      {totalSettlement > 0 ? '−' : '+'}{fmt(Math.abs(totalSettlement))}
+                    </span>
+                  </div>
+                )}
+                {totalAlreadyPaid > 0 && (
+                  <div className="flex justify-between gap-3 mb-2">
+                    <span className="text-sm text-slate-500">Already paid(−)</span>
+                    <span className="shrink-0 font-semibold text-sm text-emerald-600">−{fmt(totalAlreadyPaid)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between gap-3 mb-3">
                   <span className="text-sm text-slate-500">Monthly scholarship(−)</span>
-                  <span className="font-semibold text-sm text-slate-400">৳0</span>
+                  <span className="shrink-0 font-semibold text-sm text-slate-400">৳0</span>
                 </div>
                 <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Additional discount(−)</p>
                 <Input
@@ -602,13 +744,13 @@ export function CollectPaymentModal({
                 )}
                 {!discountCapped && <div className="mb-3" />}
                 <div className="bg-rose-50 border border-rose-200 rounded-lg px-3.5 py-2.5 mb-3">
-                  <div className="flex justify-between items-center">
+                  <div className="flex items-center justify-between gap-3">
                     <span className="font-bold text-sm text-slate-900">Due amount</span>
-                    <span className="font-black text-2xl text-rose-700">{fmt(netDue)}</span>
+                    <span className="shrink-0 text-right text-xl font-black text-rose-700 sm:text-2xl">{fmt(netDue)}</span>
                   </div>
                 </div>
 
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Payment Amount (Enter amount or leave blank for full payment)</p>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Payment Amount</p>
                 <div className="grid gap-1.5 mb-2">
                   {[
                     { label: 'Pay Admission Due', amount: admissionDue, disabled: admissionDue <= 0 },
@@ -625,14 +767,14 @@ export function CollectPaymentModal({
                       disabled={action.disabled}
                       onClick={() => setPaymentAmount(String(Math.min(action.amount, netDue)))}
                       className={cn(
-                        'flex justify-between px-2.5 py-1.5 rounded-md border text-xs font-bold transition-colors',
+                        'flex justify-between gap-3 px-2.5 py-1.5 rounded-md border text-xs font-bold transition-colors',
                         action.disabled
                           ? 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed'
                           : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700 cursor-pointer',
                       )}
                     >
-                      <span>{action.label}</span>
-                      <span>{fmt(action.amount)}</span>
+                      <span className="min-w-0 text-left">{action.label}</span>
+                      <span className="shrink-0">{fmt(action.amount)}</span>
                     </button>
                   ))}
                 </div>
@@ -657,19 +799,19 @@ export function CollectPaymentModal({
               </div>
 
               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Payment Method</p>
-              <div className="grid grid-cols-2 gap-2 mb-3.5">
+              <div className="grid grid-cols-2 gap-2 mb-3.5 sm:grid-cols-3 xl:grid-cols-2">
                 {methods.map(m => (
                   <button
                     key={m.id}
                     onClick={() => setMethod(m.id)}
                     className={cn(
-                      'flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-lg border-2 text-sm font-bold transition-all cursor-pointer',
+                      'flex min-w-0 items-center justify-center gap-1.5 px-2 py-2.5 rounded-lg border-2 text-xs font-bold transition-all cursor-pointer sm:text-sm',
                       method === m.id
                         ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
                         : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
                     )}
                   >
-                    <span>{m.icon}</span> {m.label}
+                    <span className="shrink-0">{m.icon}</span> <span className="truncate">{m.label}</span>
                     {method === m.id && <span className="w-2 h-2 rounded-full bg-indigo-600 shrink-0" />}
                   </button>
                 ))}
@@ -705,6 +847,26 @@ export function CollectPaymentModal({
               {renderCourseWaiverPanel()}
             </>
           )}
+          <div className="mt-3.5 rounded-xl border border-slate-200 bg-white p-3.5">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Settlement / Audit Trail</p>
+              <AppBadge label={auditTrail.length ? `${auditTrail.length}` : 'Clear'} color={auditTrail.length ? 'slate' : 'green'} />
+            </div>
+            {auditTrail.length > 0 ? (
+              <div className="space-y-2">
+                {auditTrail.slice(0, 8).map((entry, index) => (
+                  <div key={`${entry.label}-${index}`} className="rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-2">
+                    <div className="mb-1">
+                      <AppBadge label={entry.label} color={entry.tone} />
+                    </div>
+                    <p className="break-words text-xs font-semibold text-slate-600">{entry.detail}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs font-semibold text-slate-400">No waiver, discount, or settlement adjustment for this selected month.</p>
+            )}
+          </div>
         </div>
       </div>
     </AppModal>

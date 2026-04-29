@@ -1,4 +1,13 @@
 export type InvoiceStatus = 'DRAFT' | 'ISSUED' | 'PAID' | 'PARTIAL' | 'CANCELLED' | 'WAIVED';
+export type InvoiceDisplayStatus =
+  | 'PAID'
+  | 'PAID_WITH_WAIVER'
+  | 'WAIVED'
+  | 'PARTIALLY_WAIVED'
+  | 'PARTIAL'
+  | 'SETTLED'
+  | 'DUE'
+  | 'CANCELLED';
 export type InvoiceItemType = 'COURSE' | 'BOOK' | 'FEE' | 'ADMISSION_FEE' | 'OTHER';
 
 export interface InvoiceItem {
@@ -10,9 +19,17 @@ export interface InvoiceItem {
   qty: number;
   unitPrice: number | string;
   lineTotal: number | string;
+  grossAmount?: number | string;
+  discountAmount?: number | string;
+  waivedAmount?: number | string;
+  settlementAmount?: number | string;
   payableAmount?: number | string;
   paidAmount?: number | string;
   dueAmount?: number | string;
+  lineStatus?: InvoiceDisplayStatus;
+  waiverReason?: string | null;
+  waivedByUserId?: string | null;
+  waivedAt?: string | null;
   allocationPriority?: number;
   /** Mid-month cancellation / revision — line excluded from active subtotal in UI */
   cancelled?: boolean;
@@ -45,9 +62,23 @@ export interface Invoice {
   discountAmount: number | string;
   discountReference?: string | null;
   monthlyDiscountAmount?: number | string;
+  settlementAmount?: number | string;
   payableAmount: number | string;
   paidAmount: number | string;
   dueAmount: number | string;
+  displayStatus?: InvoiceDisplayStatus;
+  displayLabel?: string;
+  settlementSummary?: {
+    grossAmount: number | string;
+    discountAmount: number | string;
+    waivedAmount: number | string;
+    settlementAmount: number | string;
+    paidAmount: number | string;
+    dueAmount: number | string;
+    payableAmount: number | string;
+    displayStatus: InvoiceDisplayStatus;
+    displayLabel: string;
+  };
   nextPaymentDueDate?: string | null;
   issuedAt?: string | null;
   createdAt: string;
