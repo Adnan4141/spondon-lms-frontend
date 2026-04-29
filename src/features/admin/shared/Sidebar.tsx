@@ -48,12 +48,6 @@ type MenuItem = {
 
 type MenuSection = { label: string; items: MenuItem[] };
 
-function can(role: string | null, ...allowed: string[]): boolean {
-  if (!role) return false;
-  if (role === 'SUPER_ADMIN') return true;
-  return allowed.includes(role);
-}
-
 function buildMenuSections(role: string | null): MenuSection[] {
   const isBranchAdmin = role === 'BRANCH_ADMIN';
   const isAccounts = role === 'ACCOUNTS';
@@ -63,7 +57,6 @@ function buildMenuSections(role: string | null): MenuSection[] {
   const overviewItems: MenuItem[] = isBranchAdmin
     ? [
         { title: 'Branch dashboard', href: '/admin/branch', icon: Building2, color: 'text-sky-600', bg: 'bg-sky-50' },
-        { title: 'All modules', href: '/admin', icon: LayoutDashboard, color: 'text-blue-500', bg: 'bg-blue-50' },
       ]
     : [
         { title: 'Dashboard', href: '/admin', icon: LayoutDashboard, color: 'text-blue-500', bg: 'bg-blue-50' },
@@ -89,7 +82,7 @@ function buildMenuSections(role: string | null): MenuSection[] {
     { title: 'Attendance Sheet', href: '/admin/attendance-sheet', icon: ClipboardList, color: 'text-emerald-500', bg: 'bg-emerald-50' },
   ];
   const visibleCourseItems = isBranchAdmin
-    ? courseItems.filter((item) => ['/admin/batches', '/admin/routine', '/admin/attendance-sheet'].includes(item.href))
+    ? courseItems.filter((item) => item.href === '/admin/batches')
     : courseItems;
   const showCourse = !isAccounts && visibleCourseItems.length > 0;
 
@@ -102,6 +95,9 @@ function buildMenuSections(role: string | null): MenuSection[] {
   // ----- Exam -----
   const examItems: MenuItem[] = [
     { title: 'Exam', href: '/admin/exam', icon: ClipboardList, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+    ...(isBranchAdmin
+      ? [{ title: 'Result approvals', href: '/admin/results/approvals', icon: Award, color: 'text-indigo-600', bg: 'bg-indigo-50' }]
+      : []),
   ];
   const showExam = !isAccounts;
 
@@ -113,7 +109,7 @@ function buildMenuSections(role: string | null): MenuSection[] {
     { title: 'Institutes', href: '/admin/institutes', icon: School, color: 'text-rose-500', bg: 'bg-rose-50' },
     { title: 'Reviews', href: '/admin/testimonials', icon: MessageSquare, color: 'text-indigo-600', bg: 'bg-indigo-50' },
   ].filter((item) => {
-    if (isBranchAdmin) return item.href === '/admin/teachers';
+    if (isBranchAdmin) return false;
     if (isModerator) return item.href === '/admin/teachers';
     if (isAccounts) return false;
     return true;
@@ -140,9 +136,7 @@ function buildMenuSections(role: string | null): MenuSection[] {
         ['/admin/monthly-billing', '/admin/payouts', '/admin/reports', '/admin/accounting', '/admin/inventory', '/admin/books'].includes(i.href),
       )
     : isBranchAdmin
-    ? allAdminItems.filter((i) =>
-        ['/admin/monthly-billing', '/admin/inventory', '/admin/books'].includes(i.href),
-      )
+    ? []
     : isModerator
     ? []
     : allAdminItems;
@@ -163,7 +157,7 @@ function buildMenuSections(role: string | null): MenuSection[] {
   if (adminItems.length > 0) sections.push({ label: 'Administrative', items: adminItems });
 
   // ----- Landing CMS (SUPER_ADMIN + BRANCH_ADMIN) -----
-  if (can(role, 'BRANCH_ADMIN')) {
+  if (role === 'SUPER_ADMIN') {
     sections.push({
       label: 'Website',
       items: [

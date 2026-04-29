@@ -1,14 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Plus, XCircle } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Plus, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { getBatches } from '@/lib/api/batches';
-import { getEnrollments } from '@/lib/api/enrollments';
+import { cancelFullEnrollment, getEnrollments } from '@/lib/api/enrollments';
 import type { BranchOption, Course, Enrollment, Program, Student } from '../types';
-import { avatarHue, fmt, fmtMonth, nextMonth, toLocalEnrollment } from '../utils';
+import { avatarHue, currentMonth, fmt, fmtMonth, nextMonth, toLocalEnrollment } from '../utils';
 import { StudentAdminBadge as AppBadge } from '../components/StudentAdminBadge';
+import { StudentAdminField as Field } from '../components/StudentAdminField';
+import { StudentAdminModal as AppModal } from '../components/StudentAdminModal';
+import { StudentAdminSelect as AppSelect } from '../components/StudentAdminSelect';
+import { StudentMonthInput as MonthInput } from '../components/StudentMonthInput';
 import { ManageEnrollmentModal } from './ManageEnrollmentModal';
 
 export function EnrolledCoursesView({
@@ -24,6 +28,7 @@ export function EnrolledCoursesView({
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [loadingEnrollments, setLoadingEnrollments] = useState(true);
   const [manageModal, setManageModal] = useState<{ enrollment: Enrollment; initialCancelCourseId?: string } | null>(null);
+  const [cancelModal, setCancelModal] = useState<Enrollment | null>(null);
   const [batchesMap, setBatchesMap] = useState<Map<string, string>>(new Map());
 
   // Load all batches and build a lookup map
@@ -46,6 +51,12 @@ export function EnrolledCoursesView({
       setLoadingEnrollments(false);
     });
   }, [student.id]);
+
+  const reloadEnrollments = () => {
+    getEnrollments({ studentUserId: student.id, limit: 50 }).then(res => {
+      if (res.success && res.data) setEnrollments(res.data.map(toLocalEnrollment));
+    });
+  };
 
   const hue = avatarHue(student.fullName);
 
@@ -140,17 +151,28 @@ export function EnrolledCoursesView({
                   </span>
                 </div>
               </div>
-              <Button
-                size="sm"
-                disabled={!canManageEnrollment}
-                onClick={() => canManageEnrollment && setManageModal({ enrollment })}
-                className={cn(
-                  'gap-1.5 bg-slate-900 text-white hover:bg-indigo-600 transition-all shrink-0',
-                  !canManageEnrollment && 'opacity-50 cursor-not-allowed',
-                )}
-              >
-                <Plus className="h-3.5 w-3.5" /> Manage Enrollment
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={enrollment.status === 'CANCELLED'}
+                  onClick={() => setCancelModal(enrollment)}
+                  className="gap-1.5 border-rose-200 bg-white text-rose-600 hover:bg-rose-50 shrink-0"
+                >
+                  <XCircle className="h-3.5 w-3.5" /> Cancel Enrollment
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={!canManageEnrollment}
+                  onClick={() => canManageEnrollment && setManageModal({ enrollment })}
+                  className={cn(
+                    'gap-1.5 bg-slate-900 text-white hover:bg-indigo-600 transition-all shrink-0',
+                    !canManageEnrollment && 'opacity-50 cursor-not-allowed',
+                  )}
+                >
+                  <Plus className="h-3.5 w-3.5" /> Manage Enrollment
+                </Button>
+              </div>
             </div>
 
             {enrollment.status !== 'ACTIVE' && (
@@ -275,6 +297,124 @@ export function EnrolledCoursesView({
           }}
         />
       )}
+      {cancelModal && (
+        <FullEnrollmentCancelModal
+          enrollment={cancelModal}
+          programName={programs.find((p) => p.id === cancelModal.programId)?.name ?? ''}
+          onClose={() => setCancelModal(null)}
+          onDone={(message) => {
+            showToast(message, 'success');
+            setCancelModal(null);
+            reloadEnrollments();
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function FullEnrollmentCancelModal({
+  enrollment,
+  programName,
+  onClose,
+  onDone,
+}: {
+  enrollment: Enrollment;
+  programName: string;
+  onClose: () => void;
+  onDone: (message: string) => void;
+}) {
+  const [effectiveMonth, setEffectiveMonth] = useState(() => currentMonth());
+  const [cancellationPolicy, setCancellationPolicy] = useState<'FULL_REMOVE' | 'PRORATE_CURRENT' | 'CANCEL_FROM_NEXT_MONTH'>('FULL_REMOVE');
+  const [reason, setReason] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async () => {
+    if (!reason.trim()) {
+      setError('Cancellation reason is required.');
+      return;
+    }
+    setSaving(true);
+    setError('');
+    try {
+      const res = await cancelFullEnrollment(enrollment.id, {
+        reason: reason.trim(),
+        effectiveMonth,
+        cancellationPolicy,
+      });
+      if (!res.success) {
+        setError((res as { message?: string }).message ?? 'Failed to cancel enrollment');
+        return;
+      }
+      onDone(`Enrollment cancellation ${cancellationPolicy === 'CANCEL_FROM_NEXT_MONTH' ? 'scheduled' : 'completed'} from ${fmtMonth(res.data?.effectiveMonth || effectiveMonth)}.`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <AppModal
+      open
+      onClose={saving ? () => undefined : onClose}
+      title="Cancel Full Enrollment"
+      subtitle={programName}
+      maxWidth="max-w-xl"
+    >
+      <div className="bg-rose-50 border border-rose-200 rounded-xl px-4 py-3 mb-5 flex gap-2.5">
+        <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+        <p className="text-sm text-rose-800 font-semibold">
+          This cancels all active courses in the enrollment. Paid invoices stay unchanged and adjustment settlements are created when needed.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Effective From Month">
+          <MonthInput
+            value={effectiveMonth}
+            onChange={setEffectiveMonth}
+            disabled={cancellationPolicy === 'CANCEL_FROM_NEXT_MONTH'}
+          />
+        </Field>
+        <Field label="Cancellation Policy">
+          <AppSelect
+            value={cancellationPolicy}
+            onChange={(value) => {
+              const next = value as typeof cancellationPolicy;
+              setCancellationPolicy(next);
+              if (next === 'CANCEL_FROM_NEXT_MONTH') setEffectiveMonth(nextMonth());
+            }}
+            options={[
+              { value: 'FULL_REMOVE', label: 'Full remove' },
+              { value: 'PRORATE_CURRENT', label: 'Prorate current' },
+              { value: 'CANCEL_FROM_NEXT_MONTH', label: 'Cancel next month' },
+            ]}
+          />
+        </Field>
+      </div>
+
+      <Field label="Reason" required>
+        <textarea
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+          rows={4}
+          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+          placeholder="Write the reason for cancellation"
+        />
+      </Field>
+
+      {error && <p className="text-sm text-rose-600 font-semibold mb-3">{error}</p>}
+
+      <div className="flex justify-end gap-2.5">
+        <Button variant="outline" onClick={onClose} disabled={saving}>Keep Enrollment</Button>
+        <Button
+          onClick={handleSubmit}
+          disabled={saving || !reason.trim()}
+          className="bg-rose-600 text-white hover:bg-rose-700"
+        >
+          {saving ? 'Cancelling...' : 'Confirm Cancellation'}
+        </Button>
+      </div>
+    </AppModal>
   );
 }

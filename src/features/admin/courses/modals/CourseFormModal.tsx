@@ -1103,13 +1103,31 @@ export function CourseFormModal({
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Catalog & enrollment</p>
                 <div className="flex flex-wrap gap-2">
                   {([
-                    { key: 'featured' as const, label: 'Featured', icon: <Star className="h-4 w-4 text-amber-500" /> },
-                    { key: 'websiteVisible' as const, label: 'On site', icon: <Eye className="h-4 w-4 text-slate-600" /> },
-                    { key: 'enrollmentVisible' as const, label: 'Enrollment', icon: <DoorOpen className="h-4 w-4 text-emerald-600" /> },
+                    {
+                      key: 'featured' as const,
+                      label: 'Featured',
+                      title:
+                        'When on, this course can appear in the home page Featured section (only active, public-catalog courses).',
+                      icon: <Star className="h-4 w-4 text-amber-500" />,
+                    },
+                    {
+                      key: 'websiteVisible' as const,
+                      label: 'Public catalog',
+                      title:
+                        'When off, hides the course from the public website (All Courses, course links). Admin and assigned staff still manage it; enrolled students keep access.',
+                      icon: <Eye className="h-4 w-4 text-slate-600" />,
+                    },
+                    {
+                      key: 'enrollmentVisible' as const,
+                      label: 'Enrollment',
+                      title: 'Controls visibility for enrollment flows where this flag is honored.',
+                      icon: <DoorOpen className="h-4 w-4 text-emerald-600" />,
+                    },
                   ]).map((item) => (
                     <button
                       key={item.key}
                       type="button"
+                      title={item.title}
                       onClick={() => set(item.key, !form[item.key])}
                       className={cn(
                         'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold transition-colors cursor-pointer',

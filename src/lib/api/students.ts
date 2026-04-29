@@ -11,6 +11,7 @@ export type { Student, CreateStudentDto, UpdateStudentDto, ApiResponse, StudentC
 export async function getStudents(params?: {
   role?: string;
   branchId?: string;
+  programId?: string;
   courseId?: string;
   batchId?: string;
   status?: string;
@@ -21,6 +22,7 @@ export async function getStudents(params?: {
   const role = params?.role?.trim() || 'STUDENT';
   queryParams.append('role', role);
   if (params?.branchId) queryParams.append('branchId', params.branchId);
+  if (params?.programId) queryParams.append('programId', params.programId);
   if (params?.courseId) queryParams.append('courseId', params.courseId);
   if (params?.batchId) queryParams.append('batchId', params.batchId);
   if (params?.status) queryParams.append('status', params.status);
@@ -123,6 +125,7 @@ export async function sendCredentialsEmail(userId: string): Promise<ApiResponse<
 /** Download student list as XLSX. */
 export function exportStudentsUrl(params?: {
   branchId?: string;
+  programId?: string;
   courseId?: string;
   batchId?: string;
   status?: string;
@@ -131,6 +134,7 @@ export function exportStudentsUrl(params?: {
   const { API_BASE_URL } = require('../api');
   const qs = new URLSearchParams();
   if (params?.branchId && params.branchId !== 'all') qs.set('branchId', params.branchId);
+  if (params?.programId && params.programId !== 'all') qs.set('programId', params.programId);
   if (params?.courseId && params.courseId !== 'all') qs.set('courseId', params.courseId);
   if (params?.batchId && params.batchId !== 'all') qs.set('batchId', params.batchId);
   if (params?.status && params.status !== 'all') qs.set('status', params.status);

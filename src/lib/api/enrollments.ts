@@ -159,6 +159,32 @@ export async function deleteEnrollment(id: string): Promise<ApiResponse<void>> {
   });
 }
 
+export async function cancelFullEnrollment(
+  id: string,
+  data: {
+    reason: string;
+    effectiveMonth?: string;
+    cancellationPolicy?: 'FULL_REMOVE' | 'PRORATE_CURRENT' | 'CANCEL_FROM_NEXT_MONTH';
+  },
+): Promise<ApiResponse<{
+  enrollmentId: string;
+  effectiveMonth: string;
+  cancellationPolicy: string;
+  cancelledCourses: number;
+  recalculatedInvoices: number;
+}>> {
+  return apiRequest<ApiResponse<{
+    enrollmentId: string;
+    effectiveMonth: string;
+    cancellationPolicy: string;
+    cancelledCourses: number;
+    recalculatedInvoices: number;
+  }>>(`/enrollments/${id}/cancel-full`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
 export async function changeEnrollmentBatch(id: string, courseId: string, batchId: string, reason?: string): Promise<ApiResponse<Enrollment>> {
   return apiRequest<ApiResponse<Enrollment>>(`/enrollments/${id}/batch`, {
     method: 'PUT',

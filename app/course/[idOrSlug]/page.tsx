@@ -61,6 +61,13 @@ import {
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
+/** Marketing page: catalog-hidden courses are blocked for anonymous users at the API; extra guard if response is ever inconsistent. */
+function shouldBlockCatalogHiddenCourse(data: { websiteVisible?: boolean } | null): boolean {
+  if (!data || data.websiteVisible !== false) return false;
+  if (typeof window === 'undefined') return false;
+  return !localStorage.getItem('auth_token');
+}
+
 export default function CourseDetailsPage() {
     const { idOrSlug } = useParams();
     const { toast, toasts, removeToast } = useToast();
@@ -92,7 +99,13 @@ export default function CourseDetailsPage() {
             setError(null);
             const res = await getCourseById(idOrSlug as string);
             if (res.success && res.data) {
-                setCourse(res.data as unknown as CourseDetails);
+                const raw = res.data as unknown as CourseDetails;
+                if (shouldBlockCatalogHiddenCourse(raw)) {
+                    setCourse(null);
+                    setError('This course is not available on the website.');
+                    return;
+                }
+                setCourse(raw);
             } else {
                 setError(res.message || 'Course not found');
             }

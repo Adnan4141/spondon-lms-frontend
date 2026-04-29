@@ -3,7 +3,7 @@ import { appendActorUserIdToFormData, getActorUserIdQuery } from '../actor-user'
 import type { Course, CreateCourseDto, UpdateCourseDto, GetCoursesParams, ApiResponse } from '@/types/course';
 export type { Course, CreateCourseDto, UpdateCourseDto, GetCoursesParams, ApiResponse };
 
-export async function getCourses(params?: GetCoursesParams & { type?: string; isFree?: boolean; featured?: boolean }): Promise<ApiResponse<Course[]>> {
+export async function getCourses(params?: GetCoursesParams & { type?: string; isFree?: boolean; featured?: boolean; enrollmentVisible?: boolean }): Promise<ApiResponse<Course[]>> {
   const queryParams = new URLSearchParams();
   
   if (params?.programId) queryParams.append('programId', params.programId);
@@ -12,6 +12,7 @@ export async function getCourses(params?: GetCoursesParams & { type?: string; is
   if (params?.isFree !== undefined) queryParams.append('isFree', String(params.isFree));
   if (params?.featured !== undefined) queryParams.append('featured', String(params.featured));
   if (params?.websiteVisible !== undefined) queryParams.append('websiteVisible', String(params.websiteVisible));
+  if (params?.enrollmentVisible !== undefined) queryParams.append('enrollmentVisible', String(params.enrollmentVisible));
   if (params?.teacherUserId) queryParams.append('teacherUserId', params.teacherUserId);
   if (params?.grade) queryParams.append('grade', params.grade);
   if (params?.group) queryParams.append('group', params.group);

@@ -358,6 +358,9 @@ export interface GetCoursesParams {
   programId?: string;
   status?: CourseStatus;
   websiteVisible?: boolean;
+  /** Public landing / featured strip */
+  featured?: boolean;
+  enrollmentVisible?: boolean;
   grade?: string;
   group?: string;
   /** When set, returns courses where this user is on CourseTeacher OR CourseCollaborator. */

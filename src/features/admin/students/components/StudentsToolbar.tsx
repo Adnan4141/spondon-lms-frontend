@@ -1,6 +1,6 @@
 'use client';
 
-import { FileUp, Plus, Search, Users } from 'lucide-react';
+import { Download, FileUp, Plus, Search, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { BranchOption } from '../types';
@@ -24,6 +24,8 @@ export function StudentsToolbar({
   onStatusFilterChange,
   programs,
   branches,
+  lockedBranchId,
+  onDownload,
   onAddStudent,
   onBulkImport,
 }: {
@@ -44,6 +46,8 @@ export function StudentsToolbar({
   onStatusFilterChange: (value: string) => void;
   programs: { id: string; name: string }[];
   branches: BranchOption[];
+  lockedBranchId?: string;
+  onDownload: () => void;
   onAddStudent: () => void;
   onBulkImport: () => void;
 }) {
@@ -65,6 +69,11 @@ export function StudentsToolbar({
       label: b.name,
     })),
   ];
+  const branchOptions = lockedBranchId
+    ? branches
+        .filter((b) => b.id === lockedBranchId)
+        .map((b) => ({ value: b.id, label: b.name }))
+    : [{ value: 'ALL', label: 'All branches' }, ...branches.map(b => ({ value: b.id, label: b.name }))];
 
   return (
     <div className="px-5 py-4 border-b border-slate-100 space-y-2">
@@ -117,7 +126,8 @@ export function StudentsToolbar({
           <StudentAdminSelect
             value={branchFilter}
             onChange={onBranchFilterChange}
-            options={[{ value: 'ALL', label: 'All branches' }, ...branches.map(b => ({ value: b.id, label: b.name }))]}
+            options={branchOptions.length > 0 ? branchOptions : [{ value: branchFilter, label: 'Own branch' }]}
+            disabled={Boolean(lockedBranchId)}
           />
         </div>
         <div className="w-[min(100%,9rem)] sm:w-36">
@@ -127,6 +137,13 @@ export function StudentsToolbar({
             options={[{ value: 'ALL', label: 'All status' }, { value: 'ACTIVE', label: 'Active' }, { value: 'BLOCKED', label: 'Blocked' }]}
           />
         </div>
+        <Button
+          variant="outline"
+          onClick={onDownload}
+          className="gap-2 shrink-0"
+        >
+          <Download className="h-4 w-4" /> Download
+        </Button>
         <Button
           variant="outline"
           onClick={onBulkImport}

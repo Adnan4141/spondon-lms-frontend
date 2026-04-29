@@ -8,6 +8,7 @@ import { getPrograms } from '@/lib/api/programs';
 import { getCourses } from '@/lib/api/courses';
 import { getBranches } from '@/lib/api/branches';
 import { getUsers } from '@/lib/api/users';
+import { exportStudentsUrl } from '@/lib/api/students';
 import { getBatches, type Batch } from '@/lib/api/batches';
 import { AddStudentModal, type AddStudentSaveMeta } from '@/features/admin/students';
 import { BulkImportStudentsModal } from '@/features/admin/students';
@@ -32,6 +33,7 @@ export default function StudentsPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [branchFilter, setBranchFilter] = useState('ALL');
+  const [actor, setActor] = useState<{ role?: string; branchId?: string | null }>({});
   const [programFilter, setProgramFilter] = useState('ALL');
   const [courseFilter, setCourseFilter] = useState('ALL');
   const [batchFilter, setBatchFilter] = useState('ALL');
@@ -59,12 +61,30 @@ export default function StudentsPage() {
     }));
   }, []);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = localStorage.getItem('user');
+      const user = raw ? JSON.parse(raw) : null;
+      const branchId = user?.branchId ? String(user.branchId) : null;
+      setActor({ role: user?.role, branchId });
+      if (user?.role === 'BRANCH_ADMIN' && branchId) {
+        setBranchFilter(branchId);
+      }
+    } catch {
+      setActor({});
+    }
+  }, []);
+
+  const isBranchAdmin = actor.role === 'BRANCH_ADMIN';
+  const scopedBranchId = isBranchAdmin ? actor.branchId || '' : '';
+
   const loadStudents = useCallback(() => {
     setLoadingStudents(true);
     getUsers({
       role: 'STUDENT',
       limit: 500,
-      ...(branchFilter !== 'ALL' ? { branchId: branchFilter } : {}),
+      ...(scopedBranchId ? { branchId: scopedBranchId } : branchFilter !== 'ALL' ? { branchId: branchFilter } : {}),
       ...(statusFilter !== 'ALL' ? { status: statusFilter } : {}),
       // Program only
       ...(programFilter !== 'ALL' && courseFilter === 'ALL'
@@ -84,7 +104,7 @@ export default function StudentsPage() {
         else setStudents([]);
       })
       .finally(() => setLoadingStudents(false));
-  }, [branchFilter, statusFilter, programFilter, courseFilter, batchFilter, mapUsersToStudents]);
+  }, [branchFilter, scopedBranchId, statusFilter, programFilter, courseFilter, batchFilter, mapUsersToStudents]);
 
   useEffect(() => {
     void Promise.resolve().then(loadStudents);
@@ -159,7 +179,7 @@ export default function StudentsPage() {
     return (
       (s.fullName.toLowerCase().includes(q) || s.mobile.includes(q) || s.regNo.includes(q)) &&
       (statusFilter === 'ALL' || s.status === statusFilter) &&
-      (branchFilter === 'ALL' || s.branchId === branchFilter)
+      (scopedBranchId ? s.branchId === scopedBranchId : branchFilter === 'ALL' || s.branchId === branchFilter)
     );
   });
 
@@ -175,6 +195,18 @@ export default function StudentsPage() {
     else if (action === 'payment') setModal({ type: 'payment', student });
     else if (action === 'edit') setEditStudent(student);
     else showToast(`"${action}" action for ${student.fullName}`, 'info');
+  };
+
+  const handleDownloadStudents = () => {
+    const url = exportStudentsUrl({
+      ...(scopedBranchId ? { branchId: scopedBranchId } : branchFilter !== 'ALL' ? { branchId: branchFilter } : {}),
+      ...(programFilter !== 'ALL' ? { programId: programFilter } : {}),
+      ...(courseFilter !== 'ALL' ? { courseId: courseFilter } : {}),
+      ...(batchFilter !== 'ALL' ? { batchId: batchFilter } : {}),
+      ...(statusFilter !== 'ALL' ? { status: statusFilter } : {}),
+      ...(search.trim() ? { search: search.trim() } : {}),
+    });
+    window.open(url, '_blank');
   };
 
   if (view === 'enrollments' && activeStudent) {
@@ -210,12 +242,14 @@ export default function StudentsPage() {
           batchFilter={batchFilter}
           onBatchFilterChange={setBatchFilter}
           batchesForCourse={batchesForCourse}
-          branchFilter={branchFilter}
-          onBranchFilterChange={setBranchFilter}
+          branchFilter={scopedBranchId || branchFilter}
+          onBranchFilterChange={isBranchAdmin ? () => {} : setBranchFilter}
           statusFilter={statusFilter}
           onStatusFilterChange={setStatusFilter}
           programs={programs}
           branches={branches}
+          lockedBranchId={scopedBranchId || undefined}
+          onDownload={handleDownloadStudents}
           onAddStudent={() => setModal({ type: 'addStudent' })}
           onBulkImport={() => setModal({ type: 'bulkImport' })}
         />

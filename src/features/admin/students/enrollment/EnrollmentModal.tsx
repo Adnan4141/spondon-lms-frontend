@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowLeft, Check, Info } from 'lucide-react';
+import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -14,6 +15,18 @@ import { StudentAdminField as Field } from '../components/StudentAdminField';
 import { StudentAdminModal as AppModal } from '../components/StudentAdminModal';
 import { StudentAdminSelect as AppSelect } from '../components/StudentAdminSelect';
 import { StudentMonthInput as MonthInput } from '../components/StudentMonthInput';
+
+type EnrollmentValidationErrors = Partial<Record<string, string>>;
+
+function collectZodErrors(result: unknown): EnrollmentValidationErrors {
+  const parsed = result as { success: boolean; error?: z.ZodError };
+  if (parsed.success || !parsed.error) return {};
+  return parsed.error.issues.reduce<EnrollmentValidationErrors>((acc, issue) => {
+    const key = issue.path.join('.') || 'form';
+    acc[key] ??= issue.message;
+    return acc;
+  }, {});
+}
 
 export function EnrollmentModal({
   student, programs, allCourses, branches, onClose, onSave,
@@ -137,7 +150,67 @@ export function EnrollmentModal({
   const payNow = Math.min(Number(payNowAmount) || 0, totalPayable);
   const dueAfterPay = Math.max(0, totalPayable - payNow);
   const accessPreview = payNow > 0 ? 'FULL_ACCESS' : 'NO_ACCESS';
-  const canNext = selected.length > 0 && selected.every(c => c.type === 'ONLINE' || selCourses[c.id]?.batch);
+  const validation = useMemo(() => {
+    const schema = z.object({
+      programId: z.string().trim().min(1, 'Program is required'),
+      branchId: z.string().trim().min(1, 'Branch is required'),
+      monthlyDiscount: z.coerce.number().refine(Number.isFinite, 'Monthly discount must be a valid amount').min(0, 'Monthly discount cannot be negative'),
+      admDiscount: z.coerce.number().refine(Number.isFinite, 'Admission discount must be a valid amount').min(0, 'Admission discount cannot be negative'),
+      payNowAmount: z.coerce.number().refine(Number.isFinite, 'Pay now must be a valid amount').min(0, 'Pay now cannot be negative'),
+      paymentMethod: z.enum(['CASH', 'BKASH']),
+      selectedCourseCount: z.number().min(1, 'Select at least one course'),
+    }).superRefine((draft, ctx) => {
+      if (draft.monthlyDiscount > totalFee) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['monthlyDiscount'],
+          message: 'Monthly discount cannot exceed selected course total',
+        });
+      }
+      if (program?.admissionFeeEnabled && draft.admDiscount > program.admissionFeeAmount) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['admDiscount'],
+          message: 'Admission discount cannot exceed admission fee',
+        });
+      }
+      if (draft.payNowAmount > totalPayable) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['payNowAmount'],
+          message: 'Pay now cannot exceed total payable',
+        });
+      }
+      if (draft.payNowAmount > 0 && !draft.paymentMethod) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['paymentMethod'],
+          message: 'Payment method is required when payment is collected',
+        });
+      }
+      for (const course of selected) {
+        if (course.type === 'OFFLINE' && !selCourses[course.id]?.batch) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [`batch.${course.id}`],
+            message: 'Batch is required for offline course',
+          });
+        }
+      }
+    });
+
+    const result = schema.safeParse({
+      programId,
+      branchId,
+      monthlyDiscount,
+      admDiscount,
+      payNowAmount,
+      paymentMethod,
+      selectedCourseCount: selected.length,
+    });
+    return { success: result.success, errors: collectZodErrors(result) };
+  }, [admDiscount, branchId, monthlyDiscount, payNowAmount, paymentMethod, program, programId, selCourses, selected, totalFee, totalPayable]);
+  const canNext = validation.success;
 
   const toggle = (cid: string) =>
     setSelCourses(p => ({
@@ -154,6 +227,10 @@ export function EnrollmentModal({
     setSelCourses(p => ({ ...p, [cid]: { ...p[cid], [f]: v } }));
 
   const handleConfirm = async () => {
+    if (!validation.success) {
+      setEnrollError('Please fix the highlighted enrollment errors before confirming.');
+      return;
+    }
     setSaving(true);
     setEnrollError('');
     try {
@@ -233,6 +310,7 @@ export function EnrollmentModal({
                     disabled: enrolledProgramIds.has(p.id),
                   }))}
                 />
+                {validation.errors.programId && <p className="text-[11px] text-rose-600 mt-1 font-semibold">{validation.errors.programId}</p>}
               </Field>
               <Field label="Branch">
                 <AppSelect
@@ -241,6 +319,7 @@ export function EnrollmentModal({
                   placeholder="Select branch"
                   options={branches.map(b => ({ value: b.id, label: b.name }))}
                 />
+                {validation.errors.branchId && <p className="text-[11px] text-rose-600 mt-1 font-semibold">{validation.errors.branchId}</p>}
               </Field>
             </div>
 
@@ -309,7 +388,11 @@ export function EnrollmentModal({
                                           : `${b.name} (${b.status.charAt(0) + b.status.slice(1).toLowerCase()})`,
                                       }))}
                                     />
-                                    {!sel.batch && <p className="text-[11px] text-rose-600 mt-1">Required</p>}
+                                    {(validation.errors[`batch.${c.id}`] || !sel.batch) && (
+                                      <p className="text-[11px] text-rose-600 mt-1 font-semibold">
+                                        {validation.errors[`batch.${c.id}`] || 'Required'}
+                                      </p>
+                                    )}
                                   </Field>
                                 )}
                                 <Field label="Start Month">
@@ -449,6 +532,9 @@ export function EnrollmentModal({
                           onChange={e => setMonthlyDiscount(e.target.value)}
                           className="text-right focus-visible:ring-indigo-400"
                         />
+                        {validation.errors.monthlyDiscount && (
+                          <p className="text-[11px] text-rose-600 mt-1 font-semibold">{validation.errors.monthlyDiscount}</p>
+                        )}
                       </Field>
                       <Field label="Billing Start Month">
                         <MonthInput value={billingStart} onChange={setBillingStart} />
@@ -477,6 +563,9 @@ export function EnrollmentModal({
                           onChange={e => setAdmDiscount(e.target.value)}
                           className="text-right focus-visible:ring-indigo-400"
                         />
+                        {validation.errors.admDiscount && (
+                          <p className="text-[11px] text-rose-600 mt-1 font-semibold">{validation.errors.admDiscount}</p>
+                        )}
                       </Field>
                       <div className="flex justify-between">
                         <span className="text-sm font-bold text-slate-900">Admission fee payment</span>
@@ -486,7 +575,12 @@ export function EnrollmentModal({
                   )}
                 </>
               ) : (
-                <p className="text-sm text-slate-400 text-center py-5">Select courses to see summary</p>
+                <div className="text-center py-5">
+                  <p className="text-sm text-slate-400">Select courses to see summary</p>
+                  {validation.errors.selectedCourseCount && (
+                    <p className="text-[11px] text-rose-600 mt-1 font-semibold">{validation.errors.selectedCourseCount}</p>
+                  )}
+                </div>
               )}
             </div>
             <Button
@@ -616,6 +710,9 @@ export function EnrollmentModal({
                   }}
                   className="text-right focus-visible:ring-indigo-400"
                 />
+                {validation.errors.payNowAmount && (
+                  <p className="text-[11px] text-rose-600 mt-1 font-semibold">{validation.errors.payNowAmount}</p>
+                )}
               </Field>
               <div className="grid grid-cols-2 gap-2">
                 {(['CASH', 'BKASH'] as const).map(method => (
@@ -663,7 +760,7 @@ export function EnrollmentModal({
             {enrollError && <p className="text-sm text-rose-600 font-semibold self-center">{enrollError}</p>}
             <Button
               onClick={handleConfirm}
-              disabled={saving}
+              disabled={saving || !validation.success}
               className="gap-2 bg-slate-900 text-white hover:bg-indigo-600 transition-all"
             >
               <Check className="h-4 w-4" /> {saving ? 'Processing…' : 'Confirm Admission'}
