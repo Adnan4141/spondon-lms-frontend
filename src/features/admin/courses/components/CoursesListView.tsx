@@ -1,18 +1,66 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { BookOpen, DoorClosed, DoorOpen, Eye, EyeOff, Layers, Pencil, Plus, Search, Star, ToggleLeft, ToggleRight } from 'lucide-react';
-import Image from 'next/image';
+import {
+  BookOpen,
+  DoorClosed,
+  DoorOpen,
+  Eye,
+  GripVertical,
+  Plus,
+  Search,
+  Star,
+} from 'lucide-react';
+import {
+  DndContext,
+  type DragEndEvent,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { getCourses, toggleCourseFeatured, toggleCourseVisibility, updateCourse } from '@/lib/api/courses';
+import {
+  getCourses,
+  reorderCourses,
+  toggleCourseFeatured,
+  toggleCourseVisibility,
+  updateCourse,
+} from '@/lib/api/courses';
 import { getPrograms } from '@/lib/api/programs';
 import { getUsers, type User } from '@/lib/api/users';
 import type { Course, Program } from '@/types/course';
 import { CourseFormModal } from '../modals/CourseFormModal';
+import { CourseTableRow, SortableCourseTableRow } from './CourseTableRow';
+
+function rowProps(
+  programs: Program[],
+  toggling: Record<string, boolean>,
+  handlers: {
+    onToggleFeatured: (c: Course) => void;
+    onToggleVisible: (c: Course) => void;
+    onToggleAdmission: (c: Course) => void;
+    onEdit: (c: Course) => void;
+    onContent: (c: Course) => void;
+  },
+) {
+  return {
+    programs,
+    toggling,
+    ...handlers,
+  };
+}
 
 export function CoursesListView({
   onSelectContent,
@@ -29,6 +77,9 @@ export function CoursesListView({
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [editCourse, setEditCourse] = useState<Course | null | 'new'>(null);
   const [toggling, setToggling] = useState<Record<string, boolean>>({});
+  const [sortMode, setSortMode] = useState(false);
+  const [orderedCourses, setOrderedCourses] = useState<Course[]>([]);
+  const [savingOrder, setSavingOrder] = useState(false);
 
   const reload = useCallback(async () => {
     const [cRes, pRes, tRes] = await Promise.all([
@@ -46,6 +97,10 @@ export function CoursesListView({
     reload().finally(() => setLoading(false));
   }, [reload]);
 
+  useEffect(() => {
+    setOrderedCourses(courses);
+  }, [courses]);
+
   const filtered = useMemo(() => courses.filter(c => {
     const matchSearch = !search
       || c.name.toLowerCase().includes(search.toLowerCase())
@@ -54,6 +109,15 @@ export function CoursesListView({
     const matchStatus  = statusFilter  === 'ALL' || c.status    === statusFilter;
     return matchSearch && matchProgram && matchStatus;
   }), [courses, search, programFilter, statusFilter]);
+
+  /** Drag reorder applies to full catalog order — requires default filters. */
+  const canReorder =
+    !search.trim() && programFilter === 'ALL' && statusFilter === 'ALL';
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   const optimisticPatch = (id: string, patch: Partial<Course>) =>
     setCourses(prev => prev.map(c => c.id === id ? { ...c, ...patch } : c));
@@ -92,6 +156,44 @@ export function CoursesListView({
     finally { setToggling(t => ({ ...t, [course.id + '_a']: false })); }
   };
 
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setOrderedCourses((items) => {
+      const oldIndex = items.findIndex((c) => c.id === active.id);
+      const newIndex = items.findIndex((c) => c.id === over.id);
+      if (oldIndex < 0 || newIndex < 0) return items;
+      return arrayMove(items, oldIndex, newIndex);
+    });
+  };
+
+  const handleSaveOrder = async () => {
+    try {
+      setSavingOrder(true);
+      const payload = orderedCourses.map((c, i) => ({ id: c.id, displayOrder: i }));
+      const res = await reorderCourses(payload);
+      if (!res.success) {
+        toast({ description: res.message || 'Failed to save order', variant: 'destructive' });
+        return;
+      }
+      await reload();
+      setSortMode(false);
+      toast({ description: 'Course order saved.', variant: 'success' });
+    } catch {
+      toast({ description: 'Failed to save order.', variant: 'destructive' });
+    } finally {
+      setSavingOrder(false);
+    }
+  };
+
+  const shared = rowProps(programs, toggling, {
+    onToggleFeatured: handleToggleFeatured,
+    onToggleVisible: handleToggleVisible,
+    onToggleAdmission: handleToggleAdmission,
+    onEdit: setEditCourse,
+    onContent: onSelectContent,
+  });
+
   const handleSaved = (saved: Course) => {
     setCourses(prev => {
       const idx = prev.findIndex(c => c.id === saved.id);
@@ -102,182 +204,149 @@ export function CoursesListView({
     toast({ description: editCourse === 'new' ? 'Course created!' : 'Course updated!' });
   };
 
+  const sortIds = orderedCourses.map((c) => c.id);
+
   return (
     <div>
-      {/* Header */}
-      <div className="flex items-start justify-between mb-5">
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-xl font-black text-slate-900">Course Manager</h1>
-          <p className="text-sm text-slate-500 mt-0.5">{courses.length} courses total</p>
+          <p className="mt-0.5 text-sm text-slate-500">{courses.length} courses total</p>
         </div>
-        <Button onClick={() => setEditCourse('new')} className="gap-2 text-white bg-black" >
-          <Plus className="h-4 w-4" /> Create Course
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!canReorder || loading || courses.length === 0}
+            title={
+              !canReorder
+                ? 'Clear search and set filters to “All” to reorder courses'
+                : undefined
+            }
+            className={cn(
+              'gap-2 border-slate-200',
+              sortMode && 'border-indigo-400 bg-indigo-50 text-indigo-800',
+            )}
+            onClick={() => {
+              if (sortMode) setOrderedCourses(courses);
+              setSortMode((s) => !s);
+            }}
+          >
+            <GripVertical className="h-4 w-4" />
+            {sortMode ? 'Cancel reorder' : 'Reorder'}
+          </Button>
+          {sortMode && (
+            <Button
+              type="button"
+              className="gap-2 bg-indigo-600 text-white hover:bg-indigo-700"
+              disabled={savingOrder}
+              onClick={handleSaveOrder}
+            >
+              {savingOrder ? 'Saving…' : 'Save order'}
+            </Button>
+          )}
+          {!sortMode && (
+            <Button onClick={() => setEditCourse('new')} className="gap-2 bg-black text-white">
+              <Plus className="h-4 w-4" /> Create Course
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-5">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search courses…" className="pl-9" />
+      {sortMode && canReorder && (
+        <div className="mb-4 flex items-start gap-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3">
+          <GripVertical className="mt-0.5 h-5 w-5 shrink-0 text-indigo-600" />
+          <p className="text-sm font-medium text-indigo-900">
+            Drag rows by the handle to set catalog order (homepage / listings use this order). Click{' '}
+            <span className="font-bold">Save order</span> when done.
+          </p>
         </div>
-        <Select value={programFilter} onValueChange={setProgramFilter}>
-          <SelectTrigger className="w-44"><SelectValue placeholder="All Programs" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">All Programs</SelectItem>
-            {programs.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <div className="flex gap-1">
-          {(['ALL', 'ACTIVE', 'DISABLED', 'ARCHIVED'] as const).map(s => (
-            <button key={s} onClick={() => setStatusFilter(s)}
-              className={cn('px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer',
-                statusFilter === s
-                  ? 'text-white border-transparent bg-black'
-                  : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300')}>
-              {s}
-            </button>
-          ))}
-        </div>
-      </div>
+      )}
 
-      {/* Loading skeleton */}
-      {loading ? (
-        <div className="space-y-2">{[1,2,3,4,5].map(i => <div key={i} className="h-14 bg-slate-100 rounded-xl animate-pulse" />)}</div>
-      ) : filtered.length === 0 ? (
-        <div className="py-16 text-center border-2 border-dashed border-slate-200 rounded-xl">
-          <BookOpen className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-          <p className="text-slate-500 text-sm font-medium">No courses found.</p>
-        </div>
-      ) : (
-        <div className="border border-slate-200 rounded-xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-4 py-3 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider">Course</th>
-                  <th className="px-4 py-3 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider hidden md:table-cell">Program</th>
-                  <th className="px-4 py-3 text-center text-[10px] font-bold text-slate-400 uppercase tracking-wider hidden lg:table-cell">Type</th>
-                  <th className="px-4 py-3 text-right text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pricing</th>
-                  <th className="px-4 py-3 text-center text-[10px] font-bold text-slate-400 uppercase tracking-wider">Website</th>
-                  <th className="px-4 py-3 text-center text-[10px] font-bold text-slate-400 uppercase tracking-wider hidden sm:table-cell">Status</th>
-                  <th className="px-4 py-3 text-right text-[10px] font-bold text-slate-400 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filtered.map(course => {
-                  const fee = Number(course.fee);
-                  const offer = course.offerPrice ? Number(course.offerPrice) : null;
-                  const pct = offer && offer < fee ? Math.round((1 - offer / fee) * 100) : 0;
-                  const prog = programs.find(p => p.id === course.programId);
-                  return (
-                    <tr key={course.id} className="hover:bg-slate-50/70 transition-colors">
-                      {/* Course name + slug */}
-                      <td className="px-4 py-3">
-                        <div className="flex items-start gap-3">
-                          <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
-                         
-                           <Image src={course.thumbnail|| `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='450'%3E%3Crect width='800' height='450' fill='%235C2D91'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-size='28' font-family='sans-serif'%3ECourse%3C/text%3E%3C/svg%3E`}
-                           alt={course.name}
-                            height={36} width={36} className="w-full h-full object-cover rounded-lg" />
-                         
-                          </div>
-                          <div>
-                            <p className="font-bold text-slate-900 text-sm leading-tight">{course.name}</p>
-                            <p className="font-mono text-[11px] text-slate-400">{course.slug}</p>
-                          </div>
-                        </div>
-                      </td>
-                      {/* Program */}
-                      <td className="px-4 py-3 text-xs text-slate-600 hidden md:table-cell">{prog?.name ?? '—'}</td>
-                      {/* Type */}
-                      <td className="px-4 py-3 text-center hidden lg:table-cell">
-                        <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-bold',
-                          course.type === 'ONLINE' ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600')}>
-                          {course.type}
-                        </span>
-                      </td>
-                      {/* Pricing */}
-                      <td className="px-4 py-3 text-right">
-                        {offer && pct > 0 ? (
-                          <div>
-                            <span className="text-[10px] text-slate-400 line-through">৳{fee.toLocaleString()}</span>
-                            <span className="ml-1 font-bold text-sm text-slate-900">৳{offer.toLocaleString()}</span>
-                            <span className="ml-1.5 bg-emerald-100 text-emerald-700 text-[10px] font-black px-1.5 py-0.5 rounded">{pct}%</span>
-                          </div>
-                        ) : (
-                          <span className="font-bold text-sm text-slate-900">৳{fee.toLocaleString()}</span>
-                        )}
-                      </td>
-                      {/* Website toggles */}
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-center gap-1">
-                          <button type="button" title={course.featured ? 'Featured (click to unfeature)' : 'Not featured (click to feature)'}
-                            onClick={() => handleToggleFeatured(course)}
-                            disabled={!!toggling[course.id + '_f']}
-                            className={cn('p-1.5 rounded-lg border transition-all cursor-pointer disabled:opacity-40',
-                              course.featured ? 'bg-amber-50 border-amber-300 text-amber-600' : 'bg-white border-slate-200 text-slate-300 hover:text-amber-400')}>
-                            <Star className="h-3.5 w-3.5" />
-                          </button>
-                          <button type="button" title={course.websiteVisible ? 'Visible (click to hide)' : 'Hidden (click to show)'}
-                            onClick={() => handleToggleVisible(course)}
-                            disabled={!!toggling[course.id + '_v']}
-                            className={cn('p-1.5 rounded-lg border transition-all cursor-pointer disabled:opacity-40',
-                              course.websiteVisible ? 'bg-blue-50 border-blue-300 text-blue-600' : 'bg-white border-slate-200 text-slate-300 hover:text-blue-400')}>
-                            {course.websiteVisible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                          </button>
-                          <button type="button" title={course.admissionStatus === 'OPEN' ? 'Admission OPEN (click to close)' : 'Admission CLOSED (click to open)'}
-                            onClick={() => handleToggleAdmission(course)}
-                            disabled={!!toggling[course.id + '_a']}
-                            className={cn('p-1.5 rounded-lg border transition-all cursor-pointer disabled:opacity-40',
-                              course.admissionStatus === 'OPEN' ? 'bg-emerald-50 border-emerald-300 text-emerald-600' : 'bg-slate-100 border-slate-300 text-slate-600')}>
-                            {course.admissionStatus === 'OPEN' ? <ToggleRight className="h-3.5 w-3.5" /> : <ToggleLeft className="h-3.5 w-3.5" />}
-                          </button>
-                        </div>
-                      </td>
-                      {/* Status */}
-                      <td className="px-4 py-3 text-center hidden sm:table-cell">
-                        <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-bold',
-                          course.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700'
-                          : course.status === 'DISABLED' ? 'bg-slate-100 text-slate-700'
-                          : 'bg-slate-100 text-slate-500')}>
-                          {course.status}
-                        </span>
-                      </td>
-                      {/* Actions */}
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button onClick={() => setEditCourse(course)}
-                            className="bg-slate-50 hover:bg-slate-100 text-slate-600 px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors border border-slate-200">
-                            <Pencil className="h-3 w-3" /> Edit
-                          </button>
-                          <button onClick={() => onSelectContent(course)}
-                            className="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors border border-indigo-200">
-                            <Layers className="h-3 w-3" /> Content
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+      {!sortMode && (
+        <div className="mb-5 flex flex-wrap gap-3">
+          <div className="relative min-w-[200px] flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search courses…" className="pl-9" />
           </div>
-
-          {/* Legend */}
-          <div className="flex items-center gap-4 px-4 py-2.5 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-500">
-            <span className="flex items-center gap-1"><Star className="h-3 w-3 text-amber-500" /> Featured</span>
-            <span className="flex items-center gap-1"><Eye className="h-3 w-3 text-blue-500" /> Website Visible</span>
-            <span className="flex items-center gap-1">
-              <DoorOpen className="h-3 w-3 text-emerald-500" /> Admission Open
-              <span className="mx-1">/</span>
-              <DoorClosed className="h-3 w-3 text-slate-500" /> Closed
-            </span>
+          <Select value={programFilter} onValueChange={setProgramFilter}>
+            <SelectTrigger className="w-44"><SelectValue placeholder="All Programs" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Programs</SelectItem>
+              {programs.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <div className="flex gap-1">
+            {(['ALL', 'ACTIVE', 'DISABLED', 'ARCHIVED'] as const).map(s => (
+              <button key={s} type="button" onClick={() => setStatusFilter(s)}
+                className={cn('cursor-pointer rounded-lg border px-3 py-1.5 text-xs font-bold transition-all',
+                  statusFilter === s
+                    ? 'border-transparent bg-black text-white'
+                    : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300')}>
+                {s}
+              </button>
+            ))}
           </div>
         </div>
       )}
 
-      {/* Create/Edit modal */}
+      {loading ? (
+        <div className="space-y-2">{[1,2,3,4,5].map(i => <div key={i} className="h-14 animate-pulse rounded-xl bg-slate-100" />)}</div>
+      ) : filtered.length === 0 ? (
+        <div className="rounded-xl border-2 border-dashed border-slate-200 py-16 text-center">
+          <BookOpen className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+          <p className="text-sm font-medium text-slate-500">No courses found.</p>
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-slate-200">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50">
+                  {sortMode && canReorder ? (
+                    <th className="w-11 border-r border-slate-100 px-2 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400" aria-hidden />
+                  ) : null}
+                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">Course</th>
+                  <th className="hidden px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400 md:table-cell">Program</th>
+                  <th className="hidden px-4 py-3 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400 lg:table-cell">Type</th>
+                  <th className="px-4 py-3 text-right text-[10px] font-bold uppercase tracking-wider text-slate-400">Pricing</th>
+                  <th className="px-4 py-3 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400">Website</th>
+                  <th className="hidden px-4 py-3 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400 sm:table-cell">Status</th>
+                  <th className="px-4 py-3 text-right text-[10px] font-bold uppercase tracking-wider text-slate-400">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {sortMode && canReorder ? (
+                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <SortableContext items={sortIds} strategy={verticalListSortingStrategy}>
+                      {orderedCourses.map(course => (
+                        <SortableCourseTableRow key={course.id} {...shared} course={course} />
+                      ))}
+                    </SortableContext>
+                  </DndContext>
+                ) : (
+                  filtered.map(course => (
+                    <CourseTableRow key={course.id} {...shared} course={course} />
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {!sortMode && (
+            <div className="flex flex-wrap items-center gap-4 border-t border-slate-200 bg-slate-50 px-4 py-2.5 text-[11px] text-slate-500">
+              <span className="flex items-center gap-1"><Star className="h-3 w-3 text-amber-500" /> Featured</span>
+              <span className="flex items-center gap-1"><Eye className="h-3 w-3 text-blue-500" /> Website Visible</span>
+              <span className="flex items-center gap-1">
+                <DoorOpen className="h-3 w-3 text-emerald-500" /> Admission Open
+                <span className="mx-1">/</span>
+                <DoorClosed className="h-3 w-3 text-slate-500" /> Closed
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
       <CourseFormModal
         open={editCourse !== null}
         onClose={() => setEditCourse(null)}

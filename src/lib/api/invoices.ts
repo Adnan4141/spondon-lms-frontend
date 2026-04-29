@@ -150,3 +150,21 @@ export async function processMonthPayment(
     body: JSON.stringify(body),
   });
 }
+
+export async function waiveMonthlyCourses(body: {
+  studentUserId: string;
+  month: string;
+  branchId?: string;
+  courseIds: string[];
+  reason: string;
+}): Promise<ApiResponse<{
+  mode: 'INVOICE_REGENERATED' | 'SETTLEMENT_CREATED';
+  invoice: { id: string };
+  referenceMonth?: string | null;
+  waivedCourseIds: string[];
+}>> {
+  return apiRequest('/invoices/monthly/course-waiver', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}

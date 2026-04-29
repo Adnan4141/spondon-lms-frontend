@@ -223,6 +223,8 @@ export interface Course {
   durationMonths?: number | null;
   endMonth?: string | null;      // "YYYY-MM" — system-generated
   bookPrice?: number | string | null;
+  /** Lower = earlier in admin list and default API ordering. */
+  displayOrder?: number;
   createdAt: string;
   updatedAt: string;
   /** Present on getCourseById: number of curriculum nodes (subjects/chapters/lessons). */

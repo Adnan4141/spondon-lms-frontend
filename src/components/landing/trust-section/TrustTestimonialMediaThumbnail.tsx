@@ -31,7 +31,7 @@ export function TrustTestimonialMediaThumbnail({
         alt={testimonial.name || 'Testimonial'}
         fill
     
-        className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+        className="object-cover h-72 transition-transform duration-500 group-hover:scale-[1.02]"
       />
       {videoSrc ? (
         <a

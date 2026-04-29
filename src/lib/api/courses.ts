@@ -59,6 +59,15 @@ export async function toggleCourseFeatured(courseId: string): Promise<ApiRespons
   });
 }
 
+export async function reorderCourses(
+  items: { id: string; displayOrder: number }[]
+): Promise<ApiResponse<void>> {
+  return apiRequest<ApiResponse<void>>('/courses/reorder', {
+    method: 'PATCH',
+    body: JSON.stringify(items),
+  });
+}
+
 export async function settleCourse(courseId: string): Promise<ApiResponse<{ message?: string }>> {
   return apiRequest<ApiResponse<{ message?: string }>>(`/courses/${courseId}/settle`, {
     method: 'POST',

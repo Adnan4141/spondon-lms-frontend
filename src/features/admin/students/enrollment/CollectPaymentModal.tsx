@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { getEnrollments } from '@/lib/api/enrollments';
-import { generateAdvanceInvoices, getInvoicePdfUrl, getInvoices, processMonthPayment } from '@/lib/api/invoices';
+import { generateAdvanceInvoices, getInvoicePdfUrl, getInvoices, processMonthPayment, waiveMonthlyCourses } from '@/lib/api/invoices';
 import type { BadgeColor } from '../components/StudentAdminBadge';
 import type { Enrollment, Invoice, Student } from '../types';
 import { fmt, fmtMonth, normPdfUrl, toLocalEnrollment } from '../utils';
@@ -224,7 +224,6 @@ export function CollectPaymentModal({
   const netDue = Math.max(0, totalPayable - discount - totalAlreadyPaid);
   const discountCapped = requestedDiscount > discountable && discountable >= 0 && requestedDiscount > 0;
   const monthStatus = getMonthAggStatus(displayInvoices);
-  const canWaive = displayInvoices.every(i => i.paidAmount <= 0);
   const itemRows = displayInvoices.flatMap(inv =>
     (inv.items ?? []).map(item => {
       const total = Number(item.payableAmount ?? item.unitPrice * item.qty);
@@ -243,60 +242,138 @@ export function CollectPaymentModal({
   const courseDue = itemRows
     .filter(item => item.type === 'COURSE')
     .reduce((sum, item) => sum + item.due, 0);
-  const courseWaiverRows = itemRows.filter(item => item.type === 'COURSE' && item.refId && item.paid <= 0);
-  const isCourseBillableForMonth = (course: Enrollment['courses'][number], month: string) => {
-    if (course.startMonth && course.startMonth > month) return false;
-    if (course.endMonth && course.endMonth < month) return false;
-    if (course.cancelEffectiveMonth && month >= course.cancelEffectiveMonth) return false;
-    return course.status !== 'CANCELLED' || Boolean(course.cancelEffectiveMonth && month < course.cancelEffectiveMonth);
-  };
+  const courseWaiverRows = itemRows
+    .filter(item => item.type === 'COURSE' && item.refId)
+    .map(item => ({
+      ...item,
+      waiverAmount: Math.max(0, Number(item.unitPrice || 0) - Number(item.discountAmount || 0)),
+    }))
+    .filter(item => item.waiverAmount > 0);
+  const selectedCourseWaiverRows = courseWaiverRows.filter(item => selectedWaiveCourseIds.includes(item.refId!));
+  const selectedWaiverAmount = selectedCourseWaiverRows.reduce((sum, item) => sum + item.waiverAmount, 0);
+  const payableAfterCourseWaiver = Math.max(0, netDue - selectedWaiverAmount);
+  const waiverCreatesSettlement = totalAlreadyPaid > 0 || monthStatus === 'PAID' || monthStatus === 'PARTIAL';
 
   const handleWaive = async () => {
-    if (waiveReason.trim().length < 5) return;
+    if (waiveReason.trim().length < 5 || selectedWaiveCourseIds.length === 0) return;
     setWaiveSubmitting(true);
     try {
-      const selected = new Set(selectedWaiveCourseIds);
-      const appliedByUserId = (() => {
-        try {
-          const raw = localStorage.getItem('user');
-          const user = raw ? JSON.parse(raw) : null;
-          return user?.id ? String(user.id) : undefined;
-        } catch {
-          return undefined;
-        }
-      })();
-      const snapshotEdits = selected.size > 0
-        ? enrollments
-            .map(enrollment => ({
-              enrollmentId: enrollment.id,
-              courses: enrollment.courses
-                .filter(course => isCourseBillableForMonth(course, selMonth))
-                .map(course => ({
-                  courseId: course.courseId,
-                  batchId: course.batchId || undefined,
-                  includeBook: course.includeBook,
-                  waived: selected.has(course.courseId),
-                  waiveReason: selected.has(course.courseId) ? waiveReason.trim() : undefined,
-                  waivedByUserId: selected.has(course.courseId) ? appliedByUserId : undefined,
-                })),
-            }))
-            .filter(edit => edit.courses.some(course => selected.has(course.courseId)))
-        : undefined;
-      await processMonthPayment({
+      await waiveMonthlyCourses({
         studentUserId: student.id,
         month: selMonth,
-        waive: selected.size === 0,
-        waiveReason: waiveReason.trim(),
-        snapshotEdits,
+        courseIds: selectedWaiveCourseIds,
+        reason: waiveReason.trim(),
       });
       setWaiving(false);
       setWaiveReason('');
       setSelectedWaiveCourseIds([]);
-      fetchInvoices();
+      await fetchInvoices(true);
     } finally {
       setWaiveSubmitting(false);
     }
   };
+
+  const renderCourseWaiverPanel = () => (
+    <div className="border-t border-slate-100 pt-3">
+      {!waiving ? (
+        <button
+          onClick={() => setWaiving(true)}
+          disabled={displayInvoices.length === 0 || courseWaiverRows.length === 0 || monthStatus === 'WAIVED'}
+          title="Waive selected course rows for this selected month"
+          className={cn(
+            'w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg border text-sm font-semibold transition-colors cursor-pointer',
+            displayInvoices.length > 0 && courseWaiverRows.length > 0 && monthStatus !== 'WAIVED'
+              ? 'border-purple-200 text-purple-700 bg-purple-50 hover:bg-purple-100'
+              : 'border-slate-200 text-slate-400 bg-slate-50 cursor-not-allowed',
+          )}
+        >
+          Waive Selected Course(s)
+        </button>
+      ) : (
+        <div className="border border-purple-200 rounded-xl p-3.5 bg-purple-50">
+          {courseWaiverRows.length > 0 ? (
+            <div className="mb-3">
+              <p className="text-xs font-bold text-purple-700 uppercase tracking-wider mb-1.5">
+                Course Waiver For {fmtMonth(selMonth)}
+              </p>
+              <div className="space-y-1.5">
+                {courseWaiverRows.map(item => {
+                  const courseId = item.refId!;
+                  const checked = selectedWaiveCourseIds.includes(courseId);
+                  return (
+                    <label
+                      key={`${courseId}-${item.title}`}
+                      className="flex items-center justify-between gap-2 rounded-lg border border-purple-100 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700"
+                    >
+                      <span className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => setSelectedWaiveCourseIds(prev => (
+                            checked ? prev.filter(id => id !== courseId) : [...prev, courseId]
+                          ))}
+                          className="accent-purple-600"
+                        />
+                        {item.title.replace(/^Monthly Fee:\s*/, '')}
+                      </span>
+                      <span className="font-bold text-purple-700">{fmt(item.waiverAmount)}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <div className="mt-2 rounded-lg border border-purple-100 bg-white px-2.5 py-2 text-[11px] font-semibold text-slate-600 space-y-1">
+                <div className="flex justify-between">
+                  <span>Selected waiver</span>
+                  <span className="text-purple-700">{fmt(selectedWaiverAmount)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Remaining payable after waiver</span>
+                  <span>{fmt(payableAfterCourseWaiver)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Result</span>
+                  <span className="text-right">
+                    {waiverCreatesSettlement ? 'Credit settlement on next unpaid month' : 'Regenerate selected month invoice'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="mb-3 text-xs font-semibold text-purple-700">No payable course rows found for this month.</p>
+          )}
+          <p className="text-xs font-bold text-purple-700 uppercase tracking-wider mb-1.5">
+            Waive Reason <span className="text-rose-600">*</span>
+          </p>
+          <textarea
+            value={waiveReason}
+            onChange={e => setWaiveReason(e.target.value)}
+            placeholder="Enter reason for waiving selected course(s) (min 5 characters)..."
+            rows={2}
+            className="w-full text-sm border border-purple-200 rounded-lg px-3 py-2 bg-white resize-none focus:outline-none focus:ring-2 focus:ring-purple-300 mb-2"
+          />
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => { setWaiving(false); setWaiveReason(''); setSelectedWaiveCourseIds([]); }}
+              className="flex-1 text-xs"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleWaive}
+              disabled={selectedWaiveCourseIds.length === 0 || waiveReason.trim().length < 5 || waiveSubmitting}
+              className="flex-1 text-xs bg-purple-600 text-white hover:bg-purple-700 gap-1"
+            >
+              <Check className="h-3 w-3" />
+              {waiveSubmitting ? 'Waiving...' : 'Confirm Waiver'}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <AppModal
@@ -475,19 +552,22 @@ export function CollectPaymentModal({
         <div>
           {monthStatus === 'PAID' || monthStatus === 'WAIVED' ? (
             /* Already settled — show status instead of payment form */
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 text-center mb-3.5">
-              <div className="flex justify-center mb-3">
-                <AppBadge
-                  label={monthStatus === 'PAID' ? '✓ Payment Complete' : '✓ Month Waived'}
-                  color={monthStatus === 'PAID' ? 'green' : 'purple'}
-                />
+            <>
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 text-center mb-3.5">
+                <div className="flex justify-center mb-3">
+                  <AppBadge
+                    label={monthStatus === 'PAID' ? '✓ Payment Complete' : '✓ Month Waived'}
+                    color={monthStatus === 'PAID' ? 'green' : 'purple'}
+                  />
+                </div>
+                <p className="text-sm text-slate-500">
+                  {monthStatus === 'PAID'
+                    ? 'This month has been fully paid.'
+                    : 'This month has been waived — no payment required.'}
+                </p>
               </div>
-              <p className="text-sm text-slate-500">
-                {monthStatus === 'PAID'
-                  ? 'This month has been fully paid.'
-                  : 'This month has been waived — no payment required.'}
-              </p>
-            </div>
+              {renderCourseWaiverPanel()}
+            </>
           ) : (
             /* Payment form */
             <>
@@ -622,91 +702,7 @@ export function CollectPaymentModal({
                 <Check className="h-4 w-4" /> {saving ? 'Processing…' : `Collect ${method} Payment`}
               </Button>
 
-              {/* Waive this month */}
-              <div className="border-t border-slate-100 pt-3">
-                {!waiving ? (
-                  <button
-                    onClick={() => setWaiving(true)}
-                    disabled={!canWaive || displayInvoices.length === 0}
-                    title={!canWaive ? 'Cannot waive: payment already received for this month' : 'Mark this month as waived without payment'}
-                    className={cn(
-                      'w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg border text-sm font-semibold transition-colors cursor-pointer',
-                      canWaive && displayInvoices.length > 0
-                        ? 'border-purple-200 text-purple-700 bg-purple-50 hover:bg-purple-100'
-                        : 'border-slate-200 text-slate-400 bg-slate-50 cursor-not-allowed',
-                    )}
-                  >
-                      Waive Month / Courses
-                  </button>
-                ) : (
-                  <div className="border border-purple-200 rounded-xl p-3.5 bg-purple-50">
-                    {courseWaiverRows.length > 0 && (
-                      <div className="mb-3">
-                        <p className="text-xs font-bold text-purple-700 uppercase tracking-wider mb-1.5">
-                          Course Waiver
-                        </p>
-                        <div className="space-y-1.5">
-                          {courseWaiverRows.map(item => {
-                            const courseId = item.refId!;
-                            const checked = selectedWaiveCourseIds.includes(courseId);
-                            return (
-                              <label
-                                key={courseId}
-                                className="flex items-center justify-between gap-2 rounded-lg border border-purple-100 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700"
-                              >
-                                <span className="flex items-center gap-2">
-                                  <input
-                                    type="checkbox"
-                                    checked={checked}
-                                    onChange={() => setSelectedWaiveCourseIds(prev => (
-                                      checked ? prev.filter(id => id !== courseId) : [...prev, courseId]
-                                    ))}
-                                    className="accent-purple-600"
-                                  />
-                                  {item.title.replace(/^Monthly Fee:\s*/, '')}
-                                </span>
-                                <span className="font-bold text-purple-700">{fmt(item.due)}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                        <p className="mt-1 text-[11px] font-semibold text-purple-700">
-                          Select courses to waive only those rows. Leave all unchecked to waive the whole month.
-                        </p>
-                      </div>
-                    )}
-                    <p className="text-xs font-bold text-purple-700 uppercase tracking-wider mb-1.5">
-                      Waive Reason <span className="text-rose-600">*</span>
-                    </p>
-                    <textarea
-                      value={waiveReason}
-                      onChange={e => setWaiveReason(e.target.value)}
-                      placeholder="Enter reason for waiving this month (min 5 characters)…"
-                      rows={2}
-                      className="w-full text-sm border border-purple-200 rounded-lg px-3 py-2 bg-white resize-none focus:outline-none focus:ring-2 focus:ring-purple-300 mb-2"
-                    />
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => { setWaiving(false); setWaiveReason(''); }}
-                        className="flex-1 text-xs"
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={handleWaive}
-                        disabled={waiveReason.trim().length < 5 || waiveSubmitting}
-                        className="flex-1 text-xs bg-purple-600 text-white hover:bg-purple-700 gap-1"
-                      >
-                        <Check className="h-3 w-3" />
-                        {waiveSubmitting ? 'Waiving…' : 'Confirm Waive'}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
+              {renderCourseWaiverPanel()}
             </>
           )}
         </div>
