@@ -8,7 +8,7 @@ import { getBatches } from '@/lib/api/batches';
 import { getInvoices, getInvoicePdfUrl, generateAdvanceInvoices } from '@/lib/api/invoices';
 import { addCourseToEnrollment, removeCourseFromEnrollment, updateEnrollment } from '@/lib/api/enrollments';
 import type { Course, Enrollment, Program } from '../types';
-import { fmt, fmtMonth, nextMonth, normPdfUrl } from '../utils';
+import { currentMonth, fmt, fmtMonth, normPdfUrl } from '../utils';
 import { StudentAdminBadge as AppBadge } from '../components/StudentAdminBadge';
 import { StudentAdminField as Field } from '../components/StudentAdminField';
 import { StudentAdminModal as AppModal } from '../components/StudentAdminModal';
@@ -43,8 +43,9 @@ export function ManageEnrollmentModal({
   const [submitError, setSubmitError] = useState('');
   const [invoicePdfUrl, setInvoicePdfUrl] = useState<string | null>(null);
   const [appliedDiscount, setAppliedDiscount] = useState(enrollment.monthlyDiscount);
+  const [effectiveMonth, setEffectiveMonth] = useState(() => currentMonth());
   const [result, setResult] = useState<{ added: number; removed: number; failed: number } | null>(null);
-  const effMonth = nextMonth();
+  const effMonth = effectiveMonth;
 
   const program = programs.find((p) => p.id === enrollment.programId);
 
@@ -121,6 +122,7 @@ export function ManageEnrollmentModal({
           batchId: meta.batch || null,
           includeBook: false,
           startMonth: meta.startMonth || c.startMonth || effMonth,
+          effectiveMonth: effMonth,
         });
         if (res.success) {
           added += 1;
@@ -134,7 +136,10 @@ export function ManageEnrollmentModal({
       if (selectedCancelCourses.length === 0) return;
       setProgressText(`Cancelling ${selectedCancelCourses.length} course(s)...`);
       for (const c of selectedCancelCourses) {
-        const res = await removeCourseFromEnrollment(enrollment.id, c.id);
+        const res = await removeCourseFromEnrollment(enrollment.id, c.id, {
+          effectiveMonth: effMonth,
+          cancellationPolicy: 'FULL_REMOVE',
+        });
         if (res.success) {
           removed += 1;
         } else {
@@ -157,7 +162,11 @@ export function ManageEnrollmentModal({
       const hasMutations = added > 0 || removed > 0;
       if (hasMutations && discount !== enrollment.monthlyDiscount) {
         setProgressText('Updating monthly discount...');
-        const upd = await updateEnrollment(enrollment.id, { monthlyDiscount: discount });
+        const upd = await updateEnrollment(enrollment.id, {
+          monthlyDiscount: discount,
+          effectiveMonth: effMonth,
+          reason: 'Monthly discount adjustment from Manage Enrollment',
+        });
         if (!upd.success) {
           failures.push((upd as { message?: string }).message ?? 'Discount update failed');
         }
@@ -211,6 +220,18 @@ export function ManageEnrollmentModal({
             <p className="text-xs text-indigo-800">
               Add courses, cancel courses, or do both together. All changes are applied on one confirmation.
             </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-3 mb-5">
+            <Field label="Effective From Month">
+              <MonthInput value={effectiveMonth} onChange={setEffectiveMonth} />
+            </Field>
+            <div className="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5">
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Invoice Recalculation</p>
+              <p className="text-xs font-semibold text-slate-600">
+                Changes apply from {fmtMonth(effectiveMonth)}. Open invoices from this month forward are recalculated; paid months create credit/debit adjustments.
+              </p>
+            </div>
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">

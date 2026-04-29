@@ -43,9 +43,10 @@ export function toLocalEnrollment(e: ApiEnrollment): Enrollment {
       id: ec.id,
       courseId: ec.courseId,
       batchId: ec.batchId ?? null,
-      status: 'ACTIVE' as const,
+      status: ((ec as { status?: 'ACTIVE' | 'CANCELLED' }).status ?? 'ACTIVE') as 'ACTIVE' | 'CANCELLED',
       startMonth: (ec as { startMonth?: string | null }).startMonth ?? ec.course?.startMonth ?? '',
       endMonth: (ec as { endMonth?: string | null }).endMonth ?? ec.course?.endMonth ?? '',
+      cancelEffectiveMonth: (ec as { cancelEffectiveMonth?: string | null }).cancelEffectiveMonth ?? null,
       includeBook: ec.includeBook,
     })),
   };

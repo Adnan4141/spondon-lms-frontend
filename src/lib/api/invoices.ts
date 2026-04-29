@@ -119,6 +119,19 @@ export interface ProcessMonthlyPaymentDto {
   studentUserId: string;
   month: string;
   branchId?: string;
+  snapshotEdits?: Array<{
+    enrollmentId: string;
+    courses: Array<{
+      courseId: string;
+      batchId?: string;
+      includeBook?: boolean;
+      bookPrice?: number | null;
+      waived?: boolean;
+      waivedAmount?: number | null;
+      waiveReason?: string;
+      waivedByUserId?: string;
+    }>;
+  }>;
   payment?: {
     amount: number;
     method: string;

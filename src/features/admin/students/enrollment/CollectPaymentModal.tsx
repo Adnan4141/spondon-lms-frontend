@@ -31,6 +31,7 @@ export function CollectPaymentModal({
   const [pdfLoading, setPdfLoading] = useState<string | null>(null);
   const [waiving, setWaiving] = useState(false);
   const [waiveReason, setWaiveReason] = useState('');
+  const [selectedWaiveCourseIds, setSelectedWaiveCourseIds] = useState<string[]>([]);
   const [waiveSubmitting, setWaiveSubmitting] = useState(false);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [advanceNotice, setAdvanceNotice] = useState<string | null>(null);
@@ -73,9 +74,11 @@ export function CollectPaymentModal({
         items: (inv as {
           items?: {
             title: string;
+            refId?: string | null;
             unitPrice: number | string;
             qty: number;
             type?: string;
+            discountAmount?: number | string;
             payableAmount?: number | string;
             paidAmount?: number | string;
             dueAmount?: number | string;
@@ -83,9 +86,11 @@ export function CollectPaymentModal({
           }[];
         }).items?.map(item => ({
           title: item.title,
+          refId: item.refId,
           unitPrice: Number(item.unitPrice),
           qty: item.qty,
           type: item.type,
+          discountAmount: Number(item.discountAmount ?? 0),
           payableAmount: Number(item.payableAmount ?? Number(item.unitPrice) * item.qty),
           paidAmount: Number(item.paidAmount ?? 0),
           dueAmount: Number(item.dueAmount ?? Math.max(0, Number(item.unitPrice) * item.qty)),
@@ -238,19 +243,55 @@ export function CollectPaymentModal({
   const courseDue = itemRows
     .filter(item => item.type === 'COURSE')
     .reduce((sum, item) => sum + item.due, 0);
+  const courseWaiverRows = itemRows.filter(item => item.type === 'COURSE' && item.refId && item.paid <= 0);
+  const isCourseBillableForMonth = (course: Enrollment['courses'][number], month: string) => {
+    if (course.startMonth && course.startMonth > month) return false;
+    if (course.endMonth && course.endMonth < month) return false;
+    if (course.cancelEffectiveMonth && month >= course.cancelEffectiveMonth) return false;
+    return course.status !== 'CANCELLED' || Boolean(course.cancelEffectiveMonth && month < course.cancelEffectiveMonth);
+  };
 
   const handleWaive = async () => {
     if (waiveReason.trim().length < 5) return;
     setWaiveSubmitting(true);
     try {
+      const selected = new Set(selectedWaiveCourseIds);
+      const appliedByUserId = (() => {
+        try {
+          const raw = localStorage.getItem('user');
+          const user = raw ? JSON.parse(raw) : null;
+          return user?.id ? String(user.id) : undefined;
+        } catch {
+          return undefined;
+        }
+      })();
+      const snapshotEdits = selected.size > 0
+        ? enrollments
+            .map(enrollment => ({
+              enrollmentId: enrollment.id,
+              courses: enrollment.courses
+                .filter(course => isCourseBillableForMonth(course, selMonth))
+                .map(course => ({
+                  courseId: course.courseId,
+                  batchId: course.batchId || undefined,
+                  includeBook: course.includeBook,
+                  waived: selected.has(course.courseId),
+                  waiveReason: selected.has(course.courseId) ? waiveReason.trim() : undefined,
+                  waivedByUserId: selected.has(course.courseId) ? appliedByUserId : undefined,
+                })),
+            }))
+            .filter(edit => edit.courses.some(course => selected.has(course.courseId)))
+        : undefined;
       await processMonthPayment({
         studentUserId: student.id,
         month: selMonth,
-        waive: true,
+        waive: selected.size === 0,
         waiveReason: waiveReason.trim(),
+        snapshotEdits,
       });
       setWaiving(false);
       setWaiveReason('');
+      setSelectedWaiveCourseIds([]);
       fetchInvoices();
     } finally {
       setWaiveSubmitting(false);
@@ -305,7 +346,14 @@ export function CollectPaymentModal({
                       return (
                         <button
                           key={m}
-                          onClick={() => { setSelMonth(m); setWaiving(false); setWaiveReason(''); setAddDiscount('0'); setPaymentAmount(''); }}
+                          onClick={() => {
+                            setSelMonth(m);
+                            setWaiving(false);
+                            setWaiveReason('');
+                            setSelectedWaiveCourseIds([]);
+                            setAddDiscount('0');
+                            setPaymentAmount('');
+                          }}
                           className={cn(
                             'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-bold transition-colors cursor-pointer',
                             selMonth === m
@@ -588,10 +636,45 @@ export function CollectPaymentModal({
                         : 'border-slate-200 text-slate-400 bg-slate-50 cursor-not-allowed',
                     )}
                   >
-                    Waive This Month
+                      Waive Month / Courses
                   </button>
                 ) : (
                   <div className="border border-purple-200 rounded-xl p-3.5 bg-purple-50">
+                    {courseWaiverRows.length > 0 && (
+                      <div className="mb-3">
+                        <p className="text-xs font-bold text-purple-700 uppercase tracking-wider mb-1.5">
+                          Course Waiver
+                        </p>
+                        <div className="space-y-1.5">
+                          {courseWaiverRows.map(item => {
+                            const courseId = item.refId!;
+                            const checked = selectedWaiveCourseIds.includes(courseId);
+                            return (
+                              <label
+                                key={courseId}
+                                className="flex items-center justify-between gap-2 rounded-lg border border-purple-100 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700"
+                              >
+                                <span className="flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => setSelectedWaiveCourseIds(prev => (
+                                      checked ? prev.filter(id => id !== courseId) : [...prev, courseId]
+                                    ))}
+                                    className="accent-purple-600"
+                                  />
+                                  {item.title.replace(/^Monthly Fee:\s*/, '')}
+                                </span>
+                                <span className="font-bold text-purple-700">{fmt(item.due)}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                        <p className="mt-1 text-[11px] font-semibold text-purple-700">
+                          Select courses to waive only those rows. Leave all unchecked to waive the whole month.
+                        </p>
+                      </div>
+                    )}
                     <p className="text-xs font-bold text-purple-700 uppercase tracking-wider mb-1.5">
                       Waive Reason <span className="text-rose-600">*</span>
                     </p>

@@ -13,6 +13,10 @@ export interface EnrollmentCourse {
   batchId?: string | null;
   includeBook: boolean;
   bookPrice?: number | string | null;
+  startMonth?: string | null;
+  endMonth?: string | null;
+  status?: 'ACTIVE' | 'CANCELLED' | string;
+  cancelEffectiveMonth?: string | null;
   addedAt: string;
   course?: {
     id: string;
@@ -99,6 +103,7 @@ export interface UpdateEnrollmentDto {
   billingStartMonth?: string;
   reason?: string;
   appliedByUserId?: string;
+  effectiveMonth?: string;
   monthlyDiscount?: number | null;
   oneTimeDiscount?: number | null;
 }
@@ -410,7 +415,7 @@ export async function deleteSettlement(id: string): Promise<ApiResponse<void>> {
 
 export async function addCourseToEnrollment(
   enrollmentId: string,
-  body: { courseId: string; batchId?: string | null; includeBook?: boolean; startMonth?: string },
+  body: { courseId: string; batchId?: string | null; includeBook?: boolean; startMonth?: string; effectiveMonth?: string },
 ): Promise<ApiResponse<EnrollmentCourse>> {
   return apiRequest<ApiResponse<EnrollmentCourse>>(`/enrollments/${enrollmentId}/courses`, {
     method: 'POST',
@@ -421,8 +426,10 @@ export async function addCourseToEnrollment(
 export async function removeCourseFromEnrollment(
   enrollmentId: string,
   courseId: string,
+  body?: { effectiveMonth?: string; cancellationPolicy?: 'FULL_REMOVE' | 'PRORATE' | 'NEXT_MONTH'; reason?: string },
 ): Promise<ApiResponse<{ message: string }>> {
   return apiRequest<ApiResponse<{ message: string }>>(`/enrollments/${enrollmentId}/courses/${courseId}`, {
     method: 'DELETE',
+    body: JSON.stringify(body ?? {}),
   });
 }

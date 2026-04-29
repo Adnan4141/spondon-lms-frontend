@@ -46,6 +46,7 @@ export interface EnrolledCourse {
   status: 'ACTIVE' | 'CANCELLED';
   startMonth: string;
   endMonth: string;
+  cancelEffectiveMonth?: string | null;
   includeBook: boolean;
 }
 
@@ -72,9 +73,11 @@ export interface Invoice {
   branchName?: string;
   items?: {
     title: string;
+    refId?: string | null;
     unitPrice: number;
     qty: number;
     type?: string;
+    discountAmount?: number;
     payableAmount?: number;
     paidAmount?: number;
     dueAmount?: number;
