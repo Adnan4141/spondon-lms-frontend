@@ -30,7 +30,7 @@ export function TrustTestimonialMediaThumbnail({
         src={thumbSrc}
         alt={testimonial.name || 'Testimonial'}
         fill
-        sizes="(max-width: 768px) 100vw, 400px"
+    
         className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
       />
       {videoSrc ? (
