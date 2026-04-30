@@ -1,18 +1,29 @@
 'use client';
 
+import { memo } from 'react';
 import { cn } from '@/lib/utils';
-import type { Student } from '../types';
 
-export function StudentsStats({ students, totalStudents = students.length }: { students: Student[]; totalStudents?: number }) {
-  const totalActive = students.filter(s => s.status === 'ACTIVE').length;
-  const now = new Date();
-  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const newThisMonth = students.filter(s => s.createdAt?.startsWith(currentMonth)).length;
+export type StudentsDatabaseStats = {
+  total: number;
+  active: number;
+  blocked: number;
+  newThisMonth: number;
+};
+
+type StudentsStatsProps = {
+  stats: StudentsDatabaseStats | null;
+  loading?: boolean;
+};
+
+function StudentsStatsInner({ stats, loading }: StudentsStatsProps) {
+  const display = stats ?? { total: 0, active: 0, blocked: 0, newThisMonth: 0 };
+  const show = (n: number) => (loading ? '…' : n);
+
   const cards = [
-    { label: 'Total Students', value: totalStudents, icon: '👥', color: 'text-indigo-600', bg: 'bg-indigo-50' },
-    { label: 'Active on Page', value: totalActive, icon: '✅', color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { label: 'Blocked on Page', value: students.length - totalActive, icon: '🚫', color: 'text-rose-600', bg: 'bg-rose-50' },
-    { label: 'New This Month', value: newThisMonth, icon: '🆕', color: 'text-amber-600', bg: 'bg-amber-50' },
+    { label: 'Total Students', value: show(display.total), icon: '👥', color: 'text-indigo-600', bg: 'bg-indigo-50' },
+    { label: 'Active', value: show(display.active), icon: '✅', color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { label: 'Blocked', value: show(display.blocked), icon: '🚫', color: 'text-rose-600', bg: 'bg-rose-50' },
+    { label: 'New This Month', value: show(display.newThisMonth), icon: '🆕', color: 'text-amber-600', bg: 'bg-amber-50' },
   ];
 
   return (
@@ -29,3 +40,5 @@ export function StudentsStats({ students, totalStudents = students.length }: { s
     </div>
   );
 }
+
+export const StudentsStats = memo(StudentsStatsInner);

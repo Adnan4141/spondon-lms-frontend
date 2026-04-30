@@ -93,9 +93,17 @@ export async function getUsers(params?: {
   batchId?: string;
   search?: string;
   includeDetails?: boolean;
+  /** Exclude students (staff directory). */
+  staffOnly?: boolean;
+  /** Lighter payload: branch only (faster list). */
+  minimal?: boolean;
   page?: number;
   limit?: number;
-}): Promise<ApiResponse<User[]>> {
+}): Promise<
+  ApiResponse<User[]> & {
+    pagination?: { page: number; limit: number; total: number; pages: number };
+  }
+> {
   const queryParams = new URLSearchParams();
   if (params?.role) queryParams.append('role', params.role);
   if (params?.branchId) queryParams.append('branchId', params.branchId);
@@ -105,11 +113,38 @@ export async function getUsers(params?: {
   if (params?.batchId) queryParams.append('batchId', params.batchId);
   if (params?.search) queryParams.append('search', params.search);
   if (params?.includeDetails !== undefined) queryParams.append('includeDetails', String(params.includeDetails));
+  if (params?.staffOnly) queryParams.append('staffOnly', 'true');
+  if (params?.minimal) queryParams.append('minimal', 'true');
   if (params?.page) queryParams.append('page', String(params.page));
   if (params?.limit) queryParams.append('limit', String(params.limit));
 
   const query = queryParams.toString();
-  return apiRequest<ApiResponse<User[]>>(`/users${query ? `?${query}` : ''}`);
+  return apiRequest<ApiResponse<User[]> & { pagination?: { page: number; limit: number; total: number; pages: number } }>(
+    `/users${query ? `?${query}` : ''}`,
+  );
+}
+
+/** Staff role counts (non-student); honors branch/status filters. */
+export async function getStaffRoleSummary(params?: {
+  branchId?: string;
+  status?: string;
+}): Promise<ApiResponse<{ byRole: Record<string, number>; total: number }>> {
+  const queryParams = new URLSearchParams();
+  if (params?.branchId) queryParams.append('branchId', params.branchId);
+  if (params?.status) queryParams.append('status', params.status);
+  const query = queryParams.toString();
+  return apiRequest<ApiResponse<{ byRole: Record<string, number>; total: number }>>(
+    `/users/staff-role-summary${query ? `?${query}` : ''}`,
+  );
+}
+
+/** Global student row counts (ignores list filters; BRANCH_ADMIN is branch-scoped server-side). */
+export async function getStudentDatabaseStats(): Promise<
+  ApiResponse<{ total: number; active: number; blocked: number; newThisMonth: number }>
+> {
+  return apiRequest<ApiResponse<{ total: number; active: number; blocked: number; newThisMonth: number }>>(
+    '/users/student-stats',
+  );
 }
 
 export async function getUserById(id: string): Promise<ApiResponse<User>> {

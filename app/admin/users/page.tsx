@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   getUsers,
   getUserById,
+  getStaffRoleSummary,
   createUser,
   updateUser,
   deleteUser,
@@ -57,7 +58,6 @@ import {
   Trash2,
   Eye,
   Calendar,
-  ChevronDown,
 } from 'lucide-react';
 
 const ALL_ROLES = ['SUPER_ADMIN', 'BRANCH_ADMIN', 'ACCOUNTS', 'TEACHER', 'MODERATOR'] as const;
@@ -292,14 +292,21 @@ function UserDetailView({ user }: { user: User }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
+const PAGE_SIZE = 20;
+
 export default function AdminUsersPage() {
   const { toast, toasts, removeToast } = useToast();
 
   const [users, setUsers] = useState<User[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [pagination, setPagination] = useState<{ page: number; limit: number; total: number; pages: number } | null>(null);
+  const [roleSummary, setRoleSummary] = useState<{ byRole: Record<string, number>; total: number }>({ byRole: {}, total: 0 });
 
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [page, setPage] = useState(1);
   const [roleTab, setRoleTab] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [branchFilter, setBranchFilter] = useState<string>('');
@@ -312,36 +319,77 @@ export default function AdminUsersPage() {
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
-  const load = useCallback(async () => {
+  const lastDebouncedRef = useRef<string | null>(null);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const next = query.trim();
+      if (lastDebouncedRef.current !== null && lastDebouncedRef.current !== next) {
+        setPage(1);
+      }
+      lastDebouncedRef.current = next;
+      setDebouncedQuery(next);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  useEffect(() => {
+    void getBranches().then((res) => {
+      if (res.success && res.data) setBranches(res.data);
+    });
+  }, []);
+
+  const loadSummary = useCallback(async () => {
+    setSummaryLoading(true);
+    try {
+      const res = await getStaffRoleSummary({
+        branchId: branchFilter || undefined,
+        status: statusFilter || undefined,
+      });
+      if (res.success && res.data) setRoleSummary(res.data);
+    } catch {
+      toast({ title: 'Failed to load role summary', variant: 'destructive' });
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, [branchFilter, statusFilter, toast]);
+
+  useEffect(() => {
+    void loadSummary();
+  }, [loadSummary]);
+
+  const loadUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const [usersRes, branchesRes] = await Promise.all([
-        getUsers({ role: roleTab === 'ALL' ? undefined : roleTab, branchId: branchFilter || undefined, status: statusFilter || undefined, limit: 500 }),
-        getBranches(),
-      ]);
-      if (usersRes.success && usersRes.data) setUsers(usersRes.data);
-      if (branchesRes.success && branchesRes.data) setBranches(branchesRes.data);
+      const usersRes = await getUsers({
+        page,
+        limit: PAGE_SIZE,
+        search: debouncedQuery || undefined,
+        role: roleTab === 'ALL' ? undefined : roleTab,
+        branchId: branchFilter || undefined,
+        status: statusFilter || undefined,
+        staffOnly: true,
+        minimal: true,
+      });
+      if (usersRes.success && usersRes.data) {
+        setUsers(usersRes.data);
+        setPagination(usersRes.pagination ?? null);
+      }
     } catch {
       toast({ title: 'Failed to load users', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
-  }, [roleTab, branchFilter, statusFilter, toast]);
+  }, [page, debouncedQuery, roleTab, branchFilter, statusFilter, toast]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void loadUsers();
+  }, [loadUsers]);
 
-  const filtered = users.filter((u) => {
-    if (!query) return true;
-    const q = query.toLowerCase();
-    return (
-      u.fullName.toLowerCase().includes(q) ||
-      u.mobile.includes(q) ||
-      (u.email ?? '').toLowerCase().includes(q)
-    );
-  });
+  const refreshAll = useCallback(async () => {
+    await Promise.all([loadUsers(), loadSummary()]);
+  }, [loadUsers, loadSummary]);
 
-  // Stats per role tab
-  const countByRole = (r: string) => users.filter((u) => u.role === r).length;
+  const countByRole = (r: string) => roleSummary.byRole[r] ?? 0;
 
   async function handleBlockToggle() {
     if (!blockTarget) return;
@@ -352,7 +400,7 @@ export default function AdminUsersPage() {
       if (!res.success) throw new Error(res.message);
       toast({ title: newStatus === 'BLOCKED' ? 'User blocked' : 'User activated', variant: 'success' });
       setBlockTarget(null);
-      await load();
+      await refreshAll();
     } catch (err) {
       toast({ title: 'Action failed', description: err instanceof Error ? err.message : '', variant: 'destructive' });
     } finally {
@@ -368,7 +416,7 @@ export default function AdminUsersPage() {
       if (!res.success) throw new Error(res.message);
       toast({ title: 'User deleted', variant: 'success' });
       setDeleteTarget(null);
-      await load();
+      await refreshAll();
     } catch (err) {
       toast({ title: 'Delete failed', description: err instanceof Error ? err.message : '', variant: 'destructive' });
     } finally {
@@ -389,7 +437,7 @@ export default function AdminUsersPage() {
   function openEdit(u: User) { setEditingUser(u); setFormOpen(true); }
 
   const TABS = [
-    { key: 'ALL', label: 'All Users', count: users.length },
+    { key: 'ALL', label: 'All Users', count: roleSummary.total },
     { key: 'SUPER_ADMIN', label: 'Super Admins', count: countByRole('SUPER_ADMIN') },
     { key: 'BRANCH_ADMIN', label: 'Branch Admins', count: countByRole('BRANCH_ADMIN') },
     { key: 'ACCOUNTS', label: 'Accounts', count: countByRole('ACCOUNTS') },
@@ -411,7 +459,7 @@ export default function AdminUsersPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={load} disabled={loading} className="gap-2">
+          <Button variant="outline" size="sm" onClick={() => void refreshAll()} disabled={loading} className="gap-2">
             <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
             Refresh
           </Button>
@@ -427,7 +475,11 @@ export default function AdminUsersPage() {
         {TABS.map((tab) => (
           <button
             key={tab.key}
-            onClick={() => setRoleTab(tab.key)}
+            type="button"
+            onClick={() => {
+              setRoleTab(tab.key);
+              setPage(1);
+            }}
             className={cn(
               'rounded-2xl border p-3 text-left transition-all hover:shadow-md',
               roleTab === tab.key
@@ -435,7 +487,9 @@ export default function AdminUsersPage() {
                 : 'border-slate-200 bg-white text-slate-700 hover:border-purple-100',
             )}
           >
-            <p className={cn('text-xl font-black', roleTab === tab.key ? 'text-white' : 'text-slate-900')}>{tab.count}</p>
+            <p className={cn('text-xl font-black', roleTab === tab.key ? 'text-white' : 'text-slate-900')}>
+              {summaryLoading ? '…' : tab.count}
+            </p>
             <p className={cn('text-[10px] font-bold uppercase tracking-wider mt-0.5', roleTab === tab.key ? 'text-white/80' : 'text-slate-400')}>
               {tab.label}
             </p>
@@ -454,7 +508,13 @@ export default function AdminUsersPage() {
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
-        <Select value={statusFilter || 'all'} onValueChange={(v) => setStatusFilter(v === 'all' ? '' : v)}>
+        <Select
+          value={statusFilter || 'all'}
+          onValueChange={(v) => {
+            setStatusFilter(v === 'all' ? '' : v);
+            setPage(1);
+          }}
+        >
           <SelectTrigger className="h-10 w-36 rounded-xl border-slate-200 bg-slate-50 text-sm font-semibold">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
@@ -464,7 +524,13 @@ export default function AdminUsersPage() {
             <SelectItem value="BLOCKED">Blocked</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={branchFilter || 'all'} onValueChange={(v) => setBranchFilter(v === 'all' ? '' : v)}>
+        <Select
+          value={branchFilter || 'all'}
+          onValueChange={(v) => {
+            setBranchFilter(v === 'all' ? '' : v);
+            setPage(1);
+          }}
+        >
           <SelectTrigger className="h-10 w-44 rounded-xl border-slate-200 bg-slate-50 text-sm font-semibold">
             <SelectValue placeholder="All Branches" />
           </SelectTrigger>
@@ -476,7 +542,11 @@ export default function AdminUsersPage() {
           </SelectContent>
         </Select>
         <p className="text-xs font-bold text-slate-400 ml-auto">
-          {filtered.length} of {users.length} users
+          {pagination
+            ? users.length > 0
+              ? `Rows ${(pagination.page - 1) * pagination.limit + 1}–${(pagination.page - 1) * pagination.limit + users.length} of ${pagination.total}`
+              : `0 of ${pagination.total} users`
+            : `${users.length} users`}
         </p>
       </div>
 
@@ -487,13 +557,14 @@ export default function AdminUsersPage() {
             <RefreshCw className="h-8 w-8 animate-spin text-purple-400" />
             <p className="text-sm font-bold">Loading users…</p>
           </div>
-        ) : filtered.length === 0 ? (
+        ) : users.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <Users className="h-12 w-12 text-slate-200" />
             <p className="text-sm font-bold text-slate-400">No users found</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-slate-50/80 border-b border-slate-100">
                 <tr>
@@ -505,7 +576,7 @@ export default function AdminUsersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {filtered.map((u) => (
+                {users.map((u) => (
                   <tr key={u.id} className="group transition-colors hover:bg-slate-50/60">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
@@ -605,6 +676,32 @@ export default function AdminUsersPage() {
               </tbody>
             </table>
           </div>
+          {pagination && pagination.pages > 1 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/50 px-4 py-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={page <= 1 || loading}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </Button>
+              <p className="text-sm font-semibold text-slate-600">
+                Page {pagination.page} of {pagination.pages}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={page >= pagination.pages || loading}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Next
+              </Button>
+            </div>
+          )}
+          </>
         )}
       </div>
 
@@ -619,7 +716,7 @@ export default function AdminUsersPage() {
           <UserForm
             user={editingUser}
             branches={branches}
-            onSuccess={async () => { setFormOpen(false); await load(); }}
+            onSuccess={async () => { setFormOpen(false); await refreshAll(); }}
             onCancel={() => setFormOpen(false)}
           />
         </DialogContent>

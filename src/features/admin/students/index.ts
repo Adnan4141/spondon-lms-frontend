@@ -1,7 +1,7 @@
 // ─── Components ───────────────────────────────────────────────────────────────
 export { StudentsTable } from './components/StudentsTable';
 export { StudentsToolbar } from './components/StudentsToolbar';
-export { StudentsStats } from './components/StudentsStats';
+export { StudentsStats, type StudentsDatabaseStats } from './components/StudentsStats';
 export { StudentFormFields } from './components/StudentFormFields';
 export { StudentAdminBadge } from './components/StudentAdminBadge';
 export { StudentAdminField } from './components/StudentAdminField';

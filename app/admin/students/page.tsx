@@ -7,7 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getPrograms } from '@/lib/api/programs';
 import { getCourses } from '@/lib/api/courses';
 import { getBranches } from '@/lib/api/branches';
-import { getUsers } from '@/lib/api/users';
+import { getUsers, getStudentDatabaseStats } from '@/lib/api/users';
 import {
   downloadStudentExportJobXlsx,
   downloadStudentExportXlsx,
@@ -85,6 +85,8 @@ export default function StudentsPage() {
   const [exportingStudents, setExportingStudents] = useState(false);
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ page: 1, limit: STUDENTS_PAGE_SIZE, total: 0, pages: 1 });
+  const [dbStats, setDbStats] = useState<{ total: number; active: number; blocked: number; newThisMonth: number } | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
   const { toast } = useToast();
   const router = useRouter();
   const debouncedSearch = useDebounce(search.trim(), 500);
@@ -124,6 +126,25 @@ export default function StudentsPage() {
 
   const isBranchAdmin = actor.role === 'BRANCH_ADMIN';
   const scopedBranchId = isBranchAdmin ? actor.branchId || '' : '';
+
+  const loadStats = useCallback(async () => {
+    setStatsLoading(true);
+    try {
+      const res = await getStudentDatabaseStats();
+      if (res.success && res.data) {
+        setDbStats(res.data);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Could not load student stats';
+      toast({ title: 'Could not load student stats', description: msg, variant: 'destructive' });
+    } finally {
+      setStatsLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    void loadStats();
+  }, [loadStats]);
 
   const loadStudents = useCallback(() => {
     const params = {
@@ -280,10 +301,11 @@ export default function StudentsPage() {
     const onImportDone = () => {
       studentsListCache.clear();
       void loadStudents();
+      void loadStats();
     };
     window.addEventListener(BULK_STUDENT_IMPORT_COMPLETE_EVENT, onImportDone);
     return () => window.removeEventListener(BULK_STUDENT_IMPORT_COMPLETE_EVENT, onImportDone);
-  }, [loadStudents]);
+  }, [loadStudents, loadStats]);
 
   const openEnrollments = (student: Student) => {
     setActiveStudent(student);
@@ -364,7 +386,7 @@ export default function StudentsPage() {
 
   return (
     <div className="min-h-screen space-y-6 p-6 sm:p-0 bg-slate-50/50">
-      <StudentsStats students={students} totalStudents={pagination.total} />
+      <StudentsStats stats={dbStats} loading={statsLoading} />
            
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
         <StudentsToolbar
@@ -414,6 +436,7 @@ export default function StudentsPage() {
             setStudents(p => page === 1 ? [s, ...p].slice(0, STUDENTS_PAGE_SIZE) : p);
             setPagination(p => ({ ...p, total: p.total + 1, pages: Math.ceil((p.total + 1) / p.limit) || 1 }));
             setModal(null);
+            void loadStats();
             if (meta?.oneTimePassword) {
               toast({
                 title: `Student ${s.fullName} created`,
@@ -488,6 +511,7 @@ export default function StudentsPage() {
             studentsListCache.clear();
             setStudents(prev => prev.map(s => s.id === updated.id ? { ...s, ...updated } : s));
             setEditStudent(null);
+            void loadStats();
             showToast(`${updated.fullName}'s profile updated successfully`, 'success');
           }}
         />
