@@ -1,6 +1,7 @@
 'use client';
 
-import { BookOpen, CreditCard } from 'lucide-react';
+import { memo, useMemo } from 'react';
+import { BookOpen, ChevronLeft, ChevronRight, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { BranchOption, Student } from '../types';
@@ -8,11 +9,15 @@ import { avatarHue } from '../utils';
 import { RowActions } from './RowActions';
 import { StudentAdminBadge } from './StudentAdminBadge';
 
-export function StudentsTable({
+function StudentsTableComponent({
   students,
   totalStudents,
   branches,
   loading,
+  page,
+  totalPages,
+  pageSize,
+  onPageChange,
   onViewEnrollments,
   onAction,
 }: {
@@ -20,9 +25,24 @@ export function StudentsTable({
   totalStudents: number;
   branches: BranchOption[];
   loading: boolean;
+  page: number;
+  totalPages: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
   onViewEnrollments: (student: Student) => void;
   onAction: (action: string, student: Student) => void;
 }) {
+  const branchById = useMemo(() => new Map(branches.map((b) => [b.id, b.name])), [branches]);
+  const start = totalStudents === 0 ? 0 : (page - 1) * pageSize + 1;
+  const end = Math.min(totalStudents, (page - 1) * pageSize + students.length);
+  const pages = Math.max(1, totalPages);
+  const pageNumbers = useMemo(() => {
+    const items = new Set<number>([1, pages, page - 1, page, page + 1]);
+    return Array.from(items)
+      .filter((p) => p >= 1 && p <= pages)
+      .sort((a, b) => a - b);
+  }, [page, pages]);
+
   return (
     <>
       <div className="overflow-x-auto">
@@ -55,7 +75,7 @@ export function StudentsTable({
                     </div>
                   </td>
                   <td className="px-4 py-3.5 text-slate-600 font-mono text-xs">{s.mobile}</td>
-                  <td className="px-4 py-3.5"><StudentAdminBadge label={branches.find(b => b.id === s.branchId)?.name ?? (s.branchId || '—')} color="slate" /></td>
+                  <td className="px-4 py-3.5"><StudentAdminBadge label={branchById.get(s.branchId) ?? (s.branchId || '—')} color="slate" /></td>
                   <td className="px-4 py-3.5">
                     <button onClick={() => onViewEnrollments(s)} className={cn('font-bold text-sm px-2.5 py-1 rounded-lg cursor-pointer transition-colors', enrollCount > 0 ? 'text-indigo-600 bg-indigo-50 hover:bg-indigo-100' : 'text-slate-400 bg-slate-100')}>
                       {enrollCount} {enrollCount === 1 ? 'enrollment' : 'enrollments'}
@@ -89,14 +109,55 @@ export function StudentsTable({
           </tbody>
         </table>
       </div>
-      <div className="px-5 py-3.5 border-t border-slate-100 flex justify-between items-center">
-        <p className="text-xs text-slate-400">Showing {students.length} of {totalStudents} students</p>
-        <div className="flex gap-1">
-          {['← Prev', '1', '2', '3', 'Next →'].map(p => (
-            <button key={p} className={cn('px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors cursor-pointer', p === '1' ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50')}>{p}</button>
-          ))}
+      <div className="px-5 py-3.5 border-t border-slate-100 flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
+        <p className="text-xs text-slate-400">Showing {start}-{end} of {totalStudents} students</p>
+        <div className="flex flex-wrap gap-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="xs"
+            disabled={loading || page <= 1}
+            onClick={() => onPageChange(page - 1)}
+            className="h-8"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" /> Prev
+          </Button>
+          {pageNumbers.map((p, idx) => {
+            const prev = pageNumbers[idx - 1];
+            const gap = prev && p - prev > 1;
+            return (
+              <span key={p} className="flex items-center gap-1">
+                {gap && <span className="px-1.5 text-xs text-slate-400">…</span>}
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => onPageChange(p)}
+                  className={cn(
+                    'h-8 min-w-8 rounded-lg border px-2 text-xs font-medium transition-colors',
+                    p === page
+                      ? 'border-slate-900 bg-slate-900 text-white'
+                      : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50',
+                  )}
+                >
+                  {p}
+                </button>
+              </span>
+            );
+          })}
+          <Button
+            type="button"
+            variant="outline"
+            size="xs"
+            disabled={loading || page >= pages}
+            onClick={() => onPageChange(page + 1)}
+            className="h-8"
+          >
+            Next <ChevronRight className="h-3.5 w-3.5" />
+          </Button>
         </div>
       </div>
     </>
   );
 }
+
+export const StudentsTable = memo(StudentsTableComponent);

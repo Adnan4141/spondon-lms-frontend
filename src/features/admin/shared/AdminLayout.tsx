@@ -24,6 +24,7 @@ import { Sidebar } from './Sidebar';
 import { GlobalModal } from './GlobalModal';
 import { cn } from '@/lib/utils';
 import { AdminToastProvider } from './AdminToastProvider';
+import { BulkImportProgressDock } from '@/features/admin/students';
 import { clearAuthStorage, useAdminSession } from './admin-session';
 import { API_ORIGIN } from '@/lib/api';
 import { resolveAttachmentUrl } from '@/lib/attachment-url';
@@ -263,6 +264,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           </main>
 
           <GlobalModal />
+          <BulkImportProgressDock />
         </div>
       </div>
     </AdminToastProvider>

@@ -8,19 +8,61 @@ import { getPrograms } from '@/lib/api/programs';
 import { getCourses } from '@/lib/api/courses';
 import { getBranches } from '@/lib/api/branches';
 import { getUsers } from '@/lib/api/users';
-import { downloadStudentExportXlsx } from '@/lib/api/students';
+import {
+  downloadStudentExportJobXlsx,
+  downloadStudentExportXlsx,
+  getStudentExportJobStatus,
+  queueStudentExportXlsx,
+} from '@/lib/api/students';
 import { getBatches, type Batch } from '@/lib/api/batches';
-import { AddStudentModal, type AddStudentSaveMeta } from '@/features/admin/students';
-import { BulkImportStudentsModal } from '@/features/admin/students';
-import { CollectPaymentModal } from '@/features/admin/students';
-import { EditStudentModal } from '@/features/admin/students';
-import { EnrolledCoursesView } from '@/features/admin/students';
-import { EnrollmentModal } from '@/features/admin/students';
-import { StudentsStats } from '@/features/admin/students';
-import { StudentsTable } from '@/features/admin/students';
-import { StudentsToolbar } from '@/features/admin/students';
-import type { BranchOption, Course, Program, Student } from '@/features/admin/students';
-import { fmt, fmtMonth } from '@/features/admin/students';
+import {
+  AddStudentModal,
+  type AddStudentSaveMeta,
+  BULK_STUDENT_IMPORT_COMPLETE_EVENT,
+  BranchOption,
+  BulkImportStudentsModal,
+  CollectPaymentModal,
+  Course,
+  EditStudentModal,
+  EnrolledCoursesView,
+  EnrollmentModal,
+  fmt,
+  fmtMonth,
+  Program,
+  StudentsStats,
+  StudentsTable,
+  StudentsToolbar,
+  Student,
+} from '@/features/admin/students';
+import { useBulkImportJobsStore } from '@/store/bulkImportJobsStore';
+
+const STUDENTS_PAGE_SIZE = 50;
+const SYNC_EXPORT_ROW_LIMIT = 5000;
+const STUDENTS_CACHE_MS = 30_000;
+
+type StudentsPaginationState = {
+  page: number;
+  limit: number;
+  total: number;
+  pages: number;
+};
+
+const studentsListCache = new Map<string, {
+  students: Student[];
+  pagination: StudentsPaginationState;
+  cachedAt: number;
+}>();
+
+function useDebounce<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(timer);
+  }, [value, delayMs]);
+
+  return debounced;
+}
 
 export default function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
@@ -41,8 +83,11 @@ export default function StudentsPage() {
   const [modal, setModal] = useState<{ type: string; student?: Student } | null>(null);
   const [editStudent, setEditStudent] = useState<Student | null>(null);
   const [exportingStudents, setExportingStudents] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ page: 1, limit: STUDENTS_PAGE_SIZE, total: 0, pages: 1 });
   const { toast } = useToast();
   const router = useRouter();
+  const debouncedSearch = useDebounce(search.trim(), 500);
 
   const mapUsersToStudents = useCallback((data: NonNullable<Awaited<ReturnType<typeof getUsers>>['data']>) => {
     type ApiStudentUser = (typeof data)[0] & {
@@ -81,17 +126,17 @@ export default function StudentsPage() {
   const scopedBranchId = isBranchAdmin ? actor.branchId || '' : '';
 
   const loadStudents = useCallback(() => {
-    setLoadingStudents(true);
-    getUsers({
+    const params = {
       role: 'STUDENT',
-      limit: 500,
+      page,
+      limit: STUDENTS_PAGE_SIZE,
+      includeDetails: false,
+      ...(debouncedSearch ? { search: debouncedSearch } : {}),
       ...(scopedBranchId ? { branchId: scopedBranchId } : branchFilter !== 'ALL' ? { branchId: branchFilter } : {}),
       ...(statusFilter !== 'ALL' ? { status: statusFilter } : {}),
-      // Program only
       ...(programFilter !== 'ALL' && courseFilter === 'ALL'
         ? { programId: programFilter }
         : {}),
-      // Program + course (and optional batch)
       ...(programFilter !== 'ALL' && courseFilter !== 'ALL'
         ? {
             programId: programFilter,
@@ -99,28 +144,62 @@ export default function StudentsPage() {
             ...(batchFilter !== 'ALL' ? { batchId: batchFilter } : {}),
           }
         : {}),
-    })
+    };
+    const cacheKey = JSON.stringify(params);
+    const cached = studentsListCache.get(cacheKey);
+    if (cached && Date.now() - cached.cachedAt < STUDENTS_CACHE_MS) {
+      setStudents(cached.students);
+      setPagination(cached.pagination);
+      setLoadingStudents(false);
+      return;
+    }
+
+    setLoadingStudents(true);
+    getUsers(params)
       .then(res => {
-        if (res.success && res.data) setStudents(mapUsersToStudents(res.data));
-        else setStudents([]);
+        if (res.success && res.data) {
+          const nextStudents = mapUsersToStudents(res.data);
+          const nextPagination = res.pagination ?? {
+            page,
+            limit: STUDENTS_PAGE_SIZE,
+            total: res.data.length,
+            pages: 1,
+          };
+          studentsListCache.set(cacheKey, {
+            students: nextStudents,
+            pagination: nextPagination,
+            cachedAt: Date.now(),
+          });
+          setStudents(nextStudents);
+          setPagination(nextPagination);
+        } else {
+          setStudents([]);
+          setPagination({ page, limit: STUDENTS_PAGE_SIZE, total: 0, pages: 1 });
+        }
+      })
+      .catch((err: unknown) => {
+        setStudents([]);
+        setPagination({ page, limit: STUDENTS_PAGE_SIZE, total: 0, pages: 1 });
+        const msg = err instanceof Error ? err.message : 'Could not load students';
+        toast({ title: 'Could not load students', description: msg, variant: 'destructive' });
       })
       .finally(() => setLoadingStudents(false));
-  }, [branchFilter, scopedBranchId, statusFilter, programFilter, courseFilter, batchFilter, mapUsersToStudents]);
+  }, [page, debouncedSearch, branchFilter, scopedBranchId, statusFilter, programFilter, courseFilter, batchFilter, mapUsersToStudents, toast]);
 
   useEffect(() => {
     void Promise.resolve().then(loadStudents);
   }, [loadStudents]);
 
   useEffect(() => {
-    getPrograms().then(res => {
-      if (res.success && res.data) setPrograms(res.data as Program[]);
-    });
-    getBranches().then(res => {
-      if (res.success && res.data) setBranches(res.data.map(b => ({ id: b.id, name: b.name })));
-    });
-    getCourses({ limit: 500 }).then(res => {
-      if (res.success && res.data) {
-        setAllCourses(res.data.map(c => ({
+    void Promise.all([
+      getPrograms(),
+      getBranches(),
+      getCourses({ limit: 500 }),
+    ]).then(([programRes, branchRes, courseRes]) => {
+      if (programRes.success && programRes.data) setPrograms(programRes.data as Program[]);
+      if (branchRes.success && branchRes.data) setBranches(branchRes.data.map(b => ({ id: b.id, name: b.name })));
+      if (courseRes.success && courseRes.data) {
+        setAllCourses(courseRes.data.map(c => ({
           id: c.id,
           name: c.name,
           programId: c.programId,
@@ -135,7 +214,13 @@ export default function StudentsPage() {
   }, []);
 
   // When program changes, reset course + batch. Courses are listed from allCourses.
+  const handleSearchChange = useCallback((v: string) => {
+    setSearch(v);
+    setPage(1);
+  }, []);
+
   const handleProgramFilterChange = useCallback((v: string) => {
+    setPage(1);
     setProgramFilter(v);
     setCourseFilter('ALL');
     setBatchFilter('ALL');
@@ -143,9 +228,25 @@ export default function StudentsPage() {
   }, []);
 
   const handleCourseFilterChange = useCallback((v: string) => {
+    setPage(1);
     setCourseFilter(v);
     setBatchFilter('ALL');
     if (v === 'ALL') setBatchesForCourse([]);
+  }, []);
+
+  const handleBatchFilterChange = useCallback((v: string) => {
+    setPage(1);
+    setBatchFilter(v);
+  }, []);
+
+  const handleBranchFilterChange = useCallback((v: string) => {
+    setPage(1);
+    setBranchFilter(v);
+  }, []);
+
+  const handleStatusFilterChange = useCallback((v: string) => {
+    setPage(1);
+    setStatusFilter(v);
   }, []);
 
   // Batches load per selected course (batches belong to a course; courses belong to a program)
@@ -175,14 +276,14 @@ export default function StudentsPage() {
     toast({ title: msg, variant: type === 'error' ? 'destructive' : 'default' });
   };
 
-  const filtered = students.filter(s => {
-    const q = search.toLowerCase();
-    return (
-      (s.fullName.toLowerCase().includes(q) || s.mobile.includes(q) || s.regNo.includes(q)) &&
-      (statusFilter === 'ALL' || s.status === statusFilter) &&
-      (scopedBranchId ? s.branchId === scopedBranchId : branchFilter === 'ALL' || s.branchId === branchFilter)
-    );
-  });
+  useEffect(() => {
+    const onImportDone = () => {
+      studentsListCache.clear();
+      void loadStudents();
+    };
+    window.addEventListener(BULK_STUDENT_IMPORT_COMPLETE_EVENT, onImportDone);
+    return () => window.removeEventListener(BULK_STUDENT_IMPORT_COMPLETE_EVENT, onImportDone);
+  }, [loadStudents]);
 
   const openEnrollments = (student: Student) => {
     setActiveStudent(student);
@@ -198,17 +299,45 @@ export default function StudentsPage() {
     else showToast(`"${action}" action for ${student.fullName}`, 'info');
   };
 
+  const exportParams = useCallback(() => ({
+    ...(scopedBranchId ? { branchId: scopedBranchId } : branchFilter !== 'ALL' ? { branchId: branchFilter } : {}),
+    ...(programFilter !== 'ALL' ? { programId: programFilter } : {}),
+    ...(courseFilter !== 'ALL' ? { courseId: courseFilter } : {}),
+    ...(batchFilter !== 'ALL' ? { batchId: batchFilter } : {}),
+    ...(statusFilter !== 'ALL' ? { status: statusFilter } : {}),
+    ...(debouncedSearch ? { search: debouncedSearch } : {}),
+  }), [scopedBranchId, branchFilter, programFilter, courseFilter, batchFilter, statusFilter, debouncedSearch]);
+
   const handleDownloadStudents = async () => {
     setExportingStudents(true);
     try {
-      await downloadStudentExportXlsx({
-        ...(scopedBranchId ? { branchId: scopedBranchId } : branchFilter !== 'ALL' ? { branchId: branchFilter } : {}),
-        ...(programFilter !== 'ALL' ? { programId: programFilter } : {}),
-        ...(courseFilter !== 'ALL' ? { courseId: courseFilter } : {}),
-        ...(batchFilter !== 'ALL' ? { batchId: batchFilter } : {}),
-        ...(statusFilter !== 'ALL' ? { status: statusFilter } : {}),
-        ...(search.trim() ? { search: search.trim() } : {}),
-      });
+      const params = exportParams();
+      if (pagination.total > SYNC_EXPORT_ROW_LIMIT) {
+        const queued = await queueStudentExportXlsx(params);
+        const jobId = queued.data?.jobId;
+        if (!queued.success || !jobId) throw new Error(queued.message || 'Could not queue export');
+        toast({
+          title: 'Export queued',
+          description: `${queued.data?.totalRows ?? pagination.total} students will be prepared in the background.`,
+        });
+
+        for (let i = 0; i < 60; i += 1) {
+          await new Promise(resolve => window.setTimeout(resolve, 2000));
+          const status = await getStudentExportJobStatus(jobId);
+          const job = status.data;
+          if (job?.status === 'COMPLETED') {
+            await downloadStudentExportJobXlsx(jobId);
+            toast({ title: 'Export ready', description: 'Students XLSX downloaded successfully.' });
+            return;
+          }
+          if (job?.status === 'FAILED' || job?.status === 'CANCELLED') {
+            throw new Error(job.failureReason || `Export ${job.status.toLowerCase()}`);
+          }
+        }
+        throw new Error('Export is still preparing. Please try downloading again in a moment.');
+      }
+
+      await downloadStudentExportXlsx(params);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Export failed';
       toast({ title: 'Export failed', description: msg, variant: 'destructive' });
@@ -235,25 +364,25 @@ export default function StudentsPage() {
 
   return (
     <div className="min-h-screen space-y-6 p-6 sm:p-0 bg-slate-50/50">
-      <StudentsStats students={students} />
+      <StudentsStats students={students} totalStudents={pagination.total} />
            
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
         <StudentsToolbar
-          count={filtered.length}
+          count={pagination.total}
           search={search}
-          onSearchChange={setSearch}
+          onSearchChange={handleSearchChange}
           programFilter={programFilter}
           onProgramFilterChange={handleProgramFilterChange}
           allCourses={allCourses}
           courseFilter={courseFilter}
           onCourseFilterChange={handleCourseFilterChange}
           batchFilter={batchFilter}
-          onBatchFilterChange={setBatchFilter}
+          onBatchFilterChange={handleBatchFilterChange}
           batchesForCourse={batchesForCourse}
           branchFilter={scopedBranchId || branchFilter}
-          onBranchFilterChange={isBranchAdmin ? () => {} : setBranchFilter}
+          onBranchFilterChange={isBranchAdmin ? () => {} : handleBranchFilterChange}
           statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
+          onStatusFilterChange={handleStatusFilterChange}
           programs={programs}
           branches={branches}
           lockedBranchId={scopedBranchId || undefined}
@@ -264,10 +393,14 @@ export default function StudentsPage() {
         />
 
         <StudentsTable
-          students={filtered}
-          totalStudents={students.length}
+          students={students}
+          totalStudents={pagination.total}
           branches={branches}
           loading={loadingStudents}
+          page={pagination.page}
+          totalPages={pagination.pages}
+          pageSize={pagination.limit}
+          onPageChange={setPage}
           onViewEnrollments={openEnrollments}
           onAction={handleAction}
         />
@@ -277,7 +410,9 @@ export default function StudentsPage() {
         <AddStudentModal
           onClose={() => setModal(null)}
           onSave={(s, meta?: AddStudentSaveMeta) => {
-            setStudents(p => [s, ...p]);
+            studentsListCache.clear();
+            setStudents(p => page === 1 ? [s, ...p].slice(0, STUDENTS_PAGE_SIZE) : p);
+            setPagination(p => ({ ...p, total: p.total + 1, pages: Math.ceil((p.total + 1) / p.limit) || 1 }));
             setModal(null);
             if (meta?.oneTimePassword) {
               toast({
@@ -303,9 +438,13 @@ export default function StudentsPage() {
           branches={branches}
           defaultBranchId={branchFilter !== 'ALL' ? branchFilter : undefined}
           onClose={() => setModal(null)}
-          onImported={(result) => {
-            loadStudents();
-            showToast(`Imported ${result.created} student(s). ${result.errors.length} row error(s).`, result.errors.length ? 'error' : 'success');
+          onQueued={(payload) => {
+            useBulkImportJobsStore.getState().addJob({
+              jobId: payload.jobId,
+              totalRows: payload.totalRows,
+              originalName: payload.fileName,
+            });
+            setModal(null);
           }}
         />
       )}
@@ -318,6 +457,7 @@ export default function StudentsPage() {
           branches={branches}
           onClose={() => setModal(null)}
           onSave={data => {
+            studentsListCache.clear();
             setStudents(prev => prev.map(s =>
               s.id === data.student.id
                 ? { ...s, _count: { ...s._count, enrollments: (s._count?.enrollments ?? 0) + 1 } }
@@ -345,6 +485,7 @@ export default function StudentsPage() {
           student={editStudent}
           onClose={() => setEditStudent(null)}
           onSave={updated => {
+            studentsListCache.clear();
             setStudents(prev => prev.map(s => s.id === updated.id ? { ...s, ...updated } : s));
             setEditStudent(null);
             showToast(`${updated.fullName}'s profile updated successfully`, 'success');

@@ -15,6 +15,8 @@ export async function getStudents(params?: {
   courseId?: string;
   batchId?: string;
   status?: string;
+  search?: string;
+  includeDetails?: boolean;
   page?: number;
   limit?: number;
 }): Promise<ApiResponse<Student[]>> {
@@ -26,6 +28,8 @@ export async function getStudents(params?: {
   if (params?.courseId) queryParams.append('courseId', params.courseId);
   if (params?.batchId) queryParams.append('batchId', params.batchId);
   if (params?.status) queryParams.append('status', params.status);
+  if (params?.search) queryParams.append('search', params.search);
+  if (params?.includeDetails !== undefined) queryParams.append('includeDetails', String(params.includeDetails));
   if (params?.page) queryParams.append('page', String(params.page));
   if (params?.limit) queryParams.append('limit', String(params.limit));
 
@@ -81,14 +85,42 @@ export async function deleteStudent(id: string): Promise<ApiResponse<void>> {
   });
 }
 
-export async function bulkImportStudents(file: File, branchId?: string, defaultPassword = '123456'): Promise<ApiResponse<{ created: number; errors: { row: number; message: string }[] }>> {
+/** POST bulk-import returns 202 with job id (async background import). */
+export async function startBulkImportStudents(
+  file: File,
+  branchId?: string,
+  defaultPassword = '123456',
+): Promise<ApiResponse<{ jobId: string; totalRows: number }>> {
   const formData = new FormData();
   formData.append('file', file);
   if (branchId) formData.append('branchId', branchId);
   formData.append('defaultPassword', defaultPassword);
-  return apiRequest<ApiResponse<{ created: number; errors: { row: number; message: string }[] }>>('/users/bulk-import', {
+  return apiRequest<ApiResponse<{ jobId: string; totalRows: number }>>('/users/bulk-import', {
     method: 'POST',
     body: formData,
+  });
+}
+
+export type BulkImportJobStatusPayload = {
+  id: string;
+  status: string;
+  totalRows: number;
+  processedRows: number;
+  createdCount: number;
+  errorCount: number;
+  errors: { row: number; message: string }[];
+  failureReason: string | null;
+  finished: boolean;
+  originalName: string | null;
+};
+
+export async function getBulkImportJobStatus(jobId: string): Promise<ApiResponse<BulkImportJobStatusPayload>> {
+  return apiRequest<ApiResponse<BulkImportJobStatusPayload>>(`/users/import-jobs/${jobId}`);
+}
+
+export async function cancelBulkImportJob(jobId: string): Promise<ApiResponse<{ status?: string }>> {
+  return apiRequest<ApiResponse<{ status?: string }>>(`/users/import-jobs/${jobId}/cancel`, {
+    method: 'POST',
   });
 }
 
@@ -177,6 +209,69 @@ export async function downloadStudentExportXlsx(params?: ExportStudentsParams): 
       localStorage.removeItem('auth_token');
       window.location.href = '/login';
       throw new Error('Session expired. Please log in again.');
+    }
+    throw new Error(message);
+  }
+
+  const blob = await response.blob();
+  const cd = response.headers.get('Content-Disposition');
+  let filename = 'students.xlsx';
+  const match = cd?.match(/filename\*?=(?:UTF-8''|"?)([^";\n]+)/i) ?? cd?.match(/filename="([^"]+)"/);
+  if (match?.[1]) filename = decodeURIComponent(match[1].replace(/^"|"$/g, ''));
+
+  const objectUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = objectUrl;
+  a.download = filename;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
+export type StudentExportJobPayload = {
+  id: string;
+  status: string;
+  totalRows: number;
+  processedRows: number;
+  failureReason?: string | null;
+  finished: boolean;
+  fileUrl?: string | null;
+  originalName?: string | null;
+};
+
+export async function queueStudentExportXlsx(
+  params?: ExportStudentsParams,
+): Promise<ApiResponse<{ jobId: string; totalRows: number; status: string }>> {
+  const query = buildExportStudentsQuery(params);
+  return apiRequest<ApiResponse<{ jobId: string; totalRows: number; status: string }>>(
+    `/users/export/students/jobs${query ? `?${query}` : ''}`,
+    { method: 'POST' },
+  );
+}
+
+export async function getStudentExportJobStatus(jobId: string): Promise<ApiResponse<StudentExportJobPayload>> {
+  return apiRequest<ApiResponse<StudentExportJobPayload>>(`/users/export/students/jobs/${jobId}`);
+}
+
+export async function downloadStudentExportJobXlsx(jobId: string): Promise<void> {
+  const url = `${API_BASE_URL}/users/export/students/jobs/${encodeURIComponent(jobId)}/download`;
+  const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const response = await fetch(url, { method: 'GET', credentials: 'include', headers });
+  if (!response.ok) {
+    let message = `Export download failed (${response.status})`;
+    try {
+      const text = await response.text();
+      if (text) {
+        const body = JSON.parse(text) as { message?: string; error?: string };
+        message = body.message || body.error || message;
+      }
+    } catch {
+      // keep default message
     }
     throw new Error(message);
   }

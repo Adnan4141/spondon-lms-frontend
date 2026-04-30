@@ -1,19 +1,14 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { AlertTriangle, Check, FileSpreadsheet, Upload } from 'lucide-react';
+import { AlertTriangle, FileSpreadsheet, Loader2, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { bulkImportStudents } from '@/lib/api/students';
+import { startBulkImportStudents } from '@/lib/api/students';
 import type { BranchOption } from '../types';
 import { StudentAdminField } from '../components/StudentAdminField';
 import { StudentAdminModal } from '../components/StudentAdminModal';
 import { StudentAdminSelect } from '../components/StudentAdminSelect';
-
-type ImportResult = {
-  created: number;
-  errors: { row: number; message: string }[];
-};
 
 const ACCEPTED_COLUMNS = [
   'fullName / name / studentName',
@@ -34,19 +29,18 @@ export function BulkImportStudentsModal({
   branches,
   defaultBranchId,
   onClose,
-  onImported,
+  onQueued,
 }: {
   branches: BranchOption[];
   defaultBranchId?: string;
   onClose: () => void;
-  onImported: (result: ImportResult) => void;
+  onQueued: (payload: { jobId: string; totalRows: number; fileName: string }) => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [branchId, setBranchId] = useState(defaultBranchId ?? '');
   const [defaultPassword, setDefaultPassword] = useState('123456');
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
-  const [result, setResult] = useState<ImportResult | null>(null);
 
   const fileHint = useMemo(() => {
     if (!file) return 'Excel or CSV only, maximum 5 MB.';
@@ -60,14 +54,16 @@ export function BulkImportStudentsModal({
     }
     setUploading(true);
     setError('');
-    setResult(null);
     try {
-      const res = await bulkImportStudents(file, branchId || undefined, defaultPassword || '123456');
+      const res = await startBulkImportStudents(file, branchId || undefined, defaultPassword || '123456');
       if (!(res.success && res.data)) {
-        throw new Error(res.message || 'Bulk import failed');
+        throw new Error(res.message || 'Could not start import');
       }
-      setResult(res.data);
-      onImported(res.data);
+      onQueued({
+        jobId: res.data.jobId,
+        totalRows: res.data.totalRows,
+        fileName: file.name,
+      });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Bulk import failed');
     } finally {
@@ -80,7 +76,7 @@ export function BulkImportStudentsModal({
       open
       onClose={uploading ? () => undefined : onClose}
       title="Bulk Import Students"
-      subtitle="Create student accounts from Excel or CSV"
+      subtitle="File is processed in the background — progress appears at the bottom right"
       maxWidth="max-w-4xl"
     >
       <div className="grid gap-5 lg:grid-cols-[1fr_300px]">
@@ -91,7 +87,9 @@ export function BulkImportStudentsModal({
               <div>
                 <p className="text-sm font-black text-slate-900">Upload .xlsx, .xls, or .csv</p>
                 <p className="text-xs text-slate-500 mt-1">
-                  Keep one student per row. Mobile must use BD format 01XXXXXXXXX, 10 digits without the leading 0, or +880. Excel &quot;number&quot; cells are OK. For SMS recipients, write smsAlertTo as SELF,FATHER,MOTHER.
+                  Keep one student per row. Mobile must use BD format 01XXXXXXXXX, 10 digits without the leading 0, or +880. Excel
+                  &quot;number&quot; cells are OK. You can close this window after the file is accepted — import continues in the
+                  background.
                 </p>
               </div>
             </div>
@@ -105,7 +103,6 @@ export function BulkImportStudentsModal({
               onChange={(e) => {
                 setFile(e.target.files?.[0] ?? null);
                 setError('');
-                setResult(null);
               }}
               className="focus-visible:ring-indigo-400"
             />
@@ -139,30 +136,6 @@ export function BulkImportStudentsModal({
               <p className="text-sm font-semibold text-rose-700">{error}</p>
             </div>
           )}
-
-          {result && (
-            <div className="mt-2 mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-              <div className="flex items-center gap-2 text-emerald-800">
-                <Check className="h-4 w-4" />
-                <p className="text-sm font-black">Imported {result.created} student(s)</p>
-              </div>
-              {result.errors.length > 0 && (
-                <div className="mt-3 max-h-44 overflow-auto rounded-lg border border-amber-200 bg-white">
-                  {result.errors.slice(0, 30).map((item) => (
-                    <div key={`${item.row}-${item.message}`} className="flex gap-3 border-b border-slate-100 px-3 py-2 last:border-0">
-                      <span className="text-xs font-black text-amber-600">Row {item.row}</span>
-                      <span className="text-xs font-semibold text-slate-600">{item.message}</span>
-                    </div>
-                  ))}
-                  {result.errors.length > 30 && (
-                    <p className="px-3 py-2 text-xs font-semibold text-slate-400">
-                      {result.errors.length - 30} more error(s) hidden.
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-4">
@@ -183,13 +156,23 @@ export function BulkImportStudentsModal({
       </div>
 
       <div className="mt-5 flex justify-end gap-2.5">
-        <Button variant="outline" onClick={onClose} disabled={uploading}>Close</Button>
+        <Button variant="outline" onClick={onClose} disabled={uploading}>
+          Close
+        </Button>
         <Button
-          onClick={handleImport}
+          onClick={() => void handleImport()}
           disabled={uploading}
           className="gap-2 bg-slate-900 text-white hover:bg-indigo-600 transition-all"
         >
-          <Upload className="h-4 w-4" /> {uploading ? 'Importing...' : 'Import Students'}
+          {uploading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" /> Starting…
+            </>
+          ) : (
+            <>
+              <Upload className="h-4 w-4" /> Import Students
+            </>
+          )}
         </Button>
       </div>
     </StudentAdminModal>

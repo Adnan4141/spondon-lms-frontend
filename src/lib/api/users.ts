@@ -91,6 +91,8 @@ export async function getUsers(params?: {
   programId?: string;
   courseId?: string;
   batchId?: string;
+  search?: string;
+  includeDetails?: boolean;
   page?: number;
   limit?: number;
 }): Promise<ApiResponse<User[]>> {
@@ -101,6 +103,8 @@ export async function getUsers(params?: {
   if (params?.programId) queryParams.append('programId', params.programId);
   if (params?.courseId) queryParams.append('courseId', params.courseId);
   if (params?.batchId) queryParams.append('batchId', params.batchId);
+  if (params?.search) queryParams.append('search', params.search);
+  if (params?.includeDetails !== undefined) queryParams.append('includeDetails', String(params.includeDetails));
   if (params?.page) queryParams.append('page', String(params.page));
   if (params?.limit) queryParams.append('limit', String(params.limit));
 

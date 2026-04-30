@@ -3,13 +3,16 @@
 import { cn } from '@/lib/utils';
 import type { Student } from '../types';
 
-export function StudentsStats({ students }: { students: Student[] }) {
+export function StudentsStats({ students, totalStudents = students.length }: { students: Student[]; totalStudents?: number }) {
   const totalActive = students.filter(s => s.status === 'ACTIVE').length;
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const newThisMonth = students.filter(s => s.createdAt?.startsWith(currentMonth)).length;
   const cards = [
-    { label: 'Total Students', value: students.length, icon: '👥', color: 'text-indigo-600', bg: 'bg-indigo-50' },
-    { label: 'Active', value: totalActive, icon: '✅', color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { label: 'Blocked', value: students.length - totalActive, icon: '🚫', color: 'text-rose-600', bg: 'bg-rose-50' },
-    { label: 'New This Month', value: 3, icon: '🆕', color: 'text-amber-600', bg: 'bg-amber-50' },
+    { label: 'Total Students', value: totalStudents, icon: '👥', color: 'text-indigo-600', bg: 'bg-indigo-50' },
+    { label: 'Active on Page', value: totalActive, icon: '✅', color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { label: 'Blocked on Page', value: students.length - totalActive, icon: '🚫', color: 'text-rose-600', bg: 'bg-rose-50' },
+    { label: 'New This Month', value: newThisMonth, icon: '🆕', color: 'text-amber-600', bg: 'bg-amber-50' },
   ];
 
   return (
