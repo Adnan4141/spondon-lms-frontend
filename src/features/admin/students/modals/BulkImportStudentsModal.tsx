@@ -91,7 +91,7 @@ export function BulkImportStudentsModal({
               <div>
                 <p className="text-sm font-black text-slate-900">Upload .xlsx, .xls, or .csv</p>
                 <p className="text-xs text-slate-500 mt-1">
-                  Keep one student per row. Mobile must use BD format 01XXXXXXXXX. For SMS recipients, write smsAlertTo as SELF,FATHER,MOTHER.
+                  Keep one student per row. Mobile must use BD format 01XXXXXXXXX, 10 digits without the leading 0, or +880. Excel &quot;number&quot; cells are OK. For SMS recipients, write smsAlertTo as SELF,FATHER,MOTHER.
                 </p>
               </div>
             </div>
