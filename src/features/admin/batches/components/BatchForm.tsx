@@ -22,7 +22,12 @@ const statusOptions: BatchStatusType[] = ['ACTIVE', 'INACTIVE', 'COMPLETED', 'AR
 
 const inputClass =
   'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
-const sectionLabel = 'text-[11px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2 block';
+const sectionLabel = 'text-[11px] font-black uppercase tracking-[0.18em] text-slate-500 mb-2 block';
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return 'Something went wrong';
+}
 
 interface BatchFormProps {
   courses: Course[];
@@ -102,8 +107,8 @@ export function BatchForm({ courses, branches, batch, onSuccess }: BatchFormProp
       
       closeModal();
       await onSuccess();
-    } catch (err: any) {
-      const errorMsg = err.message || `Failed to ${isEdit ? 'update' : 'create'} batch`;
+    } catch (err: unknown) {
+      const errorMsg = getErrorMessage(err) || `Failed to ${isEdit ? 'update' : 'create'} batch`;
       setError(errorMsg);
       toast({
         title: 'Error',
@@ -116,21 +121,21 @@ export function BatchForm({ courses, branches, batch, onSuccess }: BatchFormProp
   };
 
   return (
-    <div className="flex flex-col h-full bg-white text-black">
-      <div className="flex-1 min-h-0 overflow-y-auto px-8 py-8 no-scrollbar">
-        <div className="grid gap-8 py-2 sm:grid-cols-2">
+    <div className="flex h-full flex-col bg-white text-slate-900">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 [scrollbar-color:rgb(203_213_225)_transparent] [scrollbar-width:thin] sm:px-8 sm:py-8 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb:hover]:bg-slate-400">
+        <div className="grid gap-5 py-1 sm:grid-cols-2 sm:gap-8 sm:py-2">
           <div className="space-y-2 sm:col-span-2">
-            <label className={sectionLabel}>Batch Identity</label>
+            <label className={sectionLabel}>Batch Name</label>
             <Input
               className={inputClass}
               value={form.name}
               onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-              placeholder="e.g., Morning Shift A-1"
+              placeholder="Example: Morning Shift A-1"
             />
           </div>
 
           <div className="space-y-2">
-            <label className={sectionLabel}>Academic Course</label>
+            <label className={sectionLabel}>Course</label>
             <SearchableSelect
               disabled={isEdit}
               options={courseOptions}
@@ -143,7 +148,7 @@ export function BatchForm({ courses, branches, batch, onSuccess }: BatchFormProp
           </div>
 
           <div className="space-y-2">
-            <label className={sectionLabel}>Operating Branch</label>
+            <label className={sectionLabel}>Branch</label>
             <SearchableSelect
               disabled={isEdit}
               options={branchOptions}
@@ -156,7 +161,7 @@ export function BatchForm({ courses, branches, batch, onSuccess }: BatchFormProp
           </div>
 
           <div className="space-y-2">
-            <label className={sectionLabel}>Commencement Date</label>
+            <label className={sectionLabel}>Start Date</label>
             <DatePicker
               date={form.startDate ? new Date(form.startDate) : undefined}
               setDate={(date) => {
@@ -174,7 +179,7 @@ export function BatchForm({ courses, branches, batch, onSuccess }: BatchFormProp
           </div>
 
           <div className="space-y-2">
-            <label className={sectionLabel}>Estimated Conclusion</label>
+            <label className={sectionLabel}>End Date</label>
             <DatePicker
               date={form.endDate ? new Date(form.endDate) : undefined}
               setDate={(date) => {
@@ -192,7 +197,7 @@ export function BatchForm({ courses, branches, batch, onSuccess }: BatchFormProp
           </div>
 
           <div className="space-y-2">
-            <label className={sectionLabel}>Student Capacity</label>
+            <label className={sectionLabel}>Capacity</label>
             <Input
               type="number"
               min="0"
@@ -204,27 +209,27 @@ export function BatchForm({ courses, branches, batch, onSuccess }: BatchFormProp
                   capacity: e.target.value ? Number(e.target.value) : undefined,
                 }))
               }
-              placeholder="Maximum occupancy"
+              placeholder="Maximum students"
             />
           </div>
 
           <div className="space-y-2">
-            <label className={sectionLabel}>Operational Status</label>
+            <label className={sectionLabel}>Status</label>
             <Select
               value={form.status || 'ACTIVE'}
               onValueChange={(v) =>
                 setForm((prev) => ({ ...prev, status: v as BatchStatusType }))
               }
             >
-              <SelectTrigger className="h-12 w-full min-w-0 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-black shadow-inner data-placeholder:text-black/45 [&_svg]:text-black/50">
+              <SelectTrigger className="h-12 w-full min-w-0 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-900 shadow-inner data-placeholder:text-slate-400 [&_svg]:text-slate-500">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="rounded-2xl border-slate-200 bg-white text-black shadow-xl">
+              <SelectContent className="rounded-2xl border-slate-200 bg-white text-slate-900 shadow-xl">
                 {statusOptions.map((opt) => (
                   <SelectItem
                     key={opt}
                     value={opt}
-                    className="text-sm font-medium text-black focus:bg-neutral-100 focus:text-black data-highlighted:bg-neutral-100 data-highlighted:text-black"
+                    className="text-sm font-medium text-slate-900 focus:bg-slate-100 focus:text-slate-900 data-highlighted:bg-slate-100 data-highlighted:text-slate-900"
                   >
                     {opt}
                   </SelectItem>
@@ -235,28 +240,28 @@ export function BatchForm({ courses, branches, batch, onSuccess }: BatchFormProp
         </div>
 
         {error && (
-          <div className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-base font-bold text-rose-600 uppercase tracking-widest flex items-center gap-3">
+          <div className="mt-6 flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-600 sm:mt-8 sm:text-base">
              <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />
              {error}
           </div>
         )}
       </div>
 
-      <div className="mt-auto shrink-0 border-t border-slate-100 bg-slate-50/80 px-8 pb-8 pt-6">
+      <div className="mt-auto shrink-0 border-t border-slate-100 bg-slate-50/80 px-4 pb-5 pt-4 sm:px-8 sm:pb-8 sm:pt-6">
         <div className="flex flex-col sm:flex-row gap-3">
           <Button
             variant="outline"
-            className="flex-1 h-12 rounded-2xl border-slate-200 bg-white font-black uppercase tracking-[0.2em] text-[11px] text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-all"
+            className="h-12 flex-1 rounded-2xl border-slate-200 bg-white font-black uppercase tracking-[0.18em] text-[11px] text-slate-600 transition-all hover:bg-slate-50 hover:text-slate-900"
             onClick={closeModal}
           >
-            Discard
+            Cancel
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={submitting}
-            className="flex-[2] h-12 rounded-2xl bg-slate-900 font-black uppercase tracking-[0.2em] text-[11px] text-white shadow-xl shadow-slate-200 hover:bg-indigo-600 hover:scale-[1.02] active:scale-95 transition-all"
+            className="h-12 flex-[2] rounded-2xl bg-slate-900 font-black uppercase tracking-[0.18em] text-[11px] text-white shadow-xl shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95"
           >
-            {submitting ? 'Processing...' : isEdit ? 'Update Batch' : 'Authorize Batch'}
+            {submitting ? 'Saving...' : isEdit ? 'Update Batch' : 'Create Batch'}
           </Button>
         </div>
       </div>

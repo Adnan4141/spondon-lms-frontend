@@ -28,32 +28,32 @@ export function GlobalModal() {
     <Dialog open={isOpen} onOpenChange={(open) => !open && closeModal()}>
       <DialogContent
         className={cn(
-          'max-h-[92vh] gap-0 overflow-hidden border border-slate-200 bg-white text-slate-900 shadow-2xl flex flex-col p-0 rounded-[32px]',
+          'flex max-h-[92vh] w-[calc(100vw-1rem)] flex-col gap-0 overflow-hidden rounded-3xl border border-slate-200 bg-white p-0 text-slate-900 shadow-2xl sm:rounded-[32px]',
           className
         )}
         showCloseButton={true}
         onPointerDownOutside={allowInteractionFromPortaledDropdown}
         onInteractOutside={allowInteractionFromPortaledDropdown}
       >
-        <DialogHeader className="relative shrink-0 border-b border-slate-100 bg-slate-50/50 px-8 pb-6 pt-8">
+        <DialogHeader className="relative shrink-0 border-b border-slate-100 bg-slate-50/50 px-4 pb-4 pt-6 sm:px-8 sm:pb-6 sm:pt-8">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.05),transparent_40%)] pointer-events-none" />
           
           <div className="relative flex items-start gap-3">
             {showBack && (
               <button
                 onClick={goBack}
-                className="mt-1 h-10 w-10 rounded-full border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 transition"
+                className="mt-1 h-10 w-10 shrink-0 rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-100"
               >
                 <span className="sr-only">Back</span>
                 ←
               </button>
             )}
-            <div>
-              <DialogTitle className="text-2xl font-black tracking-tight text-slate-900">
+            <div className="min-w-0">
+              <DialogTitle className="text-xl font-black tracking-tight text-slate-900 sm:text-2xl">
                 {title}
               </DialogTitle>
               {description && (
-                <DialogDescription className="mt-1 text-base font-medium text-slate-500">
+                <DialogDescription className="mt-1 text-sm font-medium text-slate-500 sm:text-base">
                   {description}
                 </DialogDescription>
               )}
@@ -62,7 +62,7 @@ export function GlobalModal() {
         </DialogHeader>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden no-scrollbar">{content}</div>
+          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain [scrollbar-color:rgb(203_213_225)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb:hover]:bg-slate-400">{content}</div>
         </div>
       </DialogContent>
     </Dialog>

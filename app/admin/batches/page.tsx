@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { getCourses } from '@/lib/api/courses';
 import { getBranches } from '@/lib/api/branches';
 import {
@@ -31,15 +31,10 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import {
-  Calendar,
-  CalendarClock,
   Plus,
   RefreshCw,
   Search,
   Trash2,
-  Users,
-  Layout,
-  Layers,
   MapPin,
   BookOpen,
   LayoutGrid,
@@ -82,6 +77,7 @@ export default function BatchesPage() {
   const [courseFilter, setCourseFilter] = useState<string>('all');
   const [branchFilter, setBranchFilter] = useState<string>('all');
   const [scopedBranchId, setScopedBranchId] = useState<string | null>(null);
+  const [branchScopeReady, setBranchScopeReady] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -96,28 +92,30 @@ export default function BatchesPage() {
       }
     } catch {
       setScopedBranchId(null);
+    } finally {
+      setBranchScopeReady(true);
     }
   }, []);
 
-  const loadCourses = async () => {
+  const loadCourses = useCallback(async () => {
     try {
       const response = await getCourses({});
       if (response.success && response.data) setCourses(response.data || []);
     } catch (err) { console.error(err); }
-  };
+  }, []);
 
-  const loadBranches = async () => {
+  const loadBranches = useCallback(async () => {
     try {
       const response = await getBranches();
       if (response.success && response.data) setBranches(response.data || []);
     } catch (err) { console.error(err); }
-  };
+  }, []);
 
-  const loadBatches = async () => {
+  const loadBatches = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const params: any = {};
+      const params: Parameters<typeof getBatches>[0] = {};
       if (courseFilter !== 'all') params.courseId = courseFilter;
       if (scopedBranchId) params.branchId = scopedBranchId;
       else if (branchFilter !== 'all') params.branchId = branchFilter;
@@ -134,30 +132,30 @@ export default function BatchesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [branchFilter, courseFilter, scopedBranchId, statusFilter]);
 
   useEffect(() => {
     loadCourses();
     loadBranches();
-    loadBatches();
-  }, []);
+  }, [loadBranches, loadCourses]);
 
   useEffect(() => {
+    if (!branchScopeReady) return;
     loadBatches();
-  }, [statusFilter, courseFilter, branchFilter]);
+  }, [branchScopeReady, loadBatches]);
 
   const handleViewBatch = async (id: string) => {
     try {
       const response = await getBatchById(id);
       if (response.success && response.data) {
         openModal({
-          title: 'Batch Intelligence',
-          description: 'Detailed analytics and operational overview of the batch.',
-          className: 'sm:max-w-4xl',
+          title: 'Batch Details',
+          description: 'View batch details.',
+          className: 'w-[calc(100vw-1rem)] sm:max-w-4xl',
           content: <BatchDetailsView batch={response.data} />,
         });
       }
-    } catch (err) {
+    } catch {
       toast({ title: 'Error', description: 'Failed to load batch details', variant: 'destructive' });
     }
   };
@@ -168,9 +166,9 @@ export default function BatchesPage() {
       if (response.success && response.data) {
         const b = response.data;
         openModal({
-          title: 'Batch routine',
-          description: 'Weekly template slots linked to this batch.',
-          className: 'sm:max-w-3xl',
+          title: 'Batch Routine',
+          description: 'View weekly class times for this batch.',
+          className: 'w-[calc(100vw-1rem)] sm:max-w-3xl',
           content: (
             <BatchRoutineModal
               batchId={b.id}
@@ -181,7 +179,7 @@ export default function BatchesPage() {
           ),
         });
       }
-    } catch (err) {
+    } catch {
       toast({ title: 'Error', description: 'Failed to open routine', variant: 'destructive' });
     }
   };
@@ -191,35 +189,35 @@ export default function BatchesPage() {
       const response = await getBatchById(id);
       if (response.success && response.data) {
         openModal({
-          title: 'Update Operational Batch',
-          description: 'Modify batch identity, schedule, and capacity.',
-          className: 'sm:max-w-2xl',
+          title: 'Edit Batch',
+          description: 'Update batch details.',
+          className: 'w-[calc(100vw-1rem)] sm:max-w-2xl',
           content: <BatchForm courses={courses} branches={branches} batch={response.data} onSuccess={loadBatches} />,
         });
       }
-    } catch (err) {
+    } catch {
       toast({ title: 'Error', description: 'Failed to load batch for editing', variant: 'destructive' });
     }
   };
 
   const handleCreateBatch = () => {
     openModal({
-      title: 'Authorize New Batch',
-      description: 'Initialize a new operational batch for a specific course and branch.',
-      className: 'sm:max-w-2xl',
+      title: 'Create Batch',
+      description: 'Add a new batch for a course and branch.',
+      className: 'w-[calc(100vw-1rem)] sm:max-w-2xl',
       content: <BatchForm courses={courses} branches={scopedBranchId ? branches.filter((b) => b.id === scopedBranchId) : branches} onSuccess={loadBatches} />,
     });
   };
 
   const handleDeleteBatch = async (id: string) => {
     openModal({
-      title: 'Batch Deletion',
-      description: 'Are you sure you want to permanently remove this operational batch? This will impact all linked student enrollments and schedules.',
-      className: 'sm:max-w-xl',
+      title: 'Delete Batch',
+      description: 'This will remove the batch and may affect linked students and schedules.',
+      className: 'w-[calc(100vw-1rem)] sm:max-w-xl',
       content: (
         <ConfirmationModal
-          title="Confirm Deletion"
-          description="Permanently purging this batch from the institutional system."
+          title="Confirm Delete"
+          description="Are you sure you want to delete this batch?"
           variant="danger"
           onConfirm={async () => {
             try {
@@ -243,25 +241,25 @@ export default function BatchesPage() {
   });
 
   return (
-    <div className="space-y-8 text-slate-900">
+    <div className="space-y-6 text-slate-900 sm:space-y-8">
       {/* Filter Section */}
-      <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-6">
-          <div className="flex flex-wrap flex-1 items-center gap-4">
-            <div className="min-w-[300px] flex-1">
+      <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(260px,1fr)_180px_180px_180px_48px] lg:items-center">
+            <div className="sm:col-span-2 lg:col-span-1">
               <div className="relative group">
                 <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
                 <Input
                   placeholder="Search batches, courses, or branches..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
+                  className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 pl-11 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner sm:text-base"
                 />
               </div>
             </div>
             
-            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
-              <SelectTrigger className="h-12 w-[180px] rounded-2xl border-slate-200 bg-white text-sm font-medium shadow-sm">
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as BatchStatusType | 'all')}>
+              <SelectTrigger className="h-12 w-full rounded-2xl border-slate-200 bg-white text-sm font-medium text-slate-700 shadow-sm">
                 <SelectValue placeholder="All Status" />
               </SelectTrigger>
               <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
@@ -274,7 +272,7 @@ export default function BatchesPage() {
             </Select>
 
             <Select value={courseFilter} onValueChange={setCourseFilter}>
-              <SelectTrigger className="h-12 w-[180px] rounded-2xl border-slate-200 bg-white text-sm font-medium shadow-sm">
+              <SelectTrigger className="h-12 w-full rounded-2xl border-slate-200 bg-white text-sm font-medium text-slate-700 shadow-sm">
                 <SelectValue placeholder="All Courses" />
               </SelectTrigger>
               <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
@@ -287,13 +285,30 @@ export default function BatchesPage() {
               </SelectContent>
             </Select>
 
-            <Button variant="outline" className="h-12 w-12 rounded-2xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-all shadow-sm" onClick={loadBatches}>
+            {!scopedBranchId && (
+              <Select value={branchFilter} onValueChange={setBranchFilter}>
+                <SelectTrigger className="h-12 w-full rounded-2xl border-slate-200 bg-white text-sm font-medium text-slate-700 shadow-sm">
+                  <SelectValue placeholder="All Branches" />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
+                  <SelectItem value="all" className="text-sm font-medium">All Branches</SelectItem>
+                  {branches.map((branch) => (
+                    <SelectItem key={branch.id} value={branch.id} className="text-sm font-medium">
+                      {branch.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            <Button variant="outline" className="h-12 w-full rounded-2xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-all shadow-sm sm:w-12" onClick={loadBatches}>
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              <span className="ml-2 text-xs font-bold uppercase tracking-widest sm:hidden">Refresh</span>
             </Button>
           </div>
 
           <Button
-            className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95"
+            className="h-12 w-full rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95 sm:w-auto"
             onClick={handleCreateBatch}
           >
             <Plus className="mr-2 h-4 w-4" />
@@ -303,43 +318,47 @@ export default function BatchesPage() {
       </section>
 
       {/* Table Section */}
-      <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/30">
-        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
+      <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl shadow-slate-200/30">
+        <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/50 px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-8">
           <div>
-            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Batch Inventory</h2>
-            <p className="mt-0.5 text-base font-bold text-indigo-500">Live operational data</p>
+            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Batch List</h2>
+            <p className="mt-0.5 text-base font-bold text-indigo-500">All batches</p>
           </div>
-          <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm">
+          <div className="flex w-fit items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            Batches
+            {filteredBatches.length} Batches
           </div>
         </div>
 
         {loading ? (
-          <div className="p-20 text-center flex flex-col items-center gap-4">
+          <div className="flex flex-col items-center gap-4 p-12 text-center sm:p-20">
              <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
-             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Synchronizing Data...</p>
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">Loading batches...</p>
+          </div>
+        ) : error ? (
+          <div className="p-12 text-center sm:p-20">
+             <p className="font-black text-xs uppercase tracking-[0.2em] text-rose-500">{error}</p>
           </div>
         ) : filteredBatches.length === 0 ? (
-          <div className="p-20 text-center">
-             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No matching batches identified.</p>
+          <div className="p-12 text-center sm:p-20">
+             <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-300">No batches found.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <Table>
+            <Table className="min-w-[920px]">
               <TableHeader className="bg-slate-50/50">
                 <TableRow className="hover:bg-transparent border-b border-slate-100">
-                  <TableHead className="px-8 font-black text-sm uppercase tracking-widest text-slate-400">Batch Identity</TableHead>
-                  <TableHead className="font-black text-sm uppercase tracking-widest text-slate-400">Course & Context</TableHead>
-                  <TableHead className="font-black text-sm uppercase tracking-widest text-slate-400">Operational Info</TableHead>
-                  <TableHead className="font-black text-sm uppercase tracking-widest text-slate-400">Timeline</TableHead>
-                  <TableHead className="font-black text-sm uppercase tracking-widest text-slate-400 text-center">Manage</TableHead>
+                  <TableHead className="px-6 font-black text-xs uppercase tracking-widest text-slate-400 sm:px-8">Batch</TableHead>
+                  <TableHead className="font-black text-xs uppercase tracking-widest text-slate-400">Course & Branch</TableHead>
+                  <TableHead className="font-black text-xs uppercase tracking-widest text-slate-400">Status</TableHead>
+                  <TableHead className="font-black text-xs uppercase tracking-widest text-slate-400">Dates</TableHead>
+                  <TableHead className="font-black text-xs uppercase tracking-widest text-slate-400 text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredBatches.map((batch) => (
                   <TableRow key={batch.id} className="group border-slate-100 transition-colors hover:bg-slate-50/80">
-                    <TableCell className="px-8 py-5">
+                    <TableCell className="px-6 py-5 sm:px-8">
                        <div className="flex flex-col">
                           <span className="font-bold text-base text-slate-900 group-hover:text-indigo-600 transition-colors">{batch.name}</span>
                           <span className="text-sm font-medium text-slate-400">ID: {batch.id.slice(0, 8)}...</span>
