@@ -26,6 +26,7 @@ export function StudentsToolbar({
   branches,
   lockedBranchId,
   onDownload,
+  downloadBusy,
   onAddStudent,
   onBulkImport,
 }: {
@@ -47,7 +48,8 @@ export function StudentsToolbar({
   programs: { id: string; name: string }[];
   branches: BranchOption[];
   lockedBranchId?: string;
-  onDownload: () => void;
+  onDownload: () => void | Promise<void>;
+  downloadBusy?: boolean;
   onAddStudent: () => void;
   onBulkImport: () => void;
 }) {
@@ -139,10 +141,11 @@ export function StudentsToolbar({
         </div>
         <Button
           variant="outline"
-          onClick={onDownload}
+          onClick={() => void onDownload()}
+          disabled={downloadBusy}
           className="gap-2 shrink-0"
         >
-          <Download className="h-4 w-4" /> Download
+          <Download className="h-4 w-4" /> {downloadBusy ? 'Downloading…' : 'Download'}
         </Button>
         <Button
           variant="outline"

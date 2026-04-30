@@ -8,7 +8,7 @@ import { getPrograms } from '@/lib/api/programs';
 import { getCourses } from '@/lib/api/courses';
 import { getBranches } from '@/lib/api/branches';
 import { getUsers } from '@/lib/api/users';
-import { exportStudentsUrl } from '@/lib/api/students';
+import { downloadStudentExportXlsx } from '@/lib/api/students';
 import { getBatches, type Batch } from '@/lib/api/batches';
 import { AddStudentModal, type AddStudentSaveMeta } from '@/features/admin/students';
 import { BulkImportStudentsModal } from '@/features/admin/students';
@@ -40,6 +40,7 @@ export default function StudentsPage() {
   const [batchesForCourse, setBatchesForCourse] = useState<Batch[]>([]);
   const [modal, setModal] = useState<{ type: string; student?: Student } | null>(null);
   const [editStudent, setEditStudent] = useState<Student | null>(null);
+  const [exportingStudents, setExportingStudents] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
 
@@ -197,16 +198,23 @@ export default function StudentsPage() {
     else showToast(`"${action}" action for ${student.fullName}`, 'info');
   };
 
-  const handleDownloadStudents = () => {
-    const url = exportStudentsUrl({
-      ...(scopedBranchId ? { branchId: scopedBranchId } : branchFilter !== 'ALL' ? { branchId: branchFilter } : {}),
-      ...(programFilter !== 'ALL' ? { programId: programFilter } : {}),
-      ...(courseFilter !== 'ALL' ? { courseId: courseFilter } : {}),
-      ...(batchFilter !== 'ALL' ? { batchId: batchFilter } : {}),
-      ...(statusFilter !== 'ALL' ? { status: statusFilter } : {}),
-      ...(search.trim() ? { search: search.trim() } : {}),
-    });
-    window.open(url, '_blank');
+  const handleDownloadStudents = async () => {
+    setExportingStudents(true);
+    try {
+      await downloadStudentExportXlsx({
+        ...(scopedBranchId ? { branchId: scopedBranchId } : branchFilter !== 'ALL' ? { branchId: branchFilter } : {}),
+        ...(programFilter !== 'ALL' ? { programId: programFilter } : {}),
+        ...(courseFilter !== 'ALL' ? { courseId: courseFilter } : {}),
+        ...(batchFilter !== 'ALL' ? { batchId: batchFilter } : {}),
+        ...(statusFilter !== 'ALL' ? { status: statusFilter } : {}),
+        ...(search.trim() ? { search: search.trim() } : {}),
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Export failed';
+      toast({ title: 'Export failed', description: msg, variant: 'destructive' });
+    } finally {
+      setExportingStudents(false);
+    }
   };
 
   if (view === 'enrollments' && activeStudent) {
@@ -250,6 +258,7 @@ export default function StudentsPage() {
           branches={branches}
           lockedBranchId={scopedBranchId || undefined}
           onDownload={handleDownloadStudents}
+          downloadBusy={exportingStudents}
           onAddStudent={() => setModal({ type: 'addStudent' })}
           onBulkImport={() => setModal({ type: 'bulkImport' })}
         />

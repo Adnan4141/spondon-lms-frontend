@@ -1,4 +1,4 @@
-import { apiRequest } from '../api';
+import { API_BASE_URL, apiRequest } from '../api';
 import type {
   Student,
   CreateStudentDto,
@@ -122,16 +122,16 @@ export async function sendCredentialsEmail(userId: string): Promise<ApiResponse<
   });
 }
 
-/** Download student list as XLSX. */
-export function exportStudentsUrl(params?: {
+export type ExportStudentsParams = {
   branchId?: string;
   programId?: string;
   courseId?: string;
   batchId?: string;
   status?: string;
   search?: string;
-}): string {
-  const { API_BASE_URL } = require('../api');
+};
+
+function buildExportStudentsQuery(params?: ExportStudentsParams): string {
   const qs = new URLSearchParams();
   if (params?.branchId && params.branchId !== 'all') qs.set('branchId', params.branchId);
   if (params?.programId && params.programId !== 'all') qs.set('programId', params.programId);
@@ -139,6 +139,61 @@ export function exportStudentsUrl(params?: {
   if (params?.batchId && params.batchId !== 'all') qs.set('batchId', params.batchId);
   if (params?.status && params.status !== 'all') qs.set('status', params.status);
   if (params?.search) qs.set('search', params.search);
-  const query = qs.toString();
+  return qs.toString();
+}
+
+/** Plain URL (no auth headers); prefer {@link downloadStudentExportXlsx} for browser downloads. */
+export function exportStudentsUrl(params?: ExportStudentsParams): string {
+  const query = buildExportStudentsQuery(params);
   return `${API_BASE_URL}/users/export/students${query ? `?${query}` : ''}`;
+}
+
+/**
+ * Download student export as XLSX using Bearer auth so it works when the API is on another
+ * host (e.g. api.example.com) where `window.open` would not send `localStorage` token.
+ */
+export async function downloadStudentExportXlsx(params?: ExportStudentsParams): Promise<void> {
+  const query = buildExportStudentsQuery(params);
+  const url = `${API_BASE_URL}/users/export/students${query ? `?${query}` : ''}`;
+
+  const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const response = await fetch(url, { method: 'GET', credentials: 'include', headers });
+  if (!response.ok) {
+    let message = `Export failed (${response.status})`;
+    try {
+      const text = await response.text();
+      if (text) {
+        const body = JSON.parse(text) as { message?: string; error?: string };
+        if (typeof body.message === 'string' && body.message.trim()) message = body.message.trim();
+        else if (typeof body.error === 'string' && body.error.trim()) message = body.error.trim();
+      }
+    } catch {
+      // keep default message
+    }
+    if (response.status === 401 && typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {
+      localStorage.removeItem('auth_token');
+      window.location.href = '/login';
+      throw new Error('Session expired. Please log in again.');
+    }
+    throw new Error(message);
+  }
+
+  const blob = await response.blob();
+  const cd = response.headers.get('Content-Disposition');
+  let filename = 'students.xlsx';
+  const match = cd?.match(/filename\*?=(?:UTF-8''|"?)([^";\n]+)/i) ?? cd?.match(/filename="([^"]+)"/);
+  if (match?.[1]) filename = decodeURIComponent(match[1].replace(/^"|"$/g, ''));
+
+  const objectUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = objectUrl;
+  a.download = filename;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(objectUrl);
 }
