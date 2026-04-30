@@ -3,7 +3,21 @@
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
-export function SmsLogDetails({ log }: { log: any }) {
+type SmsLogRecipient = {
+  id: string;
+  mobile: string;
+  status: string;
+  error?: string | null;
+};
+
+type SmsLogDetailsData = {
+  recipientCount: number;
+  successCount: number;
+  failedCount: number;
+  recipients?: SmsLogRecipient[];
+};
+
+export function SmsLogDetails({ log }: { log: SmsLogDetailsData }) {
   return (
     <div className="space-y-8 p-4">
       <div className="grid grid-cols-3 gap-6">
@@ -31,7 +45,7 @@ export function SmsLogDetails({ log }: { log: any }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 font-medium">
-            {log.recipients?.map((r: any) => (
+            {log.recipients?.map((r) => (
               <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
                 <td className="px-6 py-4 font-black text-slate-700">{r.mobile}</td>
                 <td className="px-6 py-4">

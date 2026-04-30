@@ -369,6 +369,8 @@ export interface GetCoursesParams {
   teacherUserId?: string;
   page?: number;
   limit?: number;
+  /** When true, request every matching course (`all=true` — backend returns unpaginated list). */
+  all?: boolean;
 }
 
 export interface ApiResponse<T> {

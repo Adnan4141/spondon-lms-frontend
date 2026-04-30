@@ -1,2 +1,2 @@
 export { SmsLogDetails } from './components/SmsLogDetails';
-export * from './smsStyles';
+export * from './sms-shared';

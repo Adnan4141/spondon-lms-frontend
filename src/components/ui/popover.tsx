@@ -37,9 +37,11 @@ function PopoverContent({
         sideOffset={sideOffset}
         className={cn(
           // Above modal dialogs (z-50) + explicit pointer-events so clicks work when a modal sets body pointer-events:none
-          "z-[110] pointer-events-auto bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 w-72 origin-(--radix-popover-content-transform-origin) rounded-md border p-2 shadow-md outline-hidden",
+          "z-[110] pointer-events-auto bg-white text-slate-900 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 w-72 origin-(--radix-popover-content-transform-origin) rounded-md border border-slate-200 p-2 shadow-md outline-hidden [scrollbar-color:rgb(203_213_225)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb:hover]:bg-slate-400",
           className
         )}
+        onWheelCapture={(event) => event.stopPropagation()}
+        onTouchMoveCapture={(event) => event.stopPropagation()}
         {...props}
       />
     </PopoverPrimitive.Portal>

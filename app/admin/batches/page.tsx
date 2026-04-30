@@ -99,9 +99,11 @@ export default function BatchesPage() {
 
   const loadCourses = useCallback(async () => {
     try {
-      const response = await getCourses({});
-      if (response.success && response.data) setCourses(response.data || []);
-    } catch (err) { console.error(err); }
+      const response = await getCourses({ all: true });
+      if (response.success && response.data) setCourses(response.data);
+    } catch (err) {
+      console.error(err);
+    }
   }, []);
 
   const loadBranches = useCallback(async () => {
@@ -120,7 +122,7 @@ export default function BatchesPage() {
       if (scopedBranchId) params.branchId = scopedBranchId;
       else if (branchFilter !== 'all') params.branchId = branchFilter;
       if (statusFilter !== 'all') params.status = statusFilter;
-      const response = await getBatches(params);
+      const response = await getBatches({ ...params, all: true });
       if (response.success && response.data) {
         setBatches(response.data || []);
       } else {

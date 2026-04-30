@@ -18,6 +18,7 @@ export async function getCourses(params?: GetCoursesParams & { type?: string; is
   if (params?.group) queryParams.append('group', params.group);
   if (params?.page) queryParams.append('page', String(params.page));
   if (params?.limit) queryParams.append('limit', String(params.limit));
+  if (params?.all) queryParams.append('all', 'true');
 
   const query = queryParams.toString();
   return apiRequest<ApiResponse<Course[]>>(`/courses${query ? `?${query}` : ''}`);

@@ -45,6 +45,9 @@ export interface SmsProviderBalance {
 
 export interface BulkPreview {
   filename?: string;
+  columns?: string[];
+  sampleRows?: Array<Record<string, string | number | null>>;
+  mobileColumn?: string;
   validCount: number;
   invalidCount: number;
   duplicateCount: number;
@@ -141,6 +144,12 @@ export const saveSmsSystemSetting = (data: Partial<SmsSystemSetting>) => apiRequ
   body: JSON.stringify(data),
 });
 
+export const deleteBranchSystemSettings = (branchId: string, type?: string) =>
+  apiRequest<ApiResponse<{ count: number }>>('/sms/system-settings/delete-branch', {
+    method: 'POST',
+    body: JSON.stringify(type ? { branchId, type } : { branchId }),
+  });
+
 export const sendDirectSms = (to: string, message: string, isMasking: boolean, branchId?: string, scope?: string) => apiRequest<ApiResponse<unknown>>('/sms/send-direct', {
   method: 'POST',
   body: JSON.stringify({ to, message, isMasking, branchId, scope }),
@@ -154,16 +163,18 @@ export const sendBulkManual = (data: { branchId: string; numbers: string; messag
   method: 'POST',
   body: JSON.stringify(data),
 });
-export const previewBulkUpload = (file: File) => {
+export const previewBulkUpload = (file: File, mobileColumn?: string) => {
   const form = new FormData();
   form.append('file', file);
+  if (mobileColumn) form.append('mobileColumn', mobileColumn);
   return apiRequest<ApiResponse<BulkPreview>>('/sms/bulk/preview', { method: 'POST', body: form });
 };
-export const sendBulkUpload = (data: { branchId: string; message: string; file: File }) => {
+export const sendBulkUpload = (data: { branchId: string; message: string; file: File; mobileColumn?: string }) => {
   const form = new FormData();
   form.append('branchId', data.branchId);
   form.append('message', data.message);
   form.append('file', data.file);
+  if (data.mobileColumn) form.append('mobileColumn', data.mobileColumn);
   return apiRequest<ApiResponse<unknown>>('/sms/bulk/upload', { method: 'POST', body: form });
 };
 

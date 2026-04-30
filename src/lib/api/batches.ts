@@ -54,6 +54,8 @@ export async function getBatches(params?: {
   status?: string;
   page?: number;
   limit?: number;
+  /** When true, request every matching batch (`all=true` — backend returns unpaginated list). */
+  all?: boolean;
 }): Promise<ApiResponse<Batch[]>> {
   const queryParams = new URLSearchParams();
   if (params?.programId) queryParams.append('programId', params.programId);
@@ -62,6 +64,7 @@ export async function getBatches(params?: {
   if (params?.status) queryParams.append('status', params.status);
   if (params?.page) queryParams.append('page', String(params.page));
   if (params?.limit) queryParams.append('limit', String(params.limit));
+  if (params?.all) queryParams.append('all', 'true');
 
   const query = queryParams.toString();
   return apiRequest<ApiResponse<Batch[]>>(`/batches${query ? `?${query}` : ''}`);

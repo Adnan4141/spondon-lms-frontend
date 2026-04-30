@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,8 +24,6 @@ import {
   Bell,
   Shield,
   Building2,
-  Layers,
-  ArrowRight,
   ShieldCheck,
   Zap,
   Lock,
@@ -33,12 +31,11 @@ import {
   Smartphone,
   AtSign,
   MapPin,
-  Clock as ClockIcon
 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { Toaster } from '@/components/ui/toast';
+import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
 import { cn } from '@/lib/utils';
-import { getSmsConfig, upsertSmsConfig, getSmsTemplates, createSmsTemplate } from '@/lib/api/sms';
+import { getSiteSettings, upsertSiteSettings } from '@/lib/api/site-content';
+import { getSmsConfig, upsertSmsConfig, getSmsTemplates, createSmsTemplate, updateSmsTemplate } from '@/lib/api/sms';
 
 type SettingsCategory = 'general' | 'sms' | 'payment' | 'system' | 'email' | 'notifications';
 
@@ -63,6 +60,7 @@ interface SmsSettings {
   apiKey: string;
   apiSecret: string;
   senderId: string;
+  nonMaskingNumber: string;
   maskingEnabled: boolean;
   nonMaskingEnabled: boolean;
   defaultMasking: boolean;
@@ -111,11 +109,56 @@ function getErrorMessage(error: unknown): string {
   return 'Something went wrong';
 }
 
+function generalSettingsToAdminPayload(g: GeneralSettings): Record<string, string> {
+  return {
+    'admin.organization_name': g.organizationName,
+    'admin.organization_code': g.organizationCode,
+    'admin.contact_email': g.contactEmail,
+    'admin.contact_phone': g.contactPhone,
+    'admin.address': g.address,
+    'admin.website': g.website,
+    'admin.timezone': g.timezone,
+    'admin.date_format': g.dateFormat,
+    'admin.currency': g.currency,
+  };
+}
+
+const ADMIN_GENERAL_LABELS: Record<string, string> = {
+  'admin.organization_name': 'Organization name',
+  'admin.organization_code': 'Organization code',
+  'admin.contact_email': 'Contact email',
+  'admin.contact_phone': 'Contact phone',
+  'admin.address': 'Address',
+  'admin.website': 'Website',
+  'admin.timezone': 'Timezone',
+  'admin.date_format': 'Date format',
+  'admin.currency': 'Currency',
+};
+
+function applyAdminSettingsToGeneral(
+  list: { key: string; value: string }[],
+  prev: GeneralSettings,
+): GeneralSettings {
+  const m = Object.fromEntries(list.map((s) => [s.key, s.value])) as Record<string, string>;
+  return {
+    organizationName: m['admin.organization_name'] ?? prev.organizationName,
+    organizationCode: m['admin.organization_code'] ?? prev.organizationCode,
+    contactEmail: m['admin.contact_email'] ?? prev.contactEmail,
+    contactPhone: m['admin.contact_phone'] ?? prev.contactPhone,
+    address: m['admin.address'] ?? prev.address,
+    website: m['admin.website'] ?? prev.website,
+    timezone: m['admin.timezone'] ?? prev.timezone,
+    dateFormat: m['admin.date_format'] ?? prev.dateFormat,
+    currency: m['admin.currency'] ?? prev.currency,
+  };
+}
+
 export default function SettingsPage() {
-  const { toast, toasts, removeToast } = useToast();
+  const toast = useAdminToast();
   const [activeCategory, setActiveCategory] = useState<SettingsCategory>('general');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [hasBirthdayTemplate, setHasBirthdayTemplate] = useState(false);
 
   // General Settings
   const [generalSettings, setGeneralSettings] = useState<GeneralSettings>({
@@ -136,6 +179,7 @@ export default function SettingsPage() {
     apiKey: '',
     apiSecret: '',
     senderId: 'SPONDON',
+    nonMaskingNumber: '',
     maskingEnabled: true,
     nonMaskingEnabled: true,
     defaultMasking: true,
@@ -188,34 +232,36 @@ export default function SettingsPage() {
     notifyOnAttendance: false,
   });
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     try {
       setLoading(true);
-      const [smsRes, tplRes] = await Promise.all([
+      const [adminRes, smsRes, tplRes] = await Promise.all([
+        getSiteSettings('admin'),
         getSmsConfig(),
-        getSmsTemplates()
+        getSmsTemplates(),
       ]);
 
+      if (adminRes.success && adminRes.data?.length) {
+        setGeneralSettings((prev) => applyAdminSettingsToGeneral(adminRes.data!, prev));
+      }
+
       if (smsRes.success && smsRes.data) {
-        setSmsSettings(prev => ({
+        setSmsSettings((prev) => ({
           ...prev,
           provider: smsRes.data.provider,
           apiKey: smsRes.data.apiKey,
           senderId: smsRes.data.senderId || '',
           nonMaskingNumber: smsRes.data.nonMaskingNumber || '',
-        } as any));
+        }));
       }
 
       if (tplRes.success && tplRes.data) {
-        const bdayTpl = tplRes.data.find((t: any) => t.key === 'BIRTHDAY_WISH');
+        const bdayTpl = tplRes.data.find((t) => t.key === 'BIRTHDAY_WISH');
+        setHasBirthdayTemplate(!!bdayTpl);
         if (bdayTpl) {
           setBirthdaySettings({
             enabled: true,
-            template: bdayTpl.body
+            template: bdayTpl.body,
           });
         }
       }
@@ -228,28 +274,60 @@ export default function SettingsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
+
+  const canPersist =
+    activeCategory === 'general' || activeCategory === 'sms';
 
   const handleSave = async () => {
+    if (!canPersist) {
+      toast({
+        title: 'Not saved',
+        description:
+          'This section is not connected to the server yet. Use Site Settings or other admin tools where available.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
       setSaving(true);
-      
-      if (activeCategory === 'sms') {
+
+      if (activeCategory === 'general') {
+        const res = await upsertSiteSettings(
+          generalSettingsToAdminPayload(generalSettings),
+          ADMIN_GENERAL_LABELS,
+        );
+        if (!res.success) {
+          throw new Error((res as { message?: string }).message || 'Failed to save');
+        }
+      } else if (activeCategory === 'sms') {
         await upsertSmsConfig({
           provider: smsSettings.provider,
           apiKey: smsSettings.apiKey,
           senderId: smsSettings.senderId,
-          nonMaskingNumber: (smsSettings as any).nonMaskingNumber,
+          nonMaskingNumber: smsSettings.nonMaskingNumber,
         });
 
-        await createSmsTemplate({
-          key: 'BIRTHDAY_WISH',
-          body: birthdaySettings.template,
-          isMasking: smsSettings.defaultMasking
-        });
-      } else {
-        // Handle other categories
-        await new Promise(resolve => setTimeout(resolve, 500));
+        if (birthdaySettings.enabled) {
+          const payload = {
+            body: birthdaySettings.template,
+            isMasking: smsSettings.defaultMasking,
+          };
+          if (hasBirthdayTemplate) {
+            await updateSmsTemplate('BIRTHDAY_WISH', payload);
+          } else {
+            await createSmsTemplate({
+              key: 'BIRTHDAY_WISH',
+              ...payload,
+            });
+            setHasBirthdayTemplate(true);
+          }
+        }
       }
 
       toast({
@@ -417,7 +495,12 @@ export default function SettingsPage() {
           </div>
           <div className="space-y-2">
             <Label className={sectionLabel}>Non-masking Number</Label>
-            <Input className={inputClass} value={(smsSettings as any).nonMaskingNumber} onChange={(e) => setSmsSettings(p => ({ ...p, nonMaskingNumber: e.target.value } as any))} placeholder="e.g. 88096..." />
+            <Input
+              className={inputClass}
+              value={smsSettings.nonMaskingNumber}
+              onChange={(e) => setSmsSettings((p) => ({ ...p, nonMaskingNumber: e.target.value }))}
+              placeholder="e.g. 88096..."
+            />
           </div>
         </div>
       </section>
@@ -549,11 +632,13 @@ export default function SettingsPage() {
            <Bell className="h-4 w-4 text-rose-600" />
            <h3 className="text-base font-black uppercase tracking-widest text-slate-800">Dispatch Channels</h3>
         </div>
-        {[
-          { id: 'emailNotifications', label: 'Electronic Mail Protocol', icon: Mail, color: 'text-blue-500' },
-          { id: 'smsNotifications', label: 'Cellular SMS Protocol', icon: Smartphone, color: 'text-emerald-500' },
-          { id: 'pushNotifications', label: 'Direct Push Interface', icon: Zap, color: 'text-amber-500' },
-        ].map((item) => (
+        {(
+          [
+            { id: 'emailNotifications' as const, label: 'Electronic Mail Protocol', icon: Mail, color: 'text-blue-500' },
+            { id: 'smsNotifications' as const, label: 'Cellular SMS Protocol', icon: Smartphone, color: 'text-emerald-500' },
+            { id: 'pushNotifications' as const, label: 'Direct Push Interface', icon: Zap, color: 'text-amber-500' },
+          ] as const
+        ).map((item) => (
           <div key={item.id} className="flex items-center justify-between p-6 rounded-3xl border border-slate-100 bg-white shadow-sm hover:shadow-md transition-all">
             <div className="flex items-center gap-4">
                <div className={cn("h-10 w-10 rounded-2xl bg-slate-50 flex items-center justify-center", item.color)}>
@@ -562,8 +647,8 @@ export default function SettingsPage() {
                <p className="text-base font-black text-slate-800">{item.label}</p>
             </div>
             <Switch
-              checked={(notificationSettings as any)[item.id]}
-              onCheckedChange={(checked) => setNotificationSettings(p => ({ ...p, [item.id]: checked }))}
+              checked={notificationSettings[item.id]}
+              onCheckedChange={(checked) => setNotificationSettings((p) => ({ ...p, [item.id]: checked }))}
               className="data-[state=checked]:bg-rose-500"
             />
           </div>
@@ -640,6 +725,11 @@ export default function SettingsPage() {
              <div>
                 <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 leading-none">Global Settings</h2>
                 <p className="mt-1 text-base font-bold text-indigo-500 leading-none">Administrative Protocol</p>
+                {!canPersist && (
+                  <p className="mt-2 max-w-md text-xs font-semibold text-amber-700">
+                    This category is preview-only; persistence is not wired yet. Switch to General or SMS to save.
+                  </p>
+                )}
              </div>
           </div>
 
@@ -653,9 +743,9 @@ export default function SettingsPage() {
               <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
             </Button>
             <Button 
-              className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95" 
+              className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:hover:scale-100" 
               onClick={handleSave} 
-              disabled={saving}
+              disabled={saving || !canPersist}
             >
               <Save className="mr-2 h-4 w-4" />
               {saving ? 'Processing...' : 'Commit Changes'}
@@ -712,7 +802,6 @@ export default function SettingsPage() {
         </main>
       </div>
 
-      <Toaster toasts={toasts} removeToast={removeToast} />
     </div>
   );
 }

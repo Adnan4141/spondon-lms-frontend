@@ -50,7 +50,6 @@ import {
 import EmojiPicker, { type EmojiClickData } from 'emoji-picker-react';
 import { EMPTY_COURSE_FORM, type CourseForm, type CourseFormSidebarFeature } from '../courseTypes';
 import { courseToForm } from '../courseUtils';
-import { Checkbox } from '@/components/ui/checkbox';
 import { BranchMultiSelect } from '../components/BranchMultiSelect';
 
 export type CourseFormBookLink = { bookId: string; isFree: boolean };
@@ -499,6 +498,15 @@ export function CourseFormModal({
   };
 
   const labelCls = 'block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1';
+  const allowInteractionFromPortaledDropdown = (event: { preventDefault: () => void; target: EventTarget | null }) => {
+    const target = event.target as HTMLElement | null;
+    if (
+      target?.closest?.('[data-slot="popover-content"]') ||
+      target?.closest?.('[data-slot="select-content"]')
+    ) {
+      event.preventDefault();
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -509,6 +517,8 @@ export function CourseFormModal({
           'bg-white p-0 gap-0 flex flex-col overflow-hidden rounded-xl border-slate-200 shadow-xl',
           'max-h-[92vh] w-full max-w-[calc(100%-1.5rem)] sm:max-w-5xl',
         )}
+        onPointerDownOutside={allowInteractionFromPortaledDropdown}
+        onInteractOutside={allowInteractionFromPortaledDropdown}
       >
         <DialogTitle className="sr-only">{initial ? 'Edit Course' : 'Create Course'}</DialogTitle>
         <DialogDescription className="sr-only">Course form</DialogDescription>
@@ -545,7 +555,7 @@ export function CourseFormModal({
               ))}
             </TabsList>
 
-            <TabsContent value="basic" className="mt-0 min-h-0 flex-1 overflow-y-auto p-5 space-y-5">
+            <TabsContent value="basic" className="mt-0 min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 space-y-5 [scrollbar-color:rgb(203_213_225)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb:hover]:bg-slate-400">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                 <div className="lg:col-span-8">
                   <label className={labelCls}>
@@ -593,7 +603,7 @@ export function CourseFormModal({
                         <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-[min(100vw-2rem,32rem)] p-0" align="start">
+                    <PopoverContent className="w-[min(100vw-2rem,32rem)] overflow-hidden rounded-xl border-slate-200 bg-white p-0 text-slate-900 shadow-xl" align="start">
                       <div className="p-2 border-b border-slate-100">
                         <Input
                           placeholder="Search by name or email…"
@@ -602,7 +612,7 @@ export function CourseFormModal({
                           className="h-9"
                         />
                       </div>
-                      <div className="max-h-56 overflow-y-auto p-1">
+                      <div className="max-h-56 overflow-y-auto overscroll-contain p-1 [scrollbar-color:rgb(203_213_225)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb:hover]:bg-slate-400">
                         {filteredTeachers.length === 0 ? (
                           <p className="text-xs text-slate-400 p-2">No matches.</p>
                         ) : (
@@ -682,7 +692,7 @@ export function CourseFormModal({
                         <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-[min(100vw-2rem,36rem)] p-0" align="start">
+                    <PopoverContent className="w-[min(100vw-2rem,36rem)] overflow-hidden rounded-xl border-slate-200 bg-white p-0 text-slate-900 shadow-xl" align="start">
                       <div className="p-2 border-b border-slate-100">
                         <Input
                           placeholder="Search books…"
@@ -691,7 +701,7 @@ export function CourseFormModal({
                           className="h-9"
                         />
                       </div>
-                      <div className="max-h-56 overflow-y-auto p-1">
+                      <div className="max-h-56 overflow-y-auto overscroll-contain p-1 [scrollbar-color:rgb(203_213_225)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb:hover]:bg-slate-400">
                         {filteredBooksForPick.length === 0 ? (
                           <p className="text-xs text-slate-400 p-2">No books to add.</p>
                         ) : (
@@ -1097,7 +1107,7 @@ export function CourseFormModal({
               </div>
             </TabsContent>
 
-            <TabsContent value="pricing" className="flex-1 overflow-y-auto p-5 space-y-4 mt-0">
+            <TabsContent value="pricing" className="mt-0 flex-1 overflow-y-auto overscroll-contain p-5 space-y-4 [scrollbar-color:rgb(203_213_225)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb:hover]:bg-slate-400">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <label className={labelCls}>Course fee (৳) *</label>
@@ -1155,7 +1165,7 @@ export function CourseFormModal({
               </div>
             </TabsContent>
 
-            <TabsContent value="page" className="flex-1 overflow-y-auto p-5 space-y-5 mt-0">
+            <TabsContent value="page" className="mt-0 flex-1 overflow-y-auto overscroll-contain p-5 space-y-5 [scrollbar-color:rgb(203_213_225)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb:hover]:bg-slate-400">
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Catalog & enrollment</p>
                 <div className="flex flex-wrap gap-2">
