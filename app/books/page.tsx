@@ -1,526 +1,362 @@
-"use client";
+'use client';
 
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type MouseEvent,
-} from "react";
-import Link from "next/link";
-import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { Header } from "@/components/layout/Header";
-import { Footer } from "@/components/layout/Footer";
-import { getBooks, getBookCategories, type Book, type BookCategory } from "@/lib/api/books";
-import { getCourses } from "@/lib/api/courses";
-import type { Course } from "@/types/course";
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+import { ArrowRight, BookOpen, Loader2, Search, Sparkles } from 'lucide-react';
+import { Header } from '@/components/layout/Header';
+import { Footer } from '@/components/layout/Footer';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import {
-  Search,
-  X,
-  Check,
-  BookOpen,
-  ShoppingBag,
-  ArrowRight,
-} from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { cn } from "@/lib/utils";
+  getBookCategories,
+  getPublicBooksCatalog,
+  type BookCategory,
+  type PublicCatalogBook,
+} from '@/lib/api/books';
+
+type CategoryShelf = {
+  id: string;
+  label: string;
+  books: PublicCatalogBook[];
+};
+
+const cardThemes = [
+  'from-rose-500 to-pink-500',
+  'from-sky-500 to-blue-500',
+  'from-emerald-500 to-green-500',
+  'from-orange-500 to-amber-500',
+  'from-violet-500 to-purple-500',
+  'from-cyan-500 to-teal-500',
+];
 
 function readCatalogUser(): { id?: string; role?: string } | null {
-  if (typeof window === "undefined") return null;
+  if (typeof window === 'undefined') return null;
   try {
-    const raw = localStorage.getItem("user");
+    const raw = localStorage.getItem('user');
     return raw ? (JSON.parse(raw) as { id?: string; role?: string }) : null;
   } catch {
     return null;
   }
 }
 
+function stripHtml(html?: string | null) {
+  return (html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 export default function BooksCatalogPage() {
   const router = useRouter();
-  const [books, setBooks] = useState<Book[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [format, setFormat] = useState<string>("all");
-  const [priceBand, setPriceBand] = useState<string>("all");
-  const [selectedCourse, setSelectedCourse] = useState<string>("all");
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [courses, setCourses] = useState<Course[]>([]);
+  const [books, setBooks] = useState<PublicCatalogBook[]>([]);
   const [categories, setCategories] = useState<BookCategory[]>([]);
-  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [format, setFormat] = useState<'all' | 'ebook' | 'print'>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const [booksRes, coursesRes, categoriesRes] = await Promise.all([
-        getBooks({ limit: 200, page: 1 }),
-        getCourses({ limit: 200 }),
+      const [booksRes, categoriesRes] = await Promise.all([
+        getPublicBooksCatalog({ limit: 300 }),
         getBookCategories(),
       ]);
-      if (booksRes.success && booksRes.data) setBooks(booksRes.data);
-      else setBooks([]);
-      if (coursesRes.success && coursesRes.data) setCourses(coursesRes.data);
-      if (categoriesRes.success && categoriesRes.data) setCategories(categoriesRes.data);
-    } catch {
-      setBooks([]);
+
+      setBooks(booksRes.success && booksRes.data ? booksRes.data : []);
+      setCategories(categoriesRes.success && categoriesRes.data ? categoriesRes.data : []);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
-  const courseFilterOptions = useMemo(() => {
-    const bookCourseIds = new Set(
-      books.flatMap((b) => (b.courseBooks ?? []).map((cb) => cb.courseId)),
-    );
-    return courses
-      .filter((c) => bookCourseIds.has(c.id))
-      .map((c) => ({ id: c.id, label: c.name }));
-  }, [books, courses]);
+  const searchFiltered = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
 
-  const filtered = useMemo(() => {
-    const q = searchQuery.toLowerCase().trim();
-    return books.filter((b) => {
-      const desc = (b.description || "").toLowerCase();
-      const author = (b.author || "").toLowerCase();
-      const matchQ =
-        !q ||
-        b.name.toLowerCase().includes(q) ||
-        b.sku.toLowerCase().includes(q) ||
-        desc.includes(q) ||
-        author.includes(q);
-      const matchFmt =
-        format === "all" ||
-        (format === "ebook" && b.isEbook) ||
-        (format === "print" && !b.isEbook);
-      const p = Number(b.price);
-      const matchPrice =
-        priceBand === "all" ||
-        (priceBand === "free" && p <= 0) ||
-        (priceBand === "paid" && p > 0);
-      const matchCourse =
-        selectedCourse === "all" ||
-        (b.courseBooks ?? []).some((cb) => cb.courseId === selectedCourse);
-      const matchCategory =
-        selectedCategory === "all" ||
-        (selectedCategory === "__none__" && !b.categoryId) ||
-        b.categoryId === selectedCategory;
-      return matchQ && matchFmt && matchPrice && matchCourse && matchCategory;
+    return books.filter((book) => {
+      const matchesQuery =
+        !query ||
+        book.name.toLowerCase().includes(query) ||
+        (book.author || '').toLowerCase().includes(query) ||
+        stripHtml(book.description).toLowerCase().includes(query);
+      const matchesFormat =
+        format === 'all' ||
+        (format === 'ebook' && book.isEbook) ||
+        (format === 'print' && !book.isEbook);
+
+      return matchesQuery && matchesFormat;
     });
-  }, [books, searchQuery, format, priceBand, selectedCourse, selectedCategory]);
+  }, [books, format, searchQuery]);
 
-  const groupedBooks = useMemo(() => {
-    const groups: Array<{ id: string; label: string; books: Book[] }> = [];
-    for (const category of categories) {
-      const rows = filtered.filter((book) => book.categoryId === category.id);
-      if (rows.length) groups.push({ id: category.id, label: category.name, books: rows });
+  const shelves = useMemo<CategoryShelf[]>(() => {
+    const rows: CategoryShelf[] = categories
+      .map((category) => ({
+        id: category.id,
+        label: category.name,
+        books: searchFiltered.filter((book) => book.categoryId === category.id),
+      }))
+      .filter((category) => category.books.length > 0);
+
+    const uncategorized = searchFiltered.filter((book) => !book.categoryId);
+    if (uncategorized.length) {
+      rows.push({ id: '__none__', label: 'আরও বই', books: uncategorized });
     }
-    const uncategorized = filtered.filter((book) => !book.categoryId);
-    if (uncategorized.length) groups.push({ id: "__none__", label: "অন্যান্য বই", books: uncategorized });
-    const knownIds = new Set(categories.map((category) => category.id));
-    const orphaned = filtered.filter((book) => book.categoryId && !knownIds.has(book.categoryId));
-    if (orphaned.length) groups.push({ id: "__orphaned__", label: "আরও বই", books: orphaned });
-    return groups;
-  }, [categories, filtered]);
 
-  const clearFilters = () => {
-    setSearchQuery("");
-    setFormat("all");
-    setPriceBand("all");
-    setSelectedCourse("all");
-    setSelectedCategory("all");
+    return rows;
+  }, [categories, searchFiltered]);
+
+  const visibleShelves = selectedCategory === 'all'
+    ? shelves
+    : shelves.filter((shelf) => shelf.id === selectedCategory);
+
+  const featuredBooks = useMemo(
+    () => searchFiltered.filter((book) => book.featured).slice(0, 6),
+    [searchFiltered],
+  );
+
+  const resetFilters = () => {
+    setSearchQuery('');
+    setFormat('all');
+    setSelectedCategory('all');
   };
 
-  const handleBuyClick = (bookId: string, e: MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const u = readCatalogUser();
-    if (!u?.id) {
+  const handleBuyClick = (bookId: string) => {
+    const user = readCatalogUser();
+    if (!user?.id) {
       router.push(`/login?redirect=${encodeURIComponent(`/books/${bookId}`)}`);
       return;
     }
+
     router.push(`/books/${bookId}`);
   };
 
-  const renderBookCard = (b: Book, idx: number, compact = false) => (
-    <motion.div
-      key={b.id}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: (idx % 4) * 0.05 }}
-      className={compact ? "w-[260px] shrink-0 sm:w-[290px]" : ""}
-    >
-      <Link href={`/books/${b.id}`} className="block h-full">
-        <div className="group relative flex h-full flex-col overflow-hidden rounded-3xl bg-white border border-slate-200/70 shadow-[0_10px_30px_rgba(0,0,0,0.04)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_50px_rgba(0,0,0,0.08)]">
-          <div className={cn("relative overflow-hidden bg-slate-100", compact ? "h-[220px]" : "h-[250px]")}>
-            {b.thumbnailUrl ? (
-              <Image
-                src={b.thumbnailUrl}
-                alt={b.name}
-                fill
-                className="object-cover transition-transform duration-700 group-hover:scale-105"
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center text-slate-300">
-                <BookOpen className="h-10 w-10" />
-              </div>
-            )}
-            <div className="absolute inset-0 bg-linear-to-t from-black/30 via-transparent to-transparent opacity-60" />
-            <span className="absolute top-3 left-3 rounded-full bg-white/90 backdrop-blur px-3 py-1 text-[10px] font-bold text-slate-700 shadow-sm">
-              {b.isEbook ? "ই-বুক" : "প্রিন্ট"}
-            </span>
-            {b.category?.name && (
-              <span className="absolute top-3 right-3 max-w-[150px] truncate rounded-full bg-emerald-50/95 px-3 py-1 text-[10px] font-black text-emerald-700 shadow-sm">
-                {b.category.name}
-              </span>
-            )}
-            <div className="absolute bottom-3 right-3 rounded-xl bg-white/90 backdrop-blur px-3 py-1.5 text-sm font-black text-indigo-600 shadow">
-              ৳{Number(b.price).toLocaleString()}
-            </div>
-          </div>
-          <div className="flex flex-1 flex-col p-4 sm:p-5">
-            <h3 className="line-clamp-2 text-base sm:text-lg font-bold text-slate-900 leading-snug group-hover:text-indigo-600 transition">
-              {b.name}
-            </h3>
-            {b.author && <p className="mt-1 text-xs sm:text-sm text-slate-500 font-medium">{b.author}</p>}
-            <div className="mt-auto pt-4">
-              <button
-                type="button"
-                onClick={(e) => handleBuyClick(b.id, e)}
-                className="relative w-full group/btn overflow-hidden h-12 rounded-xl bg-slate-900 transition-all duration-300 cursor-pointer"
-              >
-                <div className="absolute inset-0 bg-linear-to-r from-indigo-600 to-emerald-500 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300" />
-                <div className="relative flex items-center justify-center gap-2 text-white font-black uppercase text-[10px] tracking-widest">
-                  <ShoppingBag className="h-4 w-4" />
-                  কিনুন <ArrowRight className="h-4 w-4 group-hover/btn:translate-x-1 transition-transform" />
-                </div>
-              </button>
-            </div>
-          </div>
-        </div>
-      </Link>
-    </motion.div>
-  );
-
-  const FilterSection = ({
-    title,
-    options,
-    value,
-    onChange,
-  }: {
-    title: string;
-    options: { id: string; label: string }[];
-    value: string;
-    onChange: (v: string) => void;
-  }) => (
-    <div className="mb-8 space-y-4">
-      <h4 className="mb-4 text-sm font-black uppercase tracking-widest text-slate-400">
-        {title}
-      </h4>
-      <div className="flex flex-col gap-2">
-        {options.map((opt) => (
-          <button
-            key={opt.id}
-            type="button"
-            onClick={() => onChange(opt.id)}
-            className={cn(
-              "flex cursor-pointer items-center justify-between rounded-xl border px-4 py-3 text-left transition-all duration-300 group",
-              value === opt.id
-                ? "border-indigo-500/20 bg-indigo-500/5 font-bold text-indigo-600"
-                : "border-slate-100 bg-white text-slate-600 hover:border-slate-300",
-            )}
-          >
-            <span className="text-sm">{opt.label}</span>
-            <div
-              className={cn(
-                "flex h-5 w-5 items-center justify-center rounded-full border transition-all",
-                value === opt.id
-                  ? "border-indigo-600 bg-indigo-600"
-                  : "border-slate-200 group-hover:border-slate-400",
-              )}
-            >
-              {value === opt.id && <Check className="h-3 w-3 text-white" />}
-            </div>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-
   return (
-    <div className="min-h-screen bg-[#FDFDFF]   text-slate-900 selection:bg-indigo-100">
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 selection:bg-emerald-100">
       <Header />
 
-      {/* Hero Header - Compact Version of Courses Style */}
-      <div className="bg-[#0F172A] pt-24 pb-16 relative overflow-hidden">
-        {/* Background Decorative Elements */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 blur-[120px] rounded-full pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-500/10 blur-[100px] rounded-full pointer-events-none" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(#ffffff_1px,transparent_1px)] bg-size-[40px_40px] opacity-[0.05] pointer-events-none"></div>
+      <section className="relative overflow-hidden border-b border-slate-200 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_34%),radial-gradient(circle_at_top_right,rgba(59,130,246,0.14),transparent_28%),linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] pt-28 pb-16">
+        <div className="absolute inset-0 bg-[radial-gradient(#0f172a_0.8px,transparent_0.8px)] bg-size-[26px_26px] opacity-[0.04]" />
+        <div className="relative mx-auto max-w-7xl px-6 lg:px-12">
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
+            <div>
+              <Badge className="rounded-full border-emerald-200 bg-emerald-50 px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.24em] text-emerald-700">
+                Book Categories
+              </Badge>
+              <h1 className="mt-5 max-w-4xl text-4xl font-black tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
+                বই খুঁজুন <span className="text-emerald-600">ক্যাটাগরি</span> ধরে, সিরিজ ধরে, দ্রুত। 
+              </h1>
+              <p className="mt-4 max-w-3xl text-base leading-8 text-slate-600">
+                HSC, SSC, admission, and custom publication shelves in one place. Browse by category first, then open the exact book details page for sample preview and purchase.
+              </p>
 
-        <div className="relative z-10 mx-auto max-w-7xl px-6 lg:px-12 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-4 inline-block rounded-full border border-white/10 bg-white/5 px-4 py-1 text-[10px] font-black uppercase tracking-[0.3em] text-indigo-300"
-          >
-            Digital library
-          </motion.div>
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-            className="text-4xl md:text-5xl font-black text-white mb-4 tracking-tighter"
-          >
-            আমাদের সকল{" "}
-            <span className="text-transparent bg-clip-text bg-linear-to-r from-emerald-400 to-cyan-400">
-              বইসমূহ
-            </span>
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1, duration: 0.6 }}
-            className="mx-auto max-w-2xl text-slate-400 text-base font-medium leading-relaxed"
-          >
-            আপনার পছন্দের ই-বুক এবং প্রিন্ট ভার্সন খুঁজে নিন। বিস্তারিত ও কেনার
-            জন্য বই কার্ডে ক্লিক করুন।
-          </motion.p>
-        </div>
-      </div>
-
-      <div className="mx-auto max-w-7xl px-6 py-12 lg:px-12">
-        <div className="flex flex-col lg:flex-row gap-10 mb-20 lg:gap-12">
-          {/* Sidebar Filters - Desktop */}
-          <aside className="hidden w-full shrink-0 lg:block lg:w-80">
-            <div className="sticky top-28 space-y-2 rounded-[32px] border border-slate-100 bg-white p-8 shadow-sm">
-              <div className="mb-6 flex items-center justify-between border-b border-slate-50 pb-4">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-lg font-black">ফিল্টার</h3>
-                </div>
-                <button
-                  onClick={clearFilters}
-                  className="text-xs font-bold text-rose-500 hover:underline cursor-pointer"
-                >
-                  Clear All
-                </button>
+              <div className="mt-8 flex flex-wrap gap-3">
+                {[
+                  { value: 'all', label: 'All formats' },
+                  { value: 'ebook', label: 'E-Books' },
+                  { value: 'print', label: 'Print books' },
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setFormat(option.value as 'all' | 'ebook' | 'print')}
+                    className={cn(
+                      'rounded-full border px-4 py-2 text-sm font-black transition-colors',
+                      format === option.value
+                        ? 'border-slate-900 bg-slate-900 text-white'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900',
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))}
               </div>
-
-              <FilterSection
-                title="ফরম্যাট"
-                value={format}
-                onChange={setFormat}
-                options={[
-                  { id: "all", label: "সকল ফরম্যাট" },
-                  { id: "ebook", label: "ই-বুক" },
-                  { id: "print", label: "প্রিন্ট কপি" },
-                ]}
-              />
-
-              <FilterSection
-                title="মূল্য"
-                value={priceBand}
-                onChange={setPriceBand}
-                options={[
-                  { id: "all", label: "সকল মূল্য" },
-                  { id: "free", label: "বিনামূল্যে" },
-                  { id: "paid", label: "পেইড" },
-                ]}
-              />
-
-              {categories.length > 0 && (
-                <FilterSection
-                  title="ক্যাটাগরি"
-                  value={selectedCategory}
-                  onChange={setSelectedCategory}
-                  options={[
-                    { id: "all", label: "সকল ক্যাটাগরি" },
-                    ...categories.map((category) => ({ id: category.id, label: category.name })),
-                    { id: "__none__", label: "অন্যান্য" },
-                  ]}
-                />
-              )}
-
-              {courseFilterOptions.length > 0 && (
-                <FilterSection
-                  title="কোর্স অনুযায়ী"
-                  value={selectedCourse}
-                  onChange={setSelectedCourse}
-                  options={[
-                    { id: "all", label: "সকল কোর্স" },
-                    ...courseFilterOptions,
-                  ]}
-                />
-              )}
             </div>
-          </aside>
 
-          {/* Main Content */}
-          <div className="min-w-0 flex-1 ">
-            <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center">
-              <div className="relative flex-1 group">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
-                <input
-                  type="search"
-                  placeholder="বইয়ের নাম, লেখক লিখে খুঁজুন..."
+            <div className="rounded-[32px] border border-white/70 bg-white/90 p-5 shadow-[0_24px_60px_rgba(15,23,42,0.08)] backdrop-blur">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-14 w-full rounded-2xl border border-slate-200 bg-white pl-12 pr-4 font-bold text-slate-900 shadow-sm outline-none transition-all focus:border-indigo-300 focus:ring-4 focus:ring-indigo-500/5 placeholder:text-slate-300"
+                  placeholder="বইয়ের নাম, লেখক, সিরিজ লিখে খুঁজুন"
+                  className="h-14 rounded-2xl border-slate-200 pl-12 text-base"
                 />
               </div>
-              <button
-                type="button"
-                className="flex h-14 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 font-black text-slate-700 shadow-sm lg:hidden"
-                onClick={() => setMobileFilterOpen(true)}
-              >
-                ফিল্টার
-              </button>
+              <div className="mt-5 grid grid-cols-3 gap-3">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Books</p>
+                  <p className="mt-2 text-2xl font-black text-slate-900">{books.length}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Shelves</p>
+                  <p className="mt-2 text-2xl font-black text-slate-900">{shelves.length}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Featured</p>
+                  <p className="mt-2 text-2xl font-black text-slate-900">{featuredBooks.length}</p>
+                </div>
+              </div>
             </div>
-
-            {loading ? (
-              <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-                {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <div
-                    key={i}
-                    className="bg-white animate-pulse border border-slate-100 shadow-sm h-87.5 rounded-[28px]"
-                  />
-                ))}
-              </div>
-            ) : filtered.length === 0 ? (
-              <div className="rounded-[32px] border border-dashed border-slate-200 bg-white py-20 text-center">
-                <BookOpen className="mx-auto mb-4 h-12 w-12 text-slate-300" />
-                <p className="font-bold text-slate-600">কোনো বই মেলেনি।</p>
-                <button
-                  onClick={clearFilters}
-                  className="mt-4 text-indigo-600 font-bold hover:underline"
-                >
-                  ফিল্টার ক্লিয়ার করুন
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-10">
-                {groupedBooks.map((group) => (
-                  <section key={group.id} className="space-y-4">
-                    <div className="flex items-end justify-between gap-4">
-                      <div>
-                        <h2 className="text-2xl font-black tracking-tight text-slate-900">{group.label}</h2>
-                        <p className="mt-1 text-sm font-bold text-slate-400">{group.books.length} টি বই</p>
-                      </div>
-                      {selectedCategory === "all" && group.id !== "__none__" && group.id !== "__orphaned__" && (
-                        <button
-                          type="button"
-                          onClick={() => setSelectedCategory(group.id)}
-                          className="text-xs font-black uppercase tracking-widest text-indigo-600 hover:underline"
-                        >
-                          সব দেখুন
-                        </button>
-                      )}
-                    </div>
-                    <div className="flex gap-6 overflow-x-auto pb-4">
-                      {group.books.map((book, idx) => renderBookCard(book, idx, true))}
-                    </div>
-                  </section>
-                ))}
-              </div>
-            )}
           </div>
         </div>
-      </div>
+      </section>
 
-      <AnimatePresence>
-        {mobileFilterOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setMobileFilterOpen(false)}
-              className="fixed inset-0 z-100 bg-slate-900/60 backdrop-blur-sm lg:hidden cursor-pointer"
-            />
-            <motion.div
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 right-0 z-110 flex w-[85%] max-w-sm flex-col bg-white p-8 lg:hidden shadow-2xl overflow-y-auto"
-            >
-              <div className="mb-8 flex items-center justify-between border-b border-slate-50 pb-4">
-                <h3 className="text-2xl font-black text-slate-900">ফিল্টার</h3>
-                <button
-                  type="button"
-                  onClick={() => setMobileFilterOpen(false)}
-                  className="rounded-full p-2 bg-slate-100 text-slate-500 hover:bg-rose-50 hover:text-rose-500 transition-all"
-                >
-                  <X className="h-5 w-5" />
-                </button>
+      <main className="mx-auto max-w-7xl px-6 py-12 lg:px-12">
+        {loading ? (
+          <div className="flex min-h-[40vh] items-center justify-center rounded-[32px] border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-center gap-3 text-slate-500">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              Loading books...
+            </div>
+          </div>
+        ) : shelves.length === 0 ? (
+          <div className="rounded-[32px] border border-dashed border-slate-200 bg-white px-6 py-20 text-center shadow-sm">
+            <BookOpen className="mx-auto h-10 w-10 text-slate-300" />
+            <h2 className="mt-4 text-2xl font-black text-slate-900">No matching books found</h2>
+            <p className="mt-2 text-sm text-slate-500">Try another search term or reset the category/format filters.</p>
+            <Button className="mt-6 rounded-2xl" variant="outline" onClick={resetFilters}>
+              Reset filters
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-12">
+            <section className="space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">Category shelves</p>
+                  <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">ক্যাটাগরি কম্পোনেন্ট ভিউ</h2>
+                </div>
+                {selectedCategory !== 'all' ? (
+                  <Button variant="outline" className="rounded-2xl" onClick={() => setSelectedCategory('all')}>
+                    সব ক্যাটাগরি দেখুন
+                  </Button>
+                ) : null}
               </div>
-              <FilterSection
-                title="ফরম্যাট"
-                value={format}
-                onChange={setFormat}
-                options={[
-                  { id: "all", label: "সকল ফরম্যাট" },
-                  { id: "ebook", label: "ই-বুক" },
-                  { id: "print", label: "প্রিন্ট কপি" },
-                ]}
-              />
-              <FilterSection
-                title="মূল্য"
-                value={priceBand}
-                onChange={setPriceBand}
-                options={[
-                  { id: "all", label: "সকল মূল্য" },
-                  { id: "free", label: "বিনামূল্যে" },
-                  { id: "paid", label: "পেইড" },
-                ]}
-              />
-              {categories.length > 0 && (
-                <FilterSection
-                  title="ক্যাটাগরি"
-                  value={selectedCategory}
-                  onChange={setSelectedCategory}
-                  options={[
-                    { id: "all", label: "সকল ক্যাটাগরি" },
-                    ...categories.map((category) => ({ id: category.id, label: category.name })),
-                    { id: "__none__", label: "অন্যান্য" },
-                  ]}
-                />
-              )}
-              {courseFilterOptions.length > 0 && (
-                <FilterSection
-                  title="কোর্স অনুযায়ী"
-                  value={selectedCourse}
-                  onChange={setSelectedCourse}
-                  options={[
-                    { id: "all", label: "সকল কোর্স" },
-                    ...courseFilterOptions,
-                  ]}
-                />
-              )}
-              <div className="mt-auto space-y-3 pt-10">
-                <button
-                  onClick={() => setMobileFilterOpen(false)}
-                  className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase text-sm tracking-widest shadow-xl shadow-indigo-100"
-                >
-                  ফলাফল দেখুন
-                </button>
-                <button
-                  onClick={() => {
-                    clearFilters();
-                    setMobileFilterOpen(false);
-                  }}
-                  className="w-full py-4 border border-slate-200 text-slate-600 rounded-2xl font-black uppercase text-sm tracking-widest hover:bg-slate-50 transition-all"
-                >
-                  রিসেট করুন
-                </button>
+
+              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                {shelves.map((shelf, index) => (
+                  <button
+                    key={shelf.id}
+                    type="button"
+                    onClick={() => setSelectedCategory(shelf.id)}
+                    className={cn(
+                      'overflow-hidden rounded-[28px] border bg-white text-left shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg',
+                      selectedCategory === shelf.id ? 'border-slate-900 ring-2 ring-slate-900/10' : 'border-slate-200',
+                    )}
+                  >
+                    <div className={cn('relative overflow-hidden px-5 py-5 text-white', `bg-linear-to-r ${cardThemes[index % cardThemes.length]}`)}>
+                      <div className="absolute inset-0 bg-[linear-gradient(to_right,white_1px,transparent_1px)] bg-size-[16px_100%] opacity-10" />
+                      <div className="relative flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-2xl font-black leading-tight">{shelf.label}</p>
+                          <p className="mt-1 text-sm font-semibold text-white/80">{shelf.books[0]?.author || 'Category collection'}</p>
+                        </div>
+                        <div className="rounded-full bg-white/20 px-3 py-1 text-xs font-black">{shelf.books.length} টি বই</div>
+                      </div>
+                    </div>
+                    <div className="flex items-end justify-between gap-4 p-5">
+                      <div className="flex min-w-0 items-end">
+                        {shelf.books.slice(0, 4).map((book, previewIndex) => (
+                          <div
+                            key={book.id}
+                            className={cn(
+                              'relative h-20 w-14 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 shadow-sm',
+                              previewIndex > 0 ? '-ml-3' : '',
+                            )}
+                          >
+                            {book.thumbnailUrl ? (
+                              <Image src={book.thumbnailUrl} alt={book.name} fill className="object-cover" unoptimized />
+                            ) : (
+                              <div className="flex h-full items-center justify-center text-xs font-black text-slate-300">{book.name.slice(0, 1)}</div>
+                            )}
+                          </div>
+                        ))}
+                        {shelf.books.length > 4 ? (
+                          <div className="-ml-3 flex h-20 w-14 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-sm font-black text-slate-500 shadow-sm">
+                            +{shelf.books.length - 4}
+                          </div>
+                        ) : null}
+                      </div>
+                      <div className="inline-flex items-center gap-2 text-sm font-black text-slate-700">
+                        বিস্তারিত <ArrowRight className="h-4 w-4" />
+                      </div>
+                    </div>
+                  </button>
+                ))}
               </div>
-            </motion.div>
-          </>
+            </section>
+
+            <div className="space-y-10">
+              {visibleShelves.map((shelf) => (
+                <section key={shelf.id} className="space-y-5">
+                  <div className="flex flex-wrap items-end justify-between gap-3">
+                    <div>
+                      <h3 className="text-2xl font-black tracking-tight text-slate-950">{shelf.label}</h3>
+                      <p className="mt-1 text-sm text-slate-500">{shelf.books.length} curated {shelf.books.length === 1 ? 'book' : 'books'} in this shelf</p>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.24em] text-emerald-600">
+                      <Sparkles className="h-4 w-4" />
+                      Storefront selection
+                    </div>
+                  </div>
+
+                  <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+                    {shelf.books.map((book) => (
+                      <Link
+                        key={book.id}
+                        href={`/books/${book.id}`}
+                        className="group overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg"
+                      >
+                        <div className="relative aspect-4/5 overflow-hidden bg-slate-100">
+                          {book.thumbnailUrl ? (
+                            <Image src={book.thumbnailUrl} alt={book.name} fill className="object-cover transition-transform duration-500 group-hover:scale-105" unoptimized />
+                          ) : (
+                            <div className="flex h-full items-center justify-center text-4xl font-black text-slate-300">{book.name.slice(0, 1)}</div>
+                          )}
+                          <div className="absolute left-3 top-3 flex flex-wrap gap-2">
+                            <Badge className="border-white/40 bg-white/85 text-slate-800">{book.isEbook ? 'E-Book' : 'Print'}</Badge>
+                            {book.featured ? <Badge className="border-amber-200 bg-amber-50 text-amber-700">Featured</Badge> : null}
+                          </div>
+                        </div>
+                        <div className="space-y-4 p-5">
+                          <div>
+                            <h4 className="line-clamp-2 text-lg font-black leading-tight text-slate-950 group-hover:text-emerald-600">{book.name}</h4>
+                            {book.author ? <p className="mt-1 text-sm font-medium text-slate-500">{book.author}</p> : null}
+                          </div>
+                          <p className="line-clamp-3 text-sm leading-6 text-slate-500">
+                            {stripHtml(book.description) || 'এই বইয়ের বিস্তারিত দেখতে ভিতরে প্রবেশ করুন।'}
+                          </p>
+                          <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
+                            <div>
+                              <p className="text-2xl font-black text-slate-950">{Number(book.price) <= 0 ? 'FREE' : `৳${Number(book.price).toLocaleString()}`}</p>
+                              <p className="text-xs font-semibold text-slate-400">{book.category?.name || shelf.label}</p>
+                            </div>
+                            <Button
+                              type="button"
+                              className="rounded-2xl bg-emerald-600 px-4 text-white hover:bg-emerald-700"
+                              onClick={(event) => {
+                                event.preventDefault();
+                                handleBuyClick(book.id);
+                              }}
+                            >
+                              Buy
+                            </Button>
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          </div>
         )}
-      </AnimatePresence>
+      </main>
 
       <Footer />
     </div>

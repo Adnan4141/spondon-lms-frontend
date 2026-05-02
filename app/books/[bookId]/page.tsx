@@ -3,9 +3,9 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowRight, Loader2, Users, Truck, PieChart, Library, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, Loader2, Users, Truck, PieChart, Library, CheckCircle2, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getPublicBook, type PublicBook } from '@/lib/api/books';
+import { getPublicBook, getPublicBooksCatalog, type PublicBook, type PublicCatalogBook } from '@/lib/api/books';
 import { getBranches } from '@/lib/api/branches';
 import { getBookAccess, purchaseBook, type BookAccessData } from '@/lib/api/student-portal';
 import { initInvoicePayment } from '@/lib/api/invoices';
@@ -82,6 +82,7 @@ export default function PublicBookDetailPage() {
   const [submitting, setSubmitting] = useState(false);
   const [purchaseHint, setPurchaseHint] = useState<string | null>(null);
   const [samplePreviewOpen, setSamplePreviewOpen] = useState(false);
+  const [relatedBooks, setRelatedBooks] = useState<PublicCatalogBook[]>([]);
 
   useEffect(() => {
     setCurrentUser(readUser());
@@ -105,10 +106,15 @@ export default function PublicBookDetailPage() {
       try {
         setLoading(true);
         setLoadError(null);
-        const [bookRes, branchRes] = await Promise.all([getPublicBook(bookId), getBranches()]);
+        const [bookRes, branchRes, relatedRes] = await Promise.all([
+          getPublicBook(bookId),
+          getBranches(),
+          getPublicBooksCatalog({ limit: 80 }),
+        ]);
         if (bookRes.success && bookRes.data) setBook(bookRes.data);
         else setLoadError('বই পাওয়া যায়নি।');
         if (branchRes.success) setBranches(branchRes.data || []);
+        if (relatedRes.success && relatedRes.data) setRelatedBooks(relatedRes.data);
         const accRes = await getBookAccess(bookId, currentUser?.id);
         if (accRes.success && accRes.data) setAccess(accRes.data);
       } catch {
@@ -120,9 +126,21 @@ export default function PublicBookDetailPage() {
   }, [bookId, currentUser?.id]);
 
   const categoryLabel = useMemo(() => {
-    const first = book?.courseBooks?.[0]?.course?.name;
-    return first?.trim() || null;
+    return book?.category?.name?.trim() || book?.courseBooks?.[0]?.course?.name?.trim() || null;
   }, [book]);
+
+  const recommendedBooks = useMemo(() => {
+    if (!book) return [];
+
+    const matches = relatedBooks.filter((candidate) => {
+      if (candidate.id === book.id) return false;
+      if (book.categoryId && candidate.categoryId === book.categoryId) return true;
+      if (!book.categoryId && categoryLabel && candidate.category?.name === categoryLabel) return true;
+      return false;
+    });
+
+    return matches.slice(0, 4);
+  }, [book, categoryLabel, relatedBooks]);
 
   const isLoggedIn = Boolean(currentUser?.id);
   const isStudent = String(currentUser?.role || '').toUpperCase() === 'STUDENT';
@@ -232,14 +250,11 @@ export default function PublicBookDetailPage() {
   const showStudentLibraryLink = isStudent;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-indigo-100">
+    <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-emerald-100">
       <Header />
 
-      {/* Hero Section - Matching Course Detail Style */}
-      <div className="relative bg-[#0F172A] pt-32 pb-24 overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 blur-[120px] rounded-full pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/10 blur-[100px] rounded-full pointer-events-none" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(#ffffff_1px,transparent_1px)] bg-size-[40px_40px] opacity-[0.05] pointer-events-none"></div>
+      <div className="relative overflow-hidden border-b border-slate-200 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_34%),radial-gradient(circle_at_top_right,rgba(59,130,246,0.12),transparent_28%),linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] pt-28 pb-16">
+        <div className="absolute inset-0 bg-[radial-gradient(#0f172a_0.8px,transparent_0.8px)] bg-size-[26px_26px] opacity-[0.04]" />
 
         <div className="max-w-7xl mx-auto px-6 lg:px-12 relative z-10">
           <BookHeroSection
@@ -260,21 +275,21 @@ export default function PublicBookDetailPage() {
       </div>
 
       {showStudentLibraryLink ? (
-        <div className="relative border-b border-indigo-500/20 bg-[#0F172A] py-6">
-          <div className="absolute inset-0 bg-linear-to-r from-indigo-600/10 via-transparent to-violet-600/10" />
+        <div className="relative border-b border-slate-200 bg-white py-6">
+          <div className="absolute inset-0 bg-linear-to-r from-emerald-500/5 via-transparent to-sky-500/5" />
           <div className="mx-auto flex max-w-7xl flex-col gap-6 px-6 sm:flex-row sm:items-center sm:justify-between lg:px-12 relative z-10">
             <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-500/20 text-indigo-400 ring-1 ring-indigo-500/30">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600 ring-1 ring-emerald-200">
                 <Library className="h-6 w-6" />
               </div>
               <div className="space-y-1">
-                <p className="text-sm font-black text-white">আপনার নিজস্ব লাইব্রেরি</p>
-                <p className="text-xs font-bold text-slate-400">কেনা ই-বুক ও প্রিন্ট অর্ডার এক জায়গায় দেখুন।</p>
+                <p className="text-sm font-black text-slate-900">আপনার নিজস্ব লাইব্রেরি</p>
+                <p className="text-xs font-bold text-slate-500">কেনা ই-বুক ও প্রিন্ট অর্ডার এক জায়গায় দেখুন।</p>
               </div>
             </div>
             <Link
               href="/student/books#my-books"
-              className="inline-flex items-center justify-center rounded-2xl bg-indigo-600 px-8 py-3.5 text-xs font-black uppercase tracking-widest text-white shadow-xl shadow-indigo-500/20 transition-all hover:bg-indigo-700 hover:scale-[1.02] active:scale-95"
+              className="inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-8 py-3.5 text-xs font-black uppercase tracking-widest text-white shadow-xl shadow-emerald-500/20 transition-all hover:bg-emerald-700 hover:scale-[1.02] active:scale-95"
             >
               আমার বই সংগ্রহ
             </Link>
@@ -416,6 +431,47 @@ export default function PublicBookDetailPage() {
            
           </aside>
         </div>
+
+        {recommendedBooks.length > 0 ? (
+          <section className="mt-20 space-y-6">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">Recommendations</p>
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">আরও কিছু বই আপনার জন্য</h2>
+                <p className="mt-2 text-sm text-slate-500">Same category, same storefront flow, and faster discovery from this detail page.</p>
+              </div>
+              <div className="flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-emerald-700">
+                <Sparkles className="h-4 w-4" />
+                {categoryLabel || 'Related'} picks
+              </div>
+            </div>
+
+            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+              {recommendedBooks.map((item) => (
+                <Link key={item.id} href={`/books/${item.id}`} className="group overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg">
+                  <div className="relative aspect-4/5 overflow-hidden bg-slate-100">
+                    {item.thumbnailUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={item.thumbnailUrl} alt={item.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-4xl font-black text-slate-300">{item.name.slice(0, 1)}</div>
+                    )}
+                  </div>
+                  <div className="space-y-3 p-5">
+                    <div>
+                      <h3 className="line-clamp-2 text-lg font-black leading-tight text-slate-950 group-hover:text-emerald-600">{item.name}</h3>
+                      {item.author ? <p className="mt-1 text-sm text-slate-500">{item.author}</p> : null}
+                    </div>
+                    <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+                      <span className="text-2xl font-black text-slate-950">{Number(item.price) <= 0 ? 'FREE' : `৳${Number(item.price).toLocaleString()}`}</span>
+                      <span className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Details</span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        ) : null}
       </main>
 
       <Dialog open={checkoutOpen} onOpenChange={setCheckoutOpen}>

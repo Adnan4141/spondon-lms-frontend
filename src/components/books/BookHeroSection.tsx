@@ -2,11 +2,10 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { Bookmark, BookOpen, FileText, ArrowRight, Sparkles, Star, ShoppingCart, CheckCircle2 } from 'lucide-react';
+import { Bookmark, BookOpen, FileText, ArrowRight, ShoppingCart, CheckCircle2, Layers3, ShieldCheck, Tags } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { PublicBook } from '@/lib/api/books';
-import { motion } from 'framer-motion';
 
 interface BookHeroSectionProps {
   book: PublicBook;
@@ -37,189 +36,136 @@ export function BookHeroSection({
   onStartReading,
   onOpenSamplePreview,
 }: BookHeroSectionProps) {
+  const courseCount = book.courseBooks?.length || 0;
+  const collaboratorCount = book.collaborators?.length || 0;
+
   return (
-    <div className="relative">
-      <div className="grid gap-16 lg:grid-cols-[400px_1fr] lg:items-center">
-        {/* Book Cover Container with 3D Effect */}
-        <div className="relative group perspective-1000">
-          <motion.div 
-            initial={{ opacity: 0, y: 20, rotateY: 0 }}
-            animate={{ opacity: 1, y: 0, rotateY: -15 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-            whileHover={{ rotateY: -5, scale: 1.02 }}
-            className="relative mx-auto aspect-[3/4] w-full max-w-[360px] preserve-3d transition-all duration-500"
+    <div className="grid gap-8 lg:grid-cols-[340px_minmax(0,1fr)] lg:items-start">
+      <div className="space-y-5">
+        <div className="rounded-[32px] border border-slate-200 bg-white p-5 shadow-[0_24px_60px_rgba(15,23,42,0.08)]">
+          <div className="relative mx-auto aspect-3/4 w-full max-w-[300px] overflow-hidden rounded-[24px] border border-slate-200 bg-slate-100 shadow-2xl">
+            <Image
+              src={book.thumbnailUrl || 'https://placehold.co/600x800?text=Book'}
+              alt={book.name}
+              fill
+              className="object-cover"
+              unoptimized
+              priority
+            />
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <Button variant="outline" className="h-12 rounded-2xl border-emerald-200 px-6 text-emerald-700 hover:bg-emerald-50" onClick={onOpenSamplePreview}>
+            <FileText className="mr-2 h-4 w-4" />
+            পড়ে দেখুন
+          </Button>
+          {book.isEbook && !showRead ? (
+            <Button asChild variant="outline" className="h-12 rounded-2xl border-slate-200 px-6">
+              <Link href={`/login?redirect=${encodeURIComponent(`/books/${bookId}`)}`}>
+                লগইন করুন
+              </Link>
+            </Button>
+          ) : null}
+          <button
+            type="button"
+            onClick={onToggleBookmark}
+            className={`flex h-12 items-center justify-center rounded-2xl border px-4 transition-all ${
+              bookmarked
+                ? 'border-amber-200 bg-amber-50 text-amber-700'
+                : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-900'
+            }`}
           >
-            {/* Shadow behind the book */}
-            <div className="absolute -inset-4 bg-indigo-500/20 blur-3xl rounded-[40px] opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
-            
-            <div className="relative h-full w-full overflow-hidden rounded-[16px] border-y border-r border-white/20 bg-white/5 backdrop-blur-sm shadow-[20px_20px_60px_rgba(0,0,0,0.5)] flex items-center justify-center">
-              {/* Spine effect */}
-              <div className="absolute left-0 top-0 bottom-0 w-4 bg-gradient-to-r from-black/40 via-white/10 to-transparent z-10 border-r border-white/5"></div>
-              
-              <Image
-                src={book.thumbnailUrl || 'https://placehold.co/600x800?text=Book'}
-                alt={book.name}
-                fill
-                className="object-cover"
-                unoptimized
-                priority
-              />
-              
-              {/* Glossy overlay */}
-              <div className="absolute inset-0 bg-gradient-to-tr from-white/10 via-transparent to-white/5 pointer-events-none"></div>
-            </div>
-
-            {/* "Pages" effect on the right side */}
-            <div className="absolute top-[2%] bottom-[2%] -right-2 w-4 bg-slate-200 rounded-r-sm shadow-inner flex flex-col justify-between py-2 opacity-80">
-               {[...Array(10)].map((_, i) => (
-                 <div key={i} className="h-px w-full bg-slate-400/20"></div>
-               ))}
-            </div>
-          </motion.div>
-
-
+            <Bookmark className={`h-5 w-5 ${bookmarked ? 'fill-current' : ''}`} />
+          </button>
         </div>
+      </div>
 
-        {/* Book Details */}
-        <div className="min-w-0 space-y-10">
-          <div className="space-y-6">
-            <div className="flex flex-wrap items-center gap-4">
-              <Badge className="bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border-indigo-500/30 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
-                {book.isEbook ? 'Digital Edition' : 'Premium Hardcover'}
+      <div className="space-y-6">
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <Badge className="border-rose-200 bg-rose-50 text-rose-700">{book.category?.name || 'Academic'}</Badge>
+            <Badge variant="outline" className="border-slate-200 bg-white text-slate-600">{book.isEbook ? 'Digital edition' : 'Print edition'}</Badge>
+            {book.isEbook ? (
+              <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700">
+                <CheckCircle2 className="mr-1 h-3 w-3" />
+                Instant access
               </Badge>
-              {categoryLabel && (
-                <Badge variant="outline" className="border-white/10 bg-white/5 text-slate-400 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
-                  {categoryLabel}
-                </Badge>
-              )}
-              {book.isEbook && (
-                <div className="flex items-center gap-1 text-emerald-400 text-[10px] font-black uppercase tracking-widest bg-emerald-400/10 px-3 py-1 rounded-full border border-emerald-400/20">
-                  <CheckCircle2 className="h-3 w-3" />
-                  ইন্সট্যান্ট এক্সেস
-                </div>
-              )}
-            </div>
-
-            <h1 className="text-5xl font-black tracking-tight text-white sm:text-6xl lg:text-7xl leading-[1.05] tracking-tighter bg-clip-text text-transparent bg-gradient-to-b from-white to-slate-400">
-              {book.name}
-            </h1>
-            
-            {book.author && (
-              <div className="flex items-center gap-4">
-                <div className="h-10 w-10 rounded-full bg-slate-800 border border-white/10 flex items-center justify-center font-black text-slate-400">
-                  {book.author.charAt(0)}
-                </div>
-                <p className="text-2xl font-bold text-slate-400">
-                  {book.author}
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center gap-12 py-8 border-y border-white/10">
-            <div className="space-y-1">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">বর্তমান মূল্য</p>
-              <div className="flex items-baseline gap-2">
-                <p className="text-5xl font-black text-white">
-                  {isFree ? 'FREE' : `৳${Number(book.price).toLocaleString()}`}
-                </p>
-                {!isFree && book.mrp && Number(book.mrp) > Number(book.price) && (
-                   <p className="text-xl text-slate-500 line-through font-bold opacity-50">৳{Number(book.mrp).toLocaleString()}</p>
-                )}
-              </div>
-            </div>
-            <div className="h-16 w-px bg-white/10"></div>
-            <div className="space-y-1">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">রিসোর্স ফরম্যাট</p>
-              <div className="flex items-center gap-2">
-                <BookOpen className="h-5 w-5 text-indigo-400" />
-                <p className="text-xl font-black text-slate-200">
-                  {book.isEbook ? 'Interactive PDF' : 'Standard Print'}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {purchaseHint && (
-            <motion.div 
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="p-5 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center gap-4 text-rose-400"
-            >
-              <div className="h-2 w-2 rounded-full bg-rose-500 animate-pulse"></div>
-              <p className="text-sm font-bold">{purchaseHint}</p>
-            </motion.div>
-          )}
-
-          <div className="flex flex-wrap gap-6">
-            {showRead && readUrl ? (
-              <Button
-                className="h-20 px-12 rounded-[24px] bg-white text-slate-900 font-black text-xl hover:bg-slate-100 shadow-[0_20px_40px_rgba(255,255,255,0.1)] transition-all active:scale-95 group"
-                onClick={onStartReading}
-              >
-                <FileText className="mr-3 h-7 w-7 text-indigo-600 transition-transform group-hover:scale-110" />
-                পড়া শুরু করুন
-              </Button>
-            ) : book.isEbook && !isFree ? (
-              <>
-                <Button
-                  className="h-20 px-12 rounded-[24px] bg-indigo-600 text-white font-black text-xl hover:bg-indigo-700 shadow-[0_20px_40px_rgba(79,70,229,0.3)] transition-all active:scale-95 group"
-                  onClick={onBuy}
-                >
-                  <ShoppingCart className="mr-3 h-6 w-6" />
-                  এখনই কিনুন 
-                  <ArrowRight className="ml-3 h-6 w-6 transition-transform group-hover:translate-x-1" />
-                </Button>
-                <Button
-                  variant="outline"
-                  className="h-20 rounded-[24px] border-white/20 bg-white/5 px-10 text-white hover:bg-white/10"
-                  onClick={onOpenSamplePreview}
-                >
-                  <FileText className="mr-3 h-6 w-6" />
-                  Sample PDF
-                </Button>
-              </>
-            ) : isFree && book.isEbook ? (
-              <Button asChild variant="outline" className="h-20 px-12 rounded-[24px] border-white/20 text-white font-black text-xl hover:bg-white/10 backdrop-blur-sm transition-all active:scale-95">
-                <Link href={`/login?redirect=${encodeURIComponent(`/books/${bookId}`)}`}>পড়তে লগইন করুন</Link>
-              </Button>
-            ) : (
-              <Button
-                className="h-20 px-12 rounded-[24px] bg-indigo-600 text-white font-black text-xl hover:bg-indigo-700 shadow-[0_20px_40px_rgba(79,70,229,0.3)] transition-all active:scale-95 group"
-                onClick={onBuy}
-              >
-                <ShoppingCart className="mr-3 h-6 w-6" />
-                অর্ডার করুন
-                <ArrowRight className="ml-3 h-6 w-6 transition-transform group-hover:translate-x-1" />
-              </Button>
-            )}
-
-            {book.isEbook && (showRead || isFree) ? (
-              <Button
-                variant="outline"
-                className="h-20 rounded-[24px] border-white/20 bg-white/5 px-10 text-white hover:bg-white/10"
-                onClick={onOpenSamplePreview}
-              >
-                <FileText className="mr-3 h-6 w-6" />
-                Sample PDF
-              </Button>
             ) : null}
-
-            <button
-              type="button"
-              onClick={onToggleBookmark}
-              className={`flex items-center justify-center h-20 w-20 rounded-[24px] border transition-all active:scale-90 ${
-                bookmarked 
-                ? 'border-amber-500/50 bg-amber-500/10 text-amber-500 shadow-lg shadow-amber-500/10' 
-                : 'border-white/10 bg-white/5 text-slate-400 hover:border-white/30 hover:text-white backdrop-blur-sm'
-              }`}
-            >
-              <Bookmark className={`h-8 w-8 ${bookmarked ? 'fill-current' : ''}`} />
-            </button>
           </div>
-
-    
+          <h1 className="text-3xl font-black leading-tight tracking-tight text-slate-950 sm:text-4xl lg:text-5xl">{book.name}</h1>
+          <div className="rounded-[24px] border border-slate-200 bg-white px-4 py-3 shadow-sm sm:max-w-sm">
+            <p className="text-sm font-black text-slate-900">{book.author || 'Rhombus Publications'}</p>
+            <p className="text-xs font-medium text-slate-500">{categoryLabel || 'Academic publication'}</p>
+          </div>
         </div>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="flex items-center gap-3 rounded-[20px] border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <BookOpen className="h-4 w-4 text-slate-500" />
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Format</p>
+              <p className="text-sm font-bold text-slate-800">{book.isEbook ? 'Interactive PDF' : 'Printed book'}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 rounded-[20px] border border-amber-200 bg-amber-50 px-4 py-3 shadow-sm">
+            <Tags className="h-4 w-4 text-amber-600" />
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-500">Category</p>
+              <p className="text-sm font-bold text-amber-900">{book.category?.name || 'Academic series'}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 rounded-[20px] border border-blue-200 bg-blue-50 px-4 py-3 shadow-sm">
+            <Layers3 className="h-4 w-4 text-blue-600" />
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-500">Course Links</p>
+              <p className="text-sm font-bold text-blue-900">{courseCount} linked course{courseCount === 1 ? '' : 's'}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 rounded-[20px] border border-emerald-200 bg-emerald-50 px-4 py-3 shadow-sm">
+            <ShieldCheck className="h-4 w-4 text-emerald-600" />
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-500">Support</p>
+              <p className="text-sm font-bold text-emerald-900">{collaboratorCount} contributor{collaboratorCount === 1 ? '' : 's'}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">Current price</p>
+              <div className="mt-2 flex items-baseline gap-2">
+                <p className="text-4xl font-black text-slate-950">{isFree ? 'FREE' : `৳${Number(book.price).toLocaleString()}`}</p>
+                {!isFree && book.mrp && Number(book.mrp) > Number(book.price) ? (
+                  <p className="text-lg font-bold text-slate-400 line-through">৳{Number(book.mrp).toLocaleString()}</p>
+                ) : null}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {showRead && readUrl ? (
+                <Button className="h-12 rounded-2xl bg-emerald-600 px-6 font-black text-white hover:bg-emerald-700" onClick={onStartReading}>
+                  <FileText className="mr-2 h-4 w-4" />
+                  পড়া শুরু করুন
+                </Button>
+              ) : (
+                <Button className="h-12 rounded-2xl bg-emerald-600 px-6 font-black text-white hover:bg-emerald-700" onClick={onBuy}>
+                  <ShoppingCart className="mr-2 h-4 w-4" />
+                  {book.isEbook ? 'Buy now' : 'অর্ডার করুন'}
+                </Button>
+              )}
+              <Button variant="outline" className="h-12 rounded-2xl border-slate-200 px-6" onClick={onOpenSamplePreview}>
+                Sample PDF
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {purchaseHint ? (
+          <div className="rounded-[24px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+            {purchaseHint}
+          </div>
+        ) : null}
       </div>
     </div>
   );
