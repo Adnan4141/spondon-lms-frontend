@@ -53,6 +53,7 @@ export interface EnrolledCourse {
 export interface Enrollment {
   id: string;
   programId: string;
+  programName?: string;
   branchId: string;
   status: string;
   source?: string;

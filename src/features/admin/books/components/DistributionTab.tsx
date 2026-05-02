@@ -1,0 +1,185 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import {
+  createDistribution,
+  getDistributionSummary,
+  getDistributions,
+  type Book,
+  type BookDistribution,
+  type DistributionChannel,
+} from '@/lib/api/books';
+import type { Branch } from '@/lib/api/branches';
+import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
+import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/ui/date-picker';
+import { DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ArrowRight, Building2, RadioTower } from 'lucide-react';
+import { StatsCard } from './StatsCard';
+import { BookAdminModal } from './BookAdminModal';
+
+export function DistributionTab({ books, branches, channels }: { books: Book[]; branches: Branch[]; channels: DistributionChannel[] }) {
+  const toast = useAdminToast();
+  const [bookId, setBookId] = useState('all');
+  const [destinationType, setDestinationType] = useState<'all' | 'branch' | 'channel'>('all');
+  const [destinationId, setDestinationId] = useState('all');
+  const [fromDate, setFromDate] = useState<Date>();
+  const [toDate, setToDate] = useState<Date>();
+  const [rows, setRows] = useState<BookDistribution[]>([]);
+  const [summary, setSummary] = useState<{ byBook: Array<{ bookId: string; _sum: { quantity?: number | null }; _count: number; book?: { id: string; name: string; sku: string } }>; byBranch: Array<{ toBranchId: string | null; _sum: { quantity?: number | null }; _count: number; branch?: { id: string; name: string } }>; byChannel: Array<{ channelId: string | null; _sum: { quantity?: number | null }; _count: number; channel?: { id: string; name: string } }> }>({ byBook: [], byBranch: [], byChannel: [] });
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ bookId: '', destinationType: 'branch' as 'branch' | 'channel', destinationId: '', quantity: 1, note: '' });
+
+  const loadData = async () => {
+    const [listRes, summaryRes] = await Promise.all([
+      getDistributions({
+        bookId: bookId === 'all' ? undefined : bookId,
+        toBranchId: destinationType === 'branch' && destinationId !== 'all' ? destinationId : undefined,
+        channelId: destinationType === 'channel' && destinationId !== 'all' ? destinationId : undefined,
+        from: fromDate ? fromDate.toISOString() : undefined,
+        to: toDate ? toDate.toISOString() : undefined,
+        limit: 50,
+      }),
+      getDistributionSummary({
+        bookId: bookId === 'all' ? undefined : bookId,
+        branchId: destinationType === 'branch' && destinationId !== 'all' ? destinationId : undefined,
+        channelId: destinationType === 'channel' && destinationId !== 'all' ? destinationId : undefined,
+      }),
+    ]);
+    if (listRes.success) setRows(listRes.data || []);
+    if (summaryRes.success) setSummary(summaryRes.data);
+  };
+
+  useEffect(() => {
+    void loadData();
+  }, [bookId, destinationType, destinationId, fromDate, toDate]);
+
+  const handleCreate = async () => {
+    try {
+      setSaving(true);
+      await createDistribution({
+        bookId: form.bookId,
+        quantity: Number(form.quantity),
+        note: form.note,
+        toBranchId: form.destinationType === 'branch' ? form.destinationId : undefined,
+        channelId: form.destinationType === 'channel' ? form.destinationId : undefined,
+      });
+      toast({ title: 'Distribution recorded', variant: 'success' });
+      setDialogOpen(false);
+      await loadData();
+    } catch (error) {
+      toast({ title: 'Distribution failed', description: error instanceof Error ? error.message : 'Something went wrong', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-3">
+        <StatsCard label="Book Summary Rows" value={summary.byBook.length} icon={ArrowRight} variant="sky" />
+        <StatsCard label="Branch Destinations" value={summary.byBranch.length} icon={Building2} variant="green" />
+        <StatsCard label="Channel Destinations" value={summary.byChannel.length} icon={RadioTower} variant="purple" />
+      </div>
+
+      <section className="rounded-[28px] border border-border bg-card p-5 shadow-sm">
+        <div className="flex flex-wrap items-center gap-3">
+          <Select value={bookId} onValueChange={setBookId}>
+            <SelectTrigger className="w-[240px]"><SelectValue placeholder="Book" /></SelectTrigger>
+            <SelectContent><SelectItem value="all">All Books</SelectItem>{books.map((book) => <SelectItem key={book.id} value={book.id}>{book.name}</SelectItem>)}</SelectContent>
+          </Select>
+          <Select value={destinationType} onValueChange={(value) => { setDestinationType(value as 'all' | 'branch' | 'channel'); setDestinationId('all'); }}>
+            <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+            <SelectContent><SelectItem value="all">All Destinations</SelectItem><SelectItem value="branch">Branch</SelectItem><SelectItem value="channel">Channel</SelectItem></SelectContent>
+          </Select>
+          {destinationType !== 'all' ? (
+            <Select value={destinationId} onValueChange={setDestinationId}>
+              <SelectTrigger className="w-[220px]"><SelectValue placeholder="Destination" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                {(destinationType === 'branch' ? branches : channels).map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          ) : null}
+          <DatePicker date={fromDate} setDate={setFromDate} placeholder="From date" className="w-[180px]" />
+          <DatePicker date={toDate} setDate={setToDate} placeholder="To date" className="w-[180px]" />
+          <Button className="ml-auto rounded-2xl" onClick={() => setDialogOpen(true)}>New Distribution</Button>
+        </div>
+      </section>
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <section className="rounded-[28px] border border-border bg-card p-5 shadow-sm">
+          <h3 className="mb-4 text-lg font-black">Book-wise Summary</h3>
+          <Table>
+            <TableHeader><TableRow><TableHead>Book</TableHead><TableHead>Trips</TableHead><TableHead className="text-right">Qty</TableHead></TableRow></TableHeader>
+            <TableBody>
+              {summary.byBook.map((row) => (
+                <TableRow key={row.bookId}>
+                  <TableCell>{row.book?.name || row.bookId}</TableCell>
+                  <TableCell>{row._count}</TableCell>
+                  <TableCell className="text-right font-semibold">{row._sum.quantity || 0}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </section>
+        <section className="rounded-[28px] border border-border bg-card p-5 shadow-sm">
+          <h3 className="mb-4 text-lg font-black">Destination Summary</h3>
+          <Table>
+            <TableHeader><TableRow><TableHead>Destination</TableHead><TableHead>Trips</TableHead><TableHead className="text-right">Qty</TableHead></TableRow></TableHeader>
+            <TableBody>
+              {[...summary.byBranch.map((row) => ({ key: row.toBranchId || 'none', name: row.branch?.name || 'Unassigned Branch', count: row._count, quantity: row._sum.quantity || 0 })), ...summary.byChannel.map((row) => ({ key: row.channelId || 'none-channel', name: row.channel?.name || 'Unassigned Channel', count: row._count, quantity: row._sum.quantity || 0 }))].map((row) => (
+                <TableRow key={row.key}><TableCell>{row.name}</TableCell><TableCell>{row.count}</TableCell><TableCell className="text-right font-semibold">{row.quantity}</TableCell></TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </section>
+      </div>
+
+      <section className="rounded-[28px] border border-border bg-card p-5 shadow-sm">
+        <h3 className="mb-4 text-lg font-black">Recent Distributions</h3>
+        <Table>
+          <TableHeader><TableRow><TableHead>Book</TableHead><TableHead>Destination</TableHead><TableHead>Type</TableHead><TableHead>Date</TableHead><TableHead className="text-right">Qty</TableHead></TableRow></TableHeader>
+          <TableBody>
+            {rows.map((row) => (
+              <TableRow key={row.id}>
+                <TableCell>{row.book?.name || row.bookId}</TableCell>
+                <TableCell>{row.toBranch?.name || row.channel?.name || 'Unknown'}</TableCell>
+                <TableCell>{row.toBranchId ? 'Branch' : 'Channel'}</TableCell>
+                <TableCell>{new Date(row.distributedAt).toLocaleDateString()}</TableCell>
+                <TableCell className="text-right font-semibold">{row.quantity}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </section>
+
+      <BookAdminModal
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        title="Create Distribution"
+        subtitle="Distribute books to a branch or external channel while preserving ledger-based stock history."
+        maxWidth="max-w-5xl"
+        bodyClassName="p-4 sm:p-6 md:p-8"
+      >
+          <div className="grid gap-4 py-1">
+            <div className="space-y-2"><Label>Book</Label><Select value={form.bookId} onValueChange={(value) => setForm((prev) => ({ ...prev, bookId: value }))}><SelectTrigger><SelectValue placeholder="Select book" /></SelectTrigger><SelectContent>{books.map((book) => <SelectItem key={book.id} value={book.id}>{book.name}</SelectItem>)}</SelectContent></Select></div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2"><Label>Destination Type</Label><Select value={form.destinationType} onValueChange={(value) => setForm((prev) => ({ ...prev, destinationType: value as 'branch' | 'channel', destinationId: '' }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="branch">Branch</SelectItem><SelectItem value="channel">Channel</SelectItem></SelectContent></Select></div>
+              <div className="space-y-2"><Label>Destination</Label><Select value={form.destinationId} onValueChange={(value) => setForm((prev) => ({ ...prev, destinationId: value }))}><SelectTrigger><SelectValue placeholder="Select destination" /></SelectTrigger><SelectContent>{(form.destinationType === 'branch' ? branches : channels).map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent></Select></div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2"><Label>Quantity</Label><Input type="number" value={String(form.quantity)} onChange={(e) => setForm((prev) => ({ ...prev, quantity: Number(e.target.value || 0) }))} /></div>
+              <div className="space-y-2"><Label>Note</Label><Input value={form.note} onChange={(e) => setForm((prev) => ({ ...prev, note: e.target.value }))} placeholder="Teacher fair, retail partner, branch top-up..." /></div>
+            </div>
+          </div>
+          <DialogFooter className="mt-6 border-t border-slate-100 bg-slate-50 px-0 pt-5 sm:mt-8 sm:pt-6"><Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button><Button onClick={handleCreate} disabled={saving}>{saving ? 'Saving...' : 'Confirm Distribution'}</Button></DialogFooter>
+      </BookAdminModal>
+    </div>
+  );
+}

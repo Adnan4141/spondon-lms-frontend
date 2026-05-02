@@ -257,6 +257,34 @@ export function CollectPaymentModal({
     [monthGroups, selMonth],
   );
 
+  const selectedProgramNames = useMemo(() => {
+    const selectedCourseIds = new Set(
+      displayInvoices.flatMap(inv =>
+        (inv.items ?? [])
+          .filter(item => item.type === 'COURSE' && item.refId)
+          .map(item => item.refId!),
+      ),
+    );
+    const names = new Set<string>();
+
+    for (const enrollment of enrollments) {
+      const hasSelectedCourse = enrollment.courses.some(course => selectedCourseIds.has(course.courseId));
+      const coversSelectedMonth =
+        !selMonth ||
+        enrollment.courses.some(course => {
+          const start = course.startMonth || enrollment.billingStartMonth;
+          const end = course.endMonth;
+          return (!start || start <= selMonth) && (!end || selMonth <= end);
+        });
+
+      if ((hasSelectedCourse || (!selectedCourseIds.size && coversSelectedMonth)) && enrollment.programName) {
+        names.add(enrollment.programName);
+      }
+    }
+
+    return [...names].sort((a, b) => a.localeCompare(b));
+  }, [displayInvoices, enrollments, selMonth]);
+
   const getMonthAggStatus = (invs: Invoice[]): DisplayStatus => {
     if (!invs.length) return 'DUE';
     const statuses = invs.map(i => (i.displayStatus ?? i.status) as DisplayStatus);
@@ -591,6 +619,11 @@ export function CollectPaymentModal({
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                     Invoices — {selMonth ? fmtMonth(selMonth) : 'One-Time / Program'}
                   </p>
+                  {selectedProgramNames.length > 0 && (
+                    <p className="mt-1 max-w-[520px] truncate text-sm font-bold text-slate-900" title={selectedProgramNames.join(', ')}>
+                      {selectedProgramNames.join(', ')}
+                    </p>
+                  )}
                   {displayInvoices.length > 0 && (
                     <div className="mt-1 flex items-center gap-2 text-[11px] font-bold text-slate-500">
                       <span>{displayInvoices.length} invoice{displayInvoices.length !== 1 ? 's' : ''}</span>

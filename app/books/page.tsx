@@ -12,7 +12,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
-import { getBooks, type Book } from "@/lib/api/books";
+import { getBooks, getBookCategories, type Book, type BookCategory } from "@/lib/api/books";
 import { getCourses } from "@/lib/api/courses";
 import type { Course } from "@/types/course";
 import {
@@ -44,19 +44,23 @@ export default function BooksCatalogPage() {
   const [format, setFormat] = useState<string>("all");
   const [priceBand, setPriceBand] = useState<string>("all");
   const [selectedCourse, setSelectedCourse] = useState<string>("all");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [courses, setCourses] = useState<Course[]>([]);
+  const [categories, setCategories] = useState<BookCategory[]>([]);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const [booksRes, coursesRes] = await Promise.all([
+      const [booksRes, coursesRes, categoriesRes] = await Promise.all([
         getBooks({ limit: 200, page: 1 }),
         getCourses({ limit: 200 }),
+        getBookCategories(),
       ]);
       if (booksRes.success && booksRes.data) setBooks(booksRes.data);
       else setBooks([]);
       if (coursesRes.success && coursesRes.data) setCourses(coursesRes.data);
+      if (categoriesRes.success && categoriesRes.data) setCategories(categoriesRes.data);
     } catch {
       setBooks([]);
     } finally {
@@ -100,15 +104,34 @@ export default function BooksCatalogPage() {
       const matchCourse =
         selectedCourse === "all" ||
         (b.courseBooks ?? []).some((cb) => cb.courseId === selectedCourse);
-      return matchQ && matchFmt && matchPrice && matchCourse;
+      const matchCategory =
+        selectedCategory === "all" ||
+        (selectedCategory === "__none__" && !b.categoryId) ||
+        b.categoryId === selectedCategory;
+      return matchQ && matchFmt && matchPrice && matchCourse && matchCategory;
     });
-  }, [books, searchQuery, format, priceBand, selectedCourse]);
+  }, [books, searchQuery, format, priceBand, selectedCourse, selectedCategory]);
+
+  const groupedBooks = useMemo(() => {
+    const groups: Array<{ id: string; label: string; books: Book[] }> = [];
+    for (const category of categories) {
+      const rows = filtered.filter((book) => book.categoryId === category.id);
+      if (rows.length) groups.push({ id: category.id, label: category.name, books: rows });
+    }
+    const uncategorized = filtered.filter((book) => !book.categoryId);
+    if (uncategorized.length) groups.push({ id: "__none__", label: "অন্যান্য বই", books: uncategorized });
+    const knownIds = new Set(categories.map((category) => category.id));
+    const orphaned = filtered.filter((book) => book.categoryId && !knownIds.has(book.categoryId));
+    if (orphaned.length) groups.push({ id: "__orphaned__", label: "আরও বই", books: orphaned });
+    return groups;
+  }, [categories, filtered]);
 
   const clearFilters = () => {
     setSearchQuery("");
     setFormat("all");
     setPriceBand("all");
     setSelectedCourse("all");
+    setSelectedCategory("all");
   };
 
   const handleBuyClick = (bookId: string, e: MouseEvent<HTMLButtonElement>) => {
@@ -121,6 +144,66 @@ export default function BooksCatalogPage() {
     }
     router.push(`/books/${bookId}`);
   };
+
+  const renderBookCard = (b: Book, idx: number, compact = false) => (
+    <motion.div
+      key={b.id}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: (idx % 4) * 0.05 }}
+      className={compact ? "w-[260px] shrink-0 sm:w-[290px]" : ""}
+    >
+      <Link href={`/books/${b.id}`} className="block h-full">
+        <div className="group relative flex h-full flex-col overflow-hidden rounded-3xl bg-white border border-slate-200/70 shadow-[0_10px_30px_rgba(0,0,0,0.04)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_50px_rgba(0,0,0,0.08)]">
+          <div className={cn("relative overflow-hidden bg-slate-100", compact ? "h-[220px]" : "h-[250px]")}>
+            {b.thumbnailUrl ? (
+              <Image
+                src={b.thumbnailUrl}
+                alt={b.name}
+                fill
+                className="object-cover transition-transform duration-700 group-hover:scale-105"
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center text-slate-300">
+                <BookOpen className="h-10 w-10" />
+              </div>
+            )}
+            <div className="absolute inset-0 bg-linear-to-t from-black/30 via-transparent to-transparent opacity-60" />
+            <span className="absolute top-3 left-3 rounded-full bg-white/90 backdrop-blur px-3 py-1 text-[10px] font-bold text-slate-700 shadow-sm">
+              {b.isEbook ? "ই-বুক" : "প্রিন্ট"}
+            </span>
+            {b.category?.name && (
+              <span className="absolute top-3 right-3 max-w-[150px] truncate rounded-full bg-emerald-50/95 px-3 py-1 text-[10px] font-black text-emerald-700 shadow-sm">
+                {b.category.name}
+              </span>
+            )}
+            <div className="absolute bottom-3 right-3 rounded-xl bg-white/90 backdrop-blur px-3 py-1.5 text-sm font-black text-indigo-600 shadow">
+              ৳{Number(b.price).toLocaleString()}
+            </div>
+          </div>
+          <div className="flex flex-1 flex-col p-4 sm:p-5">
+            <h3 className="line-clamp-2 text-base sm:text-lg font-bold text-slate-900 leading-snug group-hover:text-indigo-600 transition">
+              {b.name}
+            </h3>
+            {b.author && <p className="mt-1 text-xs sm:text-sm text-slate-500 font-medium">{b.author}</p>}
+            <div className="mt-auto pt-4">
+              <button
+                type="button"
+                onClick={(e) => handleBuyClick(b.id, e)}
+                className="relative w-full group/btn overflow-hidden h-12 rounded-xl bg-slate-900 transition-all duration-300 cursor-pointer"
+              >
+                <div className="absolute inset-0 bg-linear-to-r from-indigo-600 to-emerald-500 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300" />
+                <div className="relative flex items-center justify-center gap-2 text-white font-black uppercase text-[10px] tracking-widest">
+                  <ShoppingBag className="h-4 w-4" />
+                  কিনুন <ArrowRight className="h-4 w-4 group-hover/btn:translate-x-1 transition-transform" />
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </Link>
+    </motion.div>
+  );
 
   const FilterSection = ({
     title,
@@ -248,6 +331,19 @@ export default function BooksCatalogPage() {
                 ]}
               />
 
+              {categories.length > 0 && (
+                <FilterSection
+                  title="ক্যাটাগরি"
+                  value={selectedCategory}
+                  onChange={setSelectedCategory}
+                  options={[
+                    { id: "all", label: "সকল ক্যাটাগরি" },
+                    ...categories.map((category) => ({ id: category.id, label: category.name })),
+                    { id: "__none__", label: "অন্যান্য" },
+                  ]}
+                />
+              )}
+
               {courseFilterOptions.length > 0 && (
                 <FilterSection
                   title="কোর্স অনুযায়ী"
@@ -305,76 +401,28 @@ export default function BooksCatalogPage() {
                 </button>
               </div>
             ) : (
-              <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-                {filtered.map((b, idx) => (
-                  <motion.div
-                    key={b.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: (idx % 4) * 0.05 }}
-                  >
-                    <Link href={`/books/${b.id}`} className="block h-full">
-                      <div className="group relative flex h-full flex-col overflow-hidden rounded-3xl bg-white border border-slate-200/70 shadow-[0_10px_30px_rgba(0,0,0,0.04)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_50px_rgba(0,0,0,0.08)]">
-                        {/* IMAGE */}
-                        <div className="relative h-[250px]   overflow-hidden bg-slate-100">
-                          {b.thumbnailUrl ? (
-                            <Image
-                              src={b.thumbnailUrl}
-                              alt={b.name}
-                              fill
-                              className="  object-cover transition-transform duration-700 group-hover:scale-105"
-                          
-                            />
-                          ) : (
-                            <div className="flex h-full items-center justify-center text-slate-300">
-                              <BookOpen className="h-10 w-10" />
-                            </div>
-                          )}
-
-                          {/* Gradient overlay */}
-                          <div className="absolute inset-0 bg-linear-to-t from-black/30 via-transparent to-transparent opacity-60" />
-
-                          {/* Format badge */}
-                          <span className="absolute top-3 left-3 rounded-full bg-white/90 backdrop-blur px-3 py-1 text-[10px] font-bold text-slate-700 shadow-sm">
-                            {b.isEbook ? "ই-বুক" : "প্রিন্ট"}
-                          </span>
-
-                          {/* Price floating */}
-                          <div className="absolute bottom-3 right-3 rounded-xl bg-white/90 backdrop-blur px-3 py-1.5 text-sm font-black text-indigo-600 shadow">
-                            ৳{Number(b.price).toLocaleString()}
-                          </div>
-                        </div>
-
-                        {/* CONTENT */}
-                        <div className="flex flex-1 flex-col p-4 sm:p-5">
-                          <h3 className="line-clamp-2 text-base sm:text-lg font-bold text-slate-900 leading-snug group-hover:text-indigo-600 transition">
-                            {b.name}
-                          </h3>
-
-                          {b.author && (
-                            <p className="mt-1 text-xs sm:text-sm text-slate-500 font-medium">
-                              {b.author}
-                            </p>
-                          )}
-
-                          {/* CTA */}
-                          <div className="mt-auto pt-4">
-                            <button
-                              type="button"
-                              onClick={(e) => handleBuyClick(b.id, e)}
-                              className="relative w-full group/btn overflow-hidden h-12 rounded-xl bg-slate-900 transition-all duration-300 cursor-pointer"
-                            >
-                              <div className="absolute inset-0 bg-linear-to-r from-indigo-600 to-emerald-500 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300" />
-                              <div className="relative flex items-center justify-center gap-2 text-white font-black uppercase text-[10px] tracking-widest">
-                                <ShoppingBag className="h-4 w-4" />
-                                কিনুন <ArrowRight className="h-4 w-4 group-hover/btn:translate-x-1 transition-transform" />
-                              </div>
-                            </button>
-                          </div>
-                        </div>
+              <div className="space-y-10">
+                {groupedBooks.map((group) => (
+                  <section key={group.id} className="space-y-4">
+                    <div className="flex items-end justify-between gap-4">
+                      <div>
+                        <h2 className="text-2xl font-black tracking-tight text-slate-900">{group.label}</h2>
+                        <p className="mt-1 text-sm font-bold text-slate-400">{group.books.length} টি বই</p>
                       </div>
-                    </Link>
-                  </motion.div>
+                      {selectedCategory === "all" && group.id !== "__none__" && group.id !== "__orphaned__" && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCategory(group.id)}
+                          className="text-xs font-black uppercase tracking-widest text-indigo-600 hover:underline"
+                        >
+                          সব দেখুন
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex gap-6 overflow-x-auto pb-4">
+                      {group.books.map((book, idx) => renderBookCard(book, idx, true))}
+                    </div>
+                  </section>
                 ))}
               </div>
             )}
@@ -429,6 +477,18 @@ export default function BooksCatalogPage() {
                   { id: "paid", label: "পেইড" },
                 ]}
               />
+              {categories.length > 0 && (
+                <FilterSection
+                  title="ক্যাটাগরি"
+                  value={selectedCategory}
+                  onChange={setSelectedCategory}
+                  options={[
+                    { id: "all", label: "সকল ক্যাটাগরি" },
+                    ...categories.map((category) => ({ id: category.id, label: category.name })),
+                    { id: "__none__", label: "অন্যান্য" },
+                  ]}
+                />
+              )}
               {courseFilterOptions.length > 0 && (
                 <FilterSection
                   title="কোর্স অনুযায়ী"

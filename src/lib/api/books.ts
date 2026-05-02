@@ -17,6 +17,8 @@ export interface Book {
   createdAt: string;
   programId?: string | null;
   program?: { id: string; name: string } | null;
+  categoryId?: string | null;
+  category?: { id: string; name: string; slug: string } | null;
   courseBooks?: CourseBook[];
   collaborators?: Array<
     BookCollaborator & {
@@ -35,6 +37,7 @@ export interface CourseBook {
   bookId: string;
   isFree: boolean;
   book: Book;
+  course?: { id: string; name: string; slug?: string | null };
 }
 
 export interface BookCollaborator {
@@ -128,6 +131,7 @@ export interface CreateBookDto {
   fileUrl?: string;
   thumbnailUrl?: string;
   programId?: string;
+  categoryId?: string | null;
 }
 
 export interface UpdateBookDto {
@@ -143,6 +147,7 @@ export interface UpdateBookDto {
   fileUrl?: string;
   thumbnailUrl?: string;
   programId?: string | null;
+  categoryId?: string | null;
 }
 
 export interface CreateBookStockDto {
@@ -181,6 +186,7 @@ export async function getBooks(params?: {
   isEbook?: boolean;
   featured?: boolean;
   programId?: string;
+  categoryId?: string;
   page?: number;
   limit?: number;
 }): Promise<ApiResponse<Book[]>> {
@@ -188,6 +194,7 @@ export async function getBooks(params?: {
   if (params?.isEbook !== undefined) queryParams.append('isEbook', String(params.isEbook));
   if (params?.featured !== undefined) queryParams.append('featured', String(params.featured));
   if (params?.programId) queryParams.append('programId', params.programId);
+  if (params?.categoryId) queryParams.append('categoryId', params.categoryId);
   if (params?.page) queryParams.append('page', String(params.page));
   if (params?.limit) queryParams.append('limit', String(params.limit));
 
@@ -199,11 +206,13 @@ export async function getBooks(params?: {
 export async function getPublicBooksCatalog(params?: {
   isEbook?: boolean;
   featured?: boolean;
+  categoryId?: string;
   limit?: number;
 }): Promise<ApiResponse<PublicCatalogBook[]>> {
   const queryParams = new URLSearchParams();
   if (params?.isEbook !== undefined) queryParams.append('isEbook', String(params.isEbook));
   if (params?.featured !== undefined) queryParams.append('featured', String(params.featured));
+  if (params?.categoryId) queryParams.append('categoryId', params.categoryId);
   if (params?.limit) queryParams.append('limit', String(params.limit));
   const query = queryParams.toString();
   return apiRequest<ApiResponse<PublicCatalogBook[]>>(`/books/public-list${query ? `?${query}` : ''}`);
@@ -218,6 +227,8 @@ export interface PublicCatalogBook {
   isEbook: boolean;
   featured?: boolean;
   description?: string | null;
+  categoryId?: string | null;
+  category?: { id: string; name: string; slug: string } | null;
 }
 
 export async function getBookById(id: string): Promise<ApiResponse<Book>> {
@@ -280,6 +291,8 @@ export interface PublicBook {
   thumbnailUrl?: string | null;
   isEbook: boolean;
   createdAt: string;
+  categoryId?: string | null;
+  category?: { id: string; name: string; slug: string } | null;
   courseBooks?: Array<{ isFree: boolean; course: { id: string; name: string; slug?: string | null } }>;
   collaborators?: PublicBookCollaborator[];
   outline?: BookContentOutline;
@@ -302,6 +315,8 @@ export async function createBook(
   if (data.featured !== undefined) formData.append('featured', String(data.featured));
   if (data.fileUrl) formData.append('fileUrl', data.fileUrl);
   if (data.thumbnailUrl) formData.append('thumbnailUrl', data.thumbnailUrl);
+  if (data.programId !== undefined) formData.append('programId', data.programId || '');
+  if (data.categoryId !== undefined) formData.append('categoryId', data.categoryId || '');
   if (file) formData.append('file', file);
   if (thumbnail) formData.append('thumbnail', thumbnail);
 
@@ -330,6 +345,8 @@ export async function updateBook(
   if (data.featured !== undefined) formData.append('featured', String(data.featured));
   if (data.fileUrl) formData.append('fileUrl', data.fileUrl);
   if (data.thumbnailUrl) formData.append('thumbnailUrl', data.thumbnailUrl);
+  if (data.programId !== undefined) formData.append('programId', data.programId || '');
+  if (data.categoryId !== undefined) formData.append('categoryId', data.categoryId || '');
   if (file) formData.append('file', file);
   if (thumbnail) formData.append('thumbnail', thumbnail);
 
@@ -531,7 +548,7 @@ export interface BookDistribution {
   id: string;
   bookId: string;
   fromBranchId?: string | null;
-  toBranchId: string;
+  toBranchId?: string | null;
   channelId?: string | null;
   quantity: number;
   note?: string | null;
@@ -606,6 +623,49 @@ export interface StockSummaryBook extends CentralStockBook {
   totalCurrentStock: number;
 }
 
+export interface BookCategory {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+  _count?: { books?: number };
+}
+
+export async function getBookCategories(): Promise<ApiResponse<BookCategory[]>> {
+  return apiRequest<ApiResponse<BookCategory[]>>('/book-categories');
+}
+
+export async function createBookCategory(data: {
+  name: string;
+  slug?: string;
+  description?: string;
+  sortOrder?: number;
+}): Promise<ApiResponse<BookCategory>> {
+  return apiRequest<ApiResponse<BookCategory>>('/book-categories', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateBookCategory(id: string, data: {
+  name?: string;
+  slug?: string;
+  description?: string | null;
+  sortOrder?: number;
+}): Promise<ApiResponse<BookCategory>> {
+  return apiRequest<ApiResponse<BookCategory>>(`/book-categories/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteBookCategory(id: string): Promise<ApiResponse<void>> {
+  return apiRequest<ApiResponse<void>>(`/book-categories/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
 export interface CentralStockBook {
   id: string;
   name: string;
@@ -620,9 +680,103 @@ export async function getCentralStock(): Promise<{ success: boolean; data: Centr
   return apiRequest('/books/stock/central');
 }
 
+export async function getStockSources(params?: { includeInactive?: boolean }): Promise<ApiResponse<StockSource[]>> {
+  const q = new URLSearchParams();
+  if (params?.includeInactive) q.append('includeInactive', 'true');
+  const qs = q.toString();
+  return apiRequest<ApiResponse<StockSource[]>>(`/books/stock-sources${qs ? `?${qs}` : ''}`);
+}
+
+export async function createStockSource(data: Partial<StockSource> & { name: string }): Promise<ApiResponse<StockSource>> {
+  return apiRequest<ApiResponse<StockSource>>('/books/stock-sources', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export async function updateStockSource(id: string, data: Partial<StockSource>): Promise<ApiResponse<StockSource>> {
+  return apiRequest<ApiResponse<StockSource>>(`/books/stock-sources/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) });
+}
+
+export async function updateStockSourceStatus(id: string, isActive: boolean): Promise<ApiResponse<StockSource>> {
+  return apiRequest<ApiResponse<StockSource>>(`/books/stock-sources/${encodeURIComponent(id)}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ isActive }),
+  });
+}
+
+export async function getDistributionChannels(params?: { includeInactive?: boolean }): Promise<ApiResponse<DistributionChannel[]>> {
+  const q = new URLSearchParams();
+  if (params?.includeInactive) q.append('includeInactive', 'true');
+  const qs = q.toString();
+  return apiRequest<ApiResponse<DistributionChannel[]>>(`/books/distribution-channels${qs ? `?${qs}` : ''}`);
+}
+
+export async function createDistributionChannel(data: Partial<DistributionChannel> & { name: string }): Promise<ApiResponse<DistributionChannel>> {
+  return apiRequest<ApiResponse<DistributionChannel>>('/books/distribution-channels', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export async function updateDistributionChannel(id: string, data: Partial<DistributionChannel>): Promise<ApiResponse<DistributionChannel>> {
+  return apiRequest<ApiResponse<DistributionChannel>>(`/books/distribution-channels/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) });
+}
+
+export async function updateDistributionChannelStatus(id: string, isActive: boolean): Promise<ApiResponse<DistributionChannel>> {
+  return apiRequest<ApiResponse<DistributionChannel>>(`/books/distribution-channels/${encodeURIComponent(id)}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ isActive }),
+  });
+}
+
+export async function getBookStockMovements(params?: {
+  bookId?: string;
+  branchId?: string;
+  channelId?: string;
+  sourceId?: string;
+  movementType?: BookStockMovementType | 'ALL';
+  from?: string;
+  to?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{ success: boolean; data: BookStockMovement[]; total: number; page: number; limit: number; totalPages: number }> {
+  const q = new URLSearchParams();
+  if (params?.bookId) q.append('bookId', params.bookId);
+  if (params?.branchId) q.append('branchId', params.branchId);
+  if (params?.channelId) q.append('channelId', params.channelId);
+  if (params?.sourceId) q.append('sourceId', params.sourceId);
+  if (params?.movementType) q.append('movementType', params.movementType);
+  if (params?.from) q.append('from', params.from);
+  if (params?.to) q.append('to', params.to);
+  if (params?.page) q.append('page', String(params.page));
+  if (params?.limit) q.append('limit', String(params.limit));
+  const qs = q.toString();
+  return apiRequest(`/books/stock/movements${qs ? `?${qs}` : ''}`);
+}
+
+export async function createBookStockMovement(data: {
+  bookId: string;
+  movementType: BookStockMovementType;
+  quantity: number;
+  source?: StockLocationPayload;
+  destination?: StockLocationPayload;
+  movementDate?: string;
+  remarks: string;
+}): Promise<ApiResponse<BookStockMovement>> {
+  return apiRequest<ApiResponse<BookStockMovement>>('/books/stock/movements', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export async function getBookStockSummary(params?: { bookId?: string }): Promise<{
+  success: boolean;
+  data: StockSummaryBook[];
+  recentMovements: BookStockMovement[];
+  totals: { centralQty: number; branchQty: number; distributedQty: number; channelDistributedQty: number; soldQty: number };
+}> {
+  const q = new URLSearchParams();
+  if (params?.bookId) q.append('bookId', params.bookId);
+  const qs = q.toString();
+  return apiRequest(`/books/stock/summary${qs ? `?${qs}` : ''}`);
+}
+
 export async function getDistributions(params?: {
   bookId?: string;
   toBranchId?: string;
+  channelId?: string;
   from?: string;
   to?: string;
   page?: number;
@@ -631,6 +785,7 @@ export async function getDistributions(params?: {
   const q = new URLSearchParams();
   if (params?.bookId) q.append('bookId', params.bookId);
   if (params?.toBranchId) q.append('toBranchId', params.toBranchId);
+  if (params?.channelId) q.append('channelId', params.channelId);
   if (params?.from) q.append('from', params.from);
   if (params?.to) q.append('to', params.to);
   if (params?.page) q.append('page', String(params.page));
@@ -641,12 +796,54 @@ export async function getDistributions(params?: {
 
 export async function createDistribution(data: {
   bookId: string;
-  toBranchId: string;
+  toBranchId?: string;
+  channelId?: string;
   quantity: number;
   note?: string;
   createdByUserId?: string;
 }): Promise<{ success: boolean; data: BookDistribution; message?: string }> {
   return apiRequest('/books/distributions', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export interface DistributionSummaryBookRow {
+  bookId: string;
+  _sum: { quantity?: number | null };
+  _count: number;
+  book?: { id: string; name: string; sku: string };
+}
+
+export interface DistributionSummaryBranchRow {
+  toBranchId: string | null;
+  _sum: { quantity?: number | null };
+  _count: number;
+  branch?: { id: string; name: string };
+}
+
+export interface DistributionSummaryChannelRow {
+  channelId: string | null;
+  _sum: { quantity?: number | null };
+  _count: number;
+  channel?: { id: string; name: string };
+}
+
+export async function getDistributionSummary(params?: {
+  bookId?: string;
+  branchId?: string;
+  channelId?: string;
+}): Promise<{
+  success: boolean;
+  data: {
+    byBook: DistributionSummaryBookRow[];
+    byBranch: DistributionSummaryBranchRow[];
+    byChannel: DistributionSummaryChannelRow[];
+  };
+}> {
+  const q = new URLSearchParams();
+  if (params?.bookId) q.append('bookId', params.bookId);
+  if (params?.branchId) q.append('branchId', params.branchId);
+  if (params?.channelId) q.append('channelId', params.channelId);
+  const qs = q.toString();
+  return apiRequest(`/books/distributions/summary${qs ? `?${qs}` : ''}`);
 }
 
 export async function reorderBooks(items: { id: string; displayOrder: number }[]): Promise<ApiResponse<void>> {

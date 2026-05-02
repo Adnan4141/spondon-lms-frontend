@@ -20,6 +20,7 @@ interface BookHeroSectionProps {
   onBuy: () => void;
   purchaseHint: string | null;
   onStartReading: () => void;
+  onOpenSamplePreview: () => void;
 }
 
 export function BookHeroSection({
@@ -34,6 +35,7 @@ export function BookHeroSection({
   onBuy,
   purchaseHint,
   onStartReading,
+  onOpenSamplePreview,
 }: BookHeroSectionProps) {
   return (
     <div className="relative">
@@ -159,14 +161,24 @@ export function BookHeroSection({
                 পড়া শুরু করুন
               </Button>
             ) : book.isEbook && !isFree ? (
-              <Button
-                className="h-20 px-12 rounded-[24px] bg-indigo-600 text-white font-black text-xl hover:bg-indigo-700 shadow-[0_20px_40px_rgba(79,70,229,0.3)] transition-all active:scale-95 group"
-                onClick={onBuy}
-              >
-                <ShoppingCart className="mr-3 h-6 w-6" />
-                এখনই কিনুন 
-                <ArrowRight className="ml-3 h-6 w-6 transition-transform group-hover:translate-x-1" />
-              </Button>
+              <>
+                <Button
+                  className="h-20 px-12 rounded-[24px] bg-indigo-600 text-white font-black text-xl hover:bg-indigo-700 shadow-[0_20px_40px_rgba(79,70,229,0.3)] transition-all active:scale-95 group"
+                  onClick={onBuy}
+                >
+                  <ShoppingCart className="mr-3 h-6 w-6" />
+                  এখনই কিনুন 
+                  <ArrowRight className="ml-3 h-6 w-6 transition-transform group-hover:translate-x-1" />
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-20 rounded-[24px] border-white/20 bg-white/5 px-10 text-white hover:bg-white/10"
+                  onClick={onOpenSamplePreview}
+                >
+                  <FileText className="mr-3 h-6 w-6" />
+                  Sample PDF
+                </Button>
+              </>
             ) : isFree && book.isEbook ? (
               <Button asChild variant="outline" className="h-20 px-12 rounded-[24px] border-white/20 text-white font-black text-xl hover:bg-white/10 backdrop-blur-sm transition-all active:scale-95">
                 <Link href={`/login?redirect=${encodeURIComponent(`/books/${bookId}`)}`}>পড়তে লগইন করুন</Link>
@@ -181,6 +193,17 @@ export function BookHeroSection({
                 <ArrowRight className="ml-3 h-6 w-6 transition-transform group-hover:translate-x-1" />
               </Button>
             )}
+
+            {book.isEbook && (showRead || isFree) ? (
+              <Button
+                variant="outline"
+                className="h-20 rounded-[24px] border-white/20 bg-white/5 px-10 text-white hover:bg-white/10"
+                onClick={onOpenSamplePreview}
+              >
+                <FileText className="mr-3 h-6 w-6" />
+                Sample PDF
+              </Button>
+            ) : null}
 
             <button
               type="button"

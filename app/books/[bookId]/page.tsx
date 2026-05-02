@@ -22,6 +22,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { BookHeroSection } from '@/components/books/BookHeroSection';
+import { PublicSamplePdfDialog } from '@/components/books/PublicSamplePdfDialog';
 import { BookTabs, type BookTabId } from '@/components/books/BookTabs';
 import { BookOverviewSection } from '@/components/books/BookOverviewSection';
 import { BookContentsSection } from '@/components/books/BookContentsSection';
@@ -80,6 +81,7 @@ export default function PublicBookDetailPage() {
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [purchaseHint, setPurchaseHint] = useState<string | null>(null);
+  const [samplePreviewOpen, setSamplePreviewOpen] = useState(false);
 
   useEffect(() => {
     setCurrentUser(readUser());
@@ -252,6 +254,7 @@ export default function PublicBookDetailPage() {
             onBuy={openCheckout}
             purchaseHint={purchaseHint}
             onStartReading={onStartReading}
+            onOpenSamplePreview={() => setSamplePreviewOpen(true)}
           />
         </div>
       </div>
@@ -530,6 +533,13 @@ export default function PublicBookDetailPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <PublicSamplePdfDialog
+        open={samplePreviewOpen}
+        onClose={() => setSamplePreviewOpen(false)}
+        bookName={book.name}
+        sampleUrl={null}
+      />
     </div>
   );
 }

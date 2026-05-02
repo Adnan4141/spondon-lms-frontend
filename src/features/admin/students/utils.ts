@@ -32,6 +32,7 @@ export function toLocalEnrollment(e: ApiEnrollment): Enrollment {
   return {
     id: e.id,
     programId: e.programId,
+    programName: e.program?.name,
     branchId: e.branchId,
     status: e.status as string,
     source: e.source as string | undefined,

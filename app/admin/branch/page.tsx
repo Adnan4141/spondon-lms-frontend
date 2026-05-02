@@ -6,7 +6,15 @@ import { getBranches, type Branch } from '@/lib/api/branches';
 import { getUsers } from '@/lib/api/users';
 import { getEnrollments } from '@/lib/api/enrollments';
 import { getInvoices } from '@/lib/api/invoices';
+import { getRevenueSummary, type RevenueSummaryData } from '@/lib/api/reports';
 import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import {
   Select,
   SelectContent,
@@ -29,8 +37,30 @@ import {
   CalendarRange,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 
 type Me = { role?: string; branchId?: string; fullName?: string };
+
+function monthStart(offset = 0) {
+  const now = new Date();
+  return new Date(Date.UTC(now.getFullYear(), now.getMonth() + offset, 1)).toISOString().slice(0, 10);
+}
+
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function money(value: number) {
+  return `৳${Math.round(Number(value || 0)).toLocaleString()}`;
+}
 
 export default function BranchDashboardPage() {
   const { toast, toasts, removeToast } = useToast();
@@ -45,6 +75,8 @@ export default function BranchDashboardPage() {
     enrollments: 0,
     openInvoices: 0,
   });
+  const [branchRevenue, setBranchRevenue] = useState<RevenueSummaryData[]>([]);
+  const [loadingRevenue, setLoadingRevenue] = useState(false);
 
   useEffect(() => {
     try {
@@ -115,6 +147,28 @@ export default function BranchDashboardPage() {
     }
   }, [selectedBranchId, toast]);
 
+  const loadBranchRevenue = useCallback(async () => {
+    if (!selectedBranchId || !isBranchAdmin) return;
+    try {
+      setLoadingRevenue(true);
+      const res = await getRevenueSummary({
+        period: 'monthly',
+        from: monthStart(-5),
+        to: today(),
+        branchId: selectedBranchId,
+      });
+      if (res.success) setBranchRevenue(res.data ?? []);
+    } catch {
+      toast({ title: 'Error', description: 'Could not load branch revenue', variant: 'destructive' });
+    } finally {
+      setLoadingRevenue(false);
+    }
+  }, [selectedBranchId, isBranchAdmin, toast]);
+
+  useEffect(() => {
+    void loadBranchRevenue();
+  }, [loadBranchRevenue]);
+
   useEffect(() => {
     if (selectedBranchId) loadStats();
   }, [selectedBranchId, loadStats]);
@@ -150,8 +204,17 @@ export default function BranchDashboardPage() {
             </div>
             <h1 className="text-2xl font-black tracking-tight sm:text-3xl">Branch dashboard</h1>
             <p className="max-w-2xl text-sm font-medium leading-relaxed text-slate-600">
-              Snapshot for <strong className="text-slate-900">{activeBranch?.name || 'your branch'}</strong>. Open
-              admin modules with this branch pre-selected using the shortcuts below.
+              {isBranchAdmin ? (
+                <>
+                  Snapshot for <strong className="text-slate-900">{activeBranch?.name || 'your branch'}</strong>.
+                  Collected revenue for this branch is shown below (last six months).
+                </>
+              ) : (
+                <>
+                  Snapshot for <strong className="text-slate-900">{activeBranch?.name || 'your branch'}</strong>. Open
+                  admin modules with this branch pre-selected using the shortcuts below.
+                </>
+              )}
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -182,10 +245,13 @@ export default function BranchDashboardPage() {
               type="button"
               variant="outline"
               className="h-11 rounded-xl"
-              onClick={loadStats}
+              onClick={() => {
+                void loadStats();
+                if (isBranchAdmin) void loadBranchRevenue();
+              }}
               disabled={loadingStats || !selectedBranchId}
             >
-              <RefreshCw className={cn('mr-2 h-4 w-4', loadingStats && 'animate-spin')} />
+              <RefreshCw className={cn('mr-2 h-4 w-4', (loadingStats || (isBranchAdmin && loadingRevenue)) && 'animate-spin')} />
               Refresh
             </Button>
           </div>
@@ -220,34 +286,88 @@ export default function BranchDashboardPage() {
             ))}
           </section>
 
-          <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-sm font-black uppercase tracking-wider text-slate-500">Shortcuts</h2>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {[
-                { href: q('/admin/students'), title: 'Students', desc: 'Roster for this branch', icon: Users },
-                { href: q('/admin/teachers'), title: 'Teachers', desc: 'Staff linked to this branch', icon: Presentation },
-                { href: q('/admin/enrollments'), title: 'Enrollments', desc: 'Course seats', icon: GraduationCap },
-                { href: q('/admin/invoices'), title: 'Invoices', desc: 'Billing', icon: CreditCard },
-                { href: '/admin/monthly-billing', title: 'Monthly billing', desc: 'Generate dues (pick branch there)', icon: CalendarRange },
-                { href: '/admin', title: 'Full admin home', desc: 'All modules', icon: FileText },
-              ].map((item) => (
-                <Link
-                  key={item.href + item.title}
-                  href={item.href}
-                  className="group flex items-center gap-4 rounded-2xl border border-slate-100 bg-slate-50/50 p-4 transition-all hover:border-indigo-200 hover:bg-white hover:shadow-md"
-                >
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-indigo-600 shadow-sm">
-                    <item.icon className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-black text-slate-900 group-hover:text-indigo-600">{item.title}</p>
-                    <p className="text-xs font-medium text-slate-500">{item.desc}</p>
-                  </div>
-                  <ChevronRight className="h-5 w-5 shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-indigo-400" />
-                </Link>
-              ))}
-            </div>
-          </section>
+          {isBranchAdmin ? (
+            <Card className="rounded-[28px] border-slate-200 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Branch revenue</CardTitle>
+                <CardDescription>Collected payments by month (this branch only)</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-72">
+                  {loadingRevenue && branchRevenue.length === 0 ? (
+                    <div className="flex h-full items-center justify-center rounded-lg bg-slate-50 text-sm font-semibold text-slate-400">
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Loading…
+                    </div>
+                  ) : branchRevenue.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={branchRevenue} margin={{ top: 12, right: 12, left: -8, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="branchRevenueFill" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.28} />
+                            <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0.02} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" />
+                        <XAxis
+                          dataKey="bucket"
+                          tick={{ fontSize: 11, fill: '#64748b', fontWeight: 700 }}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <YAxis
+                          tick={{ fontSize: 11, fill: '#64748b', fontWeight: 700 }}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <Tooltip formatter={(value: number) => money(value)} />
+                        <Area
+                          type="monotone"
+                          dataKey="amount"
+                          stroke="#0ea5e9"
+                          strokeWidth={3}
+                          fill="url(#branchRevenueFill)"
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex h-full items-center justify-center rounded-lg bg-slate-50 text-sm font-semibold text-slate-400">
+                      No revenue data for this period
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="mb-4 text-sm font-black uppercase tracking-wider text-slate-500">Shortcuts</h2>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {[
+                  { href: q('/admin/students'), title: 'Students', desc: 'Roster for this branch', icon: Users },
+                  { href: q('/admin/teachers'), title: 'Teachers', desc: 'Staff linked to this branch', icon: Presentation },
+                  { href: q('/admin/enrollments'), title: 'Enrollments', desc: 'Course seats', icon: GraduationCap },
+                  { href: q('/admin/invoices'), title: 'Invoices', desc: 'Billing', icon: CreditCard },
+                  { href: '/admin/monthly-billing', title: 'Monthly billing', desc: 'Generate dues (pick branch there)', icon: CalendarRange },
+                  { href: '/admin', title: 'Full admin home', desc: 'All modules', icon: FileText },
+                ].map((item) => (
+                  <Link
+                    key={item.href + item.title}
+                    href={item.href}
+                    className="group flex items-center gap-4 rounded-2xl border border-slate-100 bg-slate-50/50 p-4 transition-all hover:border-indigo-200 hover:bg-white hover:shadow-md"
+                  >
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-indigo-600 shadow-sm">
+                      <item.icon className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-black text-slate-900 group-hover:text-indigo-600">{item.title}</p>
+                      <p className="text-xs font-medium text-slate-500">{item.desc}</p>
+                    </div>
+                    <ChevronRight className="h-5 w-5 shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-indigo-400" />
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
         </>
       )}
     </div>
