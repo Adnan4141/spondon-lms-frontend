@@ -30,6 +30,14 @@ export interface RevenuePaymentRow {
     id: string;
     name: string;
   };
+  collectionBranch?: {
+    id: string;
+    name: string;
+  } | null;
+  billingBranch?: {
+    id: string;
+    name: string;
+  } | null;
 }
 
 export interface RevenueSummaryResponse {

@@ -133,11 +133,11 @@ function FinanceTab({ branches, courses }: { branches: Branch[]; courses: any[] 
           </Select>
         </div>
         <div>
-          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Branch</p>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Collected Branch</p>
           <Select value={branchId || 'all'} onValueChange={(v) => setBranchId(v === 'all' ? '' : v)}>
-            <SelectTrigger className="h-9 w-44 rounded-xl text-sm"><SelectValue placeholder="All Branches" /></SelectTrigger>
+            <SelectTrigger className="h-9 w-44 rounded-xl text-sm"><SelectValue placeholder="All Collection Branches" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Branches</SelectItem>
+              <SelectItem value="all">All Collection Branches</SelectItem>
               {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -244,7 +244,7 @@ function FinanceTab({ branches, courses }: { branches: Branch[]; courses: any[] 
             <Table>
               <TableHeader className="bg-slate-50/40">
                 <TableRow>
-                  {['Paid At', 'Student ID', 'Reg #', 'Student Name', 'Mobile', 'Branch', 'Amount', 'Method', 'TRX / Ref'].map((h) => (
+                  {['Paid At', 'Student ID', 'Reg #', 'Student Name', 'Mobile', 'Collected Branch', 'Billing Branch', 'Amount', 'Method', 'TRX / Ref'].map((h) => (
                     <TableHead key={h} className="text-[10px] font-black uppercase tracking-widest text-slate-400">{h}</TableHead>
                   ))}
                 </TableRow>
@@ -252,7 +252,7 @@ function FinanceTab({ branches, courses }: { branches: Branch[]; courses: any[] 
               <TableBody>
                 {transactions.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="py-12 text-center text-sm font-bold text-slate-400">
+                    <TableCell colSpan={10} className="py-12 text-center text-sm font-bold text-slate-400">
                       No payment found for current filters.
                     </TableCell>
                   </TableRow>
@@ -265,7 +265,8 @@ function FinanceTab({ branches, courses }: { branches: Branch[]; courses: any[] 
                     <TableCell className="text-xs font-bold text-slate-700">{row.student.registrationNumber || '—'}</TableCell>
                     <TableCell className="font-bold text-slate-900">{row.student.fullName}</TableCell>
                     <TableCell className="text-xs text-slate-600">{row.student.mobile}</TableCell>
-                    <TableCell className="text-xs text-slate-600">{row.branch?.name || '—'}</TableCell>
+                    <TableCell className="text-xs text-slate-600">{row.collectionBranch?.name || row.branch?.name || '—'}</TableCell>
+                    <TableCell className="text-xs text-slate-500">{row.billingBranch?.name || '—'}</TableCell>
                     <TableCell className="font-black text-emerald-600">{fmtCur(Number(row.amount || 0))}</TableCell>
                     <TableCell>
                       <Badge className="rounded-full bg-indigo-100 text-[10px] font-black uppercase text-indigo-700">

@@ -116,16 +116,13 @@ export default function StudentsPage() {
       const user = raw ? JSON.parse(raw) : null;
       const branchId = user?.branchId ? String(user.branchId) : null;
       setActor({ role: user?.role, branchId });
-      if (user?.role === 'BRANCH_ADMIN' && branchId) {
-        setBranchFilter(branchId);
-      }
     } catch {
       setActor({});
     }
   }, []);
 
-  const isBranchAdmin = actor.role === 'BRANCH_ADMIN';
-  const scopedBranchId = isBranchAdmin ? actor.branchId || '' : '';
+  const exportOwnBranchOnly = actor.role === 'BRANCH_ADMIN' || actor.role === 'MODERATOR';
+  const exportScopedBranchId = exportOwnBranchOnly ? actor.branchId || '' : '';
 
   const loadStats = useCallback(async () => {
     setStatsLoading(true);
@@ -153,7 +150,7 @@ export default function StudentsPage() {
       limit: STUDENTS_PAGE_SIZE,
       includeDetails: false,
       ...(debouncedSearch ? { search: debouncedSearch } : {}),
-      ...(scopedBranchId ? { branchId: scopedBranchId } : branchFilter !== 'ALL' ? { branchId: branchFilter } : {}),
+      ...(branchFilter !== 'ALL' ? { branchId: branchFilter } : {}),
       ...(statusFilter !== 'ALL' ? { status: statusFilter } : {}),
       ...(programFilter !== 'ALL' && courseFilter === 'ALL'
         ? { programId: programFilter }
@@ -205,7 +202,7 @@ export default function StudentsPage() {
         toast({ title: 'Could not load students', description: msg, variant: 'destructive' });
       })
       .finally(() => setLoadingStudents(false));
-  }, [page, debouncedSearch, branchFilter, scopedBranchId, statusFilter, programFilter, courseFilter, batchFilter, mapUsersToStudents, toast]);
+  }, [page, debouncedSearch, branchFilter, statusFilter, programFilter, courseFilter, batchFilter, mapUsersToStudents, toast]);
 
   useEffect(() => {
     void Promise.resolve().then(loadStudents);
@@ -322,13 +319,13 @@ export default function StudentsPage() {
   };
 
   const exportParams = useCallback(() => ({
-    ...(scopedBranchId ? { branchId: scopedBranchId } : branchFilter !== 'ALL' ? { branchId: branchFilter } : {}),
+    ...(exportScopedBranchId ? { branchId: exportScopedBranchId } : branchFilter !== 'ALL' ? { branchId: branchFilter } : {}),
     ...(programFilter !== 'ALL' ? { programId: programFilter } : {}),
     ...(courseFilter !== 'ALL' ? { courseId: courseFilter } : {}),
     ...(batchFilter !== 'ALL' ? { batchId: batchFilter } : {}),
     ...(statusFilter !== 'ALL' ? { status: statusFilter } : {}),
     ...(debouncedSearch ? { search: debouncedSearch } : {}),
-  }), [scopedBranchId, branchFilter, programFilter, courseFilter, batchFilter, statusFilter, debouncedSearch]);
+  }), [exportScopedBranchId, branchFilter, programFilter, courseFilter, batchFilter, statusFilter, debouncedSearch]);
 
   const handleDownloadStudents = async () => {
     setExportingStudents(true);
@@ -401,13 +398,13 @@ export default function StudentsPage() {
           batchFilter={batchFilter}
           onBatchFilterChange={handleBatchFilterChange}
           batchesForCourse={batchesForCourse}
-          branchFilter={scopedBranchId || branchFilter}
-          onBranchFilterChange={isBranchAdmin ? () => {} : handleBranchFilterChange}
+          branchFilter={branchFilter}
+          onBranchFilterChange={handleBranchFilterChange}
           statusFilter={statusFilter}
           onStatusFilterChange={handleStatusFilterChange}
           programs={programs}
           branches={branches}
-          lockedBranchId={scopedBranchId || undefined}
+          lockedBranchId={undefined}
           onDownload={handleDownloadStudents}
           downloadBusy={exportingStudents}
           onAddStudent={() => setModal({ type: 'addStudent' })}

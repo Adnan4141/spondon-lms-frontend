@@ -372,8 +372,25 @@ export function CollectPaymentModal({
     .filter(item => item.waiverAmount > 0);
   const selectedCourseWaiverRows = courseWaiverRows.filter(item => selectedWaiveCourseIds.includes(item.refId!));
   const selectedWaiverAmount = selectedCourseWaiverRows.reduce((sum, item) => sum + item.waiverAmount, 0);
-  const payableAfterCourseWaiver = Math.max(0, netDue - selectedWaiverAmount);
+  const selectedCurrentDueWaiverAmount = selectedCourseWaiverRows.reduce(
+    (sum, item) => sum + Math.min(item.waiverAmount, item.due),
+    0,
+  );
+  const effectiveNetDue = Math.max(0, netDue - selectedCurrentDueWaiverAmount);
+  const effectiveCourseDue = Math.max(0, courseDue - selectedCurrentDueWaiverAmount);
+  const payableAfterCourseWaiver = effectiveNetDue;
   const waiverCreatesSettlement = totalAlreadyPaid > 0 || monthStatus === 'PAID' || monthStatus === 'PARTIAL';
+  const suggestedPaymentRef = useRef('');
+
+  useEffect(() => {
+    const nextSuggested = effectiveNetDue > 0 ? String(effectiveNetDue) : '';
+    setPaymentAmount(prev => {
+      const shouldAutoSync = !prev || prev === suggestedPaymentRef.current || Number(prev) > effectiveNetDue;
+      return shouldAutoSync ? nextSuggested : prev;
+    });
+    suggestedPaymentRef.current = nextSuggested;
+  }, [effectiveNetDue]);
+
   const auditTrail = displayInvoices.flatMap(inv => {
     const rows: Array<{ label: string; detail: string; tone: BadgeColor }> = [];
     if (inv.waivedAmount && inv.waivedAmount > 0) {
@@ -843,8 +860,14 @@ export function CollectPaymentModal({
                 <div className="bg-rose-50 border border-rose-200 rounded-lg px-3.5 py-2.5 mb-3">
                   <div className="flex items-center justify-between gap-3">
                     <span className="font-bold text-sm text-slate-900">Due amount</span>
-                    <span className="shrink-0 text-right text-xl font-black text-rose-700 sm:text-2xl">{fmt(netDue)}</span>
+                    <span className="shrink-0 text-right text-xl font-black text-rose-700 sm:text-2xl">{fmt(effectiveNetDue)}</span>
                   </div>
+                  {selectedCurrentDueWaiverAmount > 0 && (
+                    <div className="mt-1 flex items-center justify-between gap-3 text-[11px] font-bold text-purple-700">
+                      <span>Selected course waiver</span>
+                      <span>−{fmt(selectedCurrentDueWaiverAmount)}</span>
+                    </div>
+                  )}
                 </div>
 
                 <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Payment Amount</p>
@@ -853,16 +876,16 @@ export function CollectPaymentModal({
                     { label: 'Pay Admission Due', amount: admissionDue, disabled: admissionDue <= 0 },
                     {
                       label: selMonth ? 'Pay Monthly Course Due' : 'Pay One-Time Course Due',
-                      amount: courseDue,
-                      disabled: courseDue <= 0 || admissionDue > 0,
+                      amount: effectiveCourseDue,
+                      disabled: effectiveCourseDue <= 0 || admissionDue > 0,
                     },
-                    { label: 'Pay Full Due', amount: netDue, disabled: netDue <= 0 },
+                    { label: 'Pay Full Due', amount: effectiveNetDue, disabled: effectiveNetDue <= 0 },
                   ].map(action => (
                     <button
                       key={action.label}
                       type="button"
                       disabled={action.disabled}
-                      onClick={() => setPaymentAmount(String(Math.min(action.amount, netDue)))}
+                      onClick={() => setPaymentAmount(String(Math.min(action.amount, effectiveNetDue)))}
                       className={cn(
                         'flex justify-between gap-3 px-2.5 py-1.5 rounded-md border text-xs font-bold transition-colors',
                         action.disabled
@@ -878,19 +901,19 @@ export function CollectPaymentModal({
                 <Input
                   type="number"
                   min={0}
-                  max={netDue}
+                  max={effectiveNetDue}
                   value={paymentAmount}
                   onChange={e => {
                     const val = Number(e.target.value) || 0;
-                    setPaymentAmount(val > netDue ? String(netDue) : e.target.value);
+                    setPaymentAmount(val > effectiveNetDue ? String(effectiveNetDue) : e.target.value);
                   }}
-                  placeholder={fmt(netDue)}
+                  placeholder={fmt(effectiveNetDue)}
                   className="text-right focus-visible:ring-indigo-400 mb-2"
                 />
-                {paymentAmount && Number(paymentAmount) < netDue && (
+                {paymentAmount && Number(paymentAmount) < effectiveNetDue && (
                   <p className="text-xs text-amber-700 font-semibold mb-2 flex items-center gap-1">
                     <AlertTriangle className="h-3 w-3 shrink-0" />
-                    Partial payment: {fmt(Number(paymentAmount))} of {fmt(netDue)} will be collected
+                    Partial payment: {fmt(Number(paymentAmount))} of {fmt(effectiveNetDue)} will be collected
                   </p>
                 )}
               </div>
@@ -916,9 +939,9 @@ export function CollectPaymentModal({
 
               <Button
                 className="w-full gap-2 bg-indigo-600 text-white hover:bg-indigo-700 transition-all mb-3"
-                disabled={(paymentAmount ? Number(paymentAmount) <= 0 : netDue <= 0) || saving || loadingInvoices}
+                disabled={(paymentAmount ? Number(paymentAmount) <= 0 : effectiveNetDue <= 0) || saving || loadingInvoices}
                 onClick={async () => {
-                  const amountToCollect = paymentAmount ? Number(paymentAmount) : netDue;
+                  const amountToCollect = paymentAmount ? Math.min(Number(paymentAmount), effectiveNetDue) : effectiveNetDue;
                   if (amountToCollect <= 0) return;
                   setSaving(true);
                   setLastPaidInvoiceId(null);
