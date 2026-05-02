@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  ArrowLeft, BookOpen, Building2, CreditCard, Droplets, Edit2,
-  GraduationCap, Mail, MapPin, Phone, RefreshCw, User,
+  ArrowLeft, BookOpen, Building2, CreditCard, Download, Droplets, Edit2,
+  Eye, GraduationCap, Mail, MapPin, Phone, RefreshCw, User,
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/toast';
 import { useToast } from '@/hooks/use-toast';
@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getBranches } from '@/lib/api/branches';
 import { getEnrollments, type Enrollment as ApiEnrollment } from '@/lib/api/enrollments';
 import { getInstituteById } from '@/lib/api/institutes';
-import { getInvoices } from '@/lib/api/invoices';
+import { getInvoicePdfUrl, getInvoices } from '@/lib/api/invoices';
 import { getCourses } from '@/lib/api/courses';
 import { getPrograms } from '@/lib/api/programs';
 import { getStudentProfileByRegistrationNumber, getStudentProfileByUserId } from '@/lib/api/student-profiles';
@@ -25,7 +25,7 @@ import { ManageEnrollmentModal } from '@/features/admin/students/enrollment/Mana
 import type {
   BranchOption, Course, Enrollment, Program, Student,
 } from '@/features/admin/students';
-import { avatarHue, fmt, fmtMonth, toLocalEnrollment } from '@/features/admin/students';
+import { avatarHue, fmt, fmtMonth, normPdfUrl, toLocalEnrollment } from '@/features/admin/students';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -76,6 +76,7 @@ export default function StudentDetailPage() {
   const [notFound, setNotFound] = useState(false);
   const [fetchError, setFetchError] = useState('');
   const [userId, setUserId] = useState('');
+  const [pdfLoading, setPdfLoading] = useState<string | null>(null);
 
   // UI state
   const [showEdit, setShowEdit] = useState(false);
@@ -189,6 +190,42 @@ export default function StudentDetailPage() {
     if (enrollRes.success && enrollRes.data) setApiEnrollments(enrollRes.data);
     if (invoiceRes.success && invoiceRes.data) setInvoices(invoiceRes.data as unknown as Invoice[]);
     setRefreshing(false);
+  };
+
+  const invoiceFileName = (invoice: Pick<Invoice, 'id' | 'month'>) =>
+    `invoice-${student?.regNo ?? registrationNumber}-${invoice.month || 'one-time'}-${invoice.id.slice(0, 8)}.pdf`;
+
+  const getInvoicePdfPath = async (invoiceId: string) => {
+    const res = await getInvoicePdfUrl(invoiceId);
+    return res.data?.pdfUrl ? normPdfUrl(res.data.pdfUrl) : null;
+  };
+
+  const openInvoicePdf = async (invoiceId: string) => {
+    setPdfLoading(`view:${invoiceId}`);
+    try {
+      const path = await getInvoicePdfPath(invoiceId);
+      if (path) window.open(path, '_blank', 'noopener,noreferrer');
+    } finally {
+      setPdfLoading(null);
+    }
+  };
+
+  const downloadInvoicePdf = async (invoice: Pick<Invoice, 'id' | 'month'>) => {
+    setPdfLoading(`download:${invoice.id}`);
+    try {
+      const path = await getInvoicePdfPath(invoice.id);
+      if (!path) return;
+      const a = document.createElement('a');
+      a.href = path;
+      a.download = invoiceFileName(invoice);
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } finally {
+      setPdfLoading(null);
+    }
   };
 
   if (loading) {
@@ -483,7 +520,7 @@ export default function StudentDetailPage() {
                 <table className="w-full text-sm border-collapse">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200">
-                      {['Month', 'Total', 'Discount', 'Payable', 'Paid', 'Due', 'Status', 'Issued'].map(h => (
+                      {['Month', 'Invoice', 'Total', 'Discount', 'Payable', 'Paid', 'Due', 'Status', 'Issued', 'Actions'].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-[11px] font-bold text-slate-400 uppercase tracking-wide whitespace-nowrap">
                           {h}
                         </th>
@@ -495,6 +532,9 @@ export default function StudentDetailPage() {
                       <tr key={iv.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                         <td className="px-4 py-3 font-semibold text-slate-900 whitespace-nowrap">
                           {iv.month ? fmtMonth(iv.month) : '—'}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-[11px] font-bold text-slate-500 whitespace-nowrap">
+                          #{iv.id.slice(0, 8)}
                         </td>
                         <td className="px-4 py-3 text-xs text-slate-600">{fmt(Number(iv.totalAmount ?? 0))}</td>
                         <td className="px-4 py-3 text-xs text-rose-600">
@@ -510,6 +550,30 @@ export default function StudentDetailPage() {
                         </td>
                         <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">
                           {iv.issuedAt ? new Date(iv.issuedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => openInvoicePdf(iv.id)}
+                              disabled={pdfLoading === `view:${iv.id}`}
+                              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-slate-600 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-40"
+                              title="View invoice PDF"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => downloadInvoicePdf(iv)}
+                              disabled={pdfLoading === `download:${iv.id}`}
+                              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:opacity-40"
+                              title="Download invoice PDF"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                              Download
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -540,7 +604,7 @@ export default function StudentDetailPage() {
           enrollment={manageModal.enrollment}
           allCourses={allCourses}
           programs={programs}
-          studentUserId={studentId}
+          studentUserId={userId}
           onClose={() => setManageModal(null)}
           onDone={(summary) => {
             const msg = summary.failed > 0

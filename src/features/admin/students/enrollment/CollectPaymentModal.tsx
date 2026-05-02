@@ -1,7 +1,7 @@
 'use client';
 
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Check, FileText } from 'lucide-react';
+import { AlertTriangle, Check, Download, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -39,6 +39,7 @@ export function CollectPaymentModal({
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [pdfLoading, setPdfLoading] = useState<string | null>(null);
+  const [lastPaidInvoiceId, setLastPaidInvoiceId] = useState<string | null>(null);
   const [waiving, setWaiving] = useState(false);
   const [waiveReason, setWaiveReason] = useState('');
   const [selectedWaiveCourseIds, setSelectedWaiveCourseIds] = useState<string[]>([]);
@@ -174,11 +175,37 @@ export function CollectPaymentModal({
     void fetchInvoices();
   }, [student.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const invoiceFileName = (invoice: Pick<Invoice, 'id' | 'month'>) =>
+    `invoice-${student.regNo}-${invoice.month || 'one-time'}-${invoice.id.slice(0, 8)}.pdf`;
+
+  const getInvoicePdfPath = async (invoiceId: string) => {
+    const res = await getInvoicePdfUrl(invoiceId);
+    return res.data?.pdfUrl ? normPdfUrl(res.data.pdfUrl) : null;
+  };
+
   const openInvoicePdf = async (invoiceId: string) => {
-    setPdfLoading(invoiceId);
+    setPdfLoading(`view:${invoiceId}`);
     try {
-      const res = await getInvoicePdfUrl(invoiceId);
-      if (res.data?.pdfUrl) window.open(normPdfUrl(res.data.pdfUrl), '_blank');
+      const path = await getInvoicePdfPath(invoiceId);
+      if (path) window.open(path, '_blank', 'noopener,noreferrer');
+    } finally {
+      setPdfLoading(null);
+    }
+  };
+
+  const downloadInvoicePdf = async (invoice: Pick<Invoice, 'id' | 'month'>) => {
+    setPdfLoading(`download:${invoice.id}`);
+    try {
+      const path = await getInvoicePdfPath(invoice.id);
+      if (!path) return;
+      const a = document.createElement('a');
+      a.href = path;
+      a.download = invoiceFileName(invoice);
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
     } finally {
       setPdfLoading(null);
     }
@@ -271,6 +298,7 @@ export function CollectPaymentModal({
 
   const totalPayable = displayInvoices.reduce((s, i) => s + i.amount, 0);
   const totalAlreadyPaid = displayInvoices.reduce((s, i) => s + i.paidAmount, 0);
+  const totalDueForMonth = displayInvoices.reduce((s, i) => s + Math.max(0, i.amount - i.paidAmount), 0);
   const totalWaived = displayInvoices.reduce((s, i) => s + (i.waivedAmount ?? 0), 0);
   const totalDiscounted = displayInvoices.reduce((s, i) => s + (i.discountAmount ?? 0), 0);
   const totalSettlement = displayInvoices.reduce((s, i) => s + (i.settlementAmount ?? 0), 0);
@@ -526,6 +554,7 @@ export function CollectPaymentModal({
                             setSelectedWaiveCourseIds([]);
                             setAddDiscount('0');
                             setPaymentAmount('');
+                            setLastPaidInvoiceId(null);
                           }}
                           className={cn(
                             'flex min-w-0 items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-bold transition-colors cursor-pointer sm:px-3 sm:text-sm',
@@ -535,6 +564,16 @@ export function CollectPaymentModal({
                           )}
                         >
                           <span className="truncate">{m ? fmtMonth(m) : 'One-Time / Program'}</span>
+                          {(monthGroups.get(m)?.length ?? 0) > 1 && (
+                            <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-black text-slate-500">
+                              {monthGroups.get(m)?.length} invoices
+                            </span>
+                          )}
+                          {(monthGroups.get(m) ?? []).length > 0 && (
+                            <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] font-black text-rose-600">
+                              Due {fmt((monthGroups.get(m) ?? []).reduce((sum, inv) => sum + Math.max(0, inv.amount - inv.paidAmount), 0))}
+                            </span>
+                          )}
                           <AppBadge label={statusLabel(aggStatus)} color={statusBadgeColor[aggStatus] ?? 'red'} />
                         </button>
                       );
@@ -547,16 +586,24 @@ export function CollectPaymentModal({
 
           <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200">
             <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                Invoices — {selMonth ? fmtMonth(selMonth) : 'One-Time / Program'}
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  Invoices — {selMonth ? fmtMonth(selMonth) : 'One-Time / Program'}
+                </p>
+                {displayInvoices.length > 0 && (
+                  <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500">
+                    <span>{displayInvoices.length} invoice{displayInvoices.length !== 1 ? 's' : ''}</span>
+                    <span className="text-rose-600">Due {fmt(totalDueForMonth)}</span>
+                  </div>
+                )}
+              </div>
             </div>
             {displayInvoices.length > 0 ? (
               <div className="overflow-x-auto">
-                <table className="min-w-[920px] w-full border-collapse text-sm">
+                <table className="min-w-[980px] w-full border-collapse text-sm">
                   <thead>
                     <tr className="bg-slate-50/50">
-                      {['Description', 'Branch', 'Gross', 'Discount', 'Waiver', 'Paid', 'Payable', 'Due', 'Status', ''].map(h => (
+                      {['Invoice', 'Branch', 'Gross', 'Payable', 'Paid', 'Due', 'Status', 'Actions'].map(h => (
                         <th
                           key={h}
                           className="px-3 py-2 text-left text-[11px] font-bold text-slate-400 uppercase border-b border-slate-200"
@@ -574,6 +621,7 @@ export function CollectPaymentModal({
                       <tr className="border-b border-slate-100">
                         <td className="max-w-[280px] px-3 py-2.5 font-semibold text-slate-900">
                           {inv.month ? `${fmtMonth(inv.month)} — Monthly Invoice` : 'One-Time / Program Invoice'}
+                          <span className="block font-mono text-[11px] font-bold text-slate-400">#{inv.id.slice(0, 8)}</span>
                           {inv.dueDate ? <span className="block text-[11px] font-medium text-slate-400">Due {inv.dueDate}</span> : null}
                         </td>
                         <td className="px-3 py-2.5 text-slate-500 text-xs">{inv.branchName || '—'}</td>
@@ -581,16 +629,17 @@ export function CollectPaymentModal({
                           <span className="font-bold text-slate-900">{fmt((inv.items ?? []).reduce((sum, item) => sum + Number(item.grossAmount ?? item.unitPrice * item.qty), 0))}</span>
                         </td>
                         <td className="px-3 py-2.5">
-                          <span className="font-semibold text-blue-600">{inv.discountAmount ? `−${fmt(inv.discountAmount)}` : '—'}</span>
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <span className="font-semibold text-purple-600">{inv.waivedAmount ? `−${fmt(inv.waivedAmount)}` : '—'}</span>
+                          <span className="font-bold text-slate-900">{fmt(inv.amount)}</span>
+                          {(inv.discountAmount || inv.waivedAmount) ? (
+                            <span className="block text-[11px] font-semibold text-slate-400">
+                              {inv.discountAmount ? `Discount -${fmt(inv.discountAmount)}` : ''}
+                              {inv.discountAmount && inv.waivedAmount ? ' · ' : ''}
+                              {inv.waivedAmount ? `Waived -${fmt(inv.waivedAmount)}` : ''}
+                            </span>
+                          ) : null}
                         </td>
                         <td className="px-3 py-2.5">
                           <span className="font-semibold text-emerald-600">{fmt(inv.paidAmount)}</span>
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <span className="font-bold text-slate-900">{fmt(inv.amount)}</span>
                         </td>
                         <td className="px-3 py-2.5">
                           <span className={cn('font-bold', invoiceDue > 0 ? 'text-rose-700' : 'text-slate-400')}>
@@ -604,14 +653,26 @@ export function CollectPaymentModal({
                           />
                         </td>
                         <td className="px-3 py-2.5">
-                          <button
-                            onClick={() => openInvoicePdf(inv.id)}
-                            disabled={pdfLoading === inv.id}
-                            title="Download Invoice PDF"
-                            className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer disabled:opacity-40"
-                          >
-                            <FileText className="h-4 w-4" />
-                          </button>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => openInvoicePdf(inv.id)}
+                              disabled={pdfLoading === `view:${inv.id}`}
+                              title="View invoice PDF"
+                              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-slate-600 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-40"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              View
+                            </button>
+                            <button
+                              onClick={() => downloadInvoicePdf(inv)}
+                              disabled={pdfLoading === `download:${inv.id}`}
+                              title="Download invoice PDF"
+                              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:opacity-40"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                              Download
+                            </button>
+                          </div>
                         </td>
                       </tr>
                       {inv.items?.map((item, ii) => {
@@ -631,17 +692,18 @@ export function CollectPaymentModal({
                             <td className="px-3 py-1.5 text-xs text-slate-500">
                               {fmt(itemGross)}
                             </td>
-                            <td className="px-3 py-1.5 text-xs text-blue-600">
-                              {itemDiscount > 0 ? `−${fmt(itemDiscount)}` : '—'}
-                            </td>
-                            <td className="px-3 py-1.5 text-xs text-purple-600">
-                              {itemWaived > 0 ? `−${fmt(itemWaived)}` : '—'}
+                            <td className="px-3 py-1.5 text-xs font-semibold text-slate-600">
+                              {fmt(itemTotal)}
+                              {(itemDiscount > 0 || itemWaived > 0) && (
+                                <span className="block text-[10px] font-semibold text-slate-400">
+                                  {itemDiscount > 0 ? `Discount -${fmt(itemDiscount)}` : ''}
+                                  {itemDiscount > 0 && itemWaived > 0 ? ' · ' : ''}
+                                  {itemWaived > 0 ? `Waived -${fmt(itemWaived)}` : ''}
+                                </span>
+                              )}
                             </td>
                             <td className="px-3 py-1.5 text-xs font-semibold text-emerald-600">
                               {fmt(itemPaid)}
-                            </td>
-                            <td className="px-3 py-1.5 text-xs font-semibold text-slate-600">
-                              {fmt(itemTotal)}
                             </td>
                             <td className={cn('px-3 py-1.5 text-xs font-semibold', itemDue > 0 ? 'text-rose-600' : 'text-slate-400')}>
                               {fmt(itemDue)}
@@ -824,6 +886,7 @@ export function CollectPaymentModal({
                   const amountToCollect = paymentAmount ? Number(paymentAmount) : netDue;
                   if (amountToCollect <= 0) return;
                   setSaving(true);
+                  setLastPaidInvoiceId(null);
                   try {
                     const payResult = await processMonthPayment({
                       studentUserId: student.id,
@@ -832,9 +895,8 @@ export function CollectPaymentModal({
                     });
                     setPaymentAmount('');
                     await fetchInvoices(true); // silent refresh — updates invoice status/paidAmount before modal closes
-                    // Auto-open updated invoice PDF in a new tab
                     const invoiceId = payResult?.data?.invoice?.id;
-                    if (invoiceId) openInvoicePdf(invoiceId);
+                    if (invoiceId) setLastPaidInvoiceId(invoiceId);
                     onSave({ student, month: selMonth, method, amount: amountToCollect });
                   } finally {
                     setSaving(false);
@@ -843,6 +905,42 @@ export function CollectPaymentModal({
               >
                 <Check className="h-4 w-4" /> {saving ? 'Processing…' : `Collect ${method} Payment`}
               </Button>
+
+              {lastPaidInvoiceId && (
+                <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                  <div className="mb-2 flex items-center gap-2">
+                    <Check className="h-4 w-4 text-emerald-700" />
+                    <p className="text-sm font-bold text-emerald-900">Payment recorded</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openInvoicePdf(lastPaidInvoiceId)}
+                      disabled={pdfLoading === `view:${lastPaidInvoiceId}`}
+                      className="gap-1.5 border-emerald-200 bg-white text-xs text-emerald-800 hover:bg-emerald-100"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      View invoice
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const invoice = invoices.find(inv => inv.id === lastPaidInvoiceId) ?? displayInvoices.find(inv => inv.id === lastPaidInvoiceId);
+                        void downloadInvoicePdf(invoice ?? { id: lastPaidInvoiceId, month: selMonth });
+                      }}
+                      disabled={pdfLoading === `download:${lastPaidInvoiceId}`}
+                      className="gap-1.5 border-emerald-200 bg-white text-xs text-emerald-800 hover:bg-emerald-100"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Download
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               {renderCourseWaiverPanel()}
             </>
