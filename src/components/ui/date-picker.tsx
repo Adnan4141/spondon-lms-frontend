@@ -18,13 +18,34 @@ interface DatePickerProps {
   setDate: (date?: Date) => void
   placeholder?: string
   className?: string
+  /** When true, shows the formatted date without opening a calendar */
+  disabled?: boolean
 }
 
-export function DatePicker({ date, setDate, placeholder = "Pick a date", className }: DatePickerProps) {
+export function DatePicker({ date, setDate, placeholder = "Pick a date", className, disabled }: DatePickerProps) {
+  if (disabled) {
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        disabled
+        className={cn(
+          "w-full justify-start text-left font-normal",
+          !date && "text-muted-foreground",
+          className
+        )}
+      >
+        <CalendarIcon className="mr-2 h-4 w-4" />
+        {date ? format(date, "dd-MM-yyyy") : <span>{placeholder}</span>}
+      </Button>
+    )
+  }
+
   return (
     <Popover>
       <PopoverTrigger asChild>
         <Button
+          type="button"
           variant={"outline"}
           className={cn(
             "w-full justify-start text-left font-normal",
@@ -33,7 +54,7 @@ export function DatePicker({ date, setDate, placeholder = "Pick a date", classNa
           )}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
-          {date ? format(date, 'dd-MM-yyyy') : <span>{placeholder}</span>}
+          {date ? format(date, "dd-MM-yyyy") : <span>{placeholder}</span>}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">

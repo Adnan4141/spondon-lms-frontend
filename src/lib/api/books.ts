@@ -15,6 +15,8 @@ export interface Book {
   fileUrl?: string | null;
   thumbnailUrl?: string | null;
   createdAt: string;
+  /** Optional edition / publication date from server */
+  publishedAt?: string | null;
   programId?: string | null;
   program?: { id: string; name: string } | null;
   categoryId?: string | null;
@@ -132,6 +134,8 @@ export interface CreateBookDto {
   thumbnailUrl?: string;
   programId?: string;
   categoryId?: string | null;
+  /** ISO date string YYYY-MM-DD */
+  publishedAt?: string | null;
 }
 
 export interface UpdateBookDto {
@@ -148,6 +152,7 @@ export interface UpdateBookDto {
   thumbnailUrl?: string;
   programId?: string | null;
   categoryId?: string | null;
+  publishedAt?: string | null;
 }
 
 export interface CreateBookStockDto {
@@ -329,6 +334,9 @@ export async function createBook(
   if (data.thumbnailUrl) formData.append('thumbnailUrl', data.thumbnailUrl);
   if (data.programId !== undefined) formData.append('programId', data.programId || '');
   if (data.categoryId !== undefined) formData.append('categoryId', data.categoryId || '');
+  if (data.publishedAt !== undefined && data.publishedAt !== null && data.publishedAt !== '') {
+    formData.append('publishedAt', data.publishedAt);
+  }
   if (file) formData.append('file', file);
   if (thumbnail) formData.append('thumbnail', thumbnail);
 
@@ -359,6 +367,9 @@ export async function updateBook(
   if (data.thumbnailUrl) formData.append('thumbnailUrl', data.thumbnailUrl);
   if (data.programId !== undefined) formData.append('programId', data.programId || '');
   if (data.categoryId !== undefined) formData.append('categoryId', data.categoryId || '');
+  if (data.publishedAt !== undefined) {
+    formData.append('publishedAt', data.publishedAt == null ? '' : String(data.publishedAt));
+  }
   if (file) formData.append('file', file);
   if (thumbnail) formData.append('thumbnail', thumbnail);
 
