@@ -12,6 +12,7 @@ export function BookAdminModal({
   maxWidth = 'max-w-5xl',
   bodyClassName,
   contentClassName,
+  footer,
 }: {
   open: boolean;
   onClose: () => void;
@@ -21,6 +22,7 @@ export function BookAdminModal({
   maxWidth?: string;
   bodyClassName?: string;
   contentClassName?: string;
+  footer?: ReactNode;
 }) {
   return (
     <BookStandardModal
@@ -31,6 +33,7 @@ export function BookAdminModal({
       maxWidth={maxWidth}
       bodyClassName={bodyClassName}
       contentClassName={contentClassName}
+      footer={footer}
     >
       {children}
     </BookStandardModal>

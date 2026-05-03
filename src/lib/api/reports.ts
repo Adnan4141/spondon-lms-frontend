@@ -85,6 +85,7 @@ export interface CourseTransactionParams {
 export interface CourseTransactionData {
   id: string;
   invoiceId: string;
+  invoiceNumber?: string | null;
   studentUserId: string;
   branchId: string;
   month: string | null;

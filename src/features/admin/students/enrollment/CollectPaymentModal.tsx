@@ -71,6 +71,7 @@ export function CollectPaymentModal({
       );
       const mapped: Invoice[] = (res.data ?? []).map(inv => ({
         id: inv.id,
+        invoiceNumber: (inv as { invoiceNumber?: string | null }).invoiceNumber ?? null,
         month: inv.month ?? '',
         amount: Number(inv.payableAmount),
         paidAmount: Number(inv.paidAmount),
@@ -175,8 +176,8 @@ export function CollectPaymentModal({
     void fetchInvoices();
   }, [student.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const invoiceFileName = (invoice: Pick<Invoice, 'id' | 'month'>) =>
-    `invoice-${student.regNo}-${invoice.month || 'one-time'}-${invoice.id.slice(0, 8)}.pdf`;
+  const invoiceFileName = (invoice: Pick<Invoice, 'id' | 'month'> & { invoiceNumber?: string | null }) =>
+    `${invoice.invoiceNumber ?? 'invoice-' + invoice.id.slice(0, 8)}-${student.regNo}-${invoice.month || 'one-time'}.pdf`;
 
   const getInvoicePdfPath = async (invoiceId: string) => {
     const res = await getInvoicePdfUrl(invoiceId);
@@ -661,7 +662,7 @@ export function CollectPaymentModal({
                           type="button"
                           onClick={() => downloadInvoicePdf(inv)}
                           disabled={pdfLoading === `download:${inv.id}`}
-                          title={`Download invoice #${inv.id.slice(0, 8)}`}
+                          title={`Download invoice ${inv.invoiceNumber ?? '#' + inv.id.slice(0, 8)}`}
                           className="inline-flex items-center cursor-pointer  gap-1 rounded-md px-1.5 py-0.5 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-100 disabled:opacity-40"
                         >
                           <Download className="h-3.5 w-3.5" />
@@ -696,7 +697,7 @@ export function CollectPaymentModal({
                       <tr className="border-b border-slate-100">
                         <td className="max-w-[280px] border-b border-slate-100 px-3 py-2.5 align-top font-semibold text-slate-900">
                           {inv.month ? `${fmtMonth(inv.month)} — Monthly Invoice` : 'One-Time / Program Invoice'}
-                          <span className="block font-mono text-[11px] font-bold text-slate-400">#{inv.id.slice(0, 8)}</span>
+                          <span className="block font-mono text-[11px] font-bold text-slate-400">{inv.invoiceNumber ?? `#${inv.id.slice(0, 8)}`}</span>
                           {inv.dueDate ? <span className="block text-[11px] font-medium text-slate-400">Due {inv.dueDate}</span> : null}
                         </td>
                         <td className="border-b border-slate-100 px-3 py-2.5 align-top text-xs text-slate-500">{inv.branchName || '—'}</td>

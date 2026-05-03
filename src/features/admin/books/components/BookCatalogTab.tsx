@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import type { Book, BookCategory } from '@/lib/api/books';
 import type { Program } from '@/lib/api/programs';
@@ -8,11 +9,15 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { BookOpen, Eye, FileText, Grid2X2, List, PackageOpen, PencilLine, Plus, Search, Star } from 'lucide-react';
+import { BookOpen, Eye, ExternalLink, FileText, Grid2X2, List, PackageOpen, PencilLine, Plus, Search, Star } from 'lucide-react';
 import { StatsCard } from './StatsCard';
 import { BookFormDialog } from './BookFormDialog';
 import { PdfViewerDialog } from './PdfViewerDialog';
 import { BookDetailDialog } from './BookDetailDialog';
+
+function stripHtml(html?: string | null) {
+  return (html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
 
 type ViewMode = 'grid' | 'table';
 type StockFilter = 'all' | 'in_stock' | 'low_stock' | 'out_of_stock';
@@ -52,7 +57,15 @@ export function BookCatalogTab({
   const filtered = useMemo(() => {
     return books.filter((book) => {
       const query = search.toLowerCase().trim();
-      const matchesSearch = !query || book.name.toLowerCase().includes(query) || book.sku.toLowerCase().includes(query);
+      const haystack = [
+        book.name,
+        book.sku,
+        book.author || '',
+        stripHtml(book.description),
+        book.category?.name || '',
+        book.program?.name || '',
+      ].join(' ').toLowerCase();
+      const matchesSearch = !query || haystack.includes(query);
       const matchesType = type === 'all' || (type === 'ebook' ? book.isEbook : !book.isEbook);
       const qty = Number(book.centralQty || 0);
       const matchesStock =
@@ -190,7 +203,7 @@ export function BookCatalogTab({
             const state = stockState(book);
             return (
               <article key={book.id} className="group overflow-hidden rounded-[28px] border border-border bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
-                <div className="relative aspect-[16/10] bg-muted">
+                <div className="relative aspect-16/10 bg-muted">
                 {book.thumbnailUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={book.thumbnailUrl} alt={book.name} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
@@ -209,12 +222,16 @@ export function BookCatalogTab({
                 <div>
                   <h3 className="line-clamp-2 text-lg font-black text-foreground">{book.name}</h3>
                   <p className="text-xs font-bold uppercase tracking-[0.22em] text-muted-foreground">{book.sku}</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-500">{book.author || 'Author not set'}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Badge variant="outline">{book.isEbook ? 'E-Book' : 'Physical'}</Badge>
                   {book.category ? <Badge variant="outline">{book.category.name}</Badge> : null}
                   {book.program ? <Badge variant="outline">{book.program.name}</Badge> : null}
                 </div>
+              <p className="line-clamp-3 min-h-18 text-sm leading-6 text-slate-500">
+                {stripHtml(book.description) || 'No storefront description has been written yet for this title.'}
+              </p>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div className="rounded-2xl border border-border bg-muted/30 p-3">
                   <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Central</p>
@@ -241,6 +258,12 @@ export function BookCatalogTab({
               >
                 <PencilLine className="mr-2 h-4 w-4" />
                 Edit
+              </Button>
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/books/${book.id}`} target="_blank" rel="noreferrer">
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  Public
+                </Link>
               </Button>
               {book.isEbook && book.fileUrl ? (
                 <Button variant="outline" size="sm" onClick={() => setPdfBook(book)}>
@@ -285,6 +308,7 @@ export function BookCatalogTab({
                         <div>
                           <p className="font-black text-foreground">{book.name}</p>
                           <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">{book.sku}</p>
+                          <p className="text-xs text-slate-500">{book.author || 'Author not set'}</p>
                         </div>
                       </div>
                     </TableCell>

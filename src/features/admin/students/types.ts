@@ -66,6 +66,7 @@ export interface Enrollment {
 
 export interface Invoice {
   id: string;
+  invoiceNumber?: string | null;
   month: string;
   amount: number;
   paidAmount: number;

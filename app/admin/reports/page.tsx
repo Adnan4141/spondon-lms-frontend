@@ -244,7 +244,7 @@ function FinanceTab({ branches, courses }: { branches: Branch[]; courses: any[] 
             <Table>
               <TableHeader className="bg-slate-50/40">
                 <TableRow>
-                  {['Paid At', 'Student ID', 'Reg #', 'Student Name', 'Mobile', 'Collected Branch', 'Billing Branch', 'Amount', 'Method', 'TRX / Ref'].map((h) => (
+                  {['Paid At', 'Reg #', 'Student Name', 'Mobile', 'Collected Branch', 'Billing Branch', 'Amount', 'Method', 'TRX / Ref'].map((h) => (
                     <TableHead key={h} className="text-[10px] font-black uppercase tracking-widest text-slate-400">{h}</TableHead>
                   ))}
                 </TableRow>
@@ -252,7 +252,7 @@ function FinanceTab({ branches, courses }: { branches: Branch[]; courses: any[] 
               <TableBody>
                 {transactions.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="py-12 text-center text-sm font-bold text-slate-400">
+                    <TableCell colSpan={9} className="py-12 text-center text-sm font-bold text-slate-400">
                       No payment found for current filters.
                     </TableCell>
                   </TableRow>
@@ -261,7 +261,6 @@ function FinanceTab({ branches, courses }: { branches: Branch[]; courses: any[] 
                     <TableCell className="text-xs font-medium text-slate-500">
                       {new Date(row.paidAt).toLocaleString('en-GB', { hour12: false })}
                     </TableCell>
-                    <TableCell className="font-mono text-xs text-slate-600">{row.student.id}</TableCell>
                     <TableCell className="text-xs font-bold text-slate-700">{row.student.registrationNumber || '—'}</TableCell>
                     <TableCell className="font-bold text-slate-900">{row.student.fullName}</TableCell>
                     <TableCell className="text-xs text-slate-600">{row.student.mobile}</TableCell>
@@ -609,7 +608,7 @@ function CourseTransactionsTab({ courses, branches }: { courses: any[]; branches
                       <TableCell className="text-xs text-slate-600">{row.student?.mobile ?? '—'}</TableCell>
                       <TableCell className="text-xs text-slate-500">{row.branch?.name ?? '—'}</TableCell>
                       <TableCell className="text-xs text-slate-600">
-                        <span className="font-mono">{row.invoiceId.slice(0, 8)}…</span>
+                        <span className="font-mono">{row.invoiceNumber ?? row.invoiceId.slice(0, 8)}…</span>
                         {row.month ? <span className="block text-slate-400">{row.month}</span> : null}
                       </TableCell>
                       <TableCell className="text-right text-sm font-semibold text-slate-700">{fmtCur(row.gross)}</TableCell>
@@ -898,17 +897,16 @@ function DueCollectionTab({ branches }: { branches: Branch[] }) {
             <Table>
               <TableHeader className="bg-slate-50/80">
                 <TableRow>
-                  {['Student ID', 'Reg #', 'Student Name', 'Mobile', 'Branch', 'Invoices', 'Payable', 'Paid', 'Due'].map((h) => (
+                  {['Reg #', 'Student Name', 'Mobile', 'Branch', 'Invoices', 'Payable', 'Paid', 'Due'].map((h) => (
                     <TableHead key={h} className="text-[10px] font-black uppercase tracking-widest text-slate-400">{h}</TableHead>
                   ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {studentRows.length === 0 ? (
-                  <TableRow><TableCell colSpan={9} className="py-12 text-center text-slate-400 text-sm font-bold">No student due found for current filters.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={8} className="py-12 text-center text-slate-400 text-sm font-bold">No student due found for current filters.</TableCell></TableRow>
                 ) : studentRows.map((row) => (
                   <TableRow key={`${row.branchId}:${row.studentUserId}`} className="hover:bg-slate-50/60">
-                    <TableCell className="font-mono text-xs text-slate-600">{row.studentUserId}</TableCell>
                     <TableCell className="text-xs font-bold text-slate-700">{row.registrationNumber || '—'}</TableCell>
                     <TableCell className="font-bold text-slate-900">{row.fullName}</TableCell>
                     <TableCell className="text-xs text-slate-600">{row.mobile}</TableCell>

@@ -223,6 +223,8 @@ export interface PublicCatalogBook {
   name: string;
   author?: string | null;
   price: number;
+  /** List price when discounted; omit or null when same as sale price */
+  mrp?: number | null;
   thumbnailUrl?: string | null;
   isEbook: boolean;
   featured?: boolean;
@@ -296,6 +298,16 @@ export interface PublicBook {
   courseBooks?: Array<{ isFree: boolean; course: { id: string; name: string; slug?: string | null } }>;
   collaborators?: PublicBookCollaborator[];
   outline?: BookContentOutline;
+}
+
+export interface ProtectedBookDownloadResponse {
+  success: boolean;
+  fileUrl?: string;
+  message?: string;
+}
+
+export async function getProtectedBookDownload(bookId: string): Promise<ProtectedBookDownloadResponse> {
+  return apiRequest<ProtectedBookDownloadResponse>(`/books/download/${encodeURIComponent(bookId)}`);
 }
 
 export async function createBook(

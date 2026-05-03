@@ -25,7 +25,7 @@ export function BookTabs({ active, onChange, sticky = true }: BookTabsProps) {
         sticky && 'sticky top-0',
       )}
     >
-      <nav className="flex items-center gap-10 overflow-x-auto py-6 scrollbar-hide" aria-label="Book sections">
+      <nav className="flex items-center gap-10 overflow-x-auto py-6 scrollbar-hide" aria-label="বইয়ের বিভাগ">
         {tabs.map((t) => (
           <button
             key={t.id}

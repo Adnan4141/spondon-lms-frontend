@@ -192,8 +192,8 @@ export default function StudentDetailPage() {
     setRefreshing(false);
   };
 
-  const invoiceFileName = (invoice: Pick<Invoice, 'id' | 'month'>) =>
-    `invoice-${student?.regNo ?? registrationNumber}-${invoice.month || 'one-time'}-${invoice.id.slice(0, 8)}.pdf`;
+  const invoiceFileName = (invoice: Pick<Invoice, 'id' | 'month'> & { invoiceNumber?: string | null }) =>
+    `${invoice.invoiceNumber ?? 'invoice-' + invoice.id.slice(0, 8)}-${student?.regNo ?? registrationNumber}-${invoice.month || 'one-time'}.pdf`;
 
   const getInvoicePdfPath = async (invoiceId: string) => {
     const res = await getInvoicePdfUrl(invoiceId);
@@ -534,7 +534,7 @@ export default function StudentDetailPage() {
                           {iv.month ? fmtMonth(iv.month) : '—'}
                         </td>
                         <td className="px-4 py-3 font-mono text-[11px] font-bold text-slate-500 whitespace-nowrap">
-                          #{iv.id.slice(0, 8)}
+                          {iv.invoiceNumber ?? `#${iv.id.slice(0, 8)}`}
                         </td>
                         <td className="px-4 py-3 text-xs text-slate-600">{fmt(Number(iv.totalAmount ?? 0))}</td>
                         <td className="px-4 py-3 text-xs text-rose-600">

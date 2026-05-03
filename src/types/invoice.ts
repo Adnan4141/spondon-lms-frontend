@@ -53,6 +53,7 @@ export interface Payment {
 
 export interface Invoice {
   id: string;
+  invoiceNumber?: string | null;
   studentUserId: string;
   branchId: string;
   replacedInvoiceId?: string | null;

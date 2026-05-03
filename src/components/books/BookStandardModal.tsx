@@ -14,6 +14,7 @@ export function BookStandardModal({
   maxWidth = 'max-w-5xl',
   bodyClassName,
   contentClassName,
+  footer,
 }: {
   open: boolean;
   onClose: () => void;
@@ -23,6 +24,8 @@ export function BookStandardModal({
   maxWidth?: string;
   bodyClassName?: string;
   contentClassName?: string;
+  /** Renders below the scrollable body (e.g. form actions). */
+  footer?: ReactNode;
 }) {
   const smMaxWidth = `sm:${maxWidth}`;
 
@@ -54,7 +57,21 @@ export function BookStandardModal({
             </button>
           </div>
         </div>
-        <div className={cn('flex-1 overflow-y-auto bg-white p-4 sm:p-6', bodyClassName)}>{children}</div>
+        <div
+          className={cn(
+            footer ? 'flex min-h-0 flex-1 flex-col overflow-hidden' : 'flex-1 overflow-y-auto bg-white p-4 sm:p-6',
+            !footer && bodyClassName,
+          )}
+        >
+          {footer ? (
+            <>
+              <div className={cn('min-h-0 flex-1 overflow-y-auto bg-white p-4 sm:p-6', bodyClassName)}>{children}</div>
+              {footer}
+            </>
+          ) : (
+            children
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
