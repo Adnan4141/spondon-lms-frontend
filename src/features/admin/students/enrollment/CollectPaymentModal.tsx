@@ -950,6 +950,7 @@ export function CollectPaymentModal({
                     const payResult = await processMonthPayment({
                       studentUserId: student.id,
                       month: selMonth,
+                      discountAmount: discount > 0 ? discount : undefined,
                       payment: { amount: amountToCollect, method },
                     });
                     setPaymentAmount('');

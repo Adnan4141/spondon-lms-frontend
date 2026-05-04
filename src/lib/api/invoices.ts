@@ -138,6 +138,8 @@ export interface ProcessMonthlyPaymentDto {
     trxId?: string;
     receivedByUserId?: string;
   };
+  discountAmount?: number;
+  discountReference?: string;
   waive?: boolean;
   waiveReason?: string;
 }

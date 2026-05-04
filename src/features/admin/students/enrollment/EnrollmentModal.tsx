@@ -77,10 +77,10 @@ export function EnrollmentModal({
       if (u?.branchId) {
         setBranchId(String(u.branchId));
       } else if (branches.length > 0) {
-        setBranchId(branches[0].id);
+        setBranchId('');
       }
     } catch {
-      if (branches.length > 0) setBranchId(branches[0].id);
+      if (branches.length > 0) setBranchId('');
     }
   }, [branches, student.branchId]);
 
