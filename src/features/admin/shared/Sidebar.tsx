@@ -102,7 +102,7 @@ function buildMenuSections(role: string | null): MenuSection[] {
       ? [{ title: 'Result approvals', href: '/admin/results/approvals', icon: Award, color: 'text-indigo-600', bg: 'bg-indigo-50' }]
       : []),
   ];
-  const showExam = !isAccounts;
+  const showExam = !isAccounts && !isBranchAdmin;
 
   // ----- Management -----
   const managementItems: MenuItem[] = [
