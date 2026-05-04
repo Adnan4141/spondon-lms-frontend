@@ -61,6 +61,7 @@ export interface Enrollment {
   billingType: 'MONTHLY' | 'ONE_TIME';
   monthlyDiscount: number;
   billingStartMonth: string;
+  billingEndMonth?: string;
   courses: EnrolledCourse[];
 }
 
@@ -107,6 +108,7 @@ export interface SelCourseState {
   checked: boolean;
   batch?: string;
   startMonth?: string;
+  endMonth?: string;
 }
 
 export type BranchOption = { id: string; name: string };

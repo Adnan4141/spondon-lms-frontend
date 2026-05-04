@@ -466,6 +466,15 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
       setError('Program and course name are required.');
       return;
     }
+    const selectedProgram = programs.find((program) => program.id === form.programId);
+    if (selectedProgram?.paymentCircle === 'MONTHLY' && !form.startMonth) {
+      setError('Start month is required for monthly courses.');
+      return;
+    }
+    if (selectedProgram?.paymentCircle === 'MONTHLY' && (!form.durationMonths || Number(form.durationMonths) < 1)) {
+      setError('Course duration is required for monthly courses.');
+      return;
+    }
     if (form.offerPrice.trim()) {
       const opNum = Number(form.offerPrice);
       const feeNum = Number(form.fee);

@@ -33,10 +33,25 @@ export function ManageEnrollmentModal({
   onClose: () => void;
   onDone: (summary: { added: number; removed: number; failed: number; effectiveMonth: string }) => void;
 }) {
+  const getCourseTimelineError = (course: Course, meta: { batch: string; startMonth: string; endMonth: string }) => {
+    if (!meta.startMonth) return 'Start month is required';
+    if (!meta.endMonth) return 'End month is required';
+    if (course.startMonth && meta.startMonth < course.startMonth) {
+      return `Start month cannot be before ${course.startMonth}`;
+    }
+    if (course.endMonth && meta.endMonth > course.endMonth) {
+      return `End month cannot be after ${course.endMonth}`;
+    }
+    if (meta.endMonth < meta.startMonth) {
+      return 'End month cannot be before start month';
+    }
+    return null;
+  };
+
   const [step, setStep] = useState<'select' | 'discount' | 'success'>('select');
   const [selectedAddCourseIds, setSelectedAddCourseIds] = useState<string[]>([]);
   const [selectedCancelCourseIds, setSelectedCancelCourseIds] = useState<string[]>([]);
-  const [selectedMeta, setSelectedMeta] = useState<Record<string, { batch: string; startMonth: string }>>({});
+  const [selectedMeta, setSelectedMeta] = useState<Record<string, { batch: string; startMonth: string; endMonth: string }>>({});
   const [courseBatches, setCourseBatches] = useState<Record<string, { id: string; name: string }[]>>({});
   const [saving, setSaving] = useState(false);
   const [progressText, setProgressText] = useState('Applying changes...');
@@ -70,10 +85,18 @@ export function ManageEnrollmentModal({
 
   const hasChanges = selectedAddCourses.length > 0 || selectedCancelCourses.length > 0;
   const hasInvalidBatch = selectedAddCourses.some((c) => c.type === 'OFFLINE' && !selectedMeta[c.id]?.batch);
+  const hasInvalidTimeline = selectedAddCourses.some((course) => {
+    const meta = selectedMeta[course.id] || {
+      batch: '',
+      startMonth: course.startMonth || effMonth,
+      endMonth: course.endMonth || course.startMonth || effMonth,
+    };
+    return Boolean(getCourseTimelineError(course, meta));
+  });
   const projectedCount = activeCourses.length - selectedCancelCourses.length + selectedAddCourses.length;
   const willAutoCancelEnrollment = projectedCount <= 0 && selectedCancelCourses.length > 0;
   const invalidFinalState = projectedCount < 0;
-  const canProceed = hasChanges && !hasInvalidBatch && !invalidFinalState;
+  const canProceed = hasChanges && !hasInvalidBatch && !hasInvalidTimeline && !invalidFinalState;
 
   const triggerType = selectedCancelCourses.length > 0 && selectedAddCourses.length === 0 ? 'REMOVE' : 'ADD';
   const changedCourse = selectedAddCourses[0] || selectedCancelCourses[0] || activeCourses[0];
@@ -117,12 +140,17 @@ export function ManageEnrollmentModal({
       if (selectedAddCourses.length === 0) return;
       setProgressText(`Adding ${selectedAddCourses.length} course(s)...`);
       for (const c of selectedAddCourses) {
-        const meta = selectedMeta[c.id] || { batch: '', startMonth: c.startMonth || effMonth };
+        const meta = selectedMeta[c.id] || {
+          batch: '',
+          startMonth: c.startMonth || effMonth,
+          endMonth: c.endMonth || c.startMonth || effMonth,
+        };
         const res = await addCourseToEnrollment(enrollment.id, {
           courseId: c.id,
           batchId: meta.batch || null,
           includeBook: false,
           startMonth: meta.startMonth || c.startMonth || effMonth,
+          endMonth: meta.endMonth || c.endMonth || meta.startMonth || c.startMonth || effMonth,
           effectiveMonth: effMonth,
         });
         if (res.success) {
@@ -250,7 +278,12 @@ export function ManageEnrollmentModal({
               <div className="space-y-2 max-h-72 overflow-auto pr-1">
                 {availableCourses.map((c) => {
                   const checked = selectedAddCourseIds.includes(c.id);
-                  const meta = selectedMeta[c.id] || { batch: '', startMonth: c.startMonth || effMonth };
+                  const meta = selectedMeta[c.id] || {
+                    batch: '',
+                    startMonth: c.startMonth || effMonth,
+                    endMonth: c.endMonth || c.startMonth || effMonth,
+                  };
+                  const timelineError = getCourseTimelineError(c, meta);
                   return (
                     <div
                       key={c.id}
@@ -273,6 +306,7 @@ export function ManageEnrollmentModal({
                                 [c.id]: {
                                   batch: prev[c.id]?.batch || '',
                                   startMonth: prev[c.id]?.startMonth || c.startMonth || effMonth,
+                                  endMonth: prev[c.id]?.endMonth || c.endMonth || c.startMonth || effMonth,
                                 },
                               }));
                             }
@@ -309,7 +343,7 @@ export function ManageEnrollmentModal({
                               {!meta.batch && <p className="text-[11px] text-rose-600 mt-1">Required for offline</p>}
                             </Field>
                           )}
-                          <Field label="Start Month">
+                          <Field label="Start Month" required>
                             <MonthInput
                               value={meta.startMonth}
                               onChange={(v) => setSelectedMeta((prev) => ({
@@ -317,13 +351,24 @@ export function ManageEnrollmentModal({
                                 [c.id]: { ...meta, startMonth: v },
                               }))}
                               min={c.startMonth || effMonth}
+                              max={meta.endMonth || c.endMonth}
+                            />
+                          </Field>
+                          <Field label="End Month" required>
+                            <MonthInput
+                              value={meta.endMonth}
+                              onChange={(v) => setSelectedMeta((prev) => ({
+                                ...prev,
+                                [c.id]: { ...meta, endMonth: v },
+                              }))}
+                              min={meta.startMonth || c.startMonth || effMonth}
                               max={c.endMonth}
                             />
                           </Field>
-                          <Field label="End Month">
-                            <MonthInput value={c.endMonth || ''} disabled />
-                          </Field>
                         </div>
+                      )}
+                      {checked && timelineError && (
+                        <p className="mt-2 text-[11px] font-semibold text-rose-600">{timelineError}</p>
                       )}
                     </div>
                   );

@@ -353,6 +353,9 @@ export function CourseFormModal({
   }, []);
 
   const handleSave = async () => {
+    const selectedProgram = programs.find((program) => program.id === form.programId);
+    const isMonthlyProgram = selectedProgram?.paymentCircle === 'MONTHLY';
+
     if (!form.name.trim()) {
       setError('Course name is required');
       setActiveTab('basic');
@@ -371,6 +374,16 @@ export function CourseFormModal({
     if (!form.fee || Number(form.fee) <= 0) {
       setError('Course fee is required');
       setActiveTab('pricing');
+      return;
+    }
+    if (isMonthlyProgram && !form.startMonth) {
+      setError('Start month is required for monthly courses');
+      setActiveTab('basic');
+      return;
+    }
+    if (isMonthlyProgram && (!form.durationMonths || Number(form.durationMonths) < 1)) {
+      setError('Course duration is required for monthly courses');
+      setActiveTab('basic');
       return;
     }
 

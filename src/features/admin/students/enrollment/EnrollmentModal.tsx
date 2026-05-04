@@ -189,11 +189,48 @@ export function EnrollmentModal({
         });
       }
       for (const course of selected) {
+        const selectedStartMonth = selCourses[course.id]?.startMonth || course.startMonth || billingStart;
+        const selectedEndMonth = selCourses[course.id]?.endMonth || course.endMonth || '';
         if (course.type === 'OFFLINE' && !selCourses[course.id]?.batch) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             path: [`batch.${course.id}`],
             message: 'Batch is required for offline course',
+          });
+        }
+        if (!selectedStartMonth) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [`startMonth.${course.id}`],
+            message: 'Start month is required',
+          });
+        }
+        if (!selectedEndMonth) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [`endMonth.${course.id}`],
+            message: 'End month is required',
+          });
+        }
+        if (course.startMonth && selectedStartMonth && selectedStartMonth < course.startMonth) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [`startMonth.${course.id}`],
+            message: `Start month cannot be before ${course.startMonth}`,
+          });
+        }
+        if (course.endMonth && selectedEndMonth && selectedEndMonth > course.endMonth) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [`endMonth.${course.id}`],
+            message: `End month cannot be after ${course.endMonth}`,
+          });
+        }
+        if (selectedStartMonth && selectedEndMonth && selectedEndMonth < selectedStartMonth) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [`endMonth.${course.id}`],
+            message: 'End month cannot be before start month',
           });
         }
       }
@@ -221,6 +258,7 @@ export function EnrollmentModal({
         // Default start month to the course's own startMonth so billing starts when the course begins,
         // not at the enrollment-level billingStart.
         startMonth: availableCourses.find(c => c.id === cid)?.startMonth ?? billingStart,
+        endMonth: p[cid]?.endMonth || availableCourses.find(c => c.id === cid)?.endMonth || availableCourses.find(c => c.id === cid)?.startMonth || billingStart,
       },
     }));
   const setCF = (cid: string, f: string, v: string) =>
@@ -239,7 +277,7 @@ export function EnrollmentModal({
         batchId: selCourses[c.id]?.batch || null,
         includeBook: false,
         startMonth: selCourses[c.id]?.startMonth || c.startMonth || billingStart,
-        endMonth: c.endMonth,
+        endMonth: selCourses[c.id]?.endMonth || c.endMonth || selCourses[c.id]?.startMonth || c.startMonth || billingStart,
       }));
       const dto: OfflineAdmissionDto = {
         studentUserId: student.id,
@@ -395,16 +433,31 @@ export function EnrollmentModal({
                                     )}
                                   </Field>
                                 )}
-                                <Field label="Start Month">
+                                <Field label="Start Month" required>
                                   <MonthInput
                                     value={sel.startMonth || billingStart}
                                     onChange={v => setCF(c.id, 'startMonth', v)}
                                     min={c.startMonth}
+                                    max={sel.endMonth || c.endMonth}
+                                  />
+                                  {validation.errors[`startMonth.${c.id}`] && (
+                                    <p className="text-[11px] text-rose-600 mt-1 font-semibold">
+                                      {validation.errors[`startMonth.${c.id}`]}
+                                    </p>
+                                  )}
+                                </Field>
+                                <Field label="End Month" required>
+                                  <MonthInput
+                                    value={sel.endMonth || c.endMonth || sel.startMonth || billingStart}
+                                    onChange={v => setCF(c.id, 'endMonth', v)}
+                                    min={sel.startMonth || c.startMonth || billingStart}
                                     max={c.endMonth}
                                   />
-                                </Field>
-                                <Field label="End Month">
-                                  <MonthInput value={c.endMonth} disabled />
+                                  {validation.errors[`endMonth.${c.id}`] && (
+                                    <p className="text-[11px] text-rose-600 mt-1 font-semibold">
+                                      {validation.errors[`endMonth.${c.id}`]}
+                                    </p>
+                                  )}
                                 </Field>
                               </div>
                             )}

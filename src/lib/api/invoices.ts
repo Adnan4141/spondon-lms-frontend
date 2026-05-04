@@ -81,11 +81,39 @@ export async function generateMonthlyInvoices(body?: {
 export async function generateAdvanceInvoices(body: {
   studentUserId: string;
   months: number;
-}): Promise<ApiResponse<{ studentUserId: string; months: number; invoicesCreated: number; errors: string[] }>> {
+}): Promise<ApiResponse<{ studentUserId: string; months: number; invoicesCreated: number; errors: string[]; skippedMonths?: string[]; maxBillableMonth?: string | null }>> {
   return apiRequest('/invoices/monthly/advance', {
     method: 'POST',
     body: JSON.stringify(body),
   });
+}
+
+export interface MonthlyDueListMonth {
+  month: string;
+  invoiceId?: string;
+  status: 'NOT_GENERATED' | 'DRAFT' | 'ISSUED' | 'PARTIAL' | 'PAID' | 'WAIVED';
+  dueAmount: number | null;
+  payableAmount: number | null;
+  canWaive: boolean;
+  canPay: boolean;
+}
+
+export async function getMonthlyDueList(params: {
+  studentUserId: string;
+  branchId?: string;
+}): Promise<ApiResponse<{
+  studentUserId: string;
+  branchId: string | null;
+  dueMonths: MonthlyDueListMonth[];
+  invoices: Array<{ id: string; month: string | null }>;
+  validMonths: string[];
+  maxBillableMonth?: string | null;
+}>> {
+  const queryParams = new URLSearchParams();
+  queryParams.append('studentUserId', params.studentUserId);
+  if (params.branchId) queryParams.append('branchId', params.branchId);
+
+  return apiRequest(`/invoices/monthly/due-list?${queryParams.toString()}`);
 }
 
 export type PaymentMethod = 'CASH' | 'BKASH' | 'BANK' | 'GATEWAY';

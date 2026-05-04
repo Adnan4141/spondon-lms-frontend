@@ -153,6 +153,7 @@ export interface FinancialDashboardData {
     } | null;
     branch?: { id: string; name: string } | null;
     billingStartMonth?: string | null;
+    billingEndMonth?: string | null;
     monthlyDiscount?: number | null;
     oneTimeDiscount?: number | null;
     createdAt: string;

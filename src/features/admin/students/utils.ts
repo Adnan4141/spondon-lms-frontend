@@ -40,6 +40,7 @@ export function toLocalEnrollment(e: ApiEnrollment): Enrollment {
     billingType: (e.billingType ?? 'MONTHLY') as 'MONTHLY' | 'ONE_TIME',
     monthlyDiscount: Number(e.monthlyDiscount ?? 0),
     billingStartMonth: e.billingStartMonth ?? '',
+    billingEndMonth: e.billingEndMonth ?? '',
     courses: (e.enrollmentCourses ?? []).map(ec => ({
       id: ec.id,
       courseId: ec.courseId,

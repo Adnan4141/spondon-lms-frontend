@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { getEnrollments } from '@/lib/api/enrollments';
-import { generateAdvanceInvoices, getInvoicePdfUrl, getInvoices, processMonthPayment, waiveMonthlyCourses } from '@/lib/api/invoices';
+import { generateAdvanceInvoices, getInvoicePdfUrl, getInvoices, getMonthlyDueList, processMonthPayment, waiveMonthlyCourses } from '@/lib/api/invoices';
 import type { BadgeColor } from '../components/StudentAdminBadge';
 import type { Enrollment, Invoice, Student } from '../types';
 import { fmt, fmtMonth, normPdfUrl, toLocalEnrollment } from '../utils';
@@ -45,6 +45,7 @@ export function CollectPaymentModal({
   const [selectedWaiveCourseIds, setSelectedWaiveCourseIds] = useState<string[]>([]);
   const [waiveSubmitting, setWaiveSubmitting] = useState(false);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [validMonthlyMonths, setValidMonthlyMonths] = useState<string[]>([]);
   const [advanceNotice, setAdvanceNotice] = useState<string | null>(null);
   // Prevent StrictMode double-invoke from firing generateAdvanceInvoices twice per mount
   const advanceFiredRef = useRef(false);
@@ -57,17 +58,23 @@ export function CollectPaymentModal({
       setAdvanceNotice(null);
     }
     try {
-      const [res, enrollRes] = await Promise.all([
+      const [res, enrollRes, dueListRes] = await Promise.all([
         getInvoices({ studentUserId: student.id, limit: 200 }),
         getEnrollments({ studentUserId: student.id, limit: 50 }),
+        getMonthlyDueList({ studentUserId: student.id }),
       ]);
       const localEnrolls =
         enrollRes.success && enrollRes.data ? enrollRes.data.map(toLocalEnrollment) : [];
       if (enrollRes.success && enrollRes.data) {
         setEnrollments(localEnrolls);
       }
-      const hasMonthlyActive = localEnrolls.some(
-        e => e.status === 'ACTIVE' && e.billingType === 'MONTHLY',
+      if (dueListRes.success && dueListRes.data) {
+        setValidMonthlyMonths(dueListRes.data.validMonths ?? []);
+      } else {
+        setValidMonthlyMonths([]);
+      }
+      const hasBillableMonthlyEnrollment = localEnrolls.some(
+        e => ['ACTIVE', 'PAUSED', 'PENDING_PAYMENT'].includes(e.status) && e.billingType === 'MONTHLY',
       );
       const mapped: Invoice[] = (res.data ?? []).map(inv => ({
         id: inv.id,
@@ -132,15 +139,10 @@ export function CollectPaymentModal({
       mapped.sort((a, b) => b.month.localeCompare(a.month));
       setInvoices(mapped);
       if (!bgRefresh) {
-        // Sort ascending to find the earliest (oldest) unpaid/partial month
-        const sortedAsc = [...mapped].sort((a, b) => a.month.localeCompare(b.month));
-        const firstUnpaidOrPartial = sortedAsc.find(i => i.status === 'DUE' || i.status === 'PARTIAL');
-        if (firstUnpaidOrPartial) setSelMonth(firstUnpaidOrPartial.month);
-        else if (sortedAsc.length > 0) setSelMonth(sortedAsc[sortedAsc.length - 1].month); // latest if all settled
         // Advance generation: only when at least one ACTIVE MONTHLY enrollment; surface API errors.
         if (!advanceFiredRef.current) {
           advanceFiredRef.current = true;
-          if (hasMonthlyActive) {
+          if (hasBillableMonthlyEnrollment) {
             generateAdvanceInvoices({ studentUserId: student.id, months: 12 })
               .then(advRes => {
                 if (advRes && typeof advRes === 'object' && advRes.success === false) {
@@ -159,7 +161,7 @@ export function CollectPaymentModal({
               });
           } else {
             setAdvanceNotice(
-              'No active monthly enrollment — advance months are only created for monthly billing. One-time fees use program invoices or other tools.',
+              'No billable monthly enrollment — advance months are only created for monthly billing. One-time fees use program invoices or other tools.',
             );
           }
         }
@@ -230,28 +232,47 @@ export function CollectPaymentModal({
     return map;
   }, [invoices]);
 
-  // Build the full month range from enrollment dates, merged with invoice months
+  const validMonthlyMonthSet = useMemo(() => new Set(validMonthlyMonths), [validMonthlyMonths]);
+
+  // Show only persisted invoice months, bounded by the backend-approved monthly window.
   const allMonths = useMemo(() => {
-    const monthSet = new Set<string>(monthGroups.keys());
-    for (const enr of enrollments) {
-      if (!enr.billingStartMonth) continue;
-      // Find the latest endMonth across all courses in this enrollment
-      const ends = enr.courses.map(c => c.endMonth).filter(Boolean);
-      const endMonth = ends.length > 0 ? ends.reduce((a, b) => (a > b ? a : b)) : '';
-      if (!endMonth) continue;
-      // Walk month-by-month and add all months in range
-      let cur = enr.billingStartMonth;
-      while (cur <= endMonth) {
-        monthSet.add(cur);
-        const [y, mo] = cur.split('-').map(Number);
-        // Use UTC to avoid timezone-shift bugs (local midnight → prev day in UTC)
-        const next = new Date(Date.UTC(y, mo, 1)); // mo is 1-based; Date.UTC(y, mo) = next month
-        cur = next.toISOString().slice(0, 7);
+    const monthSet = new Set<string>();
+    for (const inv of invoices) {
+      if (!inv.month) {
+        monthSet.add('');
+        continue;
+      }
+      if (validMonthlyMonthSet.size === 0 || validMonthlyMonthSet.has(inv.month)) {
+        monthSet.add(inv.month);
       }
     }
-    // Ascending order: Jan 2026 → Dec 2026 (natural billing timeline)
-    return [...monthSet].sort((a, b) => a.localeCompare(b));
-  }, [monthGroups, enrollments]);
+    return [...monthSet].sort((a, b) => {
+      if (!a && !b) return 0;
+      if (!a) return -1;
+      if (!b) return 1;
+      return a.localeCompare(b);
+    });
+  }, [invoices, validMonthlyMonthSet]);
+
+  useEffect(() => {
+    if (allMonths.length === 0) {
+      if (selMonth) setSelMonth('');
+      return;
+    }
+
+    if (selMonth && allMonths.includes(selMonth)) return;
+
+    const visibleInvoices = invoices.filter(
+      inv => !inv.month || validMonthlyMonthSet.size === 0 || validMonthlyMonthSet.has(inv.month),
+    );
+    const sortedAsc = [...visibleInvoices].sort((a, b) => a.month.localeCompare(b.month));
+    const firstUnpaidOrPartial = sortedAsc.find(i => i.status === 'DUE' || i.status === 'PARTIAL');
+    const nextVisibleMonth = firstUnpaidOrPartial?.month || sortedAsc[sortedAsc.length - 1]?.month || allMonths[0];
+
+    if (nextVisibleMonth !== selMonth) {
+      setSelMonth(nextVisibleMonth);
+    }
+  }, [allMonths, invoices, selMonth, validMonthlyMonthSet]);
 
   const displayInvoices = useMemo(
     () => monthGroups.get(selMonth) ?? [],
@@ -778,7 +799,9 @@ export function CollectPaymentModal({
                 </table>
               </div>
             ) : (
-              <p className="text-center py-6 text-slate-400 text-sm">No invoices for this month</p>
+              <div className="px-4 py-8 text-center text-sm font-medium text-slate-500">
+                No invoices are available for the selected month.
+              </div>
             )}
           </div>
         </div>
