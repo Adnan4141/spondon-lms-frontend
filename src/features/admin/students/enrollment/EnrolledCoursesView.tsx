@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { getBatches } from '@/lib/api/batches';
 import { cancelFullEnrollment, getEnrollments } from '@/lib/api/enrollments';
 import type { BranchOption, Course, Enrollment, Program, Student } from '../types';
-import { avatarHue, currentMonth, fmt, fmtMonth, nextMonth, toLocalEnrollment } from '../utils';
+import { avatarHue, currentMonth, fmt, fmtMonth, toLocalEnrollment } from '../utils';
 import { StudentAdminBadge as AppBadge } from '../components/StudentAdminBadge';
 import { StudentAdminField as Field } from '../components/StudentAdminField';
 import { StudentAdminModal as AppModal } from '../components/StudentAdminModal';
@@ -46,16 +46,22 @@ export function EnrolledCoursesView({
   }, []);
 
   useEffect(() => {
+    setLoadingEnrollments(true);
     getEnrollments({ studentUserId: student.id, limit: 50 }).then(res => {
       if (res.success && res.data) setEnrollments(res.data.map(toLocalEnrollment));
-      setLoadingEnrollments(false);
-    });
+      else setEnrollments([]);
+    }).finally(() => setLoadingEnrollments(false));
   }, [student.id]);
 
-  const reloadEnrollments = () => {
-    getEnrollments({ studentUserId: student.id, limit: 50 }).then(res => {
+  const reloadEnrollments = async () => {
+    setLoadingEnrollments(true);
+    try {
+      const res = await getEnrollments({ studentUserId: student.id, limit: 50 });
       if (res.success && res.data) setEnrollments(res.data.map(toLocalEnrollment));
-    });
+      else setEnrollments([]);
+    } finally {
+      setLoadingEnrollments(false);
+    }
   };
 
   const hue = avatarHue(student.fullName);
@@ -281,7 +287,7 @@ export function EnrolledCoursesView({
           studentUserId={student.id}
           initialCancelCourseId={manageModal.initialCancelCourseId}
           onClose={() => setManageModal(null)}
-          onDone={(summary) => {
+          onDone={async (summary) => {
             const hasBoth = summary.added > 0 && summary.removed > 0;
             const message = summary.failed > 0
               ? `Enrollment updated with ${summary.failed} failed operation(s).`
@@ -289,11 +295,9 @@ export function EnrolledCoursesView({
                 ? `Enrollment updated: ${summary.added} added, ${summary.removed} cancelled.`
                 : summary.added > 0
                   ? `${summary.added} course(s) added and invoices regenerated!`
-                  : `${summary.removed} course(s) cancelled. Invoices updated from ${fmtMonth(nextMonth())}.`;
+                  : `${summary.removed} course(s) cancelled from ${fmtMonth(summary.effectiveMonth)}.`;
             showToast(message, summary.failed > 0 ? 'error' : 'success');
-            getEnrollments({ studentUserId: student.id, limit: 50 }).then(res => {
-              if (res.success && res.data) setEnrollments(res.data.map(toLocalEnrollment));
-            });
+            await reloadEnrollments();
           }}
         />
       )}

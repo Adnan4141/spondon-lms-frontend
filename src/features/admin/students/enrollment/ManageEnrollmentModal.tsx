@@ -31,7 +31,7 @@ export function ManageEnrollmentModal({
   studentUserId: string;
   initialCancelCourseId?: string;
   onClose: () => void;
-  onDone: (summary: { added: number; removed: number; failed: number }) => void;
+  onDone: (summary: { added: number; removed: number; failed: number; effectiveMonth: string }) => void;
 }) {
   const [step, setStep] = useState<'select' | 'discount' | 'success'>('select');
   const [selectedAddCourseIds, setSelectedAddCourseIds] = useState<string[]>([]);
@@ -44,7 +44,7 @@ export function ManageEnrollmentModal({
   const [invoicePdfUrl, setInvoicePdfUrl] = useState<string | null>(null);
   const [appliedDiscount, setAppliedDiscount] = useState(enrollment.monthlyDiscount);
   const [effectiveMonth, setEffectiveMonth] = useState(() => currentMonth());
-  const [result, setResult] = useState<{ added: number; removed: number; failed: number } | null>(null);
+  const [result, setResult] = useState<{ added: number; removed: number; failed: number; effectiveMonth: string } | null>(null);
   const effMonth = effectiveMonth;
 
   const program = programs.find((p) => p.id === enrollment.programId);
@@ -71,7 +71,8 @@ export function ManageEnrollmentModal({
   const hasChanges = selectedAddCourses.length > 0 || selectedCancelCourses.length > 0;
   const hasInvalidBatch = selectedAddCourses.some((c) => c.type === 'OFFLINE' && !selectedMeta[c.id]?.batch);
   const projectedCount = activeCourses.length - selectedCancelCourses.length + selectedAddCourses.length;
-  const invalidFinalState = projectedCount <= 0;
+  const willAutoCancelEnrollment = projectedCount <= 0 && selectedCancelCourses.length > 0;
+  const invalidFinalState = projectedCount < 0;
   const canProceed = hasChanges && !hasInvalidBatch && !invalidFinalState;
 
   const triggerType = selectedCancelCourses.length > 0 && selectedAddCourses.length === 0 ? 'REMOVE' : 'ADD';
@@ -174,9 +175,18 @@ export function ManageEnrollmentModal({
 
       if (hasMutations) {
         setProgressText('Refreshing invoices...');
-        await generateAdvanceInvoices({ studentUserId, months: 3 }).catch(() => undefined);
-        const invoicesRes = await getInvoices({ studentUserId, month: effMonth, limit: 5 });
-        const invoiceId = invoicesRes.data?.[0]?.id;
+        const advanceRes = await generateAdvanceInvoices({ studentUserId, months: 3 });
+        if (!advanceRes.success) {
+          failures.push((advanceRes as { message?: string }).message ?? 'Advance invoice refresh failed');
+        }
+
+        const invoicesRes = await getInvoices({ studentUserId, limit: 20 });
+        if (!invoicesRes.success) {
+          failures.push((invoicesRes as { message?: string }).message ?? 'Invoice list refresh failed');
+        }
+
+        const invoiceId = invoicesRes.data?.find((inv) => inv.month === effMonth && inv.status !== 'CANCELLED')?.id
+          ?? invoicesRes.data?.find((inv) => inv.status !== 'CANCELLED')?.id;
         if (invoiceId) {
           const pdfRes = await getInvoicePdfUrl(invoiceId);
           if (pdfRes?.data?.pdfUrl) setInvoicePdfUrl(normPdfUrl(pdfRes.data.pdfUrl));
@@ -194,7 +204,7 @@ export function ManageEnrollmentModal({
         setSubmitError(`Some updates failed: ${failures.join(' | ')}`);
       }
 
-      const summary = { added, removed, failed: failures.length };
+      const summary = { added, removed, failed: failures.length, effectiveMonth: effMonth };
       setResult(summary);
       setStep('success');
     } catch (err: unknown) {
@@ -369,11 +379,11 @@ export function ManageEnrollmentModal({
             ))}
           </div>
 
-          {invalidFinalState && (
-            <div className="bg-rose-50 border border-rose-200 rounded-xl px-4 py-3 mt-4 flex gap-2">
-              <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
-              <p className="text-sm text-rose-700 font-semibold">
-                Enrollment must keep at least one active course. Add another course or reduce cancellation.
+          {willAutoCancelEnrollment && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mt-4 flex gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+              <p className="text-sm text-amber-700 font-semibold">
+                This change will cancel all active courses. The enrollment will be auto-cancelled after apply.
               </p>
             </div>
           )}

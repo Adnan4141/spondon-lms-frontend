@@ -85,7 +85,7 @@ export function EnrollmentModal({
   }, [branches, student.branchId]);
 
   useEffect(() => {
-    if (!programId) { setCourseBatches({}); return; }
+    if (!programId || !branchId) { setCourseBatches({}); return; }
     setLoadingBatches(true);
     getBatches({ branchId: branchId || undefined, limit: 200 })
       .then(res => {
@@ -323,7 +323,7 @@ export function EnrollmentModal({
               </Field>
             </div>
 
-            {programId && (
+            {programId && branchId && (
               <div>
                 {loadingEnrolled ? (
                   <p className="text-sm text-slate-400 text-center py-6">Checking enrollment status…</p>
@@ -493,6 +493,12 @@ export function EnrollmentModal({
                     )}
                   </>
                 )}
+              </div>
+            )}
+            {programId && !branchId && (
+              <div className="border border-dashed border-slate-200 rounded-xl px-4 py-8 text-center">
+                <p className="text-sm font-semibold text-slate-700">Select branch to load course list</p>
+                <p className="text-xs text-slate-400 mt-1">Courses will appear after both program and branch are selected.</p>
               </div>
             )}
           </div>
