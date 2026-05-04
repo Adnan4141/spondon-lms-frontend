@@ -88,6 +88,13 @@ function fmtCur(n: number) {
   return '৳ ' + fmtNum(n);
 }
 
+function normalizeSingleDateRange(from?: string, to?: string) {
+  return {
+    from: from || to || undefined,
+    to: to || from || undefined,
+  };
+}
+
 // ─── Finance Tab ──────────────────────────────────────────────────────────────
 
 function FinanceTab({ branches, courses }: { branches: Branch[]; courses: any[] }) {
@@ -105,7 +112,8 @@ function FinanceTab({ branches, courses }: { branches: Branch[]; courses: any[] 
   async function load() {
     setLoading(true);
     try {
-      const res = await getRevenueSummary({ period, branchId: branchId || undefined, courseId: courseId || undefined, from: from || undefined, to: to || undefined });
+      const dateRange = normalizeSingleDateRange(from, to);
+      const res = await getRevenueSummary({ period, branchId: branchId || undefined, courseId: courseId || undefined, from: dateRange.from, to: dateRange.to });
       if (res.success) {
         setData(res.data);
         setTotals(res.totals);
@@ -303,12 +311,13 @@ function EnrollmentTab({ branches, courses, programs }: { branches: Branch[]; co
   async function load() {
     setLoading(true);
     try {
+      const dateRange = normalizeSingleDateRange(from, to);
       const res = await getEnrollmentReport({
         branchId: branchId || undefined,
         courseId: courseId || undefined,
         programId: programId || undefined,
-        from: from || undefined,
-        to: to || undefined,
+        from: dateRange.from,
+        to: dateRange.to,
       });
       if (res.success) setData(res.data);
     } catch { toast({ title: 'Failed to load enrollment report', variant: 'destructive' }); }
@@ -435,10 +444,11 @@ function CourseTransactionsTab({ courses, branches }: { courses: any[]; branches
     const pay = payOverride ?? paymentStatus;
     setLoading(true);
     try {
+      const dateRange = normalizeSingleDateRange(from, to);
       const res = await getCourseTransactions({
         courseId,
-        from: from || undefined,
-        to: to || undefined,
+        from: dateRange.from,
+        to: dateRange.to,
         branchId: branchId || undefined,
         paymentStatus: pay === 'ALL' ? undefined : pay,
       });
@@ -665,7 +675,8 @@ function BookSalesTab({ branches }: { branches: Branch[] }) {
   async function load() {
     setLoading(true);
     try {
-      const res = await getBookSalesReport({ branchId: branchId || undefined, from: from || undefined, to: to || undefined });
+      const dateRange = normalizeSingleDateRange(from, to);
+      const res = await getBookSalesReport({ branchId: branchId || undefined, from: dateRange.from, to: dateRange.to });
       if (res.success) { setData(res.data); setTotals(res.totals); }
     } catch { toast({ title: 'Failed to load book sales', variant: 'destructive' }); }
     finally { setLoading(false); }
@@ -940,7 +951,8 @@ function LedgerSummaryTab({ branches }: { branches: Branch[] }) {
   async function load() {
     setLoading(true);
     try {
-      const res = await getLedgerSummary({ branchId: branchId || undefined, from: from || undefined, to: to || undefined });
+      const dateRange = normalizeSingleDateRange(from, to);
+      const res = await getLedgerSummary({ branchId: branchId || undefined, from: dateRange.from, to: dateRange.to });
       if (res.success) { setRows(res.data); setSummary(res.summary); }
     } catch { toast({ title: 'Failed to load ledger summary', variant: 'destructive' }); }
     finally { setLoading(false); }
