@@ -98,9 +98,6 @@ function buildMenuSections(role: string | null): MenuSection[] {
   // ----- Exam -----
   const examItems: MenuItem[] = [
     { title: 'Exam', href: '/admin/exam', icon: ClipboardList, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-    ...(isBranchAdmin
-      ? [{ title: 'Result approvals', href: '/admin/results/approvals', icon: Award, color: 'text-indigo-600', bg: 'bg-indigo-50' }]
-      : []),
   ];
   const showExam = !isAccounts && !isBranchAdmin;
 
