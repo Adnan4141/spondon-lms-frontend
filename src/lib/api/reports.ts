@@ -239,6 +239,8 @@ export interface DueSummaryParams {
   branchId?: string;
   month?: string;
   status?: string;
+  from?: string;
+  to?: string;
 }
 
 export interface DueSummaryRow {
@@ -275,6 +277,8 @@ export async function getDueSummary(params?: DueSummaryParams): Promise<DueSumma
   if (params?.branchId) q.append('branchId', params.branchId);
   if (params?.month) q.append('month', params.month);
   if (params?.status) q.append('status', params.status);
+  if (params?.from) q.append('from', params.from);
+  if (params?.to) q.append('to', params.to);
   const qs = q.toString();
   return apiRequest<DueSummaryResponse>(`/reports/due-summary${qs ? `?${qs}` : ''}`);
 }

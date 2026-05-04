@@ -44,6 +44,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { AdminDatePicker, AdminMonthPicker } from '@/features/admin/shared/form/AdminField';
 import { cn } from '@/lib/utils';
+import { useAdminSession } from '@/features/admin/shared/admin-session';
 import {
   BarChart3,
   TrendingUp,
@@ -777,6 +778,8 @@ function DueCollectionTab({ branches }: { branches: Branch[] }) {
   const [branchId, setBranchId] = useState('');
   const [month, setMonth] = useState('');
   const [status, setStatus] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<DueSummaryRow[]>([]);
   const [studentRows, setStudentRows] = useState<DueSummaryStudentRow[]>([]);
@@ -785,7 +788,14 @@ function DueCollectionTab({ branches }: { branches: Branch[] }) {
   async function load() {
     setLoading(true);
     try {
-      const res = await getDueSummary({ branchId: branchId || undefined, month: month || undefined, status: status || undefined });
+      const dateRange = normalizeSingleDateRange(from, to);
+      const res = await getDueSummary({
+        branchId: branchId || undefined,
+        month: month || undefined,
+        status: status || undefined,
+        from: dateRange.from,
+        to: dateRange.to,
+      });
       if (res.success) {
         setData(res.data);
         setTotals(res.totals);
@@ -813,6 +823,14 @@ function DueCollectionTab({ branches }: { branches: Branch[] }) {
         <div>
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Month (YYYY-MM)</p>
           <AdminMonthPicker className="w-40" value={month} onChange={setMonth} placeholder="Select month" />
+        </div>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">From</p>
+          <AdminDatePicker className="w-36" value={from} onChange={setFrom} placeholder="From date" />
+        </div>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">To</p>
+          <AdminDatePicker className="w-36" value={to} onChange={setTo} placeholder="To date" />
         </div>
         <div>
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Invoice Status</p>
@@ -1069,6 +1087,7 @@ function ReportsPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { toast, toasts, removeToast } = useToast();
+  const { user } = useAdminSession();
 
   const [activeTab, setActiveTab] = useState<TabKey>((searchParams?.get('tab') as TabKey) ?? 'finance');
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -1089,6 +1108,10 @@ function ReportsPageContent() {
     }
     void loadMeta();
   }, []);
+
+  const visibleBranches = user?.role === 'BRANCH_ADMIN' && user.branchId
+    ? branches.filter((branch) => branch.id === user.branchId)
+    : branches;
 
   function switchTab(tab: TabKey) {
     setActiveTab(tab);
@@ -1137,14 +1160,14 @@ function ReportsPageContent() {
         </div>
       ) : (
         <div>
-          {activeTab === 'finance' && <FinanceTab branches={branches} courses={courses} />}
-          {activeTab === 'enrollment' && <EnrollmentTab branches={branches} courses={courses} programs={programs} />}
+          {activeTab === 'finance' && <FinanceTab branches={visibleBranches} courses={courses} />}
+          {activeTab === 'enrollment' && <EnrollmentTab branches={visibleBranches} courses={courses} programs={programs} />}
           {activeTab === 'course-transactions' && (
-            <CourseTransactionsTab courses={courses} branches={branches} />
+            <CourseTransactionsTab courses={courses} branches={visibleBranches} />
           )}
-          {activeTab === 'book-sales' && <BookSalesTab branches={branches} />}
-          {activeTab === 'due-collection' && <DueCollectionTab branches={branches} />}
-          {activeTab === 'ledger' && <LedgerSummaryTab branches={branches} />}
+          {activeTab === 'book-sales' && <BookSalesTab branches={visibleBranches} />}
+          {activeTab === 'due-collection' && <DueCollectionTab branches={visibleBranches} />}
+          {activeTab === 'ledger' && <LedgerSummaryTab branches={visibleBranches} />}
         </div>
       )}
 

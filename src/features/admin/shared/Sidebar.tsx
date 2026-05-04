@@ -139,7 +139,7 @@ function buildMenuSections(role: string | null): MenuSection[] {
         ['/admin/monthly-billing', '/admin/payouts', '/admin/reports', '/admin/accounting', '/admin/inventory', '/admin/books'].includes(i.href),
       )
     : isBranchAdmin
-    ? []
+    ? allAdminItems.filter((i) => ['/admin/reports'].includes(i.href))
     : isModerator
     ? []
     : allAdminItems;
