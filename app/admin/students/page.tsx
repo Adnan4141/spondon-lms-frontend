@@ -211,8 +211,8 @@ export default function StudentsPage() {
   useEffect(() => {
     void Promise.all([
       getPrograms(),
-      getBranches(),
-      getCourses({ limit: 500 }),
+      getBranches({ all: true }),
+      getCourses({ all: true }),
     ]).then(([programRes, branchRes, courseRes]) => {
       if (programRes.success && programRes.data) setPrograms(programRes.data as Program[]);
       if (branchRes.success && branchRes.data) setBranches(branchRes.data.map(b => ({ id: b.id, name: b.name })));
@@ -275,7 +275,7 @@ export default function StudentsPage() {
       return;
     }
     let ignore = false;
-    getBatches({ courseId: courseFilter, limit: 500 }).then((res) => {
+    getBatches({ courseId: courseFilter, all: true }).then((res) => {
       if (ignore) return;
       if (res.success && res.data) {
         setBatchesForCourse(res.data);

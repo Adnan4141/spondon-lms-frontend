@@ -108,7 +108,7 @@ export function SearchableSelect({
                 key={opt.value}
                 type="button"
                 className={cn(
-                  'relative flex w-full cursor-pointer items-center rounded-sm py-1.5 pr-8 pl-2 text-left text-sm text-slate-900 transition-colors hover:bg-slate-100 focus:bg-slate-100 focus:outline-none',
+                  'relative flex w-full cursor-pointer items-center rounded-none border-b border-slate-100 py-1.5 pr-8 pl-2 text-left text-sm text-slate-900 transition-colors last:border-b-0 hover:bg-slate-100 focus:bg-slate-100 focus:outline-none',
                   value === opt.value && 'bg-indigo-50 text-indigo-700 hover:bg-indigo-50 focus:bg-indigo-50'
                 )}
                 onClick={() => handleSelect(opt.value)}

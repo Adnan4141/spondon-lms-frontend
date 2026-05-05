@@ -134,7 +134,7 @@ function FinanceTab({ branches, courses }: { branches: Branch[]; courses: any[] 
         <div>
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Period</p>
           <Select value={period} onValueChange={(v) => setPeriod(v as typeof period)}>
-            <SelectTrigger className="h-9 w-32 rounded-xl text-sm"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-9 w-44 rounded-xl text-sm"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="daily">Daily</SelectItem>
               <SelectItem value="monthly">Monthly</SelectItem>
@@ -142,7 +142,7 @@ function FinanceTab({ branches, courses }: { branches: Branch[]; courses: any[] 
             </SelectContent>
           </Select>
         </div>
-        <div className="w-44">
+        <div className="w-56">
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Collected Branch</p>
           <SearchableSelect
             value={branchId}
@@ -154,7 +154,7 @@ function FinanceTab({ branches, courses }: { branches: Branch[]; courses: any[] 
             ]}
           />
         </div>
-        <div className="w-44">
+        <div className="w-56">
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Course</p>
           <SearchableSelect
             value={courseId}
@@ -168,11 +168,11 @@ function FinanceTab({ branches, courses }: { branches: Branch[]; courses: any[] 
         </div>
         <div>
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">From</p>
-          <AdminDatePicker className="w-36" value={from} onChange={setFrom} placeholder="From date" />
+          <AdminDatePicker className="w-44" value={from} onChange={setFrom} placeholder="From date" />
         </div>
         <div>
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">To</p>
-          <AdminDatePicker className="w-36" value={to} onChange={setTo} placeholder="To date" />
+          <AdminDatePicker className="w-44" value={to} onChange={setTo} placeholder="To date" />
         </div>
         <Button onClick={load} disabled={loading} className="h-9 bg-indigo-600 text-white hover:bg-indigo-700 hover:text-white gap-2">
           {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <BarChart3 className="h-4 w-4" />}
@@ -338,17 +338,19 @@ function EnrollmentTab({ branches, courses, programs }: { branches: Branch[]; co
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap gap-3 items-end rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div>
+        <div className="w-56">
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Program</p>
-          <Select value={programId || 'all'} onValueChange={(v) => setProgramId(v === 'all' ? '' : v)}>
-            <SelectTrigger className="h-9 w-44 rounded-xl text-sm"><SelectValue placeholder="All Programs" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Programs</SelectItem>
-              {programs.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={programId}
+            onValueChange={setProgramId}
+            placeholder="All Programs"
+            options={[
+              { value: '', label: 'All Programs' },
+              ...programs.map((p: any) => ({ value: p.id, label: p.name })),
+            ]}
+          />
         </div>
-        <div className="w-44">
+        <div className="w-56">
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Course</p>
           <SearchableSelect
             value={courseId}
@@ -360,7 +362,7 @@ function EnrollmentTab({ branches, courses, programs }: { branches: Branch[]; co
             ]}
           />
         </div>
-        <div className="w-44">
+        <div className="w-56">
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Branch</p>
           <SearchableSelect
             value={branchId}
@@ -374,11 +376,11 @@ function EnrollmentTab({ branches, courses, programs }: { branches: Branch[]; co
         </div>
         <div>
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">From</p>
-          <AdminDatePicker className="w-36" value={from} onChange={setFrom} placeholder="From date" />
+          <AdminDatePicker className="w-44" value={from} onChange={setFrom} placeholder="From date" />
         </div>
         <div>
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">To</p>
-          <AdminDatePicker className="w-36" value={to} onChange={setTo} placeholder="To date" />
+          <AdminDatePicker className="w-44" value={to} onChange={setTo} placeholder="To date" />
         </div>
         <Button onClick={load} disabled={loading} className="h-9 bg-indigo-600 text-white hover:bg-indigo-700 hover:text-white gap-2">
           {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
@@ -492,7 +494,7 @@ function CourseTransactionsTab({ courses, branches }: { courses: any[]; branches
             options={courses.map((c: any) => ({ value: c.id, label: c.name }))}
           />
         </div>
-        <div className="w-44">
+        <div className="w-56">
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Branch</p>
           <SearchableSelect
             value={branchId}
@@ -506,11 +508,11 @@ function CourseTransactionsTab({ courses, branches }: { courses: any[]; branches
         </div>
         <div>
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">From</p>
-          <AdminDatePicker className="w-36" value={from} onChange={setFrom} placeholder="From date" />
+          <AdminDatePicker className="w-44" value={from} onChange={setFrom} placeholder="From date" />
         </div>
         <div>
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">To</p>
-          <AdminDatePicker className="w-36" value={to} onChange={setTo} placeholder="To date" />
+          <AdminDatePicker className="w-44" value={to} onChange={setTo} placeholder="To date" />
         </div>
         <Button
           onClick={() => void load()}
@@ -691,7 +693,7 @@ function BookSalesTab({ branches }: { branches: Branch[] }) {
         <div>
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Branch</p>
           <Select value={branchId || 'all'} onValueChange={(v) => setBranchId(v === 'all' ? '' : v)}>
-            <SelectTrigger className="h-9 w-44 rounded-xl text-sm"><SelectValue placeholder="All Branches" /></SelectTrigger>
+            <SelectTrigger className="h-9 w-56 rounded-xl text-sm"><SelectValue placeholder="All Branches" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Branches</SelectItem>
               {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
@@ -700,11 +702,11 @@ function BookSalesTab({ branches }: { branches: Branch[] }) {
         </div>
         <div>
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">From</p>
-          <AdminDatePicker className="w-36" value={from} onChange={setFrom} placeholder="From date" />
+          <AdminDatePicker className="w-44" value={from} onChange={setFrom} placeholder="From date" />
         </div>
         <div>
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">To</p>
-          <AdminDatePicker className="w-36" value={to} onChange={setTo} placeholder="To date" />
+          <AdminDatePicker className="w-44" value={to} onChange={setTo} placeholder="To date" />
         </div>
         <Button onClick={load} disabled={loading} className="h-9 bg-indigo-600 text-white hover:bg-indigo-700 hover:text-white gap-2">
           {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <BookOpen className="h-4 w-4" />}
@@ -813,7 +815,7 @@ function DueCollectionTab({ branches }: { branches: Branch[] }) {
         <div>
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Branch</p>
           <Select value={branchId || 'all'} onValueChange={(v) => setBranchId(v === 'all' ? '' : v)}>
-            <SelectTrigger className="h-9 w-44 rounded-xl text-sm"><SelectValue placeholder="All Branches" /></SelectTrigger>
+            <SelectTrigger className="h-9 w-56 rounded-xl text-sm"><SelectValue placeholder="All Branches" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Branches</SelectItem>
               {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
@@ -822,20 +824,20 @@ function DueCollectionTab({ branches }: { branches: Branch[] }) {
         </div>
         <div>
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Month (YYYY-MM)</p>
-          <AdminMonthPicker className="w-40" value={month} onChange={setMonth} placeholder="Select month" />
+          <AdminMonthPicker className="w-48" value={month} onChange={setMonth} placeholder="Select month" />
         </div>
         <div>
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">From</p>
-          <AdminDatePicker className="w-36" value={from} onChange={setFrom} placeholder="From date" />
+          <AdminDatePicker className="w-44" value={from} onChange={setFrom} placeholder="From date" />
         </div>
         <div>
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">To</p>
-          <AdminDatePicker className="w-36" value={to} onChange={setTo} placeholder="To date" />
+          <AdminDatePicker className="w-44" value={to} onChange={setTo} placeholder="To date" />
         </div>
         <div>
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Invoice Status</p>
           <Select value={status || 'all'} onValueChange={(v) => setStatus(v === 'all' ? '' : v)}>
-            <SelectTrigger className="h-9 w-36 rounded-xl text-sm"><SelectValue placeholder="All" /></SelectTrigger>
+            <SelectTrigger className="h-9 w-44 rounded-xl text-sm"><SelectValue placeholder="All" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All</SelectItem>
               <SelectItem value="ISSUED">Issued</SelectItem>
@@ -990,7 +992,7 @@ function LedgerSummaryTab({ branches }: { branches: Branch[] }) {
         <div>
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Branch</p>
           <Select value={branchId || 'all'} onValueChange={(v) => setBranchId(v === 'all' ? '' : v)}>
-            <SelectTrigger className="h-9 w-44 rounded-xl text-sm"><SelectValue placeholder="All Branches" /></SelectTrigger>
+            <SelectTrigger className="h-9 w-56 rounded-xl text-sm"><SelectValue placeholder="All Branches" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Branches</SelectItem>
               {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
@@ -999,11 +1001,11 @@ function LedgerSummaryTab({ branches }: { branches: Branch[] }) {
         </div>
         <div>
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">From</p>
-          <AdminDatePicker className="w-36" value={from} onChange={setFrom} placeholder="From date" />
+          <AdminDatePicker className="w-44" value={from} onChange={setFrom} placeholder="From date" />
         </div>
         <div>
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">To</p>
-          <AdminDatePicker className="w-36" value={to} onChange={setTo} placeholder="To date" />
+          <AdminDatePicker className="w-44" value={to} onChange={setTo} placeholder="To date" />
         </div>
         <Button onClick={load} disabled={loading} className="h-9 bg-indigo-600 text-white hover:bg-indigo-700 hover:text-white gap-2">
           {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" />}
