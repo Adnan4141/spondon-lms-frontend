@@ -311,3 +311,22 @@ select::-webkit-scrollbar-thumb,
   background: rgb(203 213 225);
   border-radius: 999px;
 }
+
+.slim-scrollbar {
+  scrollbar-color: rgb(203 213 225) transparent;
+  scrollbar-width: thin;
+}
+
+.slim-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.slim-scrollbar::-webkit-scrollbar-thumb {
+  background: rgb(203 213 225);
+  border-radius: 999px;
+}
+
+.slim-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}

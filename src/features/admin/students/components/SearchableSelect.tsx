@@ -105,7 +105,7 @@ export function SearchableSelect({
           </div>
         </div>
 
-        <div className="max-h-52 overflow-y-auto">
+        <div className="max-h-52 overflow-y-auto [scrollbar-color:rgb(148_163_184)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-400/80 [&::-webkit-scrollbar-thumb:hover]:bg-slate-500">
           {filtered.length === 0 ? (
             <p className="px-3 py-4 text-xs text-slate-400 text-center">No results found</p>
           ) : (

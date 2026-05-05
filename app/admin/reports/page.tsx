@@ -23,6 +23,7 @@ import {
 import { getCourses } from '@/lib/api/courses';
 import { getBranches, type Branch } from '@/lib/api/branches';
 import { getPrograms } from '@/lib/api/programs';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -141,25 +142,29 @@ function FinanceTab({ branches, courses }: { branches: Branch[]; courses: any[] 
             </SelectContent>
           </Select>
         </div>
-        <div>
+        <div className="w-44">
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Collected Branch</p>
-          <Select value={branchId || 'all'} onValueChange={(v) => setBranchId(v === 'all' ? '' : v)}>
-            <SelectTrigger className="h-9 w-44 rounded-xl text-sm"><SelectValue placeholder="All Collection Branches" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Collection Branches</SelectItem>
-              {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={branchId}
+            onValueChange={setBranchId}
+            placeholder="All Collection Branches"
+            options={[
+              { value: '', label: 'All Collection Branches' },
+              ...branches.map((b) => ({ value: b.id, label: b.name })),
+            ]}
+          />
         </div>
-        <div>
+        <div className="w-44">
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Course</p>
-          <Select value={courseId || 'all'} onValueChange={(v) => setCourseId(v === 'all' ? '' : v)}>
-            <SelectTrigger className="h-9 w-44 rounded-xl text-sm"><SelectValue placeholder="All Courses" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Courses</SelectItem>
-              {courses.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={courseId}
+            onValueChange={setCourseId}
+            placeholder="All Courses"
+            options={[
+              { value: '', label: 'All Courses' },
+              ...courses.map((c: any) => ({ value: c.id, label: c.name })),
+            ]}
+          />
         </div>
         <div>
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">From</p>
@@ -249,7 +254,7 @@ function FinanceTab({ branches, courses }: { branches: Branch[]; courses: any[] 
             <RefreshCw className="mx-auto h-5 w-5 animate-spin text-indigo-400" />
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto slim-scrollbar">
             <Table>
               <TableHeader className="bg-slate-50/40">
                 <TableRow>
@@ -343,25 +348,29 @@ function EnrollmentTab({ branches, courses, programs }: { branches: Branch[]; co
             </SelectContent>
           </Select>
         </div>
-        <div>
+        <div className="w-44">
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Course</p>
-          <Select value={courseId || 'all'} onValueChange={(v) => setCourseId(v === 'all' ? '' : v)}>
-            <SelectTrigger className="h-9 w-44 rounded-xl text-sm"><SelectValue placeholder="All Courses" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Courses</SelectItem>
-              {courses.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={courseId}
+            onValueChange={setCourseId}
+            placeholder="All Courses"
+            options={[
+              { value: '', label: 'All Courses' },
+              ...courses.map((c: any) => ({ value: c.id, label: c.name })),
+            ]}
+          />
         </div>
-        <div>
+        <div className="w-44">
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Branch</p>
-          <Select value={branchId || 'all'} onValueChange={(v) => setBranchId(v === 'all' ? '' : v)}>
-            <SelectTrigger className="h-9 w-44 rounded-xl text-sm"><SelectValue placeholder="All Branches" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Branches</SelectItem>
-              {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={branchId}
+            onValueChange={setBranchId}
+            placeholder="All Branches"
+            options={[
+              { value: '', label: 'All Branches' },
+              ...branches.map((b) => ({ value: b.id, label: b.name })),
+            ]}
+          />
         </div>
         <div>
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">From</p>
@@ -392,7 +401,7 @@ function EnrollmentTab({ branches, courses, programs }: { branches: Branch[]; co
         {loading ? (
           <div className="py-16 text-center"><RefreshCw className="h-6 w-6 animate-spin text-indigo-400 mx-auto" /></div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto slim-scrollbar">
             <Table>
               <TableHeader className="bg-slate-50/80">
                 <TableRow>
@@ -476,33 +485,24 @@ function CourseTransactionsTab({ courses, branches }: { courses: any[]; branches
       <div className="flex flex-wrap gap-3 items-end rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex-1 min-w-48">
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Course *</p>
-          <Select value={courseId || 'none'} onValueChange={(v) => setCourseId(v === 'none' ? '' : v)}>
-            <SelectTrigger className="h-9 rounded-xl text-sm"><SelectValue placeholder="Select a course…" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Select a course…</SelectItem>
-              {courses.map((c: any) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={courseId}
+            onValueChange={setCourseId}
+            placeholder="Select a course..."
+            options={courses.map((c: any) => ({ value: c.id, label: c.name }))}
+          />
         </div>
-        <div>
+        <div className="w-44">
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Branch</p>
-          <Select value={branchId || 'all'} onValueChange={(v) => setBranchId(v === 'all' ? '' : v)}>
-            <SelectTrigger className="h-9 w-44 rounded-xl text-sm">
-              <SelectValue placeholder="All branches" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All branches</SelectItem>
-              {branches.map((b) => (
-                <SelectItem key={b.id} value={b.id}>
-                  {b.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={branchId}
+            onValueChange={setBranchId}
+            placeholder="All Branches"
+            options={[
+              { value: '', label: 'All Branches' },
+              ...branches.map((b) => ({ value: b.id, label: b.name })),
+            ]}
+          />
         </div>
         <div>
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">From</p>
@@ -576,7 +576,7 @@ function CourseTransactionsTab({ courses, branches }: { courses: any[]; branches
             <RefreshCw className="h-6 w-6 animate-spin text-indigo-400 mx-auto" />
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto slim-scrollbar">
             <Table>
               <TableHeader className="bg-slate-50/80">
                 <TableRow>
@@ -729,7 +729,7 @@ function BookSalesTab({ branches }: { branches: Branch[] }) {
         {loading ? (
           <div className="py-16 text-center"><RefreshCw className="h-6 w-6 animate-spin text-indigo-400 mx-auto" /></div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto slim-scrollbar">
             <Table>
               <TableHeader className="bg-slate-50/80">
                 <TableRow>
@@ -870,7 +870,7 @@ function DueCollectionTab({ branches }: { branches: Branch[] }) {
         {loading ? (
           <div className="py-16 text-center"><RefreshCw className="h-6 w-6 animate-spin text-indigo-400 mx-auto" /></div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto slim-scrollbar">
             <Table>
               <TableHeader className="bg-slate-50/80">
                 <TableRow>
@@ -922,7 +922,7 @@ function DueCollectionTab({ branches }: { branches: Branch[] }) {
         {loading ? (
           <div className="py-16 text-center"><RefreshCw className="h-6 w-6 animate-spin text-indigo-400 mx-auto" /></div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto slim-scrollbar">
             <Table>
               <TableHeader className="bg-slate-50/80">
                 <TableRow>
@@ -1041,7 +1041,7 @@ function LedgerSummaryTab({ branches }: { branches: Branch[] }) {
         {loading ? (
           <div className="py-16 text-center"><RefreshCw className="h-6 w-6 animate-spin text-indigo-400 mx-auto" /></div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto slim-scrollbar">
             <Table>
               <TableHeader className="bg-slate-50/80">
                 <TableRow>
@@ -1099,7 +1099,11 @@ function ReportsPageContent() {
     async function loadMeta() {
       setMetaLoading(true);
       try {
-        const [bRes, cRes, pRes] = await Promise.all([getBranches(), getCourses({}), getPrograms()]);
+        const [bRes, cRes, pRes] = await Promise.all([
+          getBranches({ all: true }),
+          getCourses({ all: true }),
+          getPrograms(),
+        ]);
         if (bRes.success && bRes.data) setBranches(bRes.data);
         if (cRes.success && cRes.data) setCourses(cRes.data);
         if (pRes.success && pRes.data) setPrograms(pRes.data);

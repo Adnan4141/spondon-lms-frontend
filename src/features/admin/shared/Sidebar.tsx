@@ -39,6 +39,7 @@ import {
   Settings2,
   Info,
   Lock,
+  UsersRound,
 } from 'lucide-react';
 
 type MenuItem = {
@@ -101,6 +102,13 @@ function buildMenuSections(role: string | null): MenuSection[] {
   ];
   const showExam = !isAccounts && !isBranchAdmin;
 
+  // ----- Communities -----
+  const communityItems: MenuItem[] = [
+    { title: 'Communities', href: '/admin/communities', icon: UsersRound, color: 'text-cyan-500', bg: 'bg-cyan-50' },
+  ];
+  // const showCommunities = !isAccounts && !isBranchAdmin;
+  const showCommunities = false; // Hiding for now as the feature is not fully ready
+
   // ----- Management -----
   const managementItems: MenuItem[] = [
     { title: 'Teachers', href: '/admin/teachers', icon: Presentation, color: 'text-cyan-600', bg: 'bg-cyan-50' },
@@ -150,6 +158,7 @@ function buildMenuSections(role: string | null): MenuSection[] {
   if (showCourse) sections.push({ label: 'Course', items: visibleCourseItems });
   if (showQuestions) sections.push({ label: 'Question System', items: questionItems });
   if (showExam) sections.push({ label: 'Exam', items: examItems });
+  if (showCommunities) sections.push({ label: 'Community', items: communityItems });
   if (managementItems.length > 0) sections.push({ label: 'Management', items: managementItems });
   if (role === 'SUPER_ADMIN') {
     sections.push({ label: 'System', items: userMgmtItems });

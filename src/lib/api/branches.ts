@@ -42,8 +42,14 @@ export interface UpdateBranchDto {
   order?: number;
 }
 
-export async function getBranches(): Promise<ApiResponse<Branch[]>> {
-  return apiRequest<ApiResponse<Branch[]>>('/branches');
+export async function getBranches(params?: { all?: boolean; page?: number; limit?: number | 'all' }): Promise<ApiResponse<Branch[]>> {
+  const queryParams = new URLSearchParams();
+  if (params?.all) queryParams.append('all', 'true');
+  if (params?.page) queryParams.append('page', String(params.page));
+  if (params?.limit !== undefined) queryParams.append('limit', String(params.limit));
+
+  const query = queryParams.toString();
+  return apiRequest<ApiResponse<Branch[]>>(`/branches${query ? `?${query}` : ''}`);
 }
 
 export async function getBranchById(id: string): Promise<ApiResponse<Branch>> {
