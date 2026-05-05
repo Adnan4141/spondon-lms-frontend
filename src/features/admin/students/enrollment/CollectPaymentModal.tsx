@@ -6,7 +6,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { getEnrollments } from '@/lib/api/enrollments';
-import { generateAdvanceInvoices, getInvoicePdfUrl, getInvoices, getMonthlyDueList, processMonthPayment, waiveMonthlyCourses } from '@/lib/api/invoices';
+import {
+  generateAdvanceInvoices,
+  getInvoicePdfUrl,
+  getInvoices,
+  getMonthlyDueList,
+  processMonthPayment,
+  type PaymentMethod,
+  waiveMonthlyCourses,
+} from '@/lib/api/invoices';
 import type { BadgeColor } from '../components/StudentAdminBadge';
 import type { Enrollment, Invoice, Student } from '../types';
 import { fmt, fmtMonth, normPdfUrl, toLocalEnrollment } from '../utils';
@@ -31,7 +39,7 @@ export function CollectPaymentModal({
   onSave: (data: { student: Student; month: string; method: string; amount: number }) => void;
 }) {
   const [selMonth, setSelMonth] = useState('');
-  const [method, setMethod] = useState('CASH');
+  const [method, setMethod] = useState<PaymentMethod>('CASH');
   const [addDiscount, setAddDiscount] = useState('0');
   const [paymentAmount, setPaymentAmount] = useState('');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -241,11 +249,11 @@ export function CollectPaymentModal({
   };
 
   const methods = [
-    { id: 'CASH', label: 'Cash', icon: '💵' },
-    { id: 'BKASH', label: 'bKash', icon: '🔴' },
-    { id: 'NAGAD', label: 'Nagad', icon: '🟠' },
-    { id: 'CARD', label: 'Card', icon: '💳' },
-    { id: 'CHEQUE', label: 'Cheque', icon: '📄' },
+    { id: 'CASH' as PaymentMethod, label: 'Cash', icon: '💵' },
+    { id: 'BKASH' as PaymentMethod, label: 'bKash', icon: '🔴' },
+    { id: 'NAGAD' as PaymentMethod, label: 'Nagad', icon: '🟠' },
+    { id: 'BANK' as PaymentMethod, label: 'Bank', icon: '🏦' },
+    { id: 'GATEWAY' as PaymentMethod, label: 'Gateway', icon: '💳' },
   ];
 
   // ── Aggregate status per month ──────────────────────────────────────────────
@@ -353,21 +361,6 @@ export function CollectPaymentModal({
         return left.programName.localeCompare(right.programName);
       });
   }, [enrollments]);
-
-  const selectedMonthBillingSummary = useMemo(() => {
-    if (!selMonth) return null;
-    const matching = billingRangeSummaries.filter(summary => {
-      if (summary.startMonth && summary.startMonth > selMonth) return false;
-      if (summary.endMonth && selMonth > summary.endMonth) return false;
-      return true;
-    });
-    if (!matching.length) return null;
-    const totalMonths = matching.reduce((sum, summary) => sum + (summary.monthCount ?? 0), 0);
-    return {
-      enrollments: matching.length,
-      totalMonths,
-    };
-  }, [billingRangeSummaries, selMonth]);
 
   const getMonthAggStatus = (invs: Invoice[]): DisplayStatus => {
     if (!invs.length) return 'DUE';
@@ -1034,7 +1027,7 @@ export function CollectPaymentModal({
                 {paymentAmount && Number(paymentAmount) < effectiveNetDue && (
                   <p className="text-xs text-amber-700 font-semibold mb-2 flex items-center gap-1">
                     <AlertTriangle className="h-3 w-3 shrink-0" />
-                    Partial payment: {fmt(Number(paymentAmount))} of {fmt(effectiveNetDue)} will be collected
+                    Partial payment: {fmt(Number(paymentAmount))} of {fmt(effectiveNetDue)} will be collected and distributed equally among due course rows after any admission due is covered.
                   </p>
                 )}
               </div>

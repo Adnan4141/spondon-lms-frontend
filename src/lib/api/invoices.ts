@@ -116,7 +116,7 @@ export async function getMonthlyDueList(params: {
   return apiRequest(`/invoices/monthly/due-list?${queryParams.toString()}`);
 }
 
-export type PaymentMethod = 'CASH' | 'BKASH' | 'BANK' | 'GATEWAY';
+export type PaymentMethod = 'CASH' | 'BKASH' | 'NAGAD' | 'BANK' | 'GATEWAY';
 
 export interface CreatePaymentDto {
   invoiceId: string;
@@ -128,6 +128,50 @@ export interface CreatePaymentDto {
 
 export async function createPayment(data: CreatePaymentDto): Promise<ApiResponse<unknown>> {
   return apiRequest<ApiResponse<unknown>>('/payments', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export interface ProgramPaymentDto {
+  studentId: string;
+  programId: string;
+  amount: number;
+  month?: string;
+  method?: PaymentMethod;
+  trxId?: string;
+  receivedByUserId?: string;
+  collectedByBranchId?: string;
+}
+
+export interface ProgramPaymentSummary {
+  applied: number;
+  remaining: number;
+  totalCourseDueBefore: number;
+  totalCourseDueAfter: number;
+  totalInvoiceDueBefore: number;
+  totalInvoiceDueAfter: number;
+  invoices: Array<{
+    invoiceId: string;
+    paymentId: string;
+    applied: number;
+    dueBefore: number;
+    dueAfter: number;
+    newPaid: number;
+    newStatus: string;
+    courseAllocations: Array<{
+      invoiceItemId: string;
+      courseId: string;
+      title: string;
+      applied: number;
+      dueBefore: number;
+      dueAfter: number;
+    }>;
+  }>;
+}
+
+export async function createProgramPayment(data: ProgramPaymentDto): Promise<ApiResponse<{ summary: ProgramPaymentSummary }>> {
+  return apiRequest<ApiResponse<{ summary: ProgramPaymentSummary }>>('/payments/program', {
     method: 'POST',
     body: JSON.stringify(data),
   });

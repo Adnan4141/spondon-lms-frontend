@@ -285,3 +285,29 @@
   background: transparent;
 }
 
+select,
+[data-slot="select-content"],
+[data-slot="dropdown-menu-content"],
+[data-slot="dropdown-menu-sub-content"],
+[data-slot="popover-content"] {
+  scrollbar-color: rgb(203 213 225) transparent;
+  scrollbar-width: thin;
+}
+
+select::-webkit-scrollbar,
+[data-slot="select-content"]::-webkit-scrollbar,
+[data-slot="dropdown-menu-content"]::-webkit-scrollbar,
+[data-slot="dropdown-menu-sub-content"]::-webkit-scrollbar,
+[data-slot="popover-content"]::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+select::-webkit-scrollbar-thumb,
+[data-slot="select-content"]::-webkit-scrollbar-thumb,
+[data-slot="dropdown-menu-content"]::-webkit-scrollbar-thumb,
+[data-slot="dropdown-menu-sub-content"]::-webkit-scrollbar-thumb,
+[data-slot="popover-content"]::-webkit-scrollbar-thumb {
+  background: rgb(203 213 225);
+  border-radius: 999px;
+}
