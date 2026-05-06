@@ -7,6 +7,7 @@ import {
   GraduationCap,
   ScanLine,
   Wallet,
+  type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -38,11 +39,11 @@ export function BookFormDialogHeader({
   const FormatIcon = isEbook ? FileText : BookOpen;
 
   return (
-    <header className="shrink-0 border-b border-border/60 bg-gradient-to-r from-violet-50 via-white to-cyan-50 px-3 py-2.5 dark:from-violet-950/20 dark:via-background dark:to-cyan-950/20">
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+    <header className="shrink-0 border-b border-border/60 bg-linear-to-r from-violet-50 via-white to-cyan-50 px-3 py-2 dark:from-violet-950/20 dark:via-background dark:to-cyan-950/20">
+      <div className="flex flex-col gap-1.5 lg:flex-row lg:items-center lg:justify-between">
         {/* Left */}
-        <div className="flex min-w-0 items-center gap-2.5">
-          <div className="hidden h-14 w-10 shrink-0 overflow-hidden rounded-md border border-white/60 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:block">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="hidden h-12 w-9 shrink-0 overflow-hidden rounded-md border border-white/60 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:block">
             {coverUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -51,55 +52,55 @@ export function BookFormDialogHeader({
                 className="h-full w-full object-cover"
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-violet-100 to-cyan-100 text-violet-600 dark:from-violet-950/30 dark:to-cyan-950/30 dark:text-violet-300">
-                <ImageIcon className="h-3.5 w-3.5" />
+              <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-violet-100 to-cyan-100 text-violet-600 dark:from-violet-950/30 dark:to-cyan-950/30 dark:text-violet-300">
+                <ImageIcon className="h-3 w-3" />
               </div>
             )}
           </div>
 
           <div className="min-w-0">
             {/* Badges */}
-            <div className="mb-1 flex flex-wrap items-center gap-1">
-              <Badge className="h-5 rounded-md bg-violet-600 px-1.5 text-[10px] font-medium text-white hover:bg-violet-600">
+            <div className="mb-0.5 flex flex-wrap items-center gap-1">
+              <Badge className="h-4.5 rounded-md bg-violet-600 px-1.5 text-[9px] font-medium text-white hover:bg-violet-600">
                 {completedSections}/{totalSections}
               </Badge>
 
               {nextIncompleteTitle ? (
                 <Badge
                   variant="outline"
-                  className="h-5 rounded-md border-amber-200 bg-amber-50 px-1.5 text-[10px] font-medium text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
+                  className="h-4.5 rounded-md border-amber-200 bg-amber-50 px-1.5 text-[9px] font-medium text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
                 >
                   Next: {nextIncompleteTitle}
                 </Badge>
               ) : (
-                <Badge className="h-5 rounded-md bg-emerald-600 px-1.5 text-[10px] font-medium text-white hover:bg-emerald-600">
+                <Badge className="h-4.5 rounded-md bg-emerald-600 px-1.5 text-[9px] font-medium text-white hover:bg-emerald-600">
                   Ready
                 </Badge>
               )}
 
               <Badge
                 variant="outline"
-                className="h-5 rounded-md border-cyan-200 bg-cyan-50 px-1.5 text-[10px] font-medium text-cyan-700 dark:border-cyan-900 dark:bg-cyan-950/30 dark:text-cyan-200"
+                className="h-4.5 rounded-md border-cyan-200 bg-cyan-50 px-1.5 text-[9px] font-medium text-cyan-700 dark:border-cyan-900 dark:bg-cyan-950/30 dark:text-cyan-200"
               >
-                <FormatIcon className="mr-1 h-3 w-3" />
+                <FormatIcon className="mr-1 h-2.5 w-2.5" />
                 {isEbook ? 'E-book' : 'Printed'}
               </Badge>
             </div>
 
             {/* Title */}
-            <h2 className="truncate text-[15px] font-bold tracking-tight text-slate-900 dark:text-white sm:text-base">
+            <h2 className="truncate text-sm font-bold tracking-tight text-slate-900 dark:text-white sm:text-[15px]">
               {title}
             </h2>
 
             {/* Description */}
-            <p className="line-clamp-1 max-w-xl text-[11px] text-muted-foreground">
+            <p className="line-clamp-1 max-w-xl text-[10px] text-muted-foreground">
               {description}
             </p>
           </div>
         </div>
 
         {/* Right */}
-        <div className="grid grid-cols-2 gap-1 sm:grid-cols-4 lg:w-[460px]">
+        <div className="grid grid-cols-2 gap-1 sm:grid-cols-4 lg:w-105">
           <HeaderFact
             icon={Layers3}
             label="Category"
@@ -153,25 +154,25 @@ function HeaderFact({
   label: string;
   value: string;
   tone: keyof typeof factStyles;
-  icon: any;
+  icon: LucideIcon;
 }) {
   return (
     <div
       className={cn(
-        'flex min-w-0 items-center gap-1.5 rounded-md border px-2 py-1.5 shadow-xs',
+        'flex min-w-0 items-center gap-1 rounded-md border px-1.5 py-1 shadow-xs',
         factStyles[tone]
       )}
     >
-      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/70 dark:bg-black/10">
-        <Icon className="h-3.5 w-3.5" />
+      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-white/70 dark:bg-black/10">
+        <Icon className="h-3 w-3" />
       </div>
 
       <div className="min-w-0">
-        <p className="text-[9px] font-semibold uppercase tracking-wide opacity-70">
+        <p className="text-[8px] font-semibold uppercase tracking-wide opacity-70">
           {label}
         </p>
 
-        <p className="truncate text-[11px] font-bold">{value}</p>
+        <p className="truncate text-[10px] font-bold">{value}</p>
       </div>
     </div>
   );

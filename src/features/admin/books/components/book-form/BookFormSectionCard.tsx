@@ -44,14 +44,14 @@ export function BookFormSectionCard({
   const t = sectionTones[tone];
   return (
     <Card className={cn('overflow-hidden rounded-xl shadow-sm', t.card)}>
-      <CardHeader className={cn('px-5 py-4 sm:px-6 sm:py-5', t.header)}>
-        <div className="flex items-start gap-3">
-          <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center', t.iconWrap)}>
-            <Icon className="h-5 w-5" />
+      <CardHeader className={cn('px-4 py-3 sm:px-5 sm:py-3.5', t.header)}>
+        <div className="flex items-start gap-2.5">
+          <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center', t.iconWrap)}>
+            <Icon className="h-4 w-4" />
           </div>
-          <div className="min-w-0 space-y-1">
-            <CardTitle className="text-base font-bold tracking-tight text-foreground">{title}</CardTitle>
-            <CardDescription className="text-sm leading-6 text-muted-foreground">{subtitle}</CardDescription>
+          <div className="min-w-0 space-y-0.5">
+            <CardTitle className="text-sm font-bold tracking-tight text-foreground sm:text-[15px]">{title}</CardTitle>
+            <CardDescription className="text-xs leading-5 text-muted-foreground">{subtitle}</CardDescription>
           </div>
         </div>
       </CardHeader>
