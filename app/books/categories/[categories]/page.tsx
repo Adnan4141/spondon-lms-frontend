@@ -66,7 +66,7 @@ export default function CategoryBooksPage() {
   }, [categories, categorySlug]);
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 selection:bg-emerald-100">
+    <div className="min-h-screen bg-[linear-gradient(180deg,#ecfeff_0%,#f8fafc_42%,#fefce8_100%)] text-slate-900 selection:bg-emerald-100">
       <Header />
 
       <main className="pb-20 pt-28 sm:pt-0">
@@ -111,18 +111,20 @@ export default function CategoryBooksPage() {
 
           {!loading && !error && category ? (
             <>
-              <section className="mt-10 grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-                {books.length > 0 ? (
-                  books.map((book) => <PublicBookCard key={book.id} book={book} showCategory={false} />)
-                ) : (
-                  <div className="col-span-full rounded-[28px] border border-dashed border-slate-300 bg-white p-10 text-center text-slate-500 shadow-sm">
-                    এই ক্যাটাগরিতে এখনো কোনো বই প্রকাশিত হয়নি।
-                  </div>
-                )}
+              <section className="mt-10 rounded-[32px] border border-white/80 bg-white p-4 shadow-[0_18px_55px_rgba(15,23,42,0.08)] ring-1 ring-slate-950/5 sm:p-5 lg:p-6">
+                <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                  {books.length > 0 ? (
+                    books.map((book) => <PublicBookCard key={book.id} book={book} showCategory={false} />)
+                  ) : (
+                    <div className="col-span-full rounded-[28px] border border-dashed border-slate-300 bg-white p-10 text-center text-slate-500 shadow-sm">
+                      এই ক্যাটাগরিতে এখনো কোনো বই প্রকাশিত হয়নি।
+                    </div>
+                  )}
+                </div>
               </section>
 
               {relatedCategories.length > 0 ? (
-                <section className="mt-14 rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm">
+                <section className="mt-10 rounded-[32px] border border-white/80 bg-white p-6 shadow-[0_18px_55px_rgba(15,23,42,0.08)] ring-1 ring-slate-950/5">
                   <div className="flex flex-wrap items-center justify-between gap-4">
                     <div>
                       <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">আরও ব্রাউজ করুন</p>

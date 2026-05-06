@@ -1,8 +1,16 @@
 'use client';
 
+import { Button } from '@/components/ui/button';
+import { downloadTableExport, type ExportFormat } from '@/lib/export';
 import type { Branch } from '@/lib/api/branches';
 import type { SmsLog, SmsReportRow } from '@/lib/api/sms';
+import { Download } from 'lucide-react';
 import { EmptyState, Metric, Panel } from '../sms-shared';
+
+function exportFilename(prefix: string) {
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
+  return `${prefix}-${stamp}`;
+}
 
 export function SmsReportsTab({
   monthlyRows,
@@ -27,8 +35,123 @@ export function SmsReportsTab({
   logs: SmsLog[];
   branches: Branch[];
 }) {
+  const combinedRows = [
+    ...monthlyRows.map((row) => ({
+      section: 'MONTHLY',
+      name: row.month,
+      branch: '',
+      primaryValue: row.successCount,
+      secondaryValue: row.failedCount,
+      tertiaryValue: row.recipientCount,
+      message: '',
+    })),
+    ...typeReport.map((row) => ({
+      section: 'TYPE',
+      name: row.type || 'Unknown',
+      branch: '',
+      primaryValue: Number(row._sum?.successCount || 0),
+      secondaryValue: Number(row._sum?.failedCount || 0),
+      tertiaryValue: Number(row._sum?.recipientCount || 0),
+      message: '',
+    })),
+    ...branchReport.map((row) => ({
+      section: 'BRANCH',
+      name: branches.find((branch) => branch.id === row.branchId)?.name || 'Central / Unknown',
+      branch: row.branchId || '',
+      primaryValue: Number(row._sum?.successCount || 0),
+      secondaryValue: Number(row._sum?.failedCount || 0),
+      tertiaryValue: Number(row._sum?.recipientCount || 0),
+      message: '',
+    })),
+    ...programReport.map((row) => ({
+      section: 'PROGRAM',
+      name: row.programId || 'Not tagged',
+      branch: '',
+      primaryValue: Number(row._sum?.successCount || 0),
+      secondaryValue: Number(row._sum?.failedCount || 0),
+      tertiaryValue: Number(row._sum?.recipientCount || 0),
+      message: '',
+    })),
+    ...batchReport.map((row) => ({
+      section: 'BATCH',
+      name: row.batchId || 'Not tagged',
+      branch: '',
+      primaryValue: Number(row._sum?.successCount || 0),
+      secondaryValue: Number(row._sum?.failedCount || 0),
+      tertiaryValue: Number(row._sum?.recipientCount || 0),
+      message: '',
+    })),
+    ...dueReport.map((row) => ({
+      section: 'DUE',
+      name: row.type || 'Due',
+      branch: row.scope,
+      primaryValue: row.successCount,
+      secondaryValue: row.failedCount,
+      tertiaryValue: row.recipientCount,
+      message: row.message,
+    })),
+    ...paymentReport.map((row) => ({
+      section: 'PAYMENT',
+      name: row.type || 'Payment',
+      branch: row.scope,
+      primaryValue: row.successCount,
+      secondaryValue: row.failedCount,
+      tertiaryValue: row.recipientCount,
+      message: row.message,
+    })),
+    ...resultReport.map((row) => ({
+      section: 'RESULT',
+      name: row.type || 'Result',
+      branch: row.scope,
+      primaryValue: row.successCount,
+      secondaryValue: row.failedCount,
+      tertiaryValue: row.recipientCount,
+      message: row.message,
+    })),
+    ...logs.map((row) => ({
+      section: 'HISTORY',
+      name: row.type || 'Unknown',
+      branch: row.scope,
+      primaryValue: row.successCount,
+      secondaryValue: row.failedCount,
+      tertiaryValue: row.recipientCount,
+      message: row.message,
+    })),
+  ];
+
+  async function handleExport(format: ExportFormat) {
+    if (combinedRows.length === 0) return;
+    await downloadTableExport({
+      format,
+      filename: exportFilename('sms-reports'),
+      sheetName: 'SMS Reports',
+      rows: combinedRows,
+      columns: [
+        { header: 'Section', value: (row) => row.section },
+        { header: 'Name', value: (row) => row.name },
+        { header: 'Scope / Branch', value: (row) => row.branch },
+        { header: 'Primary Value', value: (row) => row.primaryValue },
+        { header: 'Secondary Value', value: (row) => row.secondaryValue },
+        { header: 'Tertiary Value', value: (row) => row.tertiaryValue },
+        { header: 'Message', value: (row) => row.message },
+      ],
+    });
+  }
+
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="outline" size="sm" className="gap-2" disabled={combinedRows.length === 0} onClick={() => void handleExport('csv')}>
+            <Download className="h-4 w-4" />
+            Export CSV
+          </Button>
+          <Button type="button" variant="outline" size="sm" className="gap-2" disabled={combinedRows.length === 0} onClick={() => void handleExport('xlsx')}>
+            <Download className="h-4 w-4" />
+            Export Excel
+          </Button>
+        </div>
+      </div>
       <Panel title="Monthly Summary">
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {monthlyRows.slice(-8).map((row) => (
@@ -101,7 +224,7 @@ export function SmsReportsTab({
       </Panel>
       <Panel title="SMS History">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-sm">
+          <table className="min-w-180 w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-left text-xs uppercase text-slate-500">
                 <th className="py-2 pr-3">Type</th>

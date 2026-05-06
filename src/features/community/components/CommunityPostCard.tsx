@@ -44,7 +44,7 @@ export function CommunityPostCard({
                 ) : null}
               </div>
               <p className="mt-0.5 text-xs font-medium text-slate-500">
-                {[post.community?.name, post.course?.name, post.batch?.name].filter(Boolean).join(' · ') || 'Community'} · {formatTimeAgo(post.createdAt)}
+                {post.community?.name || 'Open community'} · {formatTimeAgo(post.createdAt)}
               </p>
             </div>
           </div>

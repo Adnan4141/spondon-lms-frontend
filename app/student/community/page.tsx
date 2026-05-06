@@ -34,7 +34,13 @@ import { DoubtCard } from '@/features/community/components/DoubtCard';
 import { formatTimeAgo, initials } from '@/features/community/components/community-utils';
 import { cn } from '@/lib/utils';
 
-type StudentCourse = { id: string; course: { id: string; name: string }; batch?: { id: string; name: string } };
+type StudentCourse = { id: string; name: string; batchName?: string };
+type StudentEnrollmentRow = {
+  enrollmentCourses?: Array<{
+    course?: { id: string; name: string };
+    batch?: { id: string; name: string } | null;
+  }>;
+};
 type UserLite = { id: string; fullName?: string };
 
 function readUser(): UserLite | null {
@@ -47,6 +53,10 @@ function readUser(): UserLite | null {
   }
 }
 
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Please try again.';
+}
+
 export default function StudentCommunityPage() {
   const { toast, toasts, removeToast } = useToast();
   const [user, setUser] = useState<UserLite | null>(null);
@@ -57,6 +67,7 @@ export default function StudentCommunityPage() {
   const [courses, setCourses] = useState<StudentCourse[]>([]);
   const [loading, setLoading] = useState(true);
   const [courseFilter, setCourseFilter] = useState('');
+  const [askCourseId, setAskCourseId] = useState('');
   const [search, setSearch] = useState('');
   const [composerOpen, setComposerOpen] = useState(false);
   const [postTitle, setPostTitle] = useState('');
@@ -87,7 +98,21 @@ export default function StudentCommunityPage() {
   useEffect(() => {
     if (!user?.id) return;
     getMyCourses(user.id).then((r) => {
-      if (r.success && r.data) setCourses(r.data as StudentCourse[]);
+      if (r.success && r.data) {
+        const map = new Map<string, StudentCourse>();
+        (r.data as StudentEnrollmentRow[]).forEach((enrollment) => {
+          enrollment.enrollmentCourses?.forEach((row) => {
+            if (row.course?.id && !map.has(row.course.id)) {
+              map.set(row.course.id, {
+                id: row.course.id,
+                name: row.course.name,
+                batchName: row.batch?.name,
+              });
+            }
+          });
+        });
+        setCourses(Array.from(map.values()));
+      }
     }).catch(() => {});
   }, [user?.id]);
 
@@ -95,28 +120,26 @@ export default function StudentCommunityPage() {
     setLoading(true);
     try {
       const [postRes, doubtRes, communityRes] = await Promise.all([
-        getCommunityPosts({ courseId: courseFilter || undefined, status: 'PUBLISHED', search: activeTab === 'community' ? search || undefined : undefined }),
+        getCommunityPosts({ status: 'PUBLISHED', search: activeTab === 'community' ? search || undefined : undefined }),
         getDoubtThreads({ courseId: courseFilter || undefined, search: activeTab === 'doubts' ? search || undefined : undefined }),
         getCommunities({ status: 'ACTIVE' }),
       ]);
       if (postRes.success && postRes.data) setPosts(postRes.data);
       if (doubtRes.success && doubtRes.data) setThreads(doubtRes.data);
       if (communityRes.success && communityRes.data) setCommunities(communityRes.data);
-    } catch (error: any) {
-      toast({ title: 'Could not load community', description: error?.message || 'Please try again.', variant: 'destructive' });
+    } catch (error) {
+      toast({ title: 'Could not load community', description: getErrorMessage(error), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
-  }, [activeTab, courseFilter, search, toast, user?.id]);
+  }, [activeTab, courseFilter, search, toast]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
   const uniqueCourses = useMemo(() => {
-    const map = new Map<string, { id: string; name: string }>();
-    courses.forEach((row) => row.course?.id && map.set(row.course.id, row.course));
-    return Array.from(map.values());
+    return courses;
   }, [courses]);
 
   const topPosts = useMemo(() => [...posts].sort((a, b) => (b.votes?.length || 0) - (a.votes?.length || 0)).slice(0, 5), [posts]);
@@ -148,7 +171,6 @@ export default function StudentCommunityPage() {
       const res = await createCommunityPost({
         authorId: user!.id,
         communityId: postCommunityId || undefined,
-        courseId: courseFilter || undefined,
         title: postTitle.trim(),
         body: postBody.trim(),
         visibility: 'PUBLIC',
@@ -162,20 +184,25 @@ export default function StudentCommunityPage() {
       setPostAttachmentUrl('');
       setPostCommunityId('');
       await loadData();
-    } catch (error: any) {
-      toast({ title: 'Post failed', description: error?.message || 'Please try again.', variant: 'destructive' });
+    } catch (error) {
+      toast({ title: 'Post failed', description: getErrorMessage(error), variant: 'destructive' });
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleAskDoubt = async () => {
-    if (!requireUser() || !askTitle.trim() || !askBody.trim()) return;
+    if (!requireUser() || !askTitle.trim() || !askBody.trim() || !askCourseId) {
+      if (!askCourseId) {
+        toast({ title: 'Select a course', description: 'Questions must be linked to one of your enrolled courses.', variant: 'destructive' });
+      }
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await createDoubtThread({
         studentUserId: user!.id,
-        courseId: courseFilter || undefined,
+        courseId: askCourseId,
         title: askTitle.trim(),
         body: askBody.trim(),
       });
@@ -183,10 +210,12 @@ export default function StudentCommunityPage() {
       setAskOpen(false);
       setAskTitle('');
       setAskBody('');
+      setCourseFilter(askCourseId);
+      setAskCourseId('');
       setActiveTab('doubts');
       await loadData();
-    } catch (error: any) {
-      toast({ title: 'Question failed', description: error?.message || 'Please try again.', variant: 'destructive' });
+    } catch (error) {
+      toast({ title: 'Question failed', description: getErrorMessage(error), variant: 'destructive' });
     } finally {
       setSubmitting(false);
     }
@@ -200,9 +229,9 @@ export default function StudentCommunityPage() {
     try {
       const res = liked ? await deleteCommunityVote(post.id, user!.id) : await createCommunityVote({ postId: post.id, userId: user!.id, value: 1 });
       if (!res.success) throw new Error(res.message);
-    } catch (error: any) {
+    } catch (error) {
       setPosts(snapshot);
-      toast({ title: 'Appreciation failed', description: error?.message || 'Please try again.', variant: 'destructive' });
+      toast({ title: 'Appreciation failed', description: getErrorMessage(error), variant: 'destructive' });
     }
   };
 
@@ -259,12 +288,12 @@ export default function StudentCommunityPage() {
                     <div className="flex h-12 w-16 items-center justify-center rounded-lg bg-linear-to-br from-slate-800 to-sky-700 text-xs font-black text-white">C{index + 1}</div>
                     <div className="min-w-0">
                       <p className="line-clamp-2 text-sm font-black text-slate-900">{course.name}</p>
-                      <p className="text-xs text-slate-500">Tap to filter</p>
+                      <p className="text-xs text-slate-500">Tap to filter questions</p>
                     </div>
                   </div>
                 </button>
               ))}
-              {uniqueCourses.length === 0 ? <p className="text-sm text-slate-500">Enroll in a course to personalize your feed.</p> : null}
+              {uniqueCourses.length === 0 ? <p className="text-sm text-slate-500">Enroll in a course to ask course questions.</p> : null}
             </div>
           </Panel>
         </aside>
@@ -276,7 +305,7 @@ export default function StudentCommunityPage() {
                 {initials(user?.fullName || 'S')}
               </div>
               <button onClick={() => (requireUser() ? setComposerOpen(true) : null)} className="flex-1 rounded-full bg-slate-100 px-5 py-3 text-left text-sm font-medium text-slate-500 hover:bg-slate-200">
-                Share your insights{user?.fullName ? `, ${user.fullName.split(' ')[0]}` : ''}?
+                Share with the community{user?.fullName ? `, ${user.fullName.split(' ')[0]}` : ''}?
               </button>
               <Button variant="ghost" size="icon" onClick={() => setComposerOpen(true)}><ImageIcon className="h-5 w-5" /></Button>
             </CardContent>
@@ -309,11 +338,22 @@ export default function StudentCommunityPage() {
                   ) : null}
                 />
               ))}
-              {posts.length === 0 ? <EmptyState title="No posts yet" text="Be the first to share an update." /> : null}
+              {posts.length === 0 ? <EmptyState title="No posts yet" text="Be the first to start an open community discussion." /> : null}
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="flex justify-end"><Button onClick={() => (requireUser() ? setAskOpen(true) : null)} className="rounded-xl bg-slate-900">Ask a question</Button></div>
+              <div className="flex justify-end">
+                <Button
+                  onClick={() => {
+                    if (!requireUser()) return;
+                    setAskCourseId(courseFilter || '');
+                    setAskOpen(true);
+                  }}
+                  className="rounded-xl bg-slate-900"
+                >
+                  Ask a question
+                </Button>
+              </div>
               {threads.map((thread) => (
                 <DoubtCard key={thread.id} thread={thread} expanded={expandedDoubt === thread.id} onToggle={() => toggleDoubt(thread.id)}>
                   <div className="space-y-3">
@@ -357,7 +397,7 @@ export default function StudentCommunityPage() {
       {composerOpen ? (
         <ComposerModal title="Create post" onClose={() => setComposerOpen(false)} onSubmit={handleCreatePost} submitting={submitting} submitLabel="Post">
           <Input value={postTitle} onChange={(e) => setPostTitle(e.target.value)} placeholder="Post title" />
-          <textarea value={postBody} onChange={(e) => setPostBody(e.target.value)} placeholder="Share your update..." rows={5} className="w-full resize-none rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-sky-200" />
+          <textarea value={postBody} onChange={(e) => setPostBody(e.target.value)} placeholder="Share an open discussion, update, or resource..." rows={5} className="w-full resize-none rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-sky-200" />
           <AttachmentInput
             mode={postAttachmentMode}
             onModeChange={(mode) => {
@@ -378,7 +418,24 @@ export default function StudentCommunityPage() {
       ) : null}
 
       {askOpen ? (
-        <ComposerModal title="Ask a doubt" onClose={() => setAskOpen(false)} onSubmit={handleAskDoubt} submitting={submitting} submitLabel="Ask">
+        <ComposerModal
+          title="Ask a doubt"
+          onClose={() => {
+            setAskOpen(false);
+            setAskCourseId('');
+          }}
+          onSubmit={handleAskDoubt}
+          submitting={submitting}
+          submitLabel="Ask"
+        >
+          <select value={askCourseId} onChange={(e) => setAskCourseId(e.target.value)} className="h-11 rounded-xl border border-slate-200 px-3 text-sm" required>
+            <option value="">Select enrolled course</option>
+            {uniqueCourses.map((course) => (
+              <option key={course.id} value={course.id}>
+                {course.name}{course.batchName ? ` (${course.batchName})` : ''}
+              </option>
+            ))}
+          </select>
           <Input value={askTitle} onChange={(e) => setAskTitle(e.target.value)} placeholder="Question title" />
           <textarea value={askBody} onChange={(e) => setAskBody(e.target.value)} placeholder="Explain what you need help with..." rows={5} className="w-full resize-none rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-sky-200" />
         </ComposerModal>

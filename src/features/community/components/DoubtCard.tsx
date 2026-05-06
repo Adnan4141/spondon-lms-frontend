@@ -33,7 +33,11 @@ export function DoubtCard({
                 {resolved ? 'Resolved' : 'Open'}
               </span>
               <span className="text-xs font-medium text-slate-400">{formatTimeAgo(thread.createdAt)}</span>
-              {thread.course?.name ? <span className="text-xs font-bold text-sky-600">{thread.course.name}</span> : null}
+              {thread.course?.name ? (
+                <span className="text-xs font-bold text-sky-600">{thread.course.name}</span>
+              ) : (
+                <span className="text-xs font-bold text-slate-400">Unassigned</span>
+              )}
             </div>
             <h3 className="mt-2 text-lg font-black text-slate-950">{thread.title}</h3>
             <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-slate-700">{thread.body}</p>

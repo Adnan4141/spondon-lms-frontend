@@ -24,9 +24,9 @@ export function CommunityAdminHero({
               <Sparkles className="h-3.5 w-3.5" />
               Moderation Hub
             </div>
-            <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Communities & Doubts</h1>
+            <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Community Moderation & Course Q&A</h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-              Create study spaces, review student posts, resolve doubts, and keep community conversations organized.
+              Moderate open community posts, answer course-linked questions, and keep student conversations organized from one admin workspace.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">

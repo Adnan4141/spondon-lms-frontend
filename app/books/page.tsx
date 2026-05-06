@@ -11,15 +11,11 @@ import {
 } from '@/lib/api/books';
 import { BooksCatalogResults } from './_components/BooksCatalogResults';
 import { BooksQuickBrowse } from './_components/BooksQuickBrowse';
-import { stripHtml } from './_components/catalogUtils';
 
 export default function BooksCatalogPage() {
   const [books, setBooks] = useState<PublicCatalogBook[]>([]);
   const [categories, setCategories] = useState<BookCategory[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [format, setFormat] = useState<'all' | 'ebook' | 'print'>('all');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   const load = useCallback(async () => {
     try {
@@ -40,49 +36,28 @@ export default function BooksCatalogPage() {
     void load();
   }, [load]);
 
-  const filteredBooks = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-
-    return books.filter((book) => {
-      const matchesQuery =
-        !query ||
-        book.name.toLowerCase().includes(query) ||
-        (book.author || '').toLowerCase().includes(query) ||
-        stripHtml(book.description).toLowerCase().includes(query);
-      const matchesFormat =
-        format === 'all' ||
-        (format === 'ebook' && book.isEbook) ||
-        (format === 'print' && !book.isEbook);
-      const matchesCategory = selectedCategory === 'all' || book.categoryId === selectedCategory;
-
-      return matchesQuery && matchesFormat && matchesCategory;
-    });
-  }, [books, format, searchQuery, selectedCategory]);
-
   const featuredBooks = useMemo(
-    () => filteredBooks.filter((book) => book.featured).slice(0, 3),
-    [filteredBooks],
+    () => books.filter((book) => book.featured).slice(0, 3),
+    [books],
   );
 
-  const quickBrowseCategories = useMemo(() => categories.slice(0, 8), [categories]);
+  const quickBrowseCategories = useMemo(() => categories.slice(0, 6), [categories]);
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 selection:bg-emerald-100">
+    <div className="min-h-screen bg-[linear-gradient(180deg,#f0fdfa_0%,#f8fafc_34%,#eef2ff_100%)] text-slate-900 selection:bg-emerald-100">
       <Header />
 
-     
-      <main className="mx-auto max-w-7xl lg:max-w-[90rem] space-y-8 px-4 py-8 sm:space-y-10 sm:px-6 sm:py-10 lg:space-y-12 lg:px-12">
-    
+      <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:space-y-8 sm:px-6 sm:py-8 sm:pb-32 lg:max-w-[90rem] lg:px-12">
         {quickBrowseCategories.length > 0 ? (
           <BooksQuickBrowse categories={quickBrowseCategories} />
         ) : null}
 
         <BooksCatalogResults
           loading={loading}
-          filteredBooks={filteredBooks}
+          filteredBooks={books}
           featuredBooks={featuredBooks}
           categories={categories}
-          selectedCategory={selectedCategory}
+          selectedCategory="all"
         />
       </main>
 

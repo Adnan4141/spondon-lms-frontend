@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   createBookStockMovement,
   getBookStockMovements,
@@ -16,11 +16,11 @@ import type { Branch } from '@/lib/api/branches';
 import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
 import { Button } from '@/components/ui/button';
 import { DatePicker } from '@/components/ui/date-picker';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowRight, CalendarClock, Factory, FileText, PackageCheck } from 'lucide-react';
+import { ArrowRight, CalendarClock, Factory, PackageCheck } from 'lucide-react';
 import { StatsCard } from './StatsCard';
 import { BookAdminModal } from './BookAdminModal';
 
@@ -47,6 +47,17 @@ function formatBalance(movement: BookStockMovement) {
   const after = movement.destinationBalanceAfter ?? null;
   if (after == null) return '—';
   return `${Math.max(0, after - movement.quantity)} → ${after}`;
+}
+
+function startOfToday() {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return '—';
+  return new Date(value).toLocaleString();
 }
 
 export function StockHistoryTab({
@@ -78,9 +89,10 @@ export function StockHistoryTab({
     sourceId: '',
     destinationType: 'CENTRAL' as StockLocationType,
     destinationId: '',
+    entryDate: startOfToday(),
   });
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     const [movementsRes, summaryRes] = await Promise.all([
       getBookStockMovements({
         bookId: bookId === 'all' ? undefined : bookId,
@@ -93,11 +105,11 @@ export function StockHistoryTab({
     ]);
     if (movementsRes.success) setMovements(movementsRes.data || []);
     if (summaryRes.success) setTotals(summaryRes.totals);
-  };
+  }, [bookId, fromDate, movementType, toDate]);
 
   useEffect(() => {
     void loadData();
-  }, [bookId, movementType, fromDate, toDate]);
+  }, [loadData]);
 
   const sourceOptions = useMemo(() => ({
     SOURCE: sources.map((source) => ({ id: source.id, name: source.name })),
@@ -110,6 +122,10 @@ export function StockHistoryTab({
 
   const handleCreate = async () => {
     if (!form.bookId) return;
+    if (form.entryDate.getTime() > Date.now()) {
+      toast({ title: 'Entry date cannot be in the future', variant: 'destructive' });
+      return;
+    }
     try {
       setSaving(true);
       const sourceName = sourceOptions[form.sourceType as 'SOURCE' | 'BRANCH' | 'CHANNEL' | 'CENTRAL']?.find((entry) => entry.id === form.sourceId)?.name || 'Central Warehouse';
@@ -119,6 +135,7 @@ export function StockHistoryTab({
         movementType: form.movementType,
         quantity: Number(form.quantity),
         remarks: form.remarks,
+        movementDate: form.entryDate.toISOString(),
         source: locationPayload(form.sourceType, form.sourceId, sourceName),
         destination: locationPayload(form.destinationType, form.destinationId, destinationName),
       });
@@ -186,7 +203,8 @@ export function StockHistoryTab({
               </div>
               <div className="text-right">
                 <p className="text-2xl font-black text-foreground">{movement.quantity > 0 ? `±${movement.quantity}` : movement.quantity}</p>
-                <p className="text-sm text-muted-foreground">{new Date(movement.movementDate).toLocaleString()}</p>
+                <p className="text-sm font-semibold text-foreground">Entry: {formatDateTime(movement.movementDate)}</p>
+                <p className="text-xs text-muted-foreground">Recorded: {formatDateTime(movement.createdAt)}</p>
                 <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">By {movement.createdByUserId || 'System'}</p>
               </div>
             </div>
@@ -206,6 +224,7 @@ export function StockHistoryTab({
             <div className="space-y-2 md:col-span-2"><Label>Book</Label><Select value={form.bookId} onValueChange={(value) => setForm((prev) => ({ ...prev, bookId: value }))}><SelectTrigger><SelectValue placeholder="Select book" /></SelectTrigger><SelectContent>{books.map((book) => <SelectItem key={book.id} value={book.id}>{book.name}</SelectItem>)}</SelectContent></Select></div>
             <div className="space-y-2"><Label>Movement Type</Label><Select value={form.movementType} onValueChange={(value) => setForm((prev) => ({ ...prev, movementType: value as BookStockMovementType }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{(['RECEIVE', 'TRANSFER', 'DISTRIBUTE', 'SALE', 'RETURN', 'ADJUSTMENT'] as const).map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent></Select></div>
             <div className="space-y-2"><Label>Quantity</Label><Input type="number" value={String(form.quantity)} onChange={(e) => setForm((prev) => ({ ...prev, quantity: Number(e.target.value || 0) }))} /></div>
+            <div className="space-y-2 md:col-span-2"><Label>Entry Date</Label><DatePicker date={form.entryDate} setDate={(date) => setForm((prev) => ({ ...prev, entryDate: date || startOfToday() }))} placeholder="Select entry date" className="w-full" /></div>
             <div className="space-y-2"><Label>Source Type</Label><Select value={form.sourceType} onValueChange={(value) => setForm((prev) => ({ ...prev, sourceType: value as StockLocationType, sourceId: '' }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="SOURCE">Source</SelectItem><SelectItem value="CENTRAL">Central</SelectItem><SelectItem value="BRANCH">Branch</SelectItem><SelectItem value="CHANNEL">Channel</SelectItem></SelectContent></Select></div>
             <div className="space-y-2"><Label>Source</Label><Select value={form.sourceId || (form.sourceType === 'CENTRAL' ? 'central' : '')} onValueChange={(value) => setForm((prev) => ({ ...prev, sourceId: value }))}><SelectTrigger><SelectValue placeholder="Select source" /></SelectTrigger><SelectContent>{(sourceOptions[form.sourceType as 'SOURCE' | 'BRANCH' | 'CHANNEL' | 'CENTRAL'] || []).map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent></Select></div>
             <div className="space-y-2"><Label>Destination Type</Label><Select value={form.destinationType} onValueChange={(value) => setForm((prev) => ({ ...prev, destinationType: value as StockLocationType, destinationId: '' }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="CENTRAL">Central</SelectItem><SelectItem value="BRANCH">Branch</SelectItem><SelectItem value="CHANNEL">Channel</SelectItem></SelectContent></Select></div>

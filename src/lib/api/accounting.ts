@@ -7,6 +7,7 @@ export interface Account {
   code: string;
   name: string;
   type: string;
+  category?: string;
   branchId?: string | null;
   isActive: boolean;
   createdAt: string;
@@ -16,15 +17,15 @@ export interface Account {
 export interface CreateAccountPayload {
   code: string;
   name: string;
-  type: string;
+  type?: string;
   branchId?: string;
 }
 
 export interface UpdateAccountPayload {
   name?: string;
-  type?: string;
   branchId?: string | null;
   isActive?: boolean;
+  type?: string;
 }
 
 export async function getAccounts(params?: {
@@ -55,6 +56,13 @@ export interface LedgerEntry {
   accountId: string;
   branchId?: string | null;
   entryType: string;
+  flowType?: string | null;
+  voucherNo?: string | null;
+  debitCredit?: string | null;
+  sourceType?: string | null;
+  sourceId?: string | null;
+  sourceLabel?: string | null;
+  purpose?: string | null;
   amount: string | number;
   refType?: string | null;
   refId?: string | null;
@@ -62,19 +70,32 @@ export interface LedgerEntry {
   entryDate: string;
   createdByUserId?: string | null;
   createdAt: string;
-  account?: { id: string; name: string; code: string; type: string } | null;
+  account?: { id: string; name: string; code: string; type: string; category?: string } | null;
 }
 
 export interface CreateLedgerEntryPayload {
-  accountId: string;
   branchId?: string;
-  entryType: string;
-  amount: number;
+  sourceType?: string;
+  sourceId?: string;
+  voucherNo?: string;
+  purpose?: string;
+  entryType?: string;
+  flowType?: 'CREDIT' | 'DEBIT' | 'TRANSFER' | 'OPENING_BALANCE';
   description?: string;
   refType?: string;
   refId?: string;
   entryDate?: string;
   createdByUserId?: string;
+  accountId?: string;
+  toAccountId?: string;
+  amount?: number;
+  debitCredit?: string;
+  lines?: Array<{
+    accountId: string;
+    amount: number;
+    debitCredit: 'DEBIT' | 'CREDIT';
+    description?: string;
+  }>;
 }
 
 export async function getLedgerEntries(params?: {
@@ -83,6 +104,11 @@ export async function getLedgerEntries(params?: {
   from?: string;
   to?: string;
   entryType?: string;
+  debitCredit?: string;
+  sourceType?: string;
+  sourceId?: string;
+  voucherNo?: string;
+  includeSystem?: boolean;
   page?: number;
   limit?: number;
 }): Promise<{ success: boolean; data: LedgerEntry[]; total: number; page: number; limit: number; totalPages: number }> {
@@ -92,6 +118,11 @@ export async function getLedgerEntries(params?: {
   if (params?.from) q.append('from', params.from);
   if (params?.to) q.append('to', params.to);
   if (params?.entryType) q.append('entryType', params.entryType);
+  if (params?.debitCredit) q.append('debitCredit', params.debitCredit);
+  if (params?.sourceType) q.append('sourceType', params.sourceType);
+  if (params?.sourceId) q.append('sourceId', params.sourceId);
+  if (params?.voucherNo) q.append('voucherNo', params.voucherNo);
+  if (params?.includeSystem !== undefined) q.append('includeSystem', String(params.includeSystem));
   if (params?.page) q.append('page', String(params.page));
   if (params?.limit) q.append('limit', String(params.limit));
   const qs = q.toString();
@@ -105,10 +136,24 @@ export async function createLedgerEntry(data: CreateLedgerEntryPayload): Promise
 // ─── Summary ──────────────────────────────────────────────────────────────────
 
 export interface AccountingSummary {
-  byType: { type: string; totalIncome: number; totalExpense: number; net: number }[];
-  totalIncome: number;
-  totalExpense: number;
-  netBalance: number;
+  byType: { type: string; totalDebit: number; totalCredit: number; balance: number }[];
+  totalDebit: number;
+  totalCredit: number;
+  balance: number;
+  cashBalance: number;
+  bankBalance: number;
+  bkashBalance: number;
+  recentAccountBalances: Array<{
+    accountId: string;
+    accountName: string;
+    accountCode: string;
+    accountType: string;
+    totalDebit: number;
+    totalCredit: number;
+    balance: number;
+  }>;
+  bySource?: Array<{ label: string; totalCredit: number; totalDebit: number; balance: number }>;
+  byPurpose?: Array<{ label: string; totalCredit: number; totalDebit: number; balance: number }>;
   totalAccounts: number;
 }
 

@@ -19,7 +19,7 @@ export function BooksWorkspaceHeader({ bookCount, channelCount, onRefresh }: Boo
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Books workspace</p>
             <CardTitle className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Inventory & catalog</CardTitle>
             <CardDescription className="max-w-2xl text-pretty text-sm leading-relaxed">
-              Manage catalog records, stock, distribution, branch sales, channels, and course attachments from one operational surface.
+              Manage catalog records, stock, distribution, online book sales, channels, and course attachments from one operational surface.
             </CardDescription>
           </div>
           <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[520px]">

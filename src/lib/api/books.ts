@@ -105,6 +105,7 @@ export interface BookSale {
     id: string;
     name: string;
   };
+  invoice?: { id: string; status: string; paidAmount?: number | string | null; dueAmount?: number | string | null } | null;
 }
 
 export interface BookSaleItem {
@@ -502,17 +503,65 @@ export interface OnlineOrder extends BookSale {
   invoice?: { id: string; status: string; paidAmount?: number; dueAmount?: number } | null;
 }
 
+export interface OnlineOrderFilters {
+  deliveryStatus?: string;
+  invoiceStatus?: string;
+  search?: string;
+  from?: string;
+  to?: string;
+  page?: number;
+  limit?: number;
+}
+
 export async function getOnlineOrders(params?: {
   deliveryStatus?: string;
+  invoiceStatus?: string;
+  search?: string;
+  from?: string;
+  to?: string;
   page?: number;
   limit?: number;
 }): Promise<ApiResponse<OnlineOrder[]>> {
   const q = new URLSearchParams();
   if (params?.deliveryStatus) q.append('deliveryStatus', params.deliveryStatus);
+  if (params?.invoiceStatus) q.append('invoiceStatus', params.invoiceStatus);
+  if (params?.search) q.append('search', params.search);
+  if (params?.from) q.append('from', params.from);
+  if (params?.to) q.append('to', params.to);
   if (params?.page) q.append('page', String(params.page));
   if (params?.limit) q.append('limit', String(params.limit));
   const qs = q.toString();
   return apiRequest<ApiResponse<OnlineOrder[]>>(`/books/orders/online${qs ? `?${qs}` : ''}`);
+}
+
+export interface OnlineOrderSummary {
+  totals: {
+    orderCount: number;
+    totalRevenue: number;
+    paidAmount: number;
+    dueAmount: number;
+  };
+  statusCounts: Record<string, number>;
+  invoiceStatusCounts: Record<string, number>;
+  byBook: Array<{
+    bookId: string;
+    bookName: string;
+    sku: string;
+    totalQty: number;
+    totalRevenue: number;
+    saleCount: number;
+  }>;
+}
+
+export async function getOnlineOrderSummary(params?: OnlineOrderFilters): Promise<ApiResponse<OnlineOrderSummary>> {
+  const q = new URLSearchParams();
+  if (params?.deliveryStatus) q.append('deliveryStatus', params.deliveryStatus);
+  if (params?.invoiceStatus) q.append('invoiceStatus', params.invoiceStatus);
+  if (params?.search) q.append('search', params.search);
+  if (params?.from) q.append('from', params.from);
+  if (params?.to) q.append('to', params.to);
+  const qs = q.toString();
+  return apiRequest<ApiResponse<OnlineOrderSummary>>(`/books/orders/online/summary${qs ? `?${qs}` : ''}`);
 }
 
 export type DeliveryStatus = 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
@@ -586,6 +635,7 @@ export interface BookDistribution {
   quantity: number;
   note?: string | null;
   distributedAt: string;
+  createdAt?: string;
   createdByUserId?: string | null;
   book?: { id: string; name: string; sku: string };
   toBranch?: { id: string; name: string };
@@ -833,14 +883,21 @@ export async function createDistribution(data: {
   channelId?: string;
   quantity: number;
   note?: string;
+  distributedAt?: string;
   createdByUserId?: string;
 }): Promise<{ success: boolean; data: BookDistribution; message?: string }> {
   return apiRequest('/books/distributions', { method: 'POST', body: JSON.stringify(data) });
 }
 
+export interface DistributionDateRange {
+  distributedAt?: string | null;
+}
+
 export interface DistributionSummaryBookRow {
   bookId: string;
   _sum: { quantity?: number | null };
+  _min?: DistributionDateRange;
+  _max?: DistributionDateRange;
   _count: number;
   book?: { id: string; name: string; sku: string };
 }
@@ -848,6 +905,8 @@ export interface DistributionSummaryBookRow {
 export interface DistributionSummaryBranchRow {
   toBranchId: string | null;
   _sum: { quantity?: number | null };
+  _min?: DistributionDateRange;
+  _max?: DistributionDateRange;
   _count: number;
   branch?: { id: string; name: string };
 }
@@ -855,6 +914,8 @@ export interface DistributionSummaryBranchRow {
 export interface DistributionSummaryChannelRow {
   channelId: string | null;
   _sum: { quantity?: number | null };
+  _min?: DistributionDateRange;
+  _max?: DistributionDateRange;
   _count: number;
   channel?: { id: string; name: string };
 }
@@ -863,6 +924,8 @@ export async function getDistributionSummary(params?: {
   bookId?: string;
   branchId?: string;
   channelId?: string;
+  from?: string;
+  to?: string;
 }): Promise<{
   success: boolean;
   data: {
@@ -875,6 +938,8 @@ export async function getDistributionSummary(params?: {
   if (params?.bookId) q.append('bookId', params.bookId);
   if (params?.branchId) q.append('branchId', params.branchId);
   if (params?.channelId) q.append('channelId', params.channelId);
+  if (params?.from) q.append('from', params.from);
+  if (params?.to) q.append('to', params.to);
   const qs = q.toString();
   return apiRequest(`/books/distributions/summary${qs ? `?${qs}` : ''}`);
 }

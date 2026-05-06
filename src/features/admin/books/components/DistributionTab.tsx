@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   createDistribution,
   getDistributionSummary,
@@ -8,6 +8,7 @@ import {
   type Book,
   type BookDistribution,
   type DistributionChannel,
+  type DistributionDateRange,
 } from '@/lib/api/books';
 import type { Branch } from '@/lib/api/branches';
 import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
@@ -22,6 +23,55 @@ import { ArrowRight, Building2, RadioTower } from 'lucide-react';
 import { StatsCard } from './StatsCard';
 import { BookAdminModal } from './BookAdminModal';
 
+type DistributionSummary = {
+  byBook: Array<{
+    bookId: string;
+    _sum: { quantity?: number | null };
+    _min?: DistributionDateRange;
+    _max?: DistributionDateRange;
+    _count: number;
+    book?: { id: string; name: string; sku: string };
+  }>;
+  byBranch: Array<{
+    toBranchId: string | null;
+    _sum: { quantity?: number | null };
+    _min?: DistributionDateRange;
+    _max?: DistributionDateRange;
+    _count: number;
+    branch?: { id: string; name: string };
+  }>;
+  byChannel: Array<{
+    channelId: string | null;
+    _sum: { quantity?: number | null };
+    _min?: DistributionDateRange;
+    _max?: DistributionDateRange;
+    _count: number;
+    channel?: { id: string; name: string };
+  }>;
+};
+
+function startOfToday() {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return '—';
+  return new Date(value).toLocaleDateString();
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return '—';
+  return new Date(value).toLocaleString();
+}
+
+function formatRange(min?: DistributionDateRange, max?: DistributionDateRange) {
+  const start = formatDate(min?.distributedAt);
+  const end = formatDate(max?.distributedAt);
+  return start === end ? start : `${start} - ${end}`;
+}
+
 export function DistributionTab({ books, branches, channels }: { books: Book[]; branches: Branch[]; channels: DistributionChannel[] }) {
   const toast = useAdminToast();
   const [bookId, setBookId] = useState('all');
@@ -30,12 +80,12 @@ export function DistributionTab({ books, branches, channels }: { books: Book[]; 
   const [fromDate, setFromDate] = useState<Date>();
   const [toDate, setToDate] = useState<Date>();
   const [rows, setRows] = useState<BookDistribution[]>([]);
-  const [summary, setSummary] = useState<{ byBook: Array<{ bookId: string; _sum: { quantity?: number | null }; _count: number; book?: { id: string; name: string; sku: string } }>; byBranch: Array<{ toBranchId: string | null; _sum: { quantity?: number | null }; _count: number; branch?: { id: string; name: string } }>; byChannel: Array<{ channelId: string | null; _sum: { quantity?: number | null }; _count: number; channel?: { id: string; name: string } }> }>({ byBook: [], byBranch: [], byChannel: [] });
+  const [summary, setSummary] = useState<DistributionSummary>({ byBook: [], byBranch: [], byChannel: [] });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ bookId: '', destinationType: 'branch' as 'branch' | 'channel', destinationId: '', quantity: 1, note: '' });
+  const [form, setForm] = useState({ bookId: '', destinationType: 'branch' as 'branch' | 'channel', destinationId: '', quantity: 1, note: '', distributedAt: startOfToday() });
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     const [listRes, summaryRes] = await Promise.all([
       getDistributions({
         bookId: bookId === 'all' ? undefined : bookId,
@@ -49,23 +99,30 @@ export function DistributionTab({ books, branches, channels }: { books: Book[]; 
         bookId: bookId === 'all' ? undefined : bookId,
         branchId: destinationType === 'branch' && destinationId !== 'all' ? destinationId : undefined,
         channelId: destinationType === 'channel' && destinationId !== 'all' ? destinationId : undefined,
+        from: fromDate ? fromDate.toISOString() : undefined,
+        to: toDate ? toDate.toISOString() : undefined,
       }),
     ]);
     if (listRes.success) setRows(listRes.data || []);
     if (summaryRes.success) setSummary(summaryRes.data);
-  };
+  }, [bookId, destinationId, destinationType, fromDate, toDate]);
 
   useEffect(() => {
     void loadData();
-  }, [bookId, destinationType, destinationId, fromDate, toDate]);
+  }, [loadData]);
 
   const handleCreate = async () => {
+    if (form.distributedAt.getTime() > Date.now()) {
+      toast({ title: 'Distribution date cannot be in the future', variant: 'destructive' });
+      return;
+    }
     try {
       setSaving(true);
       await createDistribution({
         bookId: form.bookId,
         quantity: Number(form.quantity),
         note: form.note,
+        distributedAt: form.distributedAt.toISOString(),
         toBranchId: form.destinationType === 'branch' ? form.destinationId : undefined,
         channelId: form.destinationType === 'channel' ? form.destinationId : undefined,
       });
@@ -116,11 +173,12 @@ export function DistributionTab({ books, branches, channels }: { books: Book[]; 
         <section className="rounded-[28px] border border-border bg-card p-5 shadow-sm">
           <h3 className="mb-4 text-lg font-black">Book-wise Summary</h3>
           <Table>
-            <TableHeader><TableRow><TableHead>Book</TableHead><TableHead>Trips</TableHead><TableHead className="text-right">Qty</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>Book</TableHead><TableHead>Date Range</TableHead><TableHead>Trips</TableHead><TableHead className="text-right">Qty</TableHead></TableRow></TableHeader>
             <TableBody>
               {summary.byBook.map((row) => (
                 <TableRow key={row.bookId}>
                   <TableCell>{row.book?.name || row.bookId}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{formatRange(row._min, row._max)}</TableCell>
                   <TableCell>{row._count}</TableCell>
                   <TableCell className="text-right font-semibold">{row._sum.quantity || 0}</TableCell>
                 </TableRow>
@@ -131,10 +189,10 @@ export function DistributionTab({ books, branches, channels }: { books: Book[]; 
         <section className="rounded-[28px] border border-border bg-card p-5 shadow-sm">
           <h3 className="mb-4 text-lg font-black">Destination Summary</h3>
           <Table>
-            <TableHeader><TableRow><TableHead>Destination</TableHead><TableHead>Trips</TableHead><TableHead className="text-right">Qty</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>Destination</TableHead><TableHead>Date Range</TableHead><TableHead>Trips</TableHead><TableHead className="text-right">Qty</TableHead></TableRow></TableHeader>
             <TableBody>
-              {[...summary.byBranch.map((row) => ({ key: row.toBranchId || 'none', name: row.branch?.name || 'Unassigned Branch', count: row._count, quantity: row._sum.quantity || 0 })), ...summary.byChannel.map((row) => ({ key: row.channelId || 'none-channel', name: row.channel?.name || 'Unassigned Channel', count: row._count, quantity: row._sum.quantity || 0 }))].map((row) => (
-                <TableRow key={row.key}><TableCell>{row.name}</TableCell><TableCell>{row.count}</TableCell><TableCell className="text-right font-semibold">{row.quantity}</TableCell></TableRow>
+              {[...summary.byBranch.map((row) => ({ key: row.toBranchId || 'none', name: row.branch?.name || 'Unassigned Branch', count: row._count, quantity: row._sum.quantity || 0, min: row._min, max: row._max })), ...summary.byChannel.map((row) => ({ key: row.channelId || 'none-channel', name: row.channel?.name || 'Unassigned Channel', count: row._count, quantity: row._sum.quantity || 0, min: row._min, max: row._max }))].map((row) => (
+                <TableRow key={row.key}><TableCell>{row.name}</TableCell><TableCell className="text-xs text-muted-foreground">{formatRange(row.min, row.max)}</TableCell><TableCell>{row.count}</TableCell><TableCell className="text-right font-semibold">{row.quantity}</TableCell></TableRow>
               ))}
             </TableBody>
           </Table>
@@ -144,14 +202,15 @@ export function DistributionTab({ books, branches, channels }: { books: Book[]; 
       <section className="rounded-[28px] border border-border bg-card p-5 shadow-sm">
         <h3 className="mb-4 text-lg font-black">Recent Distributions</h3>
         <Table>
-          <TableHeader><TableRow><TableHead>Book</TableHead><TableHead>Destination</TableHead><TableHead>Type</TableHead><TableHead>Date</TableHead><TableHead className="text-right">Qty</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Book</TableHead><TableHead>Destination</TableHead><TableHead>Type</TableHead><TableHead>Distribution Date</TableHead><TableHead>Recorded At</TableHead><TableHead className="text-right">Qty</TableHead></TableRow></TableHeader>
           <TableBody>
             {rows.map((row) => (
               <TableRow key={row.id}>
                 <TableCell>{row.book?.name || row.bookId}</TableCell>
                 <TableCell>{row.toBranch?.name || row.channel?.name || 'Unknown'}</TableCell>
                 <TableCell>{row.toBranchId ? 'Branch' : 'Channel'}</TableCell>
-                <TableCell>{new Date(row.distributedAt).toLocaleDateString()}</TableCell>
+                <TableCell>{formatDate(row.distributedAt)}</TableCell>
+                <TableCell className="text-xs text-muted-foreground">{formatDateTime(row.createdAt)}</TableCell>
                 <TableCell className="text-right font-semibold">{row.quantity}</TableCell>
               </TableRow>
             ))}
@@ -175,7 +234,8 @@ export function DistributionTab({ books, branches, channels }: { books: Book[]; 
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2"><Label>Quantity</Label><Input type="number" value={String(form.quantity)} onChange={(e) => setForm((prev) => ({ ...prev, quantity: Number(e.target.value || 0) }))} /></div>
-              <div className="space-y-2"><Label>Note</Label><Input value={form.note} onChange={(e) => setForm((prev) => ({ ...prev, note: e.target.value }))} placeholder="Teacher fair, retail partner, branch top-up..." /></div>
+              <div className="space-y-2"><Label>Distribution Date</Label><DatePicker date={form.distributedAt} setDate={(date) => setForm((prev) => ({ ...prev, distributedAt: date || startOfToday() }))} placeholder="Select distribution date" className="w-full" /></div>
+              <div className="space-y-2 md:col-span-2"><Label>Note</Label><Input value={form.note} onChange={(e) => setForm((prev) => ({ ...prev, note: e.target.value }))} placeholder="Teacher fair, retail partner, branch top-up..." /></div>
             </div>
           </div>
           <DialogFooter className="mt-6 border-t border-slate-100 bg-slate-50 px-0 pt-5 sm:mt-8 sm:pt-6"><Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button><Button onClick={handleCreate} disabled={saving}>{saving ? 'Saving...' : 'Confirm Distribution'}</Button></DialogFooter>

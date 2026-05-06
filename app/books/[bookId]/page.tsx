@@ -179,31 +179,6 @@ export default function PublicBookDetailsPage() {
                 />
               </section>
 
-              <section className="mt-8 grid gap-4 md:grid-cols-3">
-                <article className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">এসকেইউ</p>
-                  <p className="mt-3 text-xl font-black text-slate-950">{book.sku}</p>
-                  <p className="mt-2 text-sm text-slate-500">ইনভয়েন্টরি, চালান ও কোর্স লিঙ্কে ব্যবহৃত স্থির কোড।</p>
-                </article>
-                <article className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="flex items-center gap-2 text-emerald-600">
-                    <Sparkles className="h-4 w-4" />
-                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-emerald-600">সংযুক্ত কোর্স</p>
-                  </div>
-                  <p className="mt-3 text-xl font-black text-slate-950">{book.courseBooks?.length || 0}</p>
-                  <p className="mt-2 text-sm text-slate-500">এই বইটি কোর্স ম্যাটেরিয়াল ও আউটলাইন কনটেন্টের সাথে যুক্ত।</p>
-                </article>
-                <article className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="flex items-center gap-2 text-blue-600">
-                    <ShieldCheck className="h-4 w-4" />
-                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-blue-600">অবদানকারী</p>
-                  </div>
-                  <p className="mt-3 text-xl font-black text-slate-950">{book.collaborators?.length || 0}</p>
-                  <p className="mt-2 text-sm text-slate-500">
-                    সম্পাদনা ও কনটেন্ট সহযোগীদের তথ্য জনসাধারণ ও অ্যাডমিন ভিউতে দেখানো যায়।
-                  </p>
-                </article>
-              </section>
 
               <section className="mt-10 rounded-[36px] border border-slate-200 bg-white px-6 shadow-sm sm:px-8">
                 <BookTabs active={activeTab} onChange={setActiveTab} />

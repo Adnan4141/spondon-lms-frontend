@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
   getRevenueSummary,
@@ -44,6 +44,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { AdminDatePicker, AdminMonthPicker } from '@/features/admin/shared/form/AdminField';
+import { downloadTableExport, type ExportFormat } from '@/lib/export';
 import { cn } from '@/lib/utils';
 import { useAdminSession } from '@/features/admin/shared/admin-session';
 import {
@@ -55,9 +56,7 @@ import {
   Wallet,
   RefreshCw,
   Download,
-  Calendar,
   ArrowUpRight,
-  ArrowDownRight,
   Package,
 } from 'lucide-react';
 import {
@@ -72,6 +71,7 @@ import {
 } from 'recharts';
 
 type TabKey = 'finance' | 'enrollment' | 'course-transactions' | 'book-sales' | 'due-collection' | 'ledger';
+type NamedEntity = { id: string; name: string };
 
 const TABS: { key: TabKey; label: string; icon: typeof BarChart3 }[] = [
   { key: 'finance', label: 'Finance Dashboard', icon: TrendingUp },
@@ -97,9 +97,45 @@ function normalizeSingleDateRange(from?: string, to?: string) {
   };
 }
 
+function exportFilename(prefix: string) {
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
+  return `${prefix}-${stamp}`;
+}
+
+async function exportRows<Row>(args: {
+  format: ExportFormat;
+  filename: string;
+  sheetName: string;
+  rows: Row[];
+  columns: Array<{ header: string; value: (row: Row) => string | number | boolean | null | undefined }>;
+}) {
+  await downloadTableExport(args);
+}
+
+function ExportButtons({
+  onExport,
+  disabled,
+}: {
+  onExport: (format: ExportFormat) => Promise<void> | void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <Button type="button" variant="outline" size="sm" className="gap-2" disabled={disabled} onClick={() => void onExport('csv')}>
+        <Download className="h-4 w-4" />
+        CSV
+      </Button>
+      <Button type="button" variant="outline" size="sm" className="gap-2" disabled={disabled} onClick={() => void onExport('xlsx')}>
+        <Download className="h-4 w-4" />
+        Excel
+      </Button>
+    </div>
+  );
+}
+
 // ─── Finance Tab ──────────────────────────────────────────────────────────────
 
-function FinanceTab({ branches, courses }: { branches: Branch[]; courses: any[] }) {
+function FinanceTab({ branches, courses }: { branches: Branch[]; courses: NamedEntity[] }) {
   const { toast } = useToast();
   const [period, setPeriod] = useState<'daily' | 'monthly' | 'yearly'>('monthly');
   const [branchId, setBranchId] = useState('');
@@ -126,6 +162,45 @@ function FinanceTab({ branches, courses }: { branches: Branch[]; courses: any[] 
   }
 
   const barColors = ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd', '#ddd6fe'];
+
+  async function handleExport(format: ExportFormat) {
+    if (transactions.length === 0 && data.length === 0) {
+      toast({ title: 'No finance data to export', variant: 'destructive' });
+      return;
+    }
+
+    if (transactions.length > 0) {
+      await exportRows({
+        format,
+        filename: exportFilename('finance-payments'),
+        sheetName: 'Finance Payments',
+        rows: transactions,
+        columns: [
+          { header: 'Paid At', value: (row) => row.paidAt },
+          { header: 'Registration', value: (row) => row.student.registrationNumber || '' },
+          { header: 'Student', value: (row) => row.student.fullName },
+          { header: 'Mobile', value: (row) => row.student.mobile },
+          { header: 'Collected Branch', value: (row) => row.collectionBranch?.name || row.branch?.name || '' },
+          { header: 'Billing Branch', value: (row) => row.billingBranch?.name || '' },
+          { header: 'Amount', value: (row) => Number(row.amount || 0) },
+          { header: 'Method', value: (row) => row.method },
+          { header: 'TRX / Ref', value: (row) => row.trxId || '' },
+        ],
+      });
+      return;
+    }
+
+    await exportRows({
+      format,
+      filename: exportFilename('finance-summary'),
+      sheetName: 'Finance Summary',
+      rows: data,
+      columns: [
+        { header: 'Period', value: (row) => row.bucket },
+        { header: 'Amount', value: (row) => row.amount },
+      ],
+    });
+  }
 
   return (
     <div className="space-y-6">
@@ -162,7 +237,7 @@ function FinanceTab({ branches, courses }: { branches: Branch[]; courses: any[] 
             placeholder="All Courses"
             options={[
               { value: '', label: 'All Courses' },
-              ...courses.map((c: any) => ({ value: c.id, label: c.name })),
+              ...courses.map((c) => ({ value: c.id, label: c.name })),
             ]}
           />
         </div>
@@ -178,6 +253,7 @@ function FinanceTab({ branches, courses }: { branches: Branch[]; courses: any[] 
           {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <BarChart3 className="h-4 w-4" />}
           Load
         </Button>
+        <ExportButtons onExport={handleExport} disabled={loading || (transactions.length === 0 && data.length === 0)} />
       </div>
 
       {/* KPI cards */}
@@ -304,7 +380,7 @@ function FinanceTab({ branches, courses }: { branches: Branch[]; courses: any[] 
 
 // ─── Enrollment Tab ───────────────────────────────────────────────────────────
 
-function EnrollmentTab({ branches, courses, programs }: { branches: Branch[]; courses: any[]; programs: any[] }) {
+function EnrollmentTab({ branches, courses, programs }: { branches: Branch[]; courses: NamedEntity[]; programs: NamedEntity[] }) {
   const { toast } = useToast();
   const [branchId, setBranchId] = useState('');
   const [courseId, setCourseId] = useState('');
@@ -314,7 +390,7 @@ function EnrollmentTab({ branches, courses, programs }: { branches: Branch[]; co
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<EnrollmentReportData[]>([]);
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const dateRange = normalizeSingleDateRange(from, to);
@@ -328,12 +404,32 @@ function EnrollmentTab({ branches, courses, programs }: { branches: Branch[]; co
       if (res.success) setData(res.data);
     } catch { toast({ title: 'Failed to load enrollment report', variant: 'destructive' }); }
     finally { setLoading(false); }
-  }
+  }, [branchId, courseId, from, programId, to, toast]);
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [load]);
 
   const totalEnrollments = data.reduce((s, r) => s + r.enrollmentCount, 0);
   const totalPayable = data.reduce((s, r) => s + r.estimatedPayable, 0);
+
+  async function handleExport(format: ExportFormat) {
+    if (data.length === 0) {
+      toast({ title: 'No enrollment data to export', variant: 'destructive' });
+      return;
+    }
+    await exportRows({
+      format,
+      filename: exportFilename('enrollment-report'),
+      sheetName: 'Enrollment Report',
+      rows: data,
+      columns: [
+        { header: 'Program', value: (row) => row.programName },
+        { header: 'Course', value: (row) => row.courseName },
+        { header: 'Enrollments', value: (row) => row.enrollmentCount },
+        { header: 'Per Student Pay', value: (row) => row.perStudentPay },
+        { header: 'Estimated Payable', value: (row) => row.estimatedPayable },
+      ],
+    });
+  }
 
   return (
     <div className="space-y-5">
@@ -346,7 +442,7 @@ function EnrollmentTab({ branches, courses, programs }: { branches: Branch[]; co
             placeholder="All Programs"
             options={[
               { value: '', label: 'All Programs' },
-              ...programs.map((p: any) => ({ value: p.id, label: p.name })),
+              ...programs.map((p) => ({ value: p.id, label: p.name })),
             ]}
           />
         </div>
@@ -358,7 +454,7 @@ function EnrollmentTab({ branches, courses, programs }: { branches: Branch[]; co
             placeholder="All Courses"
             options={[
               { value: '', label: 'All Courses' },
-              ...courses.map((c: any) => ({ value: c.id, label: c.name })),
+              ...courses.map((c) => ({ value: c.id, label: c.name })),
             ]}
           />
         </div>
@@ -386,6 +482,7 @@ function EnrollmentTab({ branches, courses, programs }: { branches: Branch[]; co
           {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
           Load
         </Button>
+        <ExportButtons onExport={handleExport} disabled={loading || data.length === 0} />
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-2">
@@ -437,7 +534,7 @@ function EnrollmentTab({ branches, courses, programs }: { branches: Branch[]; co
 
 // ─── Course Transactions Tab ──────────────────────────────────────────────────
 
-function CourseTransactionsTab({ courses, branches }: { courses: any[]; branches: Branch[] }) {
+function CourseTransactionsTab({ courses, branches }: { courses: NamedEntity[]; branches: Branch[] }) {
   const { toast } = useToast();
   const [courseId, setCourseId] = useState('');
   const [branchId, setBranchId] = useState('');
@@ -482,6 +579,36 @@ function CourseTransactionsTab({ courses, branches }: { courses: any[]; branches
     { key: 'UNPAID', label: 'Unpaid' },
   ];
 
+  async function handleExport(format: ExportFormat) {
+    if (data.length === 0) {
+      toast({ title: 'No transaction rows to export', variant: 'destructive' });
+      return;
+    }
+    await exportRows({
+      format,
+      filename: exportFilename('course-transactions'),
+      sheetName: 'Course Transactions',
+      rows: data,
+      columns: [
+        { header: 'Student', value: (row) => row.student?.fullName ?? '' },
+        { header: 'Registration', value: (row) => row.student?.registrationNumber ?? '' },
+        { header: 'Mobile', value: (row) => row.student?.mobile ?? '' },
+        { header: 'Branch', value: (row) => row.branch?.name ?? '' },
+        { header: 'Invoice / Month', value: (row) => row.invoiceNumber ?? row.invoiceId },
+        { header: 'Month', value: (row) => row.month ?? '' },
+        { header: 'Gross', value: (row) => row.gross },
+        { header: 'Discount', value: (row) => row.discount },
+        { header: 'Net', value: (row) => row.net },
+        { header: 'Paid', value: (row) => row.paid },
+        { header: 'Due', value: (row) => row.due },
+        { header: 'Progress', value: (row) => row.progressLabel },
+        { header: 'Course Status', value: (row) => row.courseStatus },
+        { header: 'Invoice Status', value: (row) => row.status },
+        { header: 'Due Date', value: (row) => row.nextPaymentDueDate ?? '' },
+      ],
+    });
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap gap-3 items-end rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -491,7 +618,7 @@ function CourseTransactionsTab({ courses, branches }: { courses: any[]; branches
             value={courseId}
             onValueChange={setCourseId}
             placeholder="Select a course..."
-            options={courses.map((c: any) => ({ value: c.id, label: c.name }))}
+            options={courses.map((c) => ({ value: c.id, label: c.name }))}
           />
         </div>
         <div className="w-56">
@@ -522,6 +649,7 @@ function CourseTransactionsTab({ courses, branches }: { courses: any[]; branches
           {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <BarChart3 className="h-4 w-4" />}
           Load
         </Button>
+        <ExportButtons onExport={handleExport} disabled={loading || data.length === 0} />
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -629,7 +757,7 @@ function CourseTransactionsTab({ courses, branches }: { courses: any[]; branches
                       <TableCell className="text-right text-sm font-bold text-slate-800">{fmtCur(row.net)}</TableCell>
                       <TableCell className="text-right text-sm font-semibold text-emerald-600">{fmtCur(row.paid)}</TableCell>
                       <TableCell className="text-right text-sm font-bold text-rose-600">{fmtCur(row.due)}</TableCell>
-                      <TableCell className="text-xs text-slate-600 max-w-[140px]">{row.progressLabel}</TableCell>
+                      <TableCell className="text-xs text-slate-600">{row.progressLabel}</TableCell>
                       <TableCell>
                         <Badge
                           className={cn(
@@ -675,7 +803,7 @@ function BookSalesTab({ branches }: { branches: Branch[] }) {
   const [data, setData] = useState<BookSalesRow[]>([]);
   const [totals, setTotals] = useState<{ totalRevenue: number; totalQtySold: number } | null>(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const dateRange = normalizeSingleDateRange(from, to);
@@ -683,9 +811,30 @@ function BookSalesTab({ branches }: { branches: Branch[] }) {
       if (res.success) { setData(res.data); setTotals(res.totals); }
     } catch { toast({ title: 'Failed to load book sales', variant: 'destructive' }); }
     finally { setLoading(false); }
-  }
+  }, [branchId, from, to, toast]);
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [load]);
+
+  async function handleExport(format: ExportFormat) {
+    if (data.length === 0) {
+      toast({ title: 'No book sales rows to export', variant: 'destructive' });
+      return;
+    }
+    await exportRows({
+      format,
+      filename: exportFilename('book-sales'),
+      sheetName: 'Book Sales',
+      rows: data,
+      columns: [
+        { header: 'Book', value: (row) => row.bookName },
+        { header: 'SKU', value: (row) => row.sku || '' },
+        { header: 'Unit Price', value: (row) => row.unitPrice },
+        { header: 'Qty Sold', value: (row) => row.totalQty },
+        { header: 'Revenue', value: (row) => row.totalRevenue },
+        { header: 'Stock Snapshot', value: (row) => row.stocks.map((stock) => `${stock.branchName}:${stock.qty}`).join(' | ') },
+      ],
+    });
+  }
 
   return (
     <div className="space-y-5">
@@ -712,6 +861,7 @@ function BookSalesTab({ branches }: { branches: Branch[] }) {
           {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <BookOpen className="h-4 w-4" />}
           Load
         </Button>
+        <ExportButtons onExport={handleExport} disabled={loading || data.length === 0} />
       </div>
 
       {totals && (
@@ -787,7 +937,7 @@ function DueCollectionTab({ branches }: { branches: Branch[] }) {
   const [studentRows, setStudentRows] = useState<DueSummaryStudentRow[]>([]);
   const [totals, setTotals] = useState<{ totalPayable: number; totalPaid: number; totalDue: number } | null>(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const dateRange = normalizeSingleDateRange(from, to);
@@ -805,9 +955,48 @@ function DueCollectionTab({ branches }: { branches: Branch[] }) {
       }
     } catch { toast({ title: 'Failed to load due summary', variant: 'destructive' }); }
     finally { setLoading(false); }
-  }
+  }, [branchId, from, month, status, to, toast]);
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [load]);
+
+  async function handleExport(format: ExportFormat) {
+    if (studentRows.length === 0 && data.length === 0) {
+      toast({ title: 'No due rows to export', variant: 'destructive' });
+      return;
+    }
+    if (studentRows.length > 0) {
+      await exportRows({
+        format,
+        filename: exportFilename('due-collection-students'),
+        sheetName: 'Due By Student',
+        rows: studentRows,
+        columns: [
+          { header: 'Registration', value: (row) => row.registrationNumber || '' },
+          { header: 'Student Name', value: (row) => row.fullName },
+          { header: 'Mobile', value: (row) => row.mobile },
+          { header: 'Branch', value: (row) => row.branchName },
+          { header: 'Invoice Count', value: (row) => row.invoiceCount },
+          { header: 'Payable', value: (row) => row.totalPayable },
+          { header: 'Paid', value: (row) => row.totalPaid },
+          { header: 'Due', value: (row) => row.totalDue },
+        ],
+      });
+      return;
+    }
+    await exportRows({
+      format,
+      filename: exportFilename('due-collection-branches'),
+      sheetName: 'Due By Branch',
+      rows: data,
+      columns: [
+        { header: 'Branch', value: (row) => row.branchName },
+        { header: 'Invoice Count', value: (row) => row.invoiceCount },
+        { header: 'Total Payable', value: (row) => row.totalPayable },
+        { header: 'Total Paid', value: (row) => row.totalPaid },
+        { header: 'Total Due', value: (row) => row.totalDue },
+      ],
+    });
+  }
 
   return (
     <div className="space-y-5">
@@ -851,6 +1040,7 @@ function DueCollectionTab({ branches }: { branches: Branch[] }) {
           {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Building2 className="h-4 w-4" />}
           Load
         </Button>
+        <ExportButtons onExport={handleExport} disabled={loading || (studentRows.length === 0 && data.length === 0)} />
       </div>
 
       {totals && (
@@ -986,6 +1176,26 @@ function LedgerSummaryTab({ branches }: { branches: Branch[] }) {
     EQUITY: 'bg-purple-100 text-purple-700',
   };
 
+  async function handleExport(format: ExportFormat) {
+    if (rows.length === 0) {
+      toast({ title: 'No ledger summary rows to export', variant: 'destructive' });
+      return;
+    }
+    await exportRows({
+      format,
+      filename: exportFilename('ledger-summary'),
+      sheetName: 'Ledger Summary',
+      rows,
+      columns: [
+        { header: 'Account Code', value: (row) => row.accountCode },
+        { header: 'Account Name', value: (row) => row.accountName },
+        { header: 'Account Type', value: (row) => row.accountType },
+        { header: 'Entry Type', value: (row) => row.entryType },
+        { header: 'Total Amount', value: (row) => row.total },
+      ],
+    });
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap gap-3 items-end rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -1011,6 +1221,7 @@ function LedgerSummaryTab({ branches }: { branches: Branch[] }) {
           {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" />}
           Load
         </Button>
+        <ExportButtons onExport={handleExport} disabled={loading || rows.length === 0} />
       </div>
 
       {summary.length > 0 && (
@@ -1093,8 +1304,8 @@ function ReportsPageContent() {
 
   const [activeTab, setActiveTab] = useState<TabKey>((searchParams?.get('tab') as TabKey) ?? 'finance');
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [courses, setCourses] = useState<any[]>([]);
-  const [programs, setPrograms] = useState<any[]>([]);
+  const [courses, setCourses] = useState<NamedEntity[]>([]);
+  const [programs, setPrograms] = useState<NamedEntity[]>([]);
   const [metaLoading, setMetaLoading] = useState(true);
 
   useEffect(() => {
@@ -1107,13 +1318,13 @@ function ReportsPageContent() {
           getPrograms(),
         ]);
         if (bRes.success && bRes.data) setBranches(bRes.data);
-        if (cRes.success && cRes.data) setCourses(cRes.data);
-        if (pRes.success && pRes.data) setPrograms(pRes.data);
+        if (cRes.success && cRes.data) setCourses(cRes.data.map((course) => ({ id: course.id, name: course.name })));
+        if (pRes.success && pRes.data) setPrograms(pRes.data.map((program) => ({ id: program.id, name: program.name })));
       } catch { toast({ title: 'Failed to load filters', variant: 'destructive' }); }
       finally { setMetaLoading(false); }
     }
     void loadMeta();
-  }, []);
+  }, [toast]);
 
   const visibleBranches = user?.role === 'BRANCH_ADMIN' && user.branchId
     ? branches.filter((branch) => branch.id === user.branchId)

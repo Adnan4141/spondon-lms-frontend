@@ -55,10 +55,7 @@ export function BookHeroSection({
           </div>
         </div>
         <div className="flex flex-wrap gap-3">
-          <Button variant="outline" className="h-12 rounded-2xl border-emerald-200 px-6 text-emerald-700 hover:bg-emerald-50" onClick={onOpenSamplePreview}>
-            <FileText className="mr-2 h-4 w-4" />
-            পড়ে দেখুন
-          </Button>
+         
           {book.isEbook && !showRead ? (
             <Button asChild variant="outline" className="h-12 rounded-2xl border-slate-200 px-6">
               <Link href={`/login?redirect=${encodeURIComponent(`/books/${bookId}`)}`}>
@@ -66,17 +63,7 @@ export function BookHeroSection({
               </Link>
             </Button>
           ) : null}
-          <button
-            type="button"
-            onClick={onToggleBookmark}
-            className={`flex h-12 items-center justify-center rounded-2xl border px-4 transition-all ${
-              bookmarked
-                ? 'border-amber-200 bg-amber-50 text-amber-700'
-                : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-900'
-            }`}
-          >
-            <Bookmark className={`h-5 w-5 ${bookmarked ? 'fill-current' : ''}`} />
-          </button>
+          
         </div>
       </div>
 

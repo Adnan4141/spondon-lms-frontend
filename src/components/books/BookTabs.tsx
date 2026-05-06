@@ -13,8 +13,7 @@ interface BookTabsProps {
 
 const tabs: { id: BookTabId; label: string }[] = [
   { id: 'overview', label: 'ওভারভিউ' },
-  { id: 'contents', label: 'বিষয়বস্তু' },
-  { id: 'reviews', label: 'রিভিউ' },
+
 ];
 
 export function BookTabs({ active, onChange, sticky = true }: BookTabsProps) {

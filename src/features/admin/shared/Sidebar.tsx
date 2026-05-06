@@ -15,7 +15,6 @@ import {
   BookOpen,
   Users,
   GraduationCap,
-  FileText,
   MessageSquare,
   Settings,
   LayoutDashboard,
@@ -33,7 +32,6 @@ import {
   CalendarRange,
   Presentation,
   Globe,
-  ListChecks,
   Package,
   ShieldCheck,
   Wallet,
@@ -108,8 +106,7 @@ function buildMenuSections(role: string | null): MenuSection[] {
   const communityItems: MenuItem[] = [
     { title: 'Communities', href: '/admin/communities', icon: UsersRound, color: 'text-cyan-500', bg: 'bg-cyan-50' },
   ];
-  // const showCommunities = !isAccounts && !isBranchAdmin;
-  const showCommunities = false; // Hiding for now as the feature is not fully ready
+  const showCommunities = role === 'SUPER_ADMIN' || isModerator;
 
   // ----- Management -----
   const managementItems: MenuItem[] = [
@@ -143,7 +140,11 @@ function buildMenuSections(role: string | null): MenuSection[] {
   ];
   const adminItems: MenuItem[] = isAccounts
     ? allAdminItems.filter((i) =>
-        ['/admin/monthly-billing', '/admin/payouts', '/admin/reports', '/admin/accounting', '/admin/inventory', '/admin/books'].includes(i.href),
+        ['/admin/monthly-billing',
+           '/admin/payouts',
+           // '/admin/inventory',
+            '/admin/reports', '/admin/accounting', 
+           '/admin/books'].includes(i.href),
       )
     : isBranchAdmin
     ? allAdminItems.filter((i) => ['/admin/reports'].includes(i.href))
