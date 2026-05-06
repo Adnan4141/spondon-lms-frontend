@@ -1,455 +1,518 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
+import { BookOpen, FileUp, HelpCircle, ImageIcon, LinkIcon, MessageSquare, Search, Send, Sparkles, Users, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { MessageSquare, Users, Heart, Send, X } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Toaster } from '@/components/ui/toast';
+import { useToast } from '@/hooks/use-toast';
 import {
-  getCommunityPosts,
   createCommunityPost,
   createCommunityReply,
   createCommunityVote,
   deleteCommunityVote,
-  type CommunityPost as PostType,
+  getCommunities,
+  getCommunityPosts,
+  uploadCommunityAttachment,
+  type Community,
+  type CommunityAttachment,
+  type CommunityPost,
 } from '@/lib/api/community';
+import {
+  createDoubtReply,
+  createDoubtThread,
+  getDoubtReplies,
+  getDoubtThreads,
+  type DoubtReply,
+  type DoubtThread,
+} from '@/lib/api/doubts';
 import { getMyCourses } from '@/lib/api/student-portal';
-import { useToast } from '@/hooks/use-toast';
-import { Toaster } from '@/components/ui/toast';
+import { CommunityPostCard } from '@/features/community/components/CommunityPostCard';
+import { DoubtCard } from '@/features/community/components/DoubtCard';
+import { formatTimeAgo, initials } from '@/features/community/components/community-utils';
+import { cn } from '@/lib/utils';
 
-function formatTimeAgo(dateStr: string) {
-  const d = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-  if (diffMins < 60) return `${diffMins} মিনিট আগে`;
-  if (diffHours < 24) return `${diffHours} ঘণ্টা আগে`;
-  if (diffDays < 7) return `${diffDays} দিন আগে`;
-  return d.toLocaleDateString();
-}
+type StudentCourse = { id: string; course: { id: string; name: string }; batch?: { id: string; name: string } };
+type UserLite = { id: string; fullName?: string };
 
-function getInitials(name: string) {
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2) || '?';
+function readUser(): UserLite | null {
+  const raw = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }
 
 export default function StudentCommunityPage() {
-  const [posts, setPosts] = useState<PostType[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [courses, setCourses] = useState<{ id: string; course: { id: string; name: string }; batch?: { id: string; name: string } }[]>([]);
-  const [courseFilter, setCourseFilter] = useState<string>('');
-  const [batchFilter, setBatchFilter] = useState<string>('');
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [createTitle, setCreateTitle] = useState('');
-  const [createBody, setCreateBody] = useState('');
-  const [createCourseId, setCreateCourseId] = useState('');
-  const [createBatchId, setCreateBatchId] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [replyingTo, setReplyingTo] = useState<string | null>(null);
-  const [replyBody, setReplyBody] = useState('');
-  const [user, setUser] = useState<{ id: string; fullName: string } | null>(null);
   const { toast, toasts, removeToast } = useToast();
-
-  const fetchPosts = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params: { courseId?: string; batchId?: string } = {};
-      if (courseFilter) params.courseId = courseFilter;
-      if (batchFilter) params.batchId = batchFilter;
-      const res = await getCommunityPosts(params);
-      if (res.success && res.data) setPosts(res.data);
-    } catch (e: any) {
-      toast({ title: 'ত্রুটি', description: e.message || 'পোস্ট লোড করতে ব্যর্থ', variant: 'destructive' });
-    } finally {
-      setLoading(false);
-    }
-  }, [courseFilter, batchFilter]);
+  const [user, setUser] = useState<UserLite | null>(null);
+  const [activeTab, setActiveTab] = useState<'community' | 'doubts'>('community');
+  const [posts, setPosts] = useState<CommunityPost[]>([]);
+  const [threads, setThreads] = useState<DoubtThread[]>([]);
+  const [communities, setCommunities] = useState<Community[]>([]);
+  const [courses, setCourses] = useState<StudentCourse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [courseFilter, setCourseFilter] = useState('');
+  const [search, setSearch] = useState('');
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [postTitle, setPostTitle] = useState('');
+  const [postBody, setPostBody] = useState('');
+  const [postAttachmentMode, setPostAttachmentMode] = useState<'file' | 'link'>('file');
+  const [postAttachmentFile, setPostAttachmentFile] = useState<File | null>(null);
+  const [postAttachmentUrl, setPostAttachmentUrl] = useState('');
+  const [postCommunityId, setPostCommunityId] = useState('');
+  const [askOpen, setAskOpen] = useState(false);
+  const [askTitle, setAskTitle] = useState('');
+  const [askBody, setAskBody] = useState('');
+  const [replyingToPost, setReplyingToPost] = useState<string | null>(null);
+  const [replyingToDoubt, setReplyingToDoubt] = useState<string | null>(null);
+  const [replyBody, setReplyBody] = useState('');
+  const [expandedDoubt, setExpandedDoubt] = useState<string | null>(null);
+  const [doubtReplies, setDoubtReplies] = useState<Record<string, DoubtReply[]>>({});
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    const u = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
-    if (u) {
-      try {
-        const parsed = JSON.parse(u);
-        setUser(parsed);
-      } catch {}
+    setUser(readUser());
+    const preferredTab = localStorage.getItem('student-community-tab');
+    if (preferredTab === 'doubts') {
+      setActiveTab('doubts');
+      localStorage.removeItem('student-community-tab');
     }
   }, []);
 
   useEffect(() => {
-    if (user?.id) {
-      getMyCourses(user.id)
-        .then((r) => {
-          if (r.success && r.data) setCourses(r.data);
-        })
-        .catch(() => {});
-    }
+    if (!user?.id) return;
+    getMyCourses(user.id).then((r) => {
+      if (r.success && r.data) setCourses(r.data as StudentCourse[]);
+    }).catch(() => {});
   }, [user?.id]);
 
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [postRes, doubtRes, communityRes] = await Promise.all([
+        getCommunityPosts({ courseId: courseFilter || undefined, status: 'PUBLISHED', search: activeTab === 'community' ? search || undefined : undefined }),
+        getDoubtThreads({ courseId: courseFilter || undefined, search: activeTab === 'doubts' ? search || undefined : undefined }),
+        getCommunities({ status: 'ACTIVE' }),
+      ]);
+      if (postRes.success && postRes.data) setPosts(postRes.data);
+      if (doubtRes.success && doubtRes.data) setThreads(doubtRes.data);
+      if (communityRes.success && communityRes.data) setCommunities(communityRes.data);
+    } catch (error: any) {
+      toast({ title: 'Could not load community', description: error?.message || 'Please try again.', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  }, [activeTab, courseFilter, search, toast, user?.id]);
+
   useEffect(() => {
-    fetchPosts();
-  }, [fetchPosts]);
+    loadData();
+  }, [loadData]);
+
+  const uniqueCourses = useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>();
+    courses.forEach((row) => row.course?.id && map.set(row.course.id, row.course));
+    return Array.from(map.values());
+  }, [courses]);
+
+  const topPosts = useMemo(() => [...posts].sort((a, b) => (b.votes?.length || 0) - (a.votes?.length || 0)).slice(0, 5), [posts]);
+  const topDoubts = useMemo(() => [...threads].sort((a, b) => (b._count?.replies || 0) - (a._count?.replies || 0)).slice(0, 5), [threads]);
+
+  const requireUser = () => {
+    if (user?.id) return true;
+    window.location.href = '/login?redirect=/student/community';
+    return false;
+  };
 
   const handleCreatePost = async () => {
-    if (!user?.id || !createTitle.trim() || !createBody.trim()) return;
+    if (!requireUser() || !postTitle.trim() || !postBody.trim()) return;
     setSubmitting(true);
     try {
-      const res = await createCommunityPost({
-        authorId: user.id,
-        title: createTitle.trim(),
-        body: createBody.trim(),
-        courseId: createCourseId || undefined,
-        batchId: createBatchId || undefined,
-        visibility: 'PUBLIC',
-      });
-      if (res.success) {
-        setShowCreateModal(false);
-        setCreateTitle('');
-        setCreateBody('');
-        setCreateCourseId('');
-        setCreateBatchId('');
-        fetchPosts();
-      } else throw new Error(res.message);
-    } catch (e: any) {
-      toast({ title: 'ত্রুটি', description: e.message || 'পোস্ট তৈরি ব্যর্থ হয়েছে', variant: 'destructive' });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleReply = async (postId: string) => {
-    if (!user?.id || !replyBody.trim()) return;
-    setSubmitting(true);
-    try {
-      const res = await createCommunityReply({ postId, authorId: user.id, body: replyBody.trim() });
-      if (res.success) {
-        setReplyingTo(null);
-        setReplyBody('');
-        fetchPosts();
-      } else throw new Error(res.message);
-    } catch (e: any) {
-      toast({ title: 'ত্রুটি', description: e.message || 'মন্তব্য যোগ ব্যর্থ হয়েছে', variant: 'destructive' });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleLikeToggle = async (post: PostType) => {
-    if (!user?.id) {
-      toast({ title: 'লগইন প্রয়োজন', description: 'লাইক দিতে লগইন করুন', variant: 'destructive' });
-      return;
-    }
-    const liked = userVote(post.votes) === 1;
-    const prevPosts = [...posts];
-
-    // Optimistic update: apply UI change immediately
-    setPosts((prev) =>
-      prev.map((p) => {
-        if (p.id !== post.id) return p;
-        const votes = p.votes ?? [];
-        const existingIdx = votes.findIndex((v) => v.userId === user.id);
-        let newVotes: typeof votes;
-        if (liked) {
-          newVotes = votes.filter((v) => v.userId !== user.id);
-        } else {
-          const newVote = { id: `opt-${Date.now()}`, postId: p.id, userId: user.id, value: 1 };
-          if (existingIdx >= 0) {
-            newVotes = votes.map((v, i) => (i === existingIdx ? newVote : v));
-          } else {
-            newVotes = [...votes, newVote];
-          }
-        }
-        return { ...p, votes: newVotes };
-      })
-    );
-
-    try {
-      if (liked) {
-        const res = await deleteCommunityVote(post.id, user.id);
-        if (!res.success) throw new Error(res.message);
-      } else {
-        const res = await createCommunityVote({ postId: post.id, userId: user.id, value: 1 });
-        if (!res.success) throw new Error(res.message);
+      let attachments: CommunityAttachment[] | undefined;
+      if (postAttachmentMode === 'file' && postAttachmentFile) {
+        const uploadRes = await uploadCommunityAttachment(postAttachmentFile);
+        if (!uploadRes.success || !uploadRes.data) throw new Error(uploadRes.message || 'Attachment upload failed');
+        attachments = [uploadRes.data];
+      } else if (postAttachmentMode === 'link' && postAttachmentUrl.trim()) {
+        const url = postAttachmentUrl.trim();
+        attachments = [{
+          type: /\.(mp4|webm|ogg|mov)(\?|$)/i.test(url) ? 'video' : /\.(png|jpe?g|webp|gif|avif)(\?|$)/i.test(url) ? 'image' : 'link',
+          url,
+          title: 'Shared link',
+        }];
       }
-    } catch (e: any) {
-      // Revert on failure
-      setPosts(prevPosts);
-      toast({ title: 'ত্রুটি', description: e.message || 'লাইক করতে ব্যর্থ', variant: 'destructive' });
+      const res = await createCommunityPost({
+        authorId: user!.id,
+        communityId: postCommunityId || undefined,
+        courseId: courseFilter || undefined,
+        title: postTitle.trim(),
+        body: postBody.trim(),
+        visibility: 'PUBLIC',
+        attachments,
+      });
+      if (!res.success) throw new Error(res.message);
+      setComposerOpen(false);
+      setPostTitle('');
+      setPostBody('');
+      setPostAttachmentFile(null);
+      setPostAttachmentUrl('');
+      setPostCommunityId('');
+      await loadData();
+    } catch (error: any) {
+      toast({ title: 'Post failed', description: error?.message || 'Please try again.', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const voteSum = (votes: { value: number }[] | undefined) =>
-    votes?.reduce((s, v) => s + v.value, 0) ?? 0;
+  const handleAskDoubt = async () => {
+    if (!requireUser() || !askTitle.trim() || !askBody.trim()) return;
+    setSubmitting(true);
+    try {
+      const res = await createDoubtThread({
+        studentUserId: user!.id,
+        courseId: courseFilter || undefined,
+        title: askTitle.trim(),
+        body: askBody.trim(),
+      });
+      if (!res.success) throw new Error(res.message);
+      setAskOpen(false);
+      setAskTitle('');
+      setAskBody('');
+      setActiveTab('doubts');
+      await loadData();
+    } catch (error: any) {
+      toast({ title: 'Question failed', description: error?.message || 'Please try again.', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-  const userVote = (votes: { userId: string; value: number }[] | undefined) =>
-    votes?.find((v) => v.userId === user?.id)?.value ?? 0;
+  const handleLike = async (post: CommunityPost) => {
+    if (!requireUser()) return;
+    const liked = post.votes?.some((v) => v.userId === user!.id && v.value === 1);
+    const snapshot = posts;
+    setPosts((prev) => prev.map((p) => p.id === post.id ? { ...p, votes: liked ? p.votes?.filter((v) => v.userId !== user!.id) : [...(p.votes || []), { id: `opt-${Date.now()}`, postId: p.id, userId: user!.id, value: 1 }] } : p));
+    try {
+      const res = liked ? await deleteCommunityVote(post.id, user!.id) : await createCommunityVote({ postId: post.id, userId: user!.id, value: 1 });
+      if (!res.success) throw new Error(res.message);
+    } catch (error: any) {
+      setPosts(snapshot);
+      toast({ title: 'Appreciation failed', description: error?.message || 'Please try again.', variant: 'destructive' });
+    }
+  };
 
-  const uniqueCoursesMap = new Map<string, { id: string; name: string }>();
-  for (const c of courses) {
-    if (c.course?.id) uniqueCoursesMap.set(c.course.id, c.course);
-  }
-  const uniqueCourses = Array.from(uniqueCoursesMap.values());
-  const batchesForCourse = courseFilter
-    ? courses.filter((c) => c.course?.id === courseFilter)
-    : [];
+  const handlePostReply = async (postId: string) => {
+    if (!requireUser() || !replyBody.trim()) return;
+    setSubmitting(true);
+    try {
+      const res = await createCommunityReply({ postId, authorId: user!.id, body: replyBody.trim() });
+      if (!res.success) throw new Error(res.message);
+      setReplyBody('');
+      setReplyingToPost(null);
+      await loadData();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const toggleDoubt = async (threadId: string) => {
+    const next = expandedDoubt === threadId ? null : threadId;
+    setExpandedDoubt(next);
+    if (next && !doubtReplies[next]) {
+      const res = await getDoubtReplies(next);
+      if (res.success && res.data) setDoubtReplies((prev) => ({ ...prev, [next]: res.data! }));
+    }
+  };
+
+  const handleDoubtReply = async (threadId: string) => {
+    if (!requireUser() || !replyBody.trim()) return;
+    setSubmitting(true);
+    try {
+      const res = await createDoubtReply({ threadId, authorUserId: user!.id, body: replyBody.trim() });
+      if (!res.success) throw new Error(res.message);
+      setReplyBody('');
+      setReplyingToDoubt(null);
+      const replyRes = await getDoubtReplies(threadId);
+      if (replyRes.success && replyRes.data) setDoubtReplies((prev) => ({ ...prev, [threadId]: replyRes.data! }));
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
-    <>
-    <div className="space-y-10">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <h1 className="text-4xl font-black text-slate-900 tracking-tight">কমিউনিটি</h1>
-          <p className="text-slate-500 font-medium mt-2 text-lg">সবার সাথে আলোচনা করুন</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <select
-            value={courseFilter}
-            onChange={(e) => {
-              setCourseFilter(e.target.value);
-              setBatchFilter('');
-            }}
-            className="px-4 py-2.5 rounded-2xl border border-slate-200 bg-white text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          >
-            <option value="">সব কোর্স</option>
-            {uniqueCourses.map((c) => (
-              <option key={c?.id} value={c?.id}>
-                {c?.name}
-              </option>
-            ))}
-          </select>
-          <select
-            value={batchFilter}
-            onChange={(e) => setBatchFilter(e.target.value)}
-            className="px-4 py-2.5 rounded-2xl border border-slate-200 bg-white text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          >
-            <option value="">সব ব্যাচ</option>
-            {batchesForCourse.map((c) => (
-              <option key={c.batch?.id || c.id} value={c.batch?.id || ''}>
-                {c.batch?.name}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={() => (user ? setShowCreateModal(true) : (window.location.href = '/login?redirect=/student/community'))}
-            className="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-black text-sm hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100"
-          >
-            পোস্ট তৈরি করুন
-          </button>
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="flex justify-center py-20">
-          <div className="h-12 w-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-        </div>
-      ) : (
-        <div className="grid gap-8 lg:grid-cols-3">
-          <div className="lg:col-span-2 space-y-6">
-            {posts.length === 0 ? (
-              <Card className="rounded-[2rem] border-none bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-16 text-center">
-                <MessageSquare className="h-16 w-16 text-slate-300 mx-auto mb-4" />
-                <h3 className="text-xl font-black text-slate-900 mb-2">কোনো পোস্ট নেই</h3>
-                <p className="text-slate-500 font-medium mb-6">প্রথম পোস্ট করুন</p>
-                <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-black text-sm hover:bg-indigo-700"
-                >
-                  নতুন পোস্ট
+    <div className="min-h-screen bg-slate-100/70">
+      <div className="mx-auto grid max-w-[1540px] gap-6 px-4 py-6 xl:grid-cols-[330px_minmax(0,1fr)_330px]">
+        <aside className="space-y-6 xl:sticky xl:top-6 xl:self-start">
+          <Panel title="Featured Courses" icon={<Sparkles className="h-5 w-5" />}>
+            <CourseHero title="Medical Secret Files-25" />
+          </Panel>
+          <Panel title="Popular Courses" action="See all" icon={<BookOpen className="h-5 w-5" />}>
+            <div className="space-y-4">
+              {uniqueCourses.slice(0, 5).map((course, index) => (
+                <button key={course.id} onClick={() => setCourseFilter(courseFilter === course.id ? '' : course.id)} className={cn('w-full rounded-xl border p-3 text-left transition', courseFilter === course.id ? 'border-sky-300 bg-sky-50' : 'border-slate-200 bg-white hover:border-sky-200')}>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-16 items-center justify-center rounded-lg bg-linear-to-br from-slate-800 to-sky-700 text-xs font-black text-white">C{index + 1}</div>
+                    <div className="min-w-0">
+                      <p className="line-clamp-2 text-sm font-black text-slate-900">{course.name}</p>
+                      <p className="text-xs text-slate-500">Tap to filter</p>
+                    </div>
+                  </div>
                 </button>
-              </Card>
-            ) : (
-              posts.map((post) => {
-                const score = voteSum(post.votes);
-                const myVote = userVote(post.votes);
-                return (
-                  <Card key={post.id} className="rounded-[2rem] border-none bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
-                    <CardContent className="p-8">
-                      <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-4">
-                          <div className="h-12 w-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-black">
-                            {getInitials(post.author?.fullName || 'User')}
-                          </div>
-                          <div>
-                            <h4 className="font-black text-slate-900">{post.author?.fullName || 'অজানা'}</h4>
-                            <p className="text-xs text-slate-400 font-bold">
-                              {formatTimeAgo(post.createdAt)}
-                              {post.course?.name && ` • ${post.course.name}`}
-                              {post.batch?.name && ` • ${post.batch.name}`}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <h3 className="font-black text-slate-900 mb-2">{post.title}</h3>
-                      <p className="text-slate-600 leading-relaxed mb-6 whitespace-pre-wrap">{post.body}</p>
-                      <div className="flex items-center gap-6 pt-6 border-t border-slate-50">
-                        <button
-                          onClick={() => handleLikeToggle(post)}
-                          className={`flex items-center gap-2 p-2 rounded-xl transition-colors ${myVote === 1 ? 'text-rose-500 bg-rose-50 fill-rose-500' : 'text-slate-400 hover:text-rose-500 hover:bg-rose-50'}`}
-                          title="লাইক"
-                        >
-                          <Heart className={`h-5 w-5 ${myVote === 1 ? 'fill-current' : ''}`} />
-                          <span className="font-black text-slate-700 min-w-6">{score}</span>
-                        </button>
-                        <button
-                          onClick={() => setReplyingTo(replyingTo === post.id ? null : post.id)}
-                          className="flex items-center gap-2 text-slate-400 hover:text-indigo-600 transition-colors font-bold text-sm"
-                        >
-                          <MessageSquare className="h-5 w-5" /> {post.replies?.length ?? 0} মন্তব্য
-                        </button>
-                      </div>
+              ))}
+              {uniqueCourses.length === 0 ? <p className="text-sm text-slate-500">Enroll in a course to personalize your feed.</p> : null}
+            </div>
+          </Panel>
+        </aside>
 
-                      {replyingTo === post.id && (
-                        <div className="mt-6 pt-6 border-t border-slate-100">
-                          <textarea
-                            value={replyBody}
-                            onChange={(e) => setReplyBody(e.target.value)}
-                            placeholder="মন্তব্য..."
-                            rows={3}
-                            className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-slate-700 resize-none"
-                          />
-                          <div className="flex gap-2 mt-3">
-                            <button
-                              onClick={() => handleReply(post.id)}
-                              disabled={submitting || !replyBody.trim()}
-                              className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
-                            >
-                              <Send className="h-4 w-4" /> পাঠান
-                            </button>
-                            <button
-                              onClick={() => { setReplyingTo(null); setReplyBody(''); }}
-                              className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl font-bold text-sm hover:bg-slate-200"
-                            >
-                              বাতিল
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      {post.replies && post.replies.length > 0 && (
-                        <div className="mt-6 pt-6 border-t border-slate-100 space-y-4">
-                          {post.replies.map((r) => (
-                            <div key={r.id} className="flex gap-4 pl-4 border-l-2 border-indigo-100">
-                              <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs shrink-0">
-                                {getInitials(r.author?.fullName || '?')}
-                              </div>
-                              <div>
-                                <p className="font-bold text-slate-800 text-sm">{r.author?.fullName || 'অজানা'}</p>
-                                <p className="text-slate-600 text-sm mt-0.5">{r.body}</p>
-                                <p className="text-xs text-slate-400 mt-1">{formatTimeAgo(r.createdAt)}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })
-            )}
-          </div>
-
-          <div className="space-y-8">
-            <Card className="rounded-[2rem] border-none bg-white p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-              <h3 className="text-lg font-black text-slate-900 mb-6">আপনার কোর্স</h3>
-              <div className="space-y-4">
-                {courses.length === 0 ? (
-                  <p className="text-slate-500 text-sm font-medium">কোর্সে ভর্তি হয়ে ফিল্টার করুন</p>
-                ) : (
-                  courses.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => setCourseFilter(courseFilter === c.course?.id ? '' : c.course?.id || '')}
-                      className={`w-full flex items-center gap-4 p-3 rounded-2xl transition-colors text-left group ${
-                        courseFilter === c.course?.id ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-slate-50'
-                      }`}
-                    >
-                      <div className={`h-10 w-10 rounded-xl flex items-center justify-center transition-all ${
-                        courseFilter === c.course?.id ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white'
-                      }`}>
-                        <Users className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <span className="font-bold text-slate-700 block">{c.course?.name}</span>
-                        {c.batch?.name && <span className="text-xs text-slate-400">{c.batch.name}</span>}
-                      </div>
-                    </button>
-                  ))
-                )}
+        <main className="min-w-0 space-y-4">
+          <Card className="rounded-xl border-none bg-white shadow-sm">
+            <CardContent className="flex items-center gap-3 p-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-black text-white">
+                {initials(user?.fullName || 'S')}
               </div>
-            </Card>
-          </div>
-        </div>
-      )}
-
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-lg rounded-[2rem] border-none shadow-2xl overflow-hidden">
-            <CardContent className="p-8">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-black text-slate-900">নতুন পোস্ট</h3>
-                <button onClick={() => setShowCreateModal(false)} className="p-2 hover:bg-slate-100 rounded-xl">
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              <div className="space-y-4">
-                <input
-                  value={createTitle}
-                  onChange={(e) => setCreateTitle(e.target.value)}
-                  placeholder="শিরোনাম"
-                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-slate-800"
-                />
-                <textarea
-                  value={createBody}
-                  onChange={(e) => setCreateBody(e.target.value)}
-                  placeholder="লিখুন"
-                  rows={5}
-                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-slate-700 resize-none"
-                />
-                <select
-                  value={createCourseId}
-                  onChange={(e) => { setCreateCourseId(e.target.value); setCreateBatchId(''); }}
-                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-slate-700"
-                >
-                  <option value="">কোর্স (ঐচ্ছিক)</option>
-                  {courses.map((c) => (
-                    <option key={c.id} value={c.course?.id}>{c.course?.name}</option>
-                  ))}
-                </select>
-                <select
-                  value={createBatchId}
-                  onChange={(e) => setCreateBatchId(e.target.value)}
-                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-slate-700"
-                >
-                  <option value="">ব্যাচ (ঐচ্ছিক)</option>
-                  {courses.filter((c) => c.course?.id === createCourseId).map((c) => (
-                    <option key={c.batch?.id || c.id} value={c.batch?.id}>{c.batch?.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={handleCreatePost}
-                  disabled={submitting || !createTitle.trim() || !createBody.trim()}
-                  className="flex-1 py-3 bg-indigo-600 text-white rounded-2xl font-black text-sm hover:bg-indigo-700 disabled:opacity-50"
-                >
-                    {submitting ? 'করা হচ্ছে...' : 'পোস্ট'}
-                </button>
-                <button
-                  onClick={() => setShowCreateModal(false)}
-                  className="px-6 py-3 bg-slate-700 text-white rounded-2xl font-bold text-sm hover:bg-slate-800"
-                >
-                  বাতিল
-                </button>
-              </div>
+              <button onClick={() => (requireUser() ? setComposerOpen(true) : null)} className="flex-1 rounded-full bg-slate-100 px-5 py-3 text-left text-sm font-medium text-slate-500 hover:bg-slate-200">
+                Share your insights{user?.fullName ? `, ${user.fullName.split(' ')[0]}` : ''}?
+              </button>
+              <Button variant="ghost" size="icon" onClick={() => setComposerOpen(true)}><ImageIcon className="h-5 w-5" /></Button>
             </CardContent>
           </Card>
+
+          <div className="grid grid-cols-2 rounded-xl bg-white p-1 shadow-sm">
+            <button onClick={() => setActiveTab('community')} className={cn('rounded-lg py-3 text-sm font-black', activeTab === 'community' ? 'bg-sky-50 text-sky-600' : 'text-slate-700')}>Community</button>
+            <button onClick={() => setActiveTab('doubts')} className={cn('rounded-lg py-3 text-sm font-black', activeTab === 'doubts' ? 'bg-sky-50 text-sky-600' : 'text-slate-700')}>Doubts</button>
+          </div>
+
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} className="h-12 rounded-xl bg-white pl-10" placeholder={activeTab === 'community' ? 'Search community posts...' : 'Search doubts...'} />
+          </div>
+
+          {loading ? (
+            <div className="flex justify-center py-20"><div className="h-10 w-10 animate-spin rounded-full border-2 border-sky-600 border-t-transparent" /></div>
+          ) : activeTab === 'community' ? (
+            <div className="space-y-4">
+              {posts.map((post) => (
+                <CommunityPostCard
+                  key={post.id}
+                  post={post}
+                  currentUserId={user?.id}
+                  onLike={handleLike}
+                  onReplyToggle={(p) => setReplyingToPost(replyingToPost === p.id ? null : p.id)}
+                  onShare={(p) => navigator.clipboard?.writeText(`${window.location.origin}/student/community?post=${p.id}`)}
+                  footer={replyingToPost === post.id ? (
+                    <ReplyBox value={replyBody} onChange={setReplyBody} onCancel={() => { setReplyingToPost(null); setReplyBody(''); }} onSubmit={() => handlePostReply(post.id)} submitting={submitting} />
+                  ) : null}
+                />
+              ))}
+              {posts.length === 0 ? <EmptyState title="No posts yet" text="Be the first to share an update." /> : null}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex justify-end"><Button onClick={() => (requireUser() ? setAskOpen(true) : null)} className="rounded-xl bg-slate-900">Ask a question</Button></div>
+              {threads.map((thread) => (
+                <DoubtCard key={thread.id} thread={thread} expanded={expandedDoubt === thread.id} onToggle={() => toggleDoubt(thread.id)}>
+                  <div className="space-y-3">
+                    {(doubtReplies[thread.id] || []).map((reply) => (
+                      <div key={reply.id} className="rounded-lg border-l-2 border-sky-200 bg-slate-50 p-3">
+                        <p className="text-sm text-slate-700">{reply.body}</p>
+                        <p className="mt-1 text-xs text-slate-400">{reply.author?.fullName || 'Responder'} · {formatTimeAgo(reply.createdAt)}</p>
+                      </div>
+                    ))}
+                    {replyingToDoubt === thread.id ? (
+                      <ReplyBox value={replyBody} onChange={setReplyBody} onCancel={() => { setReplyingToDoubt(null); setReplyBody(''); }} onSubmit={() => handleDoubtReply(thread.id)} submitting={submitting} />
+                    ) : (
+                      <Button variant="outline" className="rounded-lg" onClick={() => setReplyingToDoubt(thread.id)}>Reply</Button>
+                    )}
+                  </div>
+                </DoubtCard>
+              ))}
+              {threads.length === 0 ? <EmptyState title="No doubts yet" text="Ask a question and get help from your mentors." /> : null}
+            </div>
+          )}
+        </main>
+
+        <aside className="space-y-6 xl:sticky xl:top-6 xl:self-start">
+          <Panel title="Right Now" icon={<Users className="h-5 w-5" />}>
+            <div className="grid grid-cols-2 gap-3">
+              <Stat value={communities.length} label="Communities" />
+              <Stat value={posts.length} label="Posts" />
+              <Stat value={threads.filter((t) => t.status === 'OPEN').length} label="Open doubts" />
+              <Stat value={topPosts.length + topDoubts.length} label="Trending" />
+            </div>
+          </Panel>
+          <Panel title="Top Doubts" icon={<HelpCircle className="h-5 w-5" />}>
+            <SideList items={topDoubts.map((d) => ({ title: d.title, meta: `${d._count?.replies || 0} replies` }))} />
+          </Panel>
+          <Panel title="Top Posts" icon={<MessageSquare className="h-5 w-5" />}>
+            <SideList items={topPosts.map((p) => ({ title: p.title, meta: `${p.votes?.length || 0} appreciations` }))} />
+          </Panel>
+        </aside>
+      </div>
+
+      {composerOpen ? (
+        <ComposerModal title="Create post" onClose={() => setComposerOpen(false)} onSubmit={handleCreatePost} submitting={submitting} submitLabel="Post">
+          <Input value={postTitle} onChange={(e) => setPostTitle(e.target.value)} placeholder="Post title" />
+          <textarea value={postBody} onChange={(e) => setPostBody(e.target.value)} placeholder="Share your update..." rows={5} className="w-full resize-none rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-sky-200" />
+          <AttachmentInput
+            mode={postAttachmentMode}
+            onModeChange={(mode) => {
+              setPostAttachmentMode(mode);
+              setPostAttachmentFile(null);
+              setPostAttachmentUrl('');
+            }}
+            file={postAttachmentFile}
+            onFileChange={setPostAttachmentFile}
+            link={postAttachmentUrl}
+            onLinkChange={setPostAttachmentUrl}
+          />
+          <select value={postCommunityId} onChange={(e) => setPostCommunityId(e.target.value)} className="h-11 rounded-xl border border-slate-200 px-3 text-sm">
+            <option value="">No specific community</option>
+            {communities.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </ComposerModal>
+      ) : null}
+
+      {askOpen ? (
+        <ComposerModal title="Ask a doubt" onClose={() => setAskOpen(false)} onSubmit={handleAskDoubt} submitting={submitting} submitLabel="Ask">
+          <Input value={askTitle} onChange={(e) => setAskTitle(e.target.value)} placeholder="Question title" />
+          <textarea value={askBody} onChange={(e) => setAskBody(e.target.value)} placeholder="Explain what you need help with..." rows={5} className="w-full resize-none rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-sky-200" />
+        </ComposerModal>
+      ) : null}
+
+      <Toaster toasts={toasts} removeToast={removeToast} />
+    </div>
+  );
+}
+
+function Panel({ title, icon, action, children }: { title: string; icon: ReactNode; action?: string; children: ReactNode }) {
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="flex items-center gap-2 text-lg font-black text-slate-900">{icon}{title}</h2>
+        {action ? <span className="text-xs font-bold text-sky-600">{action}</span> : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function CourseHero({ title }: { title: string }) {
+  return (
+    <div className="flex aspect-video items-center justify-center rounded-xl bg-linear-to-br from-sky-100 via-white to-amber-100 p-5 text-center">
+      <p className="text-2xl font-black uppercase tracking-wide text-slate-900">{title}</p>
+    </div>
+  );
+}
+
+function Stat({ value, label }: { value: number; label: string }) {
+  return <div className="rounded-xl bg-slate-50 p-3"><p className="text-2xl font-black text-slate-950">{value}</p><p className="text-xs font-bold text-slate-500">{label}</p></div>;
+}
+
+function SideList({ items }: { items: Array<{ title: string; meta: string }> }) {
+  return <div className="space-y-3">{items.length ? items.map((item, i) => <div key={`${item.title}-${i}`} className="border-l-2 border-slate-200 pl-3"><p className="line-clamp-2 text-sm font-bold text-slate-800">{item.title}</p><p className="text-xs text-rose-500">{item.meta}</p></div>) : <p className="text-sm text-slate-500">Nothing trending yet.</p>}</div>;
+}
+
+function AttachmentInput({
+  mode,
+  onModeChange,
+  file,
+  onFileChange,
+  link,
+  onLinkChange,
+}: {
+  mode: 'file' | 'link';
+  onModeChange: (mode: 'file' | 'link') => void;
+  file: File | null;
+  onFileChange: (file: File | null) => void;
+  link: string;
+  onLinkChange: (value: string) => void;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+      <div className="grid grid-cols-2 gap-2 rounded-lg bg-white p-1">
+        <button
+          type="button"
+          onClick={() => onModeChange('file')}
+          className={cn(
+            'flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-black transition',
+            mode === 'file' ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100',
+          )}
+        >
+          <FileUp className="h-4 w-4" />
+          File upload
+        </button>
+        <button
+          type="button"
+          onClick={() => onModeChange('link')}
+          className={cn(
+            'flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-black transition',
+            mode === 'link' ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100',
+          )}
+        >
+          <LinkIcon className="h-4 w-4" />
+          Link upload
+        </button>
+      </div>
+
+      {mode === 'file' ? (
+        <label className="mt-3 flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-sky-200 bg-white px-4 py-5 text-center hover:border-sky-400">
+          <FileUp className="h-7 w-7 text-sky-600" />
+          <span className="mt-2 text-sm font-black text-slate-900">{file ? file.name : 'Choose image, video, PDF, or document'}</span>
+          <span className="mt-1 text-xs font-medium text-slate-500">Maximum file size 50MB</span>
+          <input
+            type="file"
+            className="sr-only"
+            accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+            onChange={(event) => onFileChange(event.target.files?.[0] || null)}
+          />
+        </label>
+      ) : (
+        <div className="mt-3">
+          <Input value={link} onChange={(event) => onLinkChange(event.target.value)} placeholder="Paste image, video, or website URL" className="bg-white" />
+          <p className="mt-2 text-xs font-medium text-slate-500">Direct image/video links render inline. Other URLs show as link cards.</p>
         </div>
       )}
     </div>
-    <Toaster toasts={toasts} removeToast={removeToast} />
-    </>
   );
+}
+
+function ReplyBox({ value, onChange, onSubmit, onCancel, submitting }: { value: string; onChange: (v: string) => void; onSubmit: () => void; onCancel: () => void; submitting: boolean }) {
+  return (
+    <div className="mt-4 rounded-xl bg-slate-50 p-3">
+      <textarea value={value} onChange={(e) => onChange(e.target.value)} rows={3} placeholder="Write an insight..." className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-200" />
+      <div className="mt-2 flex gap-2">
+        <Button size="sm" onClick={onSubmit} disabled={submitting || !value.trim()}><Send className="mr-2 h-4 w-4" />Send</Button>
+        <Button size="sm" variant="outline" onClick={onCancel}>Cancel</Button>
+      </div>
+    </div>
+  );
+}
+
+function ComposerModal({ title, children, onClose, onSubmit, submitting, submitLabel }: { title: string; children: ReactNode; onClose: () => void; onSubmit: () => void; submitting: boolean; submitLabel: string }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+      <Card className="w-full max-w-xl rounded-2xl border-none shadow-2xl">
+        <CardContent className="p-6">
+          <div className="mb-5 flex items-center justify-between">
+            <h3 className="text-xl font-black text-slate-950">{title}</h3>
+            <button onClick={onClose} className="rounded-lg p-2 hover:bg-slate-100"><X className="h-5 w-5" /></button>
+          </div>
+          <div className="space-y-3">{children}</div>
+          <div className="mt-5 flex justify-end gap-2">
+            <Button variant="outline" onClick={onClose}>Cancel</Button>
+            <Button onClick={onSubmit} disabled={submitting}>{submitting ? 'Saving...' : submitLabel}</Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function EmptyState({ title, text }: { title: string; text: string }) {
+  return <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center"><p className="font-black text-slate-900">{title}</p><p className="mt-1 text-sm text-slate-500">{text}</p></div>;
 }

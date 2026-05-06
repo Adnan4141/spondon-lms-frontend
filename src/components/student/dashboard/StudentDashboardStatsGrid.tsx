@@ -1,0 +1,82 @@
+import Link from 'next/link';
+import {
+  BookOpen,
+  BookMarked,
+  Award,
+  BookOpenCheck,
+} from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import type { DashboardStats } from './types';
+import { statCardStyles } from './stat-card-styles';
+
+type Props = {
+  stats: DashboardStats;
+};
+
+export function StudentDashboardStatsGrid({ stats }: Props) {
+  const statItems = [
+    {
+      label: 'কোর্স',
+      value: stats.myCourses,
+      icon: BookOpen,
+      color: 'indigo' as const,
+      href: '/student/courses',
+    },
+    {
+      label: 'বই অর্ডার',
+      value: stats.myBooks,
+      icon: BookMarked,
+      color: 'violet' as const,
+      href: '/student/books#my-books',
+    },
+    {
+      label: 'পরীক্ষা',
+      value: stats.myExams,
+      icon: BookOpenCheck,
+      color: 'sky' as const,
+      href: '/student/exams',
+    },
+    {
+      label: 'ফলাফল',
+      value: stats.results,
+      icon: Award,
+      color: 'amber' as const,
+      href: '/student/results',
+    },
+  ];
+
+  return (
+    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      {statItems.map((item, idx) => {
+        const Icon = item.icon;
+        const styles = statCardStyles[item.color];
+        const inner = (
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div
+                className={`p-3 rounded-2xl ${styles.iconWrap} group-hover:scale-110 transition-transform duration-500`}
+              >
+                <Icon className="h-6 w-6" />
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">বর্তমান</span>
+            </div>
+            <div className="mt-5">
+              <h3 className="text-3xl font-black text-slate-900">{item.value}</h3>
+              <p className="text-sm font-bold text-slate-500 mt-1">{item.label}</p>
+            </div>
+            <div className="absolute bottom-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+              <Icon className="h-16 w-16" />
+            </div>
+          </CardContent>
+        );
+        return (
+          <Link key={idx} href={item.href} className="block">
+            <Card className="group relative overflow-hidden rounded-3xl border-none bg-white p-1 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] transition-all duration-500">
+              {inner}
+            </Card>
+          </Link>
+        );
+      })}
+    </div>
+  );
+}

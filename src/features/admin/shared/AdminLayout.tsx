@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Bell,
@@ -107,6 +107,19 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
     clearAuthStorage();
     router.push('/login');
   };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const stored = window.localStorage.getItem('admin-sidebar-collapsed');
+    if (stored === 'true') {
+      setSidebarCollapsed(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem('admin-sidebar-collapsed', String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
 
   return (
     <AdminToastProvider>

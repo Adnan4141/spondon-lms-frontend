@@ -3,19 +3,30 @@ import { apiRequest } from '../api';
 export interface CommunityPost {
   id: string;
   authorId: string;
+  communityId?: string;
   courseId?: string;
   batchId?: string;
   visibility: string;
+  status?: 'DRAFT' | 'PUBLISHED' | 'HIDDEN' | string;
+  isPinned?: boolean;
   title: string;
   body: string;
-  attachments?: any;
+  attachments?: CommunityAttachment[] | CommunityAttachment | Record<string, unknown> | null;
   createdAt: string;
-  author?: { id: string; fullName: string; role?: string };
+  updatedAt?: string;
+  author?: { id: string; fullName: string; role?: string; profileImage?: string };
+  community?: { id: string; name: string; slug?: string };
   course?: { id: string; name: string; slug?: string };
   batch?: { id: string; name: string };
   replies?: CommunityReply[];
   votes?: CommunityVote[];
+  _count?: { replies?: number; votes?: number };
 }
+
+export type CommunityAttachment =
+  | { type: 'image'; url: string; alt?: string; title?: string; mimeType?: string; size?: number }
+  | { type: 'video'; url: string; thumbnail?: string; title?: string; mimeType?: string; size?: number }
+  | { type: 'link'; url: string; title?: string; description?: string; image?: string; mimeType?: string; size?: number };
 
 export interface CommunityReply {
   id: string;
@@ -39,10 +50,21 @@ export interface ApiResponse<T> {
   message?: string;
 }
 
-export async function getCommunityPosts(params?: { courseId?: string; batchId?: string }): Promise<ApiResponse<CommunityPost[]>> {
+export async function getCommunityPosts(params?: {
+  communityId?: string;
+  courseId?: string;
+  batchId?: string;
+  status?: string;
+  isPinned?: boolean;
+  search?: string;
+}): Promise<ApiResponse<CommunityPost[]>> {
   const q = new URLSearchParams();
+  if (params?.communityId) q.append('communityId', params.communityId);
   if (params?.courseId) q.append('courseId', params.courseId);
   if (params?.batchId) q.append('batchId', params.batchId);
+  if (params?.status) q.append('status', params.status);
+  if (typeof params?.isPinned === 'boolean') q.append('isPinned', String(params.isPinned));
+  if (params?.search) q.append('search', params.search);
   const query = q.toString();
   return apiRequest<ApiResponse<CommunityPost[]>>(`/community/posts${query ? `?${query}` : ''}`);
 }
@@ -60,6 +82,32 @@ export async function createCommunityPost(data: {
   return apiRequest<ApiResponse<CommunityPost>>('/community/posts', {
     method: 'POST',
     body: JSON.stringify(data),
+  });
+}
+
+export async function uploadCommunityAttachment(file: File): Promise<ApiResponse<CommunityAttachment>> {
+  const formData = new FormData();
+  formData.append('file', file);
+  return apiRequest<ApiResponse<CommunityAttachment>>('/community/attachments', {
+    method: 'POST',
+    body: formData,
+  });
+}
+
+export async function seedDemoCommunities(createdById?: string): Promise<ApiResponse<{
+  communities: Array<{ id: string; slug: string; name: string }>;
+  membersCreated: number;
+  postsCreated: number;
+  doubtsCreated: number;
+}>> {
+  return apiRequest<ApiResponse<{
+    communities: Array<{ id: string; slug: string; name: string }>;
+    membersCreated: number;
+    postsCreated: number;
+    doubtsCreated: number;
+  }>>('/seed/communities', {
+    method: 'POST',
+    body: JSON.stringify({ createdById }),
   });
 }
 
@@ -166,6 +214,32 @@ export async function updateCommunity(
   return apiRequest<ApiResponse<Community>>(`/community/communities/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
+  });
+}
+
+export async function updateCommunityPost(
+  id: string,
+  data: {
+    communityId?: string | null;
+    courseId?: string;
+    batchId?: string;
+    visibility?: 'PUBLIC' | 'COURSE_ONLY' | 'BATCH_ONLY';
+    status?: 'DRAFT' | 'PUBLISHED' | 'HIDDEN' | string;
+    isPinned?: boolean;
+    title?: string;
+    body?: string;
+    attachments?: unknown;
+  }
+): Promise<ApiResponse<CommunityPost>> {
+  return apiRequest<ApiResponse<CommunityPost>>(`/community/posts/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteCommunityPost(id: string): Promise<ApiResponse<void>> {
+  return apiRequest<ApiResponse<void>>(`/community/posts/${id}`, {
+    method: 'DELETE',
   });
 }
 

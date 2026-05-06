@@ -3,6 +3,10 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useMemo, type ComponentType } from 'react';
+import {
+  SidebarCollapseRow,
+  SidebarExpandFooterButton,
+} from '@/components/layout/SidebarDockToggle';
 import { cn } from '@/lib/utils';
 import { API_ORIGIN } from '@/lib/api';
 import { resolveAttachmentUrl } from '@/lib/attachment-url';
@@ -18,8 +22,6 @@ import {
   Calendar,
   CreditCard,
   BarChart3,
-  PanelLeftClose,
-  PanelLeftOpen,
   X,
   HelpCircle,
   ClipboardList,
@@ -235,22 +237,26 @@ export function Sidebar({ mobileOpen, onCloseMobile, collapsed, onToggleCollapse
         </div>
 
         {/* Header / Logo Section */}
-        <div className="relative flex h-20 items-center px-6 border-b border-slate-100/80">
-          <Link href={homeHref} className="flex items-center gap-3 group">
+        <div className="relative flex h-20 items-center gap-3 border-b border-slate-100/80 px-6">
+          <Link href={homeHref} className="group flex min-w-0 flex-1 items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 shadow-lg shadow-indigo-200 transition-transform group-hover:scale-105 group-hover:rotate-3">
               <GraduationCap className="h-5 w-5 text-white" />
             </div>
             {!collapsed && (
-              <div className="flex flex-col">
-                <span className="text-xl font-black tracking-tight text-slate-900 leading-none">Codezyne</span>
-                <span className="mt-1 text-[9px] font-bold uppercase tracking-[0.2em] text-indigo-500/80">Learning Management System</span>
+              <div className="flex min-w-0 flex-col">
+                <span className="truncate text-xl font-black leading-none tracking-tight text-slate-900">Codezyne</span>
+                <span className="mt-1 text-[9px] font-bold uppercase tracking-[0.2em] text-indigo-500/80">
+                  Learning Management System
+                </span>
               </div>
             )}
           </Link>
-          
+
           <button
+            type="button"
             onClick={onCloseMobile}
-            className="ml-auto lg:hidden h-9 w-9 flex items-center justify-center rounded-xl bg-slate-50 text-slate-400 hover:text-slate-600 transition-colors"
+            className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-slate-400 transition-colors hover:text-slate-600 lg:ml-0 lg:hidden"
+            aria-label="Close admin sidebar"
           >
             <X className="h-5 w-5" />
           </button>
@@ -348,27 +354,11 @@ export function Sidebar({ mobileOpen, onCloseMobile, collapsed, onToggleCollapse
                 </button>
               </div>
 
-              <div className="flex items-center justify-between px-2">
-                <button 
-                  onClick={onToggleCollapse}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm"
-                >
-                  <PanelLeftClose className="h-4 w-4" />
-                </button>
-                <div className="flex items-center gap-1">
-                   <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                   <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Live</span>
-                </div>
-              </div>
+              <SidebarCollapseRow onToggleCollapse={onToggleCollapse} />
             </div>
           ) : (
             <div className="flex flex-col items-center gap-4">
-              <button 
-                onClick={onToggleCollapse}
-                className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white border border-slate-200 text-slate-400 hover:text-indigo-600 transition-all shadow-sm"
-              >
-                <PanelLeftOpen className="h-5 w-5" />
-              </button>
+              <SidebarExpandFooterButton onToggleCollapse={onToggleCollapse} />
               <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-xs font-bold text-white shadow-lg">
                 {avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
