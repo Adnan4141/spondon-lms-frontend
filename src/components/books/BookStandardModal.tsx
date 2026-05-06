@@ -42,30 +42,25 @@ export function BookStandardModal({
       >
         <DialogTitle className="sr-only">{title}</DialogTitle>
         <DialogDescription className="sr-only">{subtitle || `${title} dialog`}</DialogDescription>
-        <div className="shrink-0 border-b border-slate-200 bg-slate-50 px-4 py-4 sm:px-6 sm:py-5">
+        <div className="shrink-0 border-b border-border/70 bg-linear-to-r from-sky-50 via-white to-amber-50 px-4 py-4 dark:from-slate-950 dark:via-slate-950 dark:to-amber-950/30 sm:px-6 sm:py-5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h2 className="truncate text-base font-black text-slate-900 sm:text-lg">{title}</h2>
-              {subtitle ? <p className="mt-1 text-xs text-slate-500 sm:text-sm">{subtitle}</p> : null}
+              <h2 className="truncate text-base font-black text-foreground sm:text-lg">{title}</h2>
+              {subtitle ? <p className="mt-1 text-xs leading-5 text-muted-foreground sm:text-sm">{subtitle}</p> : null}
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="shrink-0 rounded-lg bg-red-100 p-1.5 text-red-700 transition-colors hover:bg-red-200"
+              className="shrink-0 rounded-lg border border-rose-200 bg-rose-50 p-1.5 text-rose-700 transition-colors hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950/70"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
         </div>
-        <div
-          className={cn(
-            footer ? 'flex min-h-0 flex-1 flex-col overflow-hidden' : 'flex-1 overflow-y-auto bg-white p-4 sm:p-6',
-            !footer && bodyClassName,
-          )}
-        >
+        <div className={cn('flex-1', footer ? 'flex min-h-0 flex-col overflow-hidden' : 'overflow-y-auto bg-white p-4 sm:p-6', !footer && bodyClassName)}>
           {footer ? (
             <>
-              <div className={cn('min-h-0 flex-1 overflow-y-auto bg-white p-4 sm:p-6', bodyClassName)}>{children}</div>
+              <div className={cn('min-h-0 flex-1', bodyClassName)}>{children}</div>
               {footer}
             </>
           ) : (

@@ -22,16 +22,16 @@ export function BooksWorkspaceTabs({ data }: BooksWorkspaceTabsProps) {
   return (
     <Tabs defaultValue="catalog" className="space-y-5">
       <div className="sticky top-0 z-10 -mx-1 px-1 pb-1 pt-0.5">
-        <TabsList className="flex h-auto w-full min-w-0 flex-wrap justify-start gap-1 rounded-2xl border border-border/80 bg-muted/40 p-1.5 shadow-sm backdrop-blur-sm">
+        <TabsList className="flex h-auto w-full min-w-0 flex-wrap justify-start gap-1 rounded-xl border border-border/70 bg-card p-1 shadow-sm backdrop-blur-sm">
           {BOOKS_ADMIN_TABS.map((tab) => {
             const Icon = tab.icon;
             return (
               <TabsTrigger
                 key={tab.value}
                 value={tab.value}
-                className="rounded-xl px-3 py-2 text-xs font-medium data-[state=active]:shadow-sm sm:px-4 sm:text-sm"
+                className="rounded-lg px-3 py-2 text-xs font-semibold text-muted-foreground data-[state=active]:bg-slate-900 data-[state=active]:text-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-slate-100 dark:data-[state=active]:text-slate-950 sm:px-4 sm:text-sm"
               >
-                <Icon className="mr-1.5 h-3.5 w-3.5 shrink-0 opacity-70 sm:mr-2 sm:h-4 sm:w-4" />
+                <Icon className="mr-1.5 h-3.5 w-3.5 shrink-0 sm:mr-2 sm:h-4 sm:w-4" />
                 {tab.label}
               </TabsTrigger>
             );

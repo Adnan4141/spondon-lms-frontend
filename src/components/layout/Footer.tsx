@@ -23,7 +23,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   'footer.newsletter_title': 'নতুন কোর্সের আপডেট পেতে চান?',
   'footer.newsletter_subtitle': 'আমাদের নিউজলেটারে সাবস্ক্রাইব করে যুক্ত থাকুন।',
   'footer.copyright': '© ২০২৬ স্পন্দন',
-  'footer.payment_logo_url': '/images/SSL-Commerz-Pay-With-logo-All-Size-01-570x213.png',
+  'footer.payment_logo_url': '/images/collaborator/bikash-logo.png',
   'footer.course_1_label': 'একাডেমিক প্রোগ্রাম',
   'footer.course_1_href': '/courses',
   'footer.course_2_label': 'মেডিকেল প্রস্তুতি',

@@ -50,7 +50,7 @@ export async function deleteInvoice(id: string): Promise<ApiResponse<void>> {
 }
 
 export async function initInvoicePayment(invoiceId: string) {
-  return apiRequest<{ success: boolean; data: { GatewayPageURL: string; tranId: string; invoiceId: string; amount: number } }>(
+  return apiRequest<{ success: boolean; data: { GatewayPageURL: string; bkashURL?: string; paymentID?: string; tranId: string; invoiceId: string; amount: number } }>(
     '/payment-gateway/invoice/init',
     {
       method: 'POST',

@@ -192,7 +192,7 @@ export default function SettingsPage() {
 
   // Payment Settings
   const [paymentSettings, setPaymentSettings] = useState<PaymentSettings>({
-    gatewayProvider: 'sslcommerz',
+    gatewayProvider: 'bkash',
     merchantId: '',
     apiKey: '',
     secretKey: '',
@@ -554,7 +554,6 @@ export default function SettingsPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="rounded-2xl shadow-xl">
-                <SelectItem value="sslcommerz" className="font-bold py-3 text-blue-600">SSLCommerz Protocol</SelectItem>
                 <SelectItem value="bkash" className="font-bold py-3 text-rose-600">bKash Ecosystem</SelectItem>
                 <SelectItem value="stripe" className="font-bold py-3 text-indigo-600">Stripe Global</SelectItem>
               </SelectContent>

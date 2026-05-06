@@ -17,7 +17,7 @@ export const PaymentSection: React.FC<Props> = ({
   badge = 'Secure Checkout',
   title = 'পেমেন্ট পার্টনার',
   subtitle = 'Trusted payment gateways ensuring safe and secure transactions',
-  footerText = 'Verified by SSLCOMMERZ',
+  footerText = 'Powered by bKash',
 }) => (
   <section className="relative py-12 sm:py-20 md:py-28 overflow-hidden bg-gradient-to-br from-sky-50 via-white to-indigo-50">
     
@@ -59,8 +59,8 @@ export const PaymentSection: React.FC<Props> = ({
             <div className="absolute inset-0 rounded-[42px] opacity-0 group-hover:opacity-100 transition duration-500 bg-gradient-to-r from-blue-200/30 via-sky-200/30 to-indigo-200/30 blur-2xl"></div>
 
             <img
-              src="/images/SSL-Commerz-Pay-With-logo-All-Size-01-570x213.png"
-              alt="SSLCommerz Payment Partners"
+              src="/images/collaborator/bikash-logo.png"
+              alt="bKash Payment Partner"
               className="relative max-w-full h-auto object-contain drop-shadow-xl grayscale-[0.2] group-hover:grayscale-0 transition duration-500"
               onError={(e) => handleImageError(e, 'Payment Gateway')}
             />

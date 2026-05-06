@@ -230,7 +230,7 @@ export default function PublicBookDetailsPage() {
         open={sampleOpen}
         onClose={() => setSampleOpen(false)}
         bookName={book?.name || 'বই'}
-        sampleUrl={null}
+        sampleUrl={book?.demoReadUrl || null}
       />
 
       <Footer />

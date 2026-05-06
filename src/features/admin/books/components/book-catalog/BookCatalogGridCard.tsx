@@ -19,8 +19,8 @@ export function BookCatalogGridCard({ book, onOpenDetail, onOpenEdit, onPreviewP
   const description = stripCatalogHtml(book.description);
 
   return (
-    <article className="group overflow-hidden rounded-[28px] border border-border bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
-      <div className="relative aspect-16/10 bg-muted">
+    <article className="group overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+      <div className="relative aspect-4/3 bg-muted">
         {book.thumbnailUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -41,11 +41,11 @@ export function BookCatalogGridCard({ book, onOpenDetail, onOpenEdit, onPreviewP
             <Badge className="border-amber-500/20 bg-amber-50 text-amber-700">Featured</Badge>
           ) : null}
         </div>
-        <div className="absolute bottom-3 right-3 rounded-2xl bg-background/95 px-3 py-1.5 text-lg font-black text-primary shadow-sm">
+        <div className="absolute bottom-3 right-3 rounded-lg bg-background/95 px-3 py-1.5 text-lg font-black text-primary shadow-sm">
           ৳{Number(book.price).toLocaleString()}
         </div>
       </div>
-      <div className="space-y-4 p-5">
+      <div className="space-y-4 p-4">
         <div>
           <h3 className="line-clamp-2 text-lg font-black text-foreground">{book.name}</h3>
           <p className="text-xs font-bold uppercase tracking-[0.22em] text-muted-foreground">{book.sku}</p>
@@ -60,13 +60,13 @@ export function BookCatalogGridCard({ book, onOpenDetail, onOpenEdit, onPreviewP
           {description || 'No storefront description has been written yet for this title.'}
         </p>
         <div className="grid grid-cols-2 gap-2 text-sm">
-          <div className="rounded-2xl border border-border bg-muted/30 p-3">
+          <div className="rounded-lg border border-border bg-muted/30 p-3">
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Central</p>
             <p className="mt-1 font-black text-foreground">
               {book.isEbook ? 'Digital' : Number(book.centralQty || 0).toLocaleString()}
             </p>
           </div>
-          <div className="rounded-2xl border border-border bg-muted/30 p-3">
+          <div className="rounded-lg border border-border bg-muted/30 p-3">
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Linked</p>
             <p className="mt-1 font-black text-foreground">{book.courseBooks?.length || 0} courses</p>
           </div>

@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { BookStandardModal } from '@/components/books/BookStandardModal';
+import { cn } from '@/lib/utils';
 
 export function BookAdminModal({
   open,
@@ -31,8 +32,8 @@ export function BookAdminModal({
       title={title}
       subtitle={subtitle}
       maxWidth={maxWidth}
-      bodyClassName={bodyClassName}
-      contentClassName={contentClassName}
+      bodyClassName={cn('bg-background text-foreground', bodyClassName)}
+      contentClassName={cn('border-border/70 bg-card shadow-2xl shadow-slate-950/10', contentClassName)}
       footer={footer}
     >
       {children}

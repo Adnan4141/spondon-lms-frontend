@@ -5,20 +5,24 @@ import { cn } from '@/lib/utils';
 
 const sectionTones = {
   indigo: {
-    header: 'bg-linear-to-br from-indigo-600 via-violet-600 to-fuchsia-600 text-white border-b border-white/10',
-    iconWrap: 'rounded-2xl bg-white/15 text-white ring-1 ring-white/25 shadow-lg',
+    card: 'border-sky-200/80 bg-sky-50/30 dark:border-sky-900/60 dark:bg-sky-950/10',
+    header: 'border-b border-sky-100 bg-linear-to-r from-sky-50 via-white to-cyan-50 text-foreground dark:border-sky-900/60 dark:from-sky-950/30 dark:via-slate-950 dark:to-cyan-950/20',
+    iconWrap: 'rounded-lg bg-sky-100 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-950/60 dark:text-sky-200 dark:ring-sky-800',
   },
   emerald: {
-    header: 'bg-linear-to-br from-emerald-600 via-teal-600 to-cyan-700 text-white border-b border-white/10',
-    iconWrap: 'rounded-2xl bg-white/15 text-white ring-1 ring-white/25 shadow-lg',
+    card: 'border-emerald-200/80 bg-emerald-50/25 dark:border-emerald-900/60 dark:bg-emerald-950/10',
+    header: 'border-b border-emerald-100 bg-linear-to-r from-emerald-50 via-white to-teal-50 text-foreground dark:border-emerald-900/60 dark:from-emerald-950/30 dark:via-slate-950 dark:to-teal-950/20',
+    iconWrap: 'rounded-lg bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-200 dark:ring-emerald-800',
   },
   violet: {
-    header: 'bg-linear-to-br from-violet-600 via-purple-600 to-fuchsia-700 text-white border-b border-white/10',
-    iconWrap: 'rounded-2xl bg-white/15 text-white ring-1 ring-white/25 shadow-lg',
+    card: 'border-violet-200/80 bg-violet-50/25 dark:border-violet-900/60 dark:bg-violet-950/10',
+    header: 'border-b border-violet-100 bg-linear-to-r from-violet-50 via-white to-fuchsia-50 text-foreground dark:border-violet-900/60 dark:from-violet-950/30 dark:via-slate-950 dark:to-fuchsia-950/20',
+    iconWrap: 'rounded-lg bg-violet-100 text-violet-700 ring-1 ring-violet-200 dark:bg-violet-950/60 dark:text-violet-200 dark:ring-violet-800',
   },
   sky: {
-    header: 'bg-linear-to-br from-sky-600 via-blue-600 to-indigo-700 text-white border-b border-white/10',
-    iconWrap: 'rounded-2xl bg-white/15 text-white ring-1 ring-white/25 shadow-lg',
+    card: 'border-rose-200/80 bg-rose-50/25 dark:border-rose-900/60 dark:bg-rose-950/10',
+    header: 'border-b border-rose-100 bg-linear-to-r from-rose-50 via-white to-amber-50 text-foreground dark:border-rose-900/60 dark:from-rose-950/30 dark:via-slate-950 dark:to-amber-950/20',
+    iconWrap: 'rounded-lg bg-rose-100 text-rose-700 ring-1 ring-rose-200 dark:bg-rose-950/60 dark:text-rose-200 dark:ring-rose-800',
   },
 } as const;
 
@@ -39,19 +43,19 @@ export function BookFormSectionCard({
 }) {
   const t = sectionTones[tone];
   return (
-    <Card className="overflow-hidden border-0 shadow-lg ring-1 ring-black/5 dark:ring-white/10">
+    <Card className={cn('overflow-hidden rounded-xl shadow-sm', t.card)}>
       <CardHeader className={cn('px-5 py-4 sm:px-6 sm:py-5', t.header)}>
         <div className="flex items-start gap-3">
           <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center', t.iconWrap)}>
             <Icon className="h-5 w-5" />
           </div>
           <div className="min-w-0 space-y-1">
-            <CardTitle className="text-base font-bold tracking-tight text-white">{title}</CardTitle>
-            <CardDescription className="text-sm text-white/80">{subtitle}</CardDescription>
+            <CardTitle className="text-base font-bold tracking-tight text-foreground">{title}</CardTitle>
+            <CardDescription className="text-sm leading-6 text-muted-foreground">{subtitle}</CardDescription>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4 bg-card/90 px-5 py-5 backdrop-blur-sm sm:px-6 sm:py-6">{children}</CardContent>
+      <CardContent className="space-y-4 bg-card/95 px-5 py-5 sm:px-6 sm:py-6">{children}</CardContent>
     </Card>
   );
 }

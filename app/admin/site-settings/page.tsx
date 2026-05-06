@@ -36,7 +36,7 @@ const DEFAULTS: Record<string, string> = {
   'payment.badge': 'Secure Checkout',
   'payment.title': 'পেমেন্ট পার্টনার',
   'payment.subtitle': 'Trusted payment gateways ensuring safe and secure transactions',
-  'payment.footer': 'Verified by SSLCOMMERZ',
+  'payment.footer': 'Powered by bKash',
 
   'programs_cta.label': 'আমাদের প্রোগ্রামসমূহ',
   'programs_cta.title': 'সেরা প্রোগ্রামের, সেরা কোর্সে যুক্ত হন আজই',
@@ -61,7 +61,7 @@ const DEFAULTS: Record<string, string> = {
   'footer.newsletter_title': 'নতুন কোর্সের আপডেট পেতে চান?',
   'footer.newsletter_subtitle': 'আমাদের নিউজলেটারে সাবস্ক্রাইব করে যুক্ত থাকুন।',
   'footer.copyright': '© ২০২৬ স্পন্দন',
-  'footer.payment_logo_url': '/images/SSL-Commerz-Pay-With-logo-All-Size-01-570x213.png',
+  'footer.payment_logo_url': '/images/collaborator/bikash-logo.png',
   // Courses slots
   'footer.course_1_label': 'একাডেমিক প্রোগ্রাম', 'footer.course_1_href': '/courses',
   'footer.course_2_label': 'মেডিকেল প্রস্তুতি',   'footer.course_2_href': '/courses',

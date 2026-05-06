@@ -21,7 +21,7 @@ export const initiateSmsPurchase = (data: {
   cusEmail?: string;
   cusPhone?: string;
 }) =>
-  apiRequest<{ success: boolean; data: { GatewayPageURL: string; tranId: string; totalAmount: number } }>(
+  apiRequest<{ success: boolean; data: { GatewayPageURL: string; bkashURL?: string; paymentID?: string; tranId: string; totalAmount: number } }>(
     '/sms-purchase/initiate',
     {
       method: 'POST',

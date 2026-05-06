@@ -13,7 +13,7 @@ export default function BooksPage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1600px] space-y-6 pb-12">
+    <div className="mx-auto max-w-[1600px] space-y-5 px-1 pb-12">
       <BooksWorkspaceHeader bookCount={data.books.length} channelCount={data.channels.length} onRefresh={data.refreshAll} />
       <BooksWorkspaceTabs data={data} />
     </div>

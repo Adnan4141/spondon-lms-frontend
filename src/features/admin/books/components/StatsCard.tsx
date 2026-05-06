@@ -30,14 +30,14 @@ export function StatsCard({
   className?: string;
 }) {
   return (
-    <Card className={cn('rounded-3xl border shadow-sm', variants[variant], className)}>
-      <CardContent className="flex items-start justify-between gap-4 p-5">
+    <Card className={cn('rounded-xl border shadow-sm', variants[variant], className)}>
+      <CardContent className="flex items-start justify-between gap-4 p-4">
         <div className="space-y-1">
-          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-muted-foreground">{label}</p>
-          <p className="text-3xl font-black tracking-tight">{value}</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+          <p className="text-2xl font-black tracking-tight">{value}</p>
           {sub ? <p className="text-sm text-muted-foreground">{sub}</p> : null}
         </div>
-        <div className="rounded-2xl border border-current/10 bg-background/60 p-3">
+        <div className="rounded-lg border border-current/10 bg-background/60 p-2.5">
           <Icon className="h-5 w-5" />
         </div>
       </CardContent>

@@ -12,6 +12,7 @@ export interface Book {
   description?: string | null;
   isEbook: boolean;
   featured?: boolean;
+  demoReadUrl?: string | null;
   fileUrl?: string | null;
   thumbnailUrl?: string | null;
   createdAt: string;
@@ -130,6 +131,7 @@ export interface CreateBookDto {
   description?: string;
   isEbook?: boolean;
   featured?: boolean;
+  demoReadUrl?: string;
   fileUrl?: string;
   thumbnailUrl?: string;
   programId?: string;
@@ -148,6 +150,7 @@ export interface UpdateBookDto {
   description?: string;
   isEbook?: boolean;
   featured?: boolean;
+  demoReadUrl?: string | null;
   fileUrl?: string;
   thumbnailUrl?: string;
   programId?: string | null;
@@ -296,6 +299,7 @@ export interface PublicBook {
   author?: string | null;
   description?: string | null;
   thumbnailUrl?: string | null;
+  demoReadUrl?: string | null;
   isEbook: boolean;
   createdAt: string;
   categoryId?: string | null;
@@ -318,7 +322,8 @@ export async function getProtectedBookDownload(bookId: string): Promise<Protecte
 export async function createBook(
   data: CreateBookDto,
   file?: File,
-  thumbnail?: File
+  thumbnail?: File,
+  demoFile?: File
 ): Promise<ApiResponse<Book>> {
   const formData = new FormData();
   formData.append('name', data.name);
@@ -330,6 +335,7 @@ export async function createBook(
   if (data.description) formData.append('description', data.description);
   if (data.isEbook !== undefined) formData.append('isEbook', String(data.isEbook));
   if (data.featured !== undefined) formData.append('featured', String(data.featured));
+  if (data.demoReadUrl) formData.append('demoReadUrl', data.demoReadUrl);
   if (data.fileUrl) formData.append('fileUrl', data.fileUrl);
   if (data.thumbnailUrl) formData.append('thumbnailUrl', data.thumbnailUrl);
   if (data.programId !== undefined) formData.append('programId', data.programId || '');
@@ -339,6 +345,7 @@ export async function createBook(
   }
   if (file) formData.append('file', file);
   if (thumbnail) formData.append('thumbnail', thumbnail);
+  if (demoFile) formData.append('demoFile', demoFile);
 
   return apiRequest<ApiResponse<Book>>('/books', {
     method: 'POST',
@@ -351,7 +358,8 @@ export async function updateBook(
   id: string,
   data: UpdateBookDto,
   file?: File,
-  thumbnail?: File
+  thumbnail?: File,
+  demoFile?: File
 ): Promise<ApiResponse<Book>> {
   const formData = new FormData();
   if (data.name) formData.append('name', data.name);
@@ -363,6 +371,7 @@ export async function updateBook(
   if (data.description) formData.append('description', data.description);
   if (data.isEbook !== undefined) formData.append('isEbook', String(data.isEbook));
   if (data.featured !== undefined) formData.append('featured', String(data.featured));
+  if (data.demoReadUrl !== undefined) formData.append('demoReadUrl', data.demoReadUrl ?? '');
   if (data.fileUrl) formData.append('fileUrl', data.fileUrl);
   if (data.thumbnailUrl) formData.append('thumbnailUrl', data.thumbnailUrl);
   if (data.programId !== undefined) formData.append('programId', data.programId || '');
@@ -372,6 +381,7 @@ export async function updateBook(
   }
   if (file) formData.append('file', file);
   if (thumbnail) formData.append('thumbnail', thumbnail);
+  if (demoFile) formData.append('demoFile', demoFile);
 
   return apiRequest<ApiResponse<Book>>(`/books/${id}`, {
     method: 'PUT',
