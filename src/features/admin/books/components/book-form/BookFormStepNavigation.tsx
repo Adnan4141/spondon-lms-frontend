@@ -31,8 +31,11 @@ const stepTones = [
 
 export function BookFormStepNavigation({ tabs }: { tabs: BookFormTabMeta[] }) {
   return (
-    <aside className="shrink-0 overflow-x-auto border-b border-border/70 bg-linear-to-r from-white via-sky-50/50 to-rose-50/40 px-3 py-3 dark:from-slate-950 dark:via-sky-950/10 dark:to-rose-950/10 lg:overflow-visible lg:border-b-0 lg:border-r lg:bg-linear-to-b lg:from-white lg:to-sky-50/50 lg:px-4 lg:py-5 dark:lg:from-slate-950 dark:lg:to-sky-950/10">
-      <TabsList variant="line" className="flex h-auto w-max min-w-full gap-2 bg-transparent p-0 lg:grid lg:w-full lg:grid-cols-1">
+    <aside className="shrink-0 overflow-x-auto overscroll-contain border-b border-border/70 bg-linear-to-r from-white via-sky-50/50 to-rose-50/40 px-3 py-3 [scrollbar-color:rgb(203_213_225)_transparent] [scrollbar-width:thin] dark:from-slate-950 dark:via-sky-950/10 dark:to-rose-950/10 lg:min-h-0 lg:overflow-x-hidden lg:overflow-y-auto lg:border-b-0 lg:border-r lg:bg-linear-to-b lg:from-white lg:to-sky-50/50 lg:px-4 lg:py-5 [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb:hover]:bg-slate-400 dark:lg:from-slate-950 dark:lg:to-sky-950/10">
+      <TabsList
+        variant="line"
+        className="!h-auto !items-stretch flex w-max min-w-full gap-2 bg-transparent p-0 lg:grid lg:w-full lg:grid-cols-1 lg:auto-rows-max lg:content-start"
+      >
         {tabs.map((tab, index) => {
           const Icon = tab.icon;
           const tone = stepTones[index % stepTones.length];
@@ -42,7 +45,7 @@ export function BookFormStepNavigation({ tabs }: { tabs: BookFormTabMeta[] }) {
               key={tab.value}
               value={tab.value}
               className={cn(
-                'h-auto mt-6  min-h-[88px] w-[220px] min-w-[220px] flex-none items-stretch justify-start whitespace-normal rounded-xl border border-border/70 bg-white px-3 py-3 text-left text-slate-800 shadow-sm transition-all dark:bg-slate-950 dark:text-slate-100 lg:w-full lg:min-w-0',
+                '!h-auto min-h-[88px] w-[220px] min-w-[220px] !flex-none items-stretch justify-start whitespace-normal rounded-xl border border-border/70 bg-white px-3 py-3 text-left text-slate-800 shadow-sm transition-all dark:bg-slate-950 dark:text-slate-100 lg:w-full lg:min-w-0',
                 'group-data-[variant=line]/tabs-list:bg-white dark:group-data-[variant=line]/tabs-list:bg-slate-950',
                 'hover:bg-muted/40',
                 'data-[state=active]:shadow-md data-[state=active]:after:opacity-0 group-data-[variant=line]/tabs-list:data-[state=active]:after:opacity-0',

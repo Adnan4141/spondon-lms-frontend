@@ -250,7 +250,7 @@ export function BookFormDialog({
             : 'Update details, pricing, story, and assets before saving.'
       }
       maxWidth="max-w-6xl"
-      contentClassName="rounded-xl"
+      contentClassName="h-[92vh] rounded-xl"
       bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden bg-linear-to-br from-white via-sky-50/40 to-rose-50/40 p-0 dark:from-slate-950 dark:via-sky-950/10 dark:to-rose-950/10"
       footer={
         <BookFormFooter
@@ -285,7 +285,7 @@ export function BookFormDialog({
           <div className="grid min-h-0 flex-1 overflow-hidden lg:grid-cols-[280px_minmax(0,1fr)]">
             <BookFormStepNavigation tabs={tabs} />
 
-            <div className="relative isolate min-h-0 overflow-y-auto overflow-x-hidden px-3 pb-4 pt-4 [-webkit-overflow-scrolling:touch] sm:px-5 sm:pb-6 sm:pt-5">
+            <div className="relative isolate min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain px-3 pb-4 pt-4 [-webkit-overflow-scrolling:touch] [scrollbar-color:rgb(203_213_225)_transparent] [scrollbar-width:thin] sm:px-5 sm:pb-6 sm:pt-5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb:hover]:bg-slate-400">
               <div className="mx-auto flex w-full min-w-0 max-w-4xl flex-col gap-5">
                 <TabsContent value="identity" className="mt-0 focus-visible:outline-none">
                   <BookFormIdentitySection
