@@ -19,7 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowRight, Building2, RadioTower } from 'lucide-react';
+import { ArrowRight, Building2, PackageCheck, RadioTower, Truck } from 'lucide-react';
 import { StatsCard } from './StatsCard';
 import { BookAdminModal } from './BookAdminModal';
 
@@ -85,6 +85,15 @@ export function DistributionTab({ books, branches, channels }: { books: Book[]; 
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ bookId: '', destinationType: 'branch' as 'branch' | 'channel', destinationId: '', quantity: 1, note: '', distributedAt: startOfToday() });
 
+  const resetForm = () => {
+    setForm({ bookId: '', destinationType: 'branch', destinationId: '', quantity: 1, note: '', distributedAt: startOfToday() });
+  };
+
+  const closeDialog = () => {
+    setDialogOpen(false);
+    resetForm();
+  };
+
   const loadData = useCallback(async () => {
     const [listRes, summaryRes] = await Promise.all([
       getDistributions({
@@ -112,6 +121,18 @@ export function DistributionTab({ books, branches, channels }: { books: Book[]; 
   }, [loadData]);
 
   const handleCreate = async () => {
+    if (!form.bookId) {
+      toast({ title: 'Select a book first', variant: 'destructive' });
+      return;
+    }
+    if (!form.destinationId) {
+      toast({ title: 'Select a distribution destination', variant: 'destructive' });
+      return;
+    }
+    if (!Number.isInteger(Number(form.quantity)) || Number(form.quantity) <= 0) {
+      toast({ title: 'Quantity must be a positive whole number', variant: 'destructive' });
+      return;
+    }
     if (form.distributedAt.getTime() > Date.now()) {
       toast({ title: 'Distribution date cannot be in the future', variant: 'destructive' });
       return;
@@ -127,7 +148,7 @@ export function DistributionTab({ books, branches, channels }: { books: Book[]; 
         channelId: form.destinationType === 'channel' ? form.destinationId : undefined,
       });
       toast({ title: 'Distribution recorded', variant: 'success' });
-      setDialogOpen(false);
+      closeDialog();
       await loadData();
     } catch (error) {
       toast({ title: 'Distribution failed', description: error instanceof Error ? error.message : 'Something went wrong', variant: 'destructive' });
@@ -220,25 +241,113 @@ export function DistributionTab({ books, branches, channels }: { books: Book[]; 
 
       <BookAdminModal
         open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
+        onClose={closeDialog}
         title="Create Distribution"
         subtitle="Distribute books to a branch or external channel while preserving ledger-based stock history."
-        maxWidth="max-w-5xl"
-        bodyClassName="p-4 sm:p-6 md:p-8"
+        maxWidth="max-w-4xl"
+        bodyClassName="overflow-y-auto bg-muted/30 p-4 sm:p-6"
+        contentClassName="bg-background"
+        footer={(
+          <DialogFooter className="shrink-0 border-t border-border bg-background px-4 py-4 sm:px-6">
+            <Button variant="outline" onClick={closeDialog}>Cancel</Button>
+            <Button onClick={handleCreate} disabled={saving}>{saving ? 'Saving...' : 'Confirm Distribution'}</Button>
+          </DialogFooter>
+        )}
       >
-          <div className="grid gap-4 py-1">
-            <div className="space-y-2"><Label>Book</Label><Select value={form.bookId} onValueChange={(value) => setForm((prev) => ({ ...prev, bookId: value }))}><SelectTrigger><SelectValue placeholder="Select book" /></SelectTrigger><SelectContent>{books.map((book) => <SelectItem key={book.id} value={book.id}>{book.name}</SelectItem>)}</SelectContent></Select></div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2"><Label>Destination Type</Label><Select value={form.destinationType} onValueChange={(value) => setForm((prev) => ({ ...prev, destinationType: value as 'branch' | 'channel', destinationId: '' }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="branch">Branch</SelectItem><SelectItem value="channel">Channel</SelectItem></SelectContent></Select></div>
-              <div className="space-y-2"><Label>Destination</Label><Select value={form.destinationId} onValueChange={(value) => setForm((prev) => ({ ...prev, destinationId: value }))}><SelectTrigger><SelectValue placeholder="Select destination" /></SelectTrigger><SelectContent>{(form.destinationType === 'branch' ? branches : channels).map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent></Select></div>
+        <div className="space-y-5">
+          <section className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/10 text-sky-700 dark:text-sky-300">
+                <PackageCheck className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-foreground">Book & quantity</h3>
+                <p className="text-xs text-muted-foreground">Choose printed book stock to distribute.</p>
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-[1fr_180px]">
+              <div className="space-y-2">
+                <Label>Book</Label>
+                <Select value={form.bookId} onValueChange={(value) => setForm((prev) => ({ ...prev, bookId: value }))}>
+                  <SelectTrigger><SelectValue placeholder="Select book" /></SelectTrigger>
+                  <SelectContent>{books.map((book) => <SelectItem key={book.id} value={book.id}>{book.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Quantity</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={String(form.quantity)}
+                  onChange={(e) => setForm((prev) => ({ ...prev, quantity: Number(e.target.value || 0) }))}
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                <Truck className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-foreground">Destination</h3>
+                <p className="text-xs text-muted-foreground">Send stock to a branch or distribution channel.</p>
+              </div>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2"><Label>Quantity</Label><Input type="number" value={String(form.quantity)} onChange={(e) => setForm((prev) => ({ ...prev, quantity: Number(e.target.value || 0) }))} /></div>
-              <div className="space-y-2"><Label>Distribution Date</Label><DatePicker date={form.distributedAt} setDate={(date) => setForm((prev) => ({ ...prev, distributedAt: date || startOfToday() }))} placeholder="Select distribution date" className="w-full" /></div>
-              <div className="space-y-2 md:col-span-2"><Label>Note</Label><Input value={form.note} onChange={(e) => setForm((prev) => ({ ...prev, note: e.target.value }))} placeholder="Teacher fair, retail partner, branch top-up..." /></div>
+              <div className="space-y-2">
+                <Label>Destination Type</Label>
+                <Select value={form.destinationType} onValueChange={(value) => setForm((prev) => ({ ...prev, destinationType: value as 'branch' | 'channel', destinationId: '' }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="branch">Branch</SelectItem>
+                    <SelectItem value="channel">Channel</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Destination</Label>
+                <Select value={form.destinationId} onValueChange={(value) => setForm((prev) => ({ ...prev, destinationId: value }))}>
+                  <SelectTrigger><SelectValue placeholder="Select destination" /></SelectTrigger>
+                  <SelectContent>{(form.destinationType === 'branch' ? branches : channels).map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
             </div>
-          </div>
-          <DialogFooter className="mt-6 border-t border-slate-100 bg-slate-50 px-0 pt-5 sm:mt-8 sm:pt-6"><Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button><Button onClick={handleCreate} disabled={saving}>{saving ? 'Saving...' : 'Confirm Distribution'}</Button></DialogFooter>
+          </section>
+
+          <section className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                <ArrowRight className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-foreground">Ledger details</h3>
+                <p className="text-xs text-muted-foreground">This creates a distribution record and stock movement entry.</p>
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Distribution Date</Label>
+                <DatePicker
+                  date={form.distributedAt}
+                  setDate={(date) => setForm((prev) => ({ ...prev, distributedAt: date || startOfToday() }))}
+                  placeholder="Select distribution date"
+                  className="w-full"
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label>Note</Label>
+                <Input
+                  value={form.note}
+                  onChange={(e) => setForm((prev) => ({ ...prev, note: e.target.value }))}
+                  placeholder="Teacher fair, retail partner, branch top-up..."
+                />
+              </div>
+            </div>
+          </section>
+        </div>
       </BookAdminModal>
     </div>
   );

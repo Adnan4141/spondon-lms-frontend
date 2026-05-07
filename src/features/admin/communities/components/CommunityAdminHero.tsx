@@ -34,10 +34,10 @@ export function CommunityAdminHero({
               <RefreshCw className={cn('mr-2 h-4 w-4', loading && 'animate-spin')} />
               Refresh
             </Button>
-            <Button variant="outline" onClick={onSeed} disabled={seeding} className="rounded-xl border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100">
+            {/* <Button variant="outline" onClick={onSeed} disabled={seeding} className="rounded-xl border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100">
               <DatabaseZap className={cn('mr-2 h-4 w-4', seeding && 'animate-pulse')} />
               {seeding ? 'Seeding...' : 'Seed demo'}
-            </Button>
+            </Button> */}
             <Button onClick={onCreate} className="rounded-xl bg-slate-950 text-white hover:bg-slate-800">
               <Plus className="mr-2 h-4 w-4" />
               Create Community
