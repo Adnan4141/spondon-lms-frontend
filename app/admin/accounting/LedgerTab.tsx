@@ -1,6 +1,16 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { deleteLedgerEntry, getLedgerEntries, type Account, type LedgerEntry } from '@/lib/api/accounting';
 import type { DistributionChannel, StockSource } from '@/lib/api/books';
 import type { ExportFormat } from '@/lib/export';
@@ -37,6 +47,7 @@ export function LedgerTab({
   const [formOpen, setFormOpen] = useState(false);
   const [editEntry, setEditEntry] = useState<LedgerEntry | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [entryToDelete, setEntryToDelete] = useState<LedgerEntry | null>(null);
 
   const LIMIT = 50;
 
@@ -93,13 +104,14 @@ export function LedgerTab({
     });
   }
 
-  async function handleDelete(entry: LedgerEntry) {
-    if (!window.confirm(`Delete daily entry ${entry.voucherNo || entry.id}? This removes the entry and any linked transfer row.`)) return;
-    setDeletingId(entry.id);
+  async function confirmDelete() {
+    if (!entryToDelete) return;
+    setDeletingId(entryToDelete.id);
     try {
-      const res = await deleteLedgerEntry(entry.id);
+      const res = await deleteLedgerEntry(entryToDelete.id);
       if (!res.success) throw new Error(res.message || 'Delete failed');
       toast({ title: 'Daily entry deleted', variant: 'success' });
+      setEntryToDelete(null);
       await load(page);
     } catch (error) {
       toast({ title: 'Delete failed', description: error instanceof Error ? error.message : 'Something went wrong', variant: 'destructive' });
@@ -151,9 +163,35 @@ export function LedgerTab({
         loading={loading}
         entries={entries}
         onEdit={setEditEntry}
-        onDelete={(entry) => void handleDelete(entry)}
+        onDelete={setEntryToDelete}
         deletingId={deletingId}
       />
+
+      <AlertDialog open={!!entryToDelete} onOpenChange={(open) => !open && setEntryToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete daily entry?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {entryToDelete
+                ? `Delete daily entry ${entryToDelete.voucherNo || entryToDelete.id}? This removes the entry and any linked transfer row.`
+                : 'This action cannot be undone.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!deletingId}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                void confirmDelete();
+              }}
+              disabled={!!deletingId}
+              className="bg-rose-600 text-white hover:bg-rose-700"
+            >
+              {deletingId ? 'Deleting…' : 'Delete entry'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <LedgerNewEntryDialog
         open={formOpen}
