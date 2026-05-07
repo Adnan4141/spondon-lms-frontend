@@ -284,7 +284,15 @@ export async function saveExamAnswers(
   });
 }
 
-
+export async function sendExamHeartbeat(
+  examId: string,
+  studentUserId: string,
+): Promise<ApiResponse<{ attemptId: string; lastHeartbeatAt: string }>> {
+  return apiRequest<ApiResponse<{ attemptId: string; lastHeartbeatAt: string }>>(`/exams/${examId}/heartbeat`, {
+    method: 'POST',
+    body: JSON.stringify({ studentUserId }),
+  });
+}
 
 export async function submitExamAttempt(examId: string, data: { studentUserId: string; antiCheatLog?: any }): Promise<ApiResponse<any>> {
   return apiRequest<ApiResponse<any>>(`/exams/${examId}/submit-attempt`, {
@@ -497,7 +505,7 @@ export interface BlueprintFolderRule {
   folderName?: string;
   questionCount: number;
   includeDescendants?: boolean;
-  selectionMode?: 'RANDOM' | 'MANUAL';
+  selectionMode?: SelectionMode;
   difficulty?: Difficulty | null;
 }
 

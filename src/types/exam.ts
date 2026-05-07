@@ -1,7 +1,7 @@
 // Exam types based on Prisma schema
 export type ExamType = 'PRACTICE' | 'SCHEDULED' | 'MODEL' | 'TALENT_HUNT' | 'UNIVERSITY';
 export type ExamScope = 'COURSE' | 'GLOBAL';
-export type SelectionMode = 'RANDOM' | 'MANUAL';
+export type SelectionMode = 'RANDOM' | 'MANUAL' | 'ALL_FROM_FOLDER' | 'RANDOM_COUNT' | 'MANUAL_PICK';
 export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD';
 
 export interface ExamSubjectFolderRule {
@@ -163,6 +163,8 @@ export interface ExamAttempt {
   status: string;
   totalMarks?: number | null;
   obtainedMarks?: number | null;
+  lastHeartbeatAt?: string | null;
+  closedReason?: string | null;
   student?: {
     id: string;
     fullName: string;
@@ -194,8 +196,11 @@ export interface Exam {
   settings?: any;
   pdfUrl?: string | null;
   solveSheetUrl?: string | null;
+  syllabusHtml?: string | null;
   showLeaderboard?: boolean;
   hideResult?: boolean;
+  autoSubmitOnDisconnect?: boolean;
+  disconnectGraceSeconds?: number;
   showPercentile?: boolean;
   universityName?: string | null;
   totalSets?: number | null;
@@ -251,12 +256,15 @@ export interface ExamStudentView {
   language?: string | null;
   pdfUrl?: string | null;
   solveSheetUrl?: string | null;
+  syllabusHtml?: string | null;
   solveSheetVisibility?: string | null;
   solveSheetScheduledAt?: string | null;
   courseId: string;
   branchId: string;
   batchId?: string | null;
   allowedAttempts: number;
+  autoSubmitOnDisconnect?: boolean;
+  disconnectGraceSeconds?: number;
   course?: Course;
   branch?: Branch;
   batch?: Batch | null;
@@ -290,6 +298,9 @@ export interface CreateExamDto {
   settings?: any;
   showLeaderboard?: boolean;
   hideResult?: boolean;
+  syllabusHtml?: string | null;
+  autoSubmitOnDisconnect?: boolean;
+  disconnectGraceSeconds?: number;
   solveSheetVisibility?: string;
   solveSheetScheduledAt?: string;
   language?: string;
@@ -320,6 +331,9 @@ export interface UpdateExamDto {
   settings?: any;
   showLeaderboard?: boolean;
   hideResult?: boolean;
+  syllabusHtml?: string | null;
+  autoSubmitOnDisconnect?: boolean;
+  disconnectGraceSeconds?: number;
   solveSheetVisibility?: string;
   solveSheetScheduledAt?: string;
 }
@@ -342,6 +356,11 @@ export interface StartAttemptResponse {
     examEngine?: ExamEngineType;
     mode: ExamMode;
     language?: string | null;
+    syllabusHtml?: string | null;
+    autoSubmitOnDisconnect?: boolean;
+    disconnectGraceSeconds?: number;
+    solveSheetVisibility?: string | null;
+    showLeaderboard?: boolean;
     settings?: { proctorStrict?: boolean; [k: string]: unknown } | null;
   };
   setName: string;

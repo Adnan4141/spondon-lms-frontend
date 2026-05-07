@@ -15,12 +15,17 @@ import {
   createExam,
   updateExam,
   createExamSection,
+  createExamSubject,
   deleteExam,
   deleteExamSection,
+  deleteExamSubject,
+  generateFromSubjects,
   generateSectionSets,
   getExamSections,
+  getExamSubjects,
   getExamById,
   getExams,
+  validateExamSubjects,
   type ExamSection,
 } from '@/lib/api/exams';
 import type { Course } from '@/types/course';
@@ -43,7 +48,6 @@ import {
 import { examWizardReducer, buildSectionFromType } from './wizard/examWizardReducer';
 import {
   WIZARD_FORM_INITIAL,
-  defaultSectionsFor,
   deserializeWizardForm,
   draftStorageKey,
   flattenFolders,
@@ -85,7 +89,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
   const draftHydratedRef = useRef(false);
   const urlInitializedRef = useRef(false);
 
-  const { tree, loading: folderLoading } = useExamWizardFolderTree(state.courseId, step, 3);
+  const { tree, loading: folderLoading, fallbackAll: folderFallbackAll } = useExamWizardFolderTree(state.courseId, step, 3);
   const leaves = useMemo(() => flattenFolders(tree), [tree]);
 
   const toast = useAdminToast();
@@ -94,6 +98,26 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
   useEffect(() => {
     dispatch({ type: 'SET_STEP', step });
   }, [step]);
+
+  useEffect(() => {
+    if (state.uiCategory === 'MULTI') {
+      if (!state.subjects.length) {
+        if (activeSectionId) setActiveSectionId(null);
+        return;
+      }
+      if (!activeSectionId || !state.subjects.some((s) => s.localId === activeSectionId)) {
+        setActiveSectionId(state.subjects[0].localId);
+      }
+      return;
+    }
+    if (!state.sections.length) {
+      if (activeSectionId) setActiveSectionId(null);
+      return;
+    }
+    if (!activeSectionId || !state.sections.some((s) => s.localId === activeSectionId)) {
+      setActiveSectionId(state.sections[0].localId);
+    }
+  }, [activeSectionId, state.sections, state.subjects, state.uiCategory]);
 
   useEffect(() => {
     if (urlInitializedRef.current) return;
@@ -178,10 +202,41 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
             language: ex.data.language ?? 'bn',
             durationMinutes: String(ex.data.durationMinutes ?? 60),
             deliveryMode: ex.data.mode === 'ONLINE' ? 'ONLINE' : 'OFFLINE',
+            syllabusHtml: ex.data.syllabusHtml ?? '',
+            autoSubmitOnDisconnect: Boolean(ex.data.autoSubmitOnDisconnect),
+            disconnectGraceSeconds: String(ex.data.disconnectGraceSeconds ?? 10),
+            showSolve: ex.data.solveSheetVisibility === 'IMMEDIATELY',
           },
         });
       }
       const secRes = await getExamSections(examId);
+      const subRes = await getExamSubjects(examId);
+      if (subRes.success && subRes.data?.length) {
+        const mappedSubjects: WizardSubject[] = subRes.data.map((s: ExamSubject) => ({
+          localId: s.id,
+          name: s.name,
+          count: s.questionCount,
+          mcqSingleCount: Number(s.mcqSingleCount ?? 0),
+          mcqPassageCount: Number(s.mcqPassageCount ?? 0),
+          cqCount: Number(s.cqCount ?? 0),
+          shortCount: Number(s.shortCount ?? 0),
+          marks: Number(s.marksPerQuestion ?? 1),
+          neg: Number(s.negativeMarks ?? 0),
+          passMarks: s.passMarks != null ? String(s.passMarks) : '',
+          compulsory: s.isMandatory,
+          folderRules: (s.folderRules ?? []).map((r) => ({
+            folderId: r.folderId,
+            folderName: r.folder?.name,
+            questionCount: r.questionCount,
+            selectionMode: r.selectionMode ?? 'RANDOM_COUNT',
+            excludedQuestionIds: r.excludedQuestionIds ?? [],
+            pinnedQuestionIds: r.pinnedQuestionIds ?? [],
+          })),
+        }));
+        dispatch({ type: 'MERGE', patch: { subjects: mappedSubjects, uiCategory: 'MULTI', sections: [] } });
+        setActiveSectionId(mappedSubjects[0]?.localId ?? null);
+        return;
+      }
       if (secRes.success && secRes.data?.length) {
         const mapped: WizardSection[] = secRes.data.map((s: ExamSection) => ({
           localId: s.id,
@@ -197,7 +252,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
                 folderId: r.folderId,
                 folderName: r.folderName,
                 questionCount: r.questionCount,
-                selectionMode: r.selectionMode ?? 'RANDOM',
+                selectionMode: r.selectionMode ?? 'RANDOM_COUNT',
                 excludedQuestionIds: r.excludedQuestionIds ?? [],
                 pinnedQuestionIds: r.pinnedQuestionIds ?? [],
               }))
@@ -242,12 +297,17 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
         title: state.title.trim(),
         type: mapUiCategoryToExamType(state.uiCategory as UiExamCategory),
         mode: mapDeliveryToExamMode(state.deliveryMode),
+        examEngine: state.uiCategory === 'MULTI' ? 'MULTI_SUBJECT' : undefined,
         durationMinutes: Number(state.durationMinutes) || 60,
         language: state.language,
         status: examId ? (serverExam?.status ?? 'DRAFT') : 'DRAFT',
         showLeaderboard: state.showLeaderboard,
         hideResult: state.hideResult,
         showPercentile: state.showPct,
+        syllabusHtml: state.syllabusHtml.trim() || null,
+        autoSubmitOnDisconnect: state.autoSubmitOnDisconnect,
+        disconnectGraceSeconds: Math.max(5, Number(state.disconnectGraceSeconds) || 10),
+        solveSheetVisibility: state.showSolve ? 'IMMEDIATELY' : 'HIDDEN',
         totalSets: Number(state.nSets) || 1,
         settings: {
           examWizard: {
@@ -279,7 +339,66 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
         }
         if (!id) return null;
 
-        if (state.uiCategory !== 'MULTI' && state.sections.length) {
+        if (state.uiCategory === 'MULTI') {
+          const existingSubjects = await getExamSubjects(id);
+          if (existingSubjects.success && existingSubjects.data?.length) {
+            for (const sub of existingSubjects.data) {
+              await deleteExamSubject(id, sub.id);
+            }
+          }
+          for (const [index, sub] of state.subjects.entries()) {
+            const questionCount =
+              Number(sub.mcqSingleCount || 0) +
+              Number(sub.mcqPassageCount || 0) +
+              Number(sub.cqCount || 0) +
+              Number(sub.shortCount || 0);
+            const created = await createExamSubject(id, {
+              name: sub.name.trim(),
+              questionCount,
+              mcqSingleCount: Number(sub.mcqSingleCount || 0),
+              mcqPassageCount: Number(sub.mcqPassageCount || 0),
+              cqCount: Number(sub.cqCount || 0),
+              shortCount: Number(sub.shortCount || 0),
+              marksPerQuestion: Number(sub.marks || 1),
+              negativeMarks: Number(sub.neg || 0),
+              passMarks: sub.passMarks ? Number(sub.passMarks) : undefined,
+              isMandatory: sub.compulsory,
+              sortOrder: index,
+              folderRules: sub.folderRules.map((r) => ({
+                folderId: r.folderId,
+                questionCount: r.questionCount,
+                selectionMode: r.selectionMode,
+                excludedQuestionIds: r.excludedQuestionIds,
+                pinnedQuestionIds: r.pinnedQuestionIds,
+              })),
+            });
+            if (!created.success) {
+              toast({ title: 'Subject save failed', description: created.message, variant: 'destructive' });
+              return null;
+            }
+          }
+          if (finalize) {
+            const validation = await validateExamSubjects(id, Number(state.nSets) || 1);
+            if (!validation.success || !validation.data?.valid) {
+              toast({
+                title: 'Question allocation incomplete',
+                description:
+                  validation.data?.errors?.[0] ?? validation.message ?? 'Check multi-subject folder allocations.',
+                variant: 'destructive',
+              });
+              return null;
+            }
+            const generated = await generateFromSubjects(id, {
+              setCount: Number(state.nSets) || 1,
+              language: state.language === 'en' ? 'en' : 'bn',
+              replaceExisting: true,
+            });
+            if (!generated.success) {
+              toast({ title: 'Generate failed', description: generated.message, variant: 'destructive' });
+              return null;
+            }
+          }
+        } else if (state.sections.length) {
           const existing = await getExamSections(id);
           if (existing.success && existing.data?.length) {
             for (const s of existing.data) {
@@ -289,6 +408,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
           for (const s of state.sections) {
             const folderRules = s.folderRules.map((r) => ({
               folderId: r.folderId,
+              folderName: r.folderName,
               questionCount: r.questionCount,
               selectionMode: r.selectionMode,
               excludedQuestionIds: r.excludedQuestionIds,
@@ -308,7 +428,12 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
               const union = [...new Set(s.folderRules.map((r) => r.folderId))];
               const mergedEx = [...new Set(s.folderRules.flatMap((r) => r.excludedQuestionIds))];
               const mergedPin = s.folderRules.flatMap((r) => r.pinnedQuestionIds);
-              const mode = mergedPin.length ? 'MANUAL' : 'RANDOM';
+              const mode =
+                mergedPin.length || s.folderRules.some((r) => r.selectionMode === 'MANUAL_PICK')
+                  ? 'MANUAL_PICK'
+                  : s.folderRules.every((r) => r.selectionMode === 'ALL_FROM_FOLDER')
+                    ? 'ALL_FROM_FOLDER'
+                    : 'RANDOM_COUNT';
               await generateSectionSets(id, created.data.id, {
                 folderIds: union,
                 setCount: Number(state.nSets) || 1,
@@ -368,7 +493,10 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
           showLeaderboard: ex.showLeaderboard ?? true,
           hideResult: ex.hideResult ?? false,
           showPct: ex.showPercentile ?? false,
-          showSolve: typeof w?.showSolve === 'boolean' ? w.showSolve : true,
+          showSolve: ex.solveSheetVisibility === 'IMMEDIATELY' || (typeof w?.showSolve === 'boolean' ? w.showSolve : true),
+          syllabusHtml: ex.syllabusHtml ?? '',
+          autoSubmitOnDisconnect: Boolean(ex.autoSubmitOnDisconnect),
+          disconnectGraceSeconds: String(ex.disconnectGraceSeconds ?? 10),
           shuffle: typeof w?.shuffle === 'string' ? (w.shuffle as string) : 'FULL',
           setNaming: (w?.setNaming as ExamWizardState['setNaming']) ?? 'ALPHA',
           instituteLabel: typeof w?.instituteLabel === 'string' ? (w.instituteLabel as string) : '',
@@ -382,10 +510,22 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
             localId: newLocalId(),
             name: s.name,
             count: s.questionCount,
+            mcqSingleCount: Number(s.mcqSingleCount ?? 0),
+            mcqPassageCount: Number(s.mcqPassageCount ?? 0),
+            cqCount: Number(s.cqCount ?? 0),
+            shortCount: Number(s.shortCount ?? 0),
             marks: Number(s.marksPerQuestion ?? 1),
             neg: Number(s.negativeMarks ?? 0),
             passMarks: s.passMarks != null ? String(s.passMarks) : '',
             compulsory: s.isMandatory,
+            folderRules: (s.folderRules ?? []).map((r) => ({
+              folderId: r.folderId,
+              folderName: r.folder?.name,
+              questionCount: r.questionCount,
+              selectionMode: r.selectionMode ?? 'RANDOM_COUNT',
+              excludedQuestionIds: r.excludedQuestionIds ?? [],
+              pinnedQuestionIds: r.pinnedQuestionIds ?? [],
+            })),
           }));
           dispatch({ type: 'MERGE', patch: { ...common, subjects, sections: [] } });
           setActiveSectionId(null);
@@ -403,7 +543,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
               ? (s.folderRules as FolderRuleDraft[]).map((r) => ({
                   folderId: r.folderId,
                   questionCount: r.questionCount,
-                  selectionMode: r.selectionMode ?? 'RANDOM',
+                  selectionMode: r.selectionMode ?? 'RANDOM_COUNT',
                   excludedQuestionIds: r.excludedQuestionIds ?? [],
                   pinnedQuestionIds: r.pinnedQuestionIds ?? [],
                 }))
@@ -476,8 +616,6 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
 
   const applyCategory = (id: UiExamCategory) => {
     dispatch({ type: 'APPLY_CATEGORY', category: id });
-    const first = defaultSectionsFor(id);
-    setActiveSectionId(first[0]?.localId ?? null);
   };
 
   const goNext = () => {
@@ -545,7 +683,16 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
     });
   };
 
-  const showStep3 = state.uiCategory !== 'MULTI' && state.uiCategory !== 'OMRB';
+  const showStep3 = state.uiCategory !== 'OMRB';
+  const pickerSubject = picker && state.uiCategory === 'MULTI'
+    ? state.subjects.find((x) => x.localId === picker.sectionLocalId)
+    : null;
+  const pickerSubjectType: 'MCQ' | 'CQ' | 'SHORT' =
+    pickerSubject && (pickerSubject.mcqSingleCount + pickerSubject.mcqPassageCount) > 0
+      ? 'MCQ'
+      : pickerSubject && pickerSubject.cqCount > 0
+        ? 'CQ'
+        : 'SHORT';
 
   return (
     <div className="min-h-0 flex-1 space-y-4 pb-8">
@@ -628,6 +775,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
           setExpanded={setExpanded}
           setPicker={setPicker}
           folderLoading={folderLoading}
+          folderFallbackAll={folderFallbackAll}
         />
       ) : null}
 
@@ -672,14 +820,19 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
         onOpenChange={(o) => !o && setPicker(null)}
         folderId={picker?.rule.folderId ?? ''}
         folderName={picker?.rule.folderName}
-        questionType={(picker && state.sections.find((x) => x.localId === picker.sectionLocalId)?.type) || 'MCQ'}
+        questionType={
+          state.uiCategory === 'MULTI'
+            ? pickerSubjectType
+            : (picker && state.sections.find((x) => x.localId === picker.sectionLocalId)?.type) || 'MCQ'
+        }
         excludedIds={picker?.rule.excludedQuestionIds ?? []}
         pinnedIds={picker?.rule.pinnedQuestionIds ?? []}
         onSave={(next) => {
           if (!picker) return;
           dispatch({
             type: 'APPLY_PICKER',
-            sectionLocalId: picker.sectionLocalId,
+            sectionLocalId: state.uiCategory === 'MULTI' ? undefined : picker.sectionLocalId,
+            subjectLocalId: state.uiCategory === 'MULTI' ? picker.sectionLocalId : undefined,
             folderId: picker.rule.folderId,
             excludedQuestionIds: next.excludedQuestionIds,
             pinnedQuestionIds: next.pinnedQuestionIds,

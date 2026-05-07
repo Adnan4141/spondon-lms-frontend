@@ -281,6 +281,14 @@ export default function StudentExamTakingPage() {
                   : 'ঘোষণা অনুযায়ী'}
             </p>
           </div>
+          {examMeta.syllabusHtml ? (
+            <div className="rounded-2xl bg-indigo-50/70 border border-indigo-100 p-4 text-sm text-slate-700 mb-6">
+              <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500 mb-2">
+                {lang === 'en' ? 'Syllabus' : 'সিলেবাস'}
+              </p>
+              <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: examMeta.syllabusHtml }} />
+            </div>
+          ) : null}
           {examMeta._count?.sets != null && (
             <p className="text-xs font-bold text-slate-500 mb-4">
               {ui.sets}: {examMeta._count.sets}

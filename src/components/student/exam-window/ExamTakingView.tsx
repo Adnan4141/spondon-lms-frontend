@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { AttemptResultResponse, ExamSectionBlock, StartAttemptResponse } from '@/types/exam';
-import { saveExamAnswers, saveExamAnswer, submitExamAttempt, getAttemptResult } from '@/lib/api/exams';
+import { saveExamAnswers, saveExamAnswer, sendExamHeartbeat, submitExamAttempt, getAttemptResult } from '@/lib/api/exams';
 import { detectQuestionLang, getExamUiStrings, getOptionLabel, type Lang } from './examUiCopy';
 
 type AnswerPayload = Record<string, unknown>;
@@ -139,6 +139,17 @@ export function ExamTakingView({
     }, 45_000);
     return () => clearInterval(id);
   }, [examId, studentUserId]);
+
+  useEffect(() => {
+    const intervalMs = Math.max(5, attemptData.exam.disconnectGraceSeconds ?? 10) * 1000;
+    const id = setInterval(() => {
+      sendExamHeartbeat(examId, studentUserId).catch(() => {
+        /* best effort */
+      });
+    }, Math.min(10_000, intervalMs));
+    void sendExamHeartbeat(examId, studentUserId);
+    return () => clearInterval(id);
+  }, [attemptData.exam.disconnectGraceSeconds, examId, studentUserId]);
 
   const hasTime = timeLeft !== null;
   useEffect(() => {

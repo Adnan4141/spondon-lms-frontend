@@ -5,6 +5,8 @@ import { Info, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -220,6 +222,45 @@ export function Step1CategoryInfo({
                 className="border-slate-200"
               />
             </div>
+            <div className="md:col-span-2 space-y-2">
+              <Label>Syllabus</Label>
+              <Textarea
+                value={state.syllabusHtml}
+                onChange={(e) => dispatch({ type: 'MERGE', patch: { syllabusHtml: e.target.value } })}
+                placeholder="Physics: Motion, Force, Work; Chemistry: Atomic structure..."
+                className="min-h-24 border-slate-200"
+              />
+            </div>
+            {state.deliveryMode === 'ONLINE' ? (
+              <div className="md:col-span-2 rounded-lg border border-slate-100 bg-slate-50 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <Label className="text-sm font-semibold text-slate-900">Auto-submit on disconnect</Label>
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      Heartbeat protection closes stale browser sessions after the grace period.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={state.autoSubmitOnDisconnect}
+                    onCheckedChange={(checked) =>
+                      dispatch({ type: 'MERGE', patch: { autoSubmitOnDisconnect: checked } })
+                    }
+                  />
+                </div>
+                {state.autoSubmitOnDisconnect ? (
+                  <div className="mt-3 max-w-40 space-y-2">
+                    <Label>Grace seconds</Label>
+                    <Input
+                      type="number"
+                      min={5}
+                      value={state.disconnectGraceSeconds}
+                      onChange={(e) => dispatch({ type: 'MERGE', patch: { disconnectGraceSeconds: e.target.value } })}
+                      className="border-slate-200"
+                    />
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
             {state.deliveryMode === 'OFFLINE' && (
               <>
                 <div className="space-y-2">

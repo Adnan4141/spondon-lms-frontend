@@ -18,6 +18,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { getQuestions } from '@/lib/api/question-bank';
 import type { Question } from '@/types/question';
+import type { SelectionMode } from '@/types/exam';
 import { cn } from '@/lib/utils';
 
 type Props = {
@@ -28,7 +29,7 @@ type Props = {
   questionType: 'MCQ' | 'CQ' | 'SHORT';
   excludedIds: string[];
   pinnedIds: string[];
-  onSave: (next: { excludedQuestionIds: string[]; pinnedQuestionIds: string[]; selectionMode: 'RANDOM' | 'MANUAL' }) => void;
+  onSave: (next: { excludedQuestionIds: string[]; pinnedQuestionIds: string[]; selectionMode: SelectionMode }) => void;
 };
 
 function stripHtml(s: string, max = 160) {
@@ -163,7 +164,7 @@ export function QuestionPickerModal({
   };
 
   const handleSave = () => {
-    const mode = pinned.length > 0 ? 'MANUAL' : 'RANDOM';
+    const mode: SelectionMode = pinned.length > 0 ? 'MANUAL_PICK' : 'RANDOM_COUNT';
     onSave({
       excludedQuestionIds: [...excluded],
       pinnedQuestionIds: pinned,

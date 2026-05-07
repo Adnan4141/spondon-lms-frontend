@@ -34,8 +34,36 @@ export function validateStep(state: ExamWizardState, step: number): StepValidati
       if (state.subjects.length === 0) {
         return { ok: false, summary: 'Add at least one subject for multi-subject exams.' };
       }
+      for (const sub of state.subjects) {
+        if (!sub.name.trim()) return { ok: false, summary: 'Every subject needs a name.' };
+        const total =
+          Number(sub.mcqSingleCount || 0) +
+          Number(sub.mcqPassageCount || 0) +
+          Number(sub.cqCount || 0) +
+          Number(sub.shortCount || 0);
+        if (total < 1) return { ok: false, summary: `Subject "${sub.name}" needs at least 1 question.` };
+        if (total > 500) return { ok: false, summary: `Subject "${sub.name}" exceeds the 500 question limit.` };
+      }
       return { ok: true };
     }
+  }
+  if (step === 3 && state.uiCategory === 'MULTI') {
+    for (const sub of state.subjects) {
+      if (!sub.folderRules.length) return { ok: false, summary: `Add at least one folder for "${sub.name}".` };
+      const allocated = sub.folderRules.reduce((sum, r) => sum + Number(r.questionCount || 0), 0);
+      if (allocated < sub.count) {
+        return { ok: false, summary: `"${sub.name}" needs ${sub.count} questions but only ${allocated} allocated.` };
+      }
+    }
+    return { ok: true };
+  }
+  if (step === 3) {
+    for (const s of state.sections) {
+      if (!s.folderRules.length) return { ok: false, summary: `Add at least one folder for "${s.label || s.type}".` };
+    }
+    return { ok: true };
+  }
+  if (step === 2) {
     if (state.uiCategory === 'OMRB') return { ok: true };
     if (state.sections.length === 0) {
       return { ok: false, summary: 'Add at least one section.' };

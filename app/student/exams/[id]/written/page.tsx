@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { startExamAttempt, saveExamAnswer, submitExamAttempt } from '@/lib/api/exams';
+import { startExamAttempt, saveExamAnswer, sendExamHeartbeat, submitExamAttempt } from '@/lib/api/exams';
 import type { StartAttemptResponse } from '@/types/exam';
 import { Button } from '@/components/ui/button';
 import { Clock, Send, ChevronDown, ChevronUp, CheckCircle2, AlertCircle, PenLine } from 'lucide-react';
@@ -124,6 +124,18 @@ export default function WrittenExamPage() {
     return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeLeft, submitted]);
+
+  useEffect(() => {
+    if (!examData || submitted) return;
+    const intervalMs = Math.max(5, examData.exam.disconnectGraceSeconds ?? 10) * 1000;
+    const id = setInterval(() => {
+      sendExamHeartbeat(examId, studentUserId).catch(() => {
+        /* best effort */
+      });
+    }, Math.min(10_000, intervalMs));
+    void sendExamHeartbeat(examId, studentUserId);
+    return () => clearInterval(id);
+  }, [examData, examId, studentUserId, submitted]);
 
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60).toString().padStart(2, '0');

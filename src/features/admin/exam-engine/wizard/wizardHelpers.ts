@@ -67,8 +67,8 @@ export function flattenFolders(
   const out: { id: string; path: string; q: number }[] = [];
   for (const n of nodes) {
     const p = [...prefix, n.name];
+    out.push({ id: n.id, path: p.join(' › '), q: n.questionCount ?? n.counts?.total ?? 0 });
     if (n.children?.length) out.push(...flattenFolders(n.children, p));
-    else out.push({ id: n.id, path: p.join(' › '), q: n.questionCount ?? n.counts?.total ?? 0 });
   }
   return out;
 }
@@ -110,6 +110,9 @@ export const WIZARD_FORM_INITIAL: ExamWizardState = {
   durationMinutes: '60',
   instituteLabel: '',
   paperCode: '',
+  syllabusHtml: '',
+  autoSubmitOnDisconnect: false,
+  disconnectGraceSeconds: '10',
   scheduleAt: undefined,
   solveAt: undefined,
   scheduleTime: '09:00',
@@ -142,6 +145,14 @@ export function deserializeWizardForm(json: string): ExamWizardState | null {
     if (o.scheduleAt && typeof o.scheduleAt === 'string') base.scheduleAt = new Date(o.scheduleAt);
     if (o.solveAt && typeof o.solveAt === 'string') base.solveAt = new Date(o.solveAt);
     if (!base.branchId) base.branchId = EXAM_WIZARD_ALL_BRANCHES;
+    base.subjects = (base.subjects ?? []).map((sub) => ({
+      ...sub,
+      mcqSingleCount: Number(sub.mcqSingleCount ?? sub.count ?? 0),
+      mcqPassageCount: Number(sub.mcqPassageCount ?? 0),
+      cqCount: Number(sub.cqCount ?? 0),
+      shortCount: Number(sub.shortCount ?? 0),
+      folderRules: sub.folderRules ?? [],
+    }));
     return base;
   } catch {
     return null;

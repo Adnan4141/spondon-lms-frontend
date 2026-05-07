@@ -34,10 +34,15 @@ export interface WizardSubject {
   localId: string;
   name: string;
   count: number;
+  mcqSingleCount: number;
+  mcqPassageCount: number;
+  cqCount: number;
+  shortCount: number;
   marks: number;
   neg: number;
   passMarks: string;
   compulsory: boolean;
+  folderRules: FolderRuleDraft[];
 }
 
 export interface ExamWizardState {
@@ -51,6 +56,9 @@ export interface ExamWizardState {
   durationMinutes: string;
   instituteLabel: string;
   paperCode: string;
+  syllabusHtml: string;
+  autoSubmitOnDisconnect: boolean;
+  disconnectGraceSeconds: string;
   scheduleAt: Date | undefined;
   solveAt: Date | undefined;
   scheduleTime: string;

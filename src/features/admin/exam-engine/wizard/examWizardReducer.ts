@@ -19,10 +19,16 @@ export type WizardFormAction =
   | { type: 'UPDATE_SECTION'; localId: string; patch: Partial<WizardSection> }
   | { type: 'TOGGLE_FOLDER'; sectionLocalId: string; folderId: string; folderName: string }
   | { type: 'UPDATE_RULE_COUNT'; sectionLocalId: string; folderId: string; count: number }
+  | { type: 'UPDATE_RULE_MODE'; sectionLocalId: string; folderId: string; selectionMode: FolderRuleDraft['selectionMode'] }
   | { type: 'REMOVE_FOLDER_RULE'; sectionLocalId: string; folderId: string }
+  | { type: 'TOGGLE_SUBJECT_FOLDER'; subjectLocalId: string; folderId: string; folderName: string }
+  | { type: 'UPDATE_SUBJECT_RULE_COUNT'; subjectLocalId: string; folderId: string; count: number }
+  | { type: 'UPDATE_SUBJECT_RULE_MODE'; subjectLocalId: string; folderId: string; selectionMode: FolderRuleDraft['selectionMode'] }
+  | { type: 'REMOVE_SUBJECT_FOLDER_RULE'; subjectLocalId: string; folderId: string }
   | {
       type: 'APPLY_PICKER';
-      sectionLocalId: string;
+      sectionLocalId?: string;
+      subjectLocalId?: string;
       folderId: string;
       excludedQuestionIds: string[];
       pinnedQuestionIds: string[];
@@ -81,7 +87,7 @@ export function examWizardReducer(state: ExamWizardState, action: WizardFormActi
                 folderId,
                 folderName,
                 questionCount: def,
-                selectionMode: 'RANDOM' as const,
+                selectionMode: 'RANDOM_COUNT' as const,
                 excludedQuestionIds: [],
                 pinnedQuestionIds: [],
               },
@@ -103,6 +109,19 @@ export function examWizardReducer(state: ExamWizardState, action: WizardFormActi
           };
         }),
       };
+    case 'UPDATE_RULE_MODE':
+      return {
+        ...state,
+        sections: state.sections.map((sec) => {
+          if (sec.localId !== action.sectionLocalId) return sec;
+          return {
+            ...sec,
+            folderRules: sec.folderRules.map((r) =>
+              r.folderId === action.folderId ? { ...r, selectionMode: action.selectionMode } : r,
+            ),
+          };
+        }),
+      };
     case 'REMOVE_FOLDER_RULE':
       return {
         ...state,
@@ -115,10 +134,26 @@ export function examWizardReducer(state: ExamWizardState, action: WizardFormActi
       return {
         ...state,
         sections: state.sections.map((sec) => {
-          if (sec.localId !== action.sectionLocalId) return sec;
+          if (!action.sectionLocalId || sec.localId !== action.sectionLocalId) return sec;
           return {
             ...sec,
             folderRules: sec.folderRules.map((r) =>
+              r.folderId === action.folderId
+                ? {
+                    ...r,
+                    excludedQuestionIds: action.excludedQuestionIds,
+                    pinnedQuestionIds: action.pinnedQuestionIds,
+                    selectionMode: action.selectionMode,
+                  }
+                : r,
+            ),
+          };
+        }),
+        subjects: state.subjects.map((sub) => {
+          if (!action.subjectLocalId || sub.localId !== action.subjectLocalId) return sub;
+          return {
+            ...sub,
+            folderRules: sub.folderRules.map((r) =>
               r.folderId === action.folderId
                 ? {
                     ...r,
@@ -140,10 +175,15 @@ export function examWizardReducer(state: ExamWizardState, action: WizardFormActi
             localId: newLocalId(),
             name: '',
             count: 25,
+            mcqSingleCount: 25,
+            mcqPassageCount: 0,
+            cqCount: 0,
+            shortCount: 0,
             marks: 1,
             neg: 0.25,
             passMarks: '',
             compulsory: true,
+            folderRules: [],
           },
         ],
       };
@@ -156,6 +196,69 @@ export function examWizardReducer(state: ExamWizardState, action: WizardFormActi
       };
     case 'REMOVE_SUBJECT':
       return { ...state, subjects: state.subjects.filter((x) => x.localId !== action.localId) };
+    case 'TOGGLE_SUBJECT_FOLDER': {
+      const { subjectLocalId, folderId, folderName } = action;
+      return {
+        ...state,
+        subjects: state.subjects.map((sub) => {
+          if (sub.localId !== subjectLocalId) return sub;
+          const has = sub.folderRules.some((r) => r.folderId === folderId);
+          if (has) return { ...sub, folderRules: sub.folderRules.filter((r) => r.folderId !== folderId) };
+          const def = Math.max(1, Math.ceil(sub.count / Math.max(1, sub.folderRules.length + 1)));
+          return {
+            ...sub,
+            folderRules: [
+              ...sub.folderRules,
+              {
+                folderId,
+                folderName,
+                questionCount: def,
+                selectionMode: 'RANDOM_COUNT' as const,
+                excludedQuestionIds: [],
+                pinnedQuestionIds: [],
+              },
+            ],
+          };
+        }),
+      };
+    }
+    case 'UPDATE_SUBJECT_RULE_COUNT':
+      return {
+        ...state,
+        subjects: state.subjects.map((sub) =>
+          sub.localId === action.subjectLocalId
+            ? {
+                ...sub,
+                folderRules: sub.folderRules.map((r) =>
+                  r.folderId === action.folderId ? { ...r, questionCount: Math.max(1, action.count) } : r,
+                ),
+              }
+            : sub,
+        ),
+      };
+    case 'UPDATE_SUBJECT_RULE_MODE':
+      return {
+        ...state,
+        subjects: state.subjects.map((sub) =>
+          sub.localId === action.subjectLocalId
+            ? {
+                ...sub,
+                folderRules: sub.folderRules.map((r) =>
+                  r.folderId === action.folderId ? { ...r, selectionMode: action.selectionMode } : r,
+                ),
+              }
+            : sub,
+        ),
+      };
+    case 'REMOVE_SUBJECT_FOLDER_RULE':
+      return {
+        ...state,
+        subjects: state.subjects.map((sub) =>
+          sub.localId === action.subjectLocalId
+            ? { ...sub, folderRules: sub.folderRules.filter((r) => r.folderId !== action.folderId) }
+            : sub,
+        ),
+      };
     default:
       return state;
   }

@@ -2,6 +2,8 @@
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
@@ -35,41 +37,137 @@ export function Step2Sections({ state, dispatch, onAddSection }: Props) {
   if (state.uiCategory === 'MULTI') {
     return (
       <Card className="border-slate-200 shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="font-serif text-lg text-[#0D1B35]">Subjects</CardTitle>
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
+          <div>
+            <CardTitle className="font-serif text-lg text-[#0D1B35]">Subjects & sections</CardTitle>
+            <p className="mt-1 text-xs text-slate-500">
+              Build every subject here, then attach question folders in the next step.
+            </p>
+          </div>
           <Button type="button" size="sm" className="bg-[#0D1B35] text-[#E2C98A]" onClick={() => dispatch({ type: 'ADD_SUBJECT' })}>
             + Add subject
           </Button>
         </CardHeader>
-        <CardContent className="space-y-2 text-sm text-slate-600">
-          <p>Use the existing Exam → Subjects screen after save to attach folder rules per subject.</p>
-          {state.subjects.map((sub) => (
-            <div key={sub.localId} className="flex flex-wrap gap-2 rounded-lg border p-2">
-              <Input
-                placeholder="Subject name"
-                value={sub.name}
-                onChange={(e) =>
-                  dispatch({ type: 'UPDATE_SUBJECT', localId: sub.localId, patch: { name: e.target.value } })
-                }
-                className="min-w-[140px] flex-1 border-slate-200"
-              />
-              <Input
-                type="number"
-                className="w-20 border-slate-200"
-                value={sub.count}
-                onChange={(e) =>
-                  dispatch({
-                    type: 'UPDATE_SUBJECT',
-                    localId: sub.localId,
-                    patch: { count: Number(e.target.value) },
-                  })
-                }
-              />
-              <Button type="button" variant="ghost" size="sm" onClick={() => dispatch({ type: 'REMOVE_SUBJECT', localId: sub.localId })}>
-                Remove
-              </Button>
-            </div>
-          ))}
+        <CardContent className="space-y-3 text-sm text-slate-600">
+          {state.subjects.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-slate-200 py-8 text-center text-sm text-slate-500">
+              Add Physics, Chemistry, Math, or any subject needed for this exam.
+            </p>
+          ) : null}
+          {state.subjects.map((sub, index) => {
+            const total =
+              Number(sub.mcqSingleCount || 0) +
+              Number(sub.mcqPassageCount || 0) +
+              Number(sub.cqCount || 0) +
+              Number(sub.shortCount || 0);
+            const patchCount = (patch: Partial<typeof sub>) => {
+              const next = { ...sub, ...patch };
+              const count =
+                Number(next.mcqSingleCount || 0) +
+                Number(next.mcqPassageCount || 0) +
+                Number(next.cqCount || 0) +
+                Number(next.shortCount || 0);
+              dispatch({ type: 'UPDATE_SUBJECT', localId: sub.localId, patch: { ...patch, count } });
+            };
+
+            return (
+              <div key={sub.localId} className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#0D1B35] text-xs font-black text-[#E2C98A]">
+                    {index + 1}
+                  </span>
+                  <Input
+                    placeholder="Subject name"
+                    value={sub.name}
+                    onChange={(e) =>
+                      dispatch({ type: 'UPDATE_SUBJECT', localId: sub.localId, patch: { name: e.target.value } })
+                    }
+                    className="h-9 min-w-[180px] flex-1 border-slate-200 bg-white text-sm font-semibold"
+                  />
+                  <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                    <Label className="text-[11px] font-bold text-slate-500">Mandatory</Label>
+                    <Switch
+                      checked={sub.compulsory}
+                      onCheckedChange={(checked) =>
+                        dispatch({ type: 'UPDATE_SUBJECT', localId: sub.localId, patch: { compulsory: checked } })
+                      }
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-rose-600"
+                    onClick={() => dispatch({ type: 'REMOVE_SUBJECT', localId: sub.localId })}
+                  >
+                    Remove
+                  </Button>
+                </div>
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-8">
+                  {[
+                    ['MCQ single', 'mcqSingleCount'],
+                    ['Passage MCQ', 'mcqPassageCount'],
+                    ['CQ', 'cqCount'],
+                    ['SHORT', 'shortCount'],
+                  ].map(([label, key]) => (
+                    <div key={key} className="space-y-1">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{label}</span>
+                      <Input
+                        type="number"
+                        min={0}
+                        className="h-9 border-slate-200 bg-white text-sm"
+                        value={Number(sub[key as keyof typeof sub]) || 0}
+                        onChange={(e) => patchCount({ [key]: Math.max(0, Number(e.target.value) || 0) })}
+                      />
+                    </div>
+                  ))}
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Marks</span>
+                    <Input
+                      type="number"
+                      step="0.25"
+                      className="h-9 border-slate-200 bg-white text-sm"
+                      value={sub.marks}
+                      onChange={(e) =>
+                        dispatch({ type: 'UPDATE_SUBJECT', localId: sub.localId, patch: { marks: Number(e.target.value) } })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Neg</span>
+                    <Input
+                      type="number"
+                      step="0.25"
+                      className="h-9 border-slate-200 bg-white text-sm"
+                      value={sub.neg}
+                      onChange={(e) =>
+                        dispatch({ type: 'UPDATE_SUBJECT', localId: sub.localId, patch: { neg: Number(e.target.value) } })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Pass marks</span>
+                    <Input
+                      type="number"
+                      step="0.25"
+                      className="h-9 border-slate-200 bg-white text-sm"
+                      value={sub.passMarks}
+                      onChange={(e) =>
+                        dispatch({ type: 'UPDATE_SUBJECT', localId: sub.localId, patch: { passMarks: e.target.value } })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Total</span>
+                    <div className="flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm font-black text-[#0D1B35]">
+                      {total}Q
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </CardContent>
       </Card>
     );
