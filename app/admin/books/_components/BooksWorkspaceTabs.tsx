@@ -1,15 +1,12 @@
 'use client';
 
+import { useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { BooksDashboardData } from '@/features/admin/books/hooks/useBooksData';
 import { BookCatalogTab } from '@/features/admin/books/components/BookCatalogTab';
 import { CategoriesTab } from '@/features/admin/books/components/CategoriesTab';
-import { StockHistoryTab } from '@/features/admin/books/components/StockHistoryTab';
-import { DistributionTab } from '@/features/admin/books/components/DistributionTab';
 import { ChannelsSourcesTab } from '@/features/admin/books/components/ChannelsSourcesTab';
-import { OnlineSalesTab } from '@/features/admin/books/components/OnlineSalesTab';
 import { CourseCommerceTab } from '@/features/admin/books/components/CourseCommerceTab';
-import { BranchSaleTab } from '@/features/admin/books/components/BranchSaleTab';
 import { BOOKS_ADMIN_TABS } from './books-admin-tab-config';
 import { BooksCommerceIntroCards } from './BooksCommerceIntroCards';
 
@@ -18,10 +15,13 @@ type BooksWorkspaceTabsProps = {
 };
 
 export function BooksWorkspaceTabs({ data }: BooksWorkspaceTabsProps) {
-  const { books, categories, branches, channels, sources, programs, refreshAll, refreshCategories } = data;
+  const { books, categories, channels, sources, programs, refreshAll, refreshCategories } = data;
+  const searchParams = useSearchParams();
+  const requestedTab = searchParams.get('tab') || 'catalog';
+  const defaultTab = BOOKS_ADMIN_TABS.some((tab) => tab.value === requestedTab) ? requestedTab : 'catalog';
 
   return (
-    <Tabs defaultValue="catalog" className="space-y-5">
+    <Tabs defaultValue={defaultTab} className="space-y-5">
       <div className="sticky top-0 z-10 -mx-1 px-1 pb-1 pt-0.5">
         <TabsList className="flex h-auto w-full min-w-0 flex-wrap justify-start gap-1 rounded-xl border border-border/70 bg-card p-1 shadow-sm backdrop-blur-sm">
           {BOOKS_ADMIN_TABS.map((tab) => {
@@ -48,24 +48,8 @@ export function BooksWorkspaceTabs({ data }: BooksWorkspaceTabsProps) {
         <CategoriesTab categories={categories} onRefresh={refreshCategories} />
       </TabsContent>
 
-      <TabsContent value="stock" className="mt-0 outline-none">
-        <StockHistoryTab books={books} branches={branches} sources={sources} channels={channels} />
-      </TabsContent>
-
-      <TabsContent value="distribution" className="mt-0 outline-none">
-        <DistributionTab books={books} branches={branches} channels={channels} />
-      </TabsContent>
-
       <TabsContent value="channels" className="mt-0 outline-none">
         <ChannelsSourcesTab channels={channels} sources={sources} onRefresh={refreshAll} />
-      </TabsContent>
-
-      <TabsContent value="online-sales" className="mt-0 outline-none">
-        <OnlineSalesTab />
-      </TabsContent>
-
-      <TabsContent value="offline-sales" className="mt-0 outline-none">
-        <BranchSaleTab books={books} branches={branches} onSaleRecorded={refreshAll} />
       </TabsContent>
 
       <TabsContent value="commerce" className="mt-0 space-y-6 outline-none">

@@ -8,6 +8,5 @@ export { CategoriesTab } from './components/CategoriesTab';
 export { StockHistoryTab } from './components/StockHistoryTab';
 export { DistributionTab } from './components/DistributionTab';
 export { ChannelsSourcesTab } from './components/ChannelsSourcesTab';
-export { BranchSaleTab } from './components/BranchSaleTab';
 export { CourseCommerceTab } from './components/CourseCommerceTab';
 export { useBooksData } from './hooks/useBooksData';

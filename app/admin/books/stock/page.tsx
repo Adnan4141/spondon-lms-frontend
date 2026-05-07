@@ -1,5 +1,62 @@
-import { redirect } from 'next/navigation';
+'use client';
+
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { useBooksData } from '@/features/admin/books/hooks/useBooksData';
+import { StockHistoryTab } from '@/features/admin/books/components/StockHistoryTab';
+import { DistributionTab } from '@/features/admin/books/components/DistributionTab';
+import { BooksRouteHeader } from '../_components/BooksRouteHeader';
+import { BooksWorkspaceLoading } from '../_components/BooksWorkspaceLoading';
+import { ArrowRightLeft, Boxes, RefreshCw } from 'lucide-react';
 
 export default function BooksStockPage() {
-  redirect('/admin/books');
+  const data = useBooksData();
+
+  if (data.loading) {
+    return <BooksWorkspaceLoading />;
+  }
+
+  return (
+    <div className="mx-auto max-w-[1600px] space-y-5 px-1 pb-12">
+      <BooksRouteHeader
+        title="Stock & Distribution"
+        subtitle="Receive, transfer, distribute, correct, and audit physical book inventory separately from catalog setup."
+      >
+        <Button variant="outline" className="h-10 gap-2 rounded-xl" onClick={() => void data.refreshAll()}>
+          <RefreshCw className="h-4 w-4" />
+          Refresh
+        </Button>
+      </BooksRouteHeader>
+
+      <Tabs defaultValue="history" className="space-y-5">
+        <TabsList className="flex h-auto w-full min-w-0 flex-wrap justify-start gap-1 rounded-xl border border-border/70 bg-card p-1 shadow-sm">
+          <TabsTrigger value="history" className="rounded-lg px-4 py-2 text-sm font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+            <Boxes className="mr-2 h-4 w-4" />
+            Stock History
+          </TabsTrigger>
+          <TabsTrigger value="distribution" className="rounded-lg px-4 py-2 text-sm font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+            <ArrowRightLeft className="mr-2 h-4 w-4" />
+            Distribution
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="history" className="mt-0 outline-none">
+          <StockHistoryTab
+            books={data.books}
+            branches={data.branches}
+            sources={data.sources}
+            channels={data.channels}
+          />
+        </TabsContent>
+
+        <TabsContent value="distribution" className="mt-0 outline-none">
+          <DistributionTab
+            books={data.books}
+            branches={data.branches}
+            channels={data.channels}
+          />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
 }

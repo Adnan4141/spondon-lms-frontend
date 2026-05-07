@@ -27,9 +27,9 @@ import {
   Phone,
   User,
   FileText,
-  ArrowLeft,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { BooksRouteHeader } from '../_components/BooksRouteHeader';
 
 type StatusTab = 'ALL' | DeliveryStatus;
 
@@ -124,26 +124,13 @@ export default function OnlineOrdersPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8 pb-16 pt-4">
+    <div className="mx-auto max-w-full space-y-8 pb-16 pt-4">
       <Toaster toasts={toasts} removeToast={removeToast} />
 
-      {/* Header */}
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <button
-              type="button"
-              onClick={() => window.history.back()}
-              className="inline-flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-indigo-600"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" /> Back
-            </button>
-          </div>
-          <h1 className="text-3xl font-black tracking-tight text-slate-900">Online Orders</h1>
-          <p className="mt-2 max-w-xl text-sm font-medium leading-relaxed text-slate-500">
-            Manage online book orders, update delivery status, and track shipments.
-          </p>
-        </div>
+      <BooksRouteHeader
+        title="Online Orders"
+        subtitle="Manage online book orders, update delivery status, and track shipments."
+      >
         <Button
           type="button"
           variant="outline"
@@ -154,7 +141,7 @@ export default function OnlineOrdersPage() {
           <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
           Refresh
         </Button>
-      </div>
+      </BooksRouteHeader>
 
       {/* Stats cards */}
       {!loading && orders.length > 0 && (

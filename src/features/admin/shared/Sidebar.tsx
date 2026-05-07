@@ -40,6 +40,8 @@ import {
   Info,
   Lock,
   UsersRound,
+  ShoppingCart,
+  Truck,
 } from 'lucide-react';
 
 type MenuItem = {
@@ -108,6 +110,19 @@ function buildMenuSections(role: string | null): MenuSection[] {
   ];
   const showCommunities = role === 'SUPER_ADMIN' || isModerator;
 
+  // ----- Books -----
+  const allBookItems: MenuItem[] = [
+    { title: 'Books', href: '/admin/books', icon: BookOpen, color: 'text-blue-500', bg: 'bg-blue-50' },
+    { title: 'Offline Sales', href: '/admin/books/offline-sales', icon: ShoppingCart, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { title: 'Online Orders', href: '/admin/books/orders', icon: Truck, color: 'text-sky-600', bg: 'bg-sky-50' },
+    { title: 'Stock & Distribution', href: '/admin/books/stock', icon: Package, color: 'text-amber-600', bg: 'bg-amber-50' },
+  ];
+  const bookItems: MenuItem[] = isModerator
+    ? []
+    : isBranchAdmin
+      ? allBookItems.filter((item) => ['/admin/books/offline-sales', '/admin/books/stock'].includes(item.href))
+      : allBookItems;
+
   // ----- Management -----
   const managementItems: MenuItem[] = [
     { title: 'Teachers', href: '/admin/teachers', icon: Presentation, color: 'text-cyan-600', bg: 'bg-cyan-50' },
@@ -136,7 +151,6 @@ function buildMenuSections(role: string | null): MenuSection[] {
     { title: 'Accounting', href: '/admin/accounting', icon: Wallet, color: 'text-sky-600', bg: 'bg-sky-50' },
     { title: 'Settings', href: '/admin/settings', icon: Settings, color: 'text-slate-500', bg: 'bg-slate-50' },
     { title: 'Inventory', href: '/admin/inventory', icon: Package, color: 'text-amber-600', bg: 'bg-amber-50' },
-    { title: 'Books', href: '/admin/books', icon: BookOpen, color: 'text-blue-500', bg: 'bg-blue-50' },
   ];
   const adminItems: MenuItem[] = isAccounts
     ? allAdminItems.filter((i) =>
@@ -162,6 +176,7 @@ function buildMenuSections(role: string | null): MenuSection[] {
   if (showQuestions) sections.push({ label: 'Question System', items: questionItems });
   if (showExam) sections.push({ label: 'Exam', items: examItems });
   if (showCommunities) sections.push({ label: 'Community', items: communityItems });
+  if (bookItems.length > 0) sections.push({ label: 'Books', items: bookItems });
   if (managementItems.length > 0) sections.push({ label: 'Management', items: managementItems });
   if (role === 'SUPER_ADMIN') {
     sections.push({ label: 'System', items: userMgmtItems });
@@ -277,8 +292,8 @@ export function Sidebar({ mobileOpen, onCloseMobile, collapsed, onToggleCollapse
                 {section.items.map((item) => {
                   const Icon = item.icon;
                   const isActive =
-                    item.href === '/admin'
-                      ? pathname === '/admin'
+                    item.href === '/admin' || item.href === '/admin/books'
+                      ? pathname === item.href
                       : pathname === item.href || (pathname?.startsWith(`${item.href}/`) ?? false);
 
                   return (

@@ -191,6 +191,29 @@ export interface CreateBookSaleDto {
   delivery?: BookSaleDeliveryDto;
 }
 
+export interface CreateOfflineBookSaleDto {
+  branchId: string;
+  studentUserId: string;
+  items: Array<{
+    bookId: string;
+    qty: number;
+  }>;
+}
+
+export interface OfflineBookSaleResponse {
+  sale: BookSale;
+  invoice: {
+    id: string;
+    invoiceNumber?: string | null;
+    status: string;
+    totalAmount: number | string;
+    paidAmount: number | string;
+    dueAmount: number | string;
+    pdfUrl?: string | null;
+  };
+  pdfUrl?: string | null;
+}
+
 export async function getBooks(params?: {
   isEbook?: boolean;
   featured?: boolean;
@@ -436,6 +459,13 @@ export async function getBookSales(params?: {
 
 export async function createBookSale(data: CreateBookSaleDto): Promise<ApiResponse<BookSale>> {
   return apiRequest<ApiResponse<BookSale>>('/books/sales', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function createOfflineBookSale(data: CreateOfflineBookSaleDto): Promise<ApiResponse<OfflineBookSaleResponse>> {
+  return apiRequest<ApiResponse<OfflineBookSaleResponse>>('/books/offline-sales', {
     method: 'POST',
     body: JSON.stringify(data),
   });

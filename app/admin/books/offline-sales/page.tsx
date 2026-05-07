@@ -1,0 +1,405 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  createOfflineBookSale,
+  getBooks,
+  getBookStock,
+  type Book,
+  type BookStock,
+  type OfflineBookSaleResponse,
+} from '@/lib/api/books';
+import { getBranches, type Branch } from '@/lib/api/branches';
+import { getStudents, type Student } from '@/lib/api/students';
+import { API_ORIGIN } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
+import { Toaster } from '@/components/ui/toast';
+import { cn } from '@/lib/utils';
+import { BooksRouteHeader } from '../_components/BooksRouteHeader';
+import {
+  CheckCircle2,
+  FileText,
+  Loader2,
+  Minus,
+  Plus,
+  ReceiptText,
+  RefreshCw,
+  Search,
+  ShoppingCart,
+  Trash2,
+  UserRound,
+} from 'lucide-react';
+
+type CartItem = {
+  bookId: string;
+  name: string;
+  sku: string;
+  price: number;
+  qty: number;
+  available: number;
+};
+
+function money(value: number | string | null | undefined) {
+  return `৳${Number(value || 0).toLocaleString()}`;
+}
+
+function absolutePdfUrl(url?: string | null) {
+  if (!url) return null;
+  if (/^https?:\/\//i.test(url)) return url;
+  return `${API_ORIGIN}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
+export default function OfflineBookSalesPage() {
+  const { toast, toasts, removeToast } = useToast();
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [books, setBooks] = useState<Book[]>([]);
+  const [stockRows, setStockRows] = useState<BookStock[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [branchId, setBranchId] = useState('');
+  const [studentSearch, setStudentSearch] = useState('');
+  const [bookSearch, setBookSearch] = useState('');
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [studentLoading, setStudentLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [receipt, setReceipt] = useState<OfflineBookSaleResponse | null>(null);
+
+  const loadBaseData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [branchesRes, booksRes] = await Promise.all([getBranches(), getBooks({ isEbook: false })]);
+      const nextBranches = branchesRes.success && branchesRes.data ? branchesRes.data : [];
+      setBranches(nextBranches);
+      setBooks(booksRes.success && booksRes.data ? booksRes.data.filter((book) => !book.isEbook) : []);
+      setBranchId((current) => current || nextBranches[0]?.id || '');
+    } catch (error) {
+      toast({ title: 'Load failed', description: error instanceof Error ? error.message : 'Something went wrong', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  const loadBranchStock = useCallback(async (nextBranchId: string) => {
+    if (!nextBranchId) {
+      setStockRows([]);
+      return;
+    }
+    const res = await getBookStock({ branchId: nextBranchId });
+    setStockRows(res.success && res.data ? res.data : []);
+  }, []);
+
+  useEffect(() => {
+    void loadBaseData();
+  }, [loadBaseData]);
+
+  useEffect(() => {
+    void loadBranchStock(branchId);
+    setCart([]);
+    setReceipt(null);
+  }, [branchId, loadBranchStock]);
+
+  useEffect(() => {
+    const query = studentSearch.trim();
+    if (query.length < 2) {
+      setStudents([]);
+      return;
+    }
+    const timeout = window.setTimeout(async () => {
+      setStudentLoading(true);
+      try {
+        const res = await getStudents({ role: 'STUDENT', search: query, limit: 8 });
+        setStudents(res.success && res.data ? res.data : []);
+      } catch {
+        setStudents([]);
+      } finally {
+        setStudentLoading(false);
+      }
+    }, 300);
+    return () => window.clearTimeout(timeout);
+  }, [studentSearch]);
+
+  const stockByBookId = useMemo(
+    () => new Map(stockRows.map((row) => [row.bookId, Number(row.stockQty || 0)])),
+    [stockRows],
+  );
+
+  const visibleBooks = useMemo(() => {
+    const query = bookSearch.trim().toLowerCase();
+    return books
+      .map((book) => ({ book, available: stockByBookId.get(book.id) || 0 }))
+      .filter(({ book, available }) => {
+        if (available <= 0) return false;
+        if (!query) return true;
+        return `${book.name} ${book.sku} ${book.author || ''}`.toLowerCase().includes(query);
+      })
+      .slice(0, 24);
+  }, [bookSearch, books, stockByBookId]);
+
+  const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+  const totalQty = cart.reduce((sum, item) => sum + item.qty, 0);
+  const pdfUrl = absolutePdfUrl(receipt?.pdfUrl || receipt?.invoice.pdfUrl);
+
+  const addToCart = (book: Book, available: number) => {
+    setReceipt(null);
+    setCart((prev) => {
+      const existing = prev.find((item) => item.bookId === book.id);
+      if (existing) {
+        return prev.map((item) => item.bookId === book.id ? { ...item, qty: Math.min(item.available, item.qty + 1) } : item);
+      }
+      return [...prev, { bookId: book.id, name: book.name, sku: book.sku, price: Number(book.price), qty: 1, available }];
+    });
+  };
+
+  const updateQty = (bookId: string, delta: number) => {
+    setReceipt(null);
+    setCart((prev) => prev.map((item) => (
+      item.bookId === bookId ? { ...item, qty: Math.min(item.available, Math.max(1, item.qty + delta)) } : item
+    )));
+  };
+
+  const resetSale = () => {
+    setSelectedStudent(null);
+    setStudentSearch('');
+    setStudents([]);
+    setCart([]);
+    setReceipt(null);
+  };
+
+  const submitSale = async () => {
+    if (!branchId) {
+      toast({ title: 'Select a branch', variant: 'destructive' });
+      return;
+    }
+    if (!selectedStudent) {
+      toast({ title: 'Select a student', variant: 'destructive' });
+      return;
+    }
+    if (cart.length === 0) {
+      toast({ title: 'Add at least one book', variant: 'destructive' });
+      return;
+    }
+    const invalid = cart.find((item) => item.qty > item.available);
+    if (invalid) {
+      toast({ title: 'Stock unavailable', description: `${invalid.name} has only ${invalid.available} copies.`, variant: 'destructive' });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await createOfflineBookSale({
+        branchId,
+        studentUserId: selectedStudent.id,
+        items: cart.map((item) => ({ bookId: item.bookId, qty: item.qty })),
+      });
+      if (!res.success || !res.data) throw new Error(res.message || 'Sale failed');
+      setReceipt(res.data);
+      toast({ title: 'Paid invoice generated', variant: 'success' });
+      await loadBranchStock(branchId);
+      setCart([]);
+    } catch (error) {
+      toast({ title: 'Sale failed', description: error instanceof Error ? error.message : 'Something went wrong', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mx-auto max-w-[1500px] space-y-5 px-1 pb-12">
+      <Toaster toasts={toasts} removeToast={removeToast} />
+
+      <BooksRouteHeader
+        title="Offline Book Sale"
+        subtitle="Branch counter sale to student with branch stock validation and paid invoice PDF receipt."
+      >
+        <Button type="button" variant="outline" className="h-10 gap-2 rounded-xl" onClick={() => { void loadBaseData(); if (branchId) void loadBranchStock(branchId); }} disabled={loading}>
+          <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
+          Refresh
+        </Button>
+      </BooksRouteHeader>
+
+      {receipt ? (
+        <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-600 text-white">
+                <CheckCircle2 className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-black text-emerald-950">Sale completed</h2>
+                <p className="mt-1 text-sm font-semibold text-emerald-800">
+                  Invoice {receipt.invoice.invoiceNumber || receipt.invoice.id.slice(0, 8)} · {money(receipt.invoice.totalAmount)} · {receipt.invoice.status}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {pdfUrl ? (
+                <>
+                  <Button type="button" className="gap-2 bg-emerald-700 text-white hover:bg-emerald-800" onClick={() => window.open(pdfUrl, '_blank', 'noopener,noreferrer')}>
+                    <FileText className="h-4 w-4" />
+                    View PDF
+                  </Button>
+                  <Button asChild variant="outline" className="gap-2 border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-100">
+                    <a href={pdfUrl} download>
+                      Download PDF
+                    </a>
+                  </Button>
+                </>
+              ) : null}
+              <Button type="button" variant="outline" className="bg-white" onClick={resetSale}>New Sale</Button>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <section className="space-y-5">
+          <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-2">
+            <div className="space-y-2">
+              <Label className="text-xs font-black uppercase tracking-wider text-slate-500">Selling Branch</Label>
+              <Select value={branchId} onValueChange={setBranchId}>
+                <SelectTrigger className="h-11 rounded-xl bg-slate-50 font-bold"><SelectValue placeholder="Select branch" /></SelectTrigger>
+                <SelectContent>
+                  {branches.map((branch) => <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-black uppercase tracking-wider text-slate-500">Student</Label>
+              {selectedStudent ? (
+                <div className="flex h-11 items-center justify-between gap-3 rounded-xl border border-sky-200 bg-sky-50 px-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-black text-slate-900">{selectedStudent.fullName}</p>
+                    <p className="truncate text-xs text-slate-500">{selectedStudent.mobile} · {selectedStudent.studentProfile?.registrationNumber || 'No reg no'}</p>
+                  </div>
+                  <Button type="button" size="sm" variant="outline" className="h-8 bg-white" onClick={() => setSelectedStudent(null)}>Change</Button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+                  <Input className="h-11 rounded-xl bg-slate-50 pl-9 font-semibold" value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)} placeholder="Name, mobile, registration" />
+                  {studentSearch.trim().length >= 2 ? (
+                    <div className="absolute z-20 mt-2 max-h-72 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
+                      {studentLoading ? (
+                        <div className="flex items-center gap-2 px-3 py-3 text-sm font-semibold text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Searching...</div>
+                      ) : students.length === 0 ? (
+                        <div className="px-3 py-3 text-sm font-semibold text-slate-400">No student found.</div>
+                      ) : students.map((student) => (
+                        <button
+                          key={student.id}
+                          type="button"
+                          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-slate-50"
+                          onClick={() => { setSelectedStudent(student); setStudentSearch(''); setStudents([]); }}
+                        >
+                          <UserRound className="h-4 w-4 text-sky-600" />
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-black text-slate-900">{student.fullName}</span>
+                            <span className="block truncate text-xs text-slate-500">{student.mobile} · {student.studentProfile?.registrationNumber || 'No reg no'}</span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-black text-slate-900">Branch Stock Books</h2>
+                <p className="text-xs font-semibold text-slate-500">Only physical books with available branch stock are shown.</p>
+              </div>
+              <div className="relative w-full sm:w-80">
+                <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                <Input className="h-10 rounded-xl bg-slate-50 pl-9 font-semibold" value={bookSearch} onChange={(e) => setBookSearch(e.target.value)} placeholder="Search book or SKU" />
+              </div>
+            </div>
+
+            {loading ? (
+              <div className="flex items-center justify-center py-16 text-slate-400"><Loader2 className="h-6 w-6 animate-spin" /></div>
+            ) : visibleBooks.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-200 py-12 text-center text-sm font-bold text-slate-400">
+                No branch stock books found.
+              </div>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+                {visibleBooks.map(({ book, available }) => (
+                  <article key={book.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="min-h-20">
+                      <h3 className="line-clamp-2 text-sm font-black text-slate-900">{book.name}</h3>
+                      <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">{book.sku}</p>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-lg font-black text-sky-700">{money(book.price)}</p>
+                        <p className="text-xs font-semibold text-slate-500">Stock: {available}</p>
+                      </div>
+                      <Button type="button" variant="outline" className="rounded-xl bg-white" onClick={() => addToCart(book, available)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add
+                      </Button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+
+        <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:sticky xl:top-4">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-black text-slate-900">Sale Cart</h2>
+              <p className="text-xs font-semibold text-slate-500">Paid receipt will be generated.</p>
+            </div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50 text-sky-700">
+              <ShoppingCart className="h-5 w-5" />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {cart.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-200 py-10 text-center text-sm font-bold text-slate-400">No books added.</div>
+            ) : cart.map((item) => (
+              <div key={item.bookId} className="rounded-xl border border-slate-200 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-black text-slate-900">{item.name}</p>
+                    <p className="text-xs font-semibold text-slate-500">{item.sku} · {money(item.price)}</p>
+                  </div>
+                  <Button type="button" size="sm" variant="outline" className="h-8 w-8 p-0 text-rose-600" onClick={() => setCart((prev) => prev.filter((entry) => entry.bookId !== item.bookId))}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Button type="button" size="sm" variant="outline" className="h-8 w-8 p-0" onClick={() => updateQty(item.bookId, -1)}><Minus className="h-3.5 w-3.5" /></Button>
+                    <span className="w-8 text-center text-sm font-black">{item.qty}</span>
+                    <Button type="button" size="sm" variant="outline" className="h-8 w-8 p-0" onClick={() => updateQty(item.bookId, 1)} disabled={item.qty >= item.available}><Plus className="h-3.5 w-3.5" /></Button>
+                  </div>
+                  <p className="text-sm font-black text-slate-900">{money(item.price * item.qty)}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center justify-between text-sm font-bold text-slate-600"><span>Items</span><span>{totalQty}</span></div>
+            <div className="mt-2 flex items-center justify-between text-lg font-black text-slate-950"><span>Total</span><span>{money(total)}</span></div>
+          </div>
+
+          <Button type="button" className="mt-4 h-11 w-full gap-2 rounded-xl bg-sky-700 text-white hover:bg-sky-800" onClick={() => void submitSale()} disabled={saving || cart.length === 0}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ReceiptText className="h-4 w-4" />}
+            Confirm Paid Sale
+          </Button>
+        </aside>
+      </div>
+    </div>
+  );
+}

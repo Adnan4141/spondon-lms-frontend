@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ComponentType, type FormEvent } from 'react';
 import {
   getUsers,
   getUserById,
@@ -58,10 +58,15 @@ import {
   Trash2,
   Eye,
   Calendar,
+  Crown,
+  Calculator,
+  Presentation,
+  MessageCircle,
+  Activity,
+  Filter,
 } from 'lucide-react';
 
 const ALL_ROLES = ['SUPER_ADMIN', 'BRANCH_ADMIN', 'ACCOUNTS', 'TEACHER', 'MODERATOR'] as const;
-type AdminRole = (typeof ALL_ROLES)[number];
 
 const ROLE_LABELS: Record<string, string> = {
   SUPER_ADMIN: 'Super Admin',
@@ -73,12 +78,21 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const ROLE_COLORS: Record<string, string> = {
-  SUPER_ADMIN: 'bg-purple-100 text-purple-700 border-purple-200',
-  BRANCH_ADMIN: 'bg-sky-100 text-sky-700 border-sky-200',
-  ACCOUNTS: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-  TEACHER: 'bg-cyan-100 text-cyan-700 border-cyan-200',
-  MODERATOR: 'bg-amber-100 text-amber-700 border-amber-200',
-  STUDENT: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+  SUPER_ADMIN: 'bg-violet-50 text-violet-700 border-violet-200',
+  BRANCH_ADMIN: 'bg-sky-50 text-sky-700 border-sky-200',
+  ACCOUNTS: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  TEACHER: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+  MODERATOR: 'bg-amber-50 text-amber-700 border-amber-200',
+  STUDENT: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+};
+
+const ROLE_CARD_STYLES: Record<string, { active: string; icon: ComponentType<{ className?: string }> }> = {
+  ALL: { active: 'border-slate-800 bg-slate-900 text-white shadow-slate-200', icon: Users },
+  SUPER_ADMIN: { active: 'border-violet-500 bg-violet-600 text-white shadow-violet-100', icon: Crown },
+  BRANCH_ADMIN: { active: 'border-sky-500 bg-sky-600 text-white shadow-sky-100', icon: Building2 },
+  ACCOUNTS: { active: 'border-emerald-500 bg-emerald-600 text-white shadow-emerald-100', icon: Calculator },
+  TEACHER: { active: 'border-cyan-500 bg-cyan-600 text-white shadow-cyan-100', icon: Presentation },
+  MODERATOR: { active: 'border-amber-500 bg-amber-500 text-white shadow-amber-100', icon: MessageCircle },
 };
 
 const BD_MOBILE = /^01[3-9]\d{8}$/;
@@ -122,7 +136,7 @@ function UserForm({ user, branches, onSuccess, onCancel }: UserFormProps) {
 
   const roleNeedsBranch = ['BRANCH_ADMIN', 'TEACHER'].includes(role);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
 
@@ -446,55 +460,98 @@ export default function AdminUsersPage() {
   ];
 
   return (
-    <div className="min-h-screen space-y-6 p-6 bg-slate-50/50">
+    <div className="mx-auto max-w-[1600px] space-y-5 px-1 pb-12">
+      <Toaster toasts={toasts} removeToast={removeToast} />
+
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-600 text-white shadow-lg shadow-purple-200">
-            <ShieldCheck className="h-6 w-6" />
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-start gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white shadow-sm">
+              <ShieldCheck className="h-6 w-6" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-sky-600">Access Control</p>
+              <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">User Management</h1>
+              <p className="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-slate-500">
+                Manage admin staff, teachers, branch operators, accounts access, and moderator permissions.
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-black text-slate-900">User Management</h1>
-            <p className="text-sm text-slate-500 font-medium">Manage admin staff, teachers, and system roles</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" onClick={() => void refreshAll()} disabled={loading} className="h-10 gap-2 rounded-xl border-slate-200 bg-white font-bold">
+              <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
+              Refresh
+            </Button>
+            <Button onClick={openCreate} className="h-10 gap-2 rounded-xl bg-sky-700 text-white hover:bg-sky-800 hover:text-white focus-visible:text-white">
+              <Plus className="h-4 w-4" />
+              Add user
+            </Button>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => void refreshAll()} disabled={loading} className="gap-2">
-            <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
-            Refresh
-          </Button>
-          <Button onClick={openCreate} className="gap-2 bg-purple-600 text-white hover:bg-purple-700 hover:text-white focus-visible:text-white">
-            <Plus className="h-4 w-4" />
-            Add user
-          </Button>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-slate-700" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Staff Users</span>
+            </div>
+            <p className="mt-2 text-2xl font-black text-slate-950">{summaryLoading ? '…' : roleSummary.total}</p>
+          </div>
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-emerald-700" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Active Filter</span>
+            </div>
+            <p className="mt-2 text-2xl font-black text-emerald-900">{statusFilter || 'ALL'}</p>
+          </div>
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-amber-700" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-amber-700">Current View</span>
+            </div>
+            <p className="mt-2 truncate text-2xl font-black text-amber-950">{roleTab === 'ALL' ? 'All Roles' : ROLE_LABELS[roleTab]}</p>
+          </div>
         </div>
-      </div>
+      </section>
 
       {/* Stats bar */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            onClick={() => {
-              setRoleTab(tab.key);
-              setPage(1);
-            }}
-            className={cn(
-              'rounded-2xl border p-3 text-left transition-all hover:shadow-md',
-              roleTab === tab.key
-                ? 'border-purple-200 bg-purple-600 text-white shadow-lg shadow-purple-100'
-                : 'border-slate-200 bg-white text-slate-700 hover:border-purple-100',
-            )}
-          >
-            <p className={cn('text-xl font-black', roleTab === tab.key ? 'text-white' : 'text-slate-900')}>
-              {summaryLoading ? '…' : tab.count}
-            </p>
-            <p className={cn('text-[10px] font-bold uppercase tracking-wider mt-0.5', roleTab === tab.key ? 'text-white/80' : 'text-slate-400')}>
-              {tab.label}
-            </p>
-          </button>
-        ))}
+        {TABS.map((tab) => {
+          const meta = ROLE_CARD_STYLES[tab.key] ?? ROLE_CARD_STYLES.ALL;
+          const Icon = meta.icon;
+          const active = roleTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => {
+                setRoleTab(tab.key);
+                setPage(1);
+              }}
+              className={cn(
+                'group rounded-xl border p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md',
+                active
+                  ? cn(meta.active, 'shadow-lg')
+                  : 'border-slate-200 bg-white text-slate-700 hover:border-sky-200',
+              )}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className={cn('text-2xl font-black tabular-nums', active ? 'text-white' : 'text-slate-950')}>
+                    {summaryLoading ? '…' : tab.count}
+                  </p>
+                  <p className={cn('mt-1 text-[10px] font-black uppercase tracking-wider', active ? 'text-white/80' : 'text-slate-400')}>
+                    {tab.label}
+                  </p>
+                </div>
+                <div className={cn('rounded-lg border p-2 transition-colors', active ? 'border-white/20 bg-white/15' : 'border-slate-100 bg-slate-50 text-slate-500 group-hover:bg-sky-50 group-hover:text-sky-700')}>
+                  <Icon className="h-4 w-4" />
+                </div>
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       {/* Filters */}
@@ -503,7 +560,7 @@ export default function AdminUsersPage() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <Input
             placeholder="Search name, mobile, email…"
-            className="pl-9 h-10 rounded-xl border-slate-200 bg-slate-50 text-sm font-semibold"
+            className="h-11 rounded-xl border-slate-200 bg-slate-50 pl-9 text-sm font-semibold focus:bg-white"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -515,7 +572,7 @@ export default function AdminUsersPage() {
             setPage(1);
           }}
         >
-          <SelectTrigger className="h-10 w-36 rounded-xl border-slate-200 bg-slate-50 text-sm font-semibold">
+          <SelectTrigger className="h-11 w-38 rounded-xl border-slate-200 bg-slate-50 text-sm font-semibold">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -531,7 +588,7 @@ export default function AdminUsersPage() {
             setPage(1);
           }}
         >
-          <SelectTrigger className="h-10 w-44 rounded-xl border-slate-200 bg-slate-50 text-sm font-semibold">
+          <SelectTrigger className="h-11 w-48 rounded-xl border-slate-200 bg-slate-50 text-sm font-semibold">
             <SelectValue placeholder="All Branches" />
           </SelectTrigger>
           <SelectContent>
@@ -541,7 +598,7 @@ export default function AdminUsersPage() {
             ))}
           </SelectContent>
         </Select>
-        <p className="text-xs font-bold text-slate-400 ml-auto">
+        <p className="ml-auto rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black text-slate-500">
           {pagination
             ? users.length > 0
               ? `Rows ${(pagination.page - 1) * pagination.limit + 1}–${(pagination.page - 1) * pagination.limit + users.length} of ${pagination.total}`
@@ -551,10 +608,10 @@ export default function AdminUsersPage() {
       </div>
 
       {/* Table */}
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-400">
-            <RefreshCw className="h-8 w-8 animate-spin text-purple-400" />
+            <RefreshCw className="h-8 w-8 animate-spin text-sky-500" />
             <p className="text-sm font-bold">Loading users…</p>
           </div>
         ) : users.length === 0 ? (
@@ -566,7 +623,7 @@ export default function AdminUsersPage() {
           <>
             <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50/80 border-b border-slate-100">
+              <thead className="border-b border-slate-100 bg-slate-50/90">
                 <tr>
                   {['User', 'Role', 'Branch', 'Contact', 'Status', 'Joined', 'Actions'].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">
@@ -575,16 +632,16 @@ export default function AdminUsersPage() {
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
+              <tbody className="divide-y divide-slate-100">
                 {users.map((u) => (
-                  <tr key={u.id} className="group transition-colors hover:bg-slate-50/60">
-                    <td className="px-4 py-3">
+                  <tr key={u.id} className="group transition-colors hover:bg-sky-50/40">
+                    <td className="px-4 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 shrink-0 rounded-xl bg-linear-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-xs font-black shadow-sm">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-xs font-black text-white shadow-sm">
                           {getInitials(u.fullName)}
                         </div>
                         <div>
-                          <p className="font-bold text-slate-900 group-hover:text-purple-700 transition-colors">{u.fullName}</p>
+                          <p className="font-black text-slate-900 transition-colors group-hover:text-sky-800">{u.fullName}</p>
                           <p className="text-[10px] font-mono text-slate-400">{u.id.slice(0, 8)}…</p>
                         </div>
                       </div>
@@ -597,7 +654,7 @@ export default function AdminUsersPage() {
                     <td className="px-4 py-3">
                       {u.branch ? (
                         <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
-                          <Building2 className="h-3.5 w-3.5 text-slate-400" />
+                          <Building2 className="h-3.5 w-3.5 text-sky-500" />
                           {u.branch.name}
                         </div>
                       ) : (
@@ -622,8 +679,8 @@ export default function AdminUsersPage() {
                       <span className={cn(
                         'inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider border',
                         u.status === 'ACTIVE'
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : 'bg-rose-50 text-rose-700 border-rose-200',
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                          : 'border-rose-200 bg-rose-50 text-rose-700',
                       )}>
                         {u.status === 'ACTIVE' ? '● Active' : '○ Blocked'}
                       </span>
@@ -638,14 +695,14 @@ export default function AdminUsersPage() {
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => handleViewDetails(u)}
-                          className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-sky-50 hover:text-sky-700"
                           title="View details"
                         >
                           <Eye className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => openEdit(u)}
-                          className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-amber-50 hover:text-amber-600 transition-colors"
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-amber-50 hover:text-amber-700"
                           title="Edit user"
                         >
                           <Pencil className="h-4 w-4" />
@@ -653,7 +710,7 @@ export default function AdminUsersPage() {
                         <button
                           onClick={() => setBlockTarget(u)}
                           className={cn(
-                            'h-8 w-8 flex items-center justify-center rounded-lg transition-colors',
+                            'flex h-8 w-8 items-center justify-center rounded-lg transition-colors',
                             u.status === 'ACTIVE'
                               ? 'text-slate-400 hover:bg-rose-50 hover:text-rose-600'
                               : 'text-slate-400 hover:bg-emerald-50 hover:text-emerald-600',
@@ -664,7 +721,7 @@ export default function AdminUsersPage() {
                         </button>
                         <button
                           onClick={() => setDeleteTarget(u)}
-                          className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-700"
                           title="Delete user"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -677,7 +734,7 @@ export default function AdminUsersPage() {
             </table>
           </div>
           {pagination && pagination.pages > 1 && (
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/50 px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/80 px-4 py-3">
               <Button
                 type="button"
                 variant="outline"
@@ -687,7 +744,7 @@ export default function AdminUsersPage() {
               >
                 Previous
               </Button>
-              <p className="text-sm font-semibold text-slate-600">
+              <p className="text-sm font-black text-slate-600">
                 Page {pagination.page} of {pagination.pages}
               </p>
               <Button
@@ -707,7 +764,7 @@ export default function AdminUsersPage() {
 
       {/* Create / Edit Dialog */}
       <Dialog open={formOpen} onOpenChange={(o) => { if (!o) setFormOpen(false); }}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="font-black text-slate-900">
               {editingUser ? `Edit — ${editingUser.fullName}` : 'Add new user'}
@@ -724,7 +781,7 @@ export default function AdminUsersPage() {
 
       {/* Detail Dialog */}
       <Dialog open={!!detailUser} onOpenChange={(o) => { if (!o) setDetailUser(null); }}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="font-black text-slate-900">User Details</DialogTitle>
           </DialogHeader>
@@ -779,8 +836,6 @@ export default function AdminUsersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <Toaster toasts={toasts} removeToast={removeToast} />
     </div>
   );
 }

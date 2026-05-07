@@ -1,9 +1,11 @@
 'use client';
 
 import { useBooksData } from '@/features/admin/books/hooks/useBooksData';
-import { BooksWorkspaceHeader } from './_components/BooksWorkspaceHeader';
 import { BooksWorkspaceLoading } from './_components/BooksWorkspaceLoading';
 import { BooksWorkspaceTabs } from './_components/BooksWorkspaceTabs';
+import { BooksRouteHeader } from './_components/BooksRouteHeader';
+import { Button } from '@/components/ui/button';
+import { RefreshCw } from 'lucide-react';
 
 export default function BooksPage() {
   const data = useBooksData();
@@ -14,7 +16,15 @@ export default function BooksPage() {
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-5 px-1 pb-12">
-      <BooksWorkspaceHeader bookCount={data.books.length} channelCount={data.channels.length} onRefresh={data.refreshAll} />
+      <BooksRouteHeader
+        title="Book Catalog"
+        subtitle="Manage book records, categories, channels, course links, covers, PDFs, pricing, and public catalog setup."
+      >
+        <Button variant="outline" className="h-10 gap-2 rounded-xl" onClick={() => void data.refreshAll()}>
+          <RefreshCw className="h-4 w-4" />
+          Refresh
+        </Button>
+      </BooksRouteHeader>
       <BooksWorkspaceTabs data={data} />
     </div>
   );
