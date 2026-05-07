@@ -43,7 +43,7 @@ export function BookFormFooter({
             </Button>
             <Button
               type="button"
-              className="min-w-36 rounded-lg bg-linear-to-r from-sky-600 to-rose-600 font-semibold text-white shadow-sm hover:from-sky-500 hover:to-rose-500"
+              className="min-w-36 rounded-lg bg-linear-to-r from-sky-800 to-blue-800 font-semibold text-white shadow-sm hover:from-sky-500 hover:to-blue-500"
               onClick={onSubmit}
               disabled={submitting}
             >

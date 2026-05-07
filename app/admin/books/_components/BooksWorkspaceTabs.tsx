@@ -9,6 +9,7 @@ import { DistributionTab } from '@/features/admin/books/components/DistributionT
 import { ChannelsSourcesTab } from '@/features/admin/books/components/ChannelsSourcesTab';
 import { OnlineSalesTab } from '@/features/admin/books/components/OnlineSalesTab';
 import { CourseCommerceTab } from '@/features/admin/books/components/CourseCommerceTab';
+import { BranchSaleTab } from '@/features/admin/books/components/BranchSaleTab';
 import { BOOKS_ADMIN_TABS } from './books-admin-tab-config';
 import { BooksCommerceIntroCards } from './BooksCommerceIntroCards';
 
@@ -61,6 +62,10 @@ export function BooksWorkspaceTabs({ data }: BooksWorkspaceTabsProps) {
 
       <TabsContent value="online-sales" className="mt-0 outline-none">
         <OnlineSalesTab />
+      </TabsContent>
+
+      <TabsContent value="offline-sales" className="mt-0 outline-none">
+        <BranchSaleTab books={books} branches={branches} onSaleRecorded={refreshAll} />
       </TabsContent>
 
       <TabsContent value="commerce" className="mt-0 space-y-6 outline-none">

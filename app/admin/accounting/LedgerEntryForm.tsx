@@ -3,8 +3,10 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import {
   createLedgerEntry,
+  updateLedgerEntry,
   type Account,
   type CreateLedgerEntryPayload,
+  type LedgerEntry,
 } from '@/lib/api/accounting';
 import type { Branch } from '@/lib/api/branches';
 import type { DistributionChannel, StockSource } from '@/lib/api/books';
@@ -35,6 +37,8 @@ export function LedgerEntryForm({
   channels,
   onSuccess,
   onCancel,
+  mode = 'create',
+  initialEntry,
 }: {
   accounts: Account[];
   branches: Branch[];
@@ -42,19 +46,21 @@ export function LedgerEntryForm({
   channels: DistributionChannel[];
   onSuccess: () => void;
   onCancel: () => void;
+  mode?: 'create' | 'edit';
+  initialEntry?: LedgerEntry | null;
 }) {
   const { toast } = useToast();
-  const [entryDate, setEntryDate] = useState(new Date().toISOString().slice(0, 10));
-  const [flowType, setFlowType] = useState<FlowType>('CREDIT');
-  const [amount, setAmount] = useState('');
-  const [accountId, setAccountId] = useState('');
+  const [entryDate, setEntryDate] = useState(initialEntry?.entryDate ? new Date(initialEntry.entryDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
+  const [flowType, setFlowType] = useState<FlowType>((initialEntry?.flowType as FlowType) || 'CREDIT');
+  const [amount, setAmount] = useState(initialEntry?.amount != null ? String(initialEntry.amount) : '');
+  const [accountId, setAccountId] = useState(initialEntry?.accountId || '');
   const [toAccountId, setToAccountId] = useState('');
-  const [branchId, setBranchId] = useState('');
-  const [sourceType, setSourceType] = useState<SourceTypeValue>('NONE');
-  const [sourceId, setSourceId] = useState('');
-  const [manualSourceLabel, setManualSourceLabel] = useState('');
-  const [purpose, setPurpose] = useState('');
-  const [description, setDescription] = useState('');
+  const [branchId, setBranchId] = useState(initialEntry?.branchId || '');
+  const [sourceType, setSourceType] = useState<SourceTypeValue>((initialEntry?.sourceType as SourceTypeValue) || 'NONE');
+  const [sourceId, setSourceId] = useState(initialEntry?.sourceType === 'OTHER' ? '' : initialEntry?.sourceId || '');
+  const [manualSourceLabel, setManualSourceLabel] = useState(initialEntry?.sourceType === 'OTHER' ? initialEntry?.sourceId || '' : '');
+  const [purpose, setPurpose] = useState(initialEntry?.purpose || '');
+  const [description, setDescription] = useState(initialEntry?.description || '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -116,9 +122,11 @@ export function LedgerEntryForm({
         purpose: purpose.trim() || undefined,
         description: description.trim() || undefined,
       };
-      const res = await createLedgerEntry(payload);
-      if (!res.success) throw new Error(res.message || 'Create failed');
-      toast({ title: 'Daily entry saved', variant: 'success' });
+      const res = mode === 'edit' && initialEntry?.id
+        ? await updateLedgerEntry(initialEntry.id, payload)
+        : await createLedgerEntry(payload);
+      if (!res.success) throw new Error(res.message || (mode === 'edit' ? 'Update failed' : 'Create failed'));
+      toast({ title: mode === 'edit' ? 'Daily entry updated' : 'Daily entry saved', variant: 'success' });
       onSuccess();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -232,7 +240,7 @@ export function LedgerEntryForm({
         <Button type="button" variant="outline" onClick={onCancel} disabled={submitting}>Cancel</Button>
         <Button type="submit" className="bg-sky-600 text-white hover:bg-sky-700 hover:text-white" disabled={submitting}>
           {submitting ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : null}
-          Save entry
+          {mode === 'edit' ? 'Update entry' : 'Save entry'}
         </Button>
       </div>
     </form>

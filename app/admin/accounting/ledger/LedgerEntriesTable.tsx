@@ -2,6 +2,7 @@
 
 import type { LedgerEntry } from '@/lib/api/accounting';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Table,
   TableBody,
@@ -11,15 +12,18 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import { RefreshCw } from 'lucide-react';
+import { Pencil, RefreshCw, Trash2 } from 'lucide-react';
 import { fmtCur, fmtDate, entryFlowLabel } from '../utils';
 
 type Props = {
   loading: boolean;
   entries: LedgerEntry[];
+  onEdit?: (entry: LedgerEntry) => void;
+  onDelete?: (entry: LedgerEntry) => void;
+  deletingId?: string | null;
 };
 
-export function LedgerEntriesTable({ loading, entries }: Props) {
+export function LedgerEntriesTable({ loading, entries, onEdit, onDelete, deletingId }: Props) {
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       {loading ? (
@@ -29,14 +33,14 @@ export function LedgerEntriesTable({ loading, entries }: Props) {
           <Table>
             <TableHeader className="bg-slate-50/80">
               <TableRow>
-                {['Date', 'Voucher', 'Account', 'Type', 'Source', 'Purpose', 'Ref', 'Amount'].map((header) => (
+                {['Date', 'Voucher', 'Account', 'Type', 'Source', 'Purpose', 'Ref', 'Amount', 'Actions'].map((header) => (
                   <TableHead key={header} className="text-[10px] font-black uppercase tracking-widest text-slate-400">{header}</TableHead>
                 ))}
               </TableRow>
             </TableHeader>
             <TableBody>
               {entries.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="py-12 text-center text-sm font-bold text-slate-400">No ledger entries found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="py-12 text-center text-sm font-bold text-slate-400">No ledger entries found.</TableCell></TableRow>
               ) : entries.map((entry) => (
                 <TableRow key={entry.id} className="hover:bg-slate-50/60">
                   <TableCell className="font-mono text-xs text-slate-500 whitespace-nowrap">{fmtDate(entry.entryDate)}</TableCell>
@@ -80,6 +84,32 @@ export function LedgerEntriesTable({ loading, entries }: Props) {
                   </TableCell>
                   <TableCell className={cn('font-black text-base', entry.entryType === 'EXPENSE' ? 'text-amber-700' : entry.entryType === 'INCOME' ? 'text-emerald-700' : 'text-slate-700')}>
                     {fmtCur(Number(entry.amount))}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-8 w-8 p-0"
+                        title="Edit entry"
+                        onClick={() => onEdit?.(entry)}
+                        disabled={entry.refType !== 'simple-entry'}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-8 w-8 border-rose-200 p-0 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                        title="Delete entry"
+                        onClick={() => onDelete?.(entry)}
+                        disabled={entry.refType !== 'simple-entry' || deletingId === entry.id}
+                      >
+                        {deletingId === entry.id ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

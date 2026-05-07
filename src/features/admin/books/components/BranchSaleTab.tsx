@@ -16,7 +16,15 @@ interface CartItem {
   qty: number;
 }
 
-export function BranchSaleTab({ books, branches }: { books: Book[]; branches: Branch[] }) {
+export function BranchSaleTab({
+  books,
+  branches,
+  onSaleRecorded,
+}: {
+  books: Book[];
+  branches: Branch[];
+  onSaleRecorded?: () => void | Promise<void>;
+}) {
   const toast = useAdminToast();
   const [locationType, setLocationType] = useState<'CENTRAL' | 'BRANCH'>('BRANCH');
   const [branchId, setBranchId] = useState('');
@@ -52,6 +60,7 @@ export function BranchSaleTab({ books, branches }: { books: Book[]; branches: Br
       });
       setCart([]);
       toast({ title: 'Sale recorded', description: locationType === 'CENTRAL' ? 'Sold from central stock.' : 'Sold from branch stock.', variant: 'success' });
+      await onSaleRecorded?.();
     } catch (error) {
       toast({ title: 'Sale failed', description: error instanceof Error ? error.message : 'Something went wrong', variant: 'destructive' });
     } finally {

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   createBookStockMovement,
+  correctBookStockMovement,
   getBookStockMovements,
   getBookStockSummary,
   type Book,
@@ -20,7 +21,7 @@ import { DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowRight, CalendarClock, Factory, PackageCheck } from 'lucide-react';
+import { ArrowRight, CalendarClock, Factory, PackageCheck, Pencil } from 'lucide-react';
 import { StatsCard } from './StatsCard';
 import { BookAdminModal } from './BookAdminModal';
 
@@ -37,6 +38,8 @@ function locationPayload(type: StockLocationType, id: string, name: string) {
   if (type === 'CENTRAL') return { type };
   return { type, id, name };
 }
+
+type LocationOptionKey = StockLocationType;
 
 function formatBalance(movement: BookStockMovement) {
   if (movement.movementType === 'SALE' || movement.movementType === 'DISTRIBUTE' || movement.movementType === 'TRANSFER') {
@@ -60,6 +63,13 @@ function formatDateTime(value?: string | null) {
   return new Date(value).toLocaleString();
 }
 
+function defaultLocationId(type?: StockLocationType | null) {
+  if (type === 'CENTRAL') return 'central';
+  if (type === 'CUSTOMER') return 'customer';
+  if (type === 'OTHER') return 'other';
+  return '';
+}
+
 export function StockHistoryTab({
   books,
   branches,
@@ -79,6 +89,7 @@ export function StockHistoryTab({
   const [movements, setMovements] = useState<BookStockMovement[]>([]);
   const [totals, setTotals] = useState({ centralQty: 0, branchQty: 0, distributedQty: 0, channelDistributedQty: 0, soldQty: 0 });
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingMovement, setEditingMovement] = useState<BookStockMovement | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     bookId: '',
@@ -111,14 +122,52 @@ export function StockHistoryTab({
     void loadData();
   }, [loadData]);
 
-  const sourceOptions = useMemo(() => ({
+  const sourceOptions = useMemo<Record<LocationOptionKey, Array<{ id: string; name: string }>>>(() => ({
     SOURCE: sources.map((source) => ({ id: source.id, name: source.name })),
     BRANCH: branches.map((branch) => ({ id: branch.id, name: branch.name })),
     CHANNEL: channels.map((channel) => ({ id: channel.id, name: channel.name })),
     CENTRAL: [{ id: 'central', name: 'Central Warehouse' }],
+    CUSTOMER: [{ id: 'customer', name: 'Customer' }],
+    OTHER: [{ id: 'other', name: 'Other' }],
   }), [branches, channels, sources]);
 
   const destinationOptions = sourceOptions;
+
+  const resetForm = () => {
+    setEditingMovement(null);
+    setForm({
+      bookId: '',
+      movementType: 'RECEIVE',
+      quantity: 1,
+      remarks: '',
+      sourceType: 'SOURCE',
+      sourceId: '',
+      destinationType: 'CENTRAL',
+      destinationId: '',
+      entryDate: startOfToday(),
+    });
+  };
+
+  const openCreateDialog = () => {
+    resetForm();
+    setDialogOpen(true);
+  };
+
+  const openEditDialog = (movement: BookStockMovement) => {
+    setEditingMovement(movement);
+    setForm({
+      bookId: movement.bookId,
+      movementType: movement.movementType,
+      quantity: movement.quantity,
+      remarks: movement.remarks || '',
+      sourceType: (movement.sourceType || 'SOURCE') as StockLocationType,
+      sourceId: movement.sourceId || defaultLocationId(movement.sourceType),
+      destinationType: (movement.destinationType || 'CENTRAL') as StockLocationType,
+      destinationId: movement.destinationId || defaultLocationId(movement.destinationType),
+      entryDate: movement.movementDate ? new Date(movement.movementDate) : startOfToday(),
+    });
+    setDialogOpen(true);
+  };
 
   const handleCreate = async () => {
     if (!form.bookId) return;
@@ -128,19 +177,27 @@ export function StockHistoryTab({
     }
     try {
       setSaving(true);
-      const sourceName = sourceOptions[form.sourceType as 'SOURCE' | 'BRANCH' | 'CHANNEL' | 'CENTRAL']?.find((entry) => entry.id === form.sourceId)?.name || 'Central Warehouse';
-      const destinationName = destinationOptions[form.destinationType as 'SOURCE' | 'BRANCH' | 'CHANNEL' | 'CENTRAL']?.find((entry) => entry.id === form.destinationId)?.name || 'Central Warehouse';
-      await createBookStockMovement({
+      const resolvedSourceId = form.sourceId || defaultLocationId(form.sourceType);
+      const resolvedDestinationId = form.destinationId || defaultLocationId(form.destinationType);
+      const sourceName = sourceOptions[form.sourceType]?.find((entry) => entry.id === resolvedSourceId)?.name || 'Central Warehouse';
+      const destinationName = destinationOptions[form.destinationType]?.find((entry) => entry.id === resolvedDestinationId)?.name || 'Central Warehouse';
+      const payload = {
         bookId: form.bookId,
         movementType: form.movementType,
         quantity: Number(form.quantity),
-        remarks: form.remarks,
+        remarks: form.remarks || (editingMovement ? `Correction for ${editingMovement.id}` : ''),
         movementDate: form.entryDate.toISOString(),
-        source: locationPayload(form.sourceType, form.sourceId, sourceName),
-        destination: locationPayload(form.destinationType, form.destinationId, destinationName),
-      });
-      toast({ title: 'Movement recorded', variant: 'success' });
+        source: locationPayload(form.sourceType, resolvedSourceId, sourceName),
+        destination: locationPayload(form.destinationType, resolvedDestinationId, destinationName),
+      };
+      if (editingMovement) {
+        await correctBookStockMovement(editingMovement.id, payload);
+      } else {
+        await createBookStockMovement(payload);
+      }
+      toast({ title: editingMovement ? 'Movement corrected' : 'Movement recorded', variant: 'success' });
       setDialogOpen(false);
+      resetForm();
       await loadData();
     } catch (error) {
       toast({ title: 'Movement failed', description: error instanceof Error ? error.message : 'Something went wrong', variant: 'destructive' });
@@ -178,7 +235,7 @@ export function StockHistoryTab({
           </Select>
           <DatePicker date={fromDate} setDate={setFromDate} placeholder="From date" className="w-[180px]" />
           <DatePicker date={toDate} setDate={setToDate} placeholder="To date" className="w-[180px]" />
-          <Button className="ml-auto rounded-2xl" onClick={() => setDialogOpen(true)}>Record Movement</Button>
+          <Button className="ml-auto rounded-2xl" onClick={openCreateDialog}>Record Movement</Button>
         </div>
       </section>
 
@@ -206,6 +263,17 @@ export function StockHistoryTab({
                 <p className="text-sm font-semibold text-foreground">Entry: {formatDateTime(movement.movementDate)}</p>
                 <p className="text-xs text-muted-foreground">Recorded: {formatDateTime(movement.createdAt)}</p>
                 <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">By {movement.createdByUserId || 'System'}</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 rounded-xl"
+                  onClick={() => openEditDialog(movement)}
+                  disabled={movement.referenceType === 'StockMovementCorrection'}
+                >
+                  <Pencil className="mr-2 h-3.5 w-3.5" />
+                  Edit
+                </Button>
               </div>
             </div>
           </article>
@@ -214,9 +282,9 @@ export function StockHistoryTab({
 
       <BookAdminModal
         open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
-        title="Record Stock Movement"
-        subtitle="Capture receives, transfers, sales, returns, and manual adjustments in the central audit ledger."
+        onClose={() => { setDialogOpen(false); resetForm(); }}
+        title={editingMovement ? 'Correct Stock Movement' : 'Record Stock Movement'}
+        subtitle={editingMovement ? 'Creates an audit-safe reversal and replacement movement.' : 'Capture receives, transfers, sales, returns, and manual adjustments in the central audit ledger.'}
         maxWidth="max-w-5xl"
         bodyClassName="p-4 sm:p-6 md:p-8"
       >
@@ -225,15 +293,15 @@ export function StockHistoryTab({
             <div className="space-y-2"><Label>Movement Type</Label><Select value={form.movementType} onValueChange={(value) => setForm((prev) => ({ ...prev, movementType: value as BookStockMovementType }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{(['RECEIVE', 'TRANSFER', 'DISTRIBUTE', 'SALE', 'RETURN', 'ADJUSTMENT'] as const).map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent></Select></div>
             <div className="space-y-2"><Label>Quantity</Label><Input type="number" value={String(form.quantity)} onChange={(e) => setForm((prev) => ({ ...prev, quantity: Number(e.target.value || 0) }))} /></div>
             <div className="space-y-2 md:col-span-2"><Label>Entry Date</Label><DatePicker date={form.entryDate} setDate={(date) => setForm((prev) => ({ ...prev, entryDate: date || startOfToday() }))} placeholder="Select entry date" className="w-full" /></div>
-            <div className="space-y-2"><Label>Source Type</Label><Select value={form.sourceType} onValueChange={(value) => setForm((prev) => ({ ...prev, sourceType: value as StockLocationType, sourceId: '' }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="SOURCE">Source</SelectItem><SelectItem value="CENTRAL">Central</SelectItem><SelectItem value="BRANCH">Branch</SelectItem><SelectItem value="CHANNEL">Channel</SelectItem></SelectContent></Select></div>
-            <div className="space-y-2"><Label>Source</Label><Select value={form.sourceId || (form.sourceType === 'CENTRAL' ? 'central' : '')} onValueChange={(value) => setForm((prev) => ({ ...prev, sourceId: value }))}><SelectTrigger><SelectValue placeholder="Select source" /></SelectTrigger><SelectContent>{(sourceOptions[form.sourceType as 'SOURCE' | 'BRANCH' | 'CHANNEL' | 'CENTRAL'] || []).map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent></Select></div>
-            <div className="space-y-2"><Label>Destination Type</Label><Select value={form.destinationType} onValueChange={(value) => setForm((prev) => ({ ...prev, destinationType: value as StockLocationType, destinationId: '' }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="CENTRAL">Central</SelectItem><SelectItem value="BRANCH">Branch</SelectItem><SelectItem value="CHANNEL">Channel</SelectItem></SelectContent></Select></div>
-            <div className="space-y-2"><Label>Destination</Label><Select value={form.destinationId || (form.destinationType === 'CENTRAL' ? 'central' : '')} onValueChange={(value) => setForm((prev) => ({ ...prev, destinationId: value }))}><SelectTrigger><SelectValue placeholder="Select destination" /></SelectTrigger><SelectContent>{(destinationOptions[form.destinationType as 'SOURCE' | 'BRANCH' | 'CHANNEL' | 'CENTRAL'] || []).map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent></Select></div>
+            <div className="space-y-2"><Label>Source Type</Label><Select value={form.sourceType} onValueChange={(value) => setForm((prev) => ({ ...prev, sourceType: value as StockLocationType, sourceId: '' }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="SOURCE">Source</SelectItem><SelectItem value="CENTRAL">Central</SelectItem><SelectItem value="BRANCH">Branch</SelectItem><SelectItem value="CHANNEL">Channel</SelectItem><SelectItem value="CUSTOMER">Customer</SelectItem><SelectItem value="OTHER">Other</SelectItem></SelectContent></Select></div>
+            <div className="space-y-2"><Label>Source</Label><Select value={form.sourceId || defaultLocationId(form.sourceType)} onValueChange={(value) => setForm((prev) => ({ ...prev, sourceId: value }))}><SelectTrigger><SelectValue placeholder="Select source" /></SelectTrigger><SelectContent>{(sourceOptions[form.sourceType] || []).map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent></Select></div>
+            <div className="space-y-2"><Label>Destination Type</Label><Select value={form.destinationType} onValueChange={(value) => setForm((prev) => ({ ...prev, destinationType: value as StockLocationType, destinationId: '' }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="CENTRAL">Central</SelectItem><SelectItem value="BRANCH">Branch</SelectItem><SelectItem value="CHANNEL">Channel</SelectItem><SelectItem value="CUSTOMER">Customer</SelectItem><SelectItem value="OTHER">Other</SelectItem></SelectContent></Select></div>
+            <div className="space-y-2"><Label>Destination</Label><Select value={form.destinationId || defaultLocationId(form.destinationType)} onValueChange={(value) => setForm((prev) => ({ ...prev, destinationId: value }))}><SelectTrigger><SelectValue placeholder="Select destination" /></SelectTrigger><SelectContent>{(destinationOptions[form.destinationType] || []).map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent></Select></div>
             <div className="space-y-2 md:col-span-2"><Label>Remarks</Label><Input value={form.remarks} onChange={(e) => setForm((prev) => ({ ...prev, remarks: e.target.value }))} placeholder="Press receive, manual adjustment, damaged return..." /></div>
           </div>
           <DialogFooter className="mt-6 border-t border-slate-100 bg-slate-50 px-0 pt-5 sm:mt-8 sm:pt-6">
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={saving}>{saving ? 'Saving...' : 'Record Movement'}</Button>
+            <Button variant="outline" onClick={() => { setDialogOpen(false); resetForm(); }}>Cancel</Button>
+            <Button onClick={handleCreate} disabled={saving}>{saving ? 'Saving...' : editingMovement ? 'Save Correction' : 'Record Movement'}</Button>
           </DialogFooter>
       </BookAdminModal>
     </div>

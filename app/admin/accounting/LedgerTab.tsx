@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { getLedgerEntries, type Account, type LedgerEntry } from '@/lib/api/accounting';
+import { deleteLedgerEntry, getLedgerEntries, type Account, type LedgerEntry } from '@/lib/api/accounting';
 import type { Branch } from '@/lib/api/branches';
 import type { DistributionChannel, StockSource } from '@/lib/api/books';
 import type { ExportFormat } from '@/lib/export';
@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { exportFilename, runExport } from './utils';
 import { LedgerEntriesTable } from './ledger/LedgerEntriesTable';
 import { ledgerExportColumns } from './ledger/ledgerExport';
+import { LedgerEditEntryDialog } from './ledger/LedgerEditEntryDialog';
 import { LedgerNewEntryDialog } from './ledger/LedgerNewEntryDialog';
 import { LedgerTabFilters } from './ledger/LedgerTabFilters';
 import { LedgerTabPagination } from './ledger/LedgerTabPagination';
@@ -38,6 +39,8 @@ export function LedgerTab({
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
+  const [editEntry, setEditEntry] = useState<LedgerEntry | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const LIMIT = 50;
 
@@ -95,6 +98,21 @@ export function LedgerTab({
     });
   }
 
+  async function handleDelete(entry: LedgerEntry) {
+    if (!window.confirm(`Delete daily entry ${entry.voucherNo || entry.id}? This removes the balanced voucher pair.`)) return;
+    setDeletingId(entry.id);
+    try {
+      const res = await deleteLedgerEntry(entry.id);
+      if (!res.success) throw new Error(res.message || 'Delete failed');
+      toast({ title: 'Daily entry deleted', variant: 'success' });
+      await load(page);
+    } catch (error) {
+      toast({ title: 'Delete failed', description: error instanceof Error ? error.message : 'Something went wrong', variant: 'destructive' });
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   return (
     <div className="space-y-5">
       <LedgerTabFilters
@@ -137,7 +155,13 @@ export function LedgerTab({
         onNext={() => void load(page + 1)}
       />
 
-      <LedgerEntriesTable loading={loading} entries={entries} />
+      <LedgerEntriesTable
+        loading={loading}
+        entries={entries}
+        onEdit={setEditEntry}
+        onDelete={(entry) => void handleDelete(entry)}
+        deletingId={deletingId}
+      />
 
       <LedgerNewEntryDialog
         open={formOpen}
@@ -147,6 +171,16 @@ export function LedgerTab({
         stockSources={stockSources}
         channels={channels}
         onEntryCreated={() => load(1)}
+      />
+
+      <LedgerEditEntryDialog
+        entry={editEntry}
+        accounts={accounts}
+        branches={branches}
+        stockSources={stockSources}
+        channels={channels}
+        onClose={() => setEditEntry(null)}
+        onEntryUpdated={() => load(page)}
       />
     </div>
   );

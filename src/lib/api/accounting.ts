@@ -133,6 +133,14 @@ export async function createLedgerEntry(data: CreateLedgerEntryPayload): Promise
   return apiRequest('/accounting/ledger', { method: 'POST', body: JSON.stringify(data) });
 }
 
+export async function updateLedgerEntry(id: string, data: CreateLedgerEntryPayload): Promise<{ success: boolean; data: LedgerEntry; message?: string }> {
+  return apiRequest(`/accounting/ledger/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) });
+}
+
+export async function deleteLedgerEntry(id: string): Promise<{ success: boolean; data: { deletedCount: number }; message?: string }> {
+  return apiRequest(`/accounting/ledger/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
 // ─── Summary ──────────────────────────────────────────────────────────────────
 
 export interface AccountingSummary {

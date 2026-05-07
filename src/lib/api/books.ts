@@ -844,6 +844,18 @@ export async function createBookStockMovement(data: {
   return apiRequest<ApiResponse<BookStockMovement>>('/books/stock/movements', { method: 'POST', body: JSON.stringify(data) });
 }
 
+export async function correctBookStockMovement(id: string, data: {
+  bookId: string;
+  movementType: BookStockMovementType;
+  quantity: number;
+  source?: StockLocationPayload;
+  destination?: StockLocationPayload;
+  movementDate?: string;
+  remarks: string;
+}): Promise<ApiResponse<BookStockMovement>> {
+  return apiRequest<ApiResponse<BookStockMovement>>(`/books/stock/movements/${encodeURIComponent(id)}/correct`, { method: 'POST', body: JSON.stringify(data) });
+}
+
 export async function getBookStockSummary(params?: { bookId?: string }): Promise<{
   success: boolean;
   data: StockSummaryBook[];
