@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { Bookmark, BookOpen, FileText, ArrowRight, ShoppingCart, CheckCircle2, Layers3, ShieldCheck, Tags } from 'lucide-react';
+import { BookOpen, Boxes, FileText, ArrowRight, ShoppingCart, CheckCircle2, Files, Tags } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { PublicBook } from '@/lib/api/books';
@@ -14,8 +14,6 @@ interface BookHeroSectionProps {
   isFree: boolean;
   showRead: boolean;
   readUrl: string | null;
-  bookmarked: boolean;
-  onToggleBookmark: () => void;
   onBuy: () => void;
   purchaseHint: string | null;
   onStartReading: () => void;
@@ -29,15 +27,13 @@ export function BookHeroSection({
   isFree,
   showRead,
   readUrl,
-  bookmarked,
-  onToggleBookmark,
   onBuy,
   purchaseHint,
   onStartReading,
   onOpenSamplePreview,
 }: BookHeroSectionProps) {
-  const courseCount = book.courseBooks?.length || 0;
-  const collaboratorCount = book.collaborators?.length || 0;
+  const pageCount = Number(book.pageCount || 0);
+  const stockCount = Number(book.centralQty || 0);
 
   return (
     <div className="grid gap-8 lg:grid-cols-[340px_minmax(0,1fr)] lg:items-start">
@@ -104,20 +100,20 @@ export function BookHeroSection({
             </div>
           </div>
           <div className="flex items-center gap-3 rounded-[20px] border border-blue-200 bg-blue-50 px-4 py-3 shadow-sm">
-            <Layers3 className="h-4 w-4 text-blue-600" />
+            <Files className="h-4 w-4 text-blue-600" />
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-500">কোর্স সংযোগ</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-500">পৃষ্ঠা</p>
               <p className="text-sm font-bold text-blue-900">
-                {courseCount === 0 ? 'কোনো কোর্স যুক্ত নয়' : `${courseCount} টি কোর্স`}
+                {pageCount > 0 ? `${pageCount.toLocaleString()} পৃষ্ঠা` : 'পৃষ্ঠা সংখ্যা দেওয়া হয়নি'}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-3 rounded-[20px] border border-emerald-200 bg-emerald-50 px-4 py-3 shadow-sm">
-            <ShieldCheck className="h-4 w-4 text-emerald-600" />
+            <Boxes className="h-4 w-4 text-emerald-600" />
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-500">সহায়তা</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-500">স্টক</p>
               <p className="text-sm font-bold text-emerald-900">
-                {collaboratorCount === 0 ? 'কোনো সহকর্মী নেই' : `${collaboratorCount} জন সহকর্মী`}
+                {book.isEbook ? 'ডিজিটাল কপি' : stockCount > 0 ? `${stockCount.toLocaleString()} কপি আছে` : 'স্টক নেই'}
               </p>
             </div>
           </div>
@@ -147,7 +143,7 @@ export function BookHeroSection({
                 </Button>
               )}
               <Button variant="outline" className="h-12 rounded-2xl border-slate-200 px-6" onClick={onOpenSamplePreview}>
-                নমুনা পিডিএফ
+                একটু পড়ে দেখুন
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>

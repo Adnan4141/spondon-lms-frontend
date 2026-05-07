@@ -5,10 +5,11 @@ import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { createBook, updateBook, type Book, type BookCategory, type CreateBookDto, type UpdateBookDto } from '@/lib/api/books';
 import type { Program } from '@/lib/api/programs';
 import { sanitizeRichTextDisplayHtml } from '@/lib/sanitize-rich-text-display';
-import { BookOpen, FileImage, ScrollText, Wallet } from 'lucide-react';
+import { BookOpen, FileImage, ScrollText, UsersRound, Wallet } from 'lucide-react';
 import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
 import { BookAdminModal } from './BookAdminModal';
 import { BookFormAttentionNotice } from './book-form/BookFormAttentionNotice';
+import { BookFormCollaboratorsSection } from './book-form/BookFormCollaboratorsSection';
 import { BookFormCommerceSection } from './book-form/BookFormCommerceSection';
 import { BookFormDialogHeader } from './book-form/BookFormDialogHeader';
 import { BookFormFooter } from './book-form/BookFormFooter';
@@ -45,6 +46,7 @@ export function BookFormDialog({
   const [submitting, setSubmitting] = useState(false);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<BookFormTabKey>('identity');
+  const [collaboratorCount, setCollaboratorCount] = useState(book?.collaborators?.length ?? 0);
 
   useEffect(() => {
     if (mode === 'edit' && book) {
@@ -53,6 +55,7 @@ export function BookFormDialog({
         sku: book.sku,
         price: Number(book.price),
         centralQty: Number(book.centralQty || 0),
+        pageCount: Number(book.pageCount || 0),
         mrp: book.mrp ? Number(book.mrp) : undefined,
         author: book.author || '',
         description: book.description || '',
@@ -70,6 +73,7 @@ export function BookFormDialog({
     setDemoFile(null);
     setThumbnail(null);
     setThumbnailPreview(null);
+    setCollaboratorCount(book?.collaborators?.length ?? 0);
   }, [mode, book, isOpen]);
 
   useEffect(() => {
@@ -89,6 +93,7 @@ export function BookFormDialog({
   }, [thumbnail]);
 
   const current = form as CreateBookDto;
+  const canManageCollaborators = mode === 'edit' && Boolean(book?.id);
   const selectedCategory = categories.find((c) => c.id === form.categoryId);
   const selectedProgram = programs.find((p) => p.id === form.programId);
   const coverUrl = thumbnailPreview || book?.thumbnailUrl || null;
@@ -114,45 +119,61 @@ export function BookFormDialog({
   }, [coverUrl, current.name, current.sku, form.categoryId, form.description, price]);
 
   const tabs = useMemo<BookFormTabMeta[]>(
-    () => [
-      {
-        value: 'identity',
-        title: 'Identity',
-        summary: 'Title, SKU, category, and placement',
-        description: 'Set the listing name, internal code, catalog shelf, and publishing context.',
-        badgeText: form.categoryId ? 'Placed' : 'Needs category',
-        complete: hasIdentity,
-        icon: BookOpen,
-      },
-      {
-        value: 'commerce',
-        title: 'Commerce',
-        summary: 'Price, MRP, stock, and format',
-        description: 'Control how the title is sold, whether it is digital, and how stock behaves.',
-        badgeText: isEbook ? 'Digital' : `${Number(form.centralQty || 0)} stock`,
-        complete: hasCommerce,
-        icon: Wallet,
-      },
-      {
-        value: 'story',
-        title: 'Story',
-        summary: 'Description and selling narrative',
-        description: 'Shape the book description that appears across the storefront and internal previews.',
-        badgeText: hasStory ? 'Drafted' : 'Add description',
-        complete: hasStory,
-        icon: ScrollText,
-      },
-      {
-        value: 'media',
-        title: 'Media',
-        summary: 'Cover artwork and ebook file',
-        description: 'Upload the cover and, for ebooks, the PDF that students will access.',
-        badgeText: hasMedia ? 'Assets ready' : 'Add assets',
-        complete: hasMedia,
-        icon: FileImage,
-      },
-    ],
-    [form.categoryId, form.centralQty, hasCommerce, hasIdentity, hasMedia, hasStory, isEbook],
+    () => {
+      const baseTabs: BookFormTabMeta[] = [
+        {
+          value: 'identity',
+          title: 'Identity',
+          summary: 'Title, SKU, category, and placement',
+          description: 'Set the listing name, internal code, catalog shelf, and publishing context.',
+          badgeText: form.categoryId ? 'Placed' : 'Needs category',
+          complete: hasIdentity,
+          icon: BookOpen,
+        },
+        {
+          value: 'commerce',
+          title: 'Commerce',
+          summary: 'Price, MRP, stock, and format',
+          description: 'Control how the title is sold, whether it is digital, and how stock behaves.',
+          badgeText: isEbook ? 'Digital' : `${Number(form.centralQty || 0)} stock`,
+          complete: hasCommerce,
+          icon: Wallet,
+        },
+        {
+          value: 'story',
+          title: 'Story',
+          summary: 'Description and selling narrative',
+          description: 'Shape the book description that appears across the storefront and internal previews.',
+          badgeText: hasStory ? 'Drafted' : 'Add description',
+          complete: hasStory,
+          icon: ScrollText,
+        },
+        {
+          value: 'media',
+          title: 'Media',
+          summary: 'Cover artwork and ebook file',
+          description: 'Upload the cover and, for ebooks, the PDF that students will access.',
+          badgeText: hasMedia ? 'Assets ready' : 'Add assets',
+          complete: hasMedia,
+          icon: FileImage,
+        },
+      ];
+
+      if (canManageCollaborators) {
+        baseTabs.push({
+          value: 'collaborators',
+          title: 'Collaborators',
+          summary: 'Access control and revenue sharing',
+          description: 'Add staff collaborators, assign roles, and record optional revenue shares.',
+          badgeText: collaboratorCount > 0 ? `${collaboratorCount} assigned` : 'Optional',
+          complete: true,
+          icon: UsersRound,
+        });
+      }
+
+      return baseTabs;
+    },
+    [canManageCollaborators, collaboratorCount, form.categoryId, form.centralQty, hasCommerce, hasIdentity, hasMedia, hasStory, isEbook],
   );
 
   const completedSections = tabs.filter((tab) => tab.complete).length;
@@ -299,6 +320,16 @@ export function BookFormDialog({
                     setDemoFile={setDemoFile}
                   />
                 </TabsContent>
+
+                {canManageCollaborators && book?.id ? (
+                  <TabsContent value="collaborators" className="mt-0 focus-visible:outline-none">
+                    <BookFormCollaboratorsSection
+                      bookId={book.id}
+                      initialCollaborators={book.collaborators}
+                      onCountChange={setCollaboratorCount}
+                    />
+                  </TabsContent>
+                ) : null}
 
                 {!activeTabMeta.complete ? <BookFormAttentionNotice sectionTitle={activeTabMeta.title} /> : null}
               </div>

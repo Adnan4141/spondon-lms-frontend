@@ -24,6 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { CourseResourceForm } from '@/features/admin/courses';
+import { confirmAction } from '@/features/admin/shared/confirm-action';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -214,7 +215,13 @@ export default function TeacherCourseDetailPage() {
   };
 
   const handleDelete = async (row: ContentRow) => {
-    if (!canEdit || !confirm(`Delete “${row.title}”?`)) return;
+    if (!canEdit) return;
+    if (!(await confirmAction({
+      title: 'Delete segment?',
+      description: `Delete "${row.title}"? This action cannot be undone.`,
+      confirmLabel: 'Delete segment',
+      variant: 'danger',
+    }))) return;
     try {
       const res = await deleteCourseContent(row.id);
       if (res.success) {

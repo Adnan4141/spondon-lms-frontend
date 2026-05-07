@@ -81,6 +81,15 @@ export function BookFormCommerceSection({
             className="h-11 rounded-xl border-border/80 bg-background/80 shadow-sm disabled:opacity-60"
           />
         </BookFormField>
+        <BookFormField label="No. of pages" hint="Shown on the public book page.">
+          <Input
+            type="number"
+            min={0}
+            value={String(form.pageCount ?? 0)}
+            onChange={(e) => setForm((p) => ({ ...p, pageCount: Math.max(0, Number(e.target.value || 0)) }))}
+            className="h-11 rounded-xl border-border/80 bg-background/80 shadow-sm"
+          />
+        </BookFormField>
         <BookFormField label="Sale price" hint="What customers pay (৳).">
           <div className="relative">
             <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">

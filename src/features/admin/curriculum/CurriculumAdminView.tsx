@@ -64,6 +64,7 @@ import {
 } from '@/lib/api/curriculum';
 import { findLessonAncestorTitles } from './curriculum-breadcrumb';
 import { LessonResourceModal } from './LessonResourceModal';
+import { confirmAction } from '@/features/admin/shared/confirm-action';
 import { cn } from '@/lib/utils';
 import type { CurriculumTreeNode, CurriculumVisibility, LessonResourceRow } from './curriculum-types';
 
@@ -819,7 +820,12 @@ export function CurriculumAdminView({
                                 variant="ghost"
                                 className="text-red-600"
                                 onClick={async () => {
-                                  if (!confirm('Delete this resource?')) return;
+                                  if (!(await confirmAction({
+                                    title: 'Delete resource?',
+                                    description: 'Remove this resource from the lesson?',
+                                    confirmLabel: 'Delete resource',
+                                    variant: 'danger',
+                                  }))) return;
                                   await deleteLessonResource(r.id);
                                   await load();
                                 }}

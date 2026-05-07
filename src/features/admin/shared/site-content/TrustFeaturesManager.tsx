@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { confirmAction } from '@/features/admin/shared/confirm-action';
 import { useToast } from '@/hooks/use-toast';
 import {
   getTrustFeatures,
@@ -123,7 +124,12 @@ export function TrustFeaturesManager() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this trust feature?')) return;
+    if (!(await confirmAction({
+      title: 'Delete trust feature?',
+      description: 'This trust feature will be permanently removed.',
+      confirmLabel: 'Delete feature',
+      variant: 'danger',
+    }))) return;
     try {
       await deleteTrustFeature(id);
       toast({

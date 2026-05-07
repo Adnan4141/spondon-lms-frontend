@@ -12,6 +12,7 @@ import {
 } from '@/lib/api/exam-result-batches';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { confirmAction } from '@/features/admin/shared/confirm-action';
 import { useToast } from '@/hooks/use-toast';
 import {
   Loader2,
@@ -304,7 +305,17 @@ export default function ResultApprovalsPage() {
                           <XCircle className="mr-2 h-4 w-4" /> Reject
                         </Button>
                         <Button type="button" size="sm" variant="ghost" className="rounded-xl text-slate-600" disabled={busy}
-                          onClick={() => { if (confirm('Delete this batch?')) run(b, 'Deleted', () => deleteResultBatch(b.examId, b.id)); }}>
+                          onClick={async () => {
+                            if (!(await confirmAction({
+                              title: 'Delete result batch?',
+                              description: 'Delete this batch? This action cannot be undone.',
+                              confirmLabel: 'Delete batch',
+                              variant: 'danger',
+                            }))) {
+                              return;
+                            }
+                            run(b, 'Deleted', () => deleteResultBatch(b.examId, b.id));
+                          }}>
                           <Trash2 className="mr-2 h-4 w-4" /> Delete
                         </Button>
                       </>

@@ -14,6 +14,7 @@ import {
 } from '@/lib/api/courses';
 import { API_ORIGIN } from '@/lib/api';
 import { resolveAttachmentUrl } from '@/lib/attachment-url';
+import { confirmAction } from '@/features/admin/shared/confirm-action';
 import { useModalStore } from '@/store/modalStore';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -1549,10 +1550,16 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                                               type="button"
                                               className="h-7 w-7 rounded-lg border border-slate-200 bg-white flex items-center justify-center hover:border-rose-200 hover:bg-rose-50 transition-colors"
                                               onClick={async () => {
-                                                if (confirm('Delete this segment?')) {
-                                                  await deleteCourseContent(res.id);
-                                                  fetchExtras();
+                                                if (!(await confirmAction({
+                                                  title: 'Delete segment?',
+                                                  description: 'This segment will be permanently removed.',
+                                                  confirmLabel: 'Delete segment',
+                                                  variant: 'danger',
+                                                }))) {
+                                                  return;
                                                 }
+                                                await deleteCourseContent(res.id);
+                                                fetchExtras();
                                               }}
                                             >
                                               <Trash2 className="h-3 w-3 text-rose-400" />
@@ -1646,10 +1653,16 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                       type="button"
                       className="h-8 w-8 rounded-lg border border-slate-100 bg-white text-slate-300 hover:border-rose-100 hover:bg-rose-50 hover:text-rose-400 flex items-center justify-center transition-colors"
                       onClick={async () => {
-                        if (confirm('Remove this association?')) {
-                          await deleteAssociatedCourse(assoc.id);
-                          fetchExtras();
+                        if (!(await confirmAction({
+                          title: 'Remove related course?',
+                          description: 'This association will be removed from the course.',
+                          confirmLabel: 'Remove association',
+                          variant: 'danger',
+                        }))) {
+                          return;
                         }
+                        await deleteAssociatedCourse(assoc.id);
+                        fetchExtras();
                       }}
                     >
                       <Trash2 className="h-3.5 w-3.5" />

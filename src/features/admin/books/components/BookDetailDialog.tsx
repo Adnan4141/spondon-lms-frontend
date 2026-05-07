@@ -44,8 +44,10 @@ export function BookDetailDialog({
               <p className="mt-2 text-2xl font-black text-slate-900">৳{Number(book.price).toLocaleString()}</p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white p-4">
-              <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">Central Stock</p>
-              <p className="mt-2 text-2xl font-black text-slate-900">{book.centralQty || 0}</p>
+              <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">Pages</p>
+              <p className="mt-2 text-2xl font-black text-slate-900">
+                {Number(book.pageCount || 0) > 0 ? Number(book.pageCount).toLocaleString() : 'Not set'}
+              </p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white p-4">
               <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">Format</p>
@@ -77,8 +79,8 @@ export function BookDetailDialog({
               </div>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <Boxes className="h-4 w-4 text-slate-500" />
-                <p className="mt-3 text-xs font-black uppercase tracking-[0.2em] text-slate-400">Sale Items</p>
-                <p className="mt-1 text-lg font-black text-slate-900">{book._count?.saleItems || 0}</p>
+                <p className="mt-3 text-xs font-black uppercase tracking-[0.2em] text-slate-400">Central Stock</p>
+                <p className="mt-1 text-lg font-black text-slate-900">{book.isEbook ? 'Digital' : book.centralQty || 0}</p>
               </div>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <Link2 className="h-4 w-4 text-slate-500" />

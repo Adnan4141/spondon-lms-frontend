@@ -7,6 +7,7 @@ export function initialCreateState(): CreateBookDto {
     sku: '',
     price: 0,
     centralQty: 0,
+    pageCount: 0,
     mrp: undefined,
     author: '',
     description: '',

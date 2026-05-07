@@ -152,19 +152,27 @@ function buildMenuSections(role: string | null): MenuSection[] {
     { title: 'Settings', href: '/admin/settings', icon: Settings, color: 'text-slate-500', bg: 'bg-slate-50' },
     { title: 'Inventory', href: '/admin/inventory', icon: Package, color: 'text-amber-600', bg: 'bg-amber-50' },
   ];
+
+  const financeItems: MenuItem[] = isAccounts
+    ? allAdminItems.filter((item) => ['/admin/reports', '/admin/accounting'].includes(item.href))
+    : isBranchAdmin
+      ? allAdminItems.filter((item) => ['/admin/reports'].includes(item.href))
+      : isModerator
+        ? []
+        : allAdminItems.filter((item) => ['/admin/reports', '/admin/accounting'].includes(item.href));
+
   const adminItems: MenuItem[] = isAccounts
     ? allAdminItems.filter((i) =>
         ['/admin/monthly-billing',
            '/admin/payouts',
            // '/admin/inventory',
-            '/admin/reports', '/admin/accounting', 
            '/admin/books'].includes(i.href),
       )
     : isBranchAdmin
-    ? allAdminItems.filter((i) => ['/admin/reports'].includes(i.href))
+    ? []
     : isModerator
     ? []
-    : allAdminItems;
+    : allAdminItems.filter((item) => !['/admin/reports', '/admin/accounting'].includes(item.href));
 
   // ----- Assemble sections, skipping empty ones -----
   const sections: MenuSection[] = [
@@ -181,6 +189,7 @@ function buildMenuSections(role: string | null): MenuSection[] {
   if (role === 'SUPER_ADMIN') {
     sections.push({ label: 'System', items: userMgmtItems });
   }
+  if (financeItems.length > 0) sections.push({ label: 'Finance', items: financeItems });
   if (adminItems.length > 0) sections.push({ label: 'Administrative', items: adminItems });
 
   // ----- Landing CMS (SUPER_ADMIN + BRANCH_ADMIN) -----
@@ -255,7 +264,7 @@ export function Sidebar({ mobileOpen, onCloseMobile, collapsed, onToggleCollapse
         {/* Header / Logo Section */}
         <div className="relative flex h-20 items-center gap-3 border-b border-slate-100/80 px-6">
           <Link href={homeHref} className="group flex min-w-0 flex-1 items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 shadow-lg shadow-indigo-200 transition-transform group-hover:scale-105 group-hover:rotate-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-linear-to-tr from-indigo-600 to-violet-600 shadow-lg shadow-indigo-200 transition-transform group-hover:scale-105 group-hover:rotate-3">
               <GraduationCap className="h-5 w-5 text-white" />
             </div>
             {!collapsed && (
@@ -351,7 +360,7 @@ export function Sidebar({ mobileOpen, onCloseMobile, collapsed, onToggleCollapse
             <div className="space-y-4">
               <div className="flex items-center gap-3 p-3 rounded-2xl bg-white border border-slate-200 shadow-sm transition-all hover:border-indigo-200 hover:shadow-md group">
                 <div className="relative">
-                  <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-sm font-bold text-white shadow-sm">
+                  <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-linear-to-br from-indigo-500 to-purple-600 text-sm font-bold text-white shadow-sm">
                     {avatarUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
@@ -375,7 +384,7 @@ export function Sidebar({ mobileOpen, onCloseMobile, collapsed, onToggleCollapse
           ) : (
             <div className="flex flex-col items-center gap-4">
               <SidebarExpandFooterButton onToggleCollapse={onToggleCollapse} />
-              <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-xs font-bold text-white shadow-lg">
+              <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl bg-linear-to-br from-indigo-500 to-purple-600 text-xs font-bold text-white shadow-lg">
                 {avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={avatarUrl} alt="" className="h-full w-full object-cover" />

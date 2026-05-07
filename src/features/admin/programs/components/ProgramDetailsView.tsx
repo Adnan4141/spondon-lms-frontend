@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button';
 import { getProgramById } from '@/lib/api/programs';
 import { apiRequest } from '@/lib/api';
 import { updateCourse } from '@/lib/api/courses';
+import { confirmAction } from '@/features/admin/shared/confirm-action';
 import { useToast } from '@/hooks/use-toast';
 import { LinkCourseForm } from './LinkCourseForm';
 
@@ -48,7 +49,12 @@ export function ProgramDetailsView({ program: initialProgram }: ProgramDetailsVi
   };
 
   const handleUnlinkCourse = async (courseId: string) => {
-    if (!confirm('Are you sure you want to remove this course from the program? Note: Courses require a program, so this will need reassignment later.')) return;
+    if (!(await confirmAction({
+      title: 'Remove course from program?',
+      description: 'Courses require a program, so this course will need reassignment later.',
+      confirmLabel: 'Continue',
+      variant: 'warning',
+    }))) return;
     
     try {
       // In this system, courses MUST have a program. 

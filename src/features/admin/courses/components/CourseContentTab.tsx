@@ -20,6 +20,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { confirmAction } from '@/features/admin/shared/confirm-action';
 import { createCourseContent, deleteCourseContent, getCourseContents, updateCourseContent } from '@/lib/api/courses';
 import type { CourseContent } from '@/types/course-content';
 import { TYPE_CONFIG } from '../courseConstants';
@@ -344,7 +345,12 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this lesson? This action cannot be undone.')) return;
+    if (!(await confirmAction({
+      title: 'Delete lesson?',
+      description: 'This action cannot be undone.',
+      confirmLabel: 'Delete lesson',
+      variant: 'danger',
+    }))) return;
     setDeletingId(id);
     try {
       const res = await deleteCourseContent(id);
@@ -385,7 +391,12 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
   };
 
   const handleDeleteModule = async (moduleName: string) => {
-    if (!confirm(`Are you sure you want to delete the module "${moduleName}" and ALL its items?`)) return;
+    if (!(await confirmAction({
+      title: 'Delete module?',
+      description: `Delete the module "${moduleName}" and all its items?`,
+      confirmLabel: 'Delete module',
+      variant: 'danger',
+    }))) return;
     setIsDeletingModule(moduleName);
     
     // Optimistic UI update

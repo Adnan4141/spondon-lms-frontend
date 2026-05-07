@@ -3,30 +3,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { AlertCircle, ArrowLeft, Loader2, ReceiptText, ShieldCheck, Sparkles } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
 import { BookHeroSection } from '@/components/books/BookHeroSection';
 import { BookTabs, type BookTabId } from '@/components/books/BookTabs';
 import { BookOverviewSection } from '@/components/books/BookOverviewSection';
-import { BookContentsSection } from '@/components/books/BookContentsSection';
 import { PublicSamplePdfDialog } from '@/components/books/PublicSamplePdfDialog';
 import { getProtectedBookDownload, getPublicBook, type PublicBook } from '@/lib/api/books';
 
 function readHasAuth() {
   if (typeof window === 'undefined') return false;
   return Boolean(localStorage.getItem('auth_token'));
-}
-
-function readBookmarks(): string[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem('bookmarks');
-    return raw ? (JSON.parse(raw) as string[]) : [];
-  } catch {
-    return [];
-  }
 }
 
 export default function PublicBookDetailsPage() {
@@ -38,15 +27,13 @@ export default function PublicBookDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<BookTabId>('overview');
-  const [bookmarked, setBookmarked] = useState(false);
   const [sampleOpen, setSampleOpen] = useState(false);
   const [hasAuth, setHasAuth] = useState(false);
   const [purchaseHint, setPurchaseHint] = useState<string | null>(null);
 
   useEffect(() => {
     setHasAuth(readHasAuth());
-    setBookmarked(readBookmarks().includes(bookId));
-  }, [bookId]);
+  }, []);
 
   useEffect(() => {
     let isActive = true;
@@ -80,14 +67,6 @@ export default function PublicBookDetailsPage() {
 
   const categoryLabel = book?.category?.name || null;
   const showRead = Boolean(book?.isEbook && isFree && hasAuth);
-
-  const toggleBookmark = () => {
-    const existing = new Set(readBookmarks());
-    if (existing.has(bookId)) existing.delete(bookId);
-    else existing.add(bookId);
-    localStorage.setItem('bookmarks', JSON.stringify(Array.from(existing)));
-    setBookmarked(existing.has(bookId));
-  };
 
   const startReading = async () => {
     if (!book) return;
@@ -170,8 +149,6 @@ export default function PublicBookDetailsPage() {
                   isFree={isFree}
                   showRead={showRead}
                   readUrl={null}
-                  bookmarked={bookmarked}
-                  onToggleBookmark={toggleBookmark}
                   onBuy={() => void handleBuy()}
                   purchaseHint={purchaseHint}
                   onStartReading={() => void startReading()}
@@ -183,18 +160,7 @@ export default function PublicBookDetailsPage() {
               <section className="mt-10 rounded-[36px] border border-slate-200 bg-white px-6 shadow-sm sm:px-8">
                 <BookTabs active={activeTab} onChange={setActiveTab} />
                 {activeTab === 'overview' ? <BookOverviewSection description={book.description} outline={book.outline} /> : null}
-                {activeTab === 'contents' ? <BookContentsSection outline={book.outline} /> : null}
-                {activeTab === 'reviews' ? (
-                  <div className="py-12">
-                    <div className="rounded-[28px] border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
-                      <ReceiptText className="mx-auto h-8 w-8 text-slate-400" />
-                      <h3 className="mt-4 text-2xl font-black text-slate-900">রিভিউ এখনও চালু হয়নি</h3>
-                      <p className="mt-3 text-sm leading-6 text-slate-500">
-                        পাঠকের রিভিউ ও রেটিং শীঘ্রই যুক্ত করা হবে। এখন ক্যাটালগের তথ্য দেখে বই বেছে নিতে পারেন।
-                      </p>
-                    </div>
-                  </div>
-                ) : null}
+             
               </section>
             </>
           )}

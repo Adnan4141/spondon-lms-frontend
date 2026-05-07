@@ -142,7 +142,7 @@ export function BookCatalogToolbar({
               onClick={() => onViewModeChange('table')}
             >
               <List className="mr-2 h-4 w-4" />
-              Table
+              List
             </Button>
           </div>
           <Button type="button" variant="outline" className="rounded-lg" onClick={onClearFilters}>

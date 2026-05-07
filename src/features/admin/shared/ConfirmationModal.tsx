@@ -8,6 +8,7 @@ interface ConfirmationModalProps {
   title: string;
   description: string;
   onConfirm: () => void | Promise<void>;
+  onCancel?: () => void | Promise<void>;
   confirmLabel?: string;
   cancelLabel?: string;
   variant?: 'danger' | 'warning' | 'info';
@@ -17,6 +18,7 @@ export function ConfirmationModal({
   title,
   description,
   onConfirm,
+  onCancel,
   confirmLabel = 'Confirm Action',
   cancelLabel = 'Discard',
   variant = 'danger',
@@ -25,6 +27,11 @@ export function ConfirmationModal({
 
   const handleConfirm = async () => {
     await onConfirm();
+    closeModal();
+  };
+
+  const handleCancel = async () => {
+    await onCancel?.();
     closeModal();
   };
 
@@ -81,12 +88,15 @@ export function ConfirmationModal({
         <Button 
           variant="ghost" 
           className="flex-1 h-14 rounded-2xl font-black uppercase tracking-widest text-[11px] text-slate-400 hover:text-slate-600 transition-all w-full sm:w-auto" 
-          onClick={closeModal}
+          onClick={() => void handleCancel()}
         >
           {cancelLabel}
         </Button>
         <Button 
-          className={`flex-[2] h-14 rounded-2xl font-black uppercase tracking-widest text-[11px] text-white shadow-xl transition-all hover:scale-[1.02] active:scale-95 w-full sm:w-auto ${styles.button}`}
+          className={[
+            'flex-2 h-14 rounded-2xl font-black uppercase tracking-widest text-[11px] text-white shadow-xl transition-all hover:scale-[1.02] active:scale-95 w-full sm:w-auto',
+            styles.button,
+          ].join(' ')}
           onClick={handleConfirm}
         >
           {confirmLabel}

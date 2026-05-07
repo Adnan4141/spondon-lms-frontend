@@ -22,6 +22,7 @@ import type {
 import type { Course } from '@/types/course';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { confirmAction } from '@/features/admin/shared/confirm-action';
 import {
   Select,
   SelectContent,
@@ -177,11 +178,13 @@ export default function TeacherQuestionsPage() {
 
   const handleDeleteQuestion = useCallback(
     async (id: string, list: 'questions' | 'passages') => {
-      if (
-        !window.confirm(
-          'Delete this question permanently? It will be removed from all exam sets that use it, and matching answers in student attempts will be removed.',
-        )
-      ) {
+      if (!(await confirmAction({
+        title: 'Delete question permanently?',
+        description:
+          'It will be removed from all exam sets that use it, and matching answers in student attempts will be removed.',
+        confirmLabel: 'Delete question',
+        variant: 'danger',
+      }))) {
         return;
       }
       try {

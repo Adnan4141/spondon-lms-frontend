@@ -57,6 +57,7 @@ import type { CourseDetailTeacher } from '@/types/course';
 import { getCourseSchedules, createCourseSchedule, deleteCourseSchedule } from '@/lib/api/course-schedules';
 import { getCourseFeatures, createCourseFeature, updateCourseFeature, deleteCourseFeature, type CourseFeature } from '@/lib/api/course-features';
 import { updateCourseTeacherPermissions } from '@/lib/api/courses';
+import { confirmAction } from '@/features/admin/shared/confirm-action';
 import { useToast } from '@/hooks/use-toast';
 import { CourseResourceForm } from './CourseResourceForm';
 import { CourseAssociationForm } from '../forms/CourseAssociationForm';
@@ -126,11 +127,12 @@ const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>
       toast({ title: 'Skipped', description: 'Course is already disabled or archived.', variant: 'destructive' });
       return;
     }
-    if (
-      !confirm(
-        'ভর্তি বন্ধ করবেন? কোনও ব্রাঞ্চ/অ্যাডমিন নতুন ভর্তি নিতে পারবে না; বিদ্যমান স্টুডেন্টরা কোর্স কন্টেন্ট দেখতে পারবে।'
-      )
-    ) {
+    if (!(await confirmAction({
+      title: 'ভর্তি বন্ধ করবেন?',
+      description: 'কোনও ব্রাঞ্চ বা অ্যাডমিন নতুন ভর্তি নিতে পারবে না; বিদ্যমান স্টুডেন্টরা কোর্স কন্টেন্ট দেখতে পারবে।',
+      confirmLabel: 'ভর্তি বন্ধ করুন',
+      variant: 'warning',
+    }))) {
       return;
     }
     try {
@@ -166,11 +168,13 @@ const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>
       });
       return;
     }
-    if (
-      !confirm(
-        'সেটেল করলে সকল বাকি ইনভয়েস পরিশোধিত ধরা হবে, সকল এনরোলমেন্ট বাতিল হবে এবং স্টুডেন্ট পোর্টাল থেকে কোর্স সরে যাবে। কোর্স আর্কাইভ হবে। চালিয়ে যাবেন?'
-      )
-    ) {
+    if (!(await confirmAction({
+      title: 'কোর্স সেটেল করবেন?',
+      description:
+        'সকল বাকি ইনভয়েস পরিশোধিত ধরা হবে, সকল এনরোলমেন্ট বাতিল হবে এবং স্টুডেন্ট পোর্টাল থেকে কোর্স সরে যাবে। কোর্স আর্কাইভ হবে।',
+      confirmLabel: 'সেটেল করুন',
+      variant: 'danger',
+    }))) {
       return;
     }
     try {
@@ -244,7 +248,12 @@ const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>
   }, [course.id, course.slug]);
 
   const handleDeleteResource = async (id: string) => {
-    if (!confirm('Remove this resource?')) return;
+    if (!(await confirmAction({
+      title: 'Remove resource?',
+      description: 'This resource will be removed from the course.',
+      confirmLabel: 'Remove resource',
+      variant: 'danger',
+    }))) return;
     const res = await deleteCourseContent(id);
     if (res.success) {
       toast({ title: 'Deleted', description: 'Resource removed' });
@@ -253,7 +262,12 @@ const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>
   };
 
   const handleDeleteAssociation = async (id: string) => {
-    if (!confirm('Remove this link?')) return;
+    if (!(await confirmAction({
+      title: 'Remove related course link?',
+      description: 'This relationship will be removed from the course.',
+      confirmLabel: 'Remove link',
+      variant: 'danger',
+    }))) return;
     const res = await deleteAssociatedCourse(id);
     if (res.success) {
       toast({ title: 'Removed', description: 'Link removed' });
@@ -328,7 +342,12 @@ const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>
   };
 
   const handleRemoveTeacher = async (teacherUserId: string) => {
-    if (!confirm('Remove this teacher from the course?')) return;
+    if (!(await confirmAction({
+      title: 'Remove teacher from course?',
+      description: 'The teacher will lose assignment access to this course.',
+      confirmLabel: 'Remove teacher',
+      variant: 'danger',
+    }))) return;
     setTeacherActionLoading(true);
     try {
       const res = await removeCourseTeacher(course.id, teacherUserId);
@@ -1069,7 +1088,12 @@ const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>
                       variant="outline" size="icon"
                       className="h-7 w-7 rounded-lg border-slate-200 hover:bg-rose-50"
                       onClick={async () => {
-                        if (!confirm('Remove this feature?')) return;
+                        if (!(await confirmAction({
+                          title: 'Remove course feature?',
+                          description: 'This feature will be removed from the course page.',
+                          confirmLabel: 'Remove feature',
+                          variant: 'danger',
+                        }))) return;
                         const res = await deleteCourseFeature(f.id);
                         if (res.success) {
                           setFeatures((prev) => prev.filter((x) => x.id !== f.id));

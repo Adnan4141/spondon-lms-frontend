@@ -31,7 +31,7 @@ export function BookCatalogTab({
   const [featured, setFeatured] = useState<'all' | 'featured' | 'regular'>('all');
   const [categoryId, setCategoryId] = useState('all');
   const [programId, setProgramId] = useState('all');
-  const [viewMode, setViewMode] = useState<BookCatalogViewMode>('grid');
+  const [viewMode, setViewMode] = useState<BookCatalogViewMode>('table');
   const [formOpen, setFormOpen] = useState(false);
   const [mode, setMode] = useState<'create' | 'edit'>('create');
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);

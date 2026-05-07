@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/popover';
 import { Calendar as CalendarIcon, Plus, Trash2 } from 'lucide-react';
 import { createCourseSchedule, deleteCourseSchedule } from '@/lib/api/course-schedules';
+import { confirmAction } from '@/features/admin/shared/confirm-action';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -72,7 +73,12 @@ export function CourseScheduleSection({ courseId, schedules, onRefresh }: Course
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Remove this schedule item?')) return;
+    if (!(await confirmAction({
+      title: 'Remove schedule item?',
+      description: 'This schedule item will be removed from the course.',
+      confirmLabel: 'Remove item',
+      variant: 'danger',
+    }))) return;
     const res = await deleteCourseSchedule(id);
     if (res.success) {
       toast({ title: 'Removed', description: 'Schedule item deleted' });

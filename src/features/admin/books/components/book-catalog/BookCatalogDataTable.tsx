@@ -23,6 +23,7 @@ export function BookCatalogDataTable({ books, onOpenDetail, onOpenEdit, onPrevie
             <TableHead>Book</TableHead>
             <TableHead>Category</TableHead>
             <TableHead>Type</TableHead>
+            <TableHead>Pages</TableHead>
             <TableHead>Stock</TableHead>
             <TableHead className="text-right">Price</TableHead>
             <TableHead className="text-right">Actions</TableHead>
@@ -56,6 +57,7 @@ export function BookCatalogDataTable({ books, onOpenDetail, onOpenEdit, onPrevie
                 <TableCell>
                   <Badge variant="outline">{book.isEbook ? 'E-Book' : 'Physical'}</Badge>
                 </TableCell>
+                <TableCell>{Number(book.pageCount || 0) > 0 ? Number(book.pageCount).toLocaleString() : 'Not set'}</TableCell>
                 <TableCell>
                   <Badge variant="outline" className={state.className}>
                     {book.isEbook ? 'Digital' : `${book.centralQty || 0} · ${state.label}`}

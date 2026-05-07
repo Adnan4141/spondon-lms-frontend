@@ -67,8 +67,10 @@ export function BookCatalogGridCard({ book, onOpenDetail, onOpenEdit, onPreviewP
             </p>
           </div>
           <div className="rounded-lg border border-border bg-muted/30 p-3">
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Linked</p>
-            <p className="mt-1 font-black text-foreground">{book.courseBooks?.length || 0} courses</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Pages</p>
+            <p className="mt-1 font-black text-foreground">
+              {Number(book.pageCount || 0) > 0 ? Number(book.pageCount).toLocaleString() : 'Not set'}
+            </p>
           </div>
         </div>
         <div className="mt-4 flex flex-wrap gap-2">

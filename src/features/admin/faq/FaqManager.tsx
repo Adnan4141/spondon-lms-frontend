@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { confirmAction } from '@/features/admin/shared/confirm-action';
 import { useToast } from '@/hooks/use-toast';
 import {
   createFaq,
@@ -180,7 +181,12 @@ export function FaqManager() {
   };
 
   const handleDelete = async (faq: FaqAdmin) => {
-    if (!confirm('Delete this FAQ?')) return;
+    if (!(await confirmAction({
+      title: 'Delete FAQ?',
+      description: 'This FAQ entry will be permanently removed.',
+      confirmLabel: 'Delete FAQ',
+      variant: 'danger',
+    }))) return;
     try {
       await deleteFaq(faq.id);
       toast({ title: 'Deleted', description: 'FAQ removed' });
