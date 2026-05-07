@@ -24,14 +24,14 @@ export function SummaryAccountBalancesTable({ rows }: Props) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
       <div className="border-b border-slate-100 px-5 py-4">
-        <h3 className="text-sm font-black text-slate-900">Account Balances</h3>
-        <p className="text-xs text-slate-500">Recent balances by account code</p>
+        <h3 className="text-sm font-black text-slate-900">Account Net Movement</h3>
+        <p className="text-xs text-slate-500">Credit minus debit by account code for the selected range</p>
       </div>
       <div className="overflow-x-auto">
         <Table>
           <TableHeader className="bg-slate-50/80">
             <TableRow>
-              {['Code', 'Account', 'Category', 'Debit', 'Credit', 'Balance'].map((header) => (
+              {['Code', 'Account', 'Category', 'Debit', 'Credit', 'Net'].map((header) => (
                 <TableHead key={header} className="text-[10px] font-black uppercase tracking-widest text-slate-400">{header}</TableHead>
               ))}
             </TableRow>

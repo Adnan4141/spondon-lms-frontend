@@ -12,6 +12,6 @@ export function summaryExportColumns(): Array<{
     { header: 'Category', value: (row) => row.accountType },
     { header: 'Total Debit', value: (row) => row.totalDebit },
     { header: 'Total Credit', value: (row) => row.totalCredit },
-    { header: 'Balance', value: (row) => row.balance },
+    { header: 'Net Movement', value: (row) => row.balance },
   ];
 }

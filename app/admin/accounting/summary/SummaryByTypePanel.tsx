@@ -15,7 +15,10 @@ export function SummaryByTypePanel({ byType, totalAccounts }: Props) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm font-black text-slate-900">Balances By Category</h3>
+        <div>
+          <h3 className="text-sm font-black text-slate-900">Net Movement By Category</h3>
+          <p className="text-xs text-slate-500">Positive means more credit than debit for the selected range.</p>
+        </div>
         <Badge className="rounded-full bg-sky-100 text-[10px] font-black uppercase text-sky-700">{totalAccounts} accounts</Badge>
       </div>
       <div className="space-y-3">
@@ -39,7 +42,7 @@ export function SummaryByTypePanel({ byType, totalAccounts }: Props) {
                 <p className="mt-1 font-black text-emerald-700">{fmtCur(item.totalCredit)}</p>
               </div>
               <div>
-                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Balance</p>
+                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Net</p>
                 <p className={cn('mt-1 font-black', item.balance >= 0 ? 'text-sky-700' : 'text-rose-600')}>{fmtCur(item.balance)}</p>
               </div>
             </div>

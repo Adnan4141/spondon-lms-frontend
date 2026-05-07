@@ -20,10 +20,10 @@ export function SummaryKpiCards({ summary }: Props) {
   const items = [
     { label: 'Total Credit', value: summary.totalCredit, icon: ArrowUpRight, color: 'text-emerald-700', bg: 'bg-emerald-50' },
     { label: 'Total Debit', value: summary.totalDebit, icon: ArrowDownRight, color: 'text-amber-700', bg: 'bg-amber-50' },
-    { label: 'Balance', value: summary.balance, icon: Scale, color: summary.balance >= 0 ? 'text-sky-700' : 'text-rose-600', bg: 'bg-sky-50' },
-    { label: 'Cash Balance', value: summary.cashBalance, icon: Wallet, color: 'text-slate-800', bg: 'bg-slate-100' },
-    { label: 'Bank Balance', value: summary.bankBalance, icon: Landmark, color: 'text-indigo-700', bg: 'bg-indigo-50' },
-    { label: 'bKash Balance', value: summary.bkashBalance, icon: Smartphone, color: 'text-fuchsia-700', bg: 'bg-fuchsia-50' },
+    { label: 'Net Movement', value: summary.balance, icon: Scale, color: summary.balance >= 0 ? 'text-sky-700' : 'text-rose-600', bg: 'bg-sky-50' },
+    { label: 'Cash Net', value: summary.cashBalance, icon: Wallet, color: summary.cashBalance >= 0 ? 'text-slate-800' : 'text-rose-600', bg: 'bg-slate-100' },
+    { label: 'Bank Net', value: summary.bankBalance, icon: Landmark, color: summary.bankBalance >= 0 ? 'text-indigo-700' : 'text-rose-600', bg: 'bg-indigo-50' },
+    { label: 'bKash Net', value: summary.bkashBalance, icon: Smartphone, color: summary.bkashBalance >= 0 ? 'text-fuchsia-700' : 'text-rose-600', bg: 'bg-fuchsia-50' },
   ] as const;
 
   return (
