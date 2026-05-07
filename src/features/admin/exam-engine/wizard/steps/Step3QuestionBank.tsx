@@ -93,7 +93,10 @@ export function Step3QuestionBank({
     dispatch({ type: 'UPDATE_RULE_MODE', sectionLocalId, folderId, selectionMode });
   };
 
-  const activeRules = state.uiCategory === 'MULTI' ? activeSubject?.folderRules ?? [] : activeSection?.folderRules ?? [];
+  const activeRules = useMemo(
+    () => (state.uiCategory === 'MULTI' ? activeSubject?.folderRules ?? [] : activeSection?.folderRules ?? []),
+    [activeSection?.folderRules, activeSubject?.folderRules, state.uiCategory],
+  );
   const selectedFolderIds = useMemo(() => new Set(activeRules.map((r) => r.folderId)), [activeRules]);
   const filteredTree = useMemo(() => filterFolderTree(tree, folderSearch), [folderSearch, tree]);
   const visibleSelectableFolders = useMemo(() => {
