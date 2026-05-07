@@ -727,6 +727,7 @@ export interface BookStockMovement {
   createdByUserId?: string | null;
   createdAt: string;
   book?: { id: string; name: string; sku: string };
+  correctionCount?: number;
 }
 
 export interface StockSummaryBook extends CentralStockBook {
@@ -843,6 +844,7 @@ export async function getBookStockMovements(params?: {
   channelId?: string;
   sourceId?: string;
   movementType?: BookStockMovementType | 'ALL';
+  search?: string;
   from?: string;
   to?: string;
   page?: number;
@@ -854,6 +856,7 @@ export async function getBookStockMovements(params?: {
   if (params?.channelId) q.append('channelId', params.channelId);
   if (params?.sourceId) q.append('sourceId', params.sourceId);
   if (params?.movementType) q.append('movementType', params.movementType);
+  if (params?.search) q.append('search', params.search);
   if (params?.from) q.append('from', params.from);
   if (params?.to) q.append('to', params.to);
   if (params?.page) q.append('page', String(params.page));
