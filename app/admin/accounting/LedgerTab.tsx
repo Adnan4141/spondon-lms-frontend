@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { deleteLedgerEntry, getLedgerEntries, type Account, type LedgerEntry } from '@/lib/api/accounting';
-import type { Branch } from '@/lib/api/branches';
 import type { DistributionChannel, StockSource } from '@/lib/api/books';
 import type { ExportFormat } from '@/lib/export';
 import { useToast } from '@/hooks/use-toast';
@@ -17,18 +16,15 @@ import { LedgerTabStats } from './ledger/LedgerTabStats';
 
 export function LedgerTab({
   accounts,
-  branches,
   stockSources,
   channels,
 }: {
   accounts: Account[];
-  branches: Branch[];
   stockSources: StockSource[];
   channels: DistributionChannel[];
 }) {
   const { toast } = useToast();
   const [accountId, setAccountId] = useState('');
-  const [branchId, setBranchId] = useState('');
   const [flowType, setFlowType] = useState('');
   const [sourceType, setSourceType] = useState('');
   const [from, setFrom] = useState('');
@@ -49,7 +45,6 @@ export function LedgerTab({
     try {
       const res = await getLedgerEntries({
         accountId: accountId || undefined,
-        branchId: branchId || undefined,
         from: from || undefined,
         to: to || undefined,
         entryType: flowType || undefined,
@@ -68,7 +63,7 @@ export function LedgerTab({
     } finally {
       setLoading(false);
     }
-  }, [accountId, branchId, flowType, from, sourceType, to, toast]);
+  }, [accountId, flowType, from, sourceType, to, toast]);
 
   useEffect(() => {
     void load(1);
@@ -82,7 +77,7 @@ export function LedgerTab({
     () => entries.filter((entry) => entry.entryType === 'INCOME').length,
     [entries],
   );
-  const sourceCount = stockSources.length + channels.length + branches.length;
+  const sourceCount = stockSources.length + channels.length;
 
   async function handleExport(format: ExportFormat) {
     if (entries.length === 0) {
@@ -99,7 +94,7 @@ export function LedgerTab({
   }
 
   async function handleDelete(entry: LedgerEntry) {
-    if (!window.confirm(`Delete daily entry ${entry.voucherNo || entry.id}? This removes the balanced voucher pair.`)) return;
+    if (!window.confirm(`Delete daily entry ${entry.voucherNo || entry.id}? This removes the entry and any linked transfer row.`)) return;
     setDeletingId(entry.id);
     try {
       const res = await deleteLedgerEntry(entry.id);
@@ -117,13 +112,10 @@ export function LedgerTab({
     <div className="space-y-5">
       <LedgerTabFilters
         accounts={accounts}
-        branches={branches}
         accountId={accountId}
         onAccountIdChange={setAccountId}
         flowType={flowType}
         onFlowTypeChange={setFlowType}
-        branchId={branchId}
-        onBranchIdChange={setBranchId}
         sourceType={sourceType}
         onSourceTypeChange={setSourceType}
         from={from}
@@ -167,7 +159,6 @@ export function LedgerTab({
         open={formOpen}
         onOpenChange={setFormOpen}
         accounts={accounts}
-        branches={branches}
         stockSources={stockSources}
         channels={channels}
         onEntryCreated={() => load(1)}
@@ -176,7 +167,6 @@ export function LedgerTab({
       <LedgerEditEntryDialog
         entry={editEntry}
         accounts={accounts}
-        branches={branches}
         stockSources={stockSources}
         channels={channels}
         onClose={() => setEditEntry(null)}

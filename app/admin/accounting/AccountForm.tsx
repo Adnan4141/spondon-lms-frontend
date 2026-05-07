@@ -7,7 +7,6 @@ import {
   type Account,
   type CreateAccountPayload,
 } from '@/lib/api/accounting';
-import type { Branch } from '@/lib/api/branches';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,12 +25,10 @@ import { accountCategory } from './utils';
 
 export function AccountForm({
   account,
-  branches,
   onSuccess,
   onCancel,
 }: {
   account?: Account | null;
-  branches: Branch[];
   onSuccess: () => void;
   onCancel: () => void;
 }) {
@@ -40,8 +37,7 @@ export function AccountForm({
   const [code, setCode] = useState(account?.code ?? '');
   const [name, setName] = useState(account?.name ?? '');
   const initialCategory = account ? accountCategory(account) : 'Cash';
-  const [type, setType] = useState(initialCategory === 'Cash / Bank' ? 'Cash' : initialCategory);
-  const [branchId, setBranchId] = useState(account?.branchId ?? '');
+  const [type, setType] = useState(initialCategory === 'Other' ? 'Cash' : initialCategory);
   const [isActive, setIsActive] = useState(account?.isActive ?? true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +54,6 @@ export function AccountForm({
       if (isEdit) {
         const res = await updateAccount(account.id, {
           name: name.trim(),
-          branchId: branchId || null,
           isActive,
           type: type || undefined,
         });
@@ -68,7 +63,6 @@ export function AccountForm({
         const payload: CreateAccountPayload = {
           code: code.trim(),
           name: name.trim(),
-          branchId: branchId || undefined,
           type: type || undefined,
         };
         const res = await createAccount(payload);
@@ -89,7 +83,7 @@ export function AccountForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       {error ? <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</div> : null}
       <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 text-sm text-slate-600">
-        Category controls how balances appear in daily reports. Staff will only see these simple operational labels.
+        Head office accounting supports only Cash, Bank, and bKash accounts. All balances follow credit minus debit.
       </div>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div>
@@ -99,16 +93,6 @@ export function AccountForm({
         <div>
           <Label className="text-xs font-black uppercase tracking-wider text-slate-500">Account Name *</Label>
           <Input className={cn(inputCls, 'mt-1')} placeholder="e.g. Main Cash" value={name} onChange={(e) => setName(e.target.value)} required />
-        </div>
-        <div>
-          <Label className="text-xs font-black uppercase tracking-wider text-slate-500">Branch</Label>
-          <Select value={branchId || 'all'} onValueChange={(v) => setBranchId(v === 'all' ? '' : v)}>
-            <SelectTrigger className={cn(inputCls, 'mt-1')}><SelectValue placeholder="All / Head Office" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All / Head Office</SelectItem>
-              {branches.map((branch) => <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
         </div>
         <div>
           <Label className="text-xs font-black uppercase tracking-wider text-slate-500">Category</Label>

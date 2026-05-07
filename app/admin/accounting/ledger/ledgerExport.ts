@@ -13,7 +13,6 @@ export function ledgerExportColumns(): Array<{
     { header: 'Category', value: (row) => accountCategory(row.account || null) },
     { header: 'Type', value: (row) => entryFlowLabel(row) },
     { header: 'Amount', value: (row) => Number(row.amount || 0) },
-    { header: 'Branch Id', value: (row) => row.branchId || '' },
     { header: 'Source Type', value: (row) => row.sourceType || '' },
     { header: 'Source', value: (row) => row.sourceLabel || row.sourceId || '' },
     { header: 'Purpose', value: (row) => row.purpose || '' },

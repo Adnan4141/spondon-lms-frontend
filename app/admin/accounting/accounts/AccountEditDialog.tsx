@@ -1,7 +1,6 @@
 'use client';
 
 import type { Account } from '@/lib/api/accounting';
-import type { Branch } from '@/lib/api/branches';
 import {
   Dialog,
   DialogContent,
@@ -15,7 +14,6 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editingAccount: Account | null;
-  branches: Branch[];
   onSaved: () => void | Promise<void>;
 };
 
@@ -23,7 +21,6 @@ export function AccountEditDialog({
   open,
   onOpenChange,
   editingAccount,
-  branches,
   onSaved,
 }: Props) {
   return (
@@ -39,7 +36,6 @@ export function AccountEditDialog({
         </DialogHeader>
         <AccountForm
           account={editingAccount}
-          branches={branches}
           onSuccess={async () => {
             onOpenChange(false);
             await onSaved();

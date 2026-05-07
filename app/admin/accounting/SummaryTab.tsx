@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { getAccountingSummary, type AccountingSummary } from '@/lib/api/accounting';
-import type { Branch } from '@/lib/api/branches';
 import type { ExportFormat } from '@/lib/export';
 import { useToast } from '@/hooks/use-toast';
 import { SummaryAccountBalancesTable } from './summary/SummaryAccountBalancesTable';
@@ -14,9 +13,8 @@ import { SummaryTabFilters } from './summary/SummaryTabFilters';
 import { summaryExportColumns } from './summary/summaryExport';
 import { exportFilename, runExport } from './utils';
 
-export function SummaryTab({ branches }: { branches: Branch[] }) {
+export function SummaryTab() {
   const { toast } = useToast();
-  const [branchId, setBranchId] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [loading, setLoading] = useState(false);
@@ -25,14 +23,14 @@ export function SummaryTab({ branches }: { branches: Branch[] }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getAccountingSummary({ branchId: branchId || undefined, from: from || undefined, to: to || undefined });
+      const res = await getAccountingSummary({ from: from || undefined, to: to || undefined });
       if (res.success) setSummary(res.data);
     } catch {
       toast({ title: 'Failed to load summary', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
-  }, [branchId, from, to, toast]);
+  }, [from, to, toast]);
 
   useEffect(() => {
     void load();
@@ -55,9 +53,6 @@ export function SummaryTab({ branches }: { branches: Branch[] }) {
   return (
     <div className="space-y-5">
       <SummaryTabFilters
-        branches={branches}
-        branchId={branchId}
-        onBranchIdChange={setBranchId}
         from={from}
         onFromChange={setFrom}
         to={to}

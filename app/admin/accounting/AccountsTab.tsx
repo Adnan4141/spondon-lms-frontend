@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { getAccounts, type Account } from '@/lib/api/accounting';
-import type { Branch } from '@/lib/api/branches';
 import type { ExportFormat } from '@/lib/export';
 import { useToast } from '@/hooks/use-toast';
 import { AccountEditDialog } from './accounts/AccountEditDialog';
@@ -12,10 +11,8 @@ import { accountsExportColumns } from './accounts/accountsExport';
 import { exportFilename, runExport } from './utils';
 
 export function AccountsTab({
-  branches,
   onAccountsChange,
 }: {
-  branches: Branch[];
   onAccountsChange: (accounts: Account[]) => void;
 }) {
   const { toast } = useToast();
@@ -86,7 +83,6 @@ export function AccountsTab({
         open={formOpen}
         onOpenChange={setFormOpen}
         editingAccount={editingAccount}
-        branches={branches}
         onSaved={() => load()}
       />
     </div>

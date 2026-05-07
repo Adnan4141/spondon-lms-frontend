@@ -1,7 +1,6 @@
 'use client';
 
 import type { Account } from '@/lib/api/accounting';
-import type { Branch } from '@/lib/api/branches';
 import type { ExportFormat } from '@/lib/export';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,13 +17,10 @@ import { FLOW_TYPES, SOURCE_TYPES } from '../constants';
 
 type Props = {
   accounts: Account[];
-  branches: Branch[];
   accountId: string;
   onAccountIdChange: (id: string) => void;
   flowType: string;
   onFlowTypeChange: (v: string) => void;
-  branchId: string;
-  onBranchIdChange: (id: string) => void;
   sourceType: string;
   onSourceTypeChange: (v: string) => void;
   from: string;
@@ -41,13 +37,10 @@ type Props = {
 export function LedgerTabFilters(props: Props) {
   const {
     accounts,
-    branches,
     accountId,
     onAccountIdChange,
     flowType,
     onFlowTypeChange,
-    branchId,
-    onBranchIdChange,
     sourceType,
     onSourceTypeChange,
     from,
@@ -87,16 +80,6 @@ export function LedgerTabFilters(props: Props) {
                 {item.label}
               </SelectItem>
             ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">Branch</p>
-        <Select value={branchId || 'all'} onValueChange={(v) => onBranchIdChange(v === 'all' ? '' : v)}>
-          <SelectTrigger className="h-9 w-44 rounded-xl text-sm"><SelectValue placeholder="All" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All / Head Office</SelectItem>
-            {branches.map((branch) => <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>

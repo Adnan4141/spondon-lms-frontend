@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { getAccounts, type Account } from '@/lib/api/accounting';
-import { getBranches, type Branch } from '@/lib/api/branches';
 import {
   getDistributionChannels,
   getStockSources,
@@ -22,7 +21,6 @@ import type { TabKey } from './types';
 export default function AdminAccountingPage() {
   const { toast, toasts, removeToast } = useToast();
   const [activeTab, setActiveTab] = useState<TabKey>('summary');
-  const [branches, setBranches] = useState<Branch[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [stockSources, setStockSources] = useState<StockSource[]>([]);
   const [channels, setChannels] = useState<DistributionChannel[]>([]);
@@ -32,13 +30,11 @@ export default function AdminAccountingPage() {
     async function load() {
       setMetaLoading(true);
       try {
-        const [branchRes, accountRes, sourceRes, channelRes] = await Promise.all([
-          getBranches(),
+        const [accountRes, sourceRes, channelRes] = await Promise.all([
           getAccounts(),
           getStockSources({ includeInactive: true }),
           getDistributionChannels({ includeInactive: true }),
         ]);
-        if (branchRes.success && branchRes.data) setBranches(branchRes.data);
         if (accountRes.success) setAccounts(accountRes.data);
         if (sourceRes.success && sourceRes.data) setStockSources(sourceRes.data);
         if (channelRes.success && channelRes.data) setChannels(channelRes.data);
@@ -59,7 +55,7 @@ export default function AdminAccountingPage() {
         </div>
         <div>
           <h1 className="text-2xl font-black text-slate-900">Accounting</h1>
-          <p className="text-sm font-medium text-slate-500">Daily cash, bank, mobile banking, income, and expense tracking</p>
+          <p className="text-sm font-medium text-slate-500">Head office money tracking for cash, bank, and bKash accounts</p>
         </div>
       </div>
 
@@ -89,9 +85,9 @@ export default function AdminAccountingPage() {
         </div>
       ) : (
         <div>
-          {activeTab === 'summary' ? <SummaryTab branches={branches} /> : null}
-          {activeTab === 'ledger' ? <LedgerTab accounts={accounts} branches={branches} stockSources={stockSources} channels={channels} /> : null}
-          {activeTab === 'accounts' ? <AccountsTab branches={branches} onAccountsChange={setAccounts} /> : null}
+          {activeTab === 'summary' ? <SummaryTab /> : null}
+          {activeTab === 'ledger' ? <LedgerTab accounts={accounts} stockSources={stockSources} channels={channels} /> : null}
+          {activeTab === 'accounts' ? <AccountsTab onAccountsChange={setAccounts} /> : null}
         </div>
       )}
 

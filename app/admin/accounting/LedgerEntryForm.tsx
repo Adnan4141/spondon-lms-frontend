@@ -8,7 +8,6 @@ import {
   type CreateLedgerEntryPayload,
   type LedgerEntry,
 } from '@/lib/api/accounting';
-import type { Branch } from '@/lib/api/branches';
 import type { DistributionChannel, StockSource } from '@/lib/api/books';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,7 +31,6 @@ type FlowType = CreateLedgerEntryPayload['flowType'];
 
 export function LedgerEntryForm({
   accounts,
-  branches,
   stockSources,
   channels,
   onSuccess,
@@ -41,7 +39,6 @@ export function LedgerEntryForm({
   initialEntry,
 }: {
   accounts: Account[];
-  branches: Branch[];
   stockSources: StockSource[];
   channels: DistributionChannel[];
   onSuccess: () => void;
@@ -55,7 +52,6 @@ export function LedgerEntryForm({
   const [amount, setAmount] = useState(initialEntry?.amount != null ? String(initialEntry.amount) : '');
   const [accountId, setAccountId] = useState(initialEntry?.accountId || '');
   const [toAccountId, setToAccountId] = useState('');
-  const [branchId, setBranchId] = useState(initialEntry?.branchId || '');
   const [sourceType, setSourceType] = useState<SourceTypeValue>((initialEntry?.sourceType as SourceTypeValue) || 'NONE');
   const [sourceId, setSourceId] = useState(initialEntry?.sourceType === 'OTHER' ? '' : initialEntry?.sourceId || '');
   const [manualSourceLabel, setManualSourceLabel] = useState(initialEntry?.sourceType === 'OTHER' ? initialEntry?.sourceId || '' : '');
@@ -68,13 +64,11 @@ export function LedgerEntryForm({
   const numericAmount = parseAmount(amount);
 
   const sourceOptions =
-    sourceType === 'BRANCH'
-      ? branches.map((branch) => ({ value: branch.id, label: branch.name }))
-      : sourceType === 'STOCK_SOURCE'
-        ? stockSources.map((source) => ({ value: source.id, label: source.name }))
-        : sourceType === 'DISTRIBUTION_CHANNEL'
-          ? channels.map((channel) => ({ value: channel.id, label: channel.name }))
-          : [];
+    sourceType === 'STOCK_SOURCE'
+      ? stockSources.map((source) => ({ value: source.id, label: source.name }))
+      : sourceType === 'DISTRIBUTION_CHANNEL'
+        ? channels.map((channel) => ({ value: channel.id, label: channel.name }))
+        : [];
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -113,7 +107,6 @@ export function LedgerEntryForm({
         amount: Number(numericAmount.toFixed(2)),
         accountId,
         toAccountId: flowType === 'TRANSFER' ? toAccountId : undefined,
-        branchId: branchId || undefined,
         sourceType: sourceType === 'NONE' ? undefined : sourceType,
         sourceId:
           sourceType === 'OTHER'
@@ -140,6 +133,10 @@ export function LedgerEntryForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {error ? <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</div> : null}
+
+      <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-sm text-slate-600">
+        Entries are recorded only for head office. Balance always follows credit minus debit.
+      </div>
 
       <div className="grid grid-cols-1 gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-2 xl:grid-cols-4">
         <div>
@@ -183,16 +180,6 @@ export function LedgerEntryForm({
             </Select>
           </div>
         ) : null}
-        <div>
-          <Label className="text-xs font-black uppercase tracking-wider text-slate-500">Branch</Label>
-          <Select value={branchId || 'all'} onValueChange={(v) => setBranchId(v === 'all' ? '' : v)}>
-            <SelectTrigger className={cn(inputCls, 'mt-1')}><SelectValue placeholder="Head Office" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Head Office / Global</SelectItem>
-              {branches.map((branch) => <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
         <div>
           <Label className="text-xs font-black uppercase tracking-wider text-slate-500">Source</Label>
           <Select value={sourceType} onValueChange={(v) => { setSourceType(v as SourceTypeValue); setSourceId(''); setManualSourceLabel(''); }}>

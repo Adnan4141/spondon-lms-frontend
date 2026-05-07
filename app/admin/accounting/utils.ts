@@ -41,14 +41,14 @@ export function accountCategory(account?: Pick<Account, 'type' | 'name' | 'code'
   const normalized = (account.type || '').trim().toUpperCase();
   if (INTERNAL_CATEGORY_LABELS[normalized]) return INTERNAL_CATEGORY_LABELS[normalized];
   const haystack = `${account.name || ''} ${account.code || ''}`.toLowerCase();
-  if (/bkash|b-kash|nagad|rocket|mobile/.test(haystack)) return 'Mobile Banking';
+  if (/bkash|b-kash|nagad|rocket|mobile/.test(haystack)) return 'bKash';
   if (/bank|dbbl|brac|city|islami|dutch/.test(haystack)) return 'Bank';
   if (/cash/.test(haystack)) return 'Cash';
   return account.type || 'Other';
 }
 
 export function isMoneyAccount(account?: Pick<Account, 'type' | 'name' | 'code'> | null) {
-  return ['Cash', 'Bank', 'Mobile Banking', 'Cash / Bank'].includes(accountCategory(account));
+  return ['Cash', 'Bank', 'bKash'].includes(accountCategory(account));
 }
 
 export function entryFlowLabel(entry: Pick<LedgerEntry, 'flowType' | 'entryType'>) {

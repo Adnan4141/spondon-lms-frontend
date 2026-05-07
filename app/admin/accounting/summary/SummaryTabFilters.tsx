@@ -1,6 +1,4 @@
 'use client';
-
-import type { Branch } from '@/lib/api/branches';
 import type { ExportFormat } from '@/lib/export';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,9 +13,6 @@ import { BarChart3, RefreshCw } from 'lucide-react';
 import { ExportButtons } from '../ExportButtons';
 
 type Props = {
-  branches: Branch[];
-  branchId: string;
-  onBranchIdChange: (id: string) => void;
   from: string;
   onFromChange: (v: string) => void;
   to: string;
@@ -29,9 +24,6 @@ type Props = {
 };
 
 export function SummaryTabFilters({
-  branches,
-  branchId,
-  onBranchIdChange,
   from,
   onFromChange,
   to,
@@ -43,16 +35,6 @@ export function SummaryTabFilters({
 }: Props) {
   return (
     <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div>
-        <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">Branch</p>
-        <Select value={branchId || 'all'} onValueChange={(v) => onBranchIdChange(v === 'all' ? '' : v)}>
-          <SelectTrigger className="h-9 w-44 rounded-xl text-sm"><SelectValue placeholder="All / Head Office" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All / Head Office</SelectItem>
-            {branches.map((branch) => <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
       <div>
         <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">From</p>
         <AdminDatePicker className="w-36" value={from} onChange={onFromChange} placeholder="From date" />

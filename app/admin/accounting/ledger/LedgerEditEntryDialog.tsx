@@ -1,7 +1,6 @@
 'use client';
 
 import type { Account, LedgerEntry } from '@/lib/api/accounting';
-import type { Branch } from '@/lib/api/branches';
 import type { DistributionChannel, StockSource } from '@/lib/api/books';
 import { LedgerEntryForm } from '../LedgerEntryForm';
 import { LedgerEntryDialogShell } from './LedgerEntryDialogShell';
@@ -9,7 +8,6 @@ import { LedgerEntryDialogShell } from './LedgerEntryDialogShell';
 type Props = {
   entry: LedgerEntry | null;
   accounts: Account[];
-  branches: Branch[];
   stockSources: StockSource[];
   channels: DistributionChannel[];
   onClose: () => void;
@@ -19,7 +17,6 @@ type Props = {
 export function LedgerEditEntryDialog({
   entry,
   accounts,
-  branches,
   stockSources,
   channels,
   onClose,
@@ -39,7 +36,6 @@ export function LedgerEditEntryDialog({
           mode="edit"
           initialEntry={entry}
           accounts={accounts}
-          branches={branches}
           stockSources={stockSources}
           channels={channels}
           onCancel={onClose}

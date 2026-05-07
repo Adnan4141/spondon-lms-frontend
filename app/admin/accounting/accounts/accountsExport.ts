@@ -9,7 +9,6 @@ export function accountsExportColumns(): Array<{
     { header: 'Code', value: (row) => row.code },
     { header: 'Name', value: (row) => row.name },
     { header: 'Category', value: (row) => accountCategory(row) },
-    { header: 'Branch Id', value: (row) => row.branchId || '' },
     { header: 'Status', value: (row) => (row.isActive ? 'Active' : 'Inactive') },
   ];
 }
