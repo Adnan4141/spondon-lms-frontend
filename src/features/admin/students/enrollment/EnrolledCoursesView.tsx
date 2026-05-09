@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { getBatches } from '@/lib/api/batches';
 import { cancelFullEnrollment, getEnrollments } from '@/lib/api/enrollments';
 import type { BranchOption, Course, Enrollment, Program, Student } from '../types';
-import { avatarHue, currentMonth, fmt, fmtMonth, toLocalEnrollment } from '../utils';
+import { avatarHue, currentMonth, fmt, fmtMonth, nextMonth, toLocalEnrollment } from '../utils';
 import { StudentAdminBadge as AppBadge } from '../components/StudentAdminBadge';
 import { StudentAdminField as Field } from '../components/StudentAdminField';
 import { StudentAdminModal as AppModal } from '../components/StudentAdminModal';
@@ -131,8 +131,9 @@ export function EnrolledCoursesView({
           return s + (c?.fee || 0);
         }, 0);
         const netFee = totalFee - (enrollment.monthlyDiscount || 0);
+        const isMonthlyEnrollment = enrollment.billingType === 'MONTHLY';
 
-        const canManageEnrollment = true;
+        const canManageEnrollment = enrollment.billingType === 'MONTHLY';
 
         return (
           <div key={enrollment.id} className="bg-white border border-slate-200 rounded-2xl mb-5 overflow-hidden shadow-sm">
@@ -148,13 +149,17 @@ export function EnrolledCoursesView({
                     color={enrollment.accessStatus === 'FULL_ACCESS' ? 'green' : 'amber'}
                   />
                   {enrollment.source && <AppBadge label={enrollment.source} color="slate" />}
-                  <span className="text-xs text-slate-500">From: {fmtMonth(enrollment.billingStartMonth)}</span>
-                  <span className="text-xs text-slate-500">
-                    Discount: <strong className="text-rose-600">{fmt(enrollment.monthlyDiscount)}/mo</strong>
-                  </span>
-                  <span className="text-xs text-slate-500">
-                    Net: <strong className="text-emerald-600">{fmt(netFee)}/mo</strong>
-                  </span>
+                  {isMonthlyEnrollment && (
+                    <>
+                      <span className="text-xs text-slate-500">From: {fmtMonth(enrollment.billingStartMonth)}</span>
+                      <span className="text-xs text-slate-500">
+                        Discount: <strong className="text-rose-600">{fmt(enrollment.monthlyDiscount)}/mo</strong>
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        Net: <strong className="text-emerald-600">{fmt(netFee)}/mo</strong>
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -170,6 +175,7 @@ export function EnrolledCoursesView({
                 <Button
                   size="sm"
                   disabled={!canManageEnrollment}
+                  title={canManageEnrollment ? undefined : 'Course add/remove management is available for monthly enrollments'}
                   onClick={() => canManageEnrollment && setManageModal({ enrollment })}
                   className={cn(
                     'gap-1.5 bg-slate-900 text-white hover:bg-indigo-600 transition-all shrink-0',
@@ -212,7 +218,9 @@ export function EnrolledCoursesView({
                       <tr key={ec.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                         <td className="px-3.5 py-3">
                           <p className="font-bold text-sm text-slate-900">{course.name}</p>
-                          <p className="text-[11px] text-rose-600 font-semibold mt-0.5">{fmt(course.fee)}/mo</p>
+                          <p className="text-[11px] text-rose-600 font-semibold mt-0.5">
+                            {fmt(course.fee)}{isMonthlyEnrollment ? '/mo' : ''}
+                          </p>
                         </td>
                         <td className="px-3.5 py-3 text-xs text-slate-400 whitespace-nowrap">
                           {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
@@ -262,11 +270,17 @@ export function EnrolledCoursesView({
                 {enrollment.courses.filter(ec => ec.status === 'ACTIVE').length} active courses
               </span>
               <div className="flex items-center gap-4">
-                <span className="text-xs text-slate-600">Total fee: <strong>{fmt(totalFee)}/mo</strong></span>
                 <span className="text-xs text-slate-600">
-                  Discount: <strong className="text-rose-600">−{fmt(enrollment.monthlyDiscount)}/mo</strong>
+                  Total fee: <strong>{fmt(totalFee)}{isMonthlyEnrollment ? '/mo' : ''}</strong>
                 </span>
-                <span className="text-sm font-black text-emerald-600">Net: {fmt(netFee)}/mo</span>
+                {isMonthlyEnrollment && (
+                  <>
+                    <span className="text-xs text-slate-600">
+                      Discount: <strong className="text-rose-600">−{fmt(enrollment.monthlyDiscount)}/mo</strong>
+                    </span>
+                    <span className="text-sm font-black text-emerald-600">Net: {fmt(netFee)}/mo</span>
+                  </>
+                )}
               </div>
             </div>
           </div>

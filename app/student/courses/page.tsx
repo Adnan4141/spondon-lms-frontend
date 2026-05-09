@@ -3,25 +3,17 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
-import { BookOpen, ArrowRight, PlayCircle, Clock } from 'lucide-react';
+import { BookOpen, ArrowRight, PlayCircle } from 'lucide-react';
 import { getMyCourses } from '@/lib/api/student-portal';
-
-interface Course {
-  id: string;
-  billingStartMonth?: string | null;
-  billingType?: 'ONE_TIME' | 'MONTHLY';
-  course?: {
-    id: string;
-    name: string;
-  };
-  batch?: {
-    name: string;
-  };
-  progress?: number;
-}
+import { API_ORIGIN } from '@/lib/api';
+import { resolveAttachmentUrl } from '@/lib/attachment-url';
+import {
+  flattenEnrollmentCoursesForStudent,
+  type StudentMyCourseFlatRow,
+} from '@/lib/student-my-courses';
 
 export default function StudentMyCoursesPage() {
-  const [courses, setCourses] = useState<Course[]>([]);
+  const [courses, setCourses] = useState<StudentMyCourseFlatRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -35,7 +27,9 @@ export default function StudentMyCoursesPage() {
         const user = JSON.parse(u);
         if (user?.id) {
           const r = await getMyCourses(user.id);
-          if (r.success && r.data) setCourses(r.data);
+          if (r.success && r.data) {
+            setCourses(flattenEnrollmentCoursesForStudent(r.data));
+          }
         }
       } catch (err) {
         console.error(err);
@@ -83,7 +77,18 @@ export default function StudentMyCoursesPage() {
               <Card key={c.id} className="group relative overflow-hidden rounded-[2rem] border-none bg-white p-2 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] transition-all duration-500">
                 <CardContent className="p-6">
                   <div className="aspect-video bg-slate-100 rounded-2xl mb-6 relative overflow-hidden group-hover:scale-[1.02] transition-transform duration-500">
-                     <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+                     {c.course.thumbnail ? (
+                       <img
+                         src={resolveAttachmentUrl(c.course.thumbnail, API_ORIGIN)}
+                         alt={c.course.name}
+                         className="absolute inset-0 w-full h-full object-cover"
+                       />
+                     ) : (
+                       <div className="absolute inset-0 flex items-center justify-center">
+                         <BookOpen className="h-12 w-12 text-slate-300" />
+                       </div>
+                     )}
+                     <div className="absolute inset-0 bg-linear-to-t from-black/30 to-transparent" />
                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                         <PlayCircle className="h-12 w-12 text-white drop-shadow-lg" />
                      </div>
@@ -104,29 +109,31 @@ export default function StudentMyCoursesPage() {
                         ) : null}
                       </div>
                       <h3 className="text-xl font-black text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-2">
-                        {c.course?.name}
+                        {c.course.name}
                       </h3>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <div className="flex justify-between text-xs font-bold">
                         <span className="text-slate-400 uppercase tracking-widest">অগ্রগতি</span>
                         <span className="text-indigo-600">{c.progress ?? 0}%</span>
                       </div>
                       <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-indigo-500 rounded-full transition-all duration-1000" 
-                          style={{ width: `${c.progress ?? 0}%` }} 
+                        <div
+                          className="h-full bg-indigo-500 rounded-full transition-all duration-1000"
+                          style={{ width: `${c.progress ?? 0}%` }}
                         />
                       </div>
                     </div>
 
                     <div className="pt-4 flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-slate-400 text-xs font-bold">
-                        <Clock className="h-3.5 w-3.5" />
-                        <span>Last active: 2h ago</span>
-                      </div>
-                      <Link href={`/student/courses/${c.course?.id}`} className="h-10 w-10 rounded-full bg-slate-900 text-white flex items-center justify-center hover:bg-indigo-600 transition-colors shadow-lg">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-widest">
+                        চলমান
+                      </span>
+                      <Link
+                        href={`/student/courses/${c.course.slug ?? c.courseId}`}
+                        className="h-10 w-10 rounded-full bg-slate-900 text-white flex items-center justify-center hover:bg-indigo-600 transition-colors shadow-lg"
+                      >
                         <ArrowRight className="h-5 w-5" />
                       </Link>
                     </div>

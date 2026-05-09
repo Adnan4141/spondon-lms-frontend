@@ -69,6 +69,11 @@ export interface Invoice {
   id: string;
   invoiceNumber?: string | null;
   month: string;
+  billingType?: 'MONTHLY' | 'ONE_TIME';
+  programId?: string;
+  programName?: string;
+  displayPeriod?: string;
+  isDuePaymentInvoice?: boolean;
   amount: number;
   paidAmount: number;
   status: 'PAID' | 'DUE' | 'WAIVED' | 'PARTIAL';

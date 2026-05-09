@@ -16,12 +16,27 @@ import {
 import { createCourseContent, updateCourseContent } from '@/lib/api/courses';
 import { useToast } from '@/hooks/use-toast';
 import { FileUp, Save, X, Link2, Upload } from 'lucide-react';
-import { parseYoutubeVideoId } from '@/lib/youtube';
+import { normalizeYoutubeWatchUrl, parseYoutubeVideoId } from '@/lib/youtube';
 import { isLocalUploadPath, isValidHttpUrl } from '@/lib/attachment-url';
+
+type CourseResourceLike = {
+  id?: string;
+  type?: string;
+  title?: string;
+  textBody?: string;
+  isFree?: boolean;
+  sortOrder?: number;
+  subjectTitle?: string | null;
+  chapterTitle?: string | null;
+  topicTitle?: string | null;
+  topicSortOrder?: number | null;
+  durationMinutes?: number | null;
+  fileUrl?: string | null;
+};
 
 interface CourseResourceFormProps {
   courseId: string;
-  resource?: any;
+  resource?: CourseResourceLike;
   /** Curriculum subject (e.g. Physics) */
   defaultSubjectTitle?: string;
   /** Chapter under subject */
@@ -88,7 +103,7 @@ export function CourseResourceForm({
       setLinkUrl('');
     }
     setFile(null);
-  }, [resource?.id]);
+  }, [resource?.id, resource?.fileUrl]);
 
   const isVideoType = formData.type === 'VIDEO';
   const fileAccept = isVideoType
@@ -170,7 +185,8 @@ export function CourseResourceForm({
           resource?.fileUrl && !isLocalUploadPath(resource.fileUrl) && isValidHttpUrl(resource.fileUrl)
             ? resource.fileUrl
             : '';
-        data.append('fileUrl', (linkUrl.trim() || persistedExternal).trim());
+        const rawLink = (linkUrl.trim() || persistedExternal).trim();
+        data.append('fileUrl', isVideoType ? normalizeYoutubeWatchUrl(rawLink)! : rawLink);
       } else if (file) {
         data.append('file', file);
       }
@@ -185,8 +201,12 @@ export function CourseResourceForm({
         });
         onSuccess();
       }
-    } catch (err: any) {
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } catch (err: unknown) {
+      toast({
+        title: 'Error',
+        description: err instanceof Error ? err.message : 'Failed to save resource',
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
@@ -313,8 +333,8 @@ export function CourseResourceForm({
               <p className="text-[11px] text-slate-500 font-medium leading-relaxed px-1">
                 {isVideoType ? (
                   <>
-                    Use <strong className="font-bold">Unlisted</strong> (or Public) so the player can embed. Fully
-                    private YouTube videos cannot play inside the LMS.
+                    Use <strong className="font-bold">Unlisted</strong>, not Private. The LMS stores a clean YouTube
+                    watch URL and students see it through the anti-casual-sharing player.
                   </>
                 ) : (
                   'Paste a direct https link. Students can open it from the lesson page (PDFs may preview inline).'

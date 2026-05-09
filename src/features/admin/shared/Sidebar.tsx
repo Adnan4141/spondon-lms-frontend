@@ -150,7 +150,6 @@ function buildMenuSections(role: string | null): MenuSection[] {
     { title: 'Reports', href: '/admin/reports', icon: BarChart3, color: 'text-teal-500', bg: 'bg-teal-50' },
     { title: 'Accounting', href: '/admin/accounting', icon: Wallet, color: 'text-sky-600', bg: 'bg-sky-50' },
     { title: 'Settings', href: '/admin/settings', icon: Settings, color: 'text-slate-500', bg: 'bg-slate-50' },
-    { title: 'Inventory', href: '/admin/inventory', icon: Package, color: 'text-amber-600', bg: 'bg-amber-50' },
   ];
 
   const financeItems: MenuItem[] = isAccounts
@@ -163,10 +162,7 @@ function buildMenuSections(role: string | null): MenuSection[] {
 
   const adminItems: MenuItem[] = isAccounts
     ? allAdminItems.filter((i) =>
-        ['/admin/monthly-billing',
-           '/admin/payouts',
-           // '/admin/inventory',
-           '/admin/books'].includes(i.href),
+        ['/admin/monthly-billing', '/admin/payouts', '/admin/books'].includes(i.href),
       )
     : isBranchAdmin
     ? []

@@ -128,6 +128,7 @@ export function EnrollmentModal({
   }, [programId, student.id]);
 
   const program = programs.find(p => p.id === programId);
+  const isMonthlyProgram = program?.paymentCircle === 'MONTHLY';
   const courses = programId ? allCourses.filter(c => c.programId === programId) : [];
   const availableCourses = courses.filter(c => !enrolledCourseIds.has(c.id));
   const alreadyEnrolledCourses = courses.filter(c => enrolledCourseIds.has(c.id));
@@ -145,7 +146,7 @@ export function EnrollmentModal({
   const admFee = program?.admissionFeeEnabled
     ? Math.max(0, program.admissionFeeAmount - (Number(admDiscount) || 0))
     : 0;
-  const coursePayable = program?.paymentCircle === 'MONTHLY' ? netMonthly : totalFee;
+  const coursePayable = isMonthlyProgram ? netMonthly : totalFee;
   const totalPayable = Math.max(0, coursePayable + admFee);
   const payNow = Math.min(Number(payNowAmount) || 0, totalPayable);
   const dueAfterPay = Math.max(0, totalPayable - payNow);
@@ -198,40 +199,42 @@ export function EnrollmentModal({
             message: 'Batch is required for offline course',
           });
         }
-        if (!selectedStartMonth) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: [`startMonth.${course.id}`],
-            message: 'Start month is required',
-          });
-        }
-        if (!selectedEndMonth) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: [`endMonth.${course.id}`],
-            message: 'End month is required',
-          });
-        }
-        if (course.startMonth && selectedStartMonth && selectedStartMonth < course.startMonth) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: [`startMonth.${course.id}`],
-            message: `Start month cannot be before ${course.startMonth}`,
-          });
-        }
-        if (course.endMonth && selectedEndMonth && selectedEndMonth > course.endMonth) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: [`endMonth.${course.id}`],
-            message: `End month cannot be after ${course.endMonth}`,
-          });
-        }
-        if (selectedStartMonth && selectedEndMonth && selectedEndMonth < selectedStartMonth) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: [`endMonth.${course.id}`],
-            message: 'End month cannot be before start month',
-          });
+        if (isMonthlyProgram) {
+          if (!selectedStartMonth) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: [`startMonth.${course.id}`],
+              message: 'Start month is required',
+            });
+          }
+          if (!selectedEndMonth) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: [`endMonth.${course.id}`],
+              message: 'End month is required',
+            });
+          }
+          if (course.startMonth && selectedStartMonth && selectedStartMonth < course.startMonth) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: [`startMonth.${course.id}`],
+              message: `Start month cannot be before ${course.startMonth}`,
+            });
+          }
+          if (course.endMonth && selectedEndMonth && selectedEndMonth > course.endMonth) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: [`endMonth.${course.id}`],
+              message: `End month cannot be after ${course.endMonth}`,
+            });
+          }
+          if (selectedStartMonth && selectedEndMonth && selectedEndMonth < selectedStartMonth) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: [`endMonth.${course.id}`],
+              message: 'End month cannot be before start month',
+            });
+          }
         }
       }
     });
@@ -246,7 +249,7 @@ export function EnrollmentModal({
       selectedCourseCount: selected.length,
     });
     return { success: result.success, errors: collectZodErrors(result) };
-  }, [admDiscount, branchId, monthlyDiscount, payNowAmount, paymentMethod, program, programId, selCourses, selected, totalFee, totalPayable]);
+  }, [admDiscount, billingStart, branchId, isMonthlyProgram, monthlyDiscount, payNowAmount, paymentMethod, program, programId, selCourses, selected, totalFee, totalPayable]);
   const canNext = validation.success;
 
   const toggle = (cid: string) =>
@@ -276,17 +279,20 @@ export function EnrollmentModal({
         courseId: c.id,
         batchId: selCourses[c.id]?.batch || null,
         includeBook: false,
-        startMonth: selCourses[c.id]?.startMonth || c.startMonth || billingStart,
-        endMonth: selCourses[c.id]?.endMonth || c.endMonth || selCourses[c.id]?.startMonth || c.startMonth || billingStart,
+        ...(isMonthlyProgram
+          ? {
+              startMonth: selCourses[c.id]?.startMonth || c.startMonth || billingStart,
+              endMonth: selCourses[c.id]?.endMonth || c.endMonth || selCourses[c.id]?.startMonth || c.startMonth || billingStart,
+            }
+          : {}),
       }));
       const dto: OfflineAdmissionDto = {
         studentUserId: student.id,
         programId,
         courses: coursePayload,
         branchId,
-        billingType: program?.paymentCircle === 'MONTHLY' ? 'MONTHLY' : 'ONE_TIME',
-        billingStartMonth: billingStart,
-        monthlyDiscount: Number(monthlyDiscount) || 0,
+        billingType: isMonthlyProgram ? 'MONTHLY' : 'ONE_TIME',
+        ...(isMonthlyProgram ? { billingStartMonth: billingStart, monthlyDiscount: Number(monthlyDiscount) || 0 } : {}),
         admissionFeeAmountOverrides: program?.admissionFeeEnabled ? { [programId]: admFee } : undefined,
         paymentAmount: payNow > 0 ? payNow : undefined,
         paymentMethod: payNow > 0 ? paymentMethod : undefined,
@@ -394,7 +400,9 @@ export function EnrollmentModal({
                               <div className="flex-1">
                                 <div className="flex justify-between">
                                   <span className="font-bold text-sm text-slate-900">{c.name}</span>
-                                  <span className="font-black text-rose-700 text-sm">{fmt(c.fee)}/month</span>
+                                  <span className="font-black text-rose-700 text-sm">
+                                    {fmt(c.fee)}{isMonthlyProgram ? '/month' : ''}
+                                  </span>
                                 </div>
                                 <div className="flex flex-wrap gap-1.5 mt-1 items-center">
                                   <AppBadge label={c.type} color={c.type === 'OFFLINE' ? 'amber' : 'blue'} />
@@ -403,7 +411,9 @@ export function EnrollmentModal({
                                       ? <AppBadge label={`${activeBatches.length} Batch${activeBatches.length > 1 ? 'es' : ''}`} color="green" />
                                       : <AppBadge label="No Active Batch" color="red" />
                                   )}
-                                  <span className="text-xs text-slate-400">Payment mode: monthly</span>
+                                  <span className="text-xs text-slate-400">
+                                    Payment mode: {isMonthlyProgram ? 'monthly' : 'one-time'}
+                                  </span>
                                 </div>
                               </div>
                             </label>
@@ -411,7 +421,7 @@ export function EnrollmentModal({
                               <div className={cn(
                                 'grid gap-2.5 mt-3 pt-3 border-t border-dashed',
                                 noBatch ? 'border-amber-200' : 'border-rose-200',
-                                c.type === 'OFFLINE' ? 'grid-cols-3' : 'grid-cols-2',
+                                c.type === 'OFFLINE' && isMonthlyProgram ? 'grid-cols-3' : 'grid-cols-1',
                               )}>
                                 {c.type === 'OFFLINE' && (
                                   <Field label="Batch" required>
@@ -433,32 +443,36 @@ export function EnrollmentModal({
                                     )}
                                   </Field>
                                 )}
-                                <Field label="Start Month" required>
-                                  <MonthInput
-                                    value={sel.startMonth || billingStart}
-                                    onChange={v => setCF(c.id, 'startMonth', v)}
-                                    min={c.startMonth}
-                                    max={sel.endMonth || c.endMonth}
-                                  />
-                                  {validation.errors[`startMonth.${c.id}`] && (
-                                    <p className="text-[11px] text-rose-600 mt-1 font-semibold">
-                                      {validation.errors[`startMonth.${c.id}`]}
-                                    </p>
-                                  )}
-                                </Field>
-                                <Field label="End Month" required>
-                                  <MonthInput
-                                    value={sel.endMonth || c.endMonth || sel.startMonth || billingStart}
-                                    onChange={v => setCF(c.id, 'endMonth', v)}
-                                    min={sel.startMonth || c.startMonth || billingStart}
-                                    max={c.endMonth}
-                                  />
-                                  {validation.errors[`endMonth.${c.id}`] && (
-                                    <p className="text-[11px] text-rose-600 mt-1 font-semibold">
-                                      {validation.errors[`endMonth.${c.id}`]}
-                                    </p>
-                                  )}
-                                </Field>
+                                {isMonthlyProgram && (
+                                  <>
+                                    <Field label="Start Month" required>
+                                      <MonthInput
+                                        value={sel.startMonth || billingStart}
+                                        onChange={v => setCF(c.id, 'startMonth', v)}
+                                        min={c.startMonth}
+                                        max={sel.endMonth || c.endMonth}
+                                      />
+                                      {validation.errors[`startMonth.${c.id}`] && (
+                                        <p className="text-[11px] text-rose-600 mt-1 font-semibold">
+                                          {validation.errors[`startMonth.${c.id}`]}
+                                        </p>
+                                      )}
+                                    </Field>
+                                    <Field label="End Month" required>
+                                      <MonthInput
+                                        value={sel.endMonth || c.endMonth || sel.startMonth || billingStart}
+                                        onChange={v => setCF(c.id, 'endMonth', v)}
+                                        min={sel.startMonth || c.startMonth || billingStart}
+                                        max={c.endMonth}
+                                      />
+                                      {validation.errors[`endMonth.${c.id}`] && (
+                                        <p className="text-[11px] text-rose-600 mt-1 font-semibold">
+                                          {validation.errors[`endMonth.${c.id}`]}
+                                        </p>
+                                      )}
+                                    </Field>
+                                  </>
+                                )}
                               </div>
                             )}
                             {noBatch && !sel?.checked && (
@@ -516,13 +530,17 @@ export function EnrollmentModal({
                                   <div className="flex justify-between items-start">
                                     <span className="font-bold text-sm text-slate-500">{c.name}</span>
                                     <div className="flex items-center gap-2">
-                                      <span className="font-black text-slate-400 text-sm">{fmt(c.fee)}/month</span>
+                                      <span className="font-black text-slate-400 text-sm">
+                                        {fmt(c.fee)}{isMonthlyProgram ? '/month' : ''}
+                                      </span>
                                       <AppBadge label="Already Enrolled" color="slate" />
                                     </div>
                                   </div>
                                   <div className="flex gap-2 mt-1">
                                     <AppBadge label={c.type} color={c.type === 'OFFLINE' ? 'amber' : 'blue'} />
-                                    <span className="text-xs text-slate-400">Payment mode: monthly</span>
+                                    <span className="text-xs text-slate-400">
+                                      Payment mode: {isMonthlyProgram ? 'monthly' : 'one-time'}
+                                    </span>
                                   </div>
                                 </div>
                               </div>
@@ -580,7 +598,7 @@ export function EnrollmentModal({
                     </div>
                   </div>
 
-                  {program?.paymentCircle === 'MONTHLY' && (
+                  {isMonthlyProgram && (
                     <>
                       <Field label="Monthly Scholarship">
                         <Input
@@ -660,7 +678,7 @@ export function EnrollmentModal({
             <div>
               <p className="font-bold text-sm text-emerald-800">Review enrollment details before confirming</p>
               <p className="text-xs text-emerald-700 mt-0.5">
-                Once confirmed, monthly snapshots and invoices will be generated automatically.
+                Once confirmed, invoices will be generated automatically.
               </p>
             </div>
           </div>
@@ -714,12 +732,16 @@ export function EnrollmentModal({
                   </tr>
                 ))}
                 <tr className="bg-rose-50 border-t-2 border-rose-200">
-                  <td colSpan={3} className="px-3.5 py-3 font-black text-slate-900">Total Monthly Payable</td>
+                  <td colSpan={3} className="px-3.5 py-3 font-black text-slate-900">
+                    {isMonthlyProgram ? 'Total Monthly Payable' : 'Total Payable'}
+                  </td>
                   <td className="px-3.5 py-3 text-right font-bold">{fmt(totalFee)}</td>
                   <td className="px-3.5 py-3 text-right font-bold text-rose-500">
                     {Number(monthlyDiscount) > 0 ? `−${fmt(monthlyDiscount)}` : '—'}
                   </td>
-                  <td className="px-3.5 py-3 text-right font-black text-rose-700 text-base">{fmt(netMonthly)}</td>
+                  <td className="px-3.5 py-3 text-right font-black text-rose-700 text-base">
+                    {fmt(isMonthlyProgram ? netMonthly : totalFee)}
+                  </td>
                 </tr>
               </tbody>
             </table>

@@ -9,7 +9,8 @@ import { Play, ExternalLink, FileText, MessageSquare } from 'lucide-react';
 import { getCourseContentsWithProgress, updateContentProgress } from '@/lib/api/student-portal';
 import { getCourseById } from '@/lib/api/courses';
 import type { CourseDetails } from '@/types/course';
-import { isYoutubeContentUrl, parseYoutubeVideoId, toYoutubeEmbedSrc } from '@/lib/youtube';
+import { isYoutubeContentUrl, parseYoutubeVideoId } from '@/lib/youtube';
+import { YoutubePlayer } from '@/components/student/course/YoutubePlayer';
 import { resolveAttachmentUrl } from '@/lib/attachment-url';
 import { API_ORIGIN } from '@/lib/api';
 import { groupContentsBySubjectChapter, uniqueSubjectsFromGroups } from '@/lib/course-outline';
@@ -37,6 +38,14 @@ interface ContentItem {
   progress?: { completed: boolean; progressPercent?: number } | null;
 }
 
+/** Hosted file or YouTube — should open in the main player, not only legacy `type === 'VIDEO'`. */
+function isVideoLikeItem(c: ContentItem): boolean {
+  const u = c.fileUrl;
+  if (!u) return false;
+  if (c.type === 'VIDEO') return true;
+  return isYoutubeContentUrl(u);
+}
+
 function formatDuration(min: number) {
   if (min >= 60) return `${Math.floor(min / 60)}h ${min % 60}min`;
   return `${min}min`;
@@ -60,6 +69,7 @@ export default function StudentCourseSubjectPage() {
   const [selectedContent, setSelectedContent] = useState<ContentItem | null>(null);
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
   const [studentUserId, setStudentUserId] = useState<string | null>(null);
+  const [studentPhone, setStudentPhone] = useState<string | null>(null);
   const [resolvedSubject, setResolvedSubject] = useState<string | null>(null);
   const [slugInvalid, setSlugInvalid] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -69,6 +79,7 @@ export default function StudentCourseSubjectPage() {
       const u = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
       const parsed = u ? JSON.parse(u) : null;
       setStudentUserId(parsed?.id ?? null);
+      setStudentPhone(parsed?.mobile ?? null);
     } catch {
       setStudentUserId(null);
     }
@@ -82,11 +93,12 @@ export default function StudentCourseSubjectPage() {
     try {
       setLoading(true);
       setSlugInvalid(false);
-      const [courseRes, contentsRes] = await Promise.all([
-        getCourseById(courseId),
-        getCourseContentsWithProgress(courseId, studentUserId),
-      ]);
-      if (courseRes.success && courseRes.data) setCourse(courseRes.data as CourseDetails);
+      const courseRes = await getCourseById(courseId);
+      const loadedCourse = courseRes.success && courseRes.data ? courseRes.data as CourseDetails : null;
+      const resolvedCourseId = loadedCourse?.id ?? courseId;
+      if (loadedCourse) setCourse(loadedCourse);
+
+      const contentsRes = await getCourseContentsWithProgress(resolvedCourseId, studentUserId);
       const items = (contentsRes.success && contentsRes.data ? contentsRes.data : []) as ContentItem[];
       setContents(items);
 
@@ -114,7 +126,7 @@ export default function StudentCourseSubjectPage() {
       setResolvedSubject(subjectTitle);
       const filtered = items.filter((c) => normalizeSubjectLabel(c.subjectTitle) === subjectTitle);
       if (filtered.length > 0) {
-        const firstVideo = filtered.find((c) => c.type === 'VIDEO' && c.fileUrl) || filtered[0];
+        const firstVideo = filtered.find((c) => isVideoLikeItem(c)) || filtered[0];
         setSelectedContent(firstVideo);
         setExpandedTopics(new Set([contentGroupKey(firstVideo)]));
       } else {
@@ -212,7 +224,10 @@ export default function StudentCourseSubjectPage() {
     rawUrl && isYoutubeContentUrl(rawUrl) ? parseYoutubeVideoId(rawUrl) : null;
   const ytBroken = !!(rawUrl && isYoutubeContentUrl(rawUrl) && !embedYoutubeId);
   const treatAsPdf =
-    !!rawUrl && (selectedContent?.type === 'PDF' || /\.pdf(\?|#|$)/i.test(rawUrl));
+    !!rawUrl &&
+    (selectedContent?.type === 'PDF' ||
+      selectedContent?.type === 'SAMPLE' ||
+      /\.pdf(\?|#|$)/i.test(rawUrl));
   const mediaFrameClass =
     selectedContent?.type === 'VIDEO' || (rawUrl && isYoutubeContentUrl(rawUrl))
       ? 'aspect-video'
@@ -323,13 +338,11 @@ export default function StudentCourseSubjectPage() {
                   <p className="text-sm mt-2 text-slate-400">Ask your instructor to check the video URL.</p>
                 </div>
               ) : embedYoutubeId ? (
-                <iframe
+                <YoutubePlayer
                   key={selectedContent!.id}
-                  title={selectedContent!.title}
-                  src={toYoutubeEmbedSrc(embedYoutubeId)}
-                  className="w-full h-full border-0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
+                  videoId={embedYoutubeId}
+                  courseTitle={course?.name ?? selectedContent!.title}
+                  studentPhone={studentPhone}
                 />
               ) : treatAsPdf && rawUrl ? (
                 <iframe
@@ -350,7 +363,15 @@ export default function StudentCourseSubjectPage() {
               ) : selectedContent && rawUrl ? (
                 <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-slate-200 px-6">
                   <FileText className="h-14 w-14 opacity-40" />
-                  <p className="font-bold text-center">This segment is a linked file or page</p>
+                  <p className="font-bold text-center">
+                    {selectedContent.type === 'QUIZ'
+                      ? 'This segment is a quiz or assessment'
+                      : selectedContent.type === 'ASSIGNMENT'
+                        ? 'This segment is an assignment'
+                        : selectedContent.type === 'LIVE'
+                          ? 'Live session — open the link to join'
+                          : 'This segment is a linked file or page'}
+                  </p>
                   <a
                     href={resolvedMediaUrl}
                     target="_blank"
@@ -358,7 +379,13 @@ export default function StudentCourseSubjectPage() {
                     className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-slate-900 font-bold text-sm hover:bg-slate-100"
                   >
                     <ExternalLink className="h-4 w-4" />
-                    Open link
+                    {selectedContent.type === 'QUIZ'
+                      ? 'Open quiz'
+                      : selectedContent.type === 'ASSIGNMENT'
+                        ? 'Open assignment'
+                        : selectedContent.type === 'LIVE'
+                          ? 'Join link'
+                          : 'Open link'}
                   </a>
                 </div>
               ) : (
@@ -366,7 +393,7 @@ export default function StudentCourseSubjectPage() {
                   <Play className="h-16 w-16 mb-4 opacity-50" />
                   <p className="font-bold text-center px-4">
                     {selectedContent
-                      ? selectedContent.type === 'VIDEO' && !selectedContent.fileUrl
+                      ? ['VIDEO', 'LINK'].includes(selectedContent.type) && !selectedContent.fileUrl
                         ? 'Add a video file or YouTube link for this lesson'
                         : selectedContent.fileUrl
                           ? 'Preview not available for this item'
@@ -387,6 +414,11 @@ export default function StudentCourseSubjectPage() {
               )}
               {selectedContent?.textBody ? (
                 <p className="text-slate-600 text-sm mt-4 whitespace-pre-wrap">{selectedContent.textBody}</p>
+              ) : null}
+              {embedYoutubeId ? (
+                <p className="mt-4 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+                  This lesson is for your enrolled account only. Sharing course links, video links, or account access is prohibited.
+                </p>
               ) : null}
             </CardContent>
           </Card>

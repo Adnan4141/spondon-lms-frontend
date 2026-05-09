@@ -9,6 +9,19 @@ import { Button } from '@/components/ui/button';
 function FailContent() {
   const searchParams = useSearchParams();
   const tranId = searchParams.get('tran_id');
+  let backHref = '/admin/invoices';
+  let backLabel = 'Back to Invoices';
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+    const role = raw ? (JSON.parse(raw) as { role?: string })?.role : null;
+    if (role === 'STUDENT') {
+      backHref = '/student/payment';
+      backLabel = 'Back to Payments';
+    }
+  } catch {
+    backHref = '/';
+    backLabel = 'Back';
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
@@ -19,9 +32,9 @@ function FailContent() {
         <h1 className="text-2xl font-black text-slate-900 mb-2">Payment Failed</h1>
         <p className="text-slate-500 mb-6">Your payment could not be processed. Please try again.</p>
         {tranId && <p className="text-xs font-mono text-slate-400 mb-6">Transaction: {tranId}</p>}
-        <Link href="/admin/invoices">
+        <Link href={backHref}>
           <Button variant="outline" className="w-full h-12 rounded-2xl">
-            Back to Invoices
+            {backLabel}
           </Button>
         </Link>
       </div>

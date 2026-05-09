@@ -41,7 +41,7 @@ export function isYoutubeContentUrl(url: string | undefined | null): boolean {
   if (/^https?:\/\//i.test(url)) {
     try {
       const host = new URL(url).hostname.replace(/^www\./, '');
-      return host === 'youtube.com' || host === 'youtu.be' || host === 'm.youtube.com' || host === 'music.youtube.com';
+      return host === 'youtube.com' || host === 'youtu.be' || host === 'm.youtube.com' || host === 'music.youtube.com' || host === 'youtube-nocookie.com';
     } catch {
       return false;
     }
@@ -51,4 +51,41 @@ export function isYoutubeContentUrl(url: string | undefined | null): boolean {
 
 export function toYoutubeEmbedSrc(videoId: string): string {
   return `https://www.youtube.com/embed/${videoId}?rel=0`;
+}
+
+export function normalizeYoutubeWatchUrl(input: string): string | null {
+  const videoId = parseYoutubeVideoId(input);
+  return videoId ? `https://www.youtube.com/watch?v=${videoId}` : null;
+}
+
+/**
+ * Build a privacy-enhanced, distraction-reduced YouTube embed URL.
+ *
+ * Uses youtube-nocookie.com to avoid setting third-party cookies before consent.
+ * Parameters used:
+ *   rel=0            — suppress related videos from other channels
+ *   controls=1       — keep native player controls (removing them breaks accessibility)
+ *   iv_load_policy=3 — hide video annotations
+ *   playsinline=1    — prevent iOS full-screen auto-takeover
+ *   disablekb=1      — disable keyboard shortcuts (reduces distraction, not DRM)
+ *   fs=0             — hide YouTube fullscreen button so page watermark stays visible
+ *   modestbranding=1 — partial YouTube logo reduction (deprecated, still partially effective)
+ *   autoplay         — controlled by caller param (default 0, set 1 after user gesture)
+ *
+ * Security note: The video ID remains visible in the iframe src. Unlisted YouTube
+ * videos are NOT made private by this URL. For real access control use signed streaming
+ * URLs (Bunny Stream, Mux, Cloudflare Stream, or AWS S3 + HLS).
+ */
+export function toYoutubeNoCookieSrc(videoId: string, autoplay = false): string {
+  const params = new URLSearchParams({
+    rel: '0',
+    controls: '1',
+    iv_load_policy: '3',
+    playsinline: '1',
+    disablekb: '1',
+    fs: '0',
+    modestbranding: '1',
+    autoplay: autoplay ? '1' : '0',
+  });
+  return `https://www.youtube-nocookie.com/embed/${videoId}?${params.toString()}`;
 }

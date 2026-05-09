@@ -2,14 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { CreditCard, ArrowUpRight, Download, CheckCircle2, Clock, AlertTriangle, Loader2 } from 'lucide-react';
+import { ArrowUpRight, Download, CheckCircle2, Clock, AlertTriangle, Loader2 } from 'lucide-react';
 import { getFinancialDashboard, type FinancialDashboardData } from '@/lib/api/student-portal';
 import { initInvoicePayment } from '@/lib/api/payment-gateway';
+import { openInvoicePdfInNewTab } from '@/lib/api/invoices';
 
 export default function StudentPaymentPage() {
   const [data, setData] = useState<FinancialDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [payingInvoiceId, setPayingInvoiceId] = useState<string | null>(null);
+  const [pdfLoadingId, setPdfLoadingId] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -42,6 +44,17 @@ export default function StudentPaymentPage() {
     }
   };
 
+  const handleOpenInvoicePdf = async (invoiceId: string) => {
+    try {
+      setPdfLoadingId(invoiceId);
+      await openInvoicePdfInNewTab(invoiceId);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setPdfLoadingId(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-32">
@@ -59,7 +72,8 @@ export default function StudentPaymentPage() {
     );
   }
 
-  const { paymentHistory, summary } = data;
+  const paymentHistory = data.paymentHistory.filter((invoice) => invoice.status !== 'CANCELLED');
+  const { summary } = data;
 
   return (
     <div className="space-y-10">
@@ -134,11 +148,21 @@ export default function StudentPaymentPage() {
                                 {payingInvoiceId === inv.id ? 'Processing…' : 'Pay Now'}
                               </button>
                             )}
-                            {inv.pdfUrl && (
-                              <a href={inv.pdfUrl} target="_blank" rel="noopener noreferrer" className="h-8 w-8 rounded-lg bg-slate-50 text-slate-400 flex items-center justify-center hover:bg-slate-900 hover:text-white transition-all">
-                                <Download className="h-4 w-4" />
-                              </a>
-                            )}
+                            {inv.pdfUrl ? (
+                              <button
+                                type="button"
+                                title="ইনভয়েস PDF"
+                                onClick={() => void handleOpenInvoicePdf(inv.id)}
+                                disabled={pdfLoadingId === inv.id}
+                                className="h-8 w-8 rounded-lg bg-slate-50 text-slate-400 flex items-center justify-center hover:bg-slate-900 hover:text-white transition-all disabled:opacity-50"
+                              >
+                                {pdfLoadingId === inv.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Download className="h-4 w-4" />
+                                )}
+                              </button>
+                            ) : null}
                           </div>
                         </div>
                       </div>

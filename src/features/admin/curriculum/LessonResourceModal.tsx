@@ -26,6 +26,7 @@ import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { useToast } from '@/hooks/use-toast';
 import { createLessonResource, updateLessonResource } from '@/lib/api/curriculum';
 import { cn } from '@/lib/utils';
+import { normalizeYoutubeWatchUrl, parseYoutubeVideoId } from '@/lib/youtube';
 import type { CurriculumVisibility, LessonResourceRow, LessonResourceType } from './curriculum-types';
 
 const RESOURCE_TYPES: { value: LessonResourceType; label: string }[] = [
@@ -92,11 +93,11 @@ export function LessonResourceModal({
     setDownloadAllowed(!!edit?.downloadAllowed);
     setIsRequired(!!edit?.isRequired);
     setDuration(edit?.durationMinutes != null ? String(edit.durationMinutes) : '');
-    setUrl(edit?.externalUrl || '');
+    setUrl(edit?.externalUrl || (edit?.type === 'VIDEO' && edit?.fileUrl && !edit.fileUrl.startsWith('/uploads/') ? edit.fileUrl : ''));
     setThumbnailUrl(edit?.thumbnailUrl || '');
     setPublishAt(parseIsoToDate(edit?.publishAt ?? null));
     setScheduledAt(parseIsoToDate(edit?.scheduledAt ?? null));
-    setTab(edit?.fileUrl && !edit?.externalUrl ? 'file' : edit?.externalUrl ? 'url' : 'file');
+    setTab(edit?.externalUrl || (edit?.type === 'VIDEO' && edit?.fileUrl && !edit.fileUrl.startsWith('/uploads/')) ? 'url' : 'file');
     setFile(null);
     setThumbnailFile(null);
   }, [open, edit]);
@@ -105,6 +106,9 @@ export function LessonResourceModal({
     if (!lessonId) return;
     setLoading(true);
     try {
+      if (tab === 'url' && type === 'VIDEO' && url.trim() && !parseYoutubeVideoId(url.trim())) {
+        throw new Error('Use a valid YouTube watch, youtu.be, embed, Shorts, or raw video id. Use Unlisted, not Private.');
+      }
       const fd = new FormData();
       fd.append('type', type);
       fd.append('title', title.trim() || 'Untitled');
@@ -114,7 +118,14 @@ export function LessonResourceModal({
       fd.append('visibility', visibility);
       if (sortOrder.trim() !== '') fd.append('sortOrder', sortOrder.trim());
       if (duration.trim()) fd.append('durationMinutes', duration.trim());
-      if (tab === 'url' && url.trim()) fd.append('externalUrl', url.trim());
+      if (tab === 'url' && url.trim()) {
+        if (type === 'VIDEO') {
+          fd.append('fileUrl', normalizeYoutubeWatchUrl(url.trim())!);
+          fd.append('externalUrl', '');
+        } else {
+          fd.append('externalUrl', url.trim());
+        }
+      }
       if (file) fd.append('file', file);
       if (thumbnailUrl.trim()) fd.append('thumbnailUrl', thumbnailUrl.trim());
       if (thumbnailFile) fd.append('thumbnail', thumbnailFile);
@@ -249,7 +260,7 @@ export function LessonResourceModal({
                     Local file
                   </TabsTrigger>
                   <TabsTrigger value="url" className="rounded-md">
-                    External URL
+                    {type === 'VIDEO' ? 'YouTube URL' : 'External URL'}
                   </TabsTrigger>
                 </TabsList>
                 <TabsContent value="file" className="mt-3 space-y-2">
@@ -257,7 +268,17 @@ export function LessonResourceModal({
                   <p className="text-xs text-slate-500">Optional if you use the URL tab or keep an existing upload.</p>
                 </TabsContent>
                 <TabsContent value="url" className="mt-3">
-                  <Input className="rounded-lg" placeholder="https://…" value={url} onChange={(e) => setUrl(e.target.value)} />
+                  <Input
+                    className="rounded-lg"
+                    placeholder={type === 'VIDEO' ? 'https://youtube.com/watch?v=… or youtu.be/…' : 'https://…'}
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                  />
+                  {type === 'VIDEO' && (
+                    <p className="mt-2 text-xs text-slate-500">
+                      Use Unlisted YouTube, not Private. Students will see it through the LMS anti-casual-sharing player.
+                    </p>
+                  )}
                 </TabsContent>
               </Tabs>
               <div className="grid gap-2">

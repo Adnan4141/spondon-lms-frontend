@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { getEnrollments } from '@/lib/api/enrollments';
 import {
+  createPayment,
   generateAdvanceInvoices,
   getInvoicePdfUrl,
   getInvoices,
@@ -31,6 +32,17 @@ type DisplayStatus =
   | 'DUE'
   | 'CANCELLED';
 
+type InvoiceBillingType = 'MONTHLY' | 'ONE_TIME';
+
+type InvoiceGroup = {
+  key: string;
+  billingType: InvoiceBillingType;
+  programId: string;
+  programName: string;
+  month: string;
+  invoices: Invoice[];
+};
+
 export function CollectPaymentModal({
   student, onClose, onSave,
 }: {
@@ -38,7 +50,7 @@ export function CollectPaymentModal({
   onClose: () => void;
   onSave: (data: { student: Student; month: string; method: string; amount: number }) => void;
 }) {
-  const [selMonth, setSelMonth] = useState('');
+  const [selectedGroupKey, setSelectedGroupKey] = useState('');
   const [method, setMethod] = useState<PaymentMethod>('CASH');
   const [addDiscount, setAddDiscount] = useState('0');
   const [paymentAmount, setPaymentAmount] = useState('');
@@ -84,26 +96,22 @@ export function CollectPaymentModal({
       const hasBillableMonthlyEnrollment = localEnrolls.some(
         e => ['ACTIVE', 'PAUSED', 'PENDING_PAYMENT'].includes(e.status) && e.billingType === 'MONTHLY',
       );
-      const mapped: Invoice[] = (res.data ?? []).map(inv => ({
-        id: inv.id,
-        invoiceNumber: (inv as { invoiceNumber?: string | null }).invoiceNumber ?? null,
-        month: inv.month ?? '',
-        amount: Number(inv.payableAmount),
-        paidAmount: Number(inv.paidAmount),
-        discountAmount: Number(inv.settlementSummary?.discountAmount ?? inv.discountAmount ?? 0),
-        waivedAmount: Number(inv.settlementSummary?.waivedAmount ?? 0),
-        settlementAmount: Number(inv.settlementSummary?.settlementAmount ?? inv.settlementAmount ?? 0),
-        status: (
-          inv.status === 'PAID' ? 'PAID'
-          : inv.status === 'WAIVED' ? 'WAIVED'
-          : inv.status === 'PARTIAL' ? 'PARTIAL'
-          : 'DUE'
-        ) as Invoice['status'],
-        displayStatus: (inv.displayStatus ?? inv.settlementSummary?.displayStatus) as Invoice['displayStatus'],
-        displayLabel: inv.displayLabel ?? inv.settlementSummary?.displayLabel,
-        dueDate: inv.nextPaymentDueDate ?? '',
-        branchName: (inv as { branch?: { name?: string } }).branch?.name,
-        items: (inv as {
+      const courseMetaById = new Map<string, {
+        programId: string;
+        programName: string;
+        billingType: InvoiceBillingType;
+      }>();
+      for (const enrollment of localEnrolls) {
+        for (const course of enrollment.courses) {
+          courseMetaById.set(course.courseId, {
+            programId: enrollment.programId,
+            programName: enrollment.programName || (enrollment.billingType === 'MONTHLY' ? 'Monthly Program' : 'One-Time Program'),
+            billingType: enrollment.billingType,
+          });
+        }
+      }
+      const mapped: Invoice[] = (res.data ?? []).map(inv => {
+        const items = (inv as {
           items?: {
             title: string;
             refId?: string | null;
@@ -141,11 +149,58 @@ export function CollectPaymentModal({
           waivedByUserId: item.waivedByUserId ?? null,
           waivedAt: item.waivedAt ?? null,
           allocationPriority: item.allocationPriority,
-        })),
-      }));
+        }));
+        const courseMetas = (items ?? [])
+          .filter(item => item.type === 'COURSE' && item.refId)
+          .map(item => courseMetaById.get(item.refId!))
+          .filter(Boolean) as Array<{ programId: string; programName: string; billingType: InvoiceBillingType }>;
+        const uniqueProgramIds = [...new Set(courseMetas.map(meta => meta.programId))];
+        const uniqueBillingTypes = [...new Set(courseMetas.map(meta => meta.billingType))];
+        const soleProgram = uniqueProgramIds.length === 1
+          ? courseMetas.find(meta => meta.programId === uniqueProgramIds[0])
+          : null;
+        const billingType: InvoiceBillingType =
+          uniqueBillingTypes.length === 1
+            ? uniqueBillingTypes[0]
+            : inv.month
+            ? 'MONTHLY'
+            : 'ONE_TIME';
+        const fallbackEnrollment = localEnrolls.find(enrollment => enrollment.billingType === billingType) ?? localEnrolls[0];
+        const programId = soleProgram?.programId ?? fallbackEnrollment?.programId ?? `unknown-${billingType.toLowerCase()}`;
+        const programName = soleProgram?.programName
+          ?? fallbackEnrollment?.programName
+          ?? (billingType === 'MONTHLY' ? 'Monthly Program' : 'One-Time Program');
+        return {
+          id: inv.id,
+          invoiceNumber: (inv as { invoiceNumber?: string | null }).invoiceNumber ?? null,
+          month: inv.month ?? '',
+          isDuePaymentInvoice: String((inv as { discountReference?: string | null }).discountReference ?? '').startsWith('DUE_PAYMENT|'),
+          billingType,
+          programId,
+          programName,
+          displayPeriod: billingType === 'MONTHLY' ? (inv.month ?? '') : '',
+          amount: Number(inv.payableAmount),
+          paidAmount: Number(inv.paidAmount),
+          discountAmount: Number(inv.settlementSummary?.discountAmount ?? inv.discountAmount ?? 0),
+          waivedAmount: Number(inv.settlementSummary?.waivedAmount ?? 0),
+          settlementAmount: Number(inv.settlementSummary?.settlementAmount ?? inv.settlementAmount ?? 0),
+          status: (
+            inv.status === 'PAID' ? 'PAID'
+            : inv.status === 'WAIVED' ? 'WAIVED'
+            : inv.status === 'PARTIAL' ? 'PARTIAL'
+            : 'DUE'
+          ) as Invoice['status'],
+          displayStatus: (inv.displayStatus ?? inv.settlementSummary?.displayStatus) as Invoice['displayStatus'],
+          displayLabel: inv.displayLabel ?? inv.settlementSummary?.displayLabel,
+          dueDate: inv.nextPaymentDueDate ?? '',
+          branchName: (inv as { branch?: { name?: string } }).branch?.name,
+          items,
+        };
+      });
+      const chargeInvoices = mapped.filter(inv => !inv.isDuePaymentInvoice);
       // Sort descending so mapped[0] is most-recent for default selection logic below
-      mapped.sort((a, b) => b.month.localeCompare(a.month));
-      setInvoices(mapped);
+      chargeInvoices.sort((a, b) => b.month.localeCompare(a.month));
+      setInvoices(chargeInvoices);
       if (!bgRefresh) {
         // Advance generation: only when at least one ACTIVE MONTHLY enrollment; surface API errors.
         if (!advanceFiredRef.current) {
@@ -256,90 +311,75 @@ export function CollectPaymentModal({
     { id: 'GATEWAY' as PaymentMethod, label: 'Gateway', icon: '💳' },
   ];
 
-  // ── Aggregate status per month ──────────────────────────────────────────────
-  const monthGroups = useMemo(() => {
-    const map = new Map<string, Invoice[]>();
-    for (const inv of invoices) {
-      if (!map.has(inv.month)) map.set(inv.month, []);
-      map.get(inv.month)!.push(inv);
-    }
-    return map;
-  }, [invoices]);
-
   const validMonthlyMonthSet = useMemo(() => new Set(validMonthlyMonths), [validMonthlyMonths]);
 
-  // Show only persisted invoice months, bounded by the backend-approved monthly window.
-  const allMonths = useMemo(() => {
-    const monthSet = new Set<string>();
+  const invoiceGroups = useMemo<InvoiceGroup[]>(() => {
+    const map = new Map<string, InvoiceGroup>();
     for (const inv of invoices) {
-      if (!inv.month) {
-        monthSet.add('');
+      const billingType = inv.billingType ?? (inv.month ? 'MONTHLY' : 'ONE_TIME');
+      if (billingType === 'MONTHLY' && inv.month && validMonthlyMonthSet.size > 0 && !validMonthlyMonthSet.has(inv.month)) {
         continue;
       }
-      if (validMonthlyMonthSet.size === 0 || validMonthlyMonthSet.has(inv.month)) {
-        monthSet.add(inv.month);
+      const programId = inv.programId ?? `unknown-${billingType.toLowerCase()}`;
+      const programName = inv.programName ?? (billingType === 'MONTHLY' ? 'Monthly Program' : 'One-Time Program');
+      const month = billingType === 'MONTHLY' ? inv.month : '';
+      const key = billingType === 'MONTHLY'
+        ? `MONTHLY:${programId}:${month || 'unassigned'}`
+        : `ONE_TIME:${programId}`;
+      if (!map.has(key)) {
+        map.set(key, { key, billingType, programId, programName, month, invoices: [] });
       }
+      map.get(key)!.invoices.push(inv);
     }
-    return [...monthSet].sort((a, b) => {
-      if (!a && !b) return 0;
-      if (!a) return -1;
-      if (!b) return 1;
-      return a.localeCompare(b);
+    return [...map.values()].sort((a, b) => {
+      if (a.billingType !== b.billingType) return a.billingType === 'ONE_TIME' ? -1 : 1;
+      const programCompare = a.programName.localeCompare(b.programName);
+      if (programCompare !== 0) return programCompare;
+      return a.month.localeCompare(b.month);
     });
   }, [invoices, validMonthlyMonthSet]);
 
+  const oneTimeGroups = useMemo(
+    () => invoiceGroups.filter(group => group.billingType === 'ONE_TIME'),
+    [invoiceGroups],
+  );
+
+  const monthlyGroups = useMemo(
+    () => invoiceGroups.filter(group => group.billingType === 'MONTHLY'),
+    [invoiceGroups],
+  );
+
   useEffect(() => {
-    if (allMonths.length === 0) {
-      if (selMonth) setSelMonth('');
+    if (invoiceGroups.length === 0) {
+      if (selectedGroupKey) setSelectedGroupKey('');
       return;
     }
 
-    if (selMonth && allMonths.includes(selMonth)) return;
+    if (selectedGroupKey && invoiceGroups.some(group => group.key === selectedGroupKey)) return;
 
-    const visibleInvoices = invoices.filter(
-      inv => !inv.month || validMonthlyMonthSet.size === 0 || validMonthlyMonthSet.has(inv.month),
+    const firstUnpaidOrPartial = invoiceGroups.find(group =>
+      group.invoices.some(invoice => invoice.status === 'DUE' || invoice.status === 'PARTIAL'),
     );
-    const sortedAsc = [...visibleInvoices].sort((a, b) => a.month.localeCompare(b.month));
-    const firstUnpaidOrPartial = sortedAsc.find(i => i.status === 'DUE' || i.status === 'PARTIAL');
-    const nextVisibleMonth = firstUnpaidOrPartial?.month || sortedAsc[sortedAsc.length - 1]?.month || allMonths[0];
+    const nextKey = firstUnpaidOrPartial?.key ?? invoiceGroups[0]?.key ?? '';
 
-    if (nextVisibleMonth !== selMonth) {
-      setSelMonth(nextVisibleMonth);
+    if (nextKey !== selectedGroupKey) {
+      setSelectedGroupKey(nextKey);
     }
-  }, [allMonths, invoices, selMonth, validMonthlyMonthSet]);
+  }, [invoiceGroups, selectedGroupKey]);
 
-  const displayInvoices = useMemo(
-    () => monthGroups.get(selMonth) ?? [],
-    [monthGroups, selMonth],
+  const selectedGroup = useMemo(
+    () => invoiceGroups.find(group => group.key === selectedGroupKey) ?? null,
+    [invoiceGroups, selectedGroupKey],
   );
 
-  const selectedProgramNames = useMemo(() => {
-    const selectedCourseIds = new Set(
-      displayInvoices.flatMap(inv =>
-        (inv.items ?? [])
-          .filter(item => item.type === 'COURSE' && item.refId)
-          .map(item => item.refId!),
-      ),
-    );
-    const names = new Set<string>();
+  const displayInvoices = useMemo(
+    () => selectedGroup?.invoices ?? [],
+    [selectedGroup],
+  );
 
-    for (const enrollment of enrollments) {
-      const hasSelectedCourse = enrollment.courses.some(course => selectedCourseIds.has(course.courseId));
-      const coversSelectedMonth =
-        !selMonth ||
-        enrollment.courses.some(course => {
-          const start = course.startMonth || enrollment.billingStartMonth;
-          const end = course.endMonth;
-          return (!start || start <= selMonth) && (!end || selMonth <= end);
-        });
-
-      if ((hasSelectedCourse || (!selectedCourseIds.size && coversSelectedMonth)) && enrollment.programName) {
-        names.add(enrollment.programName);
-      }
-    }
-
-    return [...names].sort((a, b) => a.localeCompare(b));
-  }, [displayInvoices, enrollments, selMonth]);
+  const selectedMonth = selectedGroup?.billingType === 'MONTHLY' ? selectedGroup.month : '';
+  const isSelectedMonthly = selectedGroup?.billingType === 'MONTHLY';
+  const selectedProgramNames = selectedGroup ? [selectedGroup.programName] : [];
 
   const billingRangeSummaries = useMemo(() => {
     return enrollments
@@ -410,8 +450,8 @@ export function CollectPaymentModal({
   const admissionFeeTotal = displayInvoices.reduce((s, inv) =>
     s + (inv.items ?? []).filter(it => it.type === 'ADMISSION_FEE').reduce((a, it) => a + it.unitPrice * it.qty, 0), 0);
   const discountable = Math.max(0, totalPayable - admissionFeeTotal);
-  const requestedDiscount = Number(addDiscount) || 0;
-  const discount = Math.min(requestedDiscount, discountable);
+  const requestedDiscount = isSelectedMonthly ? Number(addDiscount) || 0 : 0;
+  const discount = isSelectedMonthly ? Math.min(requestedDiscount, discountable) : 0;
   // Remaining due = (payable − additional discount) − already paid
   const netDue = Math.max(0, totalPayable - discount - totalAlreadyPaid);
   const discountCapped = requestedDiscount > discountable && discountable >= 0 && requestedDiscount > 0;
@@ -506,7 +546,7 @@ export function CollectPaymentModal({
     try {
       await waiveMonthlyCourses({
         studentUserId: student.id,
-        month: selMonth,
+        month: selectedMonth,
         courseIds: selectedWaiveCourseIds,
         reason: waiveReason.trim(),
       });
@@ -519,7 +559,7 @@ export function CollectPaymentModal({
     }
   };
 
-  const renderCourseWaiverPanel = () => (
+  const renderCourseWaiverPanel = () => !isSelectedMonthly ? null : (
     <div className="border-t border-slate-100 pt-3">
       {!waiving ? (
         <button
@@ -540,7 +580,7 @@ export function CollectPaymentModal({
           {courseWaiverRows.length > 0 ? (
             <div className="mb-3">
               <p className="text-xs font-bold text-purple-700 uppercase tracking-wider mb-1.5">
-                Course Waiver For {fmtMonth(selMonth)}
+                Course Waiver For {fmtMonth(selectedMonth)}
               </p>
               <div className="space-y-1.5">
                 {courseWaiverRows.map(item => {
@@ -621,6 +661,45 @@ export function CollectPaymentModal({
     </div>
   );
 
+  const renderInvoiceGroupButton = (group: InvoiceGroup) => {
+    const aggStatus = getMonthAggStatus(group.invoices);
+    const due = group.invoices.reduce((sum, inv) => sum + Math.max(0, inv.amount - inv.paidAmount), 0);
+    const label = group.billingType === 'MONTHLY'
+      ? `${group.programName} · ${group.month ? fmtMonth(group.month) : 'Monthly'}`
+      : group.programName;
+    return (
+      <button
+        key={group.key}
+        onClick={() => {
+          setSelectedGroupKey(group.key);
+          setWaiving(false);
+          setWaiveReason('');
+          setSelectedWaiveCourseIds([]);
+          setAddDiscount('0');
+          setPaymentAmount('');
+          setLastPaidInvoiceId(null);
+        }}
+        className={cn(
+          'flex min-w-0 items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-bold transition-colors cursor-pointer sm:px-3 sm:text-sm',
+          selectedGroupKey === group.key
+            ? 'border-rose-300 bg-rose-50 text-rose-700'
+            : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
+        )}
+      >
+        <span className="truncate">{label}</span>
+        {group.invoices.length > 1 && (
+          <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-black text-slate-500">
+            {group.invoices.length} invoices
+          </span>
+        )}
+        <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] font-black text-rose-600">
+          Due {fmt(due)}
+        </span>
+        <AppBadge label={statusLabel(aggStatus)} color={statusBadgeColor[aggStatus] ?? 'red'} />
+      </button>
+    );
+  };
+
   return (
     <AppModal
       open
@@ -632,7 +711,7 @@ export function CollectPaymentModal({
       <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px] xl:gap-6">
         {/* Left: month + invoices */}
         <div className="min-w-0">
-          {billingRangeSummaries.length > 0 && (
+          {isSelectedMonthly && billingRangeSummaries.length > 0 && (
             <div className="mb-4 rounded-2xl border border-sky-200 bg-[linear-gradient(135deg,rgba(240,249,255,1),rgba(248,250,252,1))] p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -653,8 +732,8 @@ export function CollectPaymentModal({
                       <span className="rounded-full bg-sky-50 px-2 py-1 text-sky-700">
                         {summary.monthCount ? `${summary.monthCount} month${summary.monthCount !== 1 ? 's' : ''}` : 'Open-ended'}
                       </span>
-                      {selMonth && (!summary.startMonth || summary.startMonth <= selMonth) && (!summary.endMonth || selMonth <= summary.endMonth) && (
-                        <span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-700">Covers {fmtMonth(selMonth)}</span>
+                      {selectedMonth && (!summary.startMonth || summary.startMonth <= selectedMonth) && (!summary.endMonth || selectedMonth <= summary.endMonth) && (
+                        <span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-700">Covers {fmtMonth(selectedMonth)}</span>
                       )}
                     </div>
                   </div>
@@ -668,7 +747,7 @@ export function CollectPaymentModal({
           )}
 
           <div className="mb-4">
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Select Month</p>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Invoice Groups</p>
             {fetchError ? (
               <div className="flex items-center gap-3 px-4 py-3 bg-rose-50 border border-rose-200 rounded-xl">
                 <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0" />
@@ -682,7 +761,7 @@ export function CollectPaymentModal({
               </div>
             ) : (
               <>
-                {advanceNotice && (
+                {advanceNotice && isSelectedMonthly && (
                   <div className="flex items-start gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl mb-3">
                     <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                     <p className="text-sm text-amber-900 flex-1">{advanceNotice}</p>
@@ -698,43 +777,26 @@ export function CollectPaymentModal({
                 {loadingInvoices ? (
                   <p className="text-sm text-slate-400">Loading invoices…</p>
                 ) : (
-                  <div className="flex max-h-36 flex-wrap gap-1.5 overflow-y-auto pr-1 sm:max-h-44">
-                    {allMonths.map(m => {
-                      const aggStatus = getMonthAggStatus(monthGroups.get(m) ?? []);
-                      return (
-                        <button
-                          key={m}
-                          onClick={() => {
-                            setSelMonth(m);
-                            setWaiving(false);
-                            setWaiveReason('');
-                            setSelectedWaiveCourseIds([]);
-                            setAddDiscount('0');
-                            setPaymentAmount('');
-                            setLastPaidInvoiceId(null);
-                          }}
-                          className={cn(
-                            'flex min-w-0 items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-bold transition-colors cursor-pointer sm:px-3 sm:text-sm',
-                            selMonth === m
-                              ? 'border-rose-300 bg-rose-50 text-rose-700'
-                              : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
-                          )}
-                        >
-                          <span className="truncate">{m ? fmtMonth(m) : 'One-Time / Program'}</span>
-                          {(monthGroups.get(m)?.length ?? 0) > 1 && (
-                            <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-black text-slate-500">
-                              {monthGroups.get(m)?.length} invoices
-                            </span>
-                          )}
-                          {(monthGroups.get(m) ?? []).length > 0 && (
-                            <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] font-black text-rose-600">
-                              Due {fmt((monthGroups.get(m) ?? []).reduce((sum, inv) => sum + Math.max(0, inv.amount - inv.paidAmount), 0))}
-                            </span>
-                          )}
-                          <AppBadge label={statusLabel(aggStatus)} color={statusBadgeColor[aggStatus] ?? 'red'} />
-                        </button>
-                      );
-                    })}
+                  <div className="space-y-3">
+                    {oneTimeGroups.length > 0 && (
+                      <div>
+                        <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">One-Time Programs</p>
+                        <div className="flex max-h-28 flex-wrap gap-1.5 overflow-y-auto pr-1">
+                          {oneTimeGroups.map(renderInvoiceGroupButton)}
+                        </div>
+                      </div>
+                    )}
+                    {monthlyGroups.length > 0 && (
+                      <div>
+                        <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">Monthly Programs</p>
+                        <div className="flex max-h-36 flex-wrap gap-1.5 overflow-y-auto pr-1 sm:max-h-44">
+                          {monthlyGroups.map(renderInvoiceGroupButton)}
+                        </div>
+                      </div>
+                    )}
+                    {invoiceGroups.length === 0 && (
+                      <p className="text-sm font-medium text-slate-500">No invoices are available for this student.</p>
+                    )}
                   </div>
                 )}
               </>
@@ -746,7 +808,7 @@ export function CollectPaymentModal({
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                    Invoices — {selMonth ? fmtMonth(selMonth) : 'One-Time / Program'}
+                    Invoices — {isSelectedMonthly && selectedMonth ? fmtMonth(selectedMonth) : 'One-Time / Program'}
                   </p>
                   {selectedProgramNames.length > 0 && (
                     <p className="mt-1 max-w-[520px] truncate text-sm font-bold text-slate-900" title={selectedProgramNames.join(', ')}>
@@ -807,7 +869,7 @@ export function CollectPaymentModal({
                     <Fragment key={inv.id}>
                       <tr className="border-b border-slate-100">
                         <td className="max-w-[280px] border-b border-slate-100 px-3 py-2.5 align-top font-semibold text-slate-900">
-                          {inv.month ? `${fmtMonth(inv.month)} — Monthly Invoice` : 'One-Time / Program Invoice'}
+                          {inv.billingType === 'MONTHLY' && inv.month ? `${fmtMonth(inv.month)} — Monthly Invoice` : 'One-Time / Program Invoice'}
                           <span className="block font-mono text-[11px] font-bold text-slate-400">{inv.invoiceNumber ?? `#${inv.id.slice(0, 8)}`}</span>
                           {inv.dueDate ? <span className="block text-[11px] font-medium text-slate-400">Due {inv.dueDate}</span> : null}
                         </td>
@@ -890,7 +952,7 @@ export function CollectPaymentModal({
               </div>
             ) : (
               <div className="px-4 py-8 text-center text-sm font-medium text-slate-500">
-                No invoices are available for the selected month.
+                No invoices are available for the selected group.
               </div>
             )}
           </div>
@@ -910,10 +972,10 @@ export function CollectPaymentModal({
                 </div>
                 <p className="text-sm text-slate-500">
                   {monthStatus === 'PAID'
-                    ? 'This month has been fully paid by cash.'
+                    ? isSelectedMonthly ? 'This month has been fully paid by cash.' : 'This program invoice has been fully paid.'
                     : monthStatus === 'WAIVED'
-                    ? 'This month has been waived — no payment required.'
-                    : 'This month is settled; due is zero but not only from cash payment.'}
+                    ? isSelectedMonthly ? 'This month has been waived — no payment required.' : 'This program invoice has been waived — no payment required.'
+                    : isSelectedMonthly ? 'This month is settled; due is zero but not only from cash payment.' : 'This program invoice is settled; due is zero.'}
                 </p>
               </div>
               {renderCourseWaiverPanel()}
@@ -952,25 +1014,31 @@ export function CollectPaymentModal({
                     <span className="shrink-0 font-semibold text-sm text-emerald-600">−{fmt(totalAlreadyPaid)}</span>
                   </div>
                 )}
-                <div className="flex justify-between gap-3 mb-3">
-                  <span className="text-sm text-slate-500">Monthly scholarship(−)</span>
-                  <span className="shrink-0 font-semibold text-sm text-slate-400">৳0</span>
-                </div>
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Additional discount(−)</p>
-                <Input
-                  type="number"
-                  min={0}
-                  value={addDiscount}
-                  onChange={e => setAddDiscount(e.target.value)}
-                  className="text-right focus-visible:ring-indigo-400"
-                />
-                {discountCapped && (
-                  <p className="mt-1 mb-2 text-[11px] text-amber-700 font-semibold flex items-center gap-1">
-                    <AlertTriangle className="h-3 w-3 shrink-0" />
-                    Capped at {fmt(discountable)} — admission fees cannot be discounted.
-                  </p>
+                {isSelectedMonthly && (
+                  <div className="flex justify-between gap-3 mb-3">
+                    <span className="text-sm text-slate-500">Monthly scholarship(−)</span>
+                    <span className="shrink-0 font-semibold text-sm text-slate-400">৳0</span>
+                  </div>
                 )}
-                {!discountCapped && <div className="mb-3" />}
+                {isSelectedMonthly && (
+                  <>
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Additional discount(−)</p>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={addDiscount}
+                      onChange={e => setAddDiscount(e.target.value)}
+                      className="text-right focus-visible:ring-indigo-400"
+                    />
+                    {discountCapped && (
+                      <p className="mt-1 mb-2 text-[11px] text-amber-700 font-semibold flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3 shrink-0" />
+                        Capped at {fmt(discountable)} — admission fees cannot be discounted.
+                      </p>
+                    )}
+                    {!discountCapped && <div className="mb-3" />}
+                  </>
+                )}
                 <div className="bg-rose-50 border border-rose-200 rounded-lg px-3.5 py-2.5 mb-3">
                   <div className="flex items-center justify-between gap-3">
                     <span className="font-bold text-sm text-slate-900">Due amount</span>
@@ -989,7 +1057,7 @@ export function CollectPaymentModal({
                   {[
                     { label: 'Pay Admission Due', amount: admissionDue, disabled: admissionDue <= 0 },
                     {
-                      label: selMonth ? 'Pay Monthly Course Due' : 'Pay One-Time Course Due',
+                      label: isSelectedMonthly ? 'Pay Monthly Course Due' : 'Pay One-Time Course Due',
                       amount: effectiveCourseDue,
                       disabled: effectiveCourseDue <= 0 || admissionDue > 0,
                     },
@@ -1065,22 +1133,49 @@ export function CollectPaymentModal({
                   setSaving(true);
                   setLastPaidInvoiceId(null);
                   try {
-                    const payResult = await processMonthPayment({
-                      studentUserId: student.id,
-                      month: selMonth,
-                      discountAmount: discount > 0 ? discount : undefined,
-                      payment: { amount: amountToCollect, method },
-                    });
+                    let invoiceId: string | null = null;
+                    if (isSelectedMonthly) {
+                      const payResult = await processMonthPayment({
+                        studentUserId: student.id,
+                        month: selectedMonth,
+                        discountAmount: discount > 0 ? discount : undefined,
+                        payment: { amount: amountToCollect, method },
+                      });
+                      invoiceId = payResult?.data?.invoice?.id ?? null;
+                    } else {
+                      let remaining = amountToCollect;
+                      const payableInvoices = displayInvoices
+                        .map(inv => ({ invoice: inv, due: Math.max(0, inv.amount - inv.paidAmount) }))
+                        .filter(row => row.due > 0);
+                      for (const row of payableInvoices) {
+                        if (remaining <= 0) break;
+                        const amount = Math.min(remaining, row.due);
+                        const payResult = await createPayment({
+                          invoiceId: row.invoice.id,
+                          method,
+                          amount,
+                        });
+                        const paymentData = payResult.data as {
+                          duePaymentInvoice?: { id?: string };
+                          payment?: { invoiceId?: string };
+                          sourceInvoice?: { id?: string };
+                        } | undefined;
+                        invoiceId = paymentData?.duePaymentInvoice?.id
+                          ?? paymentData?.payment?.invoiceId
+                          ?? paymentData?.sourceInvoice?.id
+                          ?? row.invoice.id;
+                        remaining = Math.max(0, remaining - amount);
+                      }
+                    }
                     setPaymentAmount('');
                     await fetchInvoices(true); // silent refresh — updates invoice status/paidAmount before modal closes
-                    const invoiceId = payResult?.data?.invoice?.id;
                     if (invoiceId) {
                       setLastPaidInvoiceId(invoiceId);
                       await openInvoicePdfInWindow(invoiceId, pdfWindow);
                     } else if (pdfWindow && !pdfWindow.closed) {
                       pdfWindow.close();
                     }
-                    onSave({ student, month: selMonth, method, amount: amountToCollect });
+                    onSave({ student, month: selectedMonth, method, amount: amountToCollect });
                   } catch (error) {
                     if (pdfWindow && !pdfWindow.closed) pdfWindow.close();
                     throw error;
@@ -1116,7 +1211,7 @@ export function CollectPaymentModal({
                       size="sm"
                       onClick={() => {
                         const invoice = invoices.find(inv => inv.id === lastPaidInvoiceId) ?? displayInvoices.find(inv => inv.id === lastPaidInvoiceId);
-                        void downloadInvoicePdf(invoice ?? { id: lastPaidInvoiceId, month: selMonth });
+                        void downloadInvoicePdf(invoice ?? { id: lastPaidInvoiceId, month: selectedMonth });
                       }}
                       disabled={pdfLoading === `download:${lastPaidInvoiceId}`}
                       className="gap-1.5 border-emerald-200 bg-white text-xs text-emerald-800 hover:bg-emerald-100"
@@ -1148,7 +1243,7 @@ export function CollectPaymentModal({
                 ))}
               </div>
             ) : (
-              <p className="text-xs font-semibold text-slate-400">No waiver, discount, or settlement adjustment for this selected month.</p>
+              <p className="text-xs font-semibold text-slate-400">No waiver, discount, or settlement adjustment for this selected group.</p>
             )}
           </div>
         </div>

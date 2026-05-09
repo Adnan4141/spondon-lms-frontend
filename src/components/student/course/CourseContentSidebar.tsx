@@ -1,7 +1,17 @@
 'use client';
 
 import { Card, CardContent } from '@/components/ui/card';
-import { ChevronDown, ChevronRight, Play, CheckCircle2, Circle } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronRight,
+  Play,
+  CheckCircle2,
+  Circle,
+  FileText,
+  Link2,
+  ClipboardList,
+  Radio,
+} from 'lucide-react';
 import { SubjectTabsOrSelect } from './SubjectTabsOrSelect';
 import type { SubjectChapterGroup } from '@/lib/course-outline';
 
@@ -14,6 +24,28 @@ export type SidebarContentItem = {
   durationMinutes?: number;
   progress?: { completed: boolean; progressPercent?: number } | null;
 };
+
+function ContentTypeIcon({ type }: { type: string }) {
+  switch (type) {
+    case 'VIDEO':
+      return <Play className="h-3.5 w-3.5 text-slate-400 shrink-0" />;
+    case 'PDF':
+    case 'NOTE':
+    case 'SAMPLE':
+    case 'SYLLABUS':
+    case 'LEAFLET':
+      return <FileText className="h-3.5 w-3.5 text-slate-400 shrink-0" />;
+    case 'QUIZ':
+    case 'ASSIGNMENT':
+      return <ClipboardList className="h-3.5 w-3.5 text-slate-400 shrink-0" />;
+    case 'LIVE':
+      return <Radio className="h-3.5 w-3.5 text-slate-400 shrink-0" />;
+    case 'LINK':
+      return <Link2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />;
+    default:
+      return <FileText className="h-3.5 w-3.5 text-slate-400 shrink-0" />;
+  }
+}
 
 interface CourseContentSidebarProps {
   groups: SubjectChapterGroup<SidebarContentItem>[];
@@ -108,7 +140,7 @@ export function CourseContentSidebar({
                           ) : (
                             <Circle className="h-4 w-4 text-slate-300 shrink-0" />
                           )}
-                          <Play className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                          <ContentTypeIcon type={item.type} />
                           <span className={`flex-1 font-medium ${isSelected ? 'text-indigo-700' : 'text-slate-700'}`}>
                             {item.title}
                           </span>

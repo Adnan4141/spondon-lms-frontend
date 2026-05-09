@@ -5,8 +5,25 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { CheckCircle2, Loader2, FileText, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { getInvoiceById } from '@/lib/api/invoices';
+import { getInvoiceById, openInvoicePdfInNewTab } from '@/lib/api/invoices';
 import type { Invoice } from '@/types/invoice';
+
+function getStoredRole(): string | null {
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+    return raw ? (JSON.parse(raw) as { role?: string })?.role || null : null;
+  } catch {
+    return null;
+  }
+}
+
+function getRoleHome(role: string | null): string {
+  if (role === 'STUDENT') return '/student';
+  if (role === 'TEACHER') return '/teacher';
+  if (role === 'BRANCH_ADMIN') return '/admin/branch';
+  if (role) return '/admin';
+  return '/';
+}
 
 function SuccessContent() {
   const searchParams = useSearchParams();
@@ -14,21 +31,9 @@ function SuccessContent() {
   const invoiceId = searchParams.get('invoice_id');
   const [verifying, setVerifying] = useState(true);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
-  const [redirectHref, setRedirectHref] = useState('/admin');
-
-  // Determine role-based redirect base
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem('user');
-      const role = raw ? (JSON.parse(raw) as { role?: string })?.role : null;
-      if (role === 'STUDENT') setRedirectHref('/student');
-      else if (role === 'TEACHER') setRedirectHref('/teacher');
-      else if (role === 'BRANCH_ADMIN') setRedirectHref('/admin/branch');
-      else setRedirectHref('/admin');
-    } catch {
-      setRedirectHref('/');
-    }
-  }, []);
+  const [role] = useState<string | null>(() => getStoredRole());
+  const [pdfOpening, setPdfOpening] = useState(false);
+  const redirectHref = getRoleHome(role);
 
   // Fetch invoice to confirm payment recorded
   useEffect(() => {
@@ -51,15 +56,22 @@ function SuccessContent() {
   // Auto-redirect after showing success
   useEffect(() => {
     if (!verifying) {
-      const dest = invoiceId ? `/admin/invoices?open=${invoiceId}` : redirectHref;
+      const dest = role === 'STUDENT'
+        ? '/student/payment'
+        : invoiceId
+          ? `/admin/invoices?open=${invoiceId}`
+          : redirectHref;
       const t = setTimeout(() => router.replace(dest), 3000);
       return () => clearTimeout(t);
     }
     return undefined;
-  }, [verifying, invoiceId, redirectHref, router]);
+  }, [verifying, invoiceId, redirectHref, role, router]);
 
-  const invoiceViewUrl = invoiceId ? `/admin/invoices/${invoiceId}/print` : null;
-  const invoiceListUrl = invoiceId ? `/admin/invoices?open=${invoiceId}` : redirectHref;
+  const invoiceListUrl = role === 'STUDENT'
+    ? '/student/payment'
+    : invoiceId
+      ? `/admin/invoices?open=${invoiceId}`
+      : redirectHref;
 
   const formatCurrency = (v: number | string) =>
     `৳${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2 }).format(Number(v))}`;
@@ -112,27 +124,38 @@ function SuccessContent() {
                 )}
               </div>
             )}
-            <p className="text-xs text-slate-400 mb-6">Redirecting to your invoice in a moment…</p>
+            <p className="text-xs text-slate-400 mb-6">
+              Redirecting to {role === 'STUDENT' ? 'your payments' : 'your invoice'} in a moment…
+            </p>
           </>
         )}
 
         {!verifying && (
           <div className="flex flex-col gap-3">
-            {invoiceViewUrl && (
+            {invoiceId ? (
               <button
-                onClick={() =>
-                  window.open(invoiceViewUrl, 'invoice-preview', 'width=860,height=1000,scrollbars=yes,resizable=yes')
-                }
-                className="flex items-center justify-center gap-2 w-full h-12 rounded-2xl border border-slate-200 bg-white text-sm font-black text-slate-700 hover:bg-slate-50 transition-all"
+                type="button"
+                disabled={pdfOpening}
+                onClick={() => {
+                  setPdfOpening(true);
+                  void openInvoicePdfInNewTab(invoiceId).catch((e) => {
+                    console.error(e);
+                  }).finally(() => setPdfOpening(false));
+                }}
+                className="flex items-center justify-center gap-2 w-full h-12 rounded-2xl border border-slate-200 bg-white text-sm font-black text-slate-700 hover:bg-slate-50 transition-all disabled:opacity-50"
               >
-                <ExternalLink className="h-4 w-4" />
-                Preview Invoice
+                {pdfOpening ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ExternalLink className="h-4 w-4" />
+                )}
+                View Invoice PDF
               </button>
-            )}
+            ) : null}
             <Link href={invoiceListUrl}>
               <Button className="w-full h-12 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black">
                 <FileText className="mr-2 h-4 w-4" />
-                View Invoice
+                {role === 'STUDENT' ? 'Back to Payments' : 'View Invoice'}
               </Button>
             </Link>
           </div>

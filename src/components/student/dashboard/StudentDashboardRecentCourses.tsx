@@ -47,15 +47,13 @@ export function StudentDashboardRecentCourses({ loading, courseCount, courses }:
           </div>
         ) : (
           courses.map((row) => {
-            const cid = row.course?.id ?? row.courseId;
+            const cid = row.course?.slug ?? row.course?.id ?? row.courseId;
             const name = row.course?.name ?? 'কোর্স';
             const code = row.course?.slug;
-            return (
-              <Link
-                key={row.id}
-                href={`/student/courses/${cid}`}
-                className="group flex items-center gap-4 p-5 rounded-3xl bg-white border border-slate-100 hover:border-indigo-100 hover:shadow-xl hover:shadow-indigo-50 transition-all duration-300"
-              >
+            const rowClass =
+              'group flex items-center gap-4 p-5 rounded-3xl bg-white border border-slate-100 hover:border-indigo-100 hover:shadow-xl hover:shadow-indigo-50 transition-all duration-300';
+            const inner = (
+              <>
                 <div className="h-16 w-16 rounded-2xl bg-slate-100 shrink-0 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
                   <BookOpen className="h-8 w-8" />
                 </div>
@@ -74,6 +72,18 @@ export function StudentDashboardRecentCourses({ loading, courseCount, courses }:
                 <div className="h-10 w-10 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 group-hover:border-indigo-600 group-hover:text-indigo-600 group-hover:bg-indigo-50 transition-all">
                   <ArrowRight className="h-5 w-5" />
                 </div>
+              </>
+            );
+            if (!cid) {
+              return (
+                <Link key={row.id} href="/student/courses" className={rowClass}>
+                  {inner}
+                </Link>
+              );
+            }
+            return (
+              <Link key={row.id} href={`/student/courses/${cid}`} className={rowClass}>
+                {inner}
               </Link>
             );
           })

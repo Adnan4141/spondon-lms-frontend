@@ -1,8 +1,28 @@
-import { apiRequest } from '../api';
+import { apiRequest, API_ORIGIN } from '../api';
 import type { Invoice, CreateInvoiceDto, UpdateInvoiceDto, ApiResponse } from '@/types/invoice';
 
 export async function getInvoicePdfUrl(invoiceId: string): Promise<ApiResponse<{ pdfUrl: string }>> {
   return apiRequest<ApiResponse<{ pdfUrl: string }>>(`/invoices/${invoiceId}/pdf`);
+}
+
+/**
+ * GET /invoices/:id/pdf returns JSON `{ pdfUrl }` pointing at a static file under `/uploads/...`.
+ * Opening the API URL in a new tab shows JSON, not the PDF — use this helper after authenticated fetch.
+ */
+export async function openInvoicePdfInNewTab(invoiceId: string): Promise<void> {
+  const res = await getInvoicePdfUrl(invoiceId);
+  if (!res.success || !res.data?.pdfUrl) {
+    const msg =
+      typeof (res as { message?: string }).message === 'string'
+        ? (res as { message: string }).message
+        : 'Could not load invoice PDF';
+    throw new Error(msg);
+  }
+  const path = res.data.pdfUrl;
+  const url = path.startsWith('http')
+    ? path
+    : `${API_ORIGIN}${path.startsWith('/') ? '' : '/'}${path}`;
+  window.open(url, '_blank', 'noopener,noreferrer');
 }
 
 export async function getInvoices(params?: {

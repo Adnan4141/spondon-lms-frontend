@@ -6,9 +6,10 @@ import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { BookOpen, ArrowRight, Layers, ListVideo, Star, FileText, Download } from 'lucide-react';
+import { BookOpen, ArrowRight, Layers, ListVideo, Star, FileText, Download, Users, Tag, GraduationCap } from 'lucide-react';
 import { getCourseContentsWithProgress } from '@/lib/api/student-portal';
 import { getCourseById } from '@/lib/api/courses';
+import { resolveAttachmentUrl } from '@/lib/attachment-url';
 import type { CourseDetails } from '@/types/course';
 import { createTestimonial, getPublicTestimonials, type Testimonial } from '@/lib/api/testimonials';
 import { groupContentsBySubjectChapter, uniqueSubjectsFromGroups } from '@/lib/course-outline';
@@ -70,11 +71,12 @@ export default function StudentCourseHubPage() {
     }
     try {
       setLoading(true);
-      const [courseRes, contentsRes] = await Promise.all([
-        getCourseById(courseId),
-        getCourseContentsWithProgress(courseId, studentUserId),
-      ]);
-      if (courseRes.success && courseRes.data) setCourse(courseRes.data as CourseDetails);
+      const courseRes = await getCourseById(courseId);
+      const loadedCourse = courseRes.success && courseRes.data ? courseRes.data as CourseDetails : null;
+      const resolvedCourseId = loadedCourse?.id ?? courseId;
+      if (loadedCourse) setCourse(loadedCourse);
+
+      const contentsRes = await getCourseContentsWithProgress(resolvedCourseId, studentUserId);
       if (contentsRes.success && contentsRes.data) {
         setContents(contentsRes.data as ContentItem[]);
       } else {
@@ -92,17 +94,24 @@ export default function StudentCourseHubPage() {
     try {
       const res = await getPublicTestimonials();
       if (res.success && res.data) {
-        setReviews(res.data.filter((t) => t.course?.id === courseId));
+        // Use the real DB id from loaded course state; fall back to URL param only if course
+        // hasn't loaded yet (course.id is always a CUID, never a slug).
+        setReviews(res.data.filter((t) => t.course?.id === (course?.id ?? courseId)));
       }
     } catch (err) {
       console.error('Failed to load reviews', err);
     }
-  }, [courseId]);
+  }, [courseId, course]);
 
+  // Split into two effects so that when `course` state is set (after fetchData resolves),
+  // loadReviews re-runs with the real course DB id — without also re-triggering fetchData.
   useEffect(() => {
     fetchData();
+  }, [fetchData]);
+
+  useEffect(() => {
     loadReviews();
-  }, [fetchData, loadReviews]);
+  }, [loadReviews]);
 
   const subjectRows = useMemo(() => {
     const groups = groupContentsBySubjectChapter(contents);
@@ -172,44 +181,106 @@ export default function StudentCourseHubPage() {
         </div>
       </div>
 
-      {syllabusItems.length > 0 && (
+      {/* ── Meta strip ── */}
+      {course && (
+        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm space-y-4">
+          <div className="flex flex-wrap gap-2">
+            {course.program?.name && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-bold">
+                <GraduationCap className="h-3.5 w-3.5" />
+                {course.program.name}
+              </span>
+            )}
+            {course.grade && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-50 text-sky-700 text-xs font-bold">
+                {course.grade}
+              </span>
+            )}
+            {course.group && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-50 text-violet-700 text-xs font-bold">
+                {course.group}
+              </span>
+            )}
+            {course.feeBreakdown && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold">
+                <Tag className="h-3.5 w-3.5" />
+                {course.feeBreakdown.offerPrice != null && course.feeBreakdown.offerPrice < course.feeBreakdown.courseFee ? (
+                  <>
+                    <span className="line-through text-slate-400 font-medium">৳{course.feeBreakdown.courseFee}</span>
+                    {' '}৳{course.feeBreakdown.offerPrice}
+                  </>
+                ) : (
+                  <>৳{course.feeBreakdown.courseFee}</>
+                )}
+              </span>
+            )}
+            {course.startMonth && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-bold">
+                শুরু: {course.startMonth}
+                {course.durationMonths ? ` · ${course.durationMonths} মাস` : ''}
+              </span>
+            )}
+          </div>
+          {course.description && (
+            <p className="text-sm text-slate-600 leading-relaxed">{course.description}</p>
+          )}
+        </div>
+      )}
+
+      {/* ── Highlights / features ── */}
+      {course?.features && course.features.length > 0 && (
         <div>
-          <h2 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-2">
-            <FileText className="h-5 w-5 text-emerald-500" />
-            সিলেবাস
-          </h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {syllabusItems.map((item) => {
-              const url = item.fileUrl
-                ? item.fileUrl.startsWith('http') ? item.fileUrl : `${API_ORIGIN}${item.fileUrl}`
-                : null;
-              return (
-                <div
-                  key={item.id}
-                  className="rounded-2xl border border-emerald-100 bg-emerald-50/30 p-5 flex items-start gap-4"
-                >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
-                    <FileText className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-bold text-slate-900 line-clamp-2">{item.title}</h3>
-                    {url && (
-                      <a
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition-colors"
-                      >
-                        <Download className="h-3.5 w-3.5" /> ডাউনলোড
-                      </a>
-                    )}
-                  </div>
+          <h2 className="text-lg font-black text-slate-900 mb-4">কোর্সের বিশেষত্ব</h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {course.features.map((f) => (
+              <div key={f.id} className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                {f.icon && <span className="text-2xl shrink-0">{f.icon}</span>}
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 truncate">{f.label}</p>
+                  <p className="font-bold text-slate-900 truncate">{f.value}</p>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </div>
       )}
+
+      <div>
+        <h2 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-2">
+          <FileText className="h-5 w-5 text-emerald-500" />
+          সিলেবাস
+        </h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {syllabusItems.map((item) => {
+            const url = item.fileUrl
+              ? item.fileUrl.startsWith('http') ? item.fileUrl : `${API_ORIGIN}${item.fileUrl}`
+              : null;
+            return (
+              <div
+                key={item.id}
+                className="rounded-2xl border border-emerald-100 bg-emerald-50/30 p-5 flex items-start gap-4"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
+                  <FileText className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-bold text-slate-900 line-clamp-2">{item.title}</h3>
+                  {url && (
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition-colors"
+                    >
+                      <Download className="h-3.5 w-3.5" /> ডাউনলোড
+                    </a>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
       <div>
         <h2 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-2">
@@ -264,6 +335,99 @@ export default function StudentCourseHubPage() {
           </div>
         )}
       </div>
+
+      {/* ── Teacher panel ── */}
+      {course?.teachers && course.teachers.filter((t) => t.teacher).length > 0 && (
+        <div>
+          <h2 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-2">
+            <Users className="h-5 w-5 text-indigo-500" />
+            শিক্ষকবৃন্দ
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {course.teachers
+              .filter((t) => t.teacher)
+              .map((t) => {
+                const teacher = t.teacher!;
+                const avatarUrl = teacher.profileImage
+                  ? resolveAttachmentUrl(teacher.profileImage, API_ORIGIN)
+                  : null;
+                return (
+                  <div key={t.id} className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt={teacher.fullName}
+                        className="h-14 w-14 rounded-full object-cover shrink-0 border border-slate-200"
+                      />
+                    ) : (
+                      <div className="h-14 w-14 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
+                        <span className="text-xl font-black text-indigo-600">
+                          {teacher.fullName.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="font-black text-slate-900 truncate">{teacher.fullName}</p>
+                      {teacher.designation && (
+                        <p className="text-xs font-bold text-indigo-600 truncate">{teacher.designation}</p>
+                      )}
+                      {teacher.institute && (
+                        <p className="text-xs text-slate-500 truncate">{teacher.institute}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Course books ── */}
+      {course?.courseBooks && course.courseBooks.length > 0 && (
+        <div>
+          <h2 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-2">
+            <BookOpen className="h-5 w-5 text-amber-500" />
+            কোর্সের বই
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {course.courseBooks.map((cb) => {
+              const thumbUrl = cb.book.thumbnailUrl
+                ? resolveAttachmentUrl(cb.book.thumbnailUrl, API_ORIGIN)
+                : null;
+              return (
+                <div key={cb.id} className="flex items-start gap-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                  {thumbUrl ? (
+                    <img
+                      src={thumbUrl}
+                      alt={cb.book.name}
+                      className="h-20 w-14 object-cover rounded-lg shrink-0 border border-slate-200"
+                    />
+                  ) : (
+                    <div className="h-20 w-14 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
+                      <BookOpen className="h-7 w-7 text-amber-400" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="font-black text-slate-900 line-clamp-2">{cb.book.name}</p>
+                    {cb.book.author && (
+                      <p className="text-xs text-slate-500 mt-0.5">{cb.book.author}</p>
+                    )}
+                    <div className="mt-2">
+                      {cb.isFree ? (
+                        <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-black">
+                          বিনামূল্যে
+                        </span>
+                      ) : (
+                        <span className="text-sm font-bold text-slate-700">৳{cb.book.price}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div id="course-reviews" className="scroll-mt-24 grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2 rounded-2xl border border-slate-100 shadow-sm">
@@ -341,7 +505,8 @@ export default function StudentCourseHubPage() {
                         info: course?.name,
                         quote: reviewForm.quote.trim(),
                         rating: reviewForm.rating,
-                        courseId,
+                        // Always send the real DB course id — the URL param may be a slug
+                        courseId: course?.id ?? courseId,
                         studentUserId,
                       });
                       setReviewForm({ quote: '', rating: 5 });

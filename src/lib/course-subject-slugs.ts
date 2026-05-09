@@ -27,6 +27,14 @@ export function slugifyCourseSubject(title: string): string {
 
 export type SubjectRouteEntry = { title: string; slug: string };
 
+/**
+ * When the URL slug does not match any subject, try these canonical slugs.
+ * (e.g. /mathmatics vs subject title "Mathematics" → slug mathematics)
+ */
+const SUBJECT_SLUG_ALIASES: Record<string, string> = {
+  mathmatics: 'mathematics',
+};
+
 /** Deterministic order + unique slugs for all subject labels in a course. */
 export function buildSubjectRouteTable(subjectTitles: string[]): SubjectRouteEntry[] {
   const unique = [
@@ -54,8 +62,14 @@ export function resolveSubjectTitleFromSlug(
   slug: string,
   table: SubjectRouteEntry[],
 ): string | null {
-  const row = table.find((x) => x.slug === slug);
-  return row ? row.title : null;
+  const key = (slug || '').trim().toLowerCase();
+  if (!key) return null;
+  const row = table.find((x) => x.slug === key);
+  if (row) return row.title;
+  const mapped = SUBJECT_SLUG_ALIASES[key];
+  if (!mapped) return null;
+  const fallback = table.find((x) => x.slug === mapped);
+  return fallback ? fallback.title : null;
 }
 
 export function normalizeSubjectLabel(raw: string | null | undefined): string {

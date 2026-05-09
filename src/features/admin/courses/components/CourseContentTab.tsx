@@ -15,7 +15,6 @@ import {
   Plus,
   Trash2,
   GripVertical,
-  MoreVertical
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -27,6 +26,7 @@ import { TYPE_CONFIG } from '../courseConstants';
 import { EMPTY_CONTENT_FORM, type ContentForm } from '../courseTypes';
 import { groupContents } from '../courseUtils';
 import { ContentItemModal } from '../modals/ContentItemModal';
+import { normalizeYoutubeWatchUrl } from '@/lib/youtube';
 
 import {
   DndContext,
@@ -200,7 +200,7 @@ function SortableModuleCard({
   children,
 }: {
   id: string;
-  children: (dragHandleProps: any, isDragging: boolean) => React.ReactNode;
+  children: (dragHandleProps: Record<string, unknown>, isDragging: boolean) => React.ReactNode;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ 
     id,
@@ -325,7 +325,9 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
     if (form.chapterTitle.trim()) fd.append('chapterTitle', form.chapterTitle.trim());
     const topic = (form.topicTitle || form.title).trim();
     fd.append('topicTitle', topic);
-    if (attachment.mode === 'link' && form.fileUrl.trim()) fd.append('fileUrl', form.fileUrl.trim());
+    if (attachment.mode === 'link' && form.fileUrl.trim()) {
+      fd.append('fileUrl', form.type === 'VIDEO' ? normalizeYoutubeWatchUrl(form.fileUrl.trim()) ?? form.fileUrl.trim() : form.fileUrl.trim());
+    }
     if (attachment.mode === 'upload' && attachment.file) fd.append('file', attachment.file);
     if (form.textBody) fd.append('textBody', form.textBody);
     fd.append('isFree', String(form.isFree));
@@ -430,7 +432,7 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
       const reorderedSubjects = arrayMove(subjects, oldIndex, newIndex);
       
       // Compute flat items globally sequential
-      let flattenedItems: CourseContent[] = [];
+      const flattenedItems: CourseContent[] = [];
       reorderedSubjects.forEach(subj => {
          subj.chapters.forEach(chap => flattenedItems.push(...chap.items));
       });

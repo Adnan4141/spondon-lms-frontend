@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { isLocalUploadPath, isValidHttpUrl } from '@/lib/attachment-url';
+import { normalizeYoutubeWatchUrl, parseYoutubeVideoId } from '@/lib/youtube';
 import { CONTENT_TYPES, TYPE_CONFIG } from '../courseConstants';
 import type { ContentForm } from '../courseTypes';
 
@@ -58,7 +59,11 @@ export function ContentItemModal({
     if (!form.title.trim()) { setError('Title is required'); return; }
     if (!form.subjectTitle.trim()) { setError('Module is required'); return; }
     if (!form.chapterTitle.trim()) { setError('Section is required'); return; }
-    if (attachmentMode === 'link' && form.fileUrl.trim() && !isValidHttpUrl(form.fileUrl.trim())) {
+    if (attachmentMode === 'link' && form.type === 'VIDEO' && form.fileUrl.trim() && !parseYoutubeVideoId(form.fileUrl.trim())) {
+      setError('Use a valid YouTube watch, youtu.be, embed, Shorts, or raw video id. Use Unlisted, not Private.');
+      return;
+    }
+    if (attachmentMode === 'link' && form.type !== 'VIDEO' && form.fileUrl.trim() && !isValidHttpUrl(form.fileUrl.trim())) {
       setError('Please enter a valid http(s) link'); return;
     }
     if (attachmentMode === 'upload' && !file && !hasExistingLocalUpload) {
@@ -67,7 +72,12 @@ export function ContentItemModal({
     setSaving(true);
     setError('');
     try {
-      await onSave(form, { mode: attachmentMode, file });
+      await onSave(
+        attachmentMode === 'link' && form.type === 'VIDEO'
+          ? { ...form, fileUrl: normalizeYoutubeWatchUrl(form.fileUrl.trim()) ?? form.fileUrl.trim() }
+          : form,
+        { mode: attachmentMode, file },
+      );
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to save');
     } finally {
@@ -203,7 +213,7 @@ export function ContentItemModal({
                   File Upload
                 </button>
                 <button type="button" onClick={() => setAttachmentMode('link')} className={cn('px-4 py-1.5 text-xs font-bold transition-all rounded-lg', attachmentMode === 'link' ? 'bg-white text-indigo-700 shadow border border-slate-200/60' : 'text-slate-500 hover:text-slate-700')} >
-                  External Link
+                  {form.type === 'VIDEO' ? 'YouTube Link' : 'External Link'}
                 </button>
               </div>
 
@@ -219,6 +229,11 @@ export function ContentItemModal({
                      <Link2 className="h-4 w-4 text-slate-400" />
                   </div>
                   <Input value={form.fileUrl} onChange={(e) => set('fileUrl', e.target.value)} placeholder={form.type === 'VIDEO' ? 'https://youtube.com/watch?v=…' : 'https://…'} className={cn(inputTheme, "pl-10")} />
+                  {form.type === 'VIDEO' && (
+                    <p className="mt-2 px-1 text-[11px] font-medium leading-relaxed text-slate-500">
+                      Use Unlisted YouTube, not Private. Students will see it through the LMS anti-casual-sharing player.
+                    </p>
+                  )}
                 </div>
               )}
 

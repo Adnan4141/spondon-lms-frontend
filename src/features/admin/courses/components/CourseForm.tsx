@@ -675,11 +675,6 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                     onValueChange={(value) => {
                       const selected = programs.find((p) => p.id === value);
                       const updates: Partial<FormState> = { programId: value };
-                      if (selected?.mode === 'ONLINE') {
-                        updates.type = 'ONLINE';
-                      } else if (selected?.mode === 'OFFLINE') {
-                        updates.type = 'OFFLINE';
-                      }
                       // Clear timeline fields when switching to ONE_TIME program
                       if (selected?.paymentCircle !== 'MONTHLY') {
                         updates.startMonth = '';
@@ -791,7 +786,6 @@ export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
                   <FieldLabel>Course Type</FieldLabel>
                   <Select
                     value={form.type}
-                    disabled={!!programs.find((p) => p.id === form.programId)?.mode}
                     onValueChange={(v) => setForm((p) => ({ ...p, type: v as CourseType }))}
                   >
                     <SelectTrigger className={field}>
