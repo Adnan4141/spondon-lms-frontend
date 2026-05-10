@@ -1,5 +1,19 @@
+import type { Metadata } from 'next';
 import { getSiteSettings } from '@/lib/api/site-content';
 import { FooterSettingsProvider } from '@/components/layout/FooterSettingsContext';
+
+export const metadata: Metadata = {
+  title: 'Books & eBooks',
+  description:
+    'Explore SSC and HSC academic books, eBooks, and study materials from Spondon Academic.',
+  alternates: { canonical: 'https://spondonedu.com/books' },
+  openGraph: {
+    title: 'Books & eBooks | Spondon Academic',
+    description:
+      'Explore SSC and HSC academic books, eBooks, and study materials from Spondon Academic.',
+    url: 'https://spondonedu.com/books',
+  },
+};
 
 export default async function BooksLayout({
   children,

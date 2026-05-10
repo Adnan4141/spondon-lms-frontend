@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 
@@ -19,64 +20,55 @@ export const PaymentSection: React.FC<Props> = ({
   subtitle = 'Trusted payment gateways ensuring safe and secure transactions',
   footerText = 'Powered by bKash',
 }) => (
-  <section className="relative py-12 sm:py-20 md:py-28 overflow-hidden bg-gradient-to-br from-sky-50 via-white to-indigo-50">
-    
-    {/* Gradient Blobs */}
-    <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-sky-200/40 blur-[120px] rounded-full"></div>
-    <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-indigo-200/40 blur-[120px] rounded-full"></div>
+  <section className="relative overflow-hidden bg-linear-to-br from-sky-50 via-white to-indigo-50 py-14 sm:py-16 md:py-20 lg:py-24">
+    <div className="absolute -left-32 top-0 h-72 w-72 rounded-full bg-sky-200/35 blur-3xl sm:h-96 sm:w-96" />
+    <div className="absolute -bottom-24 -right-28 h-72 w-72 rounded-full bg-indigo-200/35 blur-3xl sm:h-96 sm:w-96" />
 
-    <div className="relative mx-auto max-w-7xl px-6 lg:px-12">
-      <div className="flex flex-col items-center gap-14">
-
-        {/* Title */}
-        <div className="text-center space-y-4">
-          <Badge className="bg-white/70 backdrop-blur-md text-blue-600 border border-blue-100 px-6 py-2 text-[10px] font-black uppercase tracking-[0.25em] rounded-full shadow">
+    <div className="relative mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-4xl flex-col items-center gap-8 sm:gap-10">
+        <div className="max-w-2xl space-y-4 text-center">
+          <Badge className="border border-blue-100 bg-white/80 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.22em] text-blue-600 shadow-sm backdrop-blur-md sm:px-5">
             {badge}
           </Badge>
 
-          <h3 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-slate-800 tracking-tight">
+          <h3 className="text-3xl font-black leading-tight tracking-tight text-slate-900 sm:text-4xl md:text-5xl">
             {title}
           </h3>
 
-          <p className="text-slate-500 text-sm max-w-md mx-auto">
+          <p className="mx-auto max-w-lg text-sm font-medium leading-6 text-slate-500 sm:text-base">
             {subtitle}
           </p>
         </div>
 
-        {/* Payment Card */}
         <motion.div
           initial={{ opacity: 0, y: 25 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="group relative w-full max-w-4xl rounded-[44px] p-[2px] bg-gradient-to-r from-sky-400 via-blue-400 to-indigo-400 shadow-xl"
+          className="group relative w-full max-w-3xl rounded-[28px] bg-linear-to-r from-sky-300 via-blue-300 to-indigo-300 p-px shadow-[0_24px_70px_rgba(37,99,235,0.12)] sm:rounded-[36px]"
         >
-          
-          {/* Glass Card */}
-          <div className="relative bg-white/80 backdrop-blur-xl rounded-[42px] p-6 sm:p-10 md:p-16 flex items-center justify-center transition-all duration-500 group-hover:scale-[1.02] group-hover:shadow-2xl">
+          <div className="relative flex min-h-[150px] items-center justify-center overflow-hidden rounded-[27px] border border-white/70 bg-white/85 px-6 py-10 backdrop-blur-xl transition-all duration-500 group-hover:-translate-y-1 group-hover:shadow-2xl sm:min-h-[230px] sm:rounded-[35px] sm:px-12 sm:py-12 md:min-h-[260px]">
+            <div className="absolute inset-x-8 top-1/2 h-24 -translate-y-1/2 rounded-full bg-blue-100/60 blur-3xl opacity-70 transition-opacity duration-500 group-hover:opacity-100" />
 
-            {/* Glow */}
-            <div className="absolute inset-0 rounded-[42px] opacity-0 group-hover:opacity-100 transition duration-500 bg-gradient-to-r from-blue-200/30 via-sky-200/30 to-indigo-200/30 blur-2xl"></div>
-
-            <img
+            <Image
               src="/images/collaborator/bikash-logo.png"
               alt="bKash Payment Partner"
-              className="relative max-w-full h-auto object-contain drop-shadow-xl grayscale-[0.2] group-hover:grayscale-0 transition duration-500"
+              width={2000}
+              height={918}
+              className="relative h-auto w-full max-w-[200px] object-contain drop-shadow-xl transition duration-500 group-hover:scale-[1.03] 
+              sm:max-w-[250px] md:max-w-[300px]"
               onError={(e) => handleImageError(e, 'Payment Gateway')}
             />
-
           </div>
         </motion.div>
 
-        {/* Footer */}
-        <div className="flex items-center gap-4 text-slate-300">
-          <div className="h-px w-20 bg-gradient-to-r from-transparent via-slate-300 to-transparent" />
-          <p className="text-[11px] font-black uppercase tracking-[0.35em] text-slate-400">
+        <div className="flex w-full max-w-xl items-center gap-3 text-slate-300 sm:gap-4">
+          <div className="h-px flex-1 bg-linear-to-r from-transparent via-slate-300 to-slate-300/30" />
+          <p className="shrink-0 text-center text-[10px] font-black uppercase tracking-[0.24em] text-slate-400 sm:text-[11px] sm:tracking-[0.32em]">
             {footerText}
           </p>
-          <div className="h-px w-20 bg-gradient-to-r from-transparent via-slate-300 to-transparent" />
+          <div className="h-px flex-1 bg-linear-to-l from-transparent via-slate-300 to-slate-300/30" />
         </div>
-
       </div>
     </div>
   </section>
