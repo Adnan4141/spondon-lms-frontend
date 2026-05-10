@@ -1,180 +1,167 @@
-'use client';
+import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
+import { API_ORIGIN } from '@/lib/api';
+import { resolveAttachmentUrl } from '@/lib/attachment-url';
+import { getPublicBook, type PublicBook } from '@/lib/api/books';
+import {
+  absoluteSiteUrl,
+  compactDescription,
+  jsonLdScript,
+  ORGANIZATION_NAME,
+  SITE_NAME,
+  SITE_URL,
+  toAbsoluteImageUrl,
+} from '@/lib/seo';
+import { BookDetailsClient } from './BookDetailsClient';
 
-import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
-import { AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
-import { Header } from '@/components/layout/Header';
-import { Footer } from '@/components/layout/Footer';
-import { Button } from '@/components/ui/button';
-import { BookHeroSection } from '@/components/books/BookHeroSection';
-import { BookTabs, type BookTabId } from '@/components/books/BookTabs';
-import { BookOverviewSection } from '@/components/books/BookOverviewSection';
-import { PublicSamplePdfDialog } from '@/components/books/PublicSamplePdfDialog';
-import { getProtectedBookDownload, getPublicBook, type PublicBook } from '@/lib/api/books';
+type BookRouteParams = Promise<{ bookId: string }>;
 
-function readHasAuth() {
-  if (typeof window === 'undefined') return false;
-  return Boolean(localStorage.getItem('auth_token'));
+async function loadBook(bookId: string): Promise<PublicBook | null> {
+  try {
+    const res = await getPublicBook(bookId);
+    if (res.success && res.data) return res.data;
+  } catch {
+    // Handled by notFound/metadata fallback.
+  }
+  return null;
 }
 
-export default function PublicBookDetailsPage() {
-  const params = useParams<{ bookId: string }>();
-  const router = useRouter();
-  const bookId = decodeURIComponent(String(params?.bookId || ''));
+function bookDescription(book: PublicBook): string {
+  const fallbackParts = [
+    book.author ? `By ${book.author}` : null,
+    book.category?.name,
+    book.isEbook ? 'eBook' : 'Printed book',
+    `${book.name} from ${SITE_NAME}.`,
+  ].filter(Boolean);
 
-  const [book, setBook] = useState<PublicBook | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<BookTabId>('overview');
-  const [sampleOpen, setSampleOpen] = useState(false);
-  const [hasAuth, setHasAuth] = useState(false);
-  const [purchaseHint, setPurchaseHint] = useState<string | null>(null);
+  return compactDescription(book.description, fallbackParts.join('. '));
+}
 
-  useEffect(() => {
-    setHasAuth(readHasAuth());
-  }, []);
+function bookImage(book: PublicBook): string | undefined {
+  if (!book.thumbnailUrl) return undefined;
+  return toAbsoluteImageUrl(resolveAttachmentUrl(book.thumbnailUrl, API_ORIGIN));
+}
 
-  useEffect(() => {
-    let isActive = true;
+export async function generateMetadata({ params }: { params: BookRouteParams }): Promise<Metadata> {
+  const { bookId } = await params;
+  const decodedBookId = decodeURIComponent(bookId);
+  const book = await loadBook(decodedBookId);
 
-    async function loadBook() {
-      if (!bookId) return;
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await getPublicBook(bookId);
-        if (!isActive) return;
-        setBook(response.success && response.data ? response.data : null);
-      } catch (loadError) {
-        if (!isActive) return;
-        setError(loadError instanceof Error ? loadError.message : 'এই বইটি লোড করা যায়নি।');
-      } finally {
-        if (isActive) setLoading(false);
-      }
-    }
-
-    void loadBook();
-    return () => {
-      isActive = false;
+  if (!book) {
+    return {
+      title: 'Book Not Found',
+      robots: { index: false, follow: false },
     };
-  }, [bookId]);
+  }
 
-  const isFree = useMemo(() => {
-    if (!book) return false;
-    return Number(book.price) <= 0 || Boolean(book.courseBooks?.some((linked) => linked.isFree));
-  }, [book]);
+  const canonical = absoluteSiteUrl(`/books/${encodeURIComponent(book.id)}`);
+  const description = bookDescription(book);
+  const image = bookImage(book);
 
-  const categoryLabel = book?.category?.name || null;
-  const showRead = Boolean(book?.isEbook && isFree && hasAuth);
-
-  const startReading = async () => {
-    if (!book) return;
-    if (!hasAuth) {
-      router.push(`/login?redirect=${encodeURIComponent(`/books/${bookId}`)}`);
-      return;
-    }
-
-    try {
-      const response = await getProtectedBookDownload(book.id);
-      if (response.fileUrl) {
-        window.open(response.fileUrl, '_blank', 'noopener,noreferrer');
-        setPurchaseHint(null);
-        return;
-      }
-      setPurchaseHint(response.message || 'এই বইটি এখনও পড়ার জন্য উপলব্ধ নয়।');
-    } catch (downloadError) {
-      setPurchaseHint(downloadError instanceof Error ? downloadError.message : 'এই মুহূর্তে ই-বুক খোলা যাচ্ছে না।');
-    }
+  return {
+    title: book.name,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      type: 'website',
+      locale: 'bn_BD',
+      siteName: SITE_NAME,
+      title: `${book.name} | ${SITE_NAME}`,
+      description,
+      url: canonical,
+      images: image ? [{ url: image, alt: book.name }] : undefined,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${book.name} | ${SITE_NAME}`,
+      description,
+      images: image ? [image] : undefined,
+    },
   };
+}
 
-  const handleBuy = async () => {
-    if (!book) return;
-    if (!hasAuth) {
-      router.push(`/login?redirect=${encodeURIComponent(`/books/${bookId}`)}`);
-      return;
-    }
-    if (book.isEbook) {
-      await startReading();
-      return;
-    }
-    setPurchaseHint(
-      'মুদ্রিত বইয়ের চেকআউট শীঘ্রই যুক্ত হবে। এখন অর্ডার করতে অ্যাডমিন বিক্রয় বা সাপোর্টের সাথে যোগাযোগ করুন।',
-    );
-  };
+function buildBookSchema(book: PublicBook) {
+  const canonical = absoluteSiteUrl(`/books/${encodeURIComponent(book.id)}`);
+  const image = bookImage(book);
+  const description = bookDescription(book);
+
+  return [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'Book',
+      name: book.name,
+      url: canonical,
+      image,
+      description,
+      isbn: book.sku || undefined,
+      author: book.author ? { '@type': 'Person', name: book.author } : undefined,
+      bookFormat: book.isEbook ? 'https://schema.org/EBook' : 'https://schema.org/Paperback',
+      numberOfPages: book.pageCount || undefined,
+      publisher: {
+        '@type': 'EducationalOrganization',
+        name: ORGANIZATION_NAME,
+        url: SITE_URL,
+      },
+      offers: {
+        '@type': 'Offer',
+        price: Number(book.price) || 0,
+        priceCurrency: 'BDT',
+        availability:
+          book.isEbook || (book.centralQty ?? 0) > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+        url: canonical,
+      },
+      isPartOf: book.courseBooks?.map((linked) => ({
+        '@type': 'Course',
+        name: linked.course.name,
+        url: absoluteSiteUrl(`/course/${encodeURIComponent(linked.course.slug || linked.course.id)}`),
+      })),
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      name: book.name,
+      image,
+      description,
+      sku: book.sku,
+      brand: {
+        '@type': 'Brand',
+        name: SITE_NAME,
+      },
+      offers: {
+        '@type': 'Offer',
+        price: Number(book.price) || 0,
+        priceCurrency: 'BDT',
+        availability:
+          book.isEbook || (book.centralQty ?? 0) > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+        url: canonical,
+      },
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL },
+        { '@type': 'ListItem', position: 2, name: 'Books', item: absoluteSiteUrl('/books') },
+        { '@type': 'ListItem', position: 3, name: book.name, item: canonical },
+      ],
+    },
+  ];
+}
+
+export default async function PublicBookDetailsPage({ params }: { params: BookRouteParams }) {
+  const { bookId } = await params;
+  const decodedBookId = decodeURIComponent(bookId);
+  const book = await loadBook(decodedBookId);
+
+  if (!book) notFound();
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 selection:bg-emerald-100">
-      <Header />
-
-      <main className="pb-20 pt-28 sm:pt-0">
-        <div className="mx-auto max-w-7xl px-6 lg:px-12">
-          <div className="mb-8 flex flex-wrap items-center gap-3 text-sm font-semibold text-slate-500">
-            <Button asChild variant="ghost" className="h-10 rounded-2xl px-3 text-slate-600 hover:bg-white">
-              <Link href="/books">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                বইয়ের তালিকায় ফিরে যান
-              </Link>
-            </Button>
-            {categoryLabel ? <span>/ {categoryLabel}</span> : null}
-          </div>
-
-          {loading ? (
-            <div className="flex min-h-[50vh] items-center justify-center rounded-[36px] border border-slate-200 bg-white shadow-sm">
-              <div className="flex items-center gap-3 text-slate-600">
-                <Loader2 className="h-5 w-5 animate-spin" />
-                বইয়ের বিস্তারিত লোড হচ্ছে…
-              </div>
-            </div>
-          ) : error || !book ? (
-            <section className="rounded-[36px] border border-rose-200 bg-white p-10 text-center shadow-sm">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-rose-50 text-rose-600">
-                <AlertCircle className="h-7 w-7" />
-              </div>
-              <h1 className="mt-6 text-3xl font-black text-slate-950">বইটি উপলব্ধ নয়</h1>
-              <p className="mt-3 text-sm leading-6 text-slate-500">
-                {error || 'জনসাধারণের ক্যাটালগ থেকে এই বইটি লোড করা যায়নি।'}
-              </p>
-              <Button asChild className="mt-6 rounded-2xl bg-slate-950 text-white hover:bg-slate-800">
-                <Link href="/books">সব বই দেখুন</Link>
-              </Button>
-            </section>
-          ) : (
-            <>
-              <section className="relative overflow-hidden rounded-[40px] border border-slate-200 bg-[radial-gradient(circle_at_top_left,#ecfdf5_0%,#ffffff_36%,#eff6ff_100%)] px-5 py-8 shadow-[0_30px_90px_rgba(15,23,42,0.08)] sm:px-8 lg:px-10">
-                <BookHeroSection
-                  book={book}
-                  bookId={bookId}
-                  categoryLabel={categoryLabel}
-                  isFree={isFree}
-                  showRead={showRead}
-                  readUrl={null}
-                  onBuy={() => void handleBuy()}
-                  purchaseHint={purchaseHint}
-                  onStartReading={() => void startReading()}
-                  onOpenSamplePreview={() => setSampleOpen(true)}
-                />
-              </section>
-
-
-              <section className="mt-10 rounded-[36px] border border-slate-200 bg-white px-6 shadow-sm sm:px-8">
-                <BookTabs active={activeTab} onChange={setActiveTab} />
-                {activeTab === 'overview' ? <BookOverviewSection description={book.description} outline={book.outline} /> : null}
-             
-              </section>
-            </>
-          )}
-        </div>
-      </main>
-
-      <PublicSamplePdfDialog
-        open={sampleOpen}
-        onClose={() => setSampleOpen(false)}
-        bookName={book?.name || 'বই'}
-        sampleUrl={book?.demoReadUrl || null}
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(buildBookSchema(book)) }}
       />
-
-      <Footer />
-    </div>
+      <BookDetailsClient initialBook={book} bookId={decodedBookId} />
+    </>
   );
 }

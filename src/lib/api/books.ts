@@ -266,6 +266,7 @@ export interface PublicCatalogBook {
   pageCount?: number;
   featured?: boolean;
   description?: string | null;
+  createdAt?: string;
   categoryId?: string | null;
   category?: { id: string; name: string; slug: string } | null;
 }

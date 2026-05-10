@@ -9,6 +9,7 @@ export interface PublicTeacher {
   experienceYears?: number | null;
   demoClassUrl?: string | null;
   mobile?: string | null;
+  updatedAt?: string;
   courses: Array<{
     id: string;
     slug?: string;
