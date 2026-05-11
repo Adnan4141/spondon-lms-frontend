@@ -74,6 +74,7 @@ function formatRange(min?: DistributionDateRange, max?: DistributionDateRange) {
 
 export function DistributionTab({ books, branches, channels }: { books: Book[]; branches: Branch[]; channels: DistributionChannel[] }) {
   const toast = useAdminToast();
+  const [currentUser, setCurrentUser] = useState<{ role?: string; branchId?: string | null } | null>(null);
   const [bookId, setBookId] = useState('all');
   const [destinationType, setDestinationType] = useState<'all' | 'branch' | 'channel'>('all');
   const [destinationId, setDestinationId] = useState('all');
@@ -88,6 +89,19 @@ export function DistributionTab({ books, branches, channels }: { books: Book[]; 
   const resetForm = () => {
     setForm({ bookId: '', destinationType: 'branch', destinationId: '', quantity: 1, note: '', distributedAt: startOfToday() });
   };
+  const isBranchAdmin = currentUser?.role === 'BRANCH_ADMIN';
+  const visibleBranches = isBranchAdmin && currentUser?.branchId
+    ? branches.filter((branch) => branch.id === currentUser.branchId)
+    : branches;
+
+  useEffect(() => {
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+      setCurrentUser(raw ? JSON.parse(raw) as { role?: string; branchId?: string | null } : null);
+    } catch {
+      setCurrentUser(null);
+    }
+  }, []);
 
   const closeDialog = () => {
     setDialogOpen(false);
@@ -98,23 +112,27 @@ export function DistributionTab({ books, branches, channels }: { books: Book[]; 
     const [listRes, summaryRes] = await Promise.all([
       getDistributions({
         bookId: bookId === 'all' ? undefined : bookId,
-        toBranchId: destinationType === 'branch' && destinationId !== 'all' ? destinationId : undefined,
-        channelId: destinationType === 'channel' && destinationId !== 'all' ? destinationId : undefined,
+        toBranchId: isBranchAdmin
+          ? currentUser?.branchId || undefined
+          : destinationType === 'branch' && destinationId !== 'all' ? destinationId : undefined,
+        channelId: isBranchAdmin ? undefined : destinationType === 'channel' && destinationId !== 'all' ? destinationId : undefined,
         from: fromDate ? fromDate.toISOString() : undefined,
         to: toDate ? toDate.toISOString() : undefined,
         limit: 50,
       }),
       getDistributionSummary({
         bookId: bookId === 'all' ? undefined : bookId,
-        branchId: destinationType === 'branch' && destinationId !== 'all' ? destinationId : undefined,
-        channelId: destinationType === 'channel' && destinationId !== 'all' ? destinationId : undefined,
+        branchId: isBranchAdmin
+          ? currentUser?.branchId || undefined
+          : destinationType === 'branch' && destinationId !== 'all' ? destinationId : undefined,
+        channelId: isBranchAdmin ? undefined : destinationType === 'channel' && destinationId !== 'all' ? destinationId : undefined,
         from: fromDate ? fromDate.toISOString() : undefined,
         to: toDate ? toDate.toISOString() : undefined,
       }),
     ]);
     if (listRes.success) setRows(listRes.data || []);
     if (summaryRes.success) setSummary(summaryRes.data);
-  }, [bookId, destinationId, destinationType, fromDate, toDate]);
+  }, [bookId, currentUser?.branchId, destinationId, destinationType, fromDate, isBranchAdmin, toDate]);
 
   useEffect(() => {
     void loadData();
@@ -180,13 +198,15 @@ export function DistributionTab({ books, branches, channels }: { books: Book[]; 
               <SelectTrigger className="w-[220px]"><SelectValue placeholder="Destination" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
-                {(destinationType === 'branch' ? branches : channels).map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
+                {(destinationType === 'branch' ? visibleBranches : channels).map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
               </SelectContent>
             </Select>
           ) : null}
           <DatePicker date={fromDate} setDate={setFromDate} placeholder="From date" className="w-[180px]" />
           <DatePicker date={toDate} setDate={setToDate} placeholder="To date" className="w-[180px]" />
-          <Button className="ml-auto rounded-2xl" onClick={() => setDialogOpen(true)}>New Distribution</Button>
+          {!isBranchAdmin ? (
+            <Button className="ml-auto rounded-2xl" onClick={() => setDialogOpen(true)}>New Distribution</Button>
+          ) : null}
         </div>
       </section>
 
@@ -311,7 +331,7 @@ export function DistributionTab({ books, branches, channels }: { books: Book[]; 
                 <Label>Destination</Label>
                 <Select value={form.destinationId} onValueChange={(value) => setForm((prev) => ({ ...prev, destinationId: value }))}>
                   <SelectTrigger><SelectValue placeholder="Select destination" /></SelectTrigger>
-                  <SelectContent>{(form.destinationType === 'branch' ? branches : channels).map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent>
+                  <SelectContent>{(form.destinationType === 'branch' ? visibleBranches : channels).map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
             </div>

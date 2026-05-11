@@ -21,6 +21,15 @@ export interface StudentProfileRecord {
   smsAlertTo?: SmsAlertTo[] | null;
   sscInfo?: unknown;
   hscInfo?: unknown;
+  user?: {
+    id: string;
+    fullName: string;
+    mobile: string;
+    status: string;
+    profileImage?: string | null;
+    branchId?: string | null;
+    branch?: { id: string; name: string } | null;
+  };
 }
 
 export type UpsertStudentProfilePayload = {
@@ -50,6 +59,10 @@ export async function getStudentProfileByUserId(
   );
 }
 
+export async function getMyStudentProfile(): Promise<ApiResponse<StudentProfileRecord>> {
+  return apiRequest<ApiResponse<StudentProfileRecord>>('/student-profiles/me');
+}
+
 export async function getStudentProfileByRegistrationNumber(
   regNo: string
 ): Promise<ApiResponse<StudentProfileRecord & { user?: { id: string; fullName: string; mobile: string; email?: string | null; branchId?: string; status: string; createdAt?: string; studentProfile?: { registrationNumber?: string } } }>> {
@@ -63,6 +76,28 @@ export async function upsertStudentProfile(
 ): Promise<ApiResponse<StudentProfileRecord>> {
   return apiRequest<ApiResponse<StudentProfileRecord>>('/student-profiles/upsert', {
     method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export type UpdateMyStudentProfilePayload = Pick<
+  UpsertStudentProfilePayload,
+  | 'fatherName'
+  | 'motherName'
+  | 'dob'
+  | 'bloodGroup'
+  | 'gender'
+  | 'address'
+  | 'instituteId'
+  | 'sscInfo'
+  | 'hscInfo'
+>;
+
+export async function updateMyStudentProfile(
+  body: UpdateMyStudentProfilePayload
+): Promise<ApiResponse<StudentProfileRecord>> {
+  return apiRequest<ApiResponse<StudentProfileRecord>>('/student-profiles/me', {
+    method: 'PUT',
     body: JSON.stringify(body),
   });
 }

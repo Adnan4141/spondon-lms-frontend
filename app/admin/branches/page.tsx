@@ -71,6 +71,7 @@ export default function BranchesPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [currentUserRole, setCurrentUserRole] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: keyof Branch | 'order'; direction: 'asc' | 'desc' }>({
     key: 'order',
     direction: 'asc',
@@ -96,8 +97,16 @@ export default function BranchesPage() {
   };
 
   useEffect(() => {
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+      const parsed = raw ? JSON.parse(raw) as { role?: string } : null;
+      setCurrentUserRole(String(parsed?.role || ''));
+    } catch {
+      setCurrentUserRole('');
+    }
     loadBranches();
   }, []);
+  const isBranchAdmin = currentUserRole === 'BRANCH_ADMIN';
 
   const handleViewBranch = async (branchId: string) => {
     try {
@@ -232,13 +241,15 @@ export default function BranchesPage() {
             </Button>
           </div>
 
-          <Button
-            className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95"
-            onClick={handleCreateBranch}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Branch
-          </Button>
+          {!isBranchAdmin ? (
+            <Button
+              className="h-12 rounded-2xl bg-slate-900 px-8 font-black uppercase tracking-widest text-[11px] text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 hover:scale-[1.02] active:scale-95"
+              onClick={handleCreateBranch}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Branch
+            </Button>
+          ) : null}
         </div>
       </section>
 
@@ -247,7 +258,7 @@ export default function BranchesPage() {
         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-5">
           <div>
             <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Branches</h2>
-            <p className="mt-0.5 text-base font-bold text-indigo-500">All branches</p>
+            <p className="mt-0.5 text-base font-bold text-indigo-500">{isBranchAdmin ? 'Your assigned branch' : 'All branches'}</p>
           </div>
           <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -332,22 +343,26 @@ export default function BranchesPage() {
                           >
                             View
                           </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 rounded-xl border-slate-200 bg-white px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm"
-                            onClick={() => handleEditBranch(branch.id)}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 w-8 rounded-xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all shadow-sm"
-                            onClick={() => handleDeleteBranch(branch.id)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                          {!isBranchAdmin ? (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 rounded-xl border-slate-200 bg-white px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm"
+                                onClick={() => handleEditBranch(branch.id)}
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 w-8 rounded-xl border-slate-200 bg-white p-0 text-slate-400 hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all shadow-sm"
+                                onClick={() => handleDeleteBranch(branch.id)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
+                          ) : null}
                        </div>
                     </TableCell>
                   </TableRow>

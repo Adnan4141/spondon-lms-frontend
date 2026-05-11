@@ -28,6 +28,46 @@ function collectZodErrors(result: unknown): EnrollmentValidationErrors {
   }, {});
 }
 
+function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function distributeEqualCents<T extends { due: number }>(items: T[], amount: number) {
+  const dueByIndex = items.map(item => Math.max(0, Math.round((Number(item.due) || 0) * 100)));
+  const appliedByIndex = items.map(() => 0);
+  let remaining = Math.max(0, Math.round((Number(amount) || 0) * 100));
+
+  while (remaining > 0) {
+    const activeIndexes = dueByIndex
+      .map((due, index) => ({ due, index }))
+      .filter(item => item.due > 0)
+      .map(item => item.index);
+
+    if (activeIndexes.length === 0) break;
+
+    const baseShare = Math.floor(remaining / activeIndexes.length);
+    const remainder = remaining % activeIndexes.length;
+    let loopApplied = 0;
+
+    activeIndexes.forEach((itemIndex, orderIndex) => {
+      const desired = baseShare + (orderIndex < remainder ? 1 : 0);
+      const used = Math.min(dueByIndex[itemIndex], desired);
+      if (used <= 0) return;
+      dueByIndex[itemIndex] -= used;
+      appliedByIndex[itemIndex] += used;
+      loopApplied += used;
+    });
+
+    if (loopApplied <= 0) break;
+    remaining -= loopApplied;
+  }
+
+  return {
+    remainingAmount: roundMoney(remaining / 100),
+    appliedAmounts: appliedByIndex.map(value => roundMoney(value / 100)),
+  };
+}
+
 export function EnrollmentModal({
   student, programs, allCourses, branches, onClose, onSave,
 }: {
@@ -151,6 +191,32 @@ export function EnrollmentModal({
   const payNow = Math.min(Number(payNowAmount) || 0, totalPayable);
   const dueAfterPay = Math.max(0, totalPayable - payNow);
   const accessPreview = payNow > 0 ? 'FULL_ACCESS' : 'NO_ACCESS';
+  const paymentDistributionPreview = useMemo(() => {
+    const admissionApplied = roundMoney(Math.min(admFee, payNow));
+    const remainingAfterAdmission = roundMoney(Math.max(0, payNow - admissionApplied));
+    const courseRows = distributed.map(course => ({
+      id: course.id,
+      name: course.name,
+      due: roundMoney(Math.max(0, isMonthlyProgram ? course.fee - course.discount : course.fee)),
+    }));
+    const distribution = distributeEqualCents(courseRows, remainingAfterAdmission);
+    const courseAllocations = courseRows.map((course, index) => {
+      const applied = distribution.appliedAmounts[index] || 0;
+      return {
+        ...course,
+        applied,
+        dueAfter: roundMoney(Math.max(0, course.due - applied)),
+      };
+    });
+
+    return {
+      admissionDue: admFee,
+      admissionApplied,
+      courseAllocations,
+      remaining: distribution.remainingAmount,
+      totalCourseDueAfter: roundMoney(courseAllocations.reduce((sum, row) => sum + row.dueAfter, 0)),
+    };
+  }, [admFee, distributed, isMonthlyProgram, payNow]);
   const validation = useMemo(() => {
     const schema = z.object({
       programId: z.string().trim().min(1, 'Program is required'),
@@ -831,6 +897,41 @@ export function EnrollmentModal({
                   <span className="text-sm font-black text-slate-900 text-right">{v}</span>
                 </div>
               ))}
+              {payNow > 0 && (
+                <div className="mt-3 border-t border-slate-200 pt-3">
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                    Payment Distribution
+                  </p>
+                  {paymentDistributionPreview.admissionDue > 0 && (
+                    <div className="flex justify-between gap-3 rounded-lg bg-white px-2.5 py-2 mb-1.5">
+                      <span className="text-xs font-semibold text-slate-600">Admission fee</span>
+                      <span className="text-xs font-black text-slate-900">
+                        {fmt(paymentDistributionPreview.admissionApplied)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="space-y-1.5">
+                    {paymentDistributionPreview.courseAllocations.map(row => (
+                      <div key={row.id} className="rounded-lg bg-white px-2.5 py-2">
+                        <div className="flex justify-between gap-3">
+                          <span className="min-w-0 truncate text-xs font-semibold text-slate-600">{row.name}</span>
+                          <span className="shrink-0 text-xs font-black text-slate-900">{fmt(row.applied)}</span>
+                        </div>
+                        <div className="mt-0.5 flex justify-between gap-3 text-[11px] text-slate-400">
+                          <span>Due before {fmt(row.due)}</span>
+                          <span>After {fmt(row.dueAfter)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {dueAfterPay > 0 && (
+                    <p className="mt-2 flex gap-1.5 text-xs font-semibold text-amber-700">
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                      Partial payment leaves {fmt(dueAfterPay)} due after admission. Admission fee is covered first, then course rows are split equally.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

@@ -182,6 +182,15 @@ export async function uploadUserProfileImage(
   });
 }
 
+export async function uploadMyProfileImage(file: File): Promise<ApiResponse<User>> {
+  const form = new FormData();
+  form.append('file', file);
+  return apiRequest<ApiResponse<User>>('/users/me/profile-image', {
+    method: 'POST',
+    body: form,
+  });
+}
+
 export async function deleteUser(id: string): Promise<ApiResponse<void>> {
   return apiRequest<ApiResponse<void>>(`/users/${id}`, {
     method: 'DELETE',

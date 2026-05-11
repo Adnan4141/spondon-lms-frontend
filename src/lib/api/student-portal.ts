@@ -3,8 +3,8 @@ import type { ApiResponse, StudentResults } from '@/types/academic';
 import type { Book } from './books';
 import type { MyBookPurchaseRow } from '@/components/student/MyBookPurchasesPanel';
 
-export async function getMyCourses(studentUserId: string): Promise<ApiResponse<any[]>> {
-  return apiRequest<ApiResponse<any[]>>(`/student-portal/my-courses/${studentUserId}`);
+export async function getMyCourses(studentUserId: string): Promise<ApiResponse<unknown[]>> {
+  return apiRequest<ApiResponse<unknown[]>>(`/student-portal/my-courses/${studentUserId}`);
 }
 
 export async function getStudentResults(studentUserId: string): Promise<ApiResponse<StudentResults>> {
@@ -48,15 +48,15 @@ export async function getMyBookPurchases(
   );
 }
 
-export async function getRoutine(studentUserId: string): Promise<ApiResponse<any[]>> {
-  return apiRequest<ApiResponse<any[]>>(`/student-portal/routine/${encodeURIComponent(studentUserId)}`);
+export async function getRoutine(studentUserId: string): Promise<ApiResponse<unknown[]>> {
+  return apiRequest<ApiResponse<unknown[]>>(`/student-portal/routine/${encodeURIComponent(studentUserId)}`);
 }
 
 export async function getCourseContentsWithProgress(
   courseId: string,
   studentUserId: string
-): Promise<ApiResponse<any[]>> {
-  return apiRequest<ApiResponse<any[]>>(
+): Promise<ApiResponse<unknown[]>> {
+  return apiRequest<ApiResponse<unknown[]>>(
     `/student-portal/course-contents/${encodeURIComponent(courseId)}/${encodeURIComponent(studentUserId)}`
   );
 }
@@ -67,8 +67,8 @@ export async function updateContentProgress(data: {
   lessonResourceId?: string;
   completed?: boolean;
   progressPercent?: number;
-}): Promise<ApiResponse<any>> {
-  return apiRequest<ApiResponse<any>>('/student-portal/course-progress', {
+}): Promise<ApiResponse<unknown>> {
+  return apiRequest<ApiResponse<unknown>>('/student-portal/course-progress', {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -131,6 +131,36 @@ export type EnrollCourseDelivery = {
   notes?: string;
 };
 
+export type FinancialDashboardInvoice = {
+  id: string;
+  month?: string | null;
+  status: string;
+  totalAmount: number;
+  discountAmount: number;
+  payableAmount: number;
+  paidAmount: number;
+  dueAmount: number;
+  issuedAt?: string | null;
+  createdAt: string;
+  branch?: { id: string; name: string } | null;
+  items: Array<{
+    id: string;
+    type: string;
+    title: string;
+    qty: number;
+    unitPrice: number;
+    lineTotal: number;
+  }>;
+  payments: Array<{
+    id: string;
+    method: string;
+    amount: number;
+    trxId?: string | null;
+    paidAt: string;
+  }>;
+  pdfUrl: string;
+};
+
 export interface FinancialDashboardData {
   enrollments: Array<{
     id: string;
@@ -158,34 +188,39 @@ export interface FinancialDashboardData {
     oneTimeDiscount?: number | null;
     createdAt: string;
   }>;
-  paymentHistory: Array<{
-    id: string;
-    month?: string | null;
+  paymentHistory: FinancialDashboardInvoice[];
+  programPayments?: Array<{
+    programId: string;
+    programName: string;
+    billingType: 'ONE_TIME' | 'MONTHLY';
+    enrollmentId: string;
     status: string;
-    totalAmount: number;
-    discountAmount: number;
+    branch?: { id: string; name: string } | null;
+    courses: Array<{
+      id: string;
+      name: string;
+      type?: string;
+      batch?: {
+        id: string;
+        name: string;
+        status: string;
+        startDate?: string | null;
+        endDate?: string | null;
+        capacity?: number | null;
+      } | null;
+    }>;
     payableAmount: number;
     paidAmount: number;
     dueAmount: number;
-    issuedAt?: string | null;
-    createdAt: string;
-    branch?: { id: string; name: string } | null;
-    items: Array<{
-      id: string;
-      type: string;
-      title: string;
-      qty: number;
-      unitPrice: number;
-      lineTotal: number;
+    invoices: FinancialDashboardInvoice[];
+    monthGroups: Array<{
+      month: string;
+      payableAmount: number;
+      paidAmount: number;
+      dueAmount: number;
+      status: string;
+      invoices: FinancialDashboardInvoice[];
     }>;
-    payments: Array<{
-      id: string;
-      method: string;
-      amount: number;
-      trxId?: string | null;
-      paidAt: string;
-    }>;
-    pdfUrl: string;
   }>;
   summary: {
     totalEnrollments: number;

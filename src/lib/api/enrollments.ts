@@ -97,7 +97,7 @@ export interface CreateEnrollmentDto {
   accessStatus?: EnrollmentAccessStatusType;
   billingStartMonth?: string; // YYYY-MM
   installmentCount?: number | null;
-  installmentSchedule?: any;
+  installmentSchedule?: unknown;
 }
 
 export interface UpdateEnrollmentDto {
@@ -183,6 +183,34 @@ export async function cancelFullEnrollment(
     cancelledCourses: number;
     recalculatedInvoices: number;
   }>>(`/enrollments/${id}/cancel-full`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export interface EnrollmentCorrectionResetDto {
+  reason: string;
+  effectiveMonth: string;
+  monthlyDiscount?: number | null;
+  restoreCancelledCourses?: boolean;
+}
+
+export interface EnrollmentCorrectionResetResult {
+  enrollmentId: string;
+  effectiveMonth: string;
+  monthlyDiscount: number | null;
+  restoredCourses: number;
+  statusChanged: boolean;
+  recalculatedInvoices: number;
+  invoiceRefreshFailedMonths?: string[];
+  settlementCreated: boolean;
+}
+
+export async function correctionResetEnrollment(
+  id: string,
+  data: EnrollmentCorrectionResetDto,
+): Promise<ApiResponse<EnrollmentCorrectionResetResult>> {
+  return apiRequest<ApiResponse<EnrollmentCorrectionResetResult>>(`/enrollments/${id}/correction-reset`, {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -336,6 +364,30 @@ export interface OfflineAdmissionResult {
     nextPaymentDueDate?: string | null;
     status: string;
   };
+  paymentAllocationSummary?: {
+    invoiceId: string;
+    applied: number;
+    remaining: number;
+    admissionApplied: number;
+    itemAllocations: Array<{
+      invoiceItemId: string;
+      type: string;
+      refId?: string | null;
+      courseId?: string | null;
+      title: string;
+      applied: number;
+      dueBefore: number;
+      dueAfter: number;
+    }>;
+    courseAllocations: Array<{
+      invoiceItemId: string;
+      courseId?: string | null;
+      title: string;
+      applied: number;
+      dueBefore: number;
+      dueAfter: number;
+    }>;
+  } | null;
   pdfUrl: string | null;
 }
 

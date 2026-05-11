@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { BookOpen, FileUp, HelpCircle, ImageIcon, LinkIcon, MessageSquare, Search, Send, Sparkles, Users, X } from 'lucide-react';
+import { BookOpen, FileUp, HelpCircle, ImageIcon, LinkIcon, MessageSquare, Search, Send, Users, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -194,7 +194,7 @@ export default function StudentCommunityPage() {
   const handleAskDoubt = async () => {
     if (!requireUser() || !askTitle.trim() || !askBody.trim() || !askCourseId) {
       if (!askCourseId) {
-        toast({ title: 'Select a course', description: 'Questions must be linked to one of your enrolled courses.', variant: 'destructive' });
+        toast({ title: 'Select a course', description: 'Q&A posts must be linked to one of your enrolled courses.', variant: 'destructive' });
       }
       return;
     }
@@ -215,7 +215,7 @@ export default function StudentCommunityPage() {
       setActiveTab('doubts');
       await loadData();
     } catch (error) {
-      toast({ title: 'Question failed', description: getErrorMessage(error), variant: 'destructive' });
+      toast({ title: 'Q&A post failed', description: getErrorMessage(error), variant: 'destructive' });
     } finally {
       setSubmitting(false);
     }
@@ -275,29 +275,7 @@ export default function StudentCommunityPage() {
 
   return (
     <div className="min-h-screen bg-slate-100/70">
-      <div className="mx-auto grid max-w-[1540px] gap-6 px-4 py-6 xl:grid-cols-[330px_minmax(0,1fr)_330px]">
-        <aside className="space-y-6 xl:sticky xl:top-6 xl:self-start">
-          <Panel title="Featured Courses" icon={<Sparkles className="h-5 w-5" />}>
-            <CourseHero title="Medical Secret Files-25" />
-          </Panel>
-          <Panel title="Popular Courses" action="See all" icon={<BookOpen className="h-5 w-5" />}>
-            <div className="space-y-4">
-              {uniqueCourses.slice(0, 5).map((course, index) => (
-                <button key={course.id} onClick={() => setCourseFilter(courseFilter === course.id ? '' : course.id)} className={cn('w-full rounded-xl border p-3 text-left transition', courseFilter === course.id ? 'border-sky-300 bg-sky-50' : 'border-slate-200 bg-white hover:border-sky-200')}>
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-16 items-center justify-center rounded-lg bg-linear-to-br from-slate-800 to-sky-700 text-xs font-black text-white">C{index + 1}</div>
-                    <div className="min-w-0">
-                      <p className="line-clamp-2 text-sm font-black text-slate-900">{course.name}</p>
-                      <p className="text-xs text-slate-500">Tap to filter questions</p>
-                    </div>
-                  </div>
-                </button>
-              ))}
-              {uniqueCourses.length === 0 ? <p className="text-sm text-slate-500">Enroll in a course to ask course questions.</p> : null}
-            </div>
-          </Panel>
-        </aside>
-
+      <div className="mx-auto grid max-w-[1540px] gap-6 px-4 py-6 xl:grid-cols-[minmax(0,1fr)_330px]">
         <main className="min-w-0 space-y-4">
           <Card className="rounded-xl border-none bg-white shadow-sm">
             <CardContent className="flex items-center gap-3 p-4">
@@ -313,12 +291,31 @@ export default function StudentCommunityPage() {
 
           <div className="grid grid-cols-2 rounded-xl bg-white p-1 shadow-sm">
             <button onClick={() => setActiveTab('community')} className={cn('rounded-lg py-3 text-sm font-black', activeTab === 'community' ? 'bg-sky-50 text-sky-600' : 'text-slate-700')}>Community</button>
-            <button onClick={() => setActiveTab('doubts')} className={cn('rounded-lg py-3 text-sm font-black', activeTab === 'doubts' ? 'bg-sky-50 text-sky-600' : 'text-slate-700')}>Doubts</button>
+            <button onClick={() => setActiveTab('doubts')} className={cn('rounded-lg py-3 text-sm font-black', activeTab === 'doubts' ? 'bg-sky-50 text-sky-600' : 'text-slate-700')}>Q&A</button>
           </div>
 
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} className="h-12 rounded-xl bg-white pl-10" placeholder={activeTab === 'community' ? 'Search community posts...' : 'Search doubts...'} />
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_260px]">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input value={search} onChange={(e) => setSearch(e.target.value)} className="h-12 rounded-xl bg-white pl-10" placeholder={activeTab === 'community' ? 'Search community posts...' : 'Search Q&A...'} />
+            </div>
+            {activeTab === 'doubts' ? (
+              <div className="relative">
+                <BookOpen className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <select
+                  value={courseFilter}
+                  onChange={(event) => setCourseFilter(event.target.value)}
+                  className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm font-bold text-slate-700 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                >
+                  <option value="">All enrolled courses</option>
+                  {uniqueCourses.map((course) => (
+                    <option key={course.id} value={course.id}>
+                      {course.name}{course.batchName ? ` (${course.batchName})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
           </div>
 
           {loading ? (
@@ -351,7 +348,7 @@ export default function StudentCommunityPage() {
                   }}
                   className="rounded-xl bg-slate-900"
                 >
-                  Ask a question
+                  Ask in Q&A
                 </Button>
               </div>
               {threads.map((thread) => (
@@ -371,7 +368,7 @@ export default function StudentCommunityPage() {
                   </div>
                 </DoubtCard>
               ))}
-              {threads.length === 0 ? <EmptyState title="No doubts yet" text="Ask a question and get help from your mentors." /> : null}
+              {threads.length === 0 ? <EmptyState title="No Q&A posts yet" text="Ask a course question and get help from your mentors." /> : null}
             </div>
           )}
         </main>
@@ -381,11 +378,11 @@ export default function StudentCommunityPage() {
             <div className="grid grid-cols-2 gap-3">
               <Stat value={communities.length} label="Communities" />
               <Stat value={posts.length} label="Posts" />
-              <Stat value={threads.filter((t) => t.status === 'OPEN').length} label="Open doubts" />
+              <Stat value={threads.filter((t) => t.status === 'OPEN').length} label="Open Q&A" />
               <Stat value={topPosts.length + topDoubts.length} label="Trending" />
             </div>
           </Panel>
-          <Panel title="Top Doubts" icon={<HelpCircle className="h-5 w-5" />}>
+          <Panel title="Top Q&A" icon={<HelpCircle className="h-5 w-5" />}>
             <SideList items={topDoubts.map((d) => ({ title: d.title, meta: `${d._count?.replies || 0} replies` }))} />
           </Panel>
           <Panel title="Top Posts" icon={<MessageSquare className="h-5 w-5" />}>
@@ -419,7 +416,7 @@ export default function StudentCommunityPage() {
 
       {askOpen ? (
         <ComposerModal
-          title="Ask a doubt"
+          title="Ask in Q&A"
           onClose={() => {
             setAskOpen(false);
             setAskCourseId('');
@@ -455,14 +452,6 @@ function Panel({ title, icon, action, children }: { title: string; icon: ReactNo
       </div>
       {children}
     </section>
-  );
-}
-
-function CourseHero({ title }: { title: string }) {
-  return (
-    <div className="flex aspect-video items-center justify-center rounded-xl bg-linear-to-br from-sky-100 via-white to-amber-100 p-5 text-center">
-      <p className="text-2xl font-black uppercase tracking-wide text-slate-900">{title}</p>
-    </div>
   );
 }
 

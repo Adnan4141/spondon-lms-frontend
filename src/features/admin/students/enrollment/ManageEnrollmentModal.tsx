@@ -3,10 +3,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowRightLeft, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Toaster } from '@/components/ui/toast';
+import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { getBatches } from '@/lib/api/batches';
 import { getInvoices, getInvoicePdfUrl, generateAdvanceInvoices } from '@/lib/api/invoices';
-import { addCourseToEnrollment, removeCourseFromEnrollment, updateEnrollment } from '@/lib/api/enrollments';
+import { addCourseToEnrollment, correctionResetEnrollment, removeCourseFromEnrollment, updateEnrollment } from '@/lib/api/enrollments';
+import { confirmAction } from '@/features/admin/shared/confirm-action';
 import type { Course, Enrollment, Program } from '../types';
 import { currentMonth, fmt, fmtMonth, normPdfUrl } from '../utils';
 import { StudentAdminBadge as AppBadge } from '../components/StudentAdminBadge';
@@ -60,7 +65,12 @@ export function ManageEnrollmentModal({
   const [appliedDiscount, setAppliedDiscount] = useState(enrollment.monthlyDiscount);
   const [effectiveMonth, setEffectiveMonth] = useState(() => currentMonth());
   const [result, setResult] = useState<{ added: number; removed: number; failed: number; effectiveMonth: string } | null>(null);
+  const [correctionMode, setCorrectionMode] = useState<'discount' | 'restore' | 'both'>('discount');
+  const [correctionDiscount, setCorrectionDiscount] = useState(String(enrollment.monthlyDiscount ?? 0));
+  const [correctionReason, setCorrectionReason] = useState('');
+  const [correctionBusy, setCorrectionBusy] = useState(false);
   const effMonth = effectiveMonth;
+  const { toast, toasts, removeToast } = useToast();
 
   const program = programs.find((p) => p.id === enrollment.programId);
 
@@ -77,6 +87,7 @@ export function ManageEnrollmentModal({
   );
   const selectedAddCourses = availableCourses.filter((c) => selectedAddCourseIds.includes(c.id));
   const selectedCancelCourses = activeCourses.filter((c) => selectedCancelCourseIds.includes(c.id));
+  const cancelledCourseCount = enrollment.courses.filter((ec) => ec.status === 'CANCELLED' || ec.cancelEffectiveMonth).length;
 
   const projectedCourses = [
     ...activeCourses.filter((c) => !selectedCancelCourseIds.includes(c.id)),
@@ -243,6 +254,70 @@ export function ManageEnrollmentModal({
     }
   };
 
+  const handleCorrectionReset = async () => {
+    const trimmedReason = correctionReason.trim();
+    const shouldFixDiscount = correctionMode === 'discount' || correctionMode === 'both';
+    const shouldRestore = correctionMode === 'restore' || correctionMode === 'both';
+    const nextDiscount = Number(correctionDiscount);
+
+    if (!trimmedReason) {
+      toast({ title: 'Reason required', description: 'Write why this correction is needed.', variant: 'destructive' });
+      return;
+    }
+    if (shouldFixDiscount && (!Number.isFinite(nextDiscount) || nextDiscount < 0)) {
+      toast({ title: 'Invalid discount', description: 'Discount must be zero or greater.', variant: 'destructive' });
+      return;
+    }
+    if (shouldRestore && cancelledCourseCount === 0) {
+      toast({ title: 'No cancelled courses', description: 'There are no cancelled courses to restore.', variant: 'destructive' });
+      return;
+    }
+
+    const confirmed = await confirmAction({
+      title: 'Confirm enrollment correction',
+      description: [
+        `Effective month: ${fmtMonth(effMonth)}.`,
+        shouldFixDiscount ? `Monthly discount will become ${fmt(nextDiscount)}.` : null,
+        shouldRestore ? `${cancelledCourseCount} cancelled course(s) may be restored.` : null,
+        'Open invoices will be recalculated; paid months will use settlements instead of rewriting history.',
+        `Reason: ${trimmedReason}`,
+      ].filter(Boolean).join(' '),
+      confirmLabel: 'Apply Correction',
+      cancelLabel: 'Review Again',
+      variant: 'warning',
+    });
+    if (!confirmed) return;
+
+    setCorrectionBusy(true);
+    try {
+      const res = await correctionResetEnrollment(enrollment.id, {
+        reason: trimmedReason,
+        effectiveMonth: effMonth,
+        monthlyDiscount: shouldFixDiscount ? nextDiscount : undefined,
+        restoreCancelledCourses: shouldRestore,
+      });
+      if (!res.success || !res.data) {
+        throw new Error((res as { message?: string }).message || 'Correction failed');
+      }
+      toast({
+        title: 'Correction applied',
+        description: `${res.data.restoredCourses} restored, ${res.data.recalculatedInvoices} invoice(s) recalculated.`,
+        variant: 'success',
+      });
+      setAppliedDiscount(shouldFixDiscount ? nextDiscount : appliedDiscount);
+      onDone({ added: 0, removed: 0, failed: res.data.invoiceRefreshFailedMonths?.length ?? 0, effectiveMonth: effMonth });
+      onClose();
+    } catch (error) {
+      toast({
+        title: 'Correction failed',
+        description: error instanceof Error ? error.message : 'Something went wrong',
+        variant: 'destructive',
+      });
+    } finally {
+      setCorrectionBusy(false);
+    }
+  };
+
   return (
     <AppModal
       open
@@ -251,6 +326,7 @@ export function ManageEnrollmentModal({
       subtitle={`Program: ${program?.name ?? ''}`}
       maxWidth="max-w-5xl"
     >
+      <Toaster toasts={toasts} removeToast={removeToast} />
       {step === 'select' && (
         <div>
           <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3 mb-5 flex gap-2 items-center">
@@ -269,6 +345,77 @@ export function ManageEnrollmentModal({
               <p className="text-xs font-semibold text-slate-600">
                 Changes apply from {fmtMonth(effectiveMonth)}. Open invoices from this month forward are recalculated; paid months create credit/debit adjustments.
               </p>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 mb-5">
+            <div className="flex items-start justify-between gap-4 mb-3">
+              <div>
+                <p className="text-[11px] font-bold text-amber-600 uppercase tracking-wider mb-1">Enrollment Corrections</p>
+                <p className="text-sm font-semibold text-amber-900">
+                  Use this only to fix mistaken discounts or accidental cancellation. Paid invoice history is preserved.
+                </p>
+              </div>
+              <AppBadge label={`${cancelledCourseCount} cancelled`} color={cancelledCourseCount > 0 ? 'amber' : 'slate'} />
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-2 mb-3">
+              {[
+                { id: 'discount' as const, label: 'Fix wrong discount', desc: 'Set the correct monthly discount' },
+                { id: 'restore' as const, label: 'Undo cancellation', desc: 'Restore cancelled course rows' },
+                { id: 'both' as const, label: 'Fix both', desc: 'Restore and correct discount together' },
+              ].map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setCorrectionMode(option.id)}
+                  className={cn(
+                    'rounded-lg border px-3 py-2 text-left transition-colors',
+                    correctionMode === option.id
+                      ? 'border-amber-500 bg-white shadow-sm'
+                      : 'border-amber-200 bg-white/60 hover:bg-white',
+                  )}
+                >
+                  <span className="block text-xs font-black text-slate-900">{option.label}</span>
+                  <span className="block text-[11px] font-medium text-slate-500 mt-0.5">{option.desc}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-3">
+              {(correctionMode === 'discount' || correctionMode === 'both') && (
+                <Field label="Correct Monthly Discount">
+                  <Input
+                    type="number"
+                    min={0}
+                    value={correctionDiscount}
+                    onChange={(event) => setCorrectionDiscount(event.target.value)}
+                    className="bg-white focus-visible:ring-amber-400"
+                  />
+                </Field>
+              )}
+              <div className={cn(correctionMode === 'restore' ? 'md:col-span-3' : 'md:col-span-2')}>
+                <Field label="Correction Reason" required>
+                  <Textarea
+                    value={correctionReason}
+                    onChange={(event) => setCorrectionReason(event.target.value)}
+                    placeholder="Example: Wrong discount entered during admission; correcting from May 2026."
+                    className="min-h-20 bg-white focus-visible:ring-amber-400"
+                  />
+                </Field>
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={correctionBusy}
+                onClick={() => void handleCorrectionReset()}
+                className="border-amber-300 bg-white font-bold text-amber-800 hover:bg-amber-100"
+              >
+                {correctionBusy ? 'Applying Correction...' : 'Apply Correction Reset'}
+              </Button>
             </div>
           </div>
 

@@ -10,6 +10,7 @@ import { updateUser, getUserById } from '@/lib/api/users';
 import type { Student } from '../types';
 import { StudentAdminBadge } from '../components/StudentAdminBadge';
 import { StudentAdminModal } from '../components/StudentAdminModal';
+import { StudentAdminSelect } from '../components/StudentAdminSelect';
 import { StudentFormFields, type StudentForm } from '../components/StudentFormFields';
 
 export function EditStudentModal({
@@ -37,6 +38,7 @@ export function EditStudentModal({
   const [loading, setLoading] = useState(true);
 
   const [branchId, setBranchId] = useState(student.branchId ?? '');
+  const [status, setStatus] = useState<'ACTIVE' | 'BLOCKED'>(student.status);
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   const [instituteId, setInstituteId] = useState('');
   const [institutes, setInstitutes] = useState<Institute[]>([]);
@@ -66,6 +68,7 @@ export function EditStudentModal({
             smsAlertTo: prof?.smsAlertTo ?? [],
           });
           setBranchId(u.branchId ?? student.branchId ?? '');
+          setStatus(u.status === 'BLOCKED' ? 'BLOCKED' : 'ACTIVE');
         }
         if (profileRes.success && profileRes.data) {
           setInstituteId(profileRes.data.instituteId ?? '');
@@ -109,6 +112,7 @@ export function EditStudentModal({
           mobile: form.mobile,
           email: form.email || undefined,
           branchId: branchId || null,
+          status,
           fatherName: form.fatherName || undefined,
           motherName: form.motherName || undefined,
           fatherMobile: form.fatherMobile || undefined,
@@ -152,6 +156,7 @@ export function EditStudentModal({
         mobile: form.mobile,
         email: form.email || null,
         branchId,
+        status,
         fatherName: form.fatherName || undefined,
         motherName: form.motherName || undefined,
         fatherMobile: form.fatherMobile || undefined,
@@ -179,7 +184,7 @@ export function EditStudentModal({
         <>
           <div className="flex items-center gap-2 mb-4">
             <span className="text-xs text-slate-500 font-medium">Current status:</span>
-            <StudentAdminBadge label={student.status} color={student.status === 'ACTIVE' ? 'green' : 'red'} />
+            <StudentAdminBadge label={status} color={status === 'ACTIVE' ? 'green' : 'red'} />
           </div>
 
           <StudentFormFields
@@ -206,6 +211,26 @@ export function EditStudentModal({
             instituteDisabled={saving || loading}
             loadingInstituteHint={loading ? 'Loading institutes...' : undefined}
           />
+
+          <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="grid sm:grid-cols-[220px_1fr] gap-3 items-start">
+              <div>
+                <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-1">Student Status</p>
+                <StudentAdminSelect
+                  value={status}
+                  onChange={(value) => setStatus(value === 'BLOCKED' ? 'BLOCKED' : 'ACTIVE')}
+                  disabled={saving || loading}
+                  options={[
+                    { value: 'ACTIVE', label: 'Active' },
+                    { value: 'BLOCKED', label: 'Blocked' },
+                  ]}
+                />
+              </div>
+              <p className="text-xs font-semibold text-slate-500 leading-relaxed">
+                Blocked students cannot log in and will not appear in active student lookup flows. Use this for access control, not enrollment cancellation.
+              </p>
+            </div>
+          </div>
 
           {errors.submit && (
             <p className="text-sm text-rose-600 font-semibold mb-3">{errors.submit}</p>

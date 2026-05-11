@@ -13,7 +13,7 @@ export default function StudentDoubtsRedirectPage() {
 
   return (
     <div className="flex min-h-[60vh] items-center justify-center text-sm font-semibold text-slate-500">
-      Opening doubts...
+      Opening Q&A...
     </div>
   );
 }

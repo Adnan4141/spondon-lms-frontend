@@ -10,15 +10,11 @@ import { cn } from '@/lib/utils';
 export function StudentLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
     const stored = window.localStorage.getItem('student-sidebar-collapsed');
-    if (stored === 'true') {
-      setSidebarCollapsed(true);
-    }
-  }, []);
+    return stored === 'true';
+  });
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -26,7 +22,8 @@ export function StudentLayout({ children }: { children: React.ReactNode }) {
   }, [sidebarCollapsed]);
 
   useEffect(() => {
-    setMobileOpen(false);
+    const id = window.setTimeout(() => setMobileOpen(false), 0);
+    return () => window.clearTimeout(id);
   }, [pathname]);
 
   useEffect(() => {
@@ -78,7 +75,7 @@ export function StudentLayout({ children }: { children: React.ReactNode }) {
               </button>
               <div className="hidden min-w-0 sm:block">
                 <p className="truncate text-xs font-black uppercase tracking-[0.2em] text-slate-400">
-                  শিক্ষার্থী পোর্টাল
+                  Student Portal
                 </p>
                 <p className="truncate text-base font-bold text-slate-800">Spondon LMS</p>
               </div>
@@ -87,7 +84,7 @@ export function StudentLayout({ children }: { children: React.ReactNode }) {
               href="/student/profile"
               className="hidden rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-indigo-600 shadow-sm transition-all hover:border-indigo-200 hover:bg-indigo-50 sm:inline-flex"
             >
-              প্রোফাইল
+              Profile
             </Link>
           </div>
         </header>

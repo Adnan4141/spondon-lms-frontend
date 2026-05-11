@@ -1,10 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  LayoutDashboard,
   BookOpen,
   GraduationCap,
   MessageSquare,
@@ -27,18 +26,17 @@ import {
 } from '@/components/layout/SidebarDockToggle';
 
 const menuItems = [
-  { title: 'হোম', href: '/student', icon: LayoutDashboard },
-  { title: 'প্রোফাইল', href: '/student/profile', icon: UserCircle },
-  { title: 'আমার কোর্স', href: '/student/courses', icon: BookOpen },
-  { title: 'সকল কোর্স', href: '/student/all-courses', icon: GraduationCap },
-  { title: 'পরীক্ষা', href: '/student/exams', icon: BookOpenCheck },
-  { title: 'বই', href: '/student/books', icon: BookMarked },
-  { title: 'কমিউনিটি', href: '/student/community', icon: MessageSquare },
-  { title: 'প্রশ্ন', href: '/student/doubts', icon: HelpCircle },
-  { title: 'ফলাফল', href: '/student/results', icon: Award },
-  { title: 'একাডেমিক রেকর্ড', href: '/student/academic-record', icon: ScrollText },
-  { title: 'রুটিন', href: '/student/routine', icon: Calendar },
-  { title: 'পেমেন্ট', href: '/student/payment', icon: CreditCard },
+  { title: 'Community', href: '/student/community', icon: MessageSquare },
+  { title: 'My Courses', href: '/student/courses', icon: BookOpen },
+  { title: 'All Courses', href: '/student/all-courses', icon: GraduationCap },
+  { title: 'Exams', href: '/student/exams', icon: BookOpenCheck },
+  { title: 'Books', href: '/student/books', icon: BookMarked },
+  { title: 'Q&A', href: '/student/doubts', icon: HelpCircle },
+  { title: 'Results', href: '/student/results', icon: Award },
+  // { title: 'Academic Record', href: '/student/academic-record', icon: ScrollText },
+  { title: 'Routine', href: '/student/routine', icon: Calendar },
+  { title: 'Payments', href: '/student/payment', icon: CreditCard },
+  { title: 'Profile', href: '/student/profile', icon: UserCircle },
 ];
 
 export function StudentSidebar({
@@ -54,16 +52,15 @@ export function StudentSidebar({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [user, setUser] = useState<{ fullName?: string; mobile?: string; role?: string } | null>(null);
-
-  useEffect(() => {
+  const [user] = useState<{ fullName?: string; mobile?: string; role?: string } | null>(() => {
     const u = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
     if (u) {
       try {
-        setUser(JSON.parse(u));
+        return JSON.parse(u);
       } catch {}
     }
-  }, []);
+    return null;
+  });
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
@@ -100,7 +97,7 @@ export function StudentSidebar({
         </div>
 
         <div className="relative flex h-20 shrink-0 items-center gap-3 border-b border-slate-100/80 px-6">
-          <Link href="/student" onClick={onCloseMobile} className="flex min-w-0 flex-1 items-center gap-3 group">
+          <Link href="/student/community" onClick={onCloseMobile} className="flex min-w-0 flex-1 items-center gap-3 group">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-linear-to-br from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-200 transition-transform duration-300 group-hover:scale-105">
               <GraduationCap className="h-6 w-6" />
             </div>
@@ -125,7 +122,7 @@ export function StudentSidebar({
         <nav className="relative flex-1 space-y-1.5 overflow-y-auto px-4 py-6 custom-scrollbar">
           {!collapsed && (
             <div className="px-4 mb-4">
-              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">মেনু</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">Menu</p>
             </div>
           )}
           {menuItems.map((item) => {
@@ -185,7 +182,7 @@ export function StudentSidebar({
                       .slice(0, 2) || 'S'}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-base font-bold text-slate-800">{user.fullName || 'শিক্ষার্থী'}</p>
+                    <p className="truncate text-base font-bold text-slate-800">{user.fullName || 'Student'}</p>
                     <p className="truncate text-[10px] font-bold text-slate-400">{user.mobile || '—'}</p>
                     <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-500">{user.role || 'STUDENT'}</p>
                   </div>
@@ -193,7 +190,7 @@ export function StudentSidebar({
                     type="button"
                     onClick={handleLogout}
                     className="shrink-0 text-slate-300 transition-colors hover:text-rose-500"
-                    title="লগ আউট"
+                    title="Logout"
                   >
                     <LogOut className="h-4 w-4" />
                   </button>
@@ -207,7 +204,7 @@ export function StudentSidebar({
                   <div className="rounded-xl p-2 group-hover:bg-white group-hover:shadow-sm">
                     <LogOut className="h-5 w-5" />
                   </div>
-                  <span className="text-[15px]">লগ আউট</span>
+                  <span className="text-[15px]">Logout</span>
                 </button>
               )}
 
