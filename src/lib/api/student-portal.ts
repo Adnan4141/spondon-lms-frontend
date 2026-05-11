@@ -1,4 +1,4 @@
-import { apiRequest, API_BASE_URL } from '../api';
+import { apiRequest } from '../api';
 import type { ApiResponse, StudentResults } from '@/types/academic';
 import type { Book } from './books';
 import type { MyBookPurchaseRow } from '@/components/student/MyBookPurchasesPanel';
@@ -204,25 +204,25 @@ export async function getFinancialDashboard(studentUserId: string): Promise<ApiR
 }
 
 export async function enrollInCourse(data: {
-  studentUserId: string;
   courseId: string;
   branchId?: string;
   batchId?: string;
   includeBookIds?: string[];
   delivery?: EnrollCourseDelivery;
-}): Promise<ApiResponse<{ enrollment: any; invoice: { id: string; totalAmount?: number; dueAmount?: number } }> & { data?: { enrollmentId?: string } }> {
-  const url = `${API_BASE_URL}/student-portal/enroll-course`;
-  const res = await fetch(url, {
+}): Promise<ApiResponse<{
+  enrollmentId?: string;
+  enrollment: unknown;
+  invoice: { id: string; totalAmount?: number; payableAmount?: number; dueAmount?: number };
+  quote?: {
+    courseFee: number;
+    booksTotal: number;
+    admissionFee: number;
+    payableTotal: number;
+    currency: string;
+  };
+}>> {
+  return apiRequest('/student-portal/enroll-course', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const err = new Error(body.message || `Request failed (${res.status})`);
-    (err as any).response = { success: false, message: body.message, data: body.data };
-    throw err;
-  }
-  return body;
 }
-

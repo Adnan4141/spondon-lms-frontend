@@ -45,7 +45,6 @@ import {
     BookOpen,
     CheckCircle2,
     ArrowRight,
-    ShieldCheck,
     Info,
     Layout,
     Globe,
@@ -53,9 +52,6 @@ import {
     FileText,
     Receipt,
     Download,
-    Users,
-    Calendar,
-    GraduationCap,
     UserCircle,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -68,6 +64,12 @@ function shouldBlockCatalogHiddenCourse(data: { websiteVisible?: boolean } | nul
   return !localStorage.getItem('auth_token');
 }
 
+type ApiErrorWithResponse = Error & {
+    response?: { message?: string; data?: { enrollmentId?: string } };
+};
+
+type BatchWithSeats = Batch & { availableSeats?: number | null };
+
 export default function CourseDetailsPage() {
     const { idOrSlug } = useParams();
     const { toast, toasts, removeToast } = useToast();
@@ -78,7 +80,7 @@ export default function CourseDetailsPage() {
     const [enrolling, setEnrolling] = useState(false);
     const [alreadyEnrolled, setAlreadyEnrolled] = useState(false);
     const [selectedPaidBookIds, setSelectedPaidBookIds] = useState<string[]>([]);
-    const [deliveryOpen, setDeliveryOpen] = useState(false);
+    const [checkoutOpen, setCheckoutOpen] = useState(false);
     const [delivery, setDelivery] = useState({
         recipientName: '',
         phone: '',
@@ -87,8 +89,17 @@ export default function CourseDetailsPage() {
         postalCode: '',
         notes: '',
     });
-    const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
-    const [createdInvoice, setCreatedInvoice] = useState<{ id: string; total?: number } | null>(null);
+    const [createdInvoice, setCreatedInvoice] = useState<{
+        id: string;
+        total?: number;
+        quote?: {
+            courseFee: number;
+            booksTotal: number;
+            admissionFee: number;
+            payableTotal: number;
+            currency: string;
+        };
+    } | null>(null);
     // Batch selection for OFFLINE courses
     const [offlineBatches, setOfflineBatches] = useState<Batch[]>([]);
     const [selectedBatchId, setSelectedBatchId] = useState<string>('');
@@ -156,7 +167,11 @@ export default function CourseDetailsPage() {
         window.location.href = `/login?redirect=/course/${idOrSlug}`;
     };
 
-    const courseBooks: CourseDetailCourseBook[] = course?.courseBooks || [];
+    const courseBooks: CourseDetailCourseBook[] = useMemo(() => course?.courseBooks || [], [course?.courseBooks]);
+    const selectedPaidBooks = useMemo(
+        () => courseBooks.filter((cb) => !cb.isFree && selectedPaidBookIds.includes(cb.bookId)),
+        [courseBooks, selectedPaidBookIds]
+    );
 
     const booksAddonTotal = useMemo(() => {
         let s = 0;
@@ -180,7 +195,16 @@ export default function CourseDetailsPage() {
     }, [course, courseBooks, selectedPaidBookIds]);
 
     const effectiveCourseFee = course ? Number(course.offerPrice ?? course.fee) : 0;
-    const enrollTotal = effectiveCourseFee + booksAddonTotal;
+    const estimatedAdmissionFee =
+        course?.program?.admissionFeeEnabled && course.program.admissionFeeAmount
+            ? Number(course.program.admissionFeeAmount)
+            : 0;
+    const enrollTotal = effectiveCourseFee + booksAddonTotal + estimatedAdmissionFee;
+    const invoiceQuote = createdInvoice?.quote;
+    const checkoutCourseFee = invoiceQuote?.courseFee ?? effectiveCourseFee;
+    const checkoutBooksTotal = invoiceQuote?.booksTotal ?? booksAddonTotal;
+    const checkoutAdmissionFee = invoiceQuote?.admissionFee ?? estimatedAdmissionFee;
+    const checkoutTotal = createdInvoice?.total ?? invoiceQuote?.payableTotal ?? enrollTotal;
 
     const togglePaidBook = (bookId: string) => {
         setSelectedPaidBookIds((prev) =>
@@ -209,7 +233,6 @@ export default function CourseDetailsPage() {
         setEnrolling(true);
         try {
             const res = await enrollInCourse({
-                studentUserId: user.id,
                 courseId: course.id,
                 batchId: selectedBatchId || undefined,
                 includeBookIds: selectedPaidBookIds.length ? selectedPaidBookIds : undefined,
@@ -219,21 +242,19 @@ export default function CourseDetailsPage() {
                 throw new Error((res as { message?: string }).message || 'Failed to enroll');
             }
             const inv = res.data.invoice as { id: string; totalAmount?: unknown; payableAmount?: unknown };
+            const quote = res.data.quote;
             const total =
-                Number(inv.payableAmount ?? inv.totalAmount ?? enrollTotal) || enrollTotal;
-            setDeliveryOpen(false);
-            setCreatedInvoice({ id: inv.id, total });
+                Number(quote?.payableTotal ?? inv.payableAmount ?? inv.totalAmount ?? enrollTotal) || enrollTotal;
+            setCreatedInvoice({ id: inv.id, total, quote });
             toast({
                 title: 'ইনভয়েস তৈরি হয়েছে',
-                description: 'পরের উইন্ডোতে ইনভয়েস দেখুন — PDF বা পেমেন্ট বেছে নিন।',
+                description: 'পেমেন্ট সম্পন্ন হলে কোর্স অ্যাক্সেস চালু হবে।',
                 variant: 'success',
             });
-            window.setTimeout(() => {
-                setInvoiceDialogOpen(true);
-            }, 120);
-        } catch (e: any) {
-            const apiRes = e.response;
-            const msg = apiRes?.message || e.message || 'Enrollment failed';
+        } catch (e: unknown) {
+            const err = e as ApiErrorWithResponse;
+            const apiRes = err.response;
+            const msg = apiRes?.message || err.message || 'Enrollment failed';
             if (msg.includes('Already enrolled') || apiRes?.data?.enrollmentId) {
                 setAlreadyEnrolled(true);
                 toast({
@@ -241,7 +262,12 @@ export default function CourseDetailsPage() {
                     description: msg,
                     variant: 'success',
                 });
-            } else if (msg.includes('User not found') || msg.includes('Please log in') || msg.includes('log in again')) {
+            } else if (
+                msg.includes('Authentication required') ||
+                msg.includes('User not found') ||
+                msg.includes('Please log in') ||
+                msg.includes('log in again')
+            ) {
                 redirectToLogin();
             } else {
                 toast({
@@ -262,11 +288,8 @@ export default function CourseDetailsPage() {
             return;
         }
         if (!course) return;
-        if (needsDelivery) {
-            setDeliveryOpen(true);
-            return;
-        }
-        void performEnroll();
+        setCreatedInvoice(null);
+        setCheckoutOpen(true);
     };
 
     const submitDeliveryAndEnroll = () => {
@@ -278,7 +301,7 @@ export default function CourseDetailsPage() {
             postalCode: delivery.postalCode.trim() || undefined,
             notes: delivery.notes.trim() || undefined,
         };
-        if (!d.recipientName || !d.phone || !d.address) {
+        if (needsDelivery && (!d.recipientName || !d.phone || !d.address)) {
             toast({
                 title: 'তথ্য দিন',
                 description: 'নাম, মোবাইল ও ঠিকানা পূরণ করুন।',
@@ -286,7 +309,7 @@ export default function CourseDetailsPage() {
             });
             return;
         }
-        void performEnroll(d);
+        void performEnroll(needsDelivery ? d : undefined);
     };
 
     const openInvoicePdf = async () => {
@@ -320,10 +343,11 @@ export default function CourseDetailsPage() {
             } else {
                 throw new Error('Failed to initiate payment');
             }
-        } catch (e: any) {
+        } catch (e: unknown) {
+            const err = e as Error;
             toast({
                 title: 'পেমেন্ট',
-                description: e.message || 'গেটওয়ে খুলতে ব্যর্থ',
+                description: err.message || 'গেটওয়ে খুলতে ব্যর্থ',
                 variant: 'destructive',
             });
         }
@@ -403,6 +427,7 @@ export default function CourseDetailsPage() {
         typeof outline?.teachersSectionTitle === 'string' && outline.teachersSectionTitle.trim()
             ? outline.teachersSectionTitle.trim()
             : 'কোর্সের শিক্ষক';
+    const selectedBatch = offlineBatches.find((batch) => batch.id === selectedBatchId);
 
     return (
         <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-indigo-100">
@@ -697,7 +722,7 @@ export default function CourseDetailsPage() {
                                             </SelectTrigger>
                                             <SelectContent className="rounded-2xl">
                                                 {offlineBatches.map((b) => {
-                                                    const seats = (b as any).availableSeats;
+                                                    const seats = (b as BatchWithSeats).availableSeats;
                                                     const isFull = seats === 0;
                                                     return (
                                                         <SelectItem key={b.id} value={b.id} disabled={isFull} className="font-bold">
@@ -729,7 +754,7 @@ export default function CourseDetailsPage() {
                                 ) : (
                                     <button
                                         onClick={handleEnrollClick}
-                                        disabled={enrolling || (course.type === 'OFFLINE' && offlineBatches.length > 0 && !selectedBatchId)}
+                                        disabled={enrolling}
                                         className="w-full h-16 bg-[#5C2D91] text-white rounded-2xl font-black uppercase text-sm tracking-widest shadow-xl shadow-indigo-100 transition-all hover:bg-[#4A2475] active:scale-95 flex items-center justify-center gap-3 disabled:opacity-70"
                                     >
                                         {enrolling ? 'প্রসেসিং...' : 'এখনই ভর্তি হোন'} <ArrowRight size={20} />
@@ -745,105 +770,199 @@ export default function CourseDetailsPage() {
                 </div>
             </div>
 
-            <Dialog open={deliveryOpen} onOpenChange={setDeliveryOpen}>
-                <DialogContent className="max-w-md rounded-3xl">
+            <Dialog open={checkoutOpen} onOpenChange={setCheckoutOpen}>
+                <DialogContent className="max-w-lg max-h-[92vh] overflow-y-auto rounded-3xl border-slate-200 p-0">
                     <DialogHeader>
-                        <DialogTitle className="font-black">অর্ডার তথ্য</DialogTitle>
+                        <div className="border-b border-slate-100 px-6 py-5">
+                            <div className="flex items-start justify-between gap-4">
+                                <div className="min-w-0">
+                                    <DialogTitle className="truncate text-xl font-black text-slate-900">
+                                        {createdInvoice ? 'ইনভয়েস তৈরি হয়েছে' : 'ভর্তি নিশ্চিত করুন'}
+                                    </DialogTitle>
+                                    <DialogDescription className="mt-1 text-left text-sm font-medium text-slate-500">
+                                        {createdInvoice
+                                            ? 'পেমেন্ট সম্পন্ন হলে কোর্স অ্যাক্সেস চালু হবে।'
+                                            : course.name}
+                                    </DialogDescription>
+                                </div>
+                                <div className="shrink-0 text-right">
+                                    <span className="inline-flex rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-700 ring-1 ring-emerald-100">
+                                        {createdInvoice ? 'Invoice' : 'Checkout'}
+                                    </span>
+                                    <p className="mt-2 text-2xl font-black text-[#5C2D91]">
+                                        ৳{checkoutTotal.toLocaleString()}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
                     </DialogHeader>
-                    <p className="text-sm text-slate-600">
-                        {course.type === 'OFFLINE'
-                            ? 'অফলাইন কোর্সের জন্য যোগাযোগ ও ঠিকানা দিন। প্রিন্ট বই থাকলে ডেলিভারির জন্যও ব্যবহৃত হবে।'
-                            : 'প্রিন্ট বইয়ের ডেলিভারির জন্য ঠিকানা দিন।'}
-                    </p>
-                    <div className="grid gap-3 py-2">
-                        <div>
-                            <Label className="text-xs font-bold">পূর্ণ নাম</Label>
-                            <Input
-                                className="mt-1 rounded-xl"
-                                value={delivery.recipientName}
-                                onChange={(e) => setDelivery((d) => ({ ...d, recipientName: e.target.value }))}
-                            />
-                        </div>
-                        <div>
-                            <Label className="text-xs font-bold">মোবাইল</Label>
-                            <Input
-                                className="mt-1 rounded-xl"
-                                value={delivery.phone}
-                                onChange={(e) => setDelivery((d) => ({ ...d, phone: e.target.value }))}
-                            />
-                        </div>
-                        <div>
-                            <Label className="text-xs font-bold">ঠিকানা</Label>
-                            <Input
-                                className="mt-1 rounded-xl"
-                                value={delivery.address}
-                                onChange={(e) => setDelivery((d) => ({ ...d, address: e.target.value }))}
-                            />
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                            <div>
-                                <Label className="text-xs font-bold">শহর (ঐচ্ছিক)</Label>
-                                <Input
-                                    className="mt-1 rounded-xl"
-                                    value={delivery.city}
-                                    onChange={(e) => setDelivery((d) => ({ ...d, city: e.target.value }))}
-                                />
-                            </div>
-                            <div>
-                                <Label className="text-xs font-bold">পোস্ট কোড</Label>
-                                <Input
-                                    className="mt-1 rounded-xl"
-                                    value={delivery.postalCode}
-                                    onChange={(e) => setDelivery((d) => ({ ...d, postalCode: e.target.value }))}
-                                />
-                            </div>
-                        </div>
-                    </div>
-                    <DialogFooter className="gap-2 sm:gap-0">
-                        <Button type="button" variant="outline" onClick={() => setDeliveryOpen(false)}>
-                            বাতিল
-                        </Button>
-                        <Button type="button" onClick={submitDeliveryAndEnroll} disabled={enrolling}>
-                            {enrolling ? 'প্রসেসিং...' : 'ভর্তি চালিয়ে যান'}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
 
-            <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
-                <DialogContent className="max-w-md rounded-3xl border-slate-200">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2 font-black">
-                            <Receipt className="h-5 w-5 text-indigo-600" />
-                            ইনভয়েস তৈরি হয়েছে
-                        </DialogTitle>
-                        <DialogDescription className="text-left text-base font-medium text-slate-600">
-                            ভর্তি সম্পন্ন হয়েছে। নিচের বোতামে PDF দেখুন বা অনলাইন পেমেন্ট চালিয়ে যান।
-                        </DialogDescription>
-                    </DialogHeader>
-                    {createdInvoice ? (
-                        <div className="space-y-3 text-sm text-slate-700">
-                            <p>
-                                <span className="font-bold text-slate-500">ইনভয়েস ID:</span>{' '}
-                                <span className="font-mono text-xs">{createdInvoice.id}</span>
-                            </p>
-                            <p>
-                                <span className="font-bold text-slate-500">মোট:</span> ৳
-                                {(createdInvoice.total ?? enrollTotal).toLocaleString()}
-                            </p>
-                            <p className="text-slate-500">
-                                পেমেন্ট করুন অথবা ইনভয়েস PDF দেখে রাখুন।
-                            </p>
+                    <div className="space-y-5 px-6 py-5">
+                        <div className="rounded-2xl border border-slate-100">
+                            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 text-sm">
+                                <span className="font-bold text-slate-500">কোর্স ফি</span>
+                                <span className="font-black text-slate-900">৳{checkoutCourseFee.toLocaleString()}</span>
+                            </div>
+                            {selectedPaidBooks.length > 0 ? (
+                                <div className="border-b border-slate-100 px-4 py-3">
+                                    <div className="mb-2 flex items-center justify-between text-sm">
+                                        <span className="font-bold text-slate-500">নির্বাচিত বই</span>
+                                        <span className="font-black text-slate-900">৳{checkoutBooksTotal.toLocaleString()}</span>
+                                    </div>
+                                    <div className="space-y-1">
+                                        {selectedPaidBooks.map((cb) => (
+                                            <div key={cb.bookId} className="flex items-center justify-between gap-3 text-xs text-slate-500">
+                                                <span className="truncate">{cb.book.name}</span>
+                                                <span className="font-bold">৳{Number(cb.book.price).toLocaleString()}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : null}
+                            {checkoutAdmissionFee > 0 ? (
+                                <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 text-sm">
+                                    <span className="font-bold text-slate-500">ভর্তি ফি</span>
+                                    <span className="font-black text-slate-900">৳{checkoutAdmissionFee.toLocaleString()}</span>
+                                </div>
+                            ) : null}
+                            <div className="flex items-center justify-between px-4 py-3">
+                                <span className="text-xs font-black uppercase tracking-widest text-slate-400">মোট</span>
+                                <span className="text-xl font-black text-[#5C2D91]">৳{checkoutTotal.toLocaleString()}</span>
+                            </div>
                         </div>
-                    ) : null}
-                    <DialogFooter className="flex-col gap-2 sm:flex-row">
-                        <Button type="button" variant="outline" className="gap-2" onClick={() => void openInvoicePdf()}>
-                            <Download className="h-4 w-4" />
-                            PDF দেখুন
-                        </Button>
-                        <Button type="button" className="gap-2 bg-[#5C2D91] hover:bg-[#4A2475]" onClick={() => void payInvoiceNow()}>
-                            পেমেন্ট করুন <ArrowRight className="h-4 w-4" />
-                        </Button>
+
+                        {createdInvoice ? (
+                            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+                                <div className="flex items-center gap-2 font-black">
+                                    <Receipt className="h-4 w-4" />
+                                    ইনভয়েস ID: <span className="font-mono text-xs">{createdInvoice.id}</span>
+                                </div>
+                                <p className="mt-2 font-medium">
+                                    ইনভয়েস তৈরি হয়েছে। পেমেন্ট সম্পন্ন হলে কোর্স অ্যাক্সেস চালু হবে।
+                                </p>
+                            </div>
+                        ) : (
+                            <>
+                                {course.type === 'OFFLINE' ? (
+                                    <div className="space-y-2">
+                                        <Label className="text-xs font-black uppercase tracking-widest text-slate-500">Batch নির্বাচন করুন</Label>
+                                        <Select value={selectedBatchId} onValueChange={setSelectedBatchId}>
+                                            <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-white font-bold text-slate-800">
+                                                <SelectValue placeholder="Batch বেছে নিন" />
+                                            </SelectTrigger>
+                                            <SelectContent className="rounded-2xl">
+                                                {offlineBatches.map((b) => {
+                                                    const seats = (b as Batch & { availableSeats?: number | null }).availableSeats;
+                                                    const isFull = seats === 0;
+                                                    return (
+                                                        <SelectItem key={b.id} value={b.id} disabled={isFull} className="font-bold">
+                                                            {b.name}
+                                                            {seats != null ? (
+                                                                <span className={cn('ml-2 text-[10px] font-black', isFull ? 'text-rose-500' : 'text-slate-400')}>
+                                                                    {isFull ? '· পূর্ণ' : `· ${seats} seats`}
+                                                                </span>
+                                                            ) : null}
+                                                        </SelectItem>
+                                                    );
+                                                })}
+                                            </SelectContent>
+                                        </Select>
+                                        {selectedBatch ? (
+                                            <p className="text-xs font-bold text-emerald-700">{selectedBatch.name} নির্বাচিত হয়েছে।</p>
+                                        ) : (
+                                            <p className="text-xs font-bold text-amber-700">
+                                                অফলাইন কোর্সে ভর্তি হতে একটি active batch নির্বাচন করুন।
+                                            </p>
+                                        )}
+                                    </div>
+                                ) : null}
+
+                                {needsDelivery ? (
+                                    <div className="space-y-3">
+                                        <p className="text-sm font-bold text-slate-600">
+                                            {course.type === 'OFFLINE'
+                                                ? 'যোগাযোগ ও ঠিকানা দিন। প্রিন্ট বই থাকলে ডেলিভারির জন্যও ব্যবহৃত হবে।'
+                                                : 'প্রিন্ট বইয়ের ডেলিভারির জন্য ঠিকানা দিন।'}
+                                        </p>
+                                        <div className="grid gap-3">
+                                            <div>
+                                                <Label className="text-xs font-bold">পূর্ণ নাম</Label>
+                                                <Input
+                                                    className="mt-1 rounded-xl"
+                                                    value={delivery.recipientName}
+                                                    onChange={(e) => setDelivery((d) => ({ ...d, recipientName: e.target.value }))}
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label className="text-xs font-bold">মোবাইল</Label>
+                                                <Input
+                                                    className="mt-1 rounded-xl"
+                                                    value={delivery.phone}
+                                                    onChange={(e) => setDelivery((d) => ({ ...d, phone: e.target.value }))}
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label className="text-xs font-bold">ঠিকানা</Label>
+                                                <Input
+                                                    className="mt-1 rounded-xl"
+                                                    value={delivery.address}
+                                                    onChange={(e) => setDelivery((d) => ({ ...d, address: e.target.value }))}
+                                                />
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <div>
+                                                    <Label className="text-xs font-bold">শহর (ঐচ্ছিক)</Label>
+                                                    <Input
+                                                        className="mt-1 rounded-xl"
+                                                        value={delivery.city}
+                                                        onChange={(e) => setDelivery((d) => ({ ...d, city: e.target.value }))}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <Label className="text-xs font-bold">পোস্ট কোড</Label>
+                                                    <Input
+                                                        className="mt-1 rounded-xl"
+                                                        value={delivery.postalCode}
+                                                        onChange={(e) => setDelivery((d) => ({ ...d, postalCode: e.target.value }))}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : null}
+                            </>
+                        )}
+                    </div>
+
+                    <DialogFooter className="gap-2 border-t border-slate-100 px-6 py-4 sm:gap-2">
+                        {createdInvoice ? (
+                            <>
+                                <Button type="button" variant="outline" className="gap-2" onClick={() => void openInvoicePdf()}>
+                                    <Download className="h-4 w-4" />
+                                    PDF দেখুন
+                                </Button>
+                                <Button type="button" variant="outline" onClick={() => setCheckoutOpen(false)}>
+                                    পরে পেমেন্ট করব
+                                </Button>
+                                <Button type="button" className="gap-2 bg-[#5C2D91] hover:bg-[#4A2475]" onClick={() => void payInvoiceNow()}>
+                                    পেমেন্ট করুন <ArrowRight className="h-4 w-4" />
+                                </Button>
+                            </>
+                        ) : (
+                            <>
+                                <Button type="button" variant="outline" onClick={() => setCheckoutOpen(false)}>
+                                    বাতিল
+                                </Button>
+                                <Button
+                                    type="button"
+                                    onClick={submitDeliveryAndEnroll}
+                                    disabled={enrolling || (course.type === 'OFFLINE' && !selectedBatchId)}
+                                    className="bg-[#5C2D91] hover:bg-[#4A2475]"
+                                >
+                                    {enrolling ? 'প্রসেসিং...' : 'ইনভয়েস তৈরি করুন'}
+                                </Button>
+                            </>
+                        )}
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
