@@ -70,6 +70,7 @@ export default function StudentCourseSubjectPage() {
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
   const [studentUserId, setStudentUserId] = useState<string | null>(null);
   const [studentPhone, setStudentPhone] = useState<string | null>(null);
+  const [studentName, setStudentName] = useState<string | null>(null);
   const [resolvedSubject, setResolvedSubject] = useState<string | null>(null);
   const [slugInvalid, setSlugInvalid] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -80,6 +81,7 @@ export default function StudentCourseSubjectPage() {
       const parsed = u ? JSON.parse(u) : null;
       setStudentUserId(parsed?.id ?? null);
       setStudentPhone(parsed?.mobile ?? null);
+      setStudentName(parsed?.fullName ?? null);
     } catch {
       setStudentUserId(null);
     }
@@ -343,6 +345,8 @@ export default function StudentCourseSubjectPage() {
                   videoId={embedYoutubeId}
                   courseTitle={course?.name ?? selectedContent!.title}
                   studentPhone={studentPhone}
+                  studentName={studentName}
+                  onEnded={handleVideoEnded}
                 />
               ) : treatAsPdf && rawUrl ? (
                 <iframe

@@ -52,7 +52,7 @@
  *   The component fills its container with position:absolute inset-0.
  */
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Play } from 'lucide-react';
 import { toYoutubeNoCookieSrc } from '@/lib/youtube';
 
@@ -85,6 +85,16 @@ export interface YoutubePlayerProps {
    * Purpose: social deterrent against sharing. NOT a security boundary.
    */
   studentPhone?: string | null;
+  /**
+   * Enrolled student's full name — combined with phone in watermark.
+   * Makes screen recordings personally identifiable even if phone is masked.
+   */
+  studentName?: string | null;
+  /**
+   * Called when the YouTube video ends (playerState === 0).
+   * Uses the YouTube IFrame postMessage API — no SDK script tag required.
+   */
+  onEnded?: () => void;
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────
@@ -93,8 +103,47 @@ export function YoutubePlayer({
   videoId,
   courseTitle,
   studentPhone,
+  studentName,
+  onEnded,
 }: YoutubePlayerProps) {
   const [started, setStarted] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // ── YouTube IFrame API: detect video ended via postMessage ─────────────
+  // YouTube sends {event:'infoDelivery', info:{playerState:0}} when video ends.
+  // No SDK script tag needed — raw postMessage listener is sufficient.
+  useEffect(() => {
+    if (!started || !onEnded) return;
+    function handleMessage(event: MessageEvent) {
+      if (!event.origin.includes('youtube')) return;
+      try {
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        if (data?.event === 'infoDelivery' && data?.info?.playerState === 0) {
+          onEnded();
+        }
+      } catch {
+        // Ignore non-JSON messages from other postMessage senders
+      }
+    }
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [started, onEnded]);
+
+  // ── Tab visibility: pause video when student switches tabs ────────────
+  // Prevents background audio and discourages passive multi-tab watching.
+  useEffect(() => {
+    if (!started) return;
+    function handleVisibilityChange() {
+      if (document.hidden) {
+        iframeRef.current?.contentWindow?.postMessage(
+          JSON.stringify({ event: 'command', func: 'pauseVideo', args: '' }),
+          'https://www.youtube-nocookie.com',
+        );
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [started]);
 
   // youtube-nocookie.com embed — autoplay=1 triggers after user gesture (button click)
   const src = toYoutubeNoCookieSrc(videoId, /* autoplay */ true);
@@ -103,8 +152,9 @@ export function YoutubePlayer({
   // maxresdefault.jpg falls back to a black frame for very old videos; that's fine.
   const thumbnailSrc = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
 
-  // Build watermark label: phone number only (social deterrent, not DRM).
-  const watermarkText = studentPhone ?? '';
+  // Build watermark label: name + phone for stronger personal identification.
+  // Both fields are social deterrents — visible in screen recordings.
+  const watermarkText = [studentName, studentPhone].filter(Boolean).join(' | ');
 
   return (
     <>
@@ -114,8 +164,13 @@ export function YoutubePlayer({
       {/*
         Fill parent container (parent is responsible for sizing, e.g. aspect-video).
         overflow-hidden clips the watermark when it drifts beyond the video edges.
+        onContextMenu blocks right-click on our overlay layers (cross-origin iframe
+        itself cannot be blocked at browser level — this covers our overlay div).
       */}
-      <div className="relative w-full h-full overflow-hidden bg-slate-900">
+      <div
+        className="relative w-full h-full overflow-hidden bg-slate-900"
+        onContextMenu={(e) => e.preventDefault()}
+      >
         {!started ? (
           /* ── Pre-play overlay ─────────────────────────────────────────── */
           <button
@@ -170,16 +225,19 @@ export function YoutubePlayer({
           /* ── Active player ───────────────────────────────────────────── */
           <>
             <iframe
+              ref={iframeRef}
               key={videoId}
               title={courseTitle}
               src={src}
               className="absolute inset-0 w-full h-full border-0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+              sandbox="allow-scripts allow-same-origin allow-presentation"
+              referrerPolicy="strict-origin-when-cross-origin"
             />
 
             {/*
               Drifting watermark — SOCIAL DETERRENT ONLY.
-              Displays the enrolled student's phone number so that
+              Displays the enrolled student's name and phone so that
               screen recordings or screenshots can be traced back to the account.
               This does NOT prevent: DevTools URL inspection, yt-dlp downloads,
               or iframe src extraction. pointer-events-none ensures native video
@@ -187,6 +245,7 @@ export function YoutubePlayer({
             */}
             {watermarkText && (
               <div aria-hidden="true" className="absolute inset-0 pointer-events-none select-none z-20 overflow-hidden">
+                {/* Drifting watermark — moves continuously across four corners */}
                 <div
                   className="absolute"
                   style={{
@@ -197,13 +256,23 @@ export function YoutubePlayer({
                   <span
                     className="block whitespace-nowrap rounded px-2 py-1 text-xs font-medium text-white"
                     style={{
-                      opacity: 0.22,
+                      opacity: 0.35,
                       textShadow: '0 1px 4px rgba(0,0,0,0.85)',
                     }}
                   >
                     {watermarkText}
                   </span>
                 </div>
+                {/* Static second watermark at bottom-right — two simultaneous marks make cropping harder */}
+                <span
+                  className="absolute bottom-[8%] right-[4%] block whitespace-nowrap rounded px-2 py-1 text-xs font-medium text-white"
+                  style={{
+                    opacity: 0.15,
+                    textShadow: '0 1px 4px rgba(0,0,0,0.85)',
+                  }}
+                >
+                  {watermarkText}
+                </span>
               </div>
             )}
           </>

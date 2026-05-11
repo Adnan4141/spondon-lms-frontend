@@ -77,6 +77,9 @@ export function normalizeYoutubeWatchUrl(input: string): string | null {
  * URLs (Bunny Stream, Mux, Cloudflare Stream, or AWS S3 + HLS).
  */
 export function toYoutubeNoCookieSrc(videoId: string, autoplay = false): string {
+  // origin tells YouTube to only accept/send postMessage API commands from our domain.
+  // Required for enablejsapi events (onEnded, pause-on-tab-hide) to work securely.
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const params = new URLSearchParams({
     rel: '0',
     controls: '1',
@@ -86,6 +89,8 @@ export function toYoutubeNoCookieSrc(videoId: string, autoplay = false): string 
     fs: '0',
     modestbranding: '1',
     autoplay: autoplay ? '1' : '0',
+    enablejsapi: '1',
+    ...(origin ? { origin } : {}),
   });
   return `https://www.youtube-nocookie.com/embed/${videoId}?${params.toString()}`;
 }
