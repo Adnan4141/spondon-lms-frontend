@@ -13,6 +13,8 @@ export interface SmsConfig {
 export interface SmsTemplate {
   id: string;
   key: string;
+  scope: 'ORG' | 'BRANCH';
+  branchId?: string | null;
   body: string;
   isMasking: boolean;
 }
@@ -90,8 +92,11 @@ export interface SmsLog {
 
 export interface SmsReportRow {
   branchId?: string | null;
+  branchName?: string | null;
   programId?: string | null;
+  programName?: string | null;
   batchId?: string | null;
+  batchName?: string | null;
   type?: string | null;
   _sum?: {
     recipientCount?: number | null;

@@ -68,6 +68,7 @@ export function useSmsManagementData(actor?: SmsActor) {
   const actorRole = actor?.role || null;
   const isBranchAdmin = actor?.role === 'BRANCH_ADMIN';
   const isSuperAdmin = actorRole === 'SUPER_ADMIN';
+  const canManageSystemSettings = isBranchAdmin || isSuperAdmin;
   const actorBranchId = actor?.branchId || '';
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -120,7 +121,7 @@ export function useSmsManagementData(actor?: SmsActor) {
         getSmsBalance(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : undefined),
         getSmsQueue(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : undefined),
         getSmsLogs({ page: 1, limit: 20, ...(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : {}) }),
-        isSuperAdmin ? getSmsSystemSettings() : Promise.resolve({ success: false, data: { settings: [] } }),
+        canManageSystemSettings ? getSmsSystemSettings() : Promise.resolve({ success: false, data: { settings: [] } }),
         getSmsReportSummary(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : undefined),
         getSmsReportType(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : undefined),
         getSmsReportBranch(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : undefined),
@@ -171,7 +172,7 @@ export function useSmsManagementData(actor?: SmsActor) {
     } finally {
       setLoading(false);
     }
-  }, [actorBranchId, isBranchAdmin, isSuperAdmin, toast]);
+  }, [actorBranchId, canManageSystemSettings, isBranchAdmin, isSuperAdmin, toast]);
 
   useEffect(() => {
     loadData();
@@ -225,6 +226,7 @@ export function useSmsSystemSettings({
   submitting,
   setSubmitting,
   refresh,
+  actor,
 }: {
   branches: Branch[];
   settings: SmsSystemSetting[];
@@ -232,10 +234,17 @@ export function useSmsSystemSettings({
   submitting: boolean;
   setSubmitting: Dispatch<SetStateAction<boolean>>;
   refresh: () => void | Promise<void>;
+  actor?: SmsActor;
 }) {
   const toast = useAdminToast();
-  const [policyBranchId, setPolicyBranchId] = useState('');
+  const isBranchAdmin = actor?.role === 'BRANCH_ADMIN';
+  const actorBranchId = actor?.branchId || '';
+  const [policyBranchId, setPolicyBranchId] = useState(actorBranchId);
   const [dueMonth, setDueMonth] = useState(new Date().toISOString().slice(0, 7));
+
+  useEffect(() => {
+    if (isBranchAdmin && actorBranchId) setPolicyBranchId(actorBranchId);
+  }, [actorBranchId, isBranchAdmin]);
 
   const orgSettingsByType = useMemo(() => {
     const map = new Map<string, SmsSystemSetting>();
@@ -253,7 +262,7 @@ export function useSmsSystemSettings({
     return map;
   }, [settings]);
 
-  const selectedPolicyBranchId = policyBranchId || branches[0]?.id || '';
+  const selectedPolicyBranchId = isBranchAdmin ? actorBranchId : policyBranchId || branches[0]?.id || '';
 
   const getOrgSetting = useCallback((type: string) => {
     return orgSettingsByType.get(type) || defaultSystemSetting(type);
@@ -272,8 +281,8 @@ export function useSmsSystemSettings({
     patch: Partial<SmsSystemSetting>,
     options: { scope?: 'ORG' | 'BRANCH'; branchId?: string | null } = {},
   ) => {
-    const scope = options.scope || 'ORG';
-    const branchId = scope === 'BRANCH' ? options.branchId || null : null;
+    const scope = isBranchAdmin ? 'BRANCH' : options.scope || 'ORG';
+    const branchId = scope === 'BRANCH' ? (isBranchAdmin ? actorBranchId || null : options.branchId || null) : null;
     const current = scope === 'BRANCH' && branchId ? getBranchSetting(branchId, type) : getOrgSetting(type);
     const fallback = scope === 'BRANCH' ? getOrgSetting(type) : defaultSystemSetting(type);
     const next = {
@@ -305,7 +314,7 @@ export function useSmsSystemSettings({
       toast({ title: 'Setting not saved', description: errorMessage(error), variant: 'destructive' });
       refresh();
     }
-  }, [getBranchSetting, getOrgSetting, refresh, setSettings, toast]);
+  }, [actorBranchId, getBranchSetting, getOrgSetting, isBranchAdmin, refresh, setSettings, toast]);
 
   const queueDueReminder = useCallback(async () => {
     try {
@@ -408,6 +417,8 @@ export function useSmsSystemSettings({
     state: {
       policyBranchId: selectedPolicyBranchId,
       dueMonth,
+      isBranchAdmin,
+      actorBranchId,
       submitting,
     },
     actions: {
@@ -743,35 +754,67 @@ export function useSmsTemplateActions({
   submitting,
   setSubmitting,
   refresh,
+  actor,
 }: {
   templates: SmsTemplate[];
   submitting: boolean;
   setSubmitting: Dispatch<SetStateAction<boolean>>;
   refresh: () => void | Promise<void>;
+  actor?: SmsActor;
 }) {
   const toast = useAdminToast();
-  const [templateForm, setTemplateForm] = useState({ key: '', body: '', isMasking: true });
+  const isBranchAdmin = actor?.role === 'BRANCH_ADMIN';
+  const actorBranchId = actor?.branchId || '';
+  const [templateForm, setTemplateForm] = useState({
+    key: '',
+    body: '',
+    isMasking: true,
+    scope: (isBranchAdmin ? 'BRANCH' : 'ORG') as 'ORG' | 'BRANCH',
+    branchId: isBranchAdmin ? actorBranchId : '',
+  });
+
+  useEffect(() => {
+    if (!isBranchAdmin || !actorBranchId) return;
+    setTemplateForm((prev) => ({ ...prev, scope: 'BRANCH', branchId: actorBranchId }));
+  }, [actorBranchId, isBranchAdmin]);
 
   const handleSaveTemplate = useCallback(async () => {
     if (!templateForm.key.trim() || !templateForm.body.trim()) return;
     setSubmitting(true);
     try {
-      const existing = templates.find((template) => template.key === templateForm.key.trim());
-      const payload = { key: templateForm.key.trim(), body: templateForm.body, isMasking: templateForm.isMasking };
+      const scope = isBranchAdmin ? 'BRANCH' : templateForm.scope;
+      const branchId = scope === 'BRANCH' ? (isBranchAdmin ? actorBranchId : templateForm.branchId || null) : null;
+      const existing = templates.find(
+        (template) => template.key === templateForm.key.trim() && template.scope === scope && (template.branchId || null) === (branchId || null),
+      );
+      const payload = {
+        key: templateForm.key.trim(),
+        body: templateForm.body,
+        isMasking: templateForm.isMasking,
+        scope,
+        branchId,
+      };
       const res = existing ? await updateSmsTemplate(existing.key, payload) : await createSmsTemplate(payload);
       toast({ title: 'Template saved', description: res.message || 'SMS template is ready.', variant: 'success' });
-      setTemplateForm({ key: '', body: '', isMasking: true });
+      setTemplateForm({
+        key: '',
+        body: '',
+        isMasking: true,
+        scope: (isBranchAdmin ? 'BRANCH' : 'ORG') as 'ORG' | 'BRANCH',
+        branchId: isBranchAdmin ? actorBranchId : '',
+      });
       refresh();
     } catch (error: unknown) {
       toast({ title: 'Template failed', description: errorMessage(error), variant: 'destructive' });
     } finally {
       setSubmitting(false);
     }
-  }, [refresh, setSubmitting, templateForm, templates, toast]);
+  }, [actorBranchId, isBranchAdmin, refresh, setSubmitting, templateForm, templates, toast]);
 
   return {
     state: {
       templateForm,
+      isBranchAdmin,
       submitting,
     },
     actions: {

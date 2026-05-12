@@ -12,6 +12,18 @@ function exportFilename(prefix: string) {
   return `${prefix}-${stamp}`;
 }
 
+function shortId(id?: string | null) {
+  return id ? `ID ${id.slice(0, 8)}` : 'Not tagged';
+}
+
+function programLabel(row: SmsReportRow) {
+  return row.programName || shortId(row.programId);
+}
+
+function batchLabel(row: SmsReportRow) {
+  return row.batchName || shortId(row.batchId);
+}
+
 export function SmsReportsTab({
   monthlyRows,
   typeReport,
@@ -65,7 +77,7 @@ export function SmsReportsTab({
     })),
     ...programReport.map((row) => ({
       section: 'PROGRAM',
-      name: row.programId || 'Not tagged',
+      name: programLabel(row),
       branch: '',
       primaryValue: Number(row._sum?.successCount || 0),
       secondaryValue: Number(row._sum?.failedCount || 0),
@@ -74,7 +86,7 @@ export function SmsReportsTab({
     })),
     ...batchReport.map((row) => ({
       section: 'BATCH',
-      name: row.batchId || 'Not tagged',
+      name: batchLabel(row),
       branch: '',
       primaryValue: Number(row._sum?.successCount || 0),
       secondaryValue: Number(row._sum?.failedCount || 0),
@@ -196,7 +208,7 @@ export function SmsReportsTab({
           <div className="space-y-2">
             {programReport.slice(0, 8).map((row) => (
               <div key={row.programId || 'none'} className="flex items-center justify-between gap-3 rounded-md border border-slate-200 p-3">
-                <p className="truncate font-semibold">{row.programId || 'Not tagged'}</p>
+                <p className="truncate font-semibold">{programLabel(row)}</p>
                 <p className="text-sm text-slate-500">{row._sum?.successCount || 0} sent</p>
               </div>
             ))}
@@ -207,7 +219,7 @@ export function SmsReportsTab({
           <div className="space-y-2">
             {batchReport.slice(0, 8).map((row) => (
               <div key={row.batchId || 'none'} className="flex items-center justify-between gap-3 rounded-md border border-slate-200 p-3">
-                <p className="truncate font-semibold">{row.batchId || 'Not tagged'}</p>
+                <p className="truncate font-semibold">{batchLabel(row)}</p>
                 <p className="text-sm text-slate-500">{row._sum?.successCount || 0} sent</p>
               </div>
             ))}
