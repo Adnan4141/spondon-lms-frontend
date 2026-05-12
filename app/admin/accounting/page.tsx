@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getAccounts, type Account } from '@/lib/api/accounting';
+import { getBranches, type Branch } from '@/lib/api/branches';
 import {
   getDistributionChannels,
   getStockSources,
@@ -22,6 +23,7 @@ export default function AdminAccountingPage() {
   const { toast, toasts, removeToast } = useToast();
   const [activeTab, setActiveTab] = useState<TabKey>('summary');
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [stockSources, setStockSources] = useState<StockSource[]>([]);
   const [channels, setChannels] = useState<DistributionChannel[]>([]);
   const [metaLoading, setMetaLoading] = useState(true);
@@ -30,12 +32,14 @@ export default function AdminAccountingPage() {
     async function load() {
       setMetaLoading(true);
       try {
-        const [accountRes, sourceRes, channelRes] = await Promise.all([
+        const [accountRes, branchRes, sourceRes, channelRes] = await Promise.all([
           getAccounts(),
+          getBranches(),
           getStockSources({ includeInactive: true }),
           getDistributionChannels({ includeInactive: true }),
         ]);
         if (accountRes.success) setAccounts(accountRes.data);
+        if (branchRes.success && branchRes.data) setBranches(branchRes.data);
         if (sourceRes.success && sourceRes.data) setStockSources(sourceRes.data);
         if (channelRes.success && channelRes.data) setChannels(channelRes.data);
       } catch {
@@ -86,7 +90,7 @@ export default function AdminAccountingPage() {
       ) : (
         <div>
           {activeTab === 'summary' ? <SummaryTab /> : null}
-          {activeTab === 'ledger' ? <LedgerTab accounts={accounts} stockSources={stockSources} channels={channels} /> : null}
+          {activeTab === 'ledger' ? <LedgerTab accounts={accounts} branches={branches} stockSources={stockSources} channels={channels} /> : null}
           {activeTab === 'accounts' ? <AccountsTab onAccountsChange={setAccounts} /> : null}
         </div>
       )}

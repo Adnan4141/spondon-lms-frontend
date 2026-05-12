@@ -8,6 +8,7 @@ import {
   type CreateLedgerEntryPayload,
   type LedgerEntry,
 } from '@/lib/api/accounting';
+import type { Branch } from '@/lib/api/branches';
 import type { DistributionChannel, StockSource } from '@/lib/api/books';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,6 +32,7 @@ type FlowType = CreateLedgerEntryPayload['flowType'];
 
 export function LedgerEntryForm({
   accounts,
+  branches,
   stockSources,
   channels,
   onSuccess,
@@ -39,6 +41,7 @@ export function LedgerEntryForm({
   initialEntry,
 }: {
   accounts: Account[];
+  branches: Branch[];
   stockSources: StockSource[];
   channels: DistributionChannel[];
   onSuccess: () => void;
@@ -64,7 +67,9 @@ export function LedgerEntryForm({
   const numericAmount = parseAmount(amount);
 
   const sourceOptions =
-    sourceType === 'STOCK_SOURCE'
+    sourceType === 'BRANCH'
+      ? branches.map((branch) => ({ value: branch.id, label: branch.name }))
+      : sourceType === 'STOCK_SOURCE'
       ? stockSources.map((source) => ({ value: source.id, label: source.name }))
       : sourceType === 'DISTRIBUTION_CHANNEL'
         ? channels.map((channel) => ({ value: channel.id, label: channel.name }))

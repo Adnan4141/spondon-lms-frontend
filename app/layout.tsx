@@ -71,8 +71,8 @@ export const metadata: Metadata = {
   },
 
   icons: {
-    icon: "/images/logo/spondon-icon.png",
-    apple: "/images/logo/spondon-icon.png",
+    icon: "/images/logo/spondon_favicon.png",
+    apple: "/images/logo/spondon_favicon.png",
   },
 
   robots: {

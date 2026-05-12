@@ -27,6 +27,7 @@ export const FLOW_TYPES = [
 
 export const SOURCE_TYPES: Array<{ value: SourceTypeValue; label: string }> = [
   { value: 'NONE', label: 'None' },
+  { value: 'BRANCH', label: 'Branch' },
   { value: 'STOCK_SOURCE', label: 'Source' },
   { value: 'DISTRIBUTION_CHANNEL', label: 'Channel' },
   { value: 'OTHER', label: 'Other / Manual' },

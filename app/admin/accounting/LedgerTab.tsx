@@ -12,6 +12,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { deleteLedgerEntry, getLedgerEntries, type Account, type LedgerEntry } from '@/lib/api/accounting';
+import type { Branch } from '@/lib/api/branches';
 import type { DistributionChannel, StockSource } from '@/lib/api/books';
 import type { ExportFormat } from '@/lib/export';
 import { useToast } from '@/hooks/use-toast';
@@ -26,10 +27,12 @@ import { LedgerTabStats } from './ledger/LedgerTabStats';
 
 export function LedgerTab({
   accounts,
+  branches,
   stockSources,
   channels,
 }: {
   accounts: Account[];
+  branches: Branch[];
   stockSources: StockSource[];
   channels: DistributionChannel[];
 }) {
@@ -88,7 +91,7 @@ export function LedgerTab({
     () => entries.filter((entry) => entry.entryType === 'INCOME').length,
     [entries],
   );
-  const sourceCount = stockSources.length + channels.length;
+  const sourceCount = branches.length + stockSources.length + channels.length;
 
   async function handleExport(format: ExportFormat) {
     if (entries.length === 0) {
@@ -197,6 +200,7 @@ export function LedgerTab({
         open={formOpen}
         onOpenChange={setFormOpen}
         accounts={accounts}
+        branches={branches}
         stockSources={stockSources}
         channels={channels}
         onEntryCreated={() => load(1)}
@@ -205,6 +209,7 @@ export function LedgerTab({
       <LedgerEditEntryDialog
         entry={editEntry}
         accounts={accounts}
+        branches={branches}
         stockSources={stockSources}
         channels={channels}
         onClose={() => setEditEntry(null)}

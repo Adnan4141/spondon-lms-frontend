@@ -1,56 +1,6 @@
 'use client';
 
-/**
- * YoutubePlayer — LMS-style lazy-loading YouTube embed with moving watermark.
- *
- * ── Security limitations (read before modifying) ──────────────────────────────
- *  ✗  The video ID is visible in the iframe src (Network tab / DevTools).
- *  ✗  Unlisted YouTube videos CANNOT be made fully private via embedding alone.
- *  ✗  The watermark does NOT protect against DevTools inspection, copy-pasting
- *     the URL, or tools like yt-dlp.
- *  ✓  youtube-nocookie.com reduces third-party cookies and YouTube tracking.
- *  ✓  Lazy-load (no iframe until "Start Lesson" click) reduces casual URL
- *     discovery and prevents YouTube from loading before user intent.
- *  ✓  The phone watermark is a SOCIAL DETERRENT — it discourages screen recording
- *     and sharing by visibly associating the content with the viewer's phone number.
- *
- * ── YouTube IFrame API (advanced — not implemented here) ──────────────────────
- *  To track watch percentage (like HTML <video> onTimeUpdate):
- *  1. Add to your page/layout:
- *       <Script src="https://www.youtube.com/iframe_api" strategy="afterInteractive" />
- *  2. After Start Lesson, create a YT.Player on the iframe element:
- *       const player = new YT.Player(iframeRef.current!, {
- *         events: {
- *           onStateChange: (e) => {
- *             if (e.data === YT.PlayerState.ENDED) markProgressComplete();
- *           },
- *         },
- *       });
- *  This gives you the same lifecycle hooks as HTML <video> onEnded / onTimeUpdate.
- *
- * ── When to leave YouTube ─────────────────────────────────────────────────────
- *  • Need expiring signed URLs + token-gated HLS  → Bunny Stream / Cloudflare Stream / Mux
- *  • Need DRM (Widevine / FairPlay)               → Mux DRM / Bunny Stream DRM
- *  • Concerned about YouTube ToS (commercial use) → Self-hosted HLS
- *  • Need server-side per-segment access control  → AWS S3 presigned URLs + HLS
- *
- * ── Production security checklist ────────────────────────────────────────────
- *  □ All /student/* routes protected by server-side auth middleware
- *  □ Course content API requires valid JWT — never unauthenticated
- *  □ Enrollment check server-side before returning video IDs
- *  □ Content-Security-Policy frame-src allows youtube-nocookie.com
- *  □ Referrer-Policy: strict-origin-when-cross-origin (default in Next.js)
- *  □ HTTPS enforced — no mixed content
- *  □ YouTube video set to "Unlisted" (not Public) — not a security boundary, but reduces
- *    discoverability for users who don't share the link
- *  □ Rate-limit / audit-log content API calls to detect credential sharing
- *  □ Periodically rotate video IDs if a link is found circulating publicly
- * ─────────────────────────────────────────────────────────────────────────────
- *
- * Usage:
- *   Parent must provide height — e.g. wrap in <div className="aspect-video">
- *   The component fills its container with position:absolute inset-0.
- */
+
 
 import { useState, useEffect, useRef } from 'react';
 import { Play } from 'lucide-react';

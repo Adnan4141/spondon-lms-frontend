@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 
 export type TabKey = 'summary' | 'ledger' | 'accounts';
-export type SourceTypeValue = 'NONE' | 'STOCK_SOURCE' | 'DISTRIBUTION_CHANNEL' | 'OTHER';
+export type SourceTypeValue = 'NONE' | 'BRANCH' | 'STOCK_SOURCE' | 'DISTRIBUTION_CHANNEL' | 'OTHER';
 
 export type LedgerLineForm = {
   id: string;
