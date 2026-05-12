@@ -2,8 +2,8 @@
 
 
 
-import { useState, useEffect, useRef } from 'react';
-import { Pause, Play } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { FastForward, Pause, Play, RotateCcw, Rewind, Volume2, VolumeX } from 'lucide-react';
 import { toYoutubeNoCookieSrc } from '@/lib/youtube';
 
 // ─── Watermark drift keyframes ─────────────────────────────────────────────
@@ -57,10 +57,14 @@ export function YoutubePlayer({
   onEnded,
 }: YoutubePlayerProps) {
   const [started, setStarted] = useState(false);
+  const [playerReady, setPlayerReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [playbackRate, setPlaybackRate] = useState(1);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [seeking, setSeeking] = useState(false);
+  const [dragTime, setDragTime] = useState<number | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   function blockContextMenu(e: React.MouseEvent) {
@@ -68,18 +72,49 @@ export function YoutubePlayer({
     e.stopPropagation();
   }
 
-  function sendPlayerCommand(func: string, args: unknown[] = []) {
+  const sendPlayerCommand = useCallback((func: string, args: unknown[] = []) => {
+    if (!started) return;
     iframeRef.current?.contentWindow?.postMessage(
       JSON.stringify({ event: 'command', func, args }),
       'https://www.youtube-nocookie.com',
     );
-  }
+  }, [started]);
+
+  const initializePlayerBridge = useCallback(() => {
+    iframeRef.current?.contentWindow?.postMessage(
+      JSON.stringify({ event: 'listening', id: videoId }),
+      'https://www.youtube-nocookie.com',
+    );
+    sendPlayerCommand('addEventListener', ['onReady']);
+    sendPlayerCommand('addEventListener', ['onStateChange']);
+    sendPlayerCommand('getDuration');
+    sendPlayerCommand('getCurrentTime');
+  }, [sendPlayerCommand, videoId]);
 
   function formatTime(seconds: number) {
     const total = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0;
     const mins = Math.floor(total / 60);
     const secs = total % 60;
     return `${mins}:${String(secs).padStart(2, '0')}`;
+  }
+
+  function seekTo(nextSeconds: number) {
+    const maxTime = duration > 0 ? duration : Math.max(currentTime, nextSeconds, 0);
+    const clamped = Math.max(0, Math.min(nextSeconds, maxTime));
+    setCurrentTime(clamped);
+    sendPlayerCommand('seekTo', [clamped, true]);
+  }
+
+  function seekBy(deltaSeconds: number) {
+    seekTo(currentTime + deltaSeconds);
+  }
+
+  function cyclePlaybackRate() {
+    const rates = [1, 1.25, 1.5, 1.75, 2];
+    const currentIndex = rates.findIndex((rate) => rate === playbackRate);
+    const nextRate = rates[(currentIndex + 1) % rates.length];
+    setPlaybackRate(nextRate);
+    sendPlayerCommand('setPlaybackRate', [nextRate]);
   }
 
   // ── YouTube IFrame API: detect video ended via postMessage ─────────────
@@ -91,6 +126,13 @@ export function YoutubePlayer({
       if (!event.origin.includes('youtube')) return;
       try {
         const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        if (data?.event === 'onReady') {
+          setPlayerReady(true);
+          sendPlayerCommand('getDuration');
+          sendPlayerCommand('getCurrentTime');
+          return;
+        }
+
         if (data?.event !== 'infoDelivery') return;
 
         const state = data?.info?.playerState;
@@ -106,7 +148,7 @@ export function YoutubePlayer({
         }
 
         const nextCurrentTime = Number(data?.info?.currentTime);
-        if (!seeking && Number.isFinite(nextCurrentTime) && nextCurrentTime >= 0) {
+        if (!seeking && dragTime == null && Number.isFinite(nextCurrentTime) && nextCurrentTime >= 0) {
           setCurrentTime(nextCurrentTime);
         }
       } catch {
@@ -115,16 +157,16 @@ export function YoutubePlayer({
     }
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [started, onEnded, seeking]);
+  }, [started, onEnded, seeking, dragTime, videoId, sendPlayerCommand]);
 
   useEffect(() => {
-    if (!started) return;
+    if (!started || !playerReady) return;
     const interval = window.setInterval(() => {
       sendPlayerCommand('getCurrentTime');
       sendPlayerCommand('getDuration');
-    }, 1000);
+    }, 500);
     return () => window.clearInterval(interval);
-  }, [started]);
+  }, [started, playerReady, sendPlayerCommand]);
 
   // ── Tab visibility: pause video when student switches tabs ────────────
   // Prevents background audio and discourages passive multi-tab watching.
@@ -137,7 +179,7 @@ export function YoutubePlayer({
     }
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [started]);
+  }, [started, sendPlayerCommand]);
 
   // youtube-nocookie.com embed — autoplay=1 triggers after user gesture (button click)
   const src = toYoutubeNoCookieSrc(videoId, /* autoplay */ true);
@@ -228,6 +270,9 @@ export function YoutubePlayer({
               title={courseTitle}
               src={src}
               className="absolute inset-0 w-full h-full border-0"
+              onLoad={() => {
+                window.setTimeout(initializePlayerBridge, 50);
+              }}
               onContextMenu={blockContextMenu}
               onContextMenuCapture={blockContextMenu}
               allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
@@ -254,6 +299,59 @@ export function YoutubePlayer({
                   {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 translate-x-px" fill="currentColor" />}
                 </button>
 
+                <button
+                  type="button"
+                  onClick={() => seekBy(-10)}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-slate-900/70 text-slate-100 transition hover:bg-slate-800"
+                  aria-label="Rewind 10 seconds"
+                >
+                  <Rewind className="h-4 w-4" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => seekBy(10)}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-slate-900/70 text-slate-100 transition hover:bg-slate-800"
+                  aria-label="Forward 10 seconds"
+                >
+                  <FastForward className="h-4 w-4" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => seekTo(0)}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-slate-900/70 text-slate-100 transition hover:bg-slate-800"
+                  aria-label="Restart video"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isMuted) {
+                      sendPlayerCommand('unMute');
+                      setIsMuted(false);
+                    } else {
+                      sendPlayerCommand('mute');
+                      setIsMuted(true);
+                    }
+                  }}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-slate-900/70 text-slate-100 transition hover:bg-slate-800"
+                  aria-label={isMuted ? 'Unmute video' : 'Mute video'}
+                >
+                  {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={cyclePlaybackRate}
+                  className="h-9 min-w-12 rounded-full border border-white/15 bg-slate-900/70 px-2 text-xs font-bold text-slate-100 transition hover:bg-slate-800"
+                  aria-label="Change playback speed"
+                >
+                  {playbackRate.toFixed(playbackRate % 1 === 0 ? 0 : 2)}x
+                </button>
+
                 <div className="flex min-w-0 flex-1 items-center gap-2 text-xs font-semibold text-slate-200">
                   <span className="tabular-nums">{formatTime(currentTime)}</span>
                   <input
@@ -261,15 +359,33 @@ export function YoutubePlayer({
                     min={0}
                     max={Math.max(duration, 1)}
                     step={0.1}
-                    value={Math.min(currentTime, Math.max(duration, 1))}
+                    value={Math.min(dragTime ?? currentTime, Math.max(duration, 1))}
                     onChange={(e) => {
                       const next = Number(e.target.value);
                       setSeeking(true);
-                      setCurrentTime(next);
-                      sendPlayerCommand('seekTo', [next, true]);
+                      setDragTime(next);
                     }}
-                    onMouseUp={() => setSeeking(false)}
-                    onTouchEnd={() => setSeeking(false)}
+                    onMouseUp={() => {
+                      if (dragTime != null) {
+                        seekTo(dragTime);
+                      }
+                      setDragTime(null);
+                      setSeeking(false);
+                    }}
+                    onTouchEnd={() => {
+                      if (dragTime != null) {
+                        seekTo(dragTime);
+                      }
+                      setDragTime(null);
+                      setSeeking(false);
+                    }}
+                    onBlur={() => {
+                      if (dragTime != null) {
+                        seekTo(dragTime);
+                      }
+                      setDragTime(null);
+                      setSeeking(false);
+                    }}
                     className="h-1 w-full cursor-pointer accent-indigo-500"
                     aria-label="Seek video"
                   />
