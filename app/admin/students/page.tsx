@@ -461,8 +461,10 @@ export default function StudentsPage() {
           onQueued={(payload) => {
             useBulkImportJobsStore.getState().addJob({
               jobId: payload.jobId,
+              jobType: 'students',
               totalRows: payload.totalRows,
               originalName: payload.fileName,
+              folderId: null,
             });
             setModal(null);
           }}

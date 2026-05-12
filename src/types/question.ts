@@ -131,6 +131,77 @@ export interface CreateShortQuestionDto {
   tags?: string[];
 }
 
+export type QuestionImportType = 'MCQ' | 'CQ' | 'SHORT' | 'PASSAGE_MCQ';
+
+export interface QuestionImportOption {
+  label: 'A' | 'B' | 'C' | 'D';
+  text: string;
+  isCorrect: boolean;
+}
+
+export interface QuestionImportSubPart {
+  label: string;
+  prompt: string;
+  marks: number;
+  answerGuide?: string | null;
+  sortOrder: number;
+}
+
+export interface QuestionImportRow {
+  rowNumber: number;
+  type: QuestionImportType;
+  prompt: string;
+  promptPreview: string;
+  difficulty: Difficulty;
+  year?: number | null;
+  tags: string[];
+  explanation?: string | null;
+  answer?: string | null;
+  options?: QuestionImportOption[];
+  subParts?: QuestionImportSubPart[];
+  passageKey?: string;
+  passageTitle?: string | null;
+  passageContent?: string;
+}
+
+export interface QuestionImportError {
+  rowNumber: number;
+  field: string;
+  message: string;
+  raw?: Record<string, unknown>;
+}
+
+export interface QuestionImportPreview {
+  folderId: string;
+  validCount: number;
+  invalidCount: number;
+  rows: QuestionImportRow[];
+  errors: QuestionImportError[];
+}
+
+export interface QuestionImportCommitResult {
+  createdCount: number;
+  passageCount: number;
+  skippedCount: number;
+  questionIds: string[];
+  passageIds: string[];
+}
+
+export interface QuestionImportJobStatusPayload {
+  id: string;
+  status: string;
+  totalRows: number;
+  processedRows: number;
+  createdCount: number;
+  passageCount: number;
+  errorCount: number;
+  errors: { row: number; message: string }[];
+  failureReason: string | null;
+  finished: boolean;
+  originalName: string | null;
+  folderId: string;
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;

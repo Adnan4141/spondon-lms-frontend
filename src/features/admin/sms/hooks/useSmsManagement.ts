@@ -43,7 +43,7 @@ import {
   updateSmsTemplate,
   upsertSmsConfig,
 } from '@/lib/api/sms';
-import { getSmsPricing, getSmsTransactions, initiateSmsPurchase, type SmsPricing } from '@/lib/api/sms-purchase';
+import { getSmsPricing, getSmsTransactions, initiateSmsPurchase, setSmsPricing, type SmsPricing } from '@/lib/api/sms-purchase';
 import { defaultSystemSetting, errorMessage, renderSmsPreview, settingKey, smsLengthInfo, systemTypes } from '../sms-shared';
 
 export type DirectSmsState = {
@@ -61,8 +61,14 @@ export type SmsBalancesActionsHook = ReturnType<typeof useSmsBalancesActions>;
 export type SmsTemplateActionsHook = ReturnType<typeof useSmsTemplateActions>;
 export type SmsGatewayActionsHook = ReturnType<typeof useSmsGatewayActions>;
 
-export function useSmsManagementData() {
+type SmsActor = { role?: string | null; branchId?: string | null };
+
+export function useSmsManagementData(actor?: SmsActor) {
   const toast = useAdminToast();
+  const actorRole = actor?.role || null;
+  const isBranchAdmin = actor?.role === 'BRANCH_ADMIN';
+  const isSuperAdmin = actorRole === 'SUPER_ADMIN';
+  const actorBranchId = actor?.branchId || '';
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -109,26 +115,29 @@ export function useSmsManagementData() {
         txRes,
       ] = await Promise.allSettled([
         getBranches(),
-        getSmsConfig(),
+        isSuperAdmin ? getSmsConfig() : Promise.resolve({ success: false, data: null }),
         getSmsTemplates(),
-        getSmsBalance(),
-        getSmsQueue(),
-        getSmsLogs({ page: 1, limit: 20 }),
-        getSmsSystemSettings(),
-        getSmsReportSummary(),
-        getSmsReportType(),
-        getSmsReportBranch(),
-        getSmsReportProgram(),
-        getSmsReportBatch(),
-        getSmsReportDue({ limit: 20 }),
-        getSmsReportPayment({ limit: 20 }),
-        getSmsReportResult({ limit: 20 }),
-        getProviderBalance(),
-        getSmsPricing(),
-        getSmsTransactions({ page: 1, limit: 8 }),
+        getSmsBalance(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : undefined),
+        getSmsQueue(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : undefined),
+        getSmsLogs({ page: 1, limit: 20, ...(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : {}) }),
+        isSuperAdmin ? getSmsSystemSettings() : Promise.resolve({ success: false, data: { settings: [] } }),
+        getSmsReportSummary(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : undefined),
+        getSmsReportType(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : undefined),
+        getSmsReportBranch(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : undefined),
+        getSmsReportProgram(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : undefined),
+        getSmsReportBatch(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : undefined),
+        getSmsReportDue({ limit: 20, ...(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : {}) }),
+        getSmsReportPayment({ limit: 20, ...(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : {}) }),
+        getSmsReportResult({ limit: 20, ...(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : {}) }),
+        isSuperAdmin ? getProviderBalance() : Promise.resolve({ success: false, data: null }),
+        getSmsPricing(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : undefined),
+        getSmsTransactions({ page: 1, limit: 8, ...(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : {}) }),
       ]);
 
-      if (branchRes.status === 'fulfilled' && branchRes.value.success) setBranches(branchRes.value.data || []);
+      if (branchRes.status === 'fulfilled' && branchRes.value.success) {
+        const rows = branchRes.value.data || [];
+        setBranches(isBranchAdmin && actorBranchId ? rows.filter((branch) => branch.id === actorBranchId) : rows);
+      }
       if (configRes.status === 'fulfilled' && configRes.value.success && configRes.value.data) setConfig(configRes.value.data);
       if (templateRes.status === 'fulfilled' && templateRes.value.success) setTemplates(templateRes.value.data || []);
       if (balanceRes.status === 'fulfilled' && balanceRes.value.success) setBalances(balanceRes.value.data || []);
@@ -149,7 +158,7 @@ export function useSmsManagementData() {
           setProviderBalanceError('');
         } else {
           setProviderBalance(providerRes.value.data || null);
-          setProviderBalanceError(providerRes.value.message || 'Provider balance unavailable');
+          setProviderBalanceError((providerRes.value as { message?: string }).message || 'Provider balance unavailable');
         }
       } else {
         setProviderBalance(null);
@@ -162,7 +171,7 @@ export function useSmsManagementData() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [actorBranchId, isBranchAdmin, isSuperAdmin, toast]);
 
   useEffect(() => {
     loadData();
@@ -421,28 +430,45 @@ export function useSmsBulkActions({
   submitting,
   setSubmitting,
   refresh,
+  actor,
 }: {
   branchBalances: SmsBalance[];
   submitting: boolean;
   setSubmitting: Dispatch<SetStateAction<boolean>>;
   refresh: () => void | Promise<void>;
+  actor?: SmsActor;
 }) {
   const toast = useAdminToast();
-  const [bulkBranchId, setBulkBranchId] = useState('');
+  const actorBranchId = actor?.role === 'BRANCH_ADMIN' ? actor.branchId || '' : '';
+  const [bulkBranchId, setBulkBranchId] = useState(actorBranchId);
   const [bulkNumbers, setBulkNumbers] = useState('');
   const [bulkMessage, setBulkMessage] = useState('');
   const [bulkFile, setBulkFile] = useState<File | null>(null);
   const [bulkPreview, setBulkPreview] = useState<BulkPreview | null>(null);
   /** Ensures file queue uses a preview produced from the uploaded file, not a manual-number preview. */
   const [bulkPreviewFromFile, setBulkPreviewFromFile] = useState(false);
-  const [direct, setDirect] = useState<DirectSmsState>({ to: '', message: '', scope: 'ORG', branchId: '', isMasking: true });
+  const [direct, setDirect] = useState<DirectSmsState>({
+    to: '',
+    message: '',
+    scope: actorBranchId ? 'BRANCH' : 'ORG',
+    branchId: actorBranchId,
+    isMasking: true,
+  });
+
+  useEffect(() => {
+    if (!actorBranchId) return;
+    setBulkBranchId(actorBranchId);
+    setDirect((prev) => ({ ...prev, scope: 'BRANCH', branchId: actorBranchId }));
+  }, [actorBranchId]);
 
   const selectedBranchBalance = useMemo(() => {
     if (!bulkBranchId) return undefined;
     return branchBalances.find((b) => b.branchId === bulkBranchId)?.balanceCount;
   }, [branchBalances, bulkBranchId]);
 
-  const bulkVariableButtons = bulkPreview?.columns?.length ? bulkPreview.columns.map((column) => `{{${column}}}`) : undefined;
+  const bulkVariableButtons = bulkPreviewFromFile && bulkPreview?.columns?.length
+    ? bulkPreview.columns.map((column) => `{{${column}}}`)
+    : [];
   const renderedBulkSamples = bulkMessage.trim() && bulkPreview?.sampleRows?.length
     ? bulkPreview.sampleRows.slice(0, 5).map((row) => renderSmsPreview(bulkMessage, row as Record<string, unknown>))
     : [];
@@ -562,6 +588,7 @@ export function useSmsBulkActions({
       estimatedBulkCredits,
       selectedBranchBalance,
       bulkPreviewFromFile,
+      isBranchAdmin: Boolean(actorBranchId),
       submitting,
     },
     bulkActions: {
@@ -586,16 +613,26 @@ export function useSmsBalancesActions({
   submitting,
   setSubmitting,
   refresh,
+  actor,
 }: {
   smsPricing: SmsPricing;
   submitting: boolean;
   setSubmitting: Dispatch<SetStateAction<boolean>>;
   refresh: () => void | Promise<void>;
+  actor?: SmsActor;
 }) {
   const toast = useAdminToast();
+  const isBranchAdmin = actor?.role === 'BRANCH_ADMIN';
+  const actorBranchId = actor?.branchId || '';
   const [orgBalanceInput, setOrgBalanceInput] = useState('');
   const [transfer, setTransfer] = useState({ branchId: '', count: '' });
-  const [purchase, setPurchase] = useState({ scope: 'BRANCH', branchId: '', quantity: '' });
+  const [purchase, setPurchase] = useState({ scope: 'BRANCH', branchId: actorBranchId, quantity: '' });
+  const [pricingForm, setPricingForm] = useState({ branchId: '', pricePerSms: '', minPurchase: '100' });
+
+  useEffect(() => {
+    if (!isBranchAdmin || !actorBranchId) return;
+    setPurchase((prev) => ({ ...prev, scope: 'BRANCH', branchId: actorBranchId }));
+  }, [actorBranchId, isBranchAdmin]);
 
   const handleBalanceUpdate = useCallback(async () => {
     if (!orgBalanceInput) return;
@@ -642,8 +679,8 @@ export function useSmsBalancesActions({
     setSubmitting(true);
     try {
       const res = await initiateSmsPurchase({
-        scope: purchase.scope,
-        branchId: purchase.scope === 'BRANCH' ? purchase.branchId : undefined,
+        scope: isBranchAdmin ? 'BRANCH' : purchase.scope,
+        branchId: isBranchAdmin ? actorBranchId : purchase.scope === 'BRANCH' ? purchase.branchId : undefined,
         quantity,
       });
       if (res.success && res.data?.GatewayPageURL) {
@@ -656,23 +693,47 @@ export function useSmsBalancesActions({
     } finally {
       setSubmitting(false);
     }
-  }, [purchase, setSubmitting, smsPricing.minPurchase, toast]);
+  }, [actorBranchId, isBranchAdmin, purchase, setSubmitting, smsPricing.minPurchase, toast]);
+
+  const handleSavePricing = useCallback(async () => {
+    if (!pricingForm.branchId) return toast({ title: 'Branch required', variant: 'destructive' });
+    const pricePerSms = Number(pricingForm.pricePerSms);
+    const minPurchase = Number(pricingForm.minPurchase);
+    if (!Number.isFinite(pricePerSms) || pricePerSms <= 0) {
+      return toast({ title: 'Invalid rate', description: 'SMS rate must be greater than zero.', variant: 'destructive' });
+    }
+    setSubmitting(true);
+    try {
+      await setSmsPricing({ branchId: pricingForm.branchId, pricePerSms, minPurchase: Math.max(1, minPurchase || 100) });
+      toast({ title: 'Branch SMS rate saved', variant: 'success' });
+      setPricingForm((prev) => ({ ...prev, pricePerSms: '' }));
+      await refresh();
+    } catch (error: unknown) {
+      toast({ title: 'Rate save failed', description: errorMessage(error), variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
+  }, [pricingForm, refresh, setSubmitting, toast]);
 
   return {
     state: {
       orgBalanceInput,
       transfer,
       purchase,
+      pricingForm,
       smsPricing,
+      isBranchAdmin,
       submitting,
     },
     actions: {
       setOrgBalanceInput,
       setTransfer,
       setPurchase,
+      setPricingForm,
       handleBalanceUpdate,
       handleTransfer,
       handlePurchaseSms,
+      handleSavePricing,
     },
   };
 }

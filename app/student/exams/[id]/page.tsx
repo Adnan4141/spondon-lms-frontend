@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { startExamAttempt, getAttemptResult, getExamStudentView, getExamPdfDownloadUrl } from '@/lib/api/exams';
 import type { StartAttemptResponse, AttemptResultResponse, ExamStudentView } from '@/types/exam';
 import { ExamTakingView } from '@/components/student/exam-window/ExamTakingView';
@@ -22,7 +22,9 @@ type Phase = 'loading' | 'waiting' | 'offline' | 'exam' | 'result';
 export default function StudentExamTakingPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const examId = params.id as string;
+  const viewMode = searchParams.get('view');
 
   const [phase, setPhase] = useState<Phase>('loading');
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +68,22 @@ export default function StudentExamTakingPage() {
           return;
         }
 
+        if (viewMode === 'result') {
+          const latestAttemptId = viewRes.data.latestCompletedAttemptId;
+          if (!latestAttemptId) {
+            setError('ফলাফল এখনো পাওয়া যায়নি');
+            return;
+          }
+          const resultRes = await getAttemptResult(latestAttemptId);
+          if (!resultRes.success || !resultRes.data) {
+            setError(resultRes.message || 'ফলাফল লোড করা যায়নি');
+            return;
+          }
+          setResult(resultRes.data);
+          setPhase('result');
+          return;
+        }
+
         // Check if startAt is in the future — show waiting screen
         if (viewRes.data.startAt && new Date(viewRes.data.startAt) > new Date()) {
           setPhase('waiting');
@@ -77,6 +95,19 @@ export default function StudentExamTakingPage() {
           setAttemptData(res.data);
           setPhase('exam');
         } else {
+          const maxAttemptId = (res as any)?.data?.latestCompletedAttemptId as string | undefined;
+          const maxAttemptsReached =
+            (res as any)?.code === 'MAX_ATTEMPTS_REACHED' ||
+            /maximum attempts reached/i.test(String(res.message || ''));
+
+          if (maxAttemptsReached && maxAttemptId) {
+            const resultRes = await getAttemptResult(maxAttemptId);
+            if (resultRes.success && resultRes.data) {
+              setResult(resultRes.data);
+              setPhase('result');
+              return;
+            }
+          }
           setError(res.message || 'পরীক্ষা শুরু করা যায়নি');
         }
       } catch (e: unknown) {
@@ -84,7 +115,7 @@ export default function StudentExamTakingPage() {
       }
     };
     run();
-  }, [examId, router]);
+  }, [examId, router, viewMode]);
 
   // Countdown ticker for waiting phase
   useEffect(() => {
@@ -452,12 +483,12 @@ export default function StudentExamTakingPage() {
                                     !isSelected && !isCorrectOpt ? "border-slate-100 bg-white" : ""
                                   )}
                                 >
-                                  <span className="flex-shrink-0 h-7 w-7 rounded-lg border flex items-center justify-center text-xs font-black">
+                                  <span className="h-7 w-7 shrink-0 rounded-lg border flex items-center justify-center text-xs font-black">
                                     {getOptionLabel(opt.label, qLang)}
                                   </span>
                                   <span className="font-medium text-slate-700" dangerouslySetInnerHTML={{ __html: opt.text }} />
-                                  {isCorrectOpt && <CheckCircle2 className="h-4 w-4 text-emerald-500 ml-auto flex-shrink-0" />}
-                                  {isSelected && !isCorrectOpt && <XCircle className="h-4 w-4 text-rose-500 ml-auto flex-shrink-0" />}
+                                  {isCorrectOpt && <CheckCircle2 className="ml-auto h-4 w-4 shrink-0 text-emerald-500" />}
+                                  {isSelected && !isCorrectOpt && <XCircle className="ml-auto h-4 w-4 shrink-0 text-rose-500" />}
                                 </div>
                               );
                             })}

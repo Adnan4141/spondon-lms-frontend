@@ -15,6 +15,7 @@ import {
 } from '@/lib/api/books';
 import type { Branch } from '@/lib/api/branches';
 import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
+import { useAdminSession } from '@/features/admin/shared/admin-session';
 import { ArrowRight, CalendarClock, Factory, PackageCheck } from 'lucide-react';
 import { StatsCard } from './StatsCard';
 import { StockHistoryFilters } from './stock-history/StockHistoryFilters';
@@ -54,6 +55,8 @@ export function StockHistoryTab({
   channels: DistributionChannel[];
 }) {
   const toast = useAdminToast();
+  const { user } = useAdminSession();
+  const canWriteMovements = user?.role === 'SUPER_ADMIN' || user?.role === 'ACCOUNTS';
   const [bookId, setBookId] = useState('all');
   const [movementType, setMovementType] = useState<BookStockMovementType | 'ALL'>('ALL');
   const [locationFilter, setLocationFilter] = useState('all');
@@ -132,11 +135,19 @@ export function StockHistoryTab({
   };
 
   const openCreateDialog = () => {
+    if (!canWriteMovements) {
+      toast({ title: 'Read-only access', description: 'Branch admin can review stock movements but cannot record or correct them.', variant: 'default' });
+      return;
+    }
     resetForm();
     setDialogOpen(true);
   };
 
   const openCorrectDialog = (movement: BookStockMovement) => {
+    if (!canWriteMovements) {
+      toast({ title: 'Read-only access', description: 'Branch admin can review stock movements but cannot record or correct them.', variant: 'default' });
+      return;
+    }
     if (movement.referenceType === 'StockMovementCorrection' || Number(movement.correctionCount || 0) > 0) return;
     setEditingMovement(movement);
     setForm(movementToForm(movement));
@@ -144,6 +155,11 @@ export function StockHistoryTab({
   };
 
   const handleSubmit = async () => {
+    if (!canWriteMovements) {
+      toast({ title: 'Read-only access', description: 'Branch admin can review stock movements but cannot record or correct them.', variant: 'default' });
+      return;
+    }
+
     const validationError = validateStockMovementForm(form, !!editingMovement);
     if (validationError) {
       toast({ title: validationError, variant: 'destructive' });
@@ -194,6 +210,9 @@ export function StockHistoryTab({
           <StatsCard label="Sold" value={totals.soldQty} icon={CalendarClock} variant="red" />
         </div>
         <p className="mt-2 text-xs text-muted-foreground">Cards show current stock totals for the selected book, independent of date and movement filters.</p>
+        {!canWriteMovements ? (
+          <p className="mt-2 text-xs font-semibold text-amber-700">Branch admin access is read-only for stock movements. Recording and correction actions are disabled.</p>
+        ) : null}
       </div>
 
       <StockHistoryFilters
@@ -214,6 +233,7 @@ export function StockHistoryTab({
         onFromDateChange={setFromDate}
         onToDateChange={setToDate}
         onCreate={openCreateDialog}
+        canCreate={canWriteMovements}
       />
 
       <StockMovementList
@@ -225,6 +245,7 @@ export function StockHistoryTab({
         onLoadMore={() => void loadData(page + 1, true)}
         onRetry={() => void loadData(1, false)}
         onCorrect={openCorrectDialog}
+        canCorrectMovements={canWriteMovements}
       />
 
       <StockMovementFormDialog

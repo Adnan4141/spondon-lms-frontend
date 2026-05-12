@@ -59,6 +59,7 @@ import {
   Layers,
   AlignLeft,
   PenLine,
+  Upload,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
@@ -70,6 +71,8 @@ import { CqForm } from '@/features/admin/questions';
 import { ShortQuestionForm } from '@/features/admin/questions';
 import { QuestionDetailsView } from '@/features/admin/questions';
 import { FolderTree } from '@/features/admin/questions';
+import { BulkQuestionImportModal } from '@/features/admin/questions/components/BulkQuestionImportModal';
+import { BULK_QUESTION_IMPORT_COMPLETE_EVENT } from '@/features/admin/students';
 import { ConfirmationModal } from '@/features/admin/shared';
 import { cn } from '@/lib/utils';
 
@@ -341,6 +344,40 @@ export default function QuestionsPage() {
         break;
     }
   };
+
+  const handleBulkImport = () => {
+    const folder = getFolderById(activeFolderId);
+    if (!folder) {
+      toast({
+        title: 'Select a folder',
+        description: 'Bulk import uses one selected target folder.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    openModal({
+      title: 'Bulk Import Questions',
+      description: `Import questions into ${folder.name}.`,
+      className: 'sm:max-w-6xl',
+      content: <BulkQuestionImportModal folder={folder} />,
+    });
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleQuestionImportComplete = () => {
+      void loadFolders();
+      void loadQuestions();
+      void loadPassages();
+    };
+
+    window.addEventListener(BULK_QUESTION_IMPORT_COMPLETE_EVENT, handleQuestionImportComplete);
+    return () => {
+      window.removeEventListener(BULK_QUESTION_IMPORT_COMPLETE_EVENT, handleQuestionImportComplete);
+    };
+  }, [loadFolders, loadPassages, loadQuestions]);
 
   const handleEditQuestion = async (id: string) => {
     const res = await getQuestionById(id);
@@ -645,6 +682,15 @@ export default function QuestionsPage() {
 
             {/* Actions */}
             <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="outline"
+                onClick={handleBulkImport}
+                disabled={!activeFolderId}
+                className="h-9 rounded-xl bg-white border-slate-200 text-slate-700 font-bold hover:bg-slate-50 shadow-sm text-sm disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Upload className="mr-1.5 h-4 w-4" />
+                Bulk Import
+              </Button>
               <Button
                 variant="outline"
                 onClick={() => handleCreateFolder()}

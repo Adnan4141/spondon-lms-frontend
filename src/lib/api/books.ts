@@ -93,6 +93,7 @@ export interface BookSale {
   sellingPointId?: string | null;
   sellingPointName?: string | null;
   totalAmount: number;
+  discountAmount?: number;
   soldAt: string;
   createdAt: string;
   items?: BookSaleItem[];
@@ -106,7 +107,18 @@ export interface BookSale {
     id: string;
     name: string;
   };
-  invoice?: { id: string; status: string; paidAmount?: number | string | null; dueAmount?: number | string | null } | null;
+  invoice?: {
+    id: string;
+    invoiceNumber?: string | null;
+    status: string;
+    totalAmount?: number | string | null;
+    discountAmount?: number | string | null;
+    payableAmount?: number | string | null;
+    paidAmount?: number | string | null;
+    dueAmount?: number | string | null;
+    issuedAt?: string | null;
+    createdAt?: string | null;
+  } | null;
 }
 
 export interface BookSaleItem {
@@ -197,6 +209,7 @@ export interface CreateBookSaleDto {
 export interface CreateOfflineBookSaleDto {
   branchId: string;
   studentUserId: string;
+  discountAmount?: number;
   items: Array<{
     bookId: string;
     qty: number;
@@ -210,6 +223,8 @@ export interface OfflineBookSaleResponse {
     invoiceNumber?: string | null;
     status: string;
     totalAmount: number | string;
+    discountAmount?: number | string;
+    payableAmount?: number | string;
     paidAmount: number | string;
     dueAmount: number | string;
     pdfUrl?: string | null;

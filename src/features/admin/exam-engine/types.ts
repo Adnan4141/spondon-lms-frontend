@@ -51,6 +51,7 @@ export interface ExamWizardState {
   deliveryMode: 'ONLINE' | 'OFFLINE';
   title: string;
   courseId: string;
+  additionalCourseIds: string[];
   branchId: string;
   language: string;
   durationMinutes: string;

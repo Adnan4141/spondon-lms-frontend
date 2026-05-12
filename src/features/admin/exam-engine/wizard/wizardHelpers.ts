@@ -105,6 +105,7 @@ export const WIZARD_FORM_INITIAL: ExamWizardState = {
   deliveryMode: 'ONLINE',
   title: '',
   courseId: '',
+  additionalCourseIds: [],
   branchId: EXAM_WIZARD_ALL_BRANCHES,
   language: 'bn',
   durationMinutes: '60',

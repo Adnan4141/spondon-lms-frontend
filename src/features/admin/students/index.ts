@@ -20,7 +20,11 @@ export { ManageEnrollmentModal } from './enrollment/ManageEnrollmentModal';
 
 // ─── Modals ───────────────────────────────────────────────────────────────────
 export { AddStudentModal, type AddStudentSaveMeta } from './modals/AddStudentModal';
-export { BulkImportProgressDock, BULK_STUDENT_IMPORT_COMPLETE_EVENT } from './components/BulkImportProgressDock';
+export {
+	BulkImportProgressDock,
+	BULK_STUDENT_IMPORT_COMPLETE_EVENT,
+	BULK_QUESTION_IMPORT_COMPLETE_EVENT,
+} from './components/BulkImportProgressDock';
 export { BulkImportStudentsModal } from './modals/BulkImportStudentsModal';
 export { EditStudentModal } from './modals/EditStudentModal';
 

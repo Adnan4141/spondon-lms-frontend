@@ -14,6 +14,8 @@ import { StudentAdminModal as AppModal } from '../components/StudentAdminModal';
 import { StudentAdminSelect as AppSelect } from '../components/StudentAdminSelect';
 import { StudentMonthInput as MonthInput } from '../components/StudentMonthInput';
 import { ManageEnrollmentModal } from './ManageEnrollmentModal';
+import { fullResetEnrollment } from '@/lib/api/enrollments';
+import { useAdminSession } from '@/features/admin/shared/admin-session';
 
 export function EnrolledCoursesView({
   student, onBack, showToast, programs, allCourses, branches,
@@ -29,7 +31,10 @@ export function EnrolledCoursesView({
   const [loadingEnrollments, setLoadingEnrollments] = useState(true);
   const [manageModal, setManageModal] = useState<{ enrollment: Enrollment; initialCancelCourseId?: string } | null>(null);
   const [cancelModal, setCancelModal] = useState<Enrollment | null>(null);
+  const [resetModal, setResetModal] = useState<Enrollment | null>(null);
   const [batchesMap, setBatchesMap] = useState<Map<string, string>>(new Map());
+  const { user } = useAdminSession();
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
 
   // Load all batches and build a lookup map
   useEffect(() => {
@@ -172,6 +177,16 @@ export function EnrolledCoursesView({
                 >
                   <XCircle className="h-3.5 w-3.5" /> Cancel Enrollment
                 </Button>
+                {isSuperAdmin && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setResetModal(enrollment)}
+                    className="gap-1.5 border-red-300 bg-white text-red-700 hover:bg-red-50 shrink-0"
+                  >
+                    <AlertTriangle className="h-3.5 w-3.5" /> Full Reset
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   disabled={!canManageEnrollment}
@@ -327,7 +342,111 @@ export function EnrolledCoursesView({
           }}
         />
       )}
+      {resetModal && (
+        <FullEnrollmentResetModal
+          enrollment={resetModal}
+          programName={programs.find((p) => p.id === resetModal.programId)?.name ?? ''}
+          onClose={() => setResetModal(null)}
+          onDone={async (message) => {
+            showToast(message, 'success');
+            setResetModal(null);
+            await reloadEnrollments();
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function FullEnrollmentResetModal({
+  enrollment,
+  programName,
+  onClose,
+  onDone,
+}: {
+  enrollment: Enrollment;
+  programName: string;
+  onClose: () => void;
+  onDone: (message: string) => void;
+}) {
+  const [reason, setReason] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const required = 'DELETE_ALL_ENROLLMENT_DATA';
+
+  const handleSubmit = async () => {
+    if (!reason.trim()) {
+      setError('Reset reason is required.');
+      return;
+    }
+    if (confirmation !== required) {
+      setError(`Type ${required} to confirm.`);
+      return;
+    }
+    setSaving(true);
+    setError('');
+    try {
+      const res = await fullResetEnrollment(enrollment.id, { reason: reason.trim(), confirmation });
+      if (!res.success) {
+        setError((res as { message?: string }).message ?? 'Failed to reset enrollment');
+        return;
+      }
+      onDone('Enrollment data fully reset. Audit log preserved.');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to reset enrollment');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <AppModal
+      open
+      onClose={saving ? () => undefined : onClose}
+      title="Full Enrollment Reset"
+      subtitle={programName}
+      maxWidth="max-w-xl"
+    >
+      <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-5 flex gap-2.5">
+        <AlertTriangle className="h-4 w-4 text-red-700 shrink-0 mt-0.5" />
+        <p className="text-sm text-red-800 font-semibold">
+          This permanently deletes enrollment courses, generated invoices, payments, due calculations, and related resettable records. Audit logs are kept.
+        </p>
+      </div>
+
+      <Field label="Reason" required>
+        <textarea
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+          rows={4}
+          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
+          placeholder="Write why this enrollment must be fully reset"
+        />
+      </Field>
+
+      <Field label={`Type ${required}`} required>
+        <input
+          value={confirmation}
+          onChange={(event) => setConfirmation(event.target.value)}
+          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-mono outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
+          placeholder={required}
+        />
+      </Field>
+
+      {error && <p className="text-sm text-rose-600 font-semibold mb-3">{error}</p>}
+
+      <div className="flex justify-end gap-2.5">
+        <Button variant="outline" onClick={onClose} disabled={saving}>Keep Enrollment</Button>
+        <Button
+          onClick={handleSubmit}
+          disabled={saving || !reason.trim() || confirmation !== required}
+          className="bg-red-700 text-white hover:bg-red-800"
+        >
+          {saving ? 'Resetting...' : 'Delete All Enrollment Data'}
+        </Button>
+      </div>
+    </AppModal>
   );
 }
 

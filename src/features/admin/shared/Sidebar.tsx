@@ -42,6 +42,7 @@ import {
   UsersRound,
   ShoppingCart,
   Truck,
+  History,
 } from 'lucide-react';
 
 type MenuItem = {
@@ -140,6 +141,7 @@ function buildMenuSections(role: string | null): MenuSection[] {
   // ----- User Management (SUPER_ADMIN only) -----
   const userMgmtItems: MenuItem[] = [
     { title: 'User Management', href: '/admin/users', icon: ShieldCheck, color: 'text-purple-600', bg: 'bg-purple-50' },
+    { title: 'Audit History', href: '/admin/audit', icon: History, color: 'text-slate-600', bg: 'bg-slate-50' },
   ];
 
   // ----- Administrative -----
@@ -155,7 +157,7 @@ function buildMenuSections(role: string | null): MenuSection[] {
   const financeItems: MenuItem[] = isAccounts
     ? allAdminItems.filter((item) => ['/admin/reports', '/admin/accounting'].includes(item.href))
     : isBranchAdmin
-      ? allAdminItems.filter((item) => ['/admin/reports'].includes(item.href))
+      ? allAdminItems.filter((item) => ['/admin/reports', '/admin/sms'].includes(item.href))
       : isModerator
         ? []
         : allAdminItems.filter((item) => ['/admin/reports', '/admin/accounting'].includes(item.href));

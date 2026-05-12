@@ -162,6 +162,19 @@ export async function deleteEnrollment(id: string): Promise<ApiResponse<void>> {
   });
 }
 
+export async function fullResetEnrollment(
+  id: string,
+  data: { reason: string; confirmation: 'DELETE_ALL_ENROLLMENT_DATA' | string },
+): Promise<ApiResponse<{ enrollmentId: string; counts: Record<string, number>; totals: Record<string, number> }>> {
+  return apiRequest<ApiResponse<{ enrollmentId: string; counts: Record<string, number>; totals: Record<string, number> }>>(
+    `/enrollments/${id}/full-reset`,
+    {
+      method: 'POST',
+      body: JSON.stringify(data),
+    },
+  );
+}
+
 export async function cancelFullEnrollment(
   id: string,
   data: {

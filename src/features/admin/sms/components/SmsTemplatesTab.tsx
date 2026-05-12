@@ -27,7 +27,7 @@ export function SmsTemplatesTab({
         <div className="space-y-3">
           <div>
             <Label>Template key</Label>
-            <Input
+           <Input
               placeholder="DUE_REMINDER_DEFAULT"
               value={templateForm.key}
               onChange={(event) => setTemplateForm((prev) => ({ ...prev, key: event.target.value }))}

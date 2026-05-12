@@ -123,7 +123,7 @@ export function SmsComposer({
   value,
   onChange,
   rows = 5,
-  variables = ['{{name}}', '{{amount}}', '{{month}}', '{{otp}}', '{{program}}', '{{courses}}', '{{exam}}'],
+  variables = [],
 }: {
   label: string;
   value: string;
@@ -142,18 +142,20 @@ export function SmsComposer({
         </span>
       </div>
       <Textarea value={value} onChange={(event) => onChange(event.target.value)} rows={rows} className="resize-y bg-white" />
-      <div className="flex flex-wrap gap-2">
-        {variables.map((variable) => (
-          <button
-            key={variable}
-            type="button"
-            onClick={() => onChange(`${value}${value && !value.endsWith(' ') ? ' ' : ''}${variable}`)}
-            className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100"
-          >
-            {variable}
-          </button>
-        ))}
-      </div>
+      {variables.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {variables.map((variable) => (
+            <button
+              key={variable}
+              type="button"
+              onClick={() => onChange(`${value}${value && !value.endsWith(' ') ? ' ' : ''}${variable}`)}
+              className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+            >
+              {variable}
+            </button>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

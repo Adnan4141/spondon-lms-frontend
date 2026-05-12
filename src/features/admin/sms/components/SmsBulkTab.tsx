@@ -32,6 +32,7 @@ export function SmsBulkTab({
     estimatedBulkCredits,
     selectedBranchBalance,
     bulkPreviewFromFile,
+    isBranchAdmin,
     submitting,
   } = bulkState;
   const {
@@ -176,7 +177,7 @@ export function SmsBulkTab({
                     </div>
                     <p className="text-xs text-slate-500 sm:pb-2">Headers: {bulkPreview.columns.join(', ')}</p>
                   </div>
-                  <p className="mt-3 text-sm font-semibold text-slate-900">Click to insert variables</p>
+                  <p className="mt-3 text-sm font-semibold text-slate-900">CSV column variables</p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {bulkPreview.columns.map((column) => (
                       <button
@@ -237,7 +238,7 @@ export function SmsBulkTab({
                 className="mt-1 bg-white"
               />
             </div>
-            <div className="grid gap-2 sm:grid-cols-2">
+            {!isBranchAdmin && <div className="grid gap-2 sm:grid-cols-2">
               <Select
                 value={direct.scope}
                 onValueChange={(value) => setDirect((prev) => ({ ...prev, scope: value, branchId: value === 'ORG' ? '' : prev.branchId }))}
@@ -267,7 +268,7 @@ export function SmsBulkTab({
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+            </div>}
             <div className="flex items-center justify-between rounded-md border border-slate-200 p-3">
               <Label>Masking</Label>
               <Switch checked={direct.isMasking} onCheckedChange={(checked) => setDirect((prev) => ({ ...prev, isMasking: checked }))} />
@@ -279,7 +280,6 @@ export function SmsBulkTab({
               value={direct.message}
               onChange={(message) => setDirect((prev) => ({ ...prev, message }))}
               rows={5}
-              variables={['{{name}}', '{{amount}}', '{{month}}']}
             />
             <Button type="button" onClick={() => void handleDirectSend()} disabled={submitting} className="gap-2">
               <Send className="h-4 w-4" /> Queue Direct SMS

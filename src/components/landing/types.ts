@@ -10,6 +10,7 @@ export interface Feature {
 
 export interface Testimonial {
   id: string | number;
+  testimonialType?: 'HOME' | 'COURSE';
   quote: string;
   name: string;
   info: string;

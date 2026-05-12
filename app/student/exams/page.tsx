@@ -117,7 +117,7 @@ export default function StudentExamsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex min-h-100 items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-12 w-12 animate-spin text-indigo-600" />
           <p className="text-slate-500 font-bold animate-pulse">পরীক্ষা লোড হচ্ছে...</p>
@@ -394,7 +394,7 @@ export default function StudentExamsPage() {
                 <div
                   key={exam.id}
                   className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-all cursor-pointer"
-                  onClick={() => router.push(`/student/exams/${exam.id}`)}
+                  onClick={() => router.push(`/student/exams/${exam.id}?view=result`)}
                 >
                   <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                     <div className="flex flex-wrap items-center gap-2">
@@ -439,7 +439,7 @@ export default function StudentExamsPage() {
                       className="w-full h-9 rounded-xl font-bold text-xs text-slate-600 hover:bg-violet-50 hover:text-violet-600 hover:border-violet-200 transition-all"
                       onClick={(e) => {
                         e.stopPropagation();
-                        router.push(`/student/exams/${exam.id}`);
+                        router.push(`/student/exams/${exam.id}?view=result`);
                       }}
                     >
                       <FileText className="h-3.5 w-3.5 mr-2" /> {lang === 'en' ? 'View results' : 'ফলাফল দেখুন'}
@@ -590,7 +590,7 @@ export default function StudentExamsPage() {
                 <div
                   key={exam.id}
                   className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-all cursor-pointer"
-                  onClick={() => router.push(`/student/exams/${exam.id}`)}
+                  onClick={() => router.push(`/student/exams/${exam.id}?view=result`)}
                 >
                   <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                     <div className="flex flex-wrap items-center gap-2">
@@ -645,7 +645,7 @@ export default function StudentExamsPage() {
                       className="w-full h-9 rounded-xl font-bold text-xs text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-all"
                       onClick={(e) => {
                         e.stopPropagation();
-                        router.push(`/student/exams/${exam.id}`);
+                        router.push(`/student/exams/${exam.id}?view=result`);
                       }}
                     >
                       <FileText className="h-3.5 w-3.5 mr-2" /> {lang === 'en' ? 'View results' : 'ফলাফল দেখুন'}

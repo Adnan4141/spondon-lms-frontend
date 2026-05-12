@@ -11,6 +11,10 @@ import type {
   CopyQuestionDto,
   BulkCopyQuestionsDto,
   BulkDeleteQuestionsDto,
+  QuestionImportPreview,
+  QuestionImportRow,
+  QuestionImportCommitResult,
+  QuestionImportJobStatusPayload,
 } from '@/types/question';
 
 export async function getQuestionFolders(
@@ -165,6 +169,56 @@ export async function bulkDeleteQuestions(
     method: 'POST',
     body: JSON.stringify(data),
     cache: 'no-store',
+  });
+}
+
+export async function previewQuestionImport(
+  folderId: string,
+  file: File,
+): Promise<ApiResponse<QuestionImportPreview>> {
+  const formData = new FormData();
+  formData.append('folderId', folderId);
+  formData.append('file', file);
+
+  return apiRequest<ApiResponse<QuestionImportPreview>>('/question-bank/questions-import/preview', {
+    method: 'POST',
+    body: formData,
+  });
+}
+
+export async function commitQuestionImport(
+  folderId: string,
+  rows: QuestionImportRow[],
+): Promise<ApiResponse<QuestionImportCommitResult>> {
+  return apiRequest<ApiResponse<QuestionImportCommitResult>>('/question-bank/questions-import/commit', {
+    method: 'POST',
+    body: JSON.stringify({ folderId, rows }),
+  });
+}
+
+export async function queueQuestionImportJob(
+  folderId: string,
+  file: File,
+): Promise<ApiResponse<{ jobId: string; totalRows: number }>> {
+  const formData = new FormData();
+  formData.append('folderId', folderId);
+  formData.append('file', file);
+
+  return apiRequest<ApiResponse<{ jobId: string; totalRows: number }>>('/question-bank/questions-import/jobs', {
+    method: 'POST',
+    body: formData,
+  });
+}
+
+export async function getQuestionImportJobStatus(
+  jobId: string,
+): Promise<ApiResponse<QuestionImportJobStatusPayload>> {
+  return apiRequest<ApiResponse<QuestionImportJobStatusPayload>>(`/question-bank/questions-import/jobs/${jobId}`);
+}
+
+export async function cancelQuestionImportJob(jobId: string): Promise<ApiResponse<{ status?: string }>> {
+  return apiRequest<ApiResponse<{ status?: string }>>(`/question-bank/questions-import/jobs/${jobId}/cancel`, {
+    method: 'POST',
   });
 }
 

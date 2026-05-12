@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -143,7 +144,13 @@ export function Step1CategoryInfo({
                 value={state.courseId}
                 onValueChange={(v) => {
                   clearFieldError('courseId');
-                  dispatch({ type: 'MERGE', patch: { courseId: v } });
+                  dispatch({
+                    type: 'MERGE',
+                    patch: {
+                      courseId: v,
+                      additionalCourseIds: state.additionalCourseIds.filter((id) => id !== v),
+                    },
+                  });
                 }}
               >
                 <SelectTrigger className={cn('border-slate-200', err('courseId') && 'border-rose-400')}>
@@ -158,6 +165,34 @@ export function Step1CategoryInfo({
                 </SelectContent>
               </Select>
               {err('courseId') ? <p className="text-xs text-rose-600">Course is required.</p> : null}
+            </div>
+            <div className="space-y-2">
+              <Label>Additional Courses</Label>
+              <div className="max-h-40 overflow-auto rounded-md border border-slate-200 bg-white p-2">
+                {courses.filter((course) => course.id !== state.courseId).map((course) => {
+                  const checked = state.additionalCourseIds.includes(course.id);
+                  return (
+                    <label key={course.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-slate-50">
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(value) => {
+                          const next = value
+                            ? [...state.additionalCourseIds, course.id]
+                            : state.additionalCourseIds.filter((id) => id !== course.id);
+                          dispatch({ type: 'MERGE', patch: { additionalCourseIds: [...new Set(next)] } });
+                        }}
+                      />
+                      <span className="truncate font-medium text-slate-700">{course.name}</span>
+                    </label>
+                  );
+                })}
+                {courses.filter((course) => course.id !== state.courseId).length === 0 ? (
+                  <p className="px-2 py-3 text-sm text-slate-400">No additional courses available.</p>
+                ) : null}
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Students enrolled in the primary course or any selected additional course can access this exam.
+              </p>
             </div>
             <div className="space-y-2">
               <Label>Branch (optional)</Label>

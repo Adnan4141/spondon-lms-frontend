@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState, useMemo, type ComponentProps } from '
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   DndContext,
   closestCenter,
@@ -66,6 +67,10 @@ import {
 import { cn } from '@/lib/utils';
 import { API_ORIGIN } from '@/lib/api';
 import { resolveAttachmentUrl } from '@/lib/attachment-url';
+import { getCourses } from '@/lib/api/courses';
+import type { Course } from '@/types/course';
+
+type TestimonialTab = 'HOME' | 'COURSE';
 
 type InputFieldProps = {
   label: string;
@@ -278,7 +283,9 @@ function SortableTestimonialRow({ testimonial }: { testimonial: TestimonialAdmin
 export default function AdminTestimonialsPage() {
   const { toast, toasts, removeToast } = useToast();
   const { openModal, closeModal } = useModalStore();
+  const [activeTab, setActiveTab] = useState<TestimonialTab>('HOME');
   const [testimonials, setTestimonials] = useState<TestimonialAdmin[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'published'>('all');
@@ -290,22 +297,33 @@ export default function AdminTestimonialsPage() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await getAllTestimonials();
+      const res = await getAllTestimonials({ type: activeTab });
       if (res.success) setTestimonials(res.data || []);
     } catch (err) {
       toast({ title: 'Load failed', description: (err as Error).message, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [activeTab, toast]);
 
   useEffect(() => {
     load();
   }, [load]);
 
   useEffect(() => {
+    void getCourses({ limit: 200 }).then((res) => {
+      if (res.success && res.data) setCourses(res.data);
+    });
+  }, []);
+
+  useEffect(() => {
     setOrderedTestimonials(testimonials);
   }, [testimonials]);
+
+  useEffect(() => {
+    setSortMode(false);
+    setOrderedTestimonials([]);
+  }, [activeTab]);
 
   // DnD handlers
   const sensors = useSensors(
@@ -356,9 +374,11 @@ export default function AdminTestimonialsPage() {
   }, [testimonials, searchQuery, filterStatus]);
 
   const openForm = (existing?: TestimonialAdmin) => {
+    const reviewType: TestimonialTab = existing?.testimonialType === 'COURSE' ? 'COURSE' : activeTab;
     const formData = existing
-      ? { ...existing }
+      ? { ...existing, testimonialType: existing.testimonialType || reviewType }
       : {
+          testimonialType: reviewType,
           name: '',
           quote: '',
           institute: '',
@@ -375,8 +395,12 @@ export default function AdminTestimonialsPage() {
     let videoFile: File | null = null;
 
     openModal({
-      title: existing ? 'Edit Testimonial' : 'Create Testimonial',
-      description: 'Fields shown here map to the landing Trust section: name, subtitle, quote, media, and sort order.',
+      title: existing
+        ? reviewType === 'COURSE' ? 'Edit Course Review' : 'Edit Landing Review'
+        : reviewType === 'COURSE' ? 'Create Course Review' : 'Create Landing Review',
+      description: reviewType === 'COURSE'
+        ? 'Course reviews stay separate from the landing-page trust carousel. Pick the course and manage the student-facing quote here.'
+        : 'Fields shown here map to the landing Trust section: name, subtitle, quote, media, and sort order.',
       className: 'sm:max-w-5xl p-0 overflow-hidden',
       content: (
         <div className="space-y-8 p-6 sm:p-8 lg:p-10 bg-white">
@@ -394,6 +418,28 @@ export default function AdminTestimonialsPage() {
     </h3>
 
     <div className="grid gap-5 sm:grid-cols-2">
+      {reviewType === 'COURSE' ? (
+        <div className="space-y-2 sm:col-span-2">
+          <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">
+            Course <span className="text-red-500">*</span>
+          </label>
+          <Select
+            defaultValue={String(formData.courseId ?? '') || undefined}
+            onValueChange={(value) => {
+              formData.courseId = value;
+            }}
+          >
+            <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50 focus:bg-white">
+              <SelectValue placeholder="Select course" />
+            </SelectTrigger>
+            <SelectContent>
+              {courses.map((course) => (
+                <SelectItem key={course.id} value={course.id}>{course.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      ) : null}
       <InputField
         id="testimonial-display-name"
         label="Display name"
@@ -437,18 +483,20 @@ export default function AdminTestimonialsPage() {
       />
     </div>
 
-    <TestimonialMediaFields
-      existing={existing}
-      formData={formData}
-      onThumbnailFile={(f) => {
-        thumbnailFile = f;
-      }}
-      onVideoFile={(f) => {
-        videoFile = f;
-      }}
-    />
+    {reviewType === 'HOME' ? (
+      <TestimonialMediaFields
+        existing={existing}
+        formData={formData}
+        onThumbnailFile={(f) => {
+          thumbnailFile = f;
+        }}
+        onVideoFile={(f) => {
+          videoFile = f;
+        }}
+      />
+    ) : null}
 
-    {(formData.thumbnailUrl || existing?.thumbnailUrl) && (
+    {reviewType === 'HOME' && (formData.thumbnailUrl || existing?.thumbnailUrl) && (
       <div className="relative h-28 w-28 overflow-hidden rounded-xl border bg-slate-100">
         <Image
           src={resolveAttachmentUrl(String(formData.thumbnailUrl || existing?.thumbnailUrl || ''), API_ORIGIN)}
@@ -473,9 +521,11 @@ export default function AdminTestimonialsPage() {
         try {
           if (!formData.name?.trim()) throw new Error('Display name required');
           if (!formData.quote?.trim()) throw new Error('Quote required');
+          if (reviewType === 'COURSE' && !String(formData.courseId || '').trim()) throw new Error('Course selection required');
 
           const payload = new FormData();
           const textFields: Record<string, unknown> = {
+            testimonialType: reviewType,
             name: formData.name,
             quote: formData.quote,
             institute: formData.institute ?? '',
@@ -594,7 +644,7 @@ export default function AdminTestimonialsPage() {
                   onClick={() => openForm()}
                 >
                   <Plus className="mr-2 h-5 w-5" />
-                  Add Manual Review
+                  {activeTab === 'COURSE' ? 'Add Course Review' : 'Add Landing Review'}
                 </Button>
                 <Button variant="outline" className="h-14 w-14 rounded-2xl border-slate-200 bg-white hover:bg-slate-50 transition-all" onClick={load}>
                   <RefreshCw className={cn('h-5 w-5 text-slate-400', loading && 'animate-spin')} />
@@ -643,6 +693,21 @@ export default function AdminTestimonialsPage() {
 
       {/* Filter Section */}
       <section className="rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/30">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TestimonialTab)}>
+          <TabsList className="grid w-full max-w-xl grid-cols-2 rounded-2xl border border-slate-100 bg-slate-50 p-1.5">
+            <TabsTrigger value="HOME" className="rounded-xl font-black">Home Landing Reviews</TabsTrigger>
+            <TabsTrigger value="COURSE" className="rounded-xl font-black">Course-wise Reviews</TabsTrigger>
+          </TabsList>
+          <TabsContent value="HOME" className="mt-4 text-sm font-semibold text-slate-500">
+            Manage the reviews used in the homepage trust and social-proof sections.
+          </TabsContent>
+          <TabsContent value="COURSE" className="mt-4 text-sm font-semibold text-slate-500">
+            Manage course-linked reviews separately so they do not mix into the landing-page testimonial feed.
+          </TabsContent>
+        </Tabs>
+      </section>
+
+      <section className="rounded-[32px] border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/30">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
           <div className="relative min-w-70 flex-1">
             <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -681,7 +746,9 @@ export default function AdminTestimonialsPage() {
       <section className="overflow-hidden rounded-[40px] border border-slate-100 bg-white shadow-2xl shadow-slate-200/40">
         <div className="flex items-center justify-between border-b border-slate-50 px-8 py-7">
           <div>
-            <h2 className="text-xl font-black tracking-tight text-slate-900">Student Feedback Hub</h2>
+            <h2 className="text-xl font-black tracking-tight text-slate-900">
+              {activeTab === 'COURSE' ? 'Course Review Hub' : 'Landing Review Hub'}
+            </h2>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 flex items-center gap-1.5">
                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                Real-time Public Feed

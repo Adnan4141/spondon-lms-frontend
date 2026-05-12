@@ -24,14 +24,17 @@ import {
   getExamSections,
   getExamSubjects,
   getExamById,
+  getExamCourseLinks,
   getExams,
+  linkExamCourse,
+  unlinkExamCourse,
   validateExamSubjects,
   type ExamSection,
 } from '@/lib/api/exams';
 import type { Course } from '@/types/course';
 import type { ExamSubject } from '@/types/exam';
 import type { Branch } from '@/lib/api/branches';
-import type { CreateExamDto, ExamStatus, UpdateExamDto } from '@/types/exam';
+import type { CreateExamDto, Exam, ExamStatus, UpdateExamDto } from '@/types/exam';
 import { QuestionPickerModal } from './components/QuestionPickerModal';
 import { ExamEngineSubnav } from './components/ExamEngineSubnav';
 import {
@@ -65,6 +68,49 @@ import { Step4SetsPdf } from './wizard/steps/Step4SetsPdf';
 import { Step5ResultVisibility } from './wizard/steps/Step5ResultVisibility';
 import { Step6PreviewPublish } from './wizard/steps/Step6PreviewPublish';
 
+function readUiCategory(value: unknown): UiExamCategory | '' {
+  if (value === 'MCQ' || value === 'CQ' || value === 'MCQCQ' || value === 'MULTI' || value === 'OMR' || value === 'OMRB') {
+    return value;
+  }
+  return '';
+}
+
+function inferUiCategoryFromSections(sections: Array<Pick<ExamSection, 'type'>>): UiExamCategory {
+  const hasMcq = sections.some((section) => section.type === 'MCQ');
+  const hasCq = sections.some((section) => section.type === 'CQ');
+  if (hasMcq && hasCq) return 'MCQCQ';
+  if (hasCq) return 'CQ';
+  return 'MCQ';
+}
+
+function buildWizardPatchFromExam(exam: Exam): Partial<ExamWizardState> {
+  const wizard = (exam.settings?.examWizard as Record<string, unknown> | undefined) ?? undefined;
+  return {
+    title: exam.title,
+    courseId: exam.courseId,
+    branchId: exam.branchId ?? EXAM_WIZARD_ALL_BRANCHES,
+    language: exam.language ?? 'bn',
+    durationMinutes: String(exam.durationMinutes ?? 60),
+    deliveryMode: exam.mode === 'ONLINE' ? 'ONLINE' : 'OFFLINE',
+    syllabusHtml: exam.syllabusHtml ?? '',
+    autoSubmitOnDisconnect: Boolean(exam.autoSubmitOnDisconnect),
+    disconnectGraceSeconds: String(exam.disconnectGraceSeconds ?? 10),
+    showSolve:
+      exam.solveSheetVisibility === 'IMMEDIATELY'
+      || (typeof wizard?.showSolve === 'boolean' ? wizard.showSolve : true),
+    showLeaderboard: exam.showLeaderboard ?? true,
+    hideResult: exam.hideResult ?? false,
+    showPct: exam.showPercentile ?? false,
+    nSets: String(exam.totalSets ?? 4),
+    shuffle: typeof wizard?.shuffle === 'string' ? wizard.shuffle : 'FULL',
+    setNaming: (wizard?.setNaming as ExamWizardState['setNaming']) ?? 'ALPHA',
+    instituteLabel: typeof wizard?.instituteLabel === 'string' ? wizard.instituteLabel : '',
+    paperCode: typeof wizard?.paperCode === 'string' ? wizard.paperCode : '',
+    resultModes: Array.isArray(wizard?.resultModes) ? (wizard.resultModes as string[]) : ['AUTO'],
+    uiCategory: readUiCategory(wizard?.uiCategory),
+  };
+}
+
 type PickerTarget = { sectionLocalId: string; rule: FolderRuleDraft } | null;
 
 export function ExamWizard({ examId, initialTitle }: { examId?: string; initialTitle?: string }) {
@@ -85,6 +131,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
   const [serverExam, setServerExam] = useState<{ status: ExamStatus; pdfUrl?: string | null } | null>(null);
   const [importSourceExams, setImportSourceExams] = useState<{ id: string; title: string }[]>([]);
   const [importBusy, setImportBusy] = useState(false);
+  const [isLoadingExam, setIsLoadingExam] = useState(Boolean(examId));
 
   const draftHydratedRef = useRef(false);
   const urlInitializedRef = useRef(false);
@@ -190,76 +237,102 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
   useEffect(() => {
     if (!examId) return;
     (async () => {
-      const ex = await getExamById(examId);
-      if (ex.success && ex.data) {
+      setIsLoadingExam(true);
+      try {
+        const [ex, courseLinks, secRes, subRes] = await Promise.all([
+          getExamById(examId),
+          getExamCourseLinks(examId),
+          getExamSections(examId),
+          getExamSubjects(examId),
+        ]);
+        if (!ex.success || !ex.data) return;
+
+        const basePatch = buildWizardPatchFromExam(ex.data);
+        const additionalCourseIds = (
+          courseLinks.success && courseLinks.data ? courseLinks.data : ex.data.examCourses || []
+        )
+          .map((link) => link.courseId)
+          .filter((courseId) => courseId !== ex.data.courseId);
+
         setServerExam({ status: ex.data.status, pdfUrl: ex.data.pdfUrl ?? null });
-        dispatch({
-          type: 'MERGE',
-          patch: {
-            title: ex.data.title,
-            courseId: ex.data.courseId,
-            branchId: ex.data.branchId ?? EXAM_WIZARD_ALL_BRANCHES,
-            language: ex.data.language ?? 'bn',
-            durationMinutes: String(ex.data.durationMinutes ?? 60),
-            deliveryMode: ex.data.mode === 'ONLINE' ? 'ONLINE' : 'OFFLINE',
-            syllabusHtml: ex.data.syllabusHtml ?? '',
-            autoSubmitOnDisconnect: Boolean(ex.data.autoSubmitOnDisconnect),
-            disconnectGraceSeconds: String(ex.data.disconnectGraceSeconds ?? 10),
-            showSolve: ex.data.solveSheetVisibility === 'IMMEDIATELY',
-          },
-        });
-      }
-      const secRes = await getExamSections(examId);
-      const subRes = await getExamSubjects(examId);
-      if (subRes.success && subRes.data?.length) {
-        const mappedSubjects: WizardSubject[] = subRes.data.map((s: ExamSubject) => ({
-          localId: s.id,
-          name: s.name,
-          count: s.questionCount,
-          mcqSingleCount: Number(s.mcqSingleCount ?? 0),
-          mcqPassageCount: Number(s.mcqPassageCount ?? 0),
-          cqCount: Number(s.cqCount ?? 0),
-          shortCount: Number(s.shortCount ?? 0),
-          marks: Number(s.marksPerQuestion ?? 1),
-          neg: Number(s.negativeMarks ?? 0),
-          passMarks: s.passMarks != null ? String(s.passMarks) : '',
-          compulsory: s.isMandatory,
-          folderRules: (s.folderRules ?? []).map((r) => ({
-            folderId: r.folderId,
-            folderName: r.folder?.name,
-            questionCount: r.questionCount,
-            selectionMode: r.selectionMode ?? 'RANDOM_COUNT',
-            excludedQuestionIds: r.excludedQuestionIds ?? [],
-            pinnedQuestionIds: r.pinnedQuestionIds ?? [],
-          })),
-        }));
-        dispatch({ type: 'MERGE', patch: { subjects: mappedSubjects, uiCategory: 'MULTI', sections: [] } });
-        setActiveSectionId(mappedSubjects[0]?.localId ?? null);
-        return;
-      }
-      if (secRes.success && secRes.data?.length) {
-        const mapped: WizardSection[] = secRes.data.map((s: ExamSection) => ({
-          localId: s.id,
-          label: s.name,
-          type: s.type as SectionTypeUi,
-          count: s.questionCount || 0,
-          ...(s.type === 'MCQ' ? { mcqPassageCount: s.mcqPassageCount ?? 0 } : {}),
-          marks: Number(s.marksPerQuestion ?? 1),
-          neg: Number(s.negativeMarks ?? 0),
-          difficulty: 'MIXED',
-          folderRules: Array.isArray(s.folderRules)
-            ? (s.folderRules as FolderRuleDraft[]).map((r) => ({
-                folderId: r.folderId,
-                folderName: r.folderName,
-                questionCount: r.questionCount,
-                selectionMode: r.selectionMode ?? 'RANDOM_COUNT',
-                excludedQuestionIds: r.excludedQuestionIds ?? [],
-                pinnedQuestionIds: r.pinnedQuestionIds ?? [],
-              }))
-            : [],
-        }));
-        dispatch({ type: 'MERGE', patch: { sections: mapped } });
-        setActiveSectionId(mapped[0]?.localId ?? null);
+
+        if (subRes.success && subRes.data?.length) {
+          const mappedSubjects: WizardSubject[] = subRes.data.map((s: ExamSubject) => ({
+            localId: s.id,
+            name: s.name,
+            count: s.questionCount,
+            mcqSingleCount: Number(s.mcqSingleCount ?? 0),
+            mcqPassageCount: Number(s.mcqPassageCount ?? 0),
+            cqCount: Number(s.cqCount ?? 0),
+            shortCount: Number(s.shortCount ?? 0),
+            marks: Number(s.marksPerQuestion ?? 1),
+            neg: Number(s.negativeMarks ?? 0),
+            passMarks: s.passMarks != null ? String(s.passMarks) : '',
+            compulsory: s.isMandatory,
+            folderRules: (s.folderRules ?? []).map((r) => ({
+              folderId: r.folderId,
+              folderName: r.folder?.name,
+              questionCount: r.questionCount,
+              selectionMode: r.selectionMode ?? 'RANDOM_COUNT',
+              excludedQuestionIds: r.excludedQuestionIds ?? [],
+              pinnedQuestionIds: r.pinnedQuestionIds ?? [],
+            })),
+          }));
+          dispatch({
+            type: 'MERGE',
+            patch: {
+              ...basePatch,
+              additionalCourseIds,
+              subjects: mappedSubjects,
+              sections: [],
+              uiCategory: 'MULTI',
+            },
+          });
+          setActiveSectionId(mappedSubjects[0]?.localId ?? null);
+          setStep1FieldErrors({});
+          return;
+        }
+
+        if (secRes.success && secRes.data?.length) {
+          const mapped: WizardSection[] = secRes.data.map((s: ExamSection) => ({
+            localId: s.id,
+            label: s.name,
+            type: s.type as SectionTypeUi,
+            count: s.questionCount || 0,
+            ...(s.type === 'MCQ' ? { mcqPassageCount: s.mcqPassageCount ?? 0 } : {}),
+            marks: Number(s.marksPerQuestion ?? 1),
+            neg: Number(s.negativeMarks ?? 0),
+            difficulty: 'MIXED',
+            folderRules: Array.isArray(s.folderRules)
+              ? (s.folderRules as FolderRuleDraft[]).map((r) => ({
+                  folderId: r.folderId,
+                  folderName: r.folderName,
+                  questionCount: r.questionCount,
+                  selectionMode: r.selectionMode ?? 'RANDOM_COUNT',
+                  excludedQuestionIds: r.excludedQuestionIds ?? [],
+                  pinnedQuestionIds: r.pinnedQuestionIds ?? [],
+                }))
+              : [],
+          }));
+          dispatch({
+            type: 'MERGE',
+            patch: {
+              ...basePatch,
+              additionalCourseIds,
+              sections: mapped,
+              subjects: [],
+              uiCategory: basePatch.uiCategory || inferUiCategoryFromSections(secRes.data),
+            },
+          });
+          setActiveSectionId(mapped[0]?.localId ?? null);
+          setStep1FieldErrors({});
+          return;
+        }
+
+        dispatch({ type: 'MERGE', patch: { ...basePatch, additionalCourseIds } });
+        setStep1FieldErrors({});
+      } finally {
+        setIsLoadingExam(false);
       }
     })();
   }, [examId]);
@@ -338,6 +411,22 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
           id = cr.data.id;
         }
         if (!id) return null;
+
+        const desiredAdditionalCourses = [...new Set(state.additionalCourseIds.filter((courseId) => courseId && courseId !== state.courseId))];
+        const currentLinks = await getExamCourseLinks(id);
+        if (currentLinks.success) {
+          const currentAdditionalCourses = new Set((currentLinks.data || []).map((link) => link.courseId));
+          for (const courseId of currentAdditionalCourses) {
+            if (!desiredAdditionalCourses.includes(courseId)) {
+              await unlinkExamCourse(id, courseId);
+            }
+          }
+          for (const courseId of desiredAdditionalCourses) {
+            if (!currentAdditionalCourses.has(courseId)) {
+              await linkExamCourse(id, courseId);
+            }
+          }
+        }
 
         if (state.uiCategory === 'MULTI') {
           const existingSubjects = await getExamSubjects(id);
@@ -486,6 +575,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
 
         const common: Partial<ExamWizardState> = {
           courseId: ex.courseId,
+          additionalCourseIds: (ex.examCourses || []).map((link) => link.courseId).filter((courseId) => courseId !== ex.courseId),
           deliveryMode: ex.mode === 'ONLINE' ? 'ONLINE' : 'OFFLINE',
           durationMinutes: String(ex.durationMinutes ?? 60),
           language: ex.language ?? 'bn',
@@ -746,7 +836,13 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
         })}
       </div>
 
-      {step === 1 ? (
+      {isLoadingExam ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+          <p className="text-sm font-semibold text-slate-500">Restoring saved exam settings...</p>
+        </div>
+      ) : null}
+
+      {!isLoadingExam && step === 1 ? (
         <Step1CategoryInfo
           state={state}
           dispatch={dispatch}
@@ -761,9 +857,9 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
         />
       ) : null}
 
-      {step === 2 ? <Step2Sections state={state} dispatch={dispatch} onAddSection={handleAddSection} /> : null}
+      {!isLoadingExam && step === 2 ? <Step2Sections state={state} dispatch={dispatch} onAddSection={handleAddSection} /> : null}
 
-      {step === 3 && showStep3 ? (
+      {!isLoadingExam && step === 3 && showStep3 ? (
         <Step3QuestionBank
           state={state}
           dispatch={dispatch}
@@ -779,9 +875,9 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
         />
       ) : null}
 
-      {step === 4 ? <Step4SetsPdf state={state} dispatch={dispatch} /> : null}
-      {step === 5 ? <Step5ResultVisibility state={state} dispatch={dispatch} /> : null}
-      {step === 6 ? (
+      {!isLoadingExam && step === 4 ? <Step4SetsPdf state={state} dispatch={dispatch} /> : null}
+      {!isLoadingExam && step === 5 ? <Step5ResultVisibility state={state} dispatch={dispatch} /> : null}
+      {!isLoadingExam && step === 6 ? (
         <Step6PreviewPublish
           state={state}
           step={step}
@@ -798,7 +894,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
       <div className="h-px bg-slate-200" />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Button type="button" variant="outline" disabled={step <= 1} onClick={goPrev}>
+        <Button type="button" variant="outline" disabled={isLoadingExam || step <= 1} onClick={goPrev}>
           Back
         </Button>
         <div className="flex items-center gap-2 text-xs text-slate-500">
@@ -809,7 +905,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
           </Link>
         </div>
         {step < 6 ? (
-          <Button type="button" className="bg-[#0D1B35] text-[#E2C98A] hover:bg-[#1E2F55]" onClick={goNext}>
+          <Button type="button" className="bg-[#0D1B35] text-[#E2C98A] hover:bg-[#1E2F55]" onClick={goNext} disabled={isLoadingExam}>
             Continue
           </Button>
         ) : null}

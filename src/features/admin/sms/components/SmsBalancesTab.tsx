@@ -16,6 +16,7 @@ export function SmsBalancesTab({
   smsTransactions,
   balanceState,
   balanceActions,
+  isBranchAdmin = false,
 }: {
   orgBalance: SmsBalance | undefined;
   branches: Branch[];
@@ -23,21 +24,24 @@ export function SmsBalancesTab({
   smsTransactions: Array<{ id: string; quantity: number; status: string; totalAmount: string | number; createdAt: string }>;
   balanceState: SmsBalancesActionsHook['state'];
   balanceActions: SmsBalancesActionsHook['actions'];
+  isBranchAdmin?: boolean;
 }) {
-  const { orgBalanceInput, transfer, purchase, smsPricing, submitting } = balanceState;
+  const { orgBalanceInput, transfer, purchase, pricingForm, smsPricing, submitting } = balanceState;
   const {
     setOrgBalanceInput,
     setTransfer,
     setPurchase,
+    setPricingForm,
     handleBalanceUpdate,
     handleTransfer,
     handlePurchaseSms,
+    handleSavePricing,
   } = balanceActions;
 
   return (
     <div className="grid gap-4 lg:grid-cols-[.9fr_1.1fr]">
       <div className="space-y-4">
-        <Panel title="Central Balance">
+        {!isBranchAdmin && <Panel title="Central Balance">
           <div className="space-y-3">
             <p className="text-3xl font-bold text-emerald-700">{orgBalance?.balanceCount ?? 0}</p>
             <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
@@ -77,10 +81,49 @@ export function SmsBalancesTab({
               </Button>
             </div>
           </div>
-        </Panel>
+        </Panel>}
+        {!isBranchAdmin && (
+          <Panel title="Branch SMS Rate">
+            <div className="space-y-3">
+              <Select value={pricingForm.branchId || 'none'} onValueChange={(value) => setPricingForm((prev) => ({ ...prev, branchId: value === 'none' ? '' : value }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select branch" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Select branch</SelectItem>
+                  {branches.map((branch) => (
+                    <SelectItem key={branch.id} value={branch.id}>
+                      {branch.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="Rate per SMS"
+                  value={pricingForm.pricePerSms}
+                  onChange={(event) => setPricingForm((prev) => ({ ...prev, pricePerSms: event.target.value }))}
+                  className="bg-white"
+                />
+                <Input
+                  type="number"
+                  placeholder="Minimum purchase"
+                  value={pricingForm.minPurchase}
+                  onChange={(event) => setPricingForm((prev) => ({ ...prev, minPurchase: event.target.value }))}
+                  className="bg-white"
+                />
+              </div>
+              <Button type="button" variant="outline" onClick={() => void handleSavePricing()} disabled={submitting}>
+                Save Rate
+              </Button>
+            </div>
+          </Panel>
+        )}
         <Panel title="Purchase SMS">
           <div className="space-y-3">
-            <div className="grid gap-2 sm:grid-cols-2">
+            {!isBranchAdmin && <div className="grid gap-2 sm:grid-cols-2">
               <Select
                 value={purchase.scope}
                 onValueChange={(value) => setPurchase((prev) => ({ ...prev, scope: value, branchId: value === 'ORG' ? '' : prev.branchId }))}
@@ -110,7 +153,7 @@ export function SmsBalancesTab({
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+            </div>}
             <Input
               type="number"
               placeholder={`Quantity, min ${smsPricing.minPurchase}`}
@@ -121,7 +164,7 @@ export function SmsBalancesTab({
             <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
               <p className="text-sm font-semibold">Estimated total</p>
               <p className="mt-1 text-2xl font-bold">৳ {(Number(purchase.quantity || 0) * smsPricing.pricePerSms).toFixed(2)}</p>
-              <p className="text-xs text-slate-500">৳{smsPricing.pricePerSms} per SMS</p>
+              <p className="text-xs text-slate-500">৳{smsPricing.pricePerSms} per SMS · Minimum {smsPricing.minPurchase}</p>
             </div>
             <Button type="button" onClick={() => void handlePurchaseSms()} disabled={submitting}>
               Buy Credits

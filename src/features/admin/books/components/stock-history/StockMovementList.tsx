@@ -14,6 +14,7 @@ export function StockMovementList({
   onLoadMore,
   onRetry,
   onCorrect,
+  canCorrectMovements,
 }: {
   movements: BookStockMovement[];
   loading: boolean;
@@ -23,6 +24,7 @@ export function StockMovementList({
   onLoadMore: () => void;
   onRetry: () => void;
   onCorrect: (movement: BookStockMovement) => void;
+  canCorrectMovements: boolean;
 }) {
   const correctedOriginalIds = new Set(
     movements
@@ -66,7 +68,8 @@ export function StockMovementList({
       {movements.map((movement) => {
         const canCorrect = movement.referenceType !== 'StockMovementCorrection'
           && !correctedOriginalIds.has(movement.id)
-          && Number(movement.correctionCount || 0) === 0;
+          && Number(movement.correctionCount || 0) === 0
+          && canCorrectMovements;
         return (
           <StockMovementCard
             key={movement.id}

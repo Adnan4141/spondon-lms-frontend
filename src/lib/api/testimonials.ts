@@ -2,6 +2,7 @@ import { apiRequest } from '../api';
 
 export interface Testimonial {
   id: string;
+  testimonialType?: 'HOME' | 'COURSE';
   name: string;
   institute?: string | null;
   info?: string | null;
@@ -23,16 +24,23 @@ export interface TestimonialAdmin extends Testimonial {
   createdAt: string;
 }
 
-export async function getPublicTestimonials(): Promise<{ success: boolean; data: Testimonial[] }> {
-  return apiRequest('/testimonials/public');
+export async function getPublicTestimonials(params?: {
+  type?: 'HOME' | 'COURSE';
+}): Promise<{ success: boolean; data: Testimonial[] }> {
+  const q = params?.type ? `?type=${encodeURIComponent(params.type)}` : '';
+  return apiRequest(`/testimonials/public${q}`);
 }
 
 export async function getAllTestimonials(params?: {
   approved?: boolean;
+  type?: 'HOME' | 'COURSE';
 }): Promise<{ success: boolean; data: TestimonialAdmin[] }> {
-  const q =
-    params?.approved === true ? '?approved=true' : params?.approved === false ? '?approved=false' : '';
-  return apiRequest(`/testimonials${q}`);
+  const query = new URLSearchParams();
+  if (params?.approved === true) query.set('approved', 'true');
+  if (params?.approved === false) query.set('approved', 'false');
+  if (params?.type) query.set('type', params.type);
+  const q = query.toString();
+  return apiRequest(`/testimonials${q ? `?${q}` : ''}`);
 }
 
 export async function createTestimonial(data: Partial<TestimonialAdmin>): Promise<{ success: boolean; data: TestimonialAdmin }> {

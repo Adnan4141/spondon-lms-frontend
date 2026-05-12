@@ -27,6 +27,7 @@ export function StockHistoryFilters({
   onFromDateChange,
   onToDateChange,
   onCreate,
+  canCreate,
 }: {
   books: Book[];
   branches: Branch[];
@@ -45,6 +46,7 @@ export function StockHistoryFilters({
   onFromDateChange: (date?: Date) => void;
   onToDateChange: (date?: Date) => void;
   onCreate: () => void;
+  canCreate: boolean;
 }) {
   return (
     <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
@@ -92,7 +94,7 @@ export function StockHistoryFilters({
 
         <DatePicker date={fromDate} setDate={onFromDateChange} placeholder="From date" className="h-10 w-full" />
         <DatePicker date={toDate} setDate={onToDateChange} placeholder="To date" className="h-10 w-full" />
-        <Button className="h-10 rounded-xl" onClick={onCreate}>Record Movement</Button>
+        {canCreate ? <Button className="h-10 rounded-xl" onClick={onCreate}>Record Movement</Button> : null}
       </div>
     </section>
   );

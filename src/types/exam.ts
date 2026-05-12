@@ -271,6 +271,10 @@ export interface ExamStudentView {
   /** Extra linked courses (primary is `courseId` / `course`) — for multi-course exams & leaderboard scope. */
   examCourses?: { courseId: string; course?: { id: string; name: string; slug?: string } }[];
   _count?: { sets: number };
+  completedAttemptCount?: number;
+  canAttempt?: boolean;
+  hasInProgressAttempt?: boolean;
+  latestCompletedAttemptId?: string | null;
 }
 
 export interface CreateExamDto {

@@ -1,13 +1,18 @@
 import { apiRequest } from '../api';
 
 export interface SmsPricing {
+  id?: string;
+  branchId?: string | null;
   pricePerSms: number;
   minPurchase: number;
 }
 
-export const getSmsPricing = () => apiRequest<{ success: boolean; data: SmsPricing }>('/sms-purchase/pricing');
+export const getSmsPricing = (params?: { branchId?: string }) => {
+  const q = params?.branchId ? `?branchId=${encodeURIComponent(params.branchId)}` : '';
+  return apiRequest<{ success: boolean; data: SmsPricing }>(`/sms-purchase/pricing${q}`);
+};
 
-export const setSmsPricing = (data: { pricePerSms: number; minPurchase: number }) =>
+export const setSmsPricing = (data: { branchId?: string; pricePerSms: number; minPurchase: number }) =>
   apiRequest<any>('/sms-purchase/pricing', {
     method: 'POST',
     body: JSON.stringify(data),
