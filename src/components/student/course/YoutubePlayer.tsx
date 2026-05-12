@@ -3,7 +3,7 @@
 
 
 import { useState, useEffect, useRef } from 'react';
-import { Play } from 'lucide-react';
+import { Pause, Play } from 'lucide-react';
 import { toYoutubeNoCookieSrc } from '@/lib/youtube';
 
 // ─── Watermark drift keyframes ─────────────────────────────────────────────
@@ -57,19 +57,57 @@ export function YoutubePlayer({
   onEnded,
 }: YoutubePlayerProps) {
   const [started, setStarted] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [seeking, setSeeking] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  function blockContextMenu(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  function sendPlayerCommand(func: string, args: unknown[] = []) {
+    iframeRef.current?.contentWindow?.postMessage(
+      JSON.stringify({ event: 'command', func, args }),
+      'https://www.youtube-nocookie.com',
+    );
+  }
+
+  function formatTime(seconds: number) {
+    const total = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0;
+    const mins = Math.floor(total / 60);
+    const secs = total % 60;
+    return `${mins}:${String(secs).padStart(2, '0')}`;
+  }
 
   // ── YouTube IFrame API: detect video ended via postMessage ─────────────
   // YouTube sends {event:'infoDelivery', info:{playerState:0}} when video ends.
   // No SDK script tag needed — raw postMessage listener is sufficient.
   useEffect(() => {
-    if (!started || !onEnded) return;
+    if (!started) return;
     function handleMessage(event: MessageEvent) {
       if (!event.origin.includes('youtube')) return;
       try {
         const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-        if (data?.event === 'infoDelivery' && data?.info?.playerState === 0) {
-          onEnded();
+        if (data?.event !== 'infoDelivery') return;
+
+        const state = data?.info?.playerState;
+        if (state === 1) setIsPlaying(true);
+        if (state === 0 || state === 2) setIsPlaying(false);
+        if (state === 0) {
+          onEnded?.();
+        }
+
+        const nextDuration = Number(data?.info?.duration);
+        if (Number.isFinite(nextDuration) && nextDuration > 0) {
+          setDuration(nextDuration);
+        }
+
+        const nextCurrentTime = Number(data?.info?.currentTime);
+        if (!seeking && Number.isFinite(nextCurrentTime) && nextCurrentTime >= 0) {
+          setCurrentTime(nextCurrentTime);
         }
       } catch {
         // Ignore non-JSON messages from other postMessage senders
@@ -77,7 +115,16 @@ export function YoutubePlayer({
     }
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [started, onEnded]);
+  }, [started, onEnded, seeking]);
+
+  useEffect(() => {
+    if (!started) return;
+    const interval = window.setInterval(() => {
+      sendPlayerCommand('getCurrentTime');
+      sendPlayerCommand('getDuration');
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, [started]);
 
   // ── Tab visibility: pause video when student switches tabs ────────────
   // Prevents background audio and discourages passive multi-tab watching.
@@ -85,10 +132,7 @@ export function YoutubePlayer({
     if (!started) return;
     function handleVisibilityChange() {
       if (document.hidden) {
-        iframeRef.current?.contentWindow?.postMessage(
-          JSON.stringify({ event: 'command', func: 'pauseVideo', args: '' }),
-          'https://www.youtube-nocookie.com',
-        );
+        sendPlayerCommand('pauseVideo');
       }
     }
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -119,14 +163,18 @@ export function YoutubePlayer({
       */}
       <div
         className="relative w-full h-full overflow-hidden bg-slate-900"
-        onContextMenu={(e) => e.preventDefault()}
+        onContextMenu={blockContextMenu}
+        onContextMenuCapture={blockContextMenu}
       >
         {!started ? (
           /* ── Pre-play overlay ─────────────────────────────────────────── */
           <button
             type="button"
             aria-label={`পাঠ শুরু করুন: ${courseTitle}`}
-            onClick={() => setStarted(true)}
+            onClick={() => {
+              setStarted(true);
+              setIsPlaying(true);
+            }}
             className={[
               'group absolute inset-0 w-full h-full',
               'flex flex-col items-center justify-center',
@@ -180,10 +228,55 @@ export function YoutubePlayer({
               title={courseTitle}
               src={src}
               className="absolute inset-0 w-full h-full border-0"
+              onContextMenu={blockContextMenu}
+              onContextMenuCapture={blockContextMenu}
               allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
               sandbox="allow-scripts allow-same-origin allow-presentation"
               referrerPolicy="strict-origin-when-cross-origin"
             />
+
+            <div className="absolute inset-x-0 bottom-0 z-30 bg-linear-to-t from-slate-950/90 via-slate-900/45 to-transparent px-3 pb-3 pt-10">
+              <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-slate-950/65 px-3 py-2 backdrop-blur-sm">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isPlaying) {
+                      sendPlayerCommand('pauseVideo');
+                      setIsPlaying(false);
+                    } else {
+                      sendPlayerCommand('playVideo');
+                      setIsPlaying(true);
+                    }
+                  }}
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 text-white transition hover:bg-indigo-500"
+                  aria-label={isPlaying ? 'Pause video' : 'Play video'}
+                >
+                  {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 translate-x-px" fill="currentColor" />}
+                </button>
+
+                <div className="flex min-w-0 flex-1 items-center gap-2 text-xs font-semibold text-slate-200">
+                  <span className="tabular-nums">{formatTime(currentTime)}</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={Math.max(duration, 1)}
+                    step={0.1}
+                    value={Math.min(currentTime, Math.max(duration, 1))}
+                    onChange={(e) => {
+                      const next = Number(e.target.value);
+                      setSeeking(true);
+                      setCurrentTime(next);
+                      sendPlayerCommand('seekTo', [next, true]);
+                    }}
+                    onMouseUp={() => setSeeking(false)}
+                    onTouchEnd={() => setSeeking(false)}
+                    className="h-1 w-full cursor-pointer accent-indigo-500"
+                    aria-label="Seek video"
+                  />
+                  <span className="tabular-nums">{formatTime(duration)}</span>
+                </div>
+              </div>
+            </div>
 
             {/*
               Drifting watermark — SOCIAL DETERRENT ONLY.

@@ -64,7 +64,7 @@ export function normalizeYoutubeWatchUrl(input: string): string | null {
  * Uses youtube-nocookie.com to avoid setting third-party cookies before consent.
  * Parameters used:
  *   rel=0            — suppress related videos from other channels
- *   controls=1       — keep native player controls (removing them breaks accessibility)
+ *   controls=0       — hide native controls/overlay actions (including share-link UI)
  *   iv_load_policy=3 — hide video annotations
  *   playsinline=1    — prevent iOS full-screen auto-takeover
  *   disablekb=1      — disable keyboard shortcuts (reduces distraction, not DRM)
@@ -82,7 +82,7 @@ export function toYoutubeNoCookieSrc(videoId: string, autoplay = false): string 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const params = new URLSearchParams({
     rel: '0',
-    controls: '1',
+    controls: '0',
     iv_load_policy: '3',
     playsinline: '1',
     disablekb: '1',
