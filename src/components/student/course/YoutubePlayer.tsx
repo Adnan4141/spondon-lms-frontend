@@ -65,12 +65,40 @@ export function YoutubePlayer({
   const [duration, setDuration] = useState(0);
   const [seeking, setSeeking] = useState(false);
   const [dragTime, setDragTime] = useState<number | null>(null);
+  const [controlsVisible, setControlsVisible] = useState(true);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const hideControlsTimerRef = useRef<number | null>(null);
+  const hoveringControlsRef = useRef(false);
+  const seekingRef = useRef(false);
 
   function blockContextMenu(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
   }
+
+  const clearHideControlsTimer = useCallback(() => {
+    if (hideControlsTimerRef.current != null) {
+      window.clearTimeout(hideControlsTimerRef.current);
+      hideControlsTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleHideControls = useCallback(() => {
+    clearHideControlsTimer();
+    if (!started) return;
+    hideControlsTimerRef.current = window.setTimeout(() => {
+      if (!hoveringControlsRef.current && !seekingRef.current) {
+        setControlsVisible(false);
+      }
+    }, 3000);
+  }, [clearHideControlsTimer, started]);
+
+  const revealControls = useCallback(() => {
+    setControlsVisible(true);
+    if (!hoveringControlsRef.current && !seekingRef.current) {
+      scheduleHideControls();
+    }
+  }, [scheduleHideControls]);
 
   const sendPlayerCommand = useCallback((func: string, args: unknown[] = []) => {
     if (!started) return;
@@ -116,6 +144,15 @@ export function YoutubePlayer({
     setPlaybackRate(nextRate);
     sendPlayerCommand('setPlaybackRate', [nextRate]);
   }
+
+  useEffect(() => {
+    if (!started) return;
+    scheduleHideControls();
+  }, [started, scheduleHideControls]);
+
+  useEffect(() => {
+    return () => clearHideControlsTimer();
+  }, [clearHideControlsTimer]);
 
   // ── YouTube IFrame API: detect video ended via postMessage ─────────────
   // YouTube sends {event:'infoDelivery', info:{playerState:0}} when video ends.
@@ -207,6 +244,14 @@ export function YoutubePlayer({
         className="relative w-full h-full overflow-hidden bg-slate-900"
         onContextMenu={blockContextMenu}
         onContextMenuCapture={blockContextMenu}
+        onMouseMove={() => {
+          if (!started) return;
+          revealControls();
+        }}
+        onTouchStart={() => {
+          if (!started) return;
+          revealControls();
+        }}
       >
         {!started ? (
           /* ── Pre-play overlay ─────────────────────────────────────────── */
@@ -281,7 +326,21 @@ export function YoutubePlayer({
             />
 
             <div className="absolute inset-x-0 bottom-0 z-30 bg-linear-to-t from-slate-950/90 via-slate-900/45 to-transparent px-3 pb-3 pt-10">
-              <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-slate-950/65 px-3 py-2 backdrop-blur-sm">
+              <div
+                className={[
+                  'flex items-center gap-3 rounded-xl border border-white/10 bg-slate-950/65 px-3 py-2 backdrop-blur-sm transition-opacity duration-300',
+                  controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0',
+                ].join(' ')}
+                onMouseEnter={() => {
+                  hoveringControlsRef.current = true;
+                  setControlsVisible(true);
+                  clearHideControlsTimer();
+                }}
+                onMouseLeave={() => {
+                  hoveringControlsRef.current = false;
+                  scheduleHideControls();
+                }}
+              >
                 <button
                   type="button"
                   onClick={() => {
@@ -292,6 +351,7 @@ export function YoutubePlayer({
                       sendPlayerCommand('playVideo');
                       setIsPlaying(true);
                     }
+                    revealControls();
                   }}
                   className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 text-white transition hover:bg-indigo-500"
                   aria-label={isPlaying ? 'Pause video' : 'Play video'}
@@ -301,7 +361,10 @@ export function YoutubePlayer({
 
                 <button
                   type="button"
-                  onClick={() => seekBy(-10)}
+                  onClick={() => {
+                    seekBy(-10);
+                    revealControls();
+                  }}
                   className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-slate-900/70 text-slate-100 transition hover:bg-slate-800"
                   aria-label="Rewind 10 seconds"
                 >
@@ -310,7 +373,10 @@ export function YoutubePlayer({
 
                 <button
                   type="button"
-                  onClick={() => seekBy(10)}
+                  onClick={() => {
+                    seekBy(10);
+                    revealControls();
+                  }}
                   className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-slate-900/70 text-slate-100 transition hover:bg-slate-800"
                   aria-label="Forward 10 seconds"
                 >
@@ -319,7 +385,10 @@ export function YoutubePlayer({
 
                 <button
                   type="button"
-                  onClick={() => seekTo(0)}
+                  onClick={() => {
+                    seekTo(0);
+                    revealControls();
+                  }}
                   className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-slate-900/70 text-slate-100 transition hover:bg-slate-800"
                   aria-label="Restart video"
                 >
@@ -336,6 +405,7 @@ export function YoutubePlayer({
                       sendPlayerCommand('mute');
                       setIsMuted(true);
                     }
+                    revealControls();
                   }}
                   className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-slate-900/70 text-slate-100 transition hover:bg-slate-800"
                   aria-label={isMuted ? 'Unmute video' : 'Mute video'}
@@ -345,7 +415,10 @@ export function YoutubePlayer({
 
                 <button
                   type="button"
-                  onClick={cyclePlaybackRate}
+                  onClick={() => {
+                    cyclePlaybackRate();
+                    revealControls();
+                  }}
                   className="h-9 min-w-12 rounded-full border border-white/15 bg-slate-900/70 px-2 text-xs font-bold text-slate-100 transition hover:bg-slate-800"
                   aria-label="Change playback speed"
                 >
@@ -363,7 +436,10 @@ export function YoutubePlayer({
                     onChange={(e) => {
                       const next = Number(e.target.value);
                       setSeeking(true);
+                      seekingRef.current = true;
                       setDragTime(next);
+                      setControlsVisible(true);
+                      clearHideControlsTimer();
                     }}
                     onMouseUp={() => {
                       if (dragTime != null) {
@@ -371,6 +447,8 @@ export function YoutubePlayer({
                       }
                       setDragTime(null);
                       setSeeking(false);
+                      seekingRef.current = false;
+                      revealControls();
                     }}
                     onTouchEnd={() => {
                       if (dragTime != null) {
@@ -378,6 +456,8 @@ export function YoutubePlayer({
                       }
                       setDragTime(null);
                       setSeeking(false);
+                      seekingRef.current = false;
+                      revealControls();
                     }}
                     onBlur={() => {
                       if (dragTime != null) {
@@ -385,6 +465,8 @@ export function YoutubePlayer({
                       }
                       setDragTime(null);
                       setSeeking(false);
+                      seekingRef.current = false;
+                      revealControls();
                     }}
                     className="h-1 w-full cursor-pointer accent-indigo-500"
                     aria-label="Seek video"
