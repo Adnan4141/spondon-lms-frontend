@@ -29,6 +29,7 @@ import {
   linkExamCourse,
   unlinkExamCourse,
   validateExamSubjects,
+  validateSectionGeneration,
   type ExamSection,
 } from '@/lib/api/exams';
 import type { Course } from '@/types/course';
@@ -69,7 +70,15 @@ import { Step5ResultVisibility } from './wizard/steps/Step5ResultVisibility';
 import { Step6PreviewPublish } from './wizard/steps/Step6PreviewPublish';
 
 function readUiCategory(value: unknown): UiExamCategory | '' {
-  if (value === 'MCQ' || value === 'CQ' || value === 'MCQCQ' || value === 'MULTI' || value === 'OMR' || value === 'OMRB') {
+  if (
+    value === 'MCQ' ||
+    value === 'CQ' ||
+    value === 'MCQCQ' ||
+    value === 'MULTI' ||
+    value === 'OMR' ||
+    value === 'OMRB' ||
+    value === 'OFFLINE_RESULT'
+  ) {
     return value;
   }
   return '';
@@ -91,7 +100,7 @@ function buildWizardPatchFromExam(exam: Exam): Partial<ExamWizardState> {
     branchId: exam.branchId ?? EXAM_WIZARD_ALL_BRANCHES,
     language: exam.language ?? 'bn',
     durationMinutes: String(exam.durationMinutes ?? 60),
-    deliveryMode: exam.mode === 'ONLINE' ? 'ONLINE' : 'OFFLINE',
+    deliveryMode: exam.mode === 'OFFLINE' ? 'OFFLINE' : 'ONLINE',
     syllabusHtml: exam.syllabusHtml ?? '',
     autoSubmitOnDisconnect: Boolean(exam.autoSubmitOnDisconnect),
     disconnectGraceSeconds: String(exam.disconnectGraceSeconds ?? 10),
@@ -106,8 +115,12 @@ function buildWizardPatchFromExam(exam: Exam): Partial<ExamWizardState> {
     setNaming: (wizard?.setNaming as ExamWizardState['setNaming']) ?? 'ALPHA',
     instituteLabel: typeof wizard?.instituteLabel === 'string' ? wizard.instituteLabel : '',
     paperCode: typeof wizard?.paperCode === 'string' ? wizard.paperCode : '',
-    resultModes: Array.isArray(wizard?.resultModes) ? (wizard.resultModes as string[]) : ['AUTO'],
-    uiCategory: readUiCategory(wizard?.uiCategory),
+    resultModes: Array.isArray(wizard?.resultModes)
+      ? (wizard.resultModes as string[])
+      : Array.isArray((exam.settings?.examWorkflow as Record<string, unknown> | undefined)?.resultInputModes)
+        ? ((exam.settings?.examWorkflow as Record<string, unknown>).resultInputModes as string[])
+        : ['AUTO'],
+    uiCategory: readUiCategory(wizard?.uiCategory || (exam.settings?.examWorkflow as Record<string, unknown> | undefined)?.method),
   };
 }
 
@@ -369,7 +382,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
         branchId: branchResolved,
         title: state.title.trim(),
         type: mapUiCategoryToExamType(state.uiCategory as UiExamCategory),
-        mode: mapDeliveryToExamMode(state.deliveryMode),
+        mode: mapDeliveryToExamMode(state.deliveryMode, state.uiCategory),
         examEngine: state.uiCategory === 'MULTI' ? 'MULTI_SUBJECT' : undefined,
         durationMinutes: Number(state.durationMinutes) || 60,
         language: state.language,
@@ -392,7 +405,22 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
             resultModes: state.resultModes,
             showSolve: state.showSolve,
           },
+          examWorkflow: {
+            method: state.uiCategory,
+            submissionOwner: state.uiCategory === 'CQ' || state.uiCategory === 'MCQCQ' ? 'STUDENT' : undefined,
+            writtenSubmission: state.uiCategory === 'CQ' || state.uiCategory === 'MCQCQ' ? 'CAMERA_OR_PDF' : undefined,
+            resultInputModes:
+              state.uiCategory === 'OFFLINE_RESULT'
+                ? ['SINGLE_MANUAL', 'BULK_MANUAL', 'BULK_EXCEL']
+                : state.resultModes,
+            enableQrAnswerSheet: state.uiCategory === 'CQ' || state.uiCategory === 'MCQCQ',
+            enablePdfCombine: state.uiCategory === 'CQ' || state.uiCategory === 'MCQCQ',
+          },
         },
+        resultInputModes:
+          state.uiCategory === 'OFFLINE_RESULT'
+            ? (['SINGLE_MANUAL', 'BULK_MANUAL', 'BULK_EXCEL'] as CreateExamDto['resultInputModes'])
+            : [],
       };
       try {
         let id = examId;
@@ -517,13 +545,13 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
               const union = [...new Set(s.folderRules.map((r) => r.folderId))];
               const mergedEx = [...new Set(s.folderRules.flatMap((r) => r.excludedQuestionIds))];
               const mergedPin = s.folderRules.flatMap((r) => r.pinnedQuestionIds);
-              const mode =
+              const mode: FolderRuleDraft['selectionMode'] =
                 mergedPin.length || s.folderRules.some((r) => r.selectionMode === 'MANUAL_PICK')
                   ? 'MANUAL_PICK'
                   : s.folderRules.every((r) => r.selectionMode === 'ALL_FROM_FOLDER')
                     ? 'ALL_FROM_FOLDER'
                     : 'RANDOM_COUNT';
-              await generateSectionSets(id, created.data.id, {
+              const generationPayload = {
                 folderIds: union,
                 setCount: Number(state.nSets) || 1,
                 shuffleQuestions: state.shuffle !== 'ORDER',
@@ -536,7 +564,29 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
                 excludedQuestionIds: mergedEx,
                 pinnedQuestionIds: mergedPin,
                 selectionMode: mode,
-              });
+              };
+              const preflight = await validateSectionGeneration(id, created.data.id, generationPayload);
+              if (!preflight.success) {
+                toast({
+                  title: 'Question allocation gap',
+                  description:
+                    preflight.data?.suggestions?.[0] ??
+                    preflight.message ??
+                    preflight.error ??
+                    'Check folder allocation and question type availability.',
+                  variant: 'destructive',
+                });
+                return null;
+              }
+              const generated = await generateSectionSets(id, created.data.id, generationPayload);
+              if (!generated.success) {
+                toast({
+                  title: 'Generate failed',
+                  description: generated.message ?? generated.error ?? 'Could not generate this section.',
+                  variant: 'destructive',
+                });
+                return null;
+              }
             }
           }
         }
@@ -667,9 +717,12 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
         } catch {
           /* ignore */
         }
-        router.push(`/admin/exam/${id}`);
+        router.push(`/admin/exam/${id}?step=6`);
       } else if (id && examId) {
         await refreshServerExam();
+        if (step !== 6) {
+          router.replace(`${pathname}?step=6`, { scroll: false });
+        }
       }
     } finally {
       saveInFlightRef.current = false;
@@ -679,6 +732,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
 
   const goFinalize = async () => {
     if (saveInFlightRef.current) return;
+    if (!validateBeforeFinalize()) return;
     saveInFlightRef.current = true;
     setSaveAction('finalize');
     try {
@@ -691,7 +745,14 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
             /* ignore */
           }
         }
-        router.push(`/admin/exam/${id}/details`);
+        if (!examId) {
+          router.push(`/admin/exam/${id}?step=6`);
+        } else {
+          await refreshServerExam();
+          if (step !== 6) {
+            router.replace(`${pathname}?step=6`, { scroll: false });
+          }
+        }
       }
     } finally {
       saveInFlightRef.current = false;
@@ -708,6 +769,34 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
     dispatch({ type: 'APPLY_CATEGORY', category: id });
   };
 
+  const showStep3 = state.uiCategory !== 'OMRB' && state.uiCategory !== 'OFFLINE_RESULT';
+  const visibleSteps = useMemo(
+    () => WIZARD_STEPS.map((label, i) => ({ label, stepNumber: i + 1 })).filter((item) => item.stepNumber !== 3 || showStep3),
+    [showStep3],
+  );
+
+  const normalizeStepNumber = useCallback(
+    (targetStep: number) => {
+      if (!showStep3 && targetStep === 3) return 4;
+      return targetStep;
+    },
+    [showStep3],
+  );
+
+  const currentVisibleStepIndex = Math.max(
+    0,
+    visibleSteps.findIndex((item) => item.stepNumber === normalizeStepNumber(step)),
+  );
+
+  const goToStep = useCallback(
+    (targetStep: number) => {
+      if (isLoadingExam) return;
+      const normalized = normalizeStepNumber(targetStep);
+      router.push(`${pathname}?step=${normalized}`, { scroll: false });
+    },
+    [isLoadingExam, normalizeStepNumber, pathname, router],
+  );
+
   const goNext = () => {
     const v = validateStep(state, step);
     if (!v.ok) {
@@ -720,14 +809,23 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
       return;
     }
     if (step === 1) setStep1FieldErrors({});
-    if (step >= 6) return;
-    router.push(`${pathname}?step=${step + 1}`, { scroll: false });
+    const nextVisible = visibleSteps[currentVisibleStepIndex + 1];
+    if (!nextVisible) return;
+    goToStep(nextVisible.stepNumber);
   };
 
   const goPrev = () => {
-    if (step <= 1) return;
-    router.push(`${pathname}?step=${step - 1}`, { scroll: false });
+    const prevVisible = visibleSteps[currentVisibleStepIndex - 1];
+    if (!prevVisible) return;
+    goToStep(prevVisible.stepNumber);
   };
+
+  useEffect(() => {
+    const normalized = normalizeStepNumber(step);
+    if (normalized !== step) {
+      router.replace(`${pathname}?step=${normalized}`, { scroll: false });
+    }
+  }, [normalizeStepNumber, pathname, router, step]);
 
   const openDeleteExamWizard = () => {
     if (!examId) return;
@@ -773,7 +871,6 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
     });
   };
 
-  const showStep3 = state.uiCategory !== 'OMRB';
   const pickerSubject = picker && state.uiCategory === 'MULTI'
     ? state.subjects.find((x) => x.localId === picker.sectionLocalId)
     : null;
@@ -783,6 +880,23 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
       : pickerSubject && pickerSubject.cqCount > 0
         ? 'CQ'
         : 'SHORT';
+
+  const validateBeforeFinalize = () => {
+    for (const item of visibleSteps) {
+      if (item.stepNumber >= 6) continue;
+      const validation = validateStep(state, item.stepNumber);
+      if (validation.ok) continue;
+      if (item.stepNumber === 1 && validation.step1Fields) setStep1FieldErrors(validation.step1Fields);
+      toast({
+        title: 'Complete required fields',
+        description: validation.summary ?? `Complete ${item.label} before finalizing.`,
+        variant: 'destructive',
+      });
+      goToStep(item.stepNumber);
+      return false;
+    }
+    return true;
+  };
 
   return (
     <div className="min-h-0 flex-1 space-y-4 pb-8">
@@ -800,40 +914,42 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
           </Button>
         </div>
       ) : null}
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
-        {WIZARD_STEPS.map((label, i) => {
-          const n = i + 1;
-          const active = n === step;
-          const done = n < step;
-          return (
-            <button
-              key={label}
-              type="button"
-              disabled={n > step}
-              onClick={() => {
-                if (n < step) router.push(`${pathname}?step=${n}`, { scroll: false });
-              }}
-              className={cn(
-                'flex min-w-0 flex-1 items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold transition-colors sm:text-[13px]',
-                active && 'border-b-2 border-[#C8A96E] bg-[#FBF4E6] text-[#0D1B35]',
-                done && 'cursor-pointer text-emerald-700 hover:bg-emerald-50',
-                !active && !done && 'text-slate-400',
-              )}
-            >
-              <span
+      <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+        <div className="px-2 text-[11px] font-semibold text-slate-500">Click any step to jump and edit directly.</div>
+        <div className="flex flex-wrap items-center gap-2">
+          {visibleSteps.map(({ label, stepNumber: n }, i) => {
+            const active = n === normalizeStepNumber(step);
+            const done = i < currentVisibleStepIndex;
+            const valid = validateStep(state, n).ok;
+            return (
+              <button
+                key={label}
+                type="button"
+                onClick={() => goToStep(n)}
                 className={cn(
-                  'flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold',
-                  active && 'bg-[#C8A96E] text-[#0D1B35]',
-                  done && 'bg-emerald-600 text-white',
-                  !active && !done && 'bg-slate-100 text-slate-500',
+                  'flex min-w-0 flex-1 items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs font-semibold transition-colors sm:text-[13px]',
+                  active && 'border-b-2 border-[#C8A96E] bg-[#FBF4E6] text-[#0D1B35]',
+                  done && 'cursor-pointer border-emerald-200 text-emerald-700 hover:bg-emerald-50',
+                  !active && !done && valid && 'border-slate-200 text-slate-600 hover:border-[#C8A96E] hover:bg-[#FBF4E6]/60',
+                  !active && !done && !valid && 'border-dashed border-slate-300 text-slate-500 hover:border-slate-400 hover:bg-slate-50',
                 )}
               >
-                {done ? '✓' : n}
-              </span>
-              <span className="truncate">{label}</span>
-            </button>
-          );
-        })}
+                <span
+                  className={cn(
+                    'flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold',
+                    active && 'bg-[#C8A96E] text-[#0D1B35]',
+                    done && 'bg-emerald-600 text-white',
+                    !active && !done && valid && 'bg-slate-100 text-slate-600',
+                    !active && !done && !valid && 'bg-slate-50 text-slate-500',
+                  )}
+                >
+                  {done ? '✓' : n}
+                </span>
+                <span className="truncate">{label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {isLoadingExam ? (
@@ -894,17 +1010,17 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
       <div className="h-px bg-slate-200" />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Button type="button" variant="outline" disabled={isLoadingExam || step <= 1} onClick={goPrev}>
+        <Button type="button" variant="outline" disabled={isLoadingExam || currentVisibleStepIndex <= 0} onClick={goPrev}>
           Back
         </Button>
         <div className="flex items-center gap-2 text-xs text-slate-500">
-          Step {step} / 6
+          Step {currentVisibleStepIndex + 1} / {visibleSteps.length}
           <ChevronRight className="h-3 w-3" />
           <Link href="/admin/exam" className="font-medium text-[#0D1B35] underline-offset-2 hover:underline">
             All exams
           </Link>
         </div>
-        {step < 6 ? (
+        {currentVisibleStepIndex < visibleSteps.length - 1 ? (
           <Button type="button" className="bg-[#0D1B35] text-[#E2C98A] hover:bg-[#1E2F55]" onClick={goNext} disabled={isLoadingExam}>
             Continue
           </Button>

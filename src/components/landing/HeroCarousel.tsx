@@ -107,7 +107,8 @@ export const HeroCarousel: React.FC<Props> = ({ slides }) => {
                   alt={slide.title}
                   fill
                   sizes="100vw"
-                  className=" md:object-cover bg-cover object-center"
+                  
+                  className="object-cover object-center"
                   priority={index === 0}
                 />
               </div>

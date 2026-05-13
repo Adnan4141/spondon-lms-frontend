@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Timer,
   ChevronLeft,
@@ -10,31 +10,105 @@ import {
   CheckCircle2,
   Flag,
   Loader2,
+  Upload,
+  FileText,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import type { AttemptResultResponse, ExamSectionBlock, StartAttemptResponse } from '@/types/exam';
-import { saveExamAnswers, saveExamAnswer, sendExamHeartbeat, submitExamAttempt, getAttemptResult } from '@/lib/api/exams';
+import type { AttemptResultResponse, StartAttemptResponse, WrittenSubmissionPage } from '@/types/exam';
+import {
+  saveExamAnswers,
+  saveExamAnswer,
+  sendExamHeartbeat,
+  submitExamAttempt,
+  getAttemptResult,
+  uploadWrittenSubmission,
+  reorderWrittenSubmission,
+  finalizeWrittenSubmissionPdf,
+  getExamPdfDownloadUrl,
+} from '@/lib/api/exams';
 import { detectQuestionLang, getExamUiStrings, getOptionLabel, type Lang } from './examUiCopy';
 
 type AnswerPayload = Record<string, unknown>;
+type AttemptQuestion = StartAttemptResponse['questions'][number];
+type ExamDisplayItem =
+  | { kind: 'single'; id: string; firstQuestionIndex: number; questions: [AttemptQuestion] }
+  | { kind: 'passage'; id: string; firstQuestionIndex: number; questions: AttemptQuestion[] };
+type ExamDisplaySection = { key: string; label: string; displayIndices: number[]; questionCount: number };
+type HybridTabKey = 'mcq' | 'written';
+type DisplayItemNavMeta = {
+  label: string;
+  itemPosition: number;
+  passagePosition?: number;
+  singlePosition?: number;
+};
+type DisplayTabLayout = {
+  key: HybridTabKey;
+  label: string;
+  displayIndices: number[];
+  displayIndexSet: Set<number>;
+  itemCount: number;
+  questionCount: number;
+  passageCount: number;
+  navMetaByDisplayIndex: Map<number, DisplayItemNavMeta>;
+  questionNumberByItemId: Map<string, number>;
+};
+type DisplayTabSummary = { answeredCount: number; flaggedCount: number };
 
-function inferSections(questions: StartAttemptResponse['questions']): ExamSectionBlock[] {
-  const sections: ExamSectionBlock[] = [];
-  let lastKey: string | null = null;
-  questions.forEach((q, i) => {
-    const key =
-      (q.sectionKey && String(q.sectionKey)) ||
-      (q.question?.type === 'MCQ' ? 'MCQ' : q.question?.type === 'SHORT' ? 'SHORT' : 'CQ');
-    if (sections.length === 0 || key !== lastKey) {
-      sections.push({ key, label: key, questionIndices: [i] });
-      lastKey = key;
-    } else {
-      sections[sections.length - 1].questionIndices.push(i);
-    }
-  });
-  return sections;
+function formatSectionLabel(rawKey: string | null | undefined, questionType?: string | null): string {
+  const normalizedKey = String(rawKey || '').trim().toLowerCase();
+  if (normalizedKey === 'mcq') return 'MCQ';
+  if (normalizedKey === 'cq' || normalizedKey === 'short' || normalizedKey === 'written') return 'Written';
+  if (normalizedKey) {
+    return normalizedKey
+      .split(/[-_\s]+/)
+      .filter(Boolean)
+      .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+      .join(' ');
+  }
+  if (questionType === 'MCQ') return 'MCQ';
+  return 'Written';
+}
+
+async function compressImageFile(file: File): Promise<File> {
+  if (!file.type.startsWith('image/') || typeof window === 'undefined') return file;
+  const imageUrl = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const node = new Image();
+      node.onload = () => resolve(node);
+      node.onerror = reject;
+      node.src = imageUrl;
+    });
+    const maxSide = 1600;
+    const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(img.width * scale));
+    canvas.height = Math.max(1, Math.round(img.height * scale));
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return file;
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.76));
+    if (!blob || blob.size >= file.size) return file;
+    return new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' });
+  } catch {
+    return file;
+  } finally {
+    URL.revokeObjectURL(imageUrl);
+  }
+}
+
+function writtenPages(answer?: AnswerPayload): WrittenSubmissionPage[] {
+  const meta = answer?.writtenSubmission as { pages?: WrittenSubmissionPage[] } | undefined;
+  return Array.isArray(meta?.pages) ? meta.pages : [];
+}
+
+function writtenFinalPdf(answer?: AnswerPayload): string | null {
+  const meta = answer?.writtenSubmission as { finalPdfUrl?: string | null } | undefined;
+  return meta?.finalPdfUrl ?? null;
 }
 
 function inferExamFlow(questions: StartAttemptResponse['questions']): 'MCQ_ONLY' | 'WRITTEN_ONLY' | 'MIXED' {
@@ -44,6 +118,529 @@ function inferExamFlow(questions: StartAttemptResponse['questions']): 'MCQ_ONLY'
   if (hasMcq && hasWritten) return 'MIXED';
   if (hasMcq) return 'MCQ_ONLY';
   return 'WRITTEN_ONLY';
+}
+
+function buildDisplayItems(questions: AttemptQuestion[]): ExamDisplayItem[] {
+  const items: ExamDisplayItem[] = [];
+  const passageItemById = new Map<string, Extract<ExamDisplayItem, { kind: 'passage' }>>();
+  questions.forEach((q, index) => {
+    const passage = q.question?.type === 'MCQ' ? q.question?.passage : null;
+    if (!passage?.id) {
+      items.push({ kind: 'single', id: q.id, firstQuestionIndex: index, questions: [q] });
+      return;
+    }
+    const existingPassageItem = passageItemById.get(passage.id);
+    if (existingPassageItem) {
+      existingPassageItem.questions.push(q);
+      return;
+    }
+    const item: Extract<ExamDisplayItem, { kind: 'passage' }> = {
+      kind: 'passage',
+      id: `passage-${passage.id}`,
+      firstQuestionIndex: index,
+      questions: [q],
+    };
+    passageItemById.set(passage.id, item);
+    items.push(item);
+  });
+  return items;
+}
+
+function sectionIdentityForQuestion(q: AttemptQuestion): { key: string; label: string } {
+  const rawKey =
+    (q.sectionKey && String(q.sectionKey)) ||
+    (q.question?.type === 'MCQ' ? 'mcq' : 'written');
+  return {
+    key: rawKey,
+    label: formatSectionLabel(rawKey, q.question?.type ?? null),
+  };
+}
+
+function buildDisplaySections(
+  items: ExamDisplayItem[],
+  questions: AttemptQuestion[],
+  sourceSections?: StartAttemptResponse['sections'],
+): ExamDisplaySection[] {
+  const questionIndexById = new Map(questions.map((question, index) => [question.id, index]));
+  const displayIndexByQuestionIndex = new Map<number, number>();
+
+  items.forEach((item, displayIndex) => {
+    item.questions.forEach((question) => {
+      const questionIndex = questionIndexById.get(question.id);
+      if (questionIndex != null) {
+        displayIndexByQuestionIndex.set(questionIndex, displayIndex);
+      }
+    });
+  });
+
+  if (sourceSections?.length) {
+    const derived = sourceSections
+      .map((section) => {
+        const displayIndices = Array.from(
+          new Set(
+            section.questionIndices
+              .map((questionIndex) => displayIndexByQuestionIndex.get(questionIndex))
+              .filter((displayIndex): displayIndex is number => displayIndex != null),
+          ),
+        );
+        if (!displayIndices.length) return null;
+        const firstQuestionIndex = section.questionIndices.find((questionIndex) =>
+          displayIndexByQuestionIndex.has(questionIndex),
+        );
+        const firstQuestion =
+          firstQuestionIndex != null && firstQuestionIndex >= 0 ? questions[firstQuestionIndex] : undefined;
+        return {
+          key: String(section.key || firstQuestion?.sectionKey || firstQuestion?.question?.type || 'written'),
+          label: formatSectionLabel(section.label || section.key, firstQuestion?.question?.type ?? null),
+          displayIndices,
+          questionCount: section.questionIndices.length,
+        } satisfies ExamDisplaySection;
+      })
+      .filter(Boolean) as ExamDisplaySection[];
+    if (derived.length) return derived;
+  }
+
+  const sections: ExamDisplaySection[] = [];
+  items.forEach((item, displayIndex) => {
+    const firstQuestion = item.questions[0];
+    if (!firstQuestion) return;
+    const { key, label } = sectionIdentityForQuestion(firstQuestion);
+    const lastSection = sections[sections.length - 1];
+    if (lastSection && lastSection.key === key) {
+      lastSection.displayIndices.push(displayIndex);
+      lastSection.questionCount += item.questions.length;
+      return;
+    }
+    sections.push({
+      key,
+      label,
+      displayIndices: [displayIndex],
+      questionCount: item.questions.length,
+    });
+  });
+
+  return sections;
+}
+
+function displayItemTabKey(item: ExamDisplayItem): HybridTabKey {
+  const firstQuestion = item.questions[0];
+  return firstQuestion?.question?.type === 'MCQ' ? 'mcq' : 'written';
+}
+
+function createDisplayTabLayout(key: HybridTabKey): DisplayTabLayout {
+  return {
+    key,
+    label: key === 'mcq' ? 'MCQ' : 'Written',
+    displayIndices: [],
+    displayIndexSet: new Set<number>(),
+    itemCount: 0,
+    questionCount: 0,
+    passageCount: 0,
+    navMetaByDisplayIndex: new Map<number, DisplayItemNavMeta>(),
+    questionNumberByItemId: new Map<string, number>(),
+  };
+}
+
+function buildDisplayTabLayouts(items: ExamDisplayItem[]): Record<HybridTabKey, DisplayTabLayout> {
+  const layouts: Record<HybridTabKey, DisplayTabLayout> = {
+    mcq: createDisplayTabLayout('mcq'),
+    written: createDisplayTabLayout('written'),
+  };
+  const singleCounters: Record<HybridTabKey, number> = { mcq: 0, written: 0 };
+
+  items.forEach((item, displayIndex) => {
+    const tabKey = displayItemTabKey(item);
+    const layout = layouts[tabKey];
+    layout.displayIndices.push(displayIndex);
+    layout.displayIndexSet.add(displayIndex);
+    layout.itemCount += 1;
+
+    item.questions.forEach((question) => {
+      const nextNumber = layout.questionNumberByItemId.size + 1;
+      layout.questionNumberByItemId.set(question.id, nextNumber);
+      layout.questionCount += 1;
+    });
+
+    if (item.kind === 'passage') {
+      layout.passageCount += 1;
+      layout.navMetaByDisplayIndex.set(displayIndex, {
+        label: `P${layout.passageCount} (${item.questions.length})`,
+        itemPosition: layout.itemCount,
+        passagePosition: layout.passageCount,
+      });
+      return;
+    }
+
+    singleCounters[tabKey] += 1;
+    layout.navMetaByDisplayIndex.set(displayIndex, {
+      label: String(singleCounters[tabKey]),
+      itemPosition: layout.itemCount,
+      singlePosition: singleCounters[tabKey],
+    });
+  });
+
+  return layouts;
+}
+
+function isQuestionAnswered(q: AttemptQuestion, answers: Record<string, AnswerPayload>): boolean {
+  const answer = answers[q.questionId];
+  if (!answer) return false;
+  if (answer.selectedOptionId) return true;
+  if (typeof answer.text === 'string' && answer.text.trim()) return true;
+  if (writtenPages(answer).length > 0) return true;
+  return false;
+}
+
+function displayItemAnswered(item: ExamDisplayItem, answers: Record<string, AnswerPayload>): boolean {
+  return item.questions.every((q) => isQuestionAnswered(q, answers));
+}
+
+function displayItemFlagged(item: ExamDisplayItem, answers: Record<string, AnswerPayload>): boolean {
+  return item.questions.some((q) => !!answers[q.questionId]?.markedForReview);
+}
+
+function summarizeDisplayTab(
+  layout: DisplayTabLayout,
+  items: ExamDisplayItem[],
+  answers: Record<string, AnswerPayload>,
+): DisplayTabSummary {
+  let answeredCount = 0;
+  let flaggedCount = 0;
+
+  layout.displayIndices.forEach((displayIndex) => {
+    const item = items[displayIndex];
+    if (!item) return;
+    item.questions.forEach((question) => {
+      if (isQuestionAnswered(question, answers)) answeredCount += 1;
+      if (answers[question.questionId]?.markedForReview) flaggedCount += 1;
+    });
+  });
+
+  return { answeredCount, flaggedCount };
+}
+
+function WrittenUploadPanel({
+  examId,
+  attemptId,
+  questionId,
+  answer,
+  lang,
+  onChange,
+}: {
+  examId: string;
+  attemptId: string;
+  questionId: string;
+  answer?: AnswerPayload;
+  lang: Lang;
+  onChange: (answer: AnswerPayload) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const pages = writtenPages(answer);
+  const finalPdfUrl = writtenFinalPdf(answer);
+
+  const applyPages = useCallback(
+    (nextPages: WrittenSubmissionPage[], nextPdf?: string | null) => {
+      onChange({
+        ...(answer || {}),
+        writtenSubmission: {
+          ...((answer?.writtenSubmission as Record<string, unknown> | undefined) || {}),
+          pages: nextPages,
+          finalPdfUrl: nextPdf ?? null,
+          updatedAt: new Date().toISOString(),
+        },
+      });
+    },
+    [answer, onChange],
+  );
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files?.length || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const prepared = await Promise.all(Array.from(files).map(compressImageFile));
+      const uploaded = await uploadWrittenSubmission(examId, { attemptId, questionId, files: prepared });
+      if (!uploaded.success || !uploaded.data) {
+        throw new Error(uploaded.message || 'Upload failed');
+      }
+      applyPages(uploaded.data.pages, uploaded.data.finalPdfUrl ?? null);
+      const finalized = await finalizeWrittenSubmissionPdf(examId, { attemptId, questionId });
+      if (finalized.success && finalized.data) {
+        applyPages(finalized.data.pages, finalized.data.finalPdfUrl);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Upload failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const movePage = async (index: number, dir: -1 | 1) => {
+    const next = [...pages];
+    const target = index + dir;
+    if (target < 0 || target >= next.length || busy) return;
+    [next[index], next[target]] = [next[target], next[index]];
+    const orderedUrls = next.map((p) => p.url);
+    applyPages(next.map((p, i) => ({ ...p, pageNumber: i + 1 })), null);
+    setBusy(true);
+    try {
+      const r = await reorderWrittenSubmission(examId, { attemptId, questionId, orderedUrls });
+      if (r.success && r.data) applyPages(r.data.pages, null);
+      const finalized = await finalizeWrittenSubmissionPdf(examId, { attemptId, questionId });
+      if (finalized.success && finalized.data) applyPages(finalized.data.pages, finalized.data.finalPdfUrl);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3 rounded-2xl border border-violet-100 bg-violet-50/40 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-black text-slate-800">
+            {lang === 'en' ? 'Handwritten answer upload' : 'হাতের লেখা উত্তর আপলোড'}
+          </p>
+          <p className="mt-1 text-xs font-medium text-slate-500">
+            {lang === 'en'
+              ? 'Snap pages from your phone or upload a PDF. Images are compressed before upload.'
+              : 'মোবাইল ক্যামেরায় পেজ তুলে অথবা PDF আপলোড করুন। ছবি আপলোডের আগে কমপ্রেস হবে।'}
+          </p>
+        </div>
+        <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-xl bg-violet-600 px-4 text-xs font-black uppercase tracking-wider text-white hover:bg-violet-700">
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+          {lang === 'en' ? 'Add pages' : 'পেজ যোগ করুন'}
+          <input
+            type="file"
+            accept="image/*,application/pdf"
+            capture="environment"
+            multiple
+            className="hidden"
+            disabled={busy}
+            onChange={(e) => {
+              void handleFiles(e.target.files);
+              e.currentTarget.value = '';
+            }}
+          />
+        </label>
+      </div>
+
+      {error ? <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">{error}</p> : null}
+
+      {pages.length ? (
+        <div className="space-y-2">
+          {pages.map((page, index) => (
+            <div key={`${page.url}-${index}`} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-xs font-black text-slate-700">
+                {index + 1}
+              </span>
+              <FileText className="h-4 w-4 text-violet-500" />
+              <a
+                href={getExamPdfDownloadUrl(page.url)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-700 hover:text-violet-700"
+              >
+                {page.fileName || page.url.split('/').pop()}
+              </a>
+              <button
+                type="button"
+                className="rounded-lg border border-slate-200 p-1.5 text-slate-500 disabled:opacity-40"
+                disabled={busy || index === 0}
+                onClick={() => void movePage(index, -1)}
+              >
+                <ArrowUp className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                className="rounded-lg border border-slate-200 p-1.5 text-slate-500 disabled:opacity-40"
+                disabled={busy || index === pages.length - 1}
+                onClick={() => void movePage(index, 1)}
+              >
+                <ArrowDown className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+          {finalPdfUrl ? (
+            <a
+              href={getExamPdfDownloadUrl(finalPdfUrl)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-black uppercase tracking-wider text-emerald-700"
+            >
+              <FileText className="h-4 w-4" />
+              {lang === 'en' ? 'Open combined PDF' : 'কম্বাইন্ড PDF দেখুন'}
+            </a>
+          ) : null}
+        </div>
+      ) : (
+        <div className="rounded-xl border border-dashed border-violet-200 bg-white/70 px-4 py-6 text-center text-xs font-medium text-slate-500">
+          {lang === 'en' ? 'No handwritten pages uploaded yet.' : 'এখনো কোনো হাতে লেখা পেজ আপলোড করা হয়নি।'}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function McqQuestionBlock({
+  q,
+  questionNumber,
+  totalQuestions,
+  answer,
+  lang,
+  onSelect,
+}: {
+  q: AttemptQuestion;
+  questionNumber: number;
+  totalQuestions: number;
+  answer?: AnswerPayload;
+  lang: Lang;
+  onSelect: (questionId: string, optionId: string) => void;
+}) {
+  const ui = getExamUiStrings(lang);
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <span className="text-xs font-black text-slate-400">{ui.questionLabel(questionNumber, totalQuestions)}</span>
+        <Badge variant="outline" className="text-[9px] font-black">
+          {q.marks} {ui.marksLabel}
+        </Badge>
+      </div>
+      <div
+        className="prose prose-lg mb-5 max-w-none font-medium text-slate-800"
+        dangerouslySetInnerHTML={{ __html: q.question?.prompt ?? '' }}
+      />
+      <div className="space-y-3">
+        {(q.question?.options ?? []).map((opt) => {
+          const isSelected = answer?.selectedOptionId === opt.id;
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => onSelect(q.questionId, opt.id)}
+              className={cn(
+                'flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition-all',
+                isSelected
+                  ? 'border-indigo-400 bg-indigo-50 ring-2 ring-indigo-200 shadow-md'
+                  : 'border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/30',
+              )}
+            >
+              <span
+                className={cn(
+                  'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border-2 text-sm font-black transition-all',
+                  isSelected
+                    ? 'border-indigo-500 bg-indigo-600 text-white'
+                    : 'border-slate-300 bg-white text-slate-600',
+                )}
+              >
+                {getOptionLabel(opt.label, lang)}
+              </span>
+              <span
+                className={cn('text-base font-medium transition-colors', isSelected ? 'text-indigo-700' : 'text-slate-700')}
+                dangerouslySetInnerHTML={{ __html: opt.text }}
+              />
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function WrittenQuestionBlock({
+  q,
+  examId,
+  attemptId,
+  answer,
+  lang,
+  onAnswerChange,
+  onTextChange,
+}: {
+  q: AttemptQuestion;
+  examId: string;
+  attemptId: string;
+  answer?: AnswerPayload;
+  lang: Lang;
+  onAnswerChange: (questionId: string, answer: AnswerPayload) => void;
+  onTextChange: (questionId: string, text: string) => void;
+}) {
+  const ui = getExamUiStrings(lang);
+  return (
+    <div className="space-y-4 rounded-2xl border border-violet-100 bg-white p-5">
+      <div
+        className="prose prose-lg max-w-none font-medium text-slate-800"
+        dangerouslySetInnerHTML={{ __html: q.question?.prompt ?? '' }}
+      />
+      <WrittenUploadPanel
+        examId={examId}
+        attemptId={attemptId}
+        questionId={q.questionId}
+        answer={answer}
+        lang={lang}
+        onChange={(nextAnswer) => onAnswerChange(q.questionId, nextAnswer)}
+      />
+      <details className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+        <summary className="cursor-pointer text-sm font-bold text-slate-500">
+          {lang === 'en' ? 'Optional typed note' : 'ঐচ্ছিক টাইপ করা নোট'}
+        </summary>
+        <textarea
+          className="mt-3 w-full min-h-24 rounded-2xl border border-slate-200 bg-white p-5 text-base font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all resize-y"
+          value={(answer?.text as string) || ''}
+          onChange={(e) => onTextChange(q.questionId, e.target.value)}
+          placeholder={ui.cqPlaceholder}
+        />
+      </details>
+    </div>
+  );
+}
+
+function PassageGroupBlock({
+  item,
+  answers,
+  questionNumberFor,
+  totalQuestions,
+  lang,
+  onSelect,
+}: {
+  item: Extract<ExamDisplayItem, { kind: 'passage' }>;
+  answers: Record<string, AnswerPayload>;
+  questionNumberFor: (q: AttemptQuestion) => number;
+  totalQuestions: number;
+  lang: Lang;
+  onSelect: (questionId: string, optionId: string) => void;
+}) {
+  const passage = item.questions[0]?.question?.passage;
+  return (
+    <div className="space-y-5">
+      {passage ? (
+        <div className="sticky top-0 z-10 rounded-2xl border border-indigo-100 bg-indigo-50/95 p-6 shadow-sm backdrop-blur">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-black text-indigo-700">
+              {passage.title || (lang === 'en' ? 'Passage' : 'অনুচ্ছেদ')}
+            </p>
+            <Badge variant="outline" className="border-indigo-200 bg-white/80 text-[10px] font-black text-indigo-700">
+              {item.questions.length} MCQ
+            </Badge>
+          </div>
+          <div
+            className="prose prose-sm max-w-none text-slate-700"
+            dangerouslySetInnerHTML={{ __html: passage.content }}
+          />
+        </div>
+      ) : null}
+      {item.questions.map((q) => (
+        <McqQuestionBlock
+          key={q.id}
+          q={q}
+          questionNumber={questionNumberFor(q)}
+          totalQuestions={totalQuestions}
+          answer={answers[q.questionId]}
+          lang={detectQuestionLang(q.question, lang)}
+          onSelect={onSelect}
+        />
+      ))}
+    </div>
+  );
 }
 
 export function ExamTakingView({
@@ -60,12 +657,25 @@ export function ExamTakingView({
   onSubmitFailed: (msg: string) => void;
 }) {
   const questions = attemptData.questions;
-  const sections = attemptData.sections?.length ? attemptData.sections : inferSections(questions);
   const examFlow = attemptData.examFlow ?? inferExamFlow(questions);
   const settings = attemptData.exam.settings as { proctorStrict?: boolean } | null | undefined;
   const proctorStrict = !!settings?.proctorStrict;
+  const displayItems = useMemo(() => buildDisplayItems(questions), [questions]);
+  const tabLayouts = useMemo(() => buildDisplayTabLayouts(displayItems), [displayItems]);
+  const displaySections = useMemo(
+    () => buildDisplaySections(displayItems, questions, attemptData.sections),
+    [attemptData.sections, displayItems, questions],
+  );
+  const availableTabKeys = useMemo(
+    () => (['mcq', 'written'] as HybridTabKey[]).filter((tabKey) => tabLayouts[tabKey].displayIndices.length > 0),
+    [tabLayouts],
+  );
 
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [activeTab, setActiveTab] = useState<HybridTabKey>(() => (tabLayouts.mcq.displayIndices.length ? 'mcq' : 'written'));
+  const [currentIndexByTab, setCurrentIndexByTab] = useState<Record<HybridTabKey, number>>(() => ({
+    mcq: tabLayouts.mcq.displayIndices[0] ?? 0,
+    written: tabLayouts.written.displayIndices[0] ?? 0,
+  }));
   const [answers, setAnswers] = useState<Record<string, AnswerPayload>>(() => ({
     ...(attemptData.answeredMap || {}),
   }));
@@ -89,6 +699,19 @@ export function ExamTakingView({
   const saveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savingRef = useRef(false);
   const handleSubmitRef = useRef<(auto?: boolean) => void>(() => {});
+
+  useEffect(() => {
+    setCurrentIndexByTab((prev) => {
+      const next = {
+        mcq: tabLayouts.mcq.displayIndices.includes(prev.mcq) ? prev.mcq : (tabLayouts.mcq.displayIndices[0] ?? 0),
+        written: tabLayouts.written.displayIndices.includes(prev.written)
+          ? prev.written
+          : (tabLayouts.written.displayIndices[0] ?? 0),
+      };
+      return next.mcq === prev.mcq && next.written === prev.written ? prev : next;
+    });
+    setActiveTab((prev) => (availableTabKeys.includes(prev) ? prev : (availableTabKeys[0] ?? 'mcq')));
+  }, [availableTabKeys, tabLayouts]);
 
   const queueDirty = useCallback((questionId: string) => {
     dirtyRef.current.add(questionId);
@@ -228,24 +851,26 @@ export function ExamTakingView({
     [queueDirty],
   );
 
-  const toggleMarkForReview = useCallback(
-    (questionId: string) => {
+  const toggleMarkForReviewItem = useCallback(
+    (item: ExamDisplayItem) => {
+      const shouldMark = !item.questions.every((q) => !!answersRef.current[q.questionId]?.markedForReview);
       setAnswers((prev) => {
-        const cur = prev[questionId] || {};
-        return {
-          ...prev,
-          [questionId]: {
-            ...cur,
-            markedForReview: !cur.markedForReview,
-          },
-        };
+        const next = { ...prev };
+        item.questions.forEach((q) => {
+          const current = next[q.questionId] || {};
+          next[q.questionId] = {
+            ...current,
+            markedForReview: shouldMark,
+          };
+        });
+        return next;
       });
-      queueDirty(questionId);
+      item.questions.forEach((q) => queueDirty(q.questionId));
     },
     [queueDirty],
   );
 
-  const handleSubmit = async (_auto = false) => {
+  const handleSubmit = async (auto = false) => {
     if (submitting) return;
     setSubmitting(true);
     setShowSubmitConfirm(false);
@@ -267,9 +892,16 @@ export function ExamTakingView({
       }
     }
     try {
+      const antiCheatLog =
+        auto ||
+        antiCheatRef.current.tabSwitches > 0 ||
+        antiCheatRef.current.blurEvents > 0 ||
+        antiCheatRef.current.visibilityEvents > 0
+          ? { ...antiCheatRef.current, ...(auto ? { reason: 'auto_submit' } : {}) }
+          : undefined;
       const res = await submitExamAttempt(examId, {
         studentUserId,
-        antiCheatLog: antiCheatRef.current,
+        antiCheatLog,
       });
       if (res.success && res.data?.attemptId) {
         const resultRes = await getAttemptResult(res.data.attemptId);
@@ -293,33 +925,87 @@ export function ExamTakingView({
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  const currentQ = questions[currentIndex];
-  const answeredCount = questions.filter((q) => {
-    const a = answers[q.questionId];
-    if (!a) return false;
-    if (a.selectedOptionId) return true;
-    if (typeof a.text === 'string' && a.text.trim()) return true;
-    return false;
-  }).length;
+  const tabSummaries = useMemo(
+    () => ({
+      mcq: summarizeDisplayTab(tabLayouts.mcq, displayItems, answers),
+      written: summarizeDisplayTab(tabLayouts.written, displayItems, answers),
+    }),
+    [answers, displayItems, tabLayouts],
+  );
+  const showHybridTabs = examFlow === 'MIXED' && availableTabKeys.length > 1;
+  const activeTabLayout = tabLayouts[activeTab];
+  const activeTabSummary = tabSummaries[activeTab];
+  const fallbackIndex = activeTabLayout.displayIndices[0] ?? 0;
+  const currentIndex = activeTabLayout.displayIndices.includes(currentIndexByTab[activeTab])
+    ? currentIndexByTab[activeTab]
+    : fallbackIndex;
+  const currentItem = displayItems[currentIndex];
+  const currentQ = currentItem?.questions[0];
+  const answeredCount = questions.filter((q) => isQuestionAnswered(q, answers)).length;
   const markedCount = questions.filter((q) => !!answers[q.questionId]?.markedForReview).length;
+  const mcqAnsweredCount = questions.filter((q) => q.question?.type === 'MCQ' && isQuestionAnswered(q, answers)).length;
+  const mcqQuestionCount = questions.filter((q) => q.question?.type === 'MCQ').length;
+  const writtenQuestionCount = questions.filter((q) => q.question?.type === 'CQ' || q.question?.type === 'SHORT').length;
+  const writtenUploadCompletedCount = questions.filter(
+    (q) => (q.question?.type === 'CQ' || q.question?.type === 'SHORT') && writtenPages(answers[q.questionId]).length > 0,
+  ).length;
+  const unansweredOrUnuploadedCount =
+    Math.max(0, mcqQuestionCount - mcqAnsweredCount)
+    + Math.max(0, writtenQuestionCount - writtenUploadCompletedCount);
   const totalQuestions = questions.length;
+  const totalDisplayItems = displayItems.length;
   const isTimeLow = timeLeft !== null && timeLeft < 300;
 
-  const currentLang = detectQuestionLang(currentQ?.question as any, examBaseLang);
+  const currentLang = detectQuestionLang(currentQ?.question, examBaseLang);
   const ui = getExamUiStrings(currentLang);
 
-  const activeSectionIdx = sections.findIndex((s) => s.questionIndices.includes(currentIndex));
+  const activeSections = useMemo(
+    () =>
+      displaySections
+        .map((section) => {
+          const visibleIndices = section.displayIndices.filter((displayIndex) => activeTabLayout.displayIndexSet.has(displayIndex));
+          if (!visibleIndices.length) return null;
+          return {
+            ...section,
+            displayIndices: visibleIndices,
+            questionCount: visibleIndices.reduce(
+              (sum, displayIndex) => sum + (displayItems[displayIndex]?.questions.length ?? 0),
+              0,
+            ),
+          } satisfies ExamDisplaySection;
+        })
+        .filter(Boolean) as ExamDisplaySection[],
+    [activeTabLayout, displayItems, displaySections],
+  );
+  const activeSectionIdx = activeSections.findIndex((section) => section.displayIndices.includes(currentIndex));
   const [showNav, setShowNav] = useState(false);
   const progressPct = totalQuestions > 0 ? (answeredCount / totalQuestions) * 100 : 0;
+  const questionNumberFor = useCallback(
+    (q: AttemptQuestion) => activeTabLayout.questionNumberByItemId.get(q.id) ?? questions.findIndex((candidate) => candidate.id === q.id) + 1,
+    [activeTabLayout, questions],
+  );
+  const updateWrittenAnswer = useCallback(
+    (questionId: string, nextAnswer: AnswerPayload) => {
+      setAnswers((prev) => ({ ...prev, [questionId]: nextAnswer }));
+      queueDirty(questionId);
+    },
+    [queueDirty],
+  );
 
   // Keyboard shortcuts: 1-4 for options, left/right for nav
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return;
-      if (e.key === 'ArrowLeft' && currentIndex > 0) setCurrentIndex(p => p - 1);
-      if (e.key === 'ArrowRight' && currentIndex < totalQuestions - 1) setCurrentIndex(p => p + 1);
-      const opts = currentQ?.question?.options;
-      if (opts && opts.length > 0) {
+      const activeIndices = activeTabLayout.displayIndices;
+      const currentItemPosition = activeIndices.indexOf(currentIndex);
+      if (e.key === 'ArrowLeft' && currentItemPosition > 0) {
+        setCurrentIndexByTab((prev) => ({ ...prev, [activeTab]: activeIndices[currentItemPosition - 1] ?? prev[activeTab] }));
+      }
+      if (e.key === 'ArrowRight' && currentItemPosition >= 0 && currentItemPosition < activeIndices.length - 1) {
+        setCurrentIndexByTab((prev) => ({ ...prev, [activeTab]: activeIndices[currentItemPosition + 1] ?? prev[activeTab] }));
+      }
+      const opts = currentItem?.kind === 'single' ? currentQ?.question?.options : undefined;
+      if (opts && opts.length > 0 && currentQ) {
         const num = parseInt(e.key);
         if (num >= 1 && num <= opts.length) {
           handleSelectOption(currentQ.questionId, opts[num - 1].id);
@@ -328,21 +1014,33 @@ export function ExamTakingView({
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [currentIndex, totalQuestions, currentQ, handleSelectOption]);
+  }, [activeTab, activeTabLayout, currentIndex, currentItem, currentQ, handleSelectOption]);
+
+  const currentItemMeta = activeTabLayout.navMetaByDisplayIndex.get(currentIndex);
+  const activeItemPosition = activeTabLayout.displayIndices.indexOf(currentIndex);
+  const activeQuestionTotal = activeTabLayout.questionCount || totalQuestions;
+  const currentSectionLabel = formatSectionLabel(currentQ?.sectionKey, currentQ?.question?.type ?? null);
+
+  const setCurrentIndex = useCallback(
+    (displayIndex: number) => {
+      setCurrentIndexByTab((prev) => ({ ...prev, [activeTab]: displayIndex }));
+    },
+    [activeTab],
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex bg-white">
       <div className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-slate-200 shadow-sm">
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3">
+        <div className="flex h-16 items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
               className="lg:hidden h-9 w-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50"
               onClick={() => setShowNav(p => !p)}
             >
-              <span className="text-xs font-black">{currentIndex + 1}</span>
+              <span className="text-[11px] font-black">{currentItemMeta?.label ?? currentIndex + 1}</span>
             </button>
-            <h1 className="text-base sm:text-lg font-black text-slate-900 truncate max-w-[200px] sm:max-w-[300px]">{attemptData.exam.title}</h1>
+            <h1 className="max-w-[200px] truncate text-base font-black text-slate-900 sm:max-w-[300px] sm:text-lg">{attemptData.exam.title}</h1>
             <Badge variant="outline" className="text-[9px] font-black uppercase shrink-0 hidden sm:inline-flex">
               {attemptData.setName}
             </Badge>
@@ -386,6 +1084,61 @@ export function ExamTakingView({
             </Button>
           </div>
         </div>
+        {showHybridTabs ? (
+          <div className="h-32 border-t border-slate-100 bg-slate-50/95 px-4 py-3 sm:px-6 lg:h-20">
+            <div className="flex h-full flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+              <div className="grid w-full max-w-xl grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
+                {availableTabKeys.map((tabKey) => {
+                  const layout = tabLayouts[tabKey];
+                  const summary = tabSummaries[tabKey];
+                  const active = activeTab === tabKey;
+                  return (
+                    <button
+                      key={tabKey}
+                      type="button"
+                      onClick={() => {
+                        setActiveTab(tabKey);
+                        setShowNav(false);
+                      }}
+                      className={cn(
+                        'h-14 rounded-xl px-4 text-left transition-all',
+                        active ? 'bg-slate-900 text-white shadow-md' : 'text-slate-600 hover:bg-slate-50',
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs font-black uppercase tracking-[0.18em]">{layout.label}</span>
+                        <span className={cn('text-[10px] font-black', active ? 'text-white/75' : 'text-slate-400')}>
+                          {layout.questionCount} Q
+                        </span>
+                      </div>
+                      <div className="mt-1 flex items-center justify-between gap-3">
+                        <span className={cn('text-sm font-black', active ? 'text-white' : 'text-slate-900')}>
+                          {summary.answeredCount}/{layout.questionCount}
+                        </span>
+                        <span className={cn('text-[10px] font-bold', active ? 'text-white/60' : 'text-slate-400')}>
+                          {layout.itemCount} items
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex shrink-0 items-center gap-2 overflow-x-auto whitespace-nowrap text-xs font-bold text-slate-500">
+                <span className="rounded-full bg-white px-3 py-1.5 text-slate-600 shadow-sm">
+                  Overall {answeredCount}/{totalQuestions}
+                </span>
+                <span className="rounded-full bg-white px-3 py-1.5 text-slate-600 shadow-sm">
+                  {activeTabLayout.label} {activeTabSummary.answeredCount}/{activeTabLayout.questionCount}
+                </span>
+                {activeTabSummary.flaggedCount > 0 ? (
+                  <span className="rounded-full bg-amber-50 px-3 py-1.5 text-amber-700 shadow-sm">
+                    Flagged {activeTabSummary.flaggedCount}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ) : null}
         {/* Progress bar */}
         <div className="h-1 bg-slate-100">
           <div
@@ -395,40 +1148,51 @@ export function ExamTakingView({
         </div>
       </div>
 
-      <div className="flex flex-1 pt-[65px]">
+      <div className={cn('flex flex-1', showHybridTabs ? 'pt-[193px] lg:pt-[145px]' : 'pt-[65px]')}>
         {/* Mobile nav overlay */}
         {showNav && (
           <div className="fixed inset-0 z-[55] bg-black/30 lg:hidden" onClick={() => setShowNav(false)} />
         )}
         <div className={cn(
           'w-64 border-r border-slate-200 bg-slate-50 p-4 overflow-y-auto shrink-0 transition-transform duration-200',
-          'fixed lg:relative inset-y-0 left-0 z-[56] pt-[70px] lg:pt-0',
+          'fixed lg:relative inset-y-0 left-0 z-[56] pt-[72px] lg:pt-4',
+          showHybridTabs && 'pt-[201px] lg:pt-4',
           showNav ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
         )}>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3">{ui.questionNavigation}</p>
+          <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{activeTabLayout.label} navigation</p>
+            <div className="mt-2 flex items-center justify-between text-xs font-bold text-slate-500">
+              <span>{activeTabSummary.answeredCount}/{activeTabLayout.questionCount} answered</span>
+              <span>{activeTabLayout.itemCount} items</span>
+            </div>
+          </div>
           <div className="grid grid-cols-5 gap-2">
-            {questions.map((q, idx) => {
-              const qId = q.questionId;
-              const t = answers[qId]?.text;
-              const isAnswered =
-                !!answers[qId]?.selectedOptionId || (typeof t === 'string' && t.trim().length > 0);
-              const isFlagged = !!answers[qId]?.markedForReview;
-              const isCurrent = idx === currentIndex;
+            {activeTabLayout.displayIndices.map((displayIndex) => {
+              const item = displayItems[displayIndex];
+              const navMeta = activeTabLayout.navMetaByDisplayIndex.get(displayIndex);
+              const isAnswered = displayItemAnswered(item, answers);
+              const isFlagged = displayItemFlagged(item, answers);
+              const isCurrent = displayIndex === currentIndex;
               return (
                 <button
-                  key={q.id}
+                  key={item.id}
                   type="button"
-                  onClick={() => setCurrentIndex(idx)}
+                  onClick={() => {
+                    setCurrentIndex(displayIndex);
+                    setShowNav(false);
+                  }}
                   className={cn(
-                    'h-10 w-10 rounded-xl text-sm font-black transition-all relative',
+                    'relative h-10 rounded-xl text-sm font-black transition-all',
+                    item.kind === 'passage' ? 'col-span-2 w-full' : 'w-10',
                     isCurrent
                       ? 'bg-indigo-600 text-white shadow-lg scale-110'
                       : isAnswered
                         ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
                         : 'bg-white text-slate-600 border border-slate-200 hover:border-indigo-300',
                   )}
+                  title={item.kind === 'passage' ? `${item.questions.length} passage MCQs` : undefined}
                 >
-                  {idx + 1}
+                  {navMeta?.label ?? displayIndex + 1}
                   {isFlagged ? (
                     <Flag className="absolute -top-1 -right-1 h-3 w-3 text-amber-500 fill-amber-500" />
                   ) : null}
@@ -457,21 +1221,21 @@ export function ExamTakingView({
         </div>
 
         <div className="flex-1 flex flex-col overflow-hidden">
-          {examFlow === 'MIXED' && sections.length > 1 ? (
+          {activeSections.length > 1 ? (
             <div className="shrink-0 border-b border-slate-100 bg-slate-50/80 px-6 py-2 flex flex-wrap gap-2">
-              {sections.map((sec, si) => {
+              {activeSections.map((sec, si) => {
                 const on = activeSectionIdx === si;
                 return (
                   <button
                     key={`${sec.key}-${si}`}
                     type="button"
-                    onClick={() => setCurrentIndex(sec.questionIndices[0] ?? 0)}
+                    onClick={() => setCurrentIndex(sec.displayIndices[0] ?? 0)}
                     className={cn(
                       'rounded-full px-3 py-1.5 text-xs font-black uppercase tracking-wider',
                       on ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:border-indigo-200',
                     )}
                   >
-                    {sec.label}
+                    {sec.label} ({sec.questionCount})
                   </button>
                 );
               })}
@@ -479,29 +1243,41 @@ export function ExamTakingView({
           ) : null}
 
           <div className="flex-1 overflow-y-auto p-8">
-            {currentQ?.question ? (
+            {currentItem && currentQ?.question ? (
               <div className="max-w-3xl mx-auto">
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-3">
                     <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 font-black text-lg">
-                      {currentIndex + 1}
+                      {currentItemMeta?.passagePosition ? `P${currentItemMeta.passagePosition}` : (currentItemMeta?.label ?? currentIndex + 1)}
                     </span>
                     <div>
                       <span className="text-xs font-bold text-slate-400">
-                        {ui.questionLabel(currentIndex + 1, totalQuestions)}
+                        {currentItem.kind === 'passage'
+                          ? `${currentLang === 'en' ? 'Passage group' : 'অনুচ্ছেদ গ্রুপ'} ${currentItemMeta?.passagePosition ?? 1} / ${activeTabLayout.passageCount}`
+                          : ui.questionLabel(questionNumberFor(currentQ), activeQuestionTotal)}
                       </span>
                       <div className="flex items-center gap-2 flex-wrap">
                         <Badge variant="outline" className="text-[9px] font-black">
-                          {currentQ.marks} {ui.marksLabel}
+                          {currentItem.questions.reduce((sum, q) => sum + Number(q.marks || 0), 0)} {ui.marksLabel}
                         </Badge>
                         {currentQ.negativeMarks ? (
                           <Badge variant="outline" className="text-[9px] font-black text-rose-600 border-rose-200">
                             -{currentQ.negativeMarks} {ui.negativeLabel}
                           </Badge>
                         ) : null}
+                        {currentItem.kind === 'passage' ? (
+                          <Badge variant="outline" className="border-indigo-200 text-[9px] font-black text-indigo-700">
+                            {currentItem.questions.length} MCQ
+                          </Badge>
+                        ) : null}
+                        {showHybridTabs ? (
+                          <Badge variant="outline" className="text-[9px] font-black border-slate-200 text-slate-500">
+                            {activeTabLayout.label}
+                          </Badge>
+                        ) : null}
                         {currentQ.sectionKey ? (
                           <Badge variant="outline" className="text-[9px] font-black border-slate-200 text-slate-500">
-                            {currentQ.sectionKey}
+                            {currentSectionLabel}
                           </Badge>
                         ) : null}
                       </div>
@@ -512,88 +1288,50 @@ export function ExamTakingView({
                     size="sm"
                     className={cn(
                       'rounded-xl font-bold text-xs',
-                      answers[currentQ.questionId]?.markedForReview
+                      displayItemFlagged(currentItem, answers)
                         ? 'border-amber-300 bg-amber-50 text-amber-700'
                         : 'border-slate-200 text-slate-500',
                     )}
-                    onClick={() => toggleMarkForReview(currentQ.questionId)}
+                    onClick={() => toggleMarkForReviewItem(currentItem)}
                   >
                     <Flag
                       className={cn(
                         'h-3.5 w-3.5 mr-1',
-                        answers[currentQ.questionId]?.markedForReview && 'fill-amber-500',
+                        displayItemFlagged(currentItem, answers) && 'fill-amber-500',
                       )}
                     />
-                    {answers[currentQ.questionId]?.markedForReview ? ui.unflag : ui.flag}
+                    {displayItemFlagged(currentItem, answers) ? ui.unflag : ui.flag}
                   </Button>
                 </div>
 
-                {currentQ.question.passage ? (
-                  <div className="mb-6 rounded-2xl border border-indigo-100 bg-indigo-50/50 p-6">
-                    {currentQ.question.passage.title ? (
-                      <p className="text-sm font-black text-indigo-700 mb-2">{currentQ.question.passage.title}</p>
-                    ) : null}
-                    <div
-                      className="prose prose-sm max-w-none text-slate-700"
-                      dangerouslySetInnerHTML={{ __html: currentQ.question.passage.content }}
-                    />
-                  </div>
-                ) : null}
-
-                <div
-                  className="prose prose-lg max-w-none mb-8 font-medium text-slate-800"
-                  dangerouslySetInnerHTML={{ __html: currentQ.question.prompt }}
-                />
-
-                {currentQ.question.options && currentQ.question.options.length > 0 ? (
-                  <div className="space-y-3">
-                    {currentQ.question.options.map((opt) => {
-                      const isSelected = answers[currentQ.questionId]?.selectedOptionId === opt.id;
-                      return (
-                        <button
-                          key={opt.id}
-                          type="button"
-                          onClick={() => handleSelectOption(currentQ.questionId, opt.id)}
-                          className={cn(
-                            'flex items-center gap-4 w-full rounded-2xl border p-5 text-left transition-all',
-                            isSelected
-                              ? 'border-indigo-400 bg-indigo-50 ring-2 ring-indigo-200 shadow-md'
-                              : 'border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/30',
-                          )}
-                        >
-                          <span
-                            className={cn(
-                              'flex-shrink-0 h-10 w-10 rounded-xl border-2 flex items-center justify-center text-sm font-black transition-all',
-                              isSelected
-                                ? 'border-indigo-500 bg-indigo-600 text-white'
-                                : 'border-slate-300 bg-white text-slate-600',
-                            )}
-                          >
-                            {getOptionLabel(opt.label, currentLang)}
-                          </span>
-                          <span
-                            className={cn(
-                              'text-base font-medium transition-colors',
-                              isSelected ? 'text-indigo-700' : 'text-slate-700',
-                            )}
-                            dangerouslySetInnerHTML={{ __html: opt.text }}
-                          />
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : null}
-
-                {(currentQ.question.type === 'CQ' || currentQ.question.type === 'SHORT') && (
-                  <div className="space-y-3">
-                    <label className="text-sm font-bold text-slate-500">{ui.cqLabel}</label>
-                    <textarea
-                      className="w-full min-h-[200px] rounded-2xl border border-slate-200 bg-slate-50/50 p-5 text-base font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all resize-y"
-                      value={(answers[currentQ.questionId]?.text as string) || ''}
-                      onChange={(e) => handleTextAnswer(currentQ.questionId, e.target.value)}
-                      placeholder={ui.cqPlaceholder}
-                    />
-                  </div>
+                {currentItem.kind === 'passage' ? (
+                  <PassageGroupBlock
+                    item={currentItem}
+                    answers={answers}
+                    questionNumberFor={questionNumberFor}
+                    totalQuestions={activeQuestionTotal}
+                    lang={currentLang}
+                    onSelect={handleSelectOption}
+                  />
+                ) : currentQ.question.type === 'CQ' || currentQ.question.type === 'SHORT' ? (
+                  <WrittenQuestionBlock
+                    q={currentQ}
+                    examId={examId}
+                    attemptId={attemptData.attempt.id}
+                    answer={answers[currentQ.questionId]}
+                    lang={currentLang}
+                    onAnswerChange={updateWrittenAnswer}
+                    onTextChange={handleTextAnswer}
+                  />
+                ) : (
+                  <McqQuestionBlock
+                    q={currentQ}
+                    questionNumber={questionNumberFor(currentQ)}
+                    totalQuestions={activeQuestionTotal}
+                    answer={answers[currentQ.questionId]}
+                    lang={currentLang}
+                    onSelect={handleSelectOption}
+                  />
                 )}
               </div>
             ) : null}
@@ -604,18 +1342,24 @@ export function ExamTakingView({
               <Button
                 variant="outline"
                 className="h-10 rounded-xl px-6 font-bold text-sm"
-                disabled={currentIndex === 0}
-                onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
+                disabled={activeItemPosition <= 0}
+                onClick={() => {
+                  const prevIndex = activeTabLayout.displayIndices[activeItemPosition - 1];
+                  if (prevIndex != null) setCurrentIndex(prevIndex);
+                }}
               >
                 <ChevronLeft className="h-4 w-4 mr-1" /> {ui.prevQuestion}
               </Button>
               <span className="text-sm font-medium text-slate-400">
-                {currentIndex + 1} / {totalQuestions}
+                Item {Math.max(activeItemPosition + 1, 1)} / {activeTabLayout.itemCount || totalDisplayItems}
               </span>
               <Button
                 className="h-10 rounded-xl px-6 font-bold text-sm bg-indigo-600 hover:bg-indigo-700 text-white"
-                disabled={currentIndex === totalQuestions - 1}
-                onClick={() => setCurrentIndex((prev) => Math.min(totalQuestions - 1, prev + 1))}
+                disabled={activeItemPosition < 0 || activeItemPosition >= activeTabLayout.itemCount - 1}
+                onClick={() => {
+                  const nextIndex = activeTabLayout.displayIndices[activeItemPosition + 1];
+                  if (nextIndex != null) setCurrentIndex(nextIndex);
+                }}
               >
                 {ui.nextQuestion} <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
@@ -637,12 +1381,22 @@ export function ExamTakingView({
                 <span className="text-slate-900">{totalQuestions}</span>
               </div>
               <div className="flex justify-between p-3 rounded-xl bg-emerald-50 text-sm font-bold">
+                <span className="text-emerald-600">{examBaseLang === 'bn' ? 'MCQ উত্তর' : 'MCQ answered'}</span>
+                <span className="text-emerald-700">{mcqAnsweredCount}/{mcqQuestionCount}</span>
+              </div>
+              {writtenQuestionCount > 0 ? (
+                <div className="flex justify-between p-3 rounded-xl bg-violet-50 text-sm font-bold">
+                  <span className="text-violet-600">{examBaseLang === 'bn' ? 'Written upload' : 'Written uploads'}</span>
+                  <span className="text-violet-700">{writtenUploadCompletedCount}/{writtenQuestionCount}</span>
+                </div>
+              ) : null}
+              <div className="flex justify-between p-3 rounded-xl bg-emerald-50 text-sm font-bold">
                 <span className="text-emerald-600">{ui.answered}</span>
-                <span className="text-emerald-700">{answeredCount}</span>
+                <span className="text-emerald-700">{answeredCount}/{totalQuestions}</span>
               </div>
               <div className="flex justify-between p-3 rounded-xl bg-rose-50 text-sm font-bold">
-                <span className="text-rose-600">{ui.unanswered}</span>
-                <span className="text-rose-700">{totalQuestions - answeredCount}</span>
+                <span className="text-rose-600">{examBaseLang === 'bn' ? 'উত্তর/আপলোড বাকি' : 'Unanswered / unuploaded'}</span>
+                <span className="text-rose-700">{unansweredOrUnuploadedCount}</span>
               </div>
               {markedCount > 0 ? (
                 <div className="flex justify-between p-3 rounded-xl bg-amber-50 text-sm font-bold">

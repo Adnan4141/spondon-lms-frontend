@@ -44,7 +44,7 @@ export function defaultSectionsFor(cat: UiExamCategory): WizardSection[] {
         folderRules: [],
       },
     ];
-  if (cat === 'MULTI' || cat === 'OMR' || cat === 'OMRB') return [];
+  if (cat === 'MULTI' || cat === 'OMR' || cat === 'OMRB' || cat === 'OFFLINE_RESULT') return [];
   return [
     {
       localId: newLocalId(),

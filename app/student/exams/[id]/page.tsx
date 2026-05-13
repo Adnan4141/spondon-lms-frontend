@@ -18,6 +18,30 @@ import {
 } from '@/components/student/exam-window/examUiCopy';
 
 type Phase = 'loading' | 'waiting' | 'offline' | 'exam' | 'result';
+type ResultQuestion = AttemptResultResponse['questions'][number];
+type ResultDisplayItem =
+  | { kind: 'single'; id: string; firstQuestionIndex: number; questions: [ResultQuestion] }
+  | { kind: 'passage'; id: string; firstQuestionIndex: number; questions: ResultQuestion[] };
+
+function buildResultDisplayItems(questions: ResultQuestion[]): ResultDisplayItem[] {
+  const items: ResultDisplayItem[] = [];
+  questions.forEach((q, index) => {
+    const passage = q.question?.type === 'MCQ' ? q.question?.passage : null;
+    if (!passage?.id) {
+      items.push({ kind: 'single', id: q.id, firstQuestionIndex: index, questions: [q] });
+      return;
+    }
+    const lastItem = items[items.length - 1];
+    const lastPassageId =
+      lastItem?.kind === 'passage' ? lastItem.questions[0]?.question?.passage?.id ?? null : null;
+    if (lastItem?.kind === 'passage' && lastPassageId === passage.id) {
+      lastItem.questions.push(q);
+      return;
+    }
+    items.push({ kind: 'passage', id: `passage-${passage.id}-${index}`, firstQuestionIndex: index, questions: [q] });
+  });
+  return items;
+}
 
 export default function StudentExamTakingPage() {
   const router = useRouter();
@@ -43,11 +67,11 @@ export default function StudentExamTakingPage() {
   useEffect(() => {
     const userStr = localStorage.getItem('user');
     if (!userStr) {
-      setError('পরীক্ষা দিতে লগইন করুন');
+      queueMicrotask(() => setError('পরীক্ষা দিতে লগইন করুন'));
       return;
     }
     const user = JSON.parse(userStr);
-    setUserId(user.id);
+    queueMicrotask(() => setUserId(user.id));
 
     const run = async () => {
       try {
@@ -60,11 +84,6 @@ export default function StudentExamTakingPage() {
 
         if (viewRes.data.mode === 'OFFLINE') {
           setPhase('offline');
-          return;
-        }
-
-        if (viewRes.data.mode === 'WRITTEN') {
-          router.replace(`/student/exams/${examId}/written`);
           return;
         }
 
@@ -95,9 +114,13 @@ export default function StudentExamTakingPage() {
           setAttemptData(res.data);
           setPhase('exam');
         } else {
-          const maxAttemptId = (res as any)?.data?.latestCompletedAttemptId as string | undefined;
+          const failedStart = res as typeof res & {
+            code?: string;
+            data?: { latestCompletedAttemptId?: string | null };
+          };
+          const maxAttemptId = failedStart.data?.latestCompletedAttemptId ?? undefined;
           const maxAttemptsReached =
-            (res as any)?.code === 'MAX_ATTEMPTS_REACHED' ||
+            failedStart.code === 'MAX_ATTEMPTS_REACHED' ||
             /maximum attempts reached/i.test(String(res.message || ''));
 
           if (maxAttemptsReached && maxAttemptId) {
@@ -357,6 +380,127 @@ export default function StudentExamTakingPage() {
   if (phase === 'result') {
     const resultLang: Lang = result?.exam.language === 'en' ? 'en' : shellLang;
     const resultUi = getExamUiStrings(resultLang);
+    const resultDisplayItems = buildResultDisplayItems(result?.questions ?? []);
+    const resultQuestionIndexById = new Map((result?.questions ?? []).map((q, index) => [q.id, index]));
+    const renderResultQuestion = (eq: ResultQuestion, idx: number) => {
+      const q = eq.question;
+      if (!q) return null;
+      const qLang = detectQuestionLang(q, resultLang);
+      const qUi = getExamUiStrings(qLang);
+      const studentAns = eq.studentAnswer;
+      const isCorrect = studentAns?.isCorrect;
+
+      return (
+        <div
+          key={eq.id}
+          className={cn(
+            'rounded-2xl border bg-white p-5',
+            isCorrect === true ? 'border-emerald-200' : isCorrect === false ? 'border-rose-200' : 'border-slate-200',
+          )}
+        >
+          <div className="mb-3 flex items-start justify-between">
+            <span className="text-sm font-black text-slate-400">#{idx + 1}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-400">
+                {eq.marks} {qUi.marksLabel}
+              </span>
+              {isCorrect === true && <CheckCircle2 className="h-5 w-5 text-emerald-500" />}
+              {isCorrect === false && <XCircle className="h-5 w-5 text-rose-500" />}
+            </div>
+          </div>
+          <div className="prose prose-sm mb-4 max-w-none" dangerouslySetInnerHTML={{ __html: q.prompt }} />
+          {(q.type === 'CQ' || q.type === 'SHORT') && (
+            <div className="mt-4 rounded-xl border border-violet-100 bg-violet-50/40 p-4">
+              <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-violet-600">
+                {q.type === 'SHORT'
+                  ? qLang === 'en'
+                    ? 'Your short answer'
+                    : 'আপনার সংক্ষিপ্ত উত্তর'
+                  : qLang === 'en'
+                    ? 'Your written answer'
+                    : 'আপনার লিখিত উত্তর'}
+              </p>
+              <p className="whitespace-pre-wrap text-sm font-medium text-slate-800">
+                {studentAns?.answer?.text?.trim() ? studentAns.answer.text : qLang === 'en' ? '—' : '(জমা দেওয়া নেই)'}
+              </p>
+              {studentAns?.writtenSubmission?.pages?.length ? (
+                <div className="mt-3 space-y-2">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-violet-600">
+                    {qLang === 'en' ? 'Uploaded pages' : 'আপলোড করা পেজ'}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {studentAns.writtenSubmission.pages.map((page, pageIndex) => (
+                      <a
+                        key={`${page.url}-${pageIndex}`}
+                        href={getExamPdfDownloadUrl(page.url)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-xs font-bold text-violet-700"
+                      >
+                        {qLang === 'en' ? 'Page' : 'পেজ'} {pageIndex + 1}
+                      </a>
+                    ))}
+                    {studentAns.writtenSubmission.finalPdfUrl ? (
+                      <a
+                        href={getExamPdfDownloadUrl(studentAns.writtenSubmission.finalPdfUrl)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700"
+                      >
+                        {qLang === 'en' ? 'Combined PDF' : 'কম্বাইন্ড PDF'}
+                      </a>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+              {studentAns?.obtainedMarks != null ? (
+                <p className="mt-3 text-sm font-black text-violet-800">
+                  {qLang === 'en' ? 'Marks' : 'নম্বর'}: {studentAns.obtainedMarks}
+                </p>
+              ) : (
+                <p className="mt-3 text-xs font-bold text-amber-700">
+                  {qLang === 'en'
+                    ? 'Written answers are marked by your teacher; score may appear later.'
+                    : 'লিখিত উত্তর শিক্ষক মূল্যায়ন করবেন; নম্বর পরে দেখাতে পারে।'}
+                </p>
+              )}
+            </div>
+          )}
+          {q.options && q.options.length > 0 && q.type !== 'CQ' && q.type !== 'SHORT' && (
+            <div className="space-y-2">
+              {q.options.map((opt) => {
+                const isSelected = studentAns?.answer?.selectedOptionId === opt.id;
+                const isCorrectOpt = opt.isCorrect;
+                return (
+                  <div
+                    key={opt.id}
+                    className={cn(
+                      'flex items-center gap-3 rounded-xl border p-3 text-sm',
+                      isCorrectOpt ? 'border-emerald-300 bg-emerald-50' : '',
+                      isSelected && !isCorrectOpt ? 'border-rose-300 bg-rose-50' : '',
+                      !isSelected && !isCorrectOpt ? 'border-slate-100 bg-white' : '',
+                    )}
+                  >
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border text-xs font-black">
+                      {getOptionLabel(opt.label, qLang)}
+                    </span>
+                    <span className="font-medium text-slate-700" dangerouslySetInnerHTML={{ __html: opt.text }} />
+                    {isCorrectOpt && <CheckCircle2 className="ml-auto h-4 w-4 shrink-0 text-emerald-500" />}
+                    {isSelected && !isCorrectOpt && <XCircle className="ml-auto h-4 w-4 shrink-0 text-rose-500" />}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {q.explanation && (
+            <div className="mt-4 rounded-xl border border-indigo-100 bg-indigo-50 p-4">
+              <p className="mb-1 text-[10px] font-black uppercase tracking-widest text-indigo-500">{qUi.explanationLabel}</p>
+              <div className="prose prose-sm max-w-none text-slate-700" dangerouslySetInnerHTML={{ __html: q.explanation }} />
+            </div>
+          )}
+        </div>
+      );
+    };
 
     return (
       <div className="min-h-screen bg-slate-50 py-12 px-4">
@@ -411,96 +555,28 @@ export default function StudentExamTakingPage() {
                   <h2 className="text-[11px] font-black uppercase tracking-[0.25em] text-indigo-600 flex items-center gap-2">
                     <Eye className="h-3.5 w-3.5" /> {resultUi.solutionsLabel}
                   </h2>
-                  {result.questions.map((eq, idx) => {
-                    const q = eq.question;
-                    if (!q) return null;
-                    const qLang = detectQuestionLang(q, resultLang);
-                    const qUi = getExamUiStrings(qLang);
-                    const studentAns = eq.studentAnswer;
-                    const isCorrect = studentAns?.isCorrect;
-                    
+                  {resultDisplayItems.map((item) => {
+                    if (item.kind === 'single') {
+                      const idx = resultQuestionIndexById.get(item.questions[0].id) ?? item.firstQuestionIndex;
+                      return renderResultQuestion(item.questions[0], idx);
+                    }
+                    const passage = item.questions[0]?.question?.passage;
                     return (
-                      <div
-                        key={eq.id}
-                        className={cn(
-                          "rounded-2xl border p-6 bg-white",
-                          isCorrect === true ? "border-emerald-200" : isCorrect === false ? "border-rose-200" : "border-slate-200"
-                        )}
-                      >
-                        <div className="flex items-start justify-between mb-3">
-                          <span className="text-sm font-black text-slate-400">#{idx + 1}</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-slate-400">
-                              {eq.marks} {qUi.marksLabel}
-                            </span>
-                            {isCorrect === true && <CheckCircle2 className="h-5 w-5 text-emerald-500" />}
-                            {isCorrect === false && <XCircle className="h-5 w-5 text-rose-500" />}
-                          </div>
-                        </div>
-                        
-                        <div className="prose prose-sm max-w-none mb-4" dangerouslySetInnerHTML={{ __html: q.prompt }} />
-
-                        {(q.type === 'CQ' || q.type === 'SHORT') && (
-                          <div className="mt-4 rounded-xl border border-violet-100 bg-violet-50/40 p-4">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-violet-600 mb-2">
-                              {q.type === 'SHORT'
-                                ? qLang === 'en'
-                                  ? 'Your short answer'
-                                  : 'আপনার সংক্ষিপ্ত উত্তর'
-                                : qLang === 'en'
-                                  ? 'Your written answer'
-                                  : 'আপনার লিখিত উত্তর'}
-                            </p>
-                            <p className="text-sm text-slate-800 whitespace-pre-wrap font-medium">
-                              {studentAns?.answer?.text?.trim() ? studentAns.answer.text : qLang === 'en' ? '—' : '(জমা দেওয়া নেই)'}
-                            </p>
-                            {studentAns?.obtainedMarks != null ? (
-                              <p className="mt-3 text-sm font-black text-violet-800">
-                                {qLang === 'en' ? 'Marks' : 'নম্বর'}: {studentAns.obtainedMarks}
+                      <div key={item.id} className="space-y-3 rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4">
+                        {passage ? (
+                          <div className="rounded-xl bg-white p-4">
+                            <div className="mb-2 flex items-center justify-between gap-2">
+                              <p className="text-sm font-black text-indigo-700">
+                                {passage.title || (resultLang === 'en' ? 'Passage' : 'অনুচ্ছেদ')}
                               </p>
-                            ) : (
-                              <p className="mt-3 text-xs font-bold text-amber-700">
-                                {qLang === 'en'
-                                  ? 'Written answers are marked by your teacher; score may appear later.'
-                                  : 'লিখিত উত্তর শিক্ষক মূল্যায়ন করবেন; নম্বর পরে দেখাতে পারে।'}
-                              </p>
-                            )}
+                              <Badge variant="outline" className="text-[10px] font-black">
+                                {item.questions.length} MCQ
+                              </Badge>
+                            </div>
+                            <div className="prose prose-sm max-w-none text-slate-700" dangerouslySetInnerHTML={{ __html: passage.content }} />
                           </div>
-                        )}
-
-                        {q.options && q.options.length > 0 && q.type !== 'CQ' && q.type !== 'SHORT' && (
-                          <div className="space-y-2">
-                            {q.options.map((opt) => {
-                              const isSelected = studentAns?.answer?.selectedOptionId === opt.id;
-                              const isCorrectOpt = opt.isCorrect;
-                              return (
-                                <div
-                                  key={opt.id}
-                                  className={cn(
-                                    "flex items-center gap-3 rounded-xl border p-3 text-sm",
-                                    isCorrectOpt ? "border-emerald-300 bg-emerald-50" : "",
-                                    isSelected && !isCorrectOpt ? "border-rose-300 bg-rose-50" : "",
-                                    !isSelected && !isCorrectOpt ? "border-slate-100 bg-white" : ""
-                                  )}
-                                >
-                                  <span className="h-7 w-7 shrink-0 rounded-lg border flex items-center justify-center text-xs font-black">
-                                    {getOptionLabel(opt.label, qLang)}
-                                  </span>
-                                  <span className="font-medium text-slate-700" dangerouslySetInnerHTML={{ __html: opt.text }} />
-                                  {isCorrectOpt && <CheckCircle2 className="ml-auto h-4 w-4 shrink-0 text-emerald-500" />}
-                                  {isSelected && !isCorrectOpt && <XCircle className="ml-auto h-4 w-4 shrink-0 text-rose-500" />}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-
-                        {q.explanation && (
-                          <div className="mt-4 rounded-xl bg-indigo-50 border border-indigo-100 p-4">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500 mb-1">{qUi.explanationLabel}</p>
-                            <div className="prose prose-sm max-w-none text-slate-700" dangerouslySetInnerHTML={{ __html: q.explanation }} />
-                          </div>
-                        )}
+                        ) : null}
+                        {item.questions.map((eq) => renderResultQuestion(eq, resultQuestionIndexById.get(eq.id) ?? item.firstQuestionIndex))}
                       </div>
                     );
                   })}

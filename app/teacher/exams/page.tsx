@@ -56,7 +56,7 @@ import { ConfirmationModal } from '@/features/admin/shared';
 import { cn } from '@/lib/utils';
 
 const examStatusOptions: (ExamStatus | 'all')[] = ['all', 'DRAFT', 'PUBLISHED', 'CLOSED'];
-const examModeOptions: ExamMode[] = ['ONLINE', 'OFFLINE'];
+const examModeOptions: ExamMode[] = ['ONLINE', 'OFFLINE', 'WRITTEN', 'HYBRID'];
 
 function getStatusBadgeClass(status: string) {
   if (status === 'PUBLISHED') return 'bg-emerald-50 text-emerald-700 border-emerald-100 font-black';
@@ -76,9 +76,10 @@ function getTypeBadgeClass(type: string) {
 }
 
 function getModeBadgeClass(mode: string) {
-  return mode === 'ONLINE' 
-    ? 'bg-cyan-50 text-cyan-700 border-cyan-100' 
-    : 'bg-orange-50 text-orange-700 border-orange-100';
+  if (mode === 'ONLINE') return 'bg-cyan-50 text-cyan-700 border-cyan-100';
+  if (mode === 'WRITTEN') return 'bg-violet-50 text-violet-700 border-violet-100';
+  if (mode === 'HYBRID') return 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-100';
+  return 'bg-orange-50 text-orange-700 border-orange-100';
 }
 
 export default function TeacherExamsPage() {

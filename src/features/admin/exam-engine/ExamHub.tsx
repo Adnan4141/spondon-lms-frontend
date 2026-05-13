@@ -45,6 +45,7 @@ function statusTone(status: ExamStatus) {
 
 function modeTone(mode: ExamMode) {
   if (mode === 'ONLINE') return 'bg-sky-50 text-sky-700 border-sky-200';
+  if (mode === 'HYBRID') return 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200';
   if (mode === 'WRITTEN') return 'bg-violet-50 text-violet-700 border-violet-200';
   return 'bg-orange-50 text-orange-700 border-orange-200';
 }
@@ -145,7 +146,7 @@ export function ExamHub() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-2">
+    <div className="mx-auto max-w-full space-y-5 px-4 py-6 sm:px-2">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="font-serif text-2xl font-normal tracking-tight text-[#0D1B35] md:text-3xl">Exam operations</h1>
@@ -215,6 +216,7 @@ export function ExamHub() {
               <option value="ONLINE">Online</option>
               <option value="OFFLINE">Offline</option>
               <option value="WRITTEN">Written</option>
+              <option value="HYBRID">Hybrid</option>
             </select>
           </div>
         </div>

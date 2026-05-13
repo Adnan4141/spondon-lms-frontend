@@ -181,6 +181,17 @@ export function Step2Sections({ state, dispatch, onAddSection }: Props) {
     );
   }
 
+  if (state.uiCategory === 'OFFLINE_RESULT') {
+    return (
+      <Card className="border-slate-200 shadow-sm">
+        <CardContent className="py-8 text-center text-sm text-slate-600">
+          Offline result-entry exams do not need online sections. Teachers will mark scripts outside LMS, then enter
+          results from the Results page using single entry, bulk manual rows, or Excel import.
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="border-slate-200 shadow-sm">
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
@@ -332,7 +343,7 @@ export function Step2Sections({ state, dispatch, onAddSection }: Props) {
             return (
               <div
                 key={s.localId}
-                className="grid gap-2 rounded-lg border border-slate-200 bg-slate-50/50 p-3 sm:grid-cols-[1fr_72px_72px_72px_100px_36px]"
+                className="grid gap-2 rounded-lg border border-slate-200 bg-slate-50/50 p-3 sm:grid-cols-[1fr_88px_88px_88px_112px_36px]"
               >
                 <div className="flex items-center gap-2">
                   <div className="h-7 w-1 rounded-full" style={{ background: t?.color }} />
@@ -344,44 +355,55 @@ export function Step2Sections({ state, dispatch, onAddSection }: Props) {
                     className="h-9 border-slate-200 text-sm font-semibold"
                   />
                 </div>
-                <Input
-                  type="number"
-                  className="h-9 border-slate-200 text-center text-sm"
-                  value={s.count}
-                  onChange={(e) =>
-                    dispatch({
-                      type: 'UPDATE_SECTION',
-                      localId: s.localId,
-                      patch: { count: Number(e.target.value) || 0 },
-                    })
-                  }
-                />
-                <Input
-                  type="number"
-                  step="0.25"
-                  className="h-9 border-slate-200 text-center text-sm"
-                  value={s.marks}
-                  onChange={(e) =>
-                    dispatch({
-                      type: 'UPDATE_SECTION',
-                      localId: s.localId,
-                      patch: { marks: Number(e.target.value) },
-                    })
-                  }
-                />
-                <Input
-                  type="number"
-                  step="0.25"
-                  className="h-9 border-slate-200 text-center text-sm"
-                  value={s.neg}
-                  onChange={(e) =>
-                    dispatch({
-                      type: 'UPDATE_SECTION',
-                      localId: s.localId,
-                      patch: { neg: Number(e.target.value) },
-                    })
-                  }
-                />
+                <div className="space-y-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                    {s.type === 'CQ' ? 'Creative/CQ' : 'Short'} count
+                  </span>
+                  <Input
+                    type="number"
+                    className="h-9 border-slate-200 text-center text-sm"
+                    value={s.count}
+                    onChange={(e) =>
+                      dispatch({
+                        type: 'UPDATE_SECTION',
+                        localId: s.localId,
+                        patch: { count: Number(e.target.value) || 0 },
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Marks</span>
+                  <Input
+                    type="number"
+                    step="0.25"
+                    className="h-9 border-slate-200 text-center text-sm"
+                    value={s.marks}
+                    onChange={(e) =>
+                      dispatch({
+                        type: 'UPDATE_SECTION',
+                        localId: s.localId,
+                        patch: { marks: Number(e.target.value) },
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Negative</span>
+                  <Input
+                    type="number"
+                    step="0.25"
+                    className="h-9 border-slate-200 text-center text-sm"
+                    value={s.neg}
+                    onChange={(e) =>
+                      dispatch({
+                        type: 'UPDATE_SECTION',
+                        localId: s.localId,
+                        patch: { neg: Number(e.target.value) },
+                      })
+                    }
+                  />
+                </div>
                 <Select
                   value={s.difficulty}
                   onValueChange={(v) =>

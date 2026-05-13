@@ -64,7 +64,7 @@ export function validateStep(state: ExamWizardState, step: number): StepValidati
     return { ok: true };
   }
   if (step === 2) {
-    if (state.uiCategory === 'OMRB') return { ok: true };
+    if (state.uiCategory === 'OMRB' || state.uiCategory === 'OFFLINE_RESULT') return { ok: true };
     if (state.sections.length === 0) {
       return { ok: false, summary: 'Add at least one section.' };
     }

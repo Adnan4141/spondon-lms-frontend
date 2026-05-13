@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, type ReactNode } from 'react';
-import { Check, ChevronDown, ChevronRight, FileText, Folder, Search } from 'lucide-react';
+import { AlertTriangle, Check, ChevronDown, ChevronRight, FileText, Folder, Search, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -58,6 +58,26 @@ function selectableFoldersFor(node: FolderTreeNode): FolderTreeNode[] {
   return [...own, ...(node.children ?? []).flatMap((child) => selectableFoldersFor(child))];
 }
 
+function flattenFolders(nodes: FolderTreeNode[]): FolderTreeNode[] {
+  return nodes.flatMap((node) => [node, ...flattenFolders(node.children ?? [])]);
+}
+
+function capacityForType(folder: FolderTreeNode | undefined, type: 'MCQ' | 'CQ' | 'SHORT'): number {
+  if (!folder) return 0;
+  if (type === 'MCQ') return (folder.counts?.mcqSingle ?? 0) + (folder.counts?.mcqPassage ?? 0);
+  if (type === 'CQ') return folder.counts?.cq ?? 0;
+  return folder.counts?.short ?? 0;
+}
+
+function availabilityText(folder: FolderTreeNode | undefined, type: 'MCQ' | 'CQ' | 'SHORT'): string {
+  if (!folder) return 'Availability unknown';
+  if (type === 'MCQ') {
+    return `Standalone ${folder.counts?.mcqSingle ?? 0} · Passage MCQ ${folder.counts?.mcqPassage ?? 0} · Blocks ${folder.passageCount ?? 0}`;
+  }
+  if (type === 'CQ') return `Creative/CQ ${folder.counts?.cq ?? 0}`;
+  return `Short ${folder.counts?.short ?? 0}`;
+}
+
 export function Step3QuestionBank({
   state,
   dispatch,
@@ -72,8 +92,10 @@ export function Step3QuestionBank({
   folderFallbackAll = false,
 }: Props) {
   const [folderSearch, setFolderSearch] = useState('');
+  const [previewMessage, setPreviewMessage] = useState<string | null>(null);
   const activeSection = state.sections.find((s) => s.localId === activeSectionId) ?? state.sections[0];
   const activeSubject = state.subjects.find((s) => s.localId === activeSectionId) ?? state.subjects[0];
+  const foldersById = useMemo(() => new Map(flattenFolders(tree).map((folder) => [folder.id, folder])), [tree]);
 
   const subjectQuestionType = (subject: NonNullable<typeof activeSubject>): 'MCQ' | 'CQ' | 'SHORT' => {
     if ((subject.mcqSingleCount || 0) + (subject.mcqPassageCount || 0) > 0) return 'MCQ';
@@ -110,20 +132,79 @@ export function Step3QuestionBank({
     if (selected === shouldSelect) return;
     if (state.uiCategory === 'MULTI') {
       if (!activeSubject) return;
+      const remaining = Math.max(
+        1,
+        activeSubject.count - activeSubject.folderRules.reduce((sum, r) => sum + Number(r.questionCount || 0), 0),
+      );
       dispatch({
         type: 'TOGGLE_SUBJECT_FOLDER',
         subjectLocalId: activeSubject.localId,
         folderId: folder.id,
         folderName: folder.name,
+        defaultCount: Math.min(remaining, Math.max(1, capacityForType(folder, subjectQuestionType(activeSubject)) || folder.questionCount || 1)),
       });
     } else if (activeSection) {
+      const remaining = Math.max(
+        1,
+        activeSection.count - activeSection.folderRules.reduce((sum, r) => sum + Number(r.questionCount || 0), 0),
+      );
       dispatch({
         type: 'TOGGLE_FOLDER',
         sectionLocalId: activeSection.localId,
         folderId: folder.id,
         folderName: folder.name,
+        defaultCount: Math.min(remaining, Math.max(1, capacityForType(folder, activeSection.type) || folder.questionCount || 1)),
       });
     }
+  };
+
+  const autoBalanceSection = (sectionLocalId: string, type: 'MCQ' | 'CQ' | 'SHORT', target: number, rules: FolderRuleDraft[]) => {
+    let remaining = Math.max(0, target);
+    rules.forEach((rule, index) => {
+      const cap = capacityForType(foldersById.get(rule.folderId), type);
+      const count = index === rules.length - 1 ? Math.max(1, remaining) : Math.max(1, Math.min(remaining, cap || target));
+      updateRuleCount(sectionLocalId, rule.folderId, count);
+      remaining = Math.max(0, remaining - count);
+    });
+  };
+
+  const autoBalanceSubject = (subjectLocalId: string, type: 'MCQ' | 'CQ' | 'SHORT', target: number, rules: FolderRuleDraft[]) => {
+    let remaining = Math.max(0, target);
+    rules.forEach((rule, index) => {
+      const cap = capacityForType(foldersById.get(rule.folderId), type);
+      const count = index === rules.length - 1 ? Math.max(1, remaining) : Math.max(1, Math.min(remaining, cap || target));
+      dispatch({
+        type: 'UPDATE_SUBJECT_RULE_COUNT',
+        subjectLocalId,
+        folderId: rule.folderId,
+        count,
+      });
+      remaining = Math.max(0, remaining - count);
+    });
+  };
+
+  const previewSection = (label: string, type: 'MCQ' | 'CQ' | 'SHORT', target: number, rules: FolderRuleDraft[]) => {
+    if (!rules.length) {
+      setPreviewMessage(`${label}: select at least one folder first.`);
+      return;
+    }
+    const gaps = rules
+      .map((rule) => {
+        const folder = foldersById.get(rule.folderId);
+        const cap = capacityForType(folder, type);
+        return { rule, cap, text: availabilityText(folder, type) };
+      })
+      .filter((row) => row.rule.questionCount > row.cap);
+    const allocated = rules.reduce((sum, rule) => sum + Number(rule.questionCount || 0), 0);
+    if (gaps.length) {
+      setPreviewMessage(`${label}: ${gaps[0].rule.folderName ?? gaps[0].rule.folderId} requests ${gaps[0].rule.questionCount}, but ${gaps[0].text}.`);
+      return;
+    }
+    if (allocated !== target) {
+      setPreviewMessage(`${label}: allocation is ${allocated}/${target}. Balance it before generating.`);
+      return;
+    }
+    setPreviewMessage(`${label}: allocation preview looks good. Backend will still verify exact passage grouping before writing sets.`);
   };
 
   const selectVisibleFolders = (shouldSelect: boolean) => {
@@ -334,6 +415,7 @@ export function Step3QuestionBank({
           {state.subjects.map((s) => {
             const allocated = s.folderRules.reduce((sum, r) => sum + Number(r.questionCount || 0), 0);
             const shortage = Math.max(0, s.count - allocated);
+            const questionType = subjectQuestionType(s);
             return (
               <Card key={s.localId} className="border-slate-200 shadow-sm">
                 <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 py-3">
@@ -350,8 +432,34 @@ export function Step3QuestionBank({
                     <Badge variant="outline" className="text-[10px]">
                       {s.folderRules.length} folders
                     </Badge>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 gap-1 px-2 text-[10px]"
+                      disabled={!s.folderRules.length}
+                      onClick={() => autoBalanceSubject(s.localId, questionType, s.count, s.folderRules)}
+                    >
+                      <Wand2 className="h-3 w-3" />
+                      Auto balance
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-[10px]"
+                      disabled={!s.folderRules.length}
+                      onClick={() => previewSection(s.name || 'Subject', questionType, s.count, s.folderRules)}
+                    >
+                      Preview generation
+                    </Button>
                   </div>
                 </CardHeader>
+                {previewMessage ? (
+                  <p className="border-b border-slate-100 bg-slate-50 px-4 py-2 text-[11px] text-slate-700">
+                    {previewMessage}
+                  </p>
+                ) : null}
                 {shortage ? (
                   <p className="border-b border-amber-100 bg-amber-50/80 px-4 py-2 text-[11px] text-amber-950">
                     Add {shortage} more question allocation before finalizing.
@@ -363,6 +471,9 @@ export function Step3QuestionBank({
                   ) : (
                     s.folderRules.map((r) => {
                       const leafQ = leaves.find((l) => l.id === r.folderId)?.q ?? 0;
+                      const folder = foldersById.get(r.folderId);
+                      const fitCapacity = capacityForType(folder, questionType);
+                      const overPool = fitCapacity > 0 && r.questionCount > fitCapacity;
                       return (
                         <div
                           key={r.folderId}
@@ -373,6 +484,9 @@ export function Step3QuestionBank({
                             <span className="text-slate-400">
                               {' '}
                               ({r.questionCount}Q{leafQ ? ` / ${leafQ} in bank` : ''})
+                            </span>
+                            <span className={cn('mt-0.5 block text-[10px]', overPool ? 'font-semibold text-rose-600' : 'text-slate-500')}>
+                              {availabilityText(folder, questionType)} · Fit {fitCapacity}
                             </span>
                           </div>
                           <Select
@@ -536,8 +650,34 @@ export function Step3QuestionBank({
                   <Badge variant="outline" className="text-[10px]">
                     {s.folderRules.length} folders
                   </Badge>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 gap-1 px-2 text-[10px]"
+                    disabled={!s.folderRules.length}
+                    onClick={() => autoBalanceSection(s.localId, s.type, s.count, s.folderRules)}
+                  >
+                    <Wand2 className="h-3 w-3" />
+                    Auto balance
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-[10px]"
+                    disabled={!s.folderRules.length}
+                    onClick={() => previewSection(s.label || s.type, s.type, s.count, s.folderRules)}
+                  >
+                    Preview generation
+                  </Button>
                 </div>
               </CardHeader>
+              {previewMessage ? (
+                <p className="border-b border-slate-100 bg-slate-50 px-4 py-2 text-[11px] text-slate-700">
+                  {previewMessage}
+                </p>
+              ) : null}
               {!match && s.folderRules.length > 0 ? (
                 <p className="border-b border-amber-100 bg-amber-50/80 px-4 py-2 text-[11px] text-amber-950">
                   Totals should match the section target before generating sets (pins may need manual counts).
@@ -549,7 +689,9 @@ export function Step3QuestionBank({
                 ) : (
                   s.folderRules.map((r) => {
                     const leafQ = leaves.find((l) => l.id === r.folderId)?.q ?? 0;
-                    const overPool = leafQ > 0 && r.questionCount > leafQ;
+                    const folder = foldersById.get(r.folderId);
+                    const fitCapacity = capacityForType(folder, s.type);
+                    const overPool = fitCapacity > 0 && r.questionCount > fitCapacity;
                     return (
                       <div
                         key={r.folderId}
@@ -561,8 +703,14 @@ export function Step3QuestionBank({
                             {' '}
                             ({r.questionCount}Q{leafQ ? ` / ${leafQ} in bank` : ''})
                           </span>
+                          <span className={cn('mt-0.5 block text-[10px]', overPool ? 'font-semibold text-rose-600' : 'text-slate-500')}>
+                            {availabilityText(folder, s.type)} · Fit {fitCapacity}
+                          </span>
                           {overPool ? (
-                            <span className="ml-1 font-medium text-rose-600">Exceeds bank</span>
+                            <span className="ml-1 inline-flex items-center gap-1 font-medium text-rose-600">
+                              <AlertTriangle className="h-3 w-3" />
+                              Exceeds type capacity
+                            </span>
                           ) : null}
                         </div>
                         <Select

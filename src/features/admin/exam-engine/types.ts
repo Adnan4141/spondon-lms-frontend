@@ -1,6 +1,6 @@
 import type { ExamMode, ExamType, SelectionMode } from '@/types/exam';
 
-export type UiExamCategory = 'MCQ' | 'CQ' | 'MCQCQ' | 'MULTI' | 'OMR' | 'OMRB';
+export type UiExamCategory = 'MCQ' | 'CQ' | 'MCQCQ' | 'MULTI' | 'OMR' | 'OMRB' | 'OFFLINE_RESULT';
 
 export type SectionTypeUi = 'MCQ' | 'CQ' | 'SHORT';
 
@@ -101,6 +101,9 @@ export function mapUiCategoryToExamType(cat: UiExamCategory): ExamType {
   }
 }
 
-export function mapDeliveryToExamMode(m: 'ONLINE' | 'OFFLINE'): ExamMode {
+export function mapDeliveryToExamMode(m: 'ONLINE' | 'OFFLINE', cat?: UiExamCategory | ''): ExamMode {
+  if (cat === 'CQ') return 'WRITTEN';
+  if (cat === 'MCQCQ') return 'HYBRID';
+  if (cat === 'OFFLINE_RESULT' || cat === 'OMR' || cat === 'OMRB') return 'OFFLINE';
   return m === 'ONLINE' ? 'ONLINE' : 'OFFLINE';
 }

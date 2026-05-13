@@ -136,6 +136,7 @@ export interface FolderTreeNode {
   parentFolderId: string | null;
   childCount: number;
   questionCount: number;
+  passageCount?: number;
   counts: { mcqSingle: number; mcqPassage: number; cq: number; short: number; total: number };
   children: FolderTreeNode[];
 }

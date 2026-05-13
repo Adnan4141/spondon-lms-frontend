@@ -3,6 +3,7 @@ export type ExamType = 'PRACTICE' | 'SCHEDULED' | 'MODEL' | 'TALENT_HUNT' | 'UNI
 export type ExamScope = 'COURSE' | 'GLOBAL';
 export type SelectionMode = 'RANDOM' | 'MANUAL' | 'ALL_FROM_FOLDER' | 'RANDOM_COUNT' | 'MANUAL_PICK';
 export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD';
+export type ResultInputMode = 'SINGLE_MANUAL' | 'BULK_EXCEL' | 'BULK_MANUAL' | 'AUTOMATED' | 'OMR_SCAN';
 
 export interface ExamSubjectFolderRule {
   id: string;
@@ -103,7 +104,7 @@ export type ExamEngineType =
   | 'UNIVERSITY_SPECIAL'
   | 'TALENT_HUNT'
   | 'OMR_BOOK';
-export type ExamMode = 'ONLINE' | 'OFFLINE' | 'WRITTEN';
+export type ExamMode = 'ONLINE' | 'OFFLINE' | 'WRITTEN' | 'HYBRID';
 export type ExamStatus = 'DRAFT' | 'PUBLISHED' | 'CLOSED';
 
 export interface Course {
@@ -151,6 +152,8 @@ export interface ExamQuestion {
     answer: any;
     isCorrect: boolean | null;
     obtainedMarks: number | null;
+    scanUrls?: string[] | null;
+    writtenSubmission?: WrittenSubmissionMeta | null;
   } | null;
 }
 
@@ -207,6 +210,7 @@ export interface Exam {
   omrQuestionCount?: number | null;
   omrOptionCount?: number | null;
   omrGeneratedUrl?: string | null;
+  resultInputModes?: ResultInputMode[];
   language?: string;
   examCourses?: ExamCourseLink[];
   solveSheetVisibility?: string | null;
@@ -254,6 +258,7 @@ export interface ExamStudentView {
   endAt?: string | null;
   durationMinutes?: number | null;
   language?: string | null;
+  settings?: any;
   pdfUrl?: string | null;
   solveSheetUrl?: string | null;
   syllabusHtml?: string | null;
@@ -294,6 +299,7 @@ export interface CreateExamDto {
   totalSets?: number | null;
   omrQuestionCount?: number | null;
   omrOptionCount?: number | null;
+  resultInputModes?: ResultInputMode[];
   startAt?: string;
   endAt?: string;
   durationMinutes?: number;
@@ -327,6 +333,7 @@ export interface UpdateExamDto {
   omrQuestionCount?: number | null;
   omrOptionCount?: number | null;
   omrGeneratedUrl?: string | null;
+  resultInputModes?: ResultInputMode[];
   startAt?: string;
   endAt?: string;
   durationMinutes?: number;
@@ -458,5 +465,22 @@ export interface WrittenQuestionWithAnswer {
     obtainedMarks?: number | null;
     evaluations: WrittenEvaluation[];
     scanUrls?: string[] | null;
+    writtenSubmission?: WrittenSubmissionMeta | null;
   } | null;
+}
+
+export interface WrittenSubmissionPage {
+  url: string;
+  pageNumber: number;
+  fileName?: string;
+  mimeType?: string;
+  size?: number;
+  compressionStatus?: string;
+  qualityWarnings?: string[];
+}
+
+export interface WrittenSubmissionMeta {
+  pages?: WrittenSubmissionPage[];
+  finalPdfUrl?: string | null;
+  updatedAt?: string;
 }

@@ -1,4 +1,4 @@
-import { apiRequest, API_ORIGIN } from '../api';
+import { apiRequest, API_BASE_URL, API_ORIGIN } from '../api';
 import type {
   Exam,
   ExamCourseLink,
@@ -16,6 +16,7 @@ import type {
   TalentHunt,
   TalentHuntStage,
   TalentHuntPrize,
+  WrittenSubmissionPage,
 } from '@/types/exam';
 
 export type { ExamSubject, ExamSubjectFolderRule, SelectionMode, Difficulty };
@@ -367,6 +368,52 @@ export async function createOfflineAttempt(
     `/exams/${examId}/offline-attempts`,
     { method: 'POST', body: JSON.stringify({ studentUserId }) },
   );
+}
+
+export async function uploadWrittenSubmission(
+  examId: string,
+  data: { attemptId: string; questionId: string; files: File[] },
+): Promise<ApiResponse<{ answerId: string; pages: WrittenSubmissionPage[]; scanUrls: string[]; finalPdfUrl?: string | null }>> {
+  const formData = new FormData();
+  formData.append('attemptId', data.attemptId);
+  formData.append('questionId', data.questionId);
+  data.files.forEach((f) => formData.append('files', f));
+  return apiRequest<ApiResponse<{ answerId: string; pages: WrittenSubmissionPage[]; scanUrls: string[]; finalPdfUrl?: string | null }>>(
+    `/exams/${examId}/written-submissions/upload`,
+    { method: 'POST', body: formData },
+  );
+}
+
+export async function reorderWrittenSubmission(
+  examId: string,
+  data: { attemptId: string; questionId: string; orderedUrls: string[] },
+): Promise<ApiResponse<{ pages: WrittenSubmissionPage[]; scanUrls: string[] }>> {
+  return apiRequest<ApiResponse<{ pages: WrittenSubmissionPage[]; scanUrls: string[] }>>(
+    `/exams/${examId}/written-submissions/reorder`,
+    { method: 'POST', body: JSON.stringify(data) },
+  );
+}
+
+export async function finalizeWrittenSubmissionPdf(
+  examId: string,
+  data: { attemptId: string; questionId: string },
+): Promise<ApiResponse<{ finalPdfUrl: string; pages: WrittenSubmissionPage[] }>> {
+  return apiRequest<ApiResponse<{ finalPdfUrl: string; pages: WrittenSubmissionPage[] }>>(
+    `/exams/${examId}/written-submissions/finalize-pdf`,
+    { method: 'POST', body: JSON.stringify(data) },
+  );
+}
+
+export async function getWrittenSubmission(
+  examId: string,
+  attemptId: string,
+): Promise<ApiResponse<any>> {
+  return apiRequest<ApiResponse<any>>(`/exams/${examId}/written-submissions/${attemptId}`);
+}
+
+export function getAnswerSheetTemplateUrl(examId: string, studentUserId?: string): string {
+  const q = studentUserId ? `?studentUserId=${encodeURIComponent(studentUserId)}` : '';
+  return `${API_ORIGIN}/api/exams/${examId}/answer-sheet-template.pdf${q}`;
 }
 
 export async function getExamCourseLinks(examId: string): Promise<ApiResponse<ExamCourseLink[]>> {
@@ -888,6 +935,57 @@ export interface GeneratedSectionSet {
   id: string;
   name: string;
   questionCount: number;
+  summary?: {
+    mcq: number;
+    standaloneMcq: number;
+    passageMcq: number;
+    cq: number;
+    short: number;
+    totalMarks: number;
+  };
+}
+
+export interface SectionGenerationAvailability {
+    folderId: string;
+    folderName: string;
+    type: 'MCQ' | 'CQ' | 'SHORT';
+    requested: number;
+    feasibleTotal: number;
+    available?: number;
+    availableStandaloneMcq?: number;
+    availablePassageBlocks?: number;
+    availablePassageMcq?: number;
+    selectedFromPassages?: number;
+    suggestedTargets?: number[];
+}
+
+export interface SectionGenerationValidation {
+  valid: boolean;
+  requested: number;
+  feasibleTotal: number;
+  availability: SectionGenerationAvailability[];
+  blockingFolders: SectionGenerationAvailability[];
+  suggestions: string[];
+}
+
+export async function validateSectionGeneration(
+  examId: string,
+  sectionId: string,
+  data: GenerateSectionSetsDto,
+): Promise<ApiResponse<SectionGenerationValidation>> {
+  const authHeaders: Record<string, string> = {};
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('auth_token');
+    if (token) authHeaders.Authorization = `Bearer ${token}`;
+  }
+  const response = await fetch(`${API_BASE_URL}/exams/${examId}/sections/${sectionId}/validate-generation`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', ...authHeaders },
+    body: JSON.stringify(data),
+  });
+  const body = (await response.json().catch(() => ({}))) as ApiResponse<SectionGenerationValidation>;
+  return body;
 }
 
 export async function generateSectionSets(

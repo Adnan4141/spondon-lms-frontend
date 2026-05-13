@@ -15,7 +15,7 @@ export function PaperPreview({ state, step, className }: Props) {
   const nSets = Math.min(26, Math.max(1, Number(state.nSets) || 1));
   const setLabels = setLabelsForPreview(state.setNaming, nSets);
   const sections: WizardSection[] =
-    state.uiCategory === 'MULTI' || state.uiCategory === 'OMRB'
+    state.uiCategory === 'MULTI' || state.uiCategory === 'OMRB' || state.uiCategory === 'OFFLINE_RESULT'
       ? []
       : state.sections;
 
@@ -49,7 +49,9 @@ export function PaperPreview({ state, step, className }: Props) {
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Question blocks</p>
           {sections.length === 0 ? (
             <p className="rounded-lg border border-dashed border-slate-300 bg-white/60 p-4 text-center text-xs text-slate-500">
-              {state.uiCategory === 'MULTI'
+              {state.uiCategory === 'OFFLINE_RESULT'
+                ? 'Offline result-entry workflow: no online paper is required. Use the Results page after teachers mark scripts.'
+                : state.uiCategory === 'MULTI'
                 ? 'Multi-subject: sections attach after save from the subjects screen.'
                 : 'Add sections in step 2 to see the paper outline.'}
             </p>

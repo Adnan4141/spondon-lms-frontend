@@ -63,6 +63,28 @@ function timeRemaining(endAt: string | null | undefined, lang: 'bn' | 'en' = 'bn
   return `${mins}m left`;
 }
 
+function latestAttempt(exam: Exam) {
+  return exam.studentAttempts?.[exam.studentAttempts.length - 1];
+}
+
+function writtenStatusLabel(exam: Exam, lang: 'bn' | 'en') {
+  const attempt = latestAttempt(exam);
+  if (exam.hasInProgress) return lang === 'en' ? 'Upload in progress' : 'আপলোড চলছে';
+  if (!attempt) return lang === 'en' ? 'Not started' : 'শুরু হয়নি';
+  if (attempt.obtainedMarks == null || attempt.totalMarks == null) {
+    return lang === 'en' ? 'Teacher evaluation pending' : 'শিক্ষক মূল্যায়ন বাকি';
+  }
+  return lang === 'en' ? 'Evaluated' : 'মূল্যায়ন সম্পন্ন';
+}
+
+function writtenPrimaryAction(exam: Exam, lang: 'bn' | 'en') {
+  const attempt = latestAttempt(exam);
+  if (exam.hasInProgress) return lang === 'en' ? 'Continue upload' : 'আপলোড চালিয়ে যান';
+  if (!attempt) return lang === 'en' ? 'Start upload' : 'আপলোড শুরু করুন';
+  if (attempt.obtainedMarks == null || attempt.totalMarks == null) return lang === 'en' ? 'View submission' : 'সাবমিশন দেখুন';
+  return lang === 'en' ? 'View result' : 'ফলাফল দেখুন';
+}
+
 export default function StudentExamsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -91,7 +113,7 @@ export default function StudentExamsPage() {
   }, []);
 
   const hallExams = exams.filter((e) => e.mode === 'OFFLINE');
-  const writtenExams = exams.filter((e) => e.mode === 'WRITTEN');
+  const writtenExams = exams.filter((e) => e.mode === 'WRITTEN' || e.mode === 'HYBRID');
   const availableWritten = writtenExams.filter((e) => e.canAttempt || e.hasInProgress);
   const completedWritten = writtenExams.filter(
     (e) => !e.canAttempt && !e.hasInProgress && (e.studentAttempts?.length ?? 0) > 0,
@@ -314,13 +336,25 @@ export default function StudentExamsPage() {
                       {exam.type.replace('_', ' ')}
                     </Badge>
                     <Badge variant="outline" className="rounded-lg text-[9px] font-black uppercase px-2 py-0.5 bg-violet-50 text-violet-700 border-violet-200">
-                      WRITTEN
+                      {exam.mode === 'HYBRID' ? 'HYBRID' : 'WRITTEN'}
                     </Badge>
                   </div>
                   <h3 className="text-lg font-black text-slate-900 group-hover:text-violet-700 transition-colors mb-2">
                     {exam.title}
                   </h3>
                   <p className="text-sm font-medium text-slate-500 mb-1">{exam.course?.name}</p>
+                  <div className="mt-3 rounded-xl border border-violet-200 bg-white/80 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-violet-700">
+                      {exam.mode === 'HYBRID'
+                        ? lang === 'en'
+                          ? 'MCQ + handwritten upload'
+                          : 'MCQ + হাতে লেখা আপলোড'
+                        : lang === 'en'
+                          ? 'Camera/PDF written upload'
+                          : 'ক্যামেরা/PDF লিখিত আপলোড'}
+                    </p>
+                    <p className="mt-1 text-xs font-bold text-slate-600">{writtenStatusLabel(exam, lang)}</p>
+                  </div>
                   <div className="flex items-center gap-4 text-xs font-medium text-slate-400 mt-3">
                     {exam.durationMinutes && (
                       <span className="flex items-center gap-1">
@@ -347,9 +381,9 @@ export default function StudentExamsPage() {
                       }}
                     >
                       {exam.hasInProgress ? (
-                        <><RotateCcw className="h-3.5 w-3.5 mr-2" /> {lang === 'en' ? 'Continue writing' : 'লেখা চালিয়ে যান'}</>
+                        <><RotateCcw className="h-3.5 w-3.5 mr-2" /> {writtenPrimaryAction(exam, lang)}</>
                       ) : (
-                        <><PenLine className="h-3.5 w-3.5 mr-2" /> {lang === 'en' ? 'Start writing' : 'লেখা শুরু করুন'}</>
+                        <><PenLine className="h-3.5 w-3.5 mr-2" /> {writtenPrimaryAction(exam, lang)}</>
                       )}
                     </Button>
                     {exam.showLeaderboard ? (
@@ -382,7 +416,7 @@ export default function StudentExamsPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {completedWritten.map((exam) => {
               const lang: 'bn' | 'en' = exam.language === 'en' ? 'en' : 'bn';
-              const lastAttempt = exam.studentAttempts?.[exam.studentAttempts.length - 1];
+              const lastAttempt = latestAttempt(exam);
               const totalM = lastAttempt?.totalMarks ?? 0;
               const obtainedM = lastAttempt?.obtainedMarks ?? 0;
               const percentage = totalM > 0 && obtainedM != null
@@ -402,7 +436,7 @@ export default function StudentExamsPage() {
                         {exam.type.replace('_', ' ')}
                       </Badge>
                       <Badge variant="outline" className="rounded-lg text-[9px] font-black uppercase px-2 py-0.5 bg-violet-50 text-violet-700 border-violet-200">
-                        WRITTEN
+                        {exam.mode === 'HYBRID' ? 'HYBRID' : 'WRITTEN'}
                       </Badge>
                     </div>
                     {percentage != null ? (
@@ -420,6 +454,18 @@ export default function StudentExamsPage() {
                     {exam.title}
                   </h3>
                   <p className="text-sm text-slate-500">{exam.course?.name ?? ''}</p>
+                  <div className="mt-3 rounded-xl border border-violet-100 bg-violet-50/50 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-violet-700">
+                      {exam.mode === 'HYBRID'
+                        ? lang === 'en'
+                          ? 'Hybrid submission'
+                          : 'হাইব্রিড সাবমিশন'
+                        : lang === 'en'
+                          ? 'Written upload submission'
+                          : 'লিখিত আপলোড সাবমিশন'}
+                    </p>
+                    <p className="mt-1 text-xs font-bold text-slate-600">{writtenStatusLabel(exam, lang)}</p>
+                  </div>
 
                   {lastAttempt && (
                     <div className="flex items-center gap-3 mt-3 text-xs font-medium text-slate-400">
@@ -442,7 +488,7 @@ export default function StudentExamsPage() {
                         router.push(`/student/exams/${exam.id}?view=result`);
                       }}
                     >
-                      <FileText className="h-3.5 w-3.5 mr-2" /> {lang === 'en' ? 'View results' : 'ফলাফল দেখুন'}
+                      <FileText className="h-3.5 w-3.5 mr-2" /> {writtenPrimaryAction(exam, lang)}
                     </Button>
                     {canRetry && (
                       <Button

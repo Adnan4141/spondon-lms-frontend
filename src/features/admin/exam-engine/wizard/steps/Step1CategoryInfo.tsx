@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Info, Loader2 } from 'lucide-react';
+import { BookOpen, Building2, ClipboardCheck, Info, Layers, Library, Loader2, PenLine, ScanLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -53,40 +53,64 @@ export function Step1CategoryInfo({
 }: Props) {
   const err = (k: Step1FieldKey) => Boolean(fieldErrors?.[k]);
   const [importPick, setImportPick] = useState<string>('');
+  const iconMap = {
+    MCQ: ClipboardCheck,
+    CQ: PenLine,
+    MCQCQ: Layers,
+    OFFLINE_RESULT: Building2,
+    OMR: ScanLine,
+    OMRB: BookOpen,
+    MULTI: Library,
+  } as const;
 
   return (
     <div className="space-y-4">
       <Card className="border-slate-200 shadow-sm">
         <CardHeader>
-          <CardTitle className="font-serif text-lg text-[#0D1B35]">Exam category</CardTitle>
-          <CardDescription>Choose format — colors match the reference EduCore palette.</CardDescription>
+          <CardTitle className="font-serif text-lg text-[#0D1B35]">Exam method</CardTitle>
+          <CardDescription>Choose the real workflow students and teachers will use.</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {EXAM_CATS.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => {
-                clearFieldError('uiCategory');
-                onSelectCategory(c.id);
-              }}
-              className={cn(
-                'rounded-xl border p-4 text-left transition-all hover:border-[#C8A96E] hover:bg-[#FBF4E6]/60',
-                state.uiCategory === c.id &&
-                  'border-[#0D1B35] bg-[#0D1B35]/[0.04] shadow-[0_0_0_3px_rgba(13,27,53,0.06)]',
-                err('uiCategory') && !state.uiCategory && 'ring-2 ring-rose-200',
-              )}
-            >
-              <div className="text-2xl">{c.icon}</div>
-              <div className="mt-1 font-semibold text-slate-900">{c.name}</div>
-              <p className="mt-1 text-[11px] leading-snug text-slate-600">{c.desc}</p>
-            </button>
-          ))}
+        <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {EXAM_CATS.map((c) => {
+            const Icon = iconMap[c.id];
+            const active = state.uiCategory === c.id;
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => {
+                  clearFieldError('uiCategory');
+                  onSelectCategory(c.id);
+                }}
+                className={cn(
+                  'min-h-36 rounded-lg border bg-white p-4 text-left transition-all hover:border-[#C8A96E] hover:bg-[#FBF4E6]/60',
+                  active && 'border-[#0D1B35] bg-[#0D1B35]/[0.04] shadow-[0_0_0_3px_rgba(13,27,53,0.06)]',
+                  err('uiCategory') && !state.uiCategory && 'ring-2 ring-rose-200',
+                )}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <span
+                    className={cn(
+                      'flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-700',
+                      active && 'border-[#0D1B35] bg-[#0D1B35] text-[#E2C98A]',
+                    )}
+                  >
+                    <Icon className="h-5 w-5" />
+                  </span>
+                  <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                    {c.bestFor}
+                  </span>
+                </div>
+                <div className="mt-3 font-semibold text-slate-900">{c.name}</div>
+                <p className="mt-1 text-[11px] leading-snug text-slate-600">{c.desc}</p>
+              </button>
+            );
+          })}
         </CardContent>
         {err('uiCategory') ? <p className="px-6 pb-2 text-xs text-rose-600">Select an exam category.</p> : null}
       </Card>
 
-      {state.uiCategory && state.uiCategory !== 'OMRB' && (
+      {state.uiCategory && state.uiCategory !== 'OMRB' && state.uiCategory !== 'OFFLINE_RESULT' && state.uiCategory !== 'CQ' && state.uiCategory !== 'MCQCQ' && (
         <Card className="border-slate-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="font-serif text-base text-[#0D1B35]">Delivery</CardTitle>
@@ -118,6 +142,31 @@ export function Step1CategoryInfo({
           </CardContent>
         </Card>
       )}
+
+      {(state.uiCategory === 'CQ' || state.uiCategory === 'MCQCQ' || state.uiCategory === 'OFFLINE_RESULT') ? (
+        <Card className="border-slate-200 bg-slate-50/70 shadow-sm">
+          <CardContent className="grid gap-3 p-4 md:grid-cols-3">
+            <div className="rounded-lg border border-slate-200 bg-white p-3">
+              <p className="text-xs font-black uppercase tracking-wide text-slate-500">Submission</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">
+                {state.uiCategory === 'OFFLINE_RESULT' ? 'Teacher result entry' : 'Student camera/PDF upload'}
+              </p>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-white p-3">
+              <p className="text-xs font-black uppercase tracking-wide text-slate-500">Evaluation</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">
+                {state.uiCategory === 'OFFLINE_RESULT' ? 'Physical script marked offline' : 'Teacher reviewed written marks'}
+              </p>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-white p-3">
+              <p className="text-xs font-black uppercase tracking-wide text-slate-500">Result input</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">
+                {state.uiCategory === 'OFFLINE_RESULT' ? 'Single, bulk manual, Excel' : 'MCQ auto + written finalize'}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {state.uiCategory && (
         <Card className="border-slate-200 shadow-sm">

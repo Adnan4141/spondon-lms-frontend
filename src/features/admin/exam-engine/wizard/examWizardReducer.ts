@@ -17,11 +17,11 @@ export type WizardFormAction =
   | { type: 'ADD_SECTION'; section: WizardSection }
   | { type: 'REMOVE_SECTION'; localId: string }
   | { type: 'UPDATE_SECTION'; localId: string; patch: Partial<WizardSection> }
-  | { type: 'TOGGLE_FOLDER'; sectionLocalId: string; folderId: string; folderName: string }
+  | { type: 'TOGGLE_FOLDER'; sectionLocalId: string; folderId: string; folderName: string; defaultCount?: number }
   | { type: 'UPDATE_RULE_COUNT'; sectionLocalId: string; folderId: string; count: number }
   | { type: 'UPDATE_RULE_MODE'; sectionLocalId: string; folderId: string; selectionMode: FolderRuleDraft['selectionMode'] }
   | { type: 'REMOVE_FOLDER_RULE'; sectionLocalId: string; folderId: string }
-  | { type: 'TOGGLE_SUBJECT_FOLDER'; subjectLocalId: string; folderId: string; folderName: string }
+  | { type: 'TOGGLE_SUBJECT_FOLDER'; subjectLocalId: string; folderId: string; folderName: string; defaultCount?: number }
   | { type: 'UPDATE_SUBJECT_RULE_COUNT'; subjectLocalId: string; folderId: string; count: number }
   | { type: 'UPDATE_SUBJECT_RULE_MODE'; subjectLocalId: string; folderId: string; selectionMode: FolderRuleDraft['selectionMode'] }
   | { type: 'REMOVE_SUBJECT_FOLDER_RULE'; subjectLocalId: string; folderId: string }
@@ -50,9 +50,13 @@ export function examWizardReducer(state: ExamWizardState, action: WizardFormActi
       return { ...action.state };
     case 'APPLY_CATEGORY': {
       const sections = defaultSectionsFor(action.category);
+      const deliveryMode = action.category === 'OFFLINE_RESULT' || action.category === 'OMR' || action.category === 'OMRB'
+        ? 'OFFLINE'
+        : 'ONLINE';
       return {
         ...state,
         uiCategory: action.category,
+        deliveryMode,
         sections,
         subjects: action.category === 'MULTI' ? state.subjects : [],
       };
@@ -78,7 +82,7 @@ export function examWizardReducer(state: ExamWizardState, action: WizardFormActi
           if (has) {
             return { ...sec, folderRules: sec.folderRules.filter((r) => r.folderId !== folderId) };
           }
-          const def = Math.max(1, Math.ceil(sec.count / Math.max(1, sec.folderRules.length + 1)));
+          const def = Math.max(1, action.defaultCount ?? Math.ceil(sec.count / Math.max(1, sec.folderRules.length + 1)));
           return {
             ...sec,
             folderRules: [
@@ -204,7 +208,7 @@ export function examWizardReducer(state: ExamWizardState, action: WizardFormActi
           if (sub.localId !== subjectLocalId) return sub;
           const has = sub.folderRules.some((r) => r.folderId === folderId);
           if (has) return { ...sub, folderRules: sub.folderRules.filter((r) => r.folderId !== folderId) };
-          const def = Math.max(1, Math.ceil(sub.count / Math.max(1, sub.folderRules.length + 1)));
+          const def = Math.max(1, action.defaultCount ?? Math.ceil(sub.count / Math.max(1, sub.folderRules.length + 1)));
           return {
             ...sub,
             folderRules: [

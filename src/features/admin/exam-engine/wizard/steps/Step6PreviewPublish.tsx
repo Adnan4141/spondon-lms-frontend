@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Download, ExternalLink, Loader2, RefreshCw, Trophy, BarChart3, LayoutList } from 'lucide-react';
+import { CheckCircle2, Download, ExternalLink, Loader2, RefreshCw, Trophy, BarChart3, LayoutList } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { regenerateExamPdf, getExamPdfDownloadUrl } from '@/lib/api/exams';
+import { regenerateExamPdf, getExamPdfDownloadUrl, getAnswerSheetTemplateUrl } from '@/lib/api/exams';
 import type { ExamStatus } from '@/types/exam';
 import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
 import type { ExamWizardState } from '../../types';
@@ -38,6 +38,10 @@ export function Step6PreviewPublish({
   const toast = useAdminToast();
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [masterPdfBusy, setMasterPdfBusy] = useState(false);
+  const status = serverExam?.status ?? null;
+  const isDraft = status === 'DRAFT';
+  const isPublished = status === 'PUBLISHED';
+  const isClosed = status === 'CLOSED';
 
   const regenerateMaster = async () => {
     if (!examId) return;
@@ -83,56 +87,114 @@ export function Step6PreviewPublish({
             <CardTitle className="font-serif text-lg text-[#0D1B35]">Exam outputs</CardTitle>
             <CardDescription>View details, PDFs, rankings, and analytics on dedicated pages.</CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <Button asChild variant="outline" size="sm" className="gap-2">
-              <Link href={`/admin/exam/${examId}/details`}>
-                <LayoutList className="h-4 w-4" /> Details
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="sm" className="gap-2">
-              <Link href={`/admin/exam/${examId}/pdf`}>
-                <ExternalLink className="h-4 w-4" /> PDF hub
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="sm" className="gap-2">
-              <Link href={`/admin/exam/${examId}/leaderboard`}>
-                <Trophy className="h-4 w-4" /> Leaderboard
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="sm" className="gap-2">
-              <Link href={`/admin/exam/${examId}/results`}>
-                <BarChart3 className="h-4 w-4" /> Results
-              </Link>
-            </Button>
-            <Button type="button" variant="secondary" size="sm" className="gap-2" onClick={() => void openMasterPreview()}>
-              <ExternalLink className="h-4 w-4" /> Preview master PDF
-            </Button>
-            <Button type="button" variant="secondary" size="sm" className="gap-2" onClick={downloadMaster}>
-              <Download className="h-4 w-4" /> Download master
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              disabled={masterPdfBusy}
-              onClick={() => void regenerateMaster()}
-            >
-              {masterPdfBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-              Regenerate master PDF
-            </Button>
-            {serverExam?.status === 'DRAFT' ? (
+          <CardContent className="space-y-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <Button asChild variant="outline" size="sm" className="gap-2">
+                <Link href={`/admin/exam/${examId}/details`}>
+                  <LayoutList className="h-4 w-4" /> Details
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="sm" className="gap-2">
+                <Link href={`/admin/exam/${examId}/pdf`}>
+                  <ExternalLink className="h-4 w-4" /> PDF hub
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="sm" className="gap-2">
+                <Link href={`/admin/exam/${examId}/leaderboard`}>
+                  <Trophy className="h-4 w-4" /> Leaderboard
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="sm" className="gap-2">
+                <Link href={`/admin/exam/${examId}/results`}>
+                  <BarChart3 className="h-4 w-4" /> Results
+                </Link>
+              </Button>
+              <Button type="button" variant="secondary" size="sm" className="gap-2" onClick={() => void openMasterPreview()}>
+                <ExternalLink className="h-4 w-4" /> Preview master PDF
+              </Button>
+              <Button type="button" variant="secondary" size="sm" className="gap-2" onClick={downloadMaster}>
+                <Download className="h-4 w-4" /> Download master
+              </Button>
+              {(state.uiCategory === 'CQ' || state.uiCategory === 'MCQCQ') ? (
+                <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => window.open(getAnswerSheetTemplateUrl(examId), '_blank', 'noopener,noreferrer')}>
+                  <Download className="h-4 w-4" /> Answer sheet template
+                </Button>
+              ) : null}
               <Button
                 type="button"
+                variant="outline"
                 size="sm"
-                className="gap-2 bg-emerald-800 text-white hover:bg-emerald-900"
-                onClick={() => void onPublish()}
+                className="gap-2"
+                disabled={masterPdfBusy}
+                onClick={() => void regenerateMaster()}
               >
-                Publish exam
+                {masterPdfBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                Regenerate master PDF
               </Button>
-            ) : (
-              <span className="self-center text-xs text-slate-500">Status: {serverExam?.status ?? '—'}</span>
-            )}
+              {isDraft ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="gap-2 bg-emerald-800 text-white hover:bg-emerald-900"
+                  onClick={() => void onPublish()}
+                >
+                  Publish exam
+                </Button>
+              ) : null}
+              {isPublished ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 self-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Published
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                    disabled={saveAction !== null}
+                    onClick={onSaveDraft}
+                  >
+                    {saveAction === 'draft' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    Save published changes
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    disabled={saveAction !== null}
+                    onClick={onFinalize}
+                  >
+                    {saveAction === 'finalize' ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    Regenerate sets
+                  </Button>
+                  <Button asChild variant="secondary" size="sm" className="gap-2">
+                    <Link href={`/student/exams/${examId}`}>
+                      <ExternalLink className="h-4 w-4" /> View student exam
+                    </Link>
+                  </Button>
+                </>
+              ) : null}
+              {isClosed ? (
+                <>
+                  <span className="inline-flex items-center self-center rounded-full border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-600">
+                    Closed
+                  </span>
+                  <Button type="button" size="sm" className="gap-2" disabled>
+                    Publish exam
+                  </Button>
+                </>
+              ) : null}
+              {!status ? (
+                <span className="self-center text-xs text-slate-500">Status: —</span>
+              ) : null}
+            </div>
+            {isPublished ? (
+              <p className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
+                This exam is already published. Students can access it if schedule and enrollment allow.
+              </p>
+            ) : null}
           </CardContent>
         </Card>
       ) : (
@@ -161,7 +223,7 @@ export function Step6PreviewPublish({
             disabled={saveAction !== null}
           >
             {saveAction === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Save draft only
+            {examId ? 'Save changes' : 'Save draft only'}
           </Button>
           <Button
             type="button"
