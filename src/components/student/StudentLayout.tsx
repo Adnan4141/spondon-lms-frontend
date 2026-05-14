@@ -1,11 +1,51 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Menu } from 'lucide-react';
 import { StudentSidebar } from './StudentSidebar';
 import { cn } from '@/lib/utils';
+
+const STUDENT_ROUTE_LABELS: Record<string, { title: string; subtitle?: string }> = {
+  '/student': { title: 'Dashboard', subtitle: 'Welcome back to your student portal' },
+  '/student/community': { title: 'Community', subtitle: 'Join discussions and share updates' },
+  '/student/courses': { title: 'My Courses', subtitle: 'Track your enrolled learning paths' },
+  '/student/all-courses': { title: 'All Courses', subtitle: 'Explore the full course catalog' },
+  '/student/exams': { title: 'Exams', subtitle: 'Check upcoming and completed assessments' },
+  '/student/books': { title: 'Books', subtitle: 'Manage your books and reading resources' },
+  '/student/results': { title: 'Results', subtitle: 'Review your performance and outcomes' },
+  '/student/routine': { title: 'Routine', subtitle: 'Follow your weekly class schedule' },
+  '/student/payment': { title: 'Payments', subtitle: 'View invoices and payment history' },
+  '/student/profile': { title: 'Profile', subtitle: 'Update your personal information' },
+  '/student/doubts': { title: 'Q&A', subtitle: 'Ask questions and get support' },
+};
+
+function startCase(segment: string) {
+  return segment
+    .split('-')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function resolveStudentHeader(pathname: string | null) {
+  if (!pathname) return { title: 'Dashboard', subtitle: 'Welcome back to your student portal' };
+  if (STUDENT_ROUTE_LABELS[pathname]) return STUDENT_ROUTE_LABELS[pathname];
+
+  const cleanPath = pathname.replace(/\/$/, '');
+  const segments = cleanPath.split('/').filter(Boolean);
+  const lastSegment = segments[segments.length - 1];
+
+  if (!lastSegment || lastSegment === 'student') {
+    return { title: 'Dashboard', subtitle: 'Welcome back to your student portal' };
+  }
+
+  return {
+    title: startCase(lastSegment),
+    subtitle: 'Student portal section',
+  };
+}
 
 export function StudentLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -47,6 +87,8 @@ export function StudentLayout({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
+  const headerContent = useMemo(() => resolveStudentHeader(pathname), [pathname]);
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900">
       <StudentSidebar
@@ -63,7 +105,7 @@ export function StudentLayout({ children }: { children: React.ReactNode }) {
       >
         <header className="sticky top-0 z-40">
           <div className="absolute inset-0 border-b border-slate-200/50 bg-white/60 backdrop-blur-xl" />
-          <div className="relative mx-auto flex h-16 max-w-[1600px] items-center justify-between px-4 sm:px-6 lg:px-10">
+          <div className="relative mx-auto flex h-16 max-w-400 items-center justify-between px-4 sm:px-6 lg:px-10">
             <div className="flex min-w-0 items-center gap-3 sm:gap-4">
               <button
                 type="button"
@@ -73,11 +115,13 @@ export function StudentLayout({ children }: { children: React.ReactNode }) {
               >
                 <Menu className="h-5 w-5" />
               </button>
-              <div className="hidden min-w-0 sm:block">
-                <p className="truncate text-xs font-black uppercase tracking-[0.2em] text-slate-400">
-                  Student Portal
+              <div className="min-w-0">
+                <p className="truncate text-lg font-black tracking-tight text-slate-900 sm:text-xl">
+                  {headerContent.title}
                 </p>
-                <p className="truncate text-base font-bold text-slate-800">Spondon LMS</p>
+                <p className="truncate text-xs font-semibold text-slate-500 sm:text-sm">
+                  {headerContent.subtitle}
+                </p>
               </div>
             </div>
             <Link
@@ -90,7 +134,7 @@ export function StudentLayout({ children }: { children: React.ReactNode }) {
         </header>
 
         <main className="relative">
-          <div className="mx-auto max-w-[1600px] px-3 py-6 sm:px-4 sm:py-8 lg:px-6 lg:py-10">
+          <div className="mx-auto max-w-400 px-3 py-6 sm:px-4 sm:py-8 lg:px-6 lg:py-10">
             {children}
           </div>
         </main>

@@ -140,11 +140,7 @@ export default function StudentPaymentPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h1 className="text-4xl font-black tracking-tight text-slate-900">Payments</h1>
-          <p className="mt-2 text-lg font-medium text-slate-500">Review payments by program and month.</p>
-        </div>
+      <div className="flex justify-end">
         <div className="grid grid-cols-3 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
           <SummaryPill label="Programs" value={programPayments.length} />
           <SummaryPill label="Paid" value={money(data.summary.totalPaid)} />

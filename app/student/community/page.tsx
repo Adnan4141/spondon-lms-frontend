@@ -274,7 +274,7 @@ export default function StudentCommunityPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100/70">
+    <div className="min-h-screen bg-slate-100/70 -mt-10">
       <div className="mx-auto grid max-w-[1540px] gap-6 px-4 py-6 xl:grid-cols-[minmax(0,1fr)_330px]">
         <main className="min-w-0 space-y-4">
           <Card className="rounded-xl border-none bg-white shadow-sm">

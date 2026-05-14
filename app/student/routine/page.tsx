@@ -2,12 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Calendar, Clock, BookOpen, MapPin, ChevronRight, Download } from 'lucide-react';
+import { Calendar, Clock, MapPin, ChevronRight, Download } from 'lucide-react';
 import { getRoutine } from '@/lib/api/student-portal';
 import { Button } from '@/components/ui/button';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const DAYS_BN = ['রবি', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহস্পতি', 'শুক্র', 'শনি'];
 
 interface RoutineSlot {
   id: string;
@@ -46,7 +45,7 @@ export default function StudentRoutinePage() {
         const user = JSON.parse(u);
         if (user?.id) {
           const r = await getRoutine(user.id);
-          if (r.success && r.data) setSlots(r.data);
+          if (r.success && r.data) setSlots(r.data as RoutineSlot[]);
         }
       } catch (err) {
         console.error(err);
@@ -62,11 +61,7 @@ export default function StudentRoutinePage() {
 
   return (
     <div className="space-y-10">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <h1 className="text-4xl font-black text-slate-900 tracking-tight">রুটিন</h1>
-          <p className="text-slate-500 font-medium mt-2 text-lg">সাপ্তাহিক ক্লাসের সময়</p>
-        </div>
+      <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-end">
         <div className="flex items-center gap-3">
           <Button
             onClick={() => window.print()}

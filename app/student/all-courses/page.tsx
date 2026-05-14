@@ -13,16 +13,13 @@ export default function StudentAllCoursesPage() {
         </div>
         
         <CardContent className="relative z-10 space-y-8">
-           <div className="h-24 w-24 bg-indigo-50 rounded-[2rem] flex items-center justify-center mx-auto mb-8 animate-bounce duration-[3000ms]">
+           <div className="h-24 w-24 bg-indigo-50 rounded-[2rem] flex items-center justify-center mx-auto mb-8 animate-bounce duration-3000">
               <Sparkles className="h-12 w-12 text-indigo-600" />
            </div>
            
-           <div className="space-y-4">
-              <h1 className="text-4xl font-black text-slate-900 tracking-tight">সব কোর্স</h1>
-              <p className="text-slate-500 font-medium text-lg leading-relaxed max-w-md mx-auto">
-                 নতুন কোর্স দেখুন ও ভর্তি হোন
-              </p>
-           </div>
+            <p className="mx-auto max-w-md text-lg font-medium leading-relaxed text-slate-500">
+              নতুন কোর্স দেখুন ও ভর্তি হোন
+            </p>
 
            <div className="pt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link 

@@ -73,7 +73,6 @@ export default function StudentResultsPage() {
   if (error) {
     return (
       <div className="space-y-10">
-        <h1 className="text-4xl font-black text-slate-900 tracking-tight">ফলাফল</h1>
         <Card className="rounded-[2.5rem] border-none bg-rose-50 p-12 text-center">
           <AlertCircle className="h-12 w-12 text-rose-500 mx-auto mb-4" />
           <p className="text-xl font-black text-rose-900">{error}</p>
@@ -97,11 +96,7 @@ export default function StudentResultsPage() {
 
   return (
     <div className="space-y-10">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <h1 className="text-4xl font-black text-slate-900 tracking-tight">ফলাফল</h1>
-          <p className="text-slate-500 font-medium mt-2 text-lg">পরীক্ষার নম্বর দেখুন</p>
-        </div>
+      <div className="flex justify-end">
         <div className="flex items-center gap-3">
            <div className="px-5 py-3 rounded-2xl bg-white border border-slate-100 shadow-sm flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-emerald-500" />

@@ -163,13 +163,7 @@ export default function StudentBooksPage() {
         <MyBookPurchasesPanel purchases={myPurchases} loading={purchasesLoading} />
       </section>
 
-      <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
-        <div>
-          <h1 className="text-4xl font-black tracking-tight text-slate-900">বই কিনুন</h1>
-          <p className="mt-2 text-lg font-medium text-slate-500">
-            অনলাইন কেনাকাটায় ডেলিভারি ঠিকানা সংরক্ষিত হয়; পেমেন্ট SSL গেটওয়ে দিয়ে।
-          </p>
-        </div>
+      <div className="flex justify-end">
         <div className="flex items-center gap-3">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />

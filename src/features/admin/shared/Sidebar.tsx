@@ -1,16 +1,15 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useMemo, type ComponentType } from 'react';
 import {
   SidebarCollapseRow,
   SidebarExpandFooterButton,
 } from '@/components/layout/SidebarDockToggle';
 import { cn } from '@/lib/utils';
-import { API_ORIGIN } from '@/lib/api';
-import { resolveAttachmentUrl } from '@/lib/attachment-url';
-import { clearAuthStorage, useAdminSession } from './admin-session';
+import { useAdminSession } from './admin-session';
 import {
   BookOpen,
   Users,
@@ -26,7 +25,6 @@ import {
   ClipboardList,
   Building2,
   ChevronRight,
-  LogOut,
   Award,
   School,
   CalendarRange,
@@ -217,22 +215,13 @@ type SidebarProps = {
 
 export function Sidebar({ mobileOpen, onCloseMobile, collapsed, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname();
-  const router = useRouter();
-  const { user, initials, roleLabel } = useAdminSession();
+  const { user } = useAdminSession();
   const role = user?.role ?? null;
 
   const menuSections = useMemo(() => buildMenuSections(role), [role]);
   const homeHref = role === 'BRANCH_ADMIN' ? '/admin/branch' : '/admin';
 
-  const displayName = user?.fullName?.trim() || 'User';
-  const avatarUrl =
-    user?.profileImage?.trim() &&
-    resolveAttachmentUrl(user.profileImage.trim(), API_ORIGIN);
-
-  const handleLogout = () => {
-    clearAuthStorage();
-    router.push('/login');
-  };
+  const brandLogoSrc = '/images/logo/spondon_favicon.png';
 
   return (
     <>
@@ -262,14 +251,21 @@ export function Sidebar({ mobileOpen, onCloseMobile, collapsed, onToggleCollapse
         {/* Header / Logo Section */}
         <div className="relative flex h-20 items-center gap-3 border-b border-slate-100/80 px-6">
           <Link href={homeHref} className="group flex min-w-0 flex-1 items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-linear-to-tr from-indigo-600 to-violet-600 shadow-lg shadow-indigo-200 transition-transform group-hover:scale-105 group-hover:rotate-3">
-              <GraduationCap className="h-5 w-5 text-white" />
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-indigo-100 bg-white shadow-lg shadow-indigo-100 transition-transform group-hover:scale-105 group-hover:rotate-3">
+              <Image
+                src={brandLogoSrc}
+                alt="Spondon logo"
+                width={44}
+                height={44}
+                className="h-full w-full object-contain p-1.5"
+                priority
+              />
             </div>
             {!collapsed && (
               <div className="flex min-w-0 flex-col">
-                <span className="truncate text-xl font-black leading-none tracking-tight text-slate-900">Codezyne</span>
+                <span className="truncate text-xl font-black leading-none tracking-tight text-slate-900">Spondon</span>
                 <span className="mt-1 text-[9px] font-bold uppercase tracking-[0.2em] text-indigo-500/80">
-                  Learning Management System
+                  Admin Panel
                 </span>
               </div>
             )}
@@ -356,40 +352,25 @@ export function Sidebar({ mobileOpen, onCloseMobile, collapsed, onToggleCollapse
         <div className="relative p-4 border-t border-slate-100/80 bg-slate-50/50">
           {!collapsed ? (
             <div className="space-y-4">
-              <div className="flex items-center gap-3 p-3 rounded-2xl bg-white border border-slate-200 shadow-sm transition-all hover:border-indigo-200 hover:shadow-md group">
-                <div className="relative">
-                  <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-linear-to-br from-indigo-500 to-purple-600 text-sm font-bold text-white shadow-sm">
-                    {avatarUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      initials
-                    )}
+            <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-indigo-100 bg-linear-to-r from-indigo-50 via-white to-sky-50 px-3 py-1.5 shadow-[0_8px_24px_rgba(79,70,229,0.08)] transition-transform duration-300 group-hover:translate-x-0.5">
+                    <span className="relative flex h-2.5 w-2.5 shrink-0">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-300/70" />
+                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-indigo-500" />
+                    </span>
+                    <span className="truncate text-[10px] font-black uppercase tracking-[0.24em] text-slate-700">
+                      Powered by
+                    </span>
+                    <span className="truncate bg-linear-to-r from-indigo-600 via-violet-600 to-sky-500 bg-clip-text text-[11px] font-black tracking-[0.16em] text-transparent uppercase">
+                      Codezyne
+                    </span>
                   </div>
-                  <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-white bg-emerald-500 shadow-sm" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-base font-bold text-slate-800 truncate">{displayName}</p>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">{roleLabel}</p>
-                </div>
-                <button onClick={handleLogout} className="text-slate-300 hover:text-rose-500 transition-colors" title="Logout">
-                  <LogOut className="h-4 w-4" />
-                </button>
-              </div>
 
               <SidebarCollapseRow onToggleCollapse={onToggleCollapse} />
             </div>
           ) : (
             <div className="flex flex-col items-center gap-4">
               <SidebarExpandFooterButton onToggleCollapse={onToggleCollapse} />
-              <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl bg-linear-to-br from-indigo-500 to-purple-600 text-xs font-bold text-white shadow-lg">
-                {avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  initials
-                )}
-              </div>
+            
             </div>
           )}
         </div>
