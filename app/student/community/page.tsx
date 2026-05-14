@@ -346,7 +346,7 @@ export default function StudentCommunityPage() {
                     setAskCourseId(courseFilter || '');
                     setAskOpen(true);
                   }}
-                  className="rounded-xl bg-slate-900"
+                  className="rounded-xl bg-slate-900 text-white hover:bg-slate-800"
                 >
                   Ask in Q&A
                 </Button>

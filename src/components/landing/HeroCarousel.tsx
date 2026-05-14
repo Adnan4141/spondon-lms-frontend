@@ -96,7 +96,7 @@ export const HeroCarousel: React.FC<Props> = ({ slides }) => {
   const scrollNext = useCallback(() => emblaApi && emblaApi.scrollNext(), [emblaApi]);
 
   return (
-    <section className="relative w-full h-[320px] sm:h-[500px] md:h-[600px] lg:h-[700px] xl:h-[800px] overflow-hidden bg-slate-900">
+    <section className="relative w-full h-[300px]  sm:h-[500px] md:h-[800px] lg:h-[850px]  overflow-hidden bg-slate-900">
       <div className="overflow-hidden h-full touch-pan-y" ref={emblaRef}>
         <div className="flex h-full">
           {displaySlides.map((slide, index) => (
@@ -107,8 +107,8 @@ export const HeroCarousel: React.FC<Props> = ({ slides }) => {
                   alt={slide.title}
                   fill
                   sizes="100vw"
-                  
-                  className="object-cover object-center"
+    
+                  className=""
                   priority={index === 0}
                 />
               </div>
@@ -117,8 +117,7 @@ export const HeroCarousel: React.FC<Props> = ({ slides }) => {
           ))}
         </div>
       </div>
-
-      {/* Navigation Controls */}
+     {/* Navigation Controls */}
       <div className="absolute bottom-4 right-4 sm:bottom-6 sm:right-6 lg:bottom-10 lg:right-12 z-30 flex items-center gap-2 sm:gap-4">
         <button
           onClick={scrollPrev}

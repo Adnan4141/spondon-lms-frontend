@@ -84,7 +84,7 @@ export default function StudentRoutinePage() {
         </div>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-3">
+      <div className="grid gap-8 lg:grid-cols-1">
         <div className="lg:col-span-2 space-y-6">
           <div className="flex items-center justify-between px-2">
             <h2 className="text-xl font-black text-slate-900">Today&apos;s Schedule</h2>
@@ -113,7 +113,7 @@ export default function StudentRoutinePage() {
                 <Calendar className="h-12 w-12 text-slate-300" />
               </div>
               <h3 className="text-2xl font-black text-slate-900 mb-2">আজ ক্লাস নেই</h3>
-              <p className="text-slate-500 font-medium">বিশ্রাম নিন বা পড়ুন</p>
+           
             </Card>
           ) : (
             <div className="space-y-4">
@@ -167,42 +167,7 @@ export default function StudentRoutinePage() {
           )}
         </div>
 
-        <div className="space-y-8">
-          <Card className="rounded-[2rem] border-none bg-slate-900 p-8 text-white shadow-xl shadow-slate-200 relative overflow-hidden group">
-            <div className="relative z-10">
-              <div className="h-12 w-12 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center mb-6">
-                <BookOpen className="h-6 w-6 text-white" />
-              </div>
-              <h3 className="text-xl font-black mb-2">Study Reminders</h3>
-              <p className="text-slate-400 text-sm font-medium mb-6">Don&apos;t forget to complete your Calculus assignment by 5:00 PM today.</p>
-              <button className="w-full py-4 rounded-2xl bg-white text-slate-900 font-black text-sm hover:bg-slate-100 transition-colors">
-                View Assignments
-              </button>
-            </div>
-            <div className="absolute -bottom-6 -right-6 h-32 w-32 bg-white/5 rounded-full blur-2xl group-hover:bg-white/10 transition-colors" />
-          </Card>
-
-          <Card className="rounded-[2rem] border-none bg-white p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-            <h3 className="text-lg font-black text-slate-900 mb-6">Upcoming Events</h3>
-            <div className="space-y-6">
-              {[
-                { title: 'Monthly Quiz', date: 'March 20', color: 'rose' },
-                { title: 'Project Demo', date: 'March 25', color: 'emerald' },
-              ].map((event, idx) => (
-                <div key={idx} className="flex items-center gap-4">
-                  <div className={`h-12 w-12 rounded-2xl bg-${event.color}-50 flex flex-col items-center justify-center text-${event.color}-600`}>
-                    <span className="text-[10px] font-black leading-none">{event.date.split(' ')[0]}</span>
-                    <span className="text-lg font-black">{event.date.split(' ')[1]}</span>
-                  </div>
-                  <div>
-                    <h4 className="font-black text-slate-900">{event.title}</h4>
-                    <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Full Day Event</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
+        
       </div>
     </div>
   );

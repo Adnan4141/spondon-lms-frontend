@@ -57,6 +57,7 @@ export function StockHistoryTab({
   const toast = useAdminToast();
   const { user } = useAdminSession();
   const canWriteMovements = user?.role === 'SUPER_ADMIN' || user?.role === 'ACCOUNTS';
+  const lockedBranchId = user?.role === 'BRANCH_ADMIN' ? user.branchId || undefined : undefined;
   const [bookId, setBookId] = useState('all');
   const [movementType, setMovementType] = useState<BookStockMovementType | 'ALL'>('ALL');
   const [locationFilter, setLocationFilter] = useState('all');
@@ -75,14 +76,26 @@ export function StockHistoryTab({
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<StockMovementFormState>(() => defaultStockMovementForm());
 
+  const visibleBranches = useMemo(
+    () => (lockedBranchId ? branches.filter((branch) => branch.id === lockedBranchId) : branches),
+    [branches, lockedBranchId],
+  );
+  const effectiveLocationFilter = lockedBranchId ? `branch:${lockedBranchId}` : locationFilter;
+
   const locationOptions = useMemo<StockLocationOptions>(() => ({
     SOURCE: sources.map((source) => ({ id: source.id, name: source.name })),
-    BRANCH: branches.map((branch) => ({ id: branch.id, name: branch.name })),
+    BRANCH: visibleBranches.map((branch) => ({ id: branch.id, name: branch.name })),
     CHANNEL: channels.map((channel) => ({ id: channel.id, name: channel.name })),
     CENTRAL: [{ id: 'central', name: 'Central Warehouse' }],
     CUSTOMER: [{ id: 'customer', name: 'Customer' }],
     OTHER: [{ id: 'other', name: 'Other' }],
-  }), [branches, channels, sources]);
+  }), [channels, sources, visibleBranches]);
+
+  useEffect(() => {
+    if (lockedBranchId && locationFilter !== `branch:${lockedBranchId}`) {
+      setLocationFilter(`branch:${lockedBranchId}`);
+    }
+  }, [locationFilter, lockedBranchId]);
 
   const loadData = useCallback(async (targetPage = 1, append = false) => {
     if (append) setLoadingMore(true);
@@ -90,7 +103,7 @@ export function StockHistoryTab({
     setError(null);
 
     try {
-      const locationParams = parseLocationFilter(locationFilter);
+      const locationParams = parseLocationFilter(effectiveLocationFilter);
       const [movementsRes, summaryRes] = await Promise.all([
         getBookStockMovements({
           bookId: bookId === 'all' ? undefined : bookId,
@@ -102,7 +115,10 @@ export function StockHistoryTab({
           limit: 50,
           ...locationParams,
         }),
-        getBookStockSummary({ bookId: bookId === 'all' ? undefined : bookId }),
+        getBookStockSummary({
+          bookId: bookId === 'all' ? undefined : bookId,
+          branchId: lockedBranchId,
+        }),
       ]);
 
       if (!movementsRes.success) throw new Error('Stock history could not be loaded.');
@@ -118,7 +134,7 @@ export function StockHistoryTab({
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [bookId, fromDate, locationFilter, movementType, search, toDate]);
+  }, [bookId, effectiveLocationFilter, fromDate, lockedBranchId, movementType, search, toDate]);
 
   useEffect(() => {
     void loadData(1, false);
@@ -217,12 +233,12 @@ export function StockHistoryTab({
 
       <StockHistoryFilters
         books={books}
-        branches={branches}
+        branches={visibleBranches}
         sources={sources}
         channels={channels}
         bookId={bookId}
         movementType={movementType}
-        locationFilter={locationFilter}
+        locationFilter={effectiveLocationFilter}
         search={search}
         fromDate={fromDate}
         toDate={toDate}
@@ -234,6 +250,7 @@ export function StockHistoryTab({
         onToDateChange={setToDate}
         onCreate={openCreateDialog}
         canCreate={canWriteMovements}
+        lockedBranchId={lockedBranchId}
       />
 
       <StockMovementList

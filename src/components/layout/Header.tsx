@@ -94,7 +94,7 @@ export function Header() {
         )} 
       />
 
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-12 flex items-center justify-between h-14 sm:h-16 md:h-20 transition-all duration-500">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-12 flex items-center justify-between h-14 sm:h-16 md:h-16 transition-all duration-500">
         
         {/* Logo - responsive size */}
         <Link href="/" className="relative z-50 flex items-center shrink-0">

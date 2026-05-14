@@ -7,7 +7,6 @@ import {
   BookOpen,
   GraduationCap,
   MessageSquare,
-  HelpCircle,
   Award,
   Calendar,
   CreditCard,
@@ -16,7 +15,6 @@ import {
   ChevronRight,
   BookOpenCheck,
   UserCircle,
-  ScrollText,
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -31,7 +29,6 @@ const menuItems = [
   { title: 'All Courses', href: '/student/all-courses', icon: GraduationCap },
   { title: 'Exams', href: '/student/exams', icon: BookOpenCheck },
   { title: 'Books', href: '/student/books', icon: BookMarked },
-  { title: 'Q&A', href: '/student/doubts', icon: HelpCircle },
   { title: 'Results', href: '/student/results', icon: Award },
   // { title: 'Academic Record', href: '/student/academic-record', icon: ScrollText },
   { title: 'Routine', href: '/student/routine', icon: Calendar },

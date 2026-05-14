@@ -43,7 +43,7 @@ export function TeacherProfileClient({ teacher }: { teacher: PublicTeacher }) {
           className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-500 hover:text-indigo-600 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
-          হোমে ফিরুন
+         হোম পেজে ফিরে যান
         </Link>
       </div>
 
@@ -124,7 +124,7 @@ export function TeacherProfileClient({ teacher }: { teacher: PublicTeacher }) {
           className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm px-6 h-12 shadow-lg shadow-indigo-200 transition-all hover:scale-[1.02] active:scale-95"
         >
           <Play className="mr-2 h-4 w-4" />
-          স্যারের ভিডিও ক্লাস দেখতে ক্লিক করুন
+     ভিডিও ক্লাস দেখতে ক্লিক করুন
         </Button>
         <Button
           variant="outline"
@@ -132,7 +132,7 @@ export function TeacherProfileClient({ teacher }: { teacher: PublicTeacher }) {
           className="rounded-xl border-slate-200 bg-white text-slate-700 font-black text-sm px-6 h-12 hover:bg-slate-50 hover:border-indigo-200 transition-all"
         >
           <BookOpen className="mr-2 h-4 w-4 text-indigo-500" />
-          সার সম্পর্কে আরো এবং ভিডিও দেখুন
+         শিক্ষক সম্পর্কে বিস্তারিত জানুন
         </Button>
       </div>
 
@@ -144,8 +144,8 @@ export function TeacherProfileClient({ teacher }: { teacher: PublicTeacher }) {
               <Play className="h-4 w-4 fill-current" />
             </div>
             <div>
-              <h2 className="text-base font-black text-slate-900">ডেমো ক্লাস</h2>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">স্যারের ক্লাসের স্বাদ আগে থেকে নিন</p>
+              <h2 className="text-base font-black text-slate-900">পরিচিতিমূলক ক্লাস</h2>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ক্লাসের ধরন ও মান সম্পর্কে পূর্বধারণা নিন</p>
             </div>
           </div>
 
@@ -179,7 +179,7 @@ export function TeacherProfileClient({ teacher }: { teacher: PublicTeacher }) {
                 <div className="h-16 w-16 rounded-full bg-slate-50 flex items-center justify-center">
                   <Play className="h-8 w-8 text-slate-200" />
                 </div>
-                <p className="text-sm font-black text-slate-400">এই মুহূর্তে কোনো ডেমো ক্লাস উপলব্ধ নেই</p>
+                <p className="text-sm font-black text-slate-400">বর্তমানে কোনো পরিচিতিমূলক ক্লাস যুক্ত করা হয়নি</p>
               </div>
             )}
           </div>
@@ -192,8 +192,8 @@ export function TeacherProfileClient({ teacher }: { teacher: PublicTeacher }) {
               <BookOpen className="h-4 w-4" />
             </div>
             <div>
-              <h2 className="text-base font-black text-slate-900">কোর্স সমূহ</h2>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">স্যারের সকল কোর্স দেখুন এবং ভর্তি হন</p>
+              <h2 className="text-base font-black text-slate-900">কোর্সসমূহ</h2>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">সকল কোর্সের তালিকা দেখুন এবং ভর্তি হোন</p>
             </div>
           </div>
 
@@ -243,7 +243,7 @@ export function TeacherProfileClient({ teacher }: { teacher: PublicTeacher }) {
             ) : (
               <div className="flex flex-col items-center justify-center py-12 gap-3 text-slate-300">
                 <BookOpen className="h-12 w-12 opacity-30" />
-                <p className="text-sm font-black text-slate-400">Eirokom ashbe</p>
+                <p className="text-sm font-black text-slate-400">এখানে কোর্স প্রদর্শিত হবে</p>
                 <p className="text-xs text-slate-300">শীঘ্রই কোর্স যোগ হবে</p>
               </div>
             )}

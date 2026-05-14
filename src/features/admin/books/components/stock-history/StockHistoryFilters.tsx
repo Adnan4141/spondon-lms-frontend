@@ -28,6 +28,7 @@ export function StockHistoryFilters({
   onToDateChange,
   onCreate,
   canCreate,
+  lockedBranchId,
 }: {
   books: Book[];
   branches: Branch[];
@@ -47,6 +48,7 @@ export function StockHistoryFilters({
   onToDateChange: (date?: Date) => void;
   onCreate: () => void;
   canCreate: boolean;
+  lockedBranchId?: string;
 }) {
   return (
     <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
@@ -71,14 +73,14 @@ export function StockHistoryFilters({
           </SelectContent>
         </Select>
 
-        <Select value={locationFilter} onValueChange={onLocationFilterChange}>
+        <Select value={locationFilter} onValueChange={onLocationFilterChange} disabled={!!lockedBranchId}>
           <SelectTrigger className="h-10 w-full"><SelectValue placeholder="All locations" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Locations</SelectItem>
-            <SelectItem value="central">Central Warehouse</SelectItem>
+            {!lockedBranchId ? <SelectItem value="all">All Locations</SelectItem> : null}
+            {!lockedBranchId ? <SelectItem value="central">Central Warehouse</SelectItem> : null}
             {branches.map((branch) => <SelectItem key={branch.id} value={`branch:${branch.id}`}>Branch: {branch.name}</SelectItem>)}
-            {channels.map((channel) => <SelectItem key={channel.id} value={`channel:${channel.id}`}>Channel: {channel.name}</SelectItem>)}
-            {sources.map((source) => <SelectItem key={source.id} value={`source:${source.id}`}>Source: {source.name}</SelectItem>)}
+            {!lockedBranchId ? channels.map((channel) => <SelectItem key={channel.id} value={`channel:${channel.id}`}>Channel: {channel.name}</SelectItem>) : null}
+            {!lockedBranchId ? sources.map((source) => <SelectItem key={source.id} value={`source:${source.id}`}>Source: {source.name}</SelectItem>) : null}
           </SelectContent>
         </Select>
 

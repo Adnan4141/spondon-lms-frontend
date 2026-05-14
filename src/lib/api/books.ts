@@ -914,7 +914,7 @@ export async function correctBookStockMovement(id: string, data: {
   return apiRequest<ApiResponse<BookStockMovement>>(`/books/stock/movements/${encodeURIComponent(id)}/correct`, { method: 'POST', body: JSON.stringify(data) });
 }
 
-export async function getBookStockSummary(params?: { bookId?: string }): Promise<{
+export async function getBookStockSummary(params?: { bookId?: string; branchId?: string }): Promise<{
   success: boolean;
   data: StockSummaryBook[];
   recentMovements: BookStockMovement[];
@@ -922,6 +922,7 @@ export async function getBookStockSummary(params?: { bookId?: string }): Promise
 }> {
   const q = new URLSearchParams();
   if (params?.bookId) q.append('bookId', params.bookId);
+  if (params?.branchId) q.append('branchId', params.branchId);
   const qs = q.toString();
   return apiRequest(`/books/stock/summary${qs ? `?${qs}` : ''}`);
 }
