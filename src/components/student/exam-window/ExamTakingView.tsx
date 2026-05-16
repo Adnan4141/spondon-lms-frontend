@@ -325,14 +325,12 @@ function WrittenUploadPanel({
   attemptId,
   questionId,
   answer,
-  lang,
   onChange,
 }: {
   examId: string;
   attemptId: string;
   questionId: string;
   answer?: AnswerPayload;
-  lang: Lang;
   onChange: (answer: AnswerPayload) => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -400,17 +398,15 @@ function WrittenUploadPanel({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm font-black text-slate-800">
-            {lang === 'en' ? 'Handwritten answer upload' : 'হাতের লেখা উত্তর আপলোড'}
+            Handwritten answer upload
           </p>
           <p className="mt-1 text-xs font-medium text-slate-500">
-            {lang === 'en'
-              ? 'Snap pages from your phone or upload a PDF. Images are compressed before upload.'
-              : 'মোবাইল ক্যামেরায় পেজ তুলে অথবা PDF আপলোড করুন। ছবি আপলোডের আগে কমপ্রেস হবে।'}
+            Snap pages from your phone or upload a PDF. Images are compressed before upload.
           </p>
         </div>
         <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-xl bg-violet-600 px-4 text-xs font-black uppercase tracking-wider text-white hover:bg-violet-700">
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-          {lang === 'en' ? 'Add pages' : 'পেজ যোগ করুন'}
+          Add pages
           <input
             type="file"
             accept="image/*,application/pdf"
@@ -470,13 +466,13 @@ function WrittenUploadPanel({
               className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-black uppercase tracking-wider text-emerald-700"
             >
               <FileText className="h-4 w-4" />
-              {lang === 'en' ? 'Open combined PDF' : 'কম্বাইন্ড PDF দেখুন'}
+                Open combined PDF
             </a>
           ) : null}
         </div>
       ) : (
         <div className="rounded-xl border border-dashed border-violet-200 bg-white/70 px-4 py-6 text-center text-xs font-medium text-slate-500">
-          {lang === 'en' ? 'No handwritten pages uploaded yet.' : 'এখনো কোনো হাতে লেখা পেজ আপলোড করা হয়নি।'}
+            No handwritten pages uploaded yet.
         </div>
       )}
     </div>
@@ -577,12 +573,11 @@ function WrittenQuestionBlock({
         attemptId={attemptId}
         questionId={q.questionId}
         answer={answer}
-        lang={lang}
         onChange={(nextAnswer) => onAnswerChange(q.questionId, nextAnswer)}
       />
       <details className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
         <summary className="cursor-pointer text-sm font-bold text-slate-500">
-          {lang === 'en' ? 'Optional typed note' : 'ঐচ্ছিক টাইপ করা নোট'}
+          Optional typed note
         </summary>
         <textarea
           className="mt-3 w-full min-h-24 rounded-2xl border border-slate-200 bg-white p-5 text-base font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all resize-y"
@@ -617,7 +612,7 @@ function PassageGroupBlock({
         <div className="sticky top-0 z-10 rounded-2xl border border-indigo-100 bg-indigo-50/95 p-6 shadow-sm backdrop-blur">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm font-black text-indigo-700">
-              {passage.title || (lang === 'en' ? 'Passage' : 'অনুচ্ছেদ')}
+              {passage.title || 'Passage'}
             </p>
             <Badge variant="outline" className="border-indigo-200 bg-white/80 text-[10px] font-black text-indigo-700">
               {item.questions.length} MCQ
@@ -704,29 +699,17 @@ export function ExamTakingView({
   const savingRef = useRef(false);
   const handleSubmitRef = useRef<(auto?: boolean) => void>(() => {});
   const sessionClosedRef = useRef(false);
-  const statusCopy = examBaseLang === 'en'
-    ? {
-        saveFailed: 'Latest answers could not be synced. Keep this tab open and try again.',
-        saveFailedShort: 'Save failed',
-        submitFailed: 'Could not submit the exam. Please try again.',
-        reconnecting: 'Connection unstable. Trying to reconnect...',
-        reconnectingShort: 'Reconnecting...',
-        autoSubmitted: 'This session was auto-submitted by the server.',
-        autoSubmittedShort: 'Auto-submitted',
-        saving: 'Saving...',
-        saved: 'Saved',
-      }
-    : {
-        saveFailed: 'সর্বশেষ উত্তর সার্ভারে সংরক্ষণ করা যায়নি। ট্যাব খোলা রাখুন এবং আবার চেষ্টা করুন।',
-        saveFailedShort: 'সংরক্ষণ ব্যর্থ',
-        submitFailed: 'পরীক্ষা জমা দেওয়া যায়নি। আবার চেষ্টা করুন।',
-        reconnecting: 'সংযোগে সমস্যা হয়েছে। আবার সংযোগ করার চেষ্টা চলছে...',
-        reconnectingShort: 'আবার সংযোগ হচ্ছে...',
-        autoSubmitted: 'এই সেশনটি সার্ভার থেকে স্বয়ংক্রিয়ভাবে জমা হয়েছে।',
-        autoSubmittedShort: 'স্বয়ংক্রিয় জমা',
-        saving: 'সংরক্ষণ হচ্ছে...',
-        saved: 'সংরক্ষিত',
-      };
+  const statusCopy = {
+    saveFailed: 'Latest answers could not be synced. Keep this tab open and try again.',
+    saveFailedShort: 'Save failed',
+    submitFailed: 'Could not submit the exam. Please try again.',
+    reconnecting: 'Connection unstable. Trying to reconnect...',
+    reconnectingShort: 'Reconnecting...',
+    autoSubmitted: 'This session was auto-submitted by the server.',
+    autoSubmittedShort: 'Auto-submitted',
+    saving: 'Saving...',
+    saved: 'Saved',
+  };
 
   const getAttemptIdFromError = useCallback((error: unknown): string | null => {
     if (!(error instanceof ApiError) || !error.body || typeof error.body !== 'object') return null;
@@ -1358,7 +1341,7 @@ export function ExamTakingView({
                     <div>
                       <span className="text-xs font-bold text-slate-400">
                         {currentItem.kind === 'passage'
-                          ? `${currentLang === 'en' ? 'Passage group' : 'অনুচ্ছেদ গ্রুপ'} ${currentItemMeta?.passagePosition ?? 1} / ${activeTabLayout.passageCount}`
+                          ? `Passage group ${currentItemMeta?.passagePosition ?? 1} / ${activeTabLayout.passageCount}`
                           : ui.questionLabel(questionNumberFor(currentQ), activeQuestionTotal)}
                       </span>
                       <div className="flex items-center gap-2 flex-wrap">
@@ -1486,12 +1469,12 @@ export function ExamTakingView({
                 <span className="text-slate-900">{totalQuestions}</span>
               </div>
               <div className="flex justify-between p-3 rounded-xl bg-emerald-50 text-sm font-bold">
-                <span className="text-emerald-600">{examBaseLang === 'bn' ? 'MCQ উত্তর' : 'MCQ answered'}</span>
+                <span className="text-emerald-600">MCQ answered</span>
                 <span className="text-emerald-700">{mcqAnsweredCount}/{mcqQuestionCount}</span>
               </div>
               {writtenQuestionCount > 0 ? (
                 <div className="flex justify-between p-3 rounded-xl bg-violet-50 text-sm font-bold">
-                  <span className="text-violet-600">{examBaseLang === 'bn' ? 'Written upload' : 'Written uploads'}</span>
+                  <span className="text-violet-600">Written uploads</span>
                   <span className="text-violet-700">{writtenUploadCompletedCount}/{writtenQuestionCount}</span>
                 </div>
               ) : null}
@@ -1500,7 +1483,7 @@ export function ExamTakingView({
                 <span className="text-emerald-700">{answeredCount}/{totalQuestions}</span>
               </div>
               <div className="flex justify-between p-3 rounded-xl bg-rose-50 text-sm font-bold">
-                <span className="text-rose-600">{examBaseLang === 'bn' ? 'উত্তর/আপলোড বাকি' : 'Unanswered / unuploaded'}</span>
+                <span className="text-rose-600">Unanswered / unuploaded</span>
                 <span className="text-rose-700">{unansweredOrUnuploadedCount}</span>
               </div>
               {markedCount > 0 ? (
@@ -1535,7 +1518,7 @@ export function ExamTakingView({
           <div className="flex flex-col items-center gap-4">
             <Loader2 className="h-14 w-14 animate-spin text-indigo-600" />
             <p className="text-lg font-bold text-slate-600">
-              {examBaseLang === 'bn' ? '\u099c\u09ae\u09be \u09b9\u099a\u09cd\u099b\u09c7...' : 'Submitting\u2026'}
+              Submitting...
             </p>
           </div>
         </div>

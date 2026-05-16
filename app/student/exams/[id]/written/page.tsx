@@ -15,26 +15,26 @@ type Lang = 'bn' | 'en';
 
 const UI_STRINGS = {
   bn: {
-    writtenExam: '\u09b2\u09bf\u0996\u09bf\u09a4 \u09aa\u09b0\u09c0\u0995\u09cd\u09b7\u09be',
-    submit: '\u099c\u09ae\u09be \u09a6\u09bf\u09a8',
-    submitting: '\u099c\u09ae\u09be \u09b9\u099a\u09cd\u099b\u09c7...',
-    submitted: '\u099c\u09ae\u09be \u09b8\u09ab\u09b2!',
-    submittedDesc: '\u0986\u09aa\u09a8\u09be\u09b0 \u09b2\u09bf\u0996\u09bf\u09a4 \u09aa\u09b0\u09c0\u0995\u09cd\u09b7\u09be \u09b8\u09ab\u09b2\u09ad\u09be\u09ac\u09c7 \u099c\u09ae\u09be \u09b9\u09af\u09bc\u09c7\u099b\u09c7\u0964 \u09b6\u09bf\u0995\u09cd\u09b7\u0995 \u09ae\u09c2\u09b2\u09cd\u09af\u09be\u09af\u09bc\u09a8 \u0995\u09b0\u09b2\u09c7 \u09ab\u09b2\u09be\u09ab\u09b2 \u09a6\u09c7\u0996\u09a4\u09c7 \u09aa\u09be\u09b0\u09ac\u09c7\u09a8\u0964',
-    backToExams: '\u09aa\u09b0\u09c0\u0995\u09cd\u09b7\u09be\u09b0 \u09a4\u09be\u09b2\u09bf\u0995\u09be\u09af\u09bc',
-    confirmTitle: '\u09aa\u09b0\u09c0\u0995\u09cd\u09b7\u09be \u099c\u09ae\u09be \u09a6\u09bf\u09a4\u09c7 \u099a\u09be\u09a8?',
-    confirmDesc: '\u099c\u09ae\u09be \u09a6\u09c7\u0993\u09af\u09bc\u09be\u09b0 \u09aa\u09b0 \u0986\u09b0 \u0989\u09a4\u09cd\u09a4\u09b0 \u09aa\u09b0\u09bf\u09ac\u09b0\u09cd\u09a4\u09a8 \u0995\u09b0\u09be \u09af\u09be\u09ac\u09c7 \u09a8\u09be\u0964',
-    cancel: '\u09ac\u09be\u09a4\u09bf\u09b2',
-    yesSubmit: '\u09b9\u09cd\u09af\u09be\u0981, \u099c\u09ae\u09be \u09a6\u09bf\u09a8',
-    notLoggedIn: '\u09aa\u09b0\u09c0\u0995\u09cd\u09b7\u09be \u09a6\u09bf\u09a4\u09c7 \u09b2\u0997\u0987\u09a8 \u0995\u09b0\u09c1\u09a8',
-    goBack: '\u09ab\u09bf\u09b0\u09c7 \u09af\u09be\u09a8',
-    answered: '\u0989\u09a4\u09cd\u09a4\u09b0 \u09a6\u09c7\u0993\u09af\u09bc\u09be \u09b9\u09af\u09bc\u09c7\u099b\u09c7',
-    marks: '\u09a8\u09ae\u09cd\u09ac\u09b0',
-    writeAnswer: '\u0986\u09aa\u09a8\u09be\u09b0 \u0989\u09a4\u09cd\u09a4\u09b0 \u09b2\u09bf\u0996\u09c1\u09a8...',
-    writePartAnswer: (p: string) => `(${BN_CQ_LABELS[p] || p}) \u098f\u09b0 \u0989\u09a4\u09cd\u09a4\u09b0 \u09b2\u09bf\u0996\u09c1\u09a8...`,
-    yourAnswer: '\u0986\u09aa\u09a8\u09be\u09b0 \u0989\u09a4\u09cd\u09a4\u09b0',
-    autoSaved: '\u0985\u099f\u09cb-\u09b8\u09c7\u09ad \u09b9\u09af\u09bc\u09c7\u099b\u09c7',
-    words: '\u09b6\u09ac\u09cd\u09a6',
-    progress: (done: number, total: number) => `${done}/${total} \u099f\u09bf \u0989\u09a4\u09cd\u09a4\u09b0 \u09a6\u09c7\u0993\u09af\u09bc\u09be \u09b9\u09af\u09bc\u09c7\u099b\u09c7`,
+    writtenExam: 'Written Exam',
+    submit: 'Submit',
+    submitting: 'Submitting...',
+    submitted: 'Submitted!',
+    submittedDesc: 'Your written exam has been submitted successfully. Results will be available after your teacher evaluates your answers.',
+    backToExams: 'Back to Exams',
+    confirmTitle: 'Submit exam?',
+    confirmDesc: 'You cannot change your answers after submission.',
+    cancel: 'Cancel',
+    yesSubmit: 'Yes, Submit',
+    notLoggedIn: 'Please log in to take the exam',
+    goBack: 'Go Back',
+    answered: 'Answered',
+    marks: 'marks',
+    writeAnswer: 'Write your answer here...',
+    writePartAnswer: (p: string) => `Write your answer for part (${p})...`,
+    yourAnswer: 'Your Answer',
+    autoSaved: 'Auto-saved',
+    words: 'words',
+    progress: (done: number, total: number) => `${done}/${total} answered`,
   },
   en: {
     writtenExam: 'Written Exam',
@@ -223,7 +223,7 @@ export default function WrittenExamPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
-          <p className="text-sm font-bold text-slate-400 animate-pulse">{lang === 'bn' ? 'লোড হচ্ছে...' : 'Loading...'}</p>
+          <p className="text-sm font-bold text-slate-400 animate-pulse">Loading...</p>
         </div>
       </div>
     );
@@ -234,7 +234,7 @@ export default function WrittenExamPage() {
       <div className="min-h-screen flex items-center justify-center p-6">
         <div className="text-center space-y-3">
           <AlertCircle className="h-10 w-10 text-rose-500 mx-auto" />
-          <p className="font-black text-slate-800">{error ?? (lang === 'bn' ? 'পরীক্ষা পাওয়া যায়নি' : 'Exam not found')}</p>
+          <p className="font-black text-slate-800">{error ?? 'Exam not found'}</p>
           <Button variant="outline" className="rounded-2xl" onClick={() => router.push('/student/exams')}>{ui.goBack}</Button>
         </div>
       </div>
@@ -320,7 +320,7 @@ export default function WrittenExamPage() {
                     <span className={cn(
                       'text-[9px] font-black uppercase px-2 py-0.5 rounded-lg border',
                       isCQ ? 'border-violet-200 text-violet-700 bg-violet-50' : 'border-blue-200 text-blue-700 bg-blue-50'
-                    )}>{isCQ ? (lang === 'bn' ? 'সৃজনশীল' : 'CQ') : (lang === 'bn' ? 'লিখিত' : 'Written')}</span>
+                    )}>{isCQ ? 'CQ' : 'Written'}</span>
                     <span className="text-xs text-slate-400">{Number(eq.marks)} {ui.marks}</span>
                     {hasAnswer && (
                       <span className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
@@ -341,7 +341,7 @@ export default function WrittenExamPage() {
                   {/* Passage / stimulus if present */}
                   {eq.question?.passage?.content && (
                     <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-amber-700 mb-2">{lang === 'bn' ? 'উদ্দীপক' : 'Stimulus'}</p>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-amber-700 mb-2">Stimulus</p>
                       <div className="prose prose-sm max-w-none text-slate-700" dangerouslySetInnerHTML={{ __html: eq.question.passage.content }} />
                     </div>
                   )}

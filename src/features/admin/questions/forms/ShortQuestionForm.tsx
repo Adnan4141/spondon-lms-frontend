@@ -46,8 +46,8 @@ export function ShortQuestionForm({ folders, question, initialFolderId, onSucces
     prompt: '',
     answer: '',
     explanation: '',
-    difficulty: undefined as Difficulty | undefined,
-    year: undefined as number | undefined,
+    difficulty: 'EASY' as Difficulty | undefined,
+    year: CURRENT_YEAR as number | undefined,
     tags: '',
   });
   const [showAnswer, setShowAnswer] = useState(false);

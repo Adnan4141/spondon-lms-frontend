@@ -68,7 +68,7 @@ export function CqForm({ folders, question, initialFolderId, onSuccess }: CqForm
     prompt: '',
     explanation: '',
     difficulty: 'EASY' as Difficulty | undefined,
-    year: undefined as number | undefined,
+    year: CURRENT_YEAR as number | undefined,
     tags: '',
   });
   const [parts, setParts] = useState<CqPart[]>([

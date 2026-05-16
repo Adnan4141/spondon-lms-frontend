@@ -1,6 +1,7 @@
 import { apiRequest, API_ORIGIN } from '../api';
 import type {
   ApiResponse,
+  BulkMoveQuestionsDto,
   Question,
   QuestionFolder,
   McqPassage,
@@ -11,6 +12,7 @@ import type {
   CopyQuestionDto,
   BulkCopyQuestionsDto,
   BulkDeleteQuestionsDto,
+  MoveQuestionDto,
   QuestionImportPreview,
   QuestionImportRow,
   QuestionImportCommitResult,
@@ -129,6 +131,13 @@ export async function copyQuestion(data: CopyQuestionDto): Promise<ApiResponse<Q
   });
 }
 
+export async function moveQuestion(data: MoveQuestionDto): Promise<ApiResponse<Question>> {
+  return apiRequest<ApiResponse<Question>>('/question-bank/questions/move', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
 export interface FolderTreeNode {
   id: string;
   name: string;
@@ -158,6 +167,15 @@ export async function getQuestionFolderTree(
 
 export async function bulkCopyQuestions(data: BulkCopyQuestionsDto): Promise<ApiResponse<Question[]>> {
   return apiRequest<ApiResponse<Question[]>>('/question-bank/questions/bulk-copy', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function bulkMoveQuestions(
+  data: BulkMoveQuestionsDto,
+): Promise<ApiResponse<{ moved: number }>> {
+  return apiRequest<ApiResponse<{ moved: number }>>('/question-bank/questions/bulk-move', {
     method: 'POST',
     body: JSON.stringify(data),
   });

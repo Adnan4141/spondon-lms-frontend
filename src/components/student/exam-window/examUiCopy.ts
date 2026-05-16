@@ -7,12 +7,12 @@ export const isBanglaText = (v?: string | null): boolean => {
 
 export const detectQuestionLang = (
   question?: { prompt?: string; options?: { text?: string }[] } | null,
-  fallback: Lang = 'bn',
+  fallback: Lang = 'en',
 ): Lang => {
   const prompt = question?.prompt || '';
   const optionText = (question?.options || []).map((o) => o?.text || '').join(' ');
   const combined = `${prompt} ${optionText}`;
-  return isBanglaText(combined) ? 'bn' : 'en';
+  return isBanglaText(combined) ? 'bn' : fallback;
 };
 
 const bnOptionLetters: Record<'A' | 'B' | 'C' | 'D', string> = {
@@ -76,38 +76,38 @@ export const getExamUiStrings = (lang: Lang) => {
     };
   }
   return {
-    loading: 'পরীক্ষা লোড হচ্ছে...',
-    loginToTakeExam: 'পরীক্ষা দিতে লগইন করুন',
-    startFailed: 'পরীক্ষা শুরু করা যায়নি',
-    submitting: 'উত্তরপত্র জমা হচ্ছে...',
-    examSubmitted: 'পরীক্ষা জমা হয়েছে',
-    examCompleted: 'পরীক্ষা সম্পন্ন!',
-    submit: 'জমা দিন',
-    submitConfirmTitle: 'পরীক্ষা জমা দিবেন?',
-    submitConfirmGoBack: 'ফিরে যান',
-    questionNavigation: 'প্রশ্ন নেভিগেশন',
-    legendAnswered: 'উত্তর দেওয়া হয়েছে',
-    legendUnanswered: 'উত্তর দেওয়া হয়নি',
-    legendCurrent: 'বর্তমান প্রশ্ন',
-    legendFlagged: 'পরে দেখব',
-    questionLabel: (idx: number, total: number) => `প্রশ্ন ${idx} / ${total}`,
-    marksLabel: 'মার্কস',
-    negativeLabel: 'নেগেটিভ',
-    flag: 'পতাকা দিন',
-    unflag: 'পতাকা সরান',
-    cqLabel: 'আপনার উত্তর লিখুন:',
-    cqPlaceholder: 'এখানে আপনার উত্তর লিখুন...',
-    prevQuestion: 'আগের প্রশ্ন',
-    nextQuestion: 'পরের প্রশ্ন',
-    totalQuestions: 'মোট প্রশ্ন',
-    answered: 'উত্তর দেওয়া',
-    unanswered: 'উত্তর দেওয়া হয়নি',
-    flagged: 'পতাকা দেওয়া',
-    lastSaved: 'সর্বশেষ সংরক্ষণ',
-    sectionTab: 'অংশ',
-    backToExamList: 'পরীক্ষা তালিকায় ফিরুন',
-    scoreLabel: 'আপনার স্কোর',
-    solutionsLabel: 'সমাধান পত্র',
-    explanationLabel: 'ব্যাখ্যা',
+    loading: 'Loading exam...',
+    loginToTakeExam: 'Please log in to take the exam',
+    startFailed: 'Failed to start the exam',
+    submitting: 'Submitting your paper...',
+    examSubmitted: 'Exam submitted',
+    examCompleted: 'Exam completed!',
+    submit: 'Submit',
+    submitConfirmTitle: 'Submit this exam?',
+    submitConfirmGoBack: 'Go back',
+    questionNavigation: 'Question navigation',
+    legendAnswered: 'Answered',
+    legendUnanswered: 'Unanswered',
+    legendCurrent: 'Current question',
+    legendFlagged: 'Review later',
+    questionLabel: (idx: number, total: number) => `Question ${idx} / ${total}`,
+    marksLabel: 'Marks',
+    negativeLabel: 'Negative',
+    flag: 'Flag',
+    unflag: 'Unflag',
+    cqLabel: 'Write your answer:',
+    cqPlaceholder: 'Write your answer here...',
+    prevQuestion: 'Previous question',
+    nextQuestion: 'Next question',
+    totalQuestions: 'Total questions',
+    answered: 'Answered',
+    unanswered: 'Unanswered',
+    flagged: 'Flagged',
+    lastSaved: 'Last saved',
+    sectionTab: 'Section',
+    backToExamList: 'Back to exam list',
+    scoreLabel: 'Your score',
+    solutionsLabel: 'Solution Sheet',
+    explanationLabel: 'Explanation',
   };
 };

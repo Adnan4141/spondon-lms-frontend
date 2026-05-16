@@ -75,7 +75,7 @@ export function QuestionForm({
     mcqType: initialMcqType || 'SINGLE',
     passageId: initialPassageId || undefined,
     difficulty: 'EASY' as Difficulty | undefined,
-    year: undefined,
+    year: CURRENT_YEAR,
     prompt: '',
     explanation: '',
     tags: [],

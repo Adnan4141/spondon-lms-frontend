@@ -7,10 +7,12 @@ import {
   getQuestions,
   getQuestionById,
   deleteQuestion,
+  bulkDeleteQuestions,
+  moveQuestion,
+  bulkMoveQuestions,
   getPassages,
   deletePassage,
 } from '@/lib/api/question-bank';
-import { getCourses } from '@/lib/api/courses';
 import type {
   Question,
   QuestionFolder,
@@ -18,8 +20,8 @@ import type {
   McqPassage,
   QuestionType,
 } from '@/types/question';
-import type { Course } from '@/types/course';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -50,15 +52,13 @@ import {
   Trash2,
   CheckCircle2,
   Database,
-  LayoutGrid,
-  FileText,
   Home,
   ChevronRight,
   FolderPlus,
-  MoreHorizontal,
   Layers,
   AlignLeft,
   PenLine,
+  ArrowRightLeft,
   Upload,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -69,7 +69,6 @@ import { PassageForm } from '@/features/admin/questions';
 import { QuestionForm } from '@/features/admin/questions';
 import { CqForm } from '@/features/admin/questions';
 import { ShortQuestionForm } from '@/features/admin/questions';
-import { QuestionDetailsView } from '@/features/admin/questions';
 import { FolderTree } from '@/features/admin/questions';
 import { BulkQuestionImportModal } from '@/features/admin/questions/components/BulkQuestionImportModal';
 import { BULK_QUESTION_IMPORT_COMPLETE_EVENT } from '@/features/admin/students';
@@ -77,6 +76,19 @@ import { ConfirmationModal } from '@/features/admin/shared';
 import { cn } from '@/lib/utils';
 
 type ActiveTab = 'MCQ_SIMPLE' | 'MCQ_PASSAGE' | 'CQ' | 'SHORT';
+
+type QuestionMetaPart = {
+  label: string;
+  marks: number;
+  prompt: string;
+  knowledgeLevel?: string | null;
+};
+
+type QuestionMetaShape = {
+  answer?: string;
+  parts?: QuestionMetaPart[];
+  totalMarks?: number;
+};
 
 const difficultyOptions: (Difficulty | 'all')[] = ['all', 'EASY', 'MEDIUM', 'HARD'];
 
@@ -105,6 +117,104 @@ function stripHtml(html: string) {
   return html ? html.replace(/<[^>]+>/g, '') : '';
 }
 
+function buildFolderPathLabel(folder: QuestionFolder, folders: QuestionFolder[]) {
+  const byId = new Map(folders.map((item) => [item.id, item]));
+  const segments: string[] = [];
+  let current: QuestionFolder | undefined = folder;
+  const visited = new Set<string>();
+
+  while (current && !visited.has(current.id)) {
+    visited.add(current.id);
+    segments.unshift(current.name);
+    current = current.parentFolderId ? byId.get(current.parentFolderId) : undefined;
+  }
+
+  return segments.join(' / ');
+}
+
+function QuestionMoveModalContent({
+  folders,
+  itemCount,
+  onSubmit,
+}: {
+  folders: QuestionFolder[];
+  itemCount: number;
+  onSubmit: (targetFolderId: string) => Promise<void>;
+}) {
+  const { closeModal } = useModalStore();
+  const [targetFolderId, setTargetFolderId] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const folderOptions = React.useMemo(
+    () =>
+      folders
+        .map((folder) => ({
+          id: folder.id,
+          label: buildFolderPathLabel(folder, folders),
+        }))
+        .sort((left, right) => left.label.localeCompare(right.label)),
+    [folders],
+  );
+
+  const handleSubmit = async () => {
+    if (!targetFolderId || submitting) return;
+    setSubmitting(true);
+    try {
+      await onSubmit(targetFolderId);
+      closeModal();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Move Selection</p>
+        <p className="mt-2 text-sm font-semibold text-slate-700">
+          {itemCount} question{itemCount > 1 ? 's' : ''} will be moved to a new folder.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Destination Folder</p>
+        <Select value={targetFolderId || undefined} onValueChange={setTargetFolderId}>
+          <SelectTrigger className="h-11 rounded-2xl border-slate-200 bg-white text-sm font-medium">
+            <SelectValue placeholder="Choose a destination folder" />
+          </SelectTrigger>
+          <SelectContent className="max-h-80 rounded-2xl">
+            {folderOptions.map((folder) => (
+              <SelectItem key={folder.id} value={folder.id}>
+                {folder.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="flex items-center justify-end gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          className="rounded-xl"
+          onClick={closeModal}
+          disabled={submitting}
+        >
+          Cancel
+        </Button>
+        <Button
+          type="button"
+          className="rounded-xl bg-slate-900 text-white hover:bg-indigo-600"
+          onClick={handleSubmit}
+          disabled={!targetFolderId || submitting}
+        >
+          {submitting ? 'Moving...' : `Move ${itemCount} Question${itemCount > 1 ? 's' : ''}`}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function QuestionsPage() {
   const { openModal } = useModalStore();
   const { toast, toasts, removeToast } = useToast();
@@ -112,7 +222,6 @@ export default function QuestionsPage() {
   const [folders, setFolders] = useState<QuestionFolder[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [passages, setPassages] = useState<McqPassage[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -123,6 +232,7 @@ export default function QuestionsPage() {
   const [difficultyFilter, setDifficultyFilter] = useState<Difficulty | 'all'>('all');
   const [expandedQuestionIds, setExpandedQuestionIds] = useState<Set<string>>(new Set());
   const [expandedPassageIds, setExpandedPassageIds] = useState<Set<string>>(new Set());
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
 
   // ─── Data Loaders ────────────────────────────────────────────────────────────
 
@@ -130,15 +240,6 @@ export default function QuestionsPage() {
     try {
       const res = await getQuestionFolders();
       if (res.success && res.data) setFolders(res.data);
-    } catch (err) {
-      console.error(err);
-    }
-  }, []);
-
-  const loadCourses = useCallback(async () => {
-    try {
-      const res = await getCourses({});
-      if (res.success && res.data) setCourses(res.data || []);
     } catch (err) {
       console.error(err);
     }
@@ -185,8 +286,7 @@ export default function QuestionsPage() {
 
   useEffect(() => {
     loadFolders();
-    loadCourses();
-  }, [loadFolders, loadCourses]);
+  }, [loadFolders]);
 
   useEffect(() => {
     if (activeTab === 'MCQ_PASSAGE') {
@@ -195,6 +295,16 @@ export default function QuestionsPage() {
       loadQuestions();
     }
   }, [activeFolderId, selectedFolderIds, difficultyFilter, activeTab, loadQuestions, loadPassages]);
+
+  useEffect(() => {
+    setSelectedQuestionIds((prev) => prev.filter((id) => questions.some((question) => question.id === id)));
+  }, [questions]);
+
+  useEffect(() => {
+    if (activeTab === 'MCQ_PASSAGE') {
+      setSelectedQuestionIds([]);
+    }
+  }, [activeTab]);
 
   // ─── Folder Navigation ───────────────────────────────────────────────────────
 
@@ -421,6 +531,93 @@ export default function QuestionsPage() {
           onConfirm={async () => {
             await deleteQuestion(id);
             await loadQuestions();
+            setSelectedQuestionIds((prev) => prev.filter((questionId) => questionId !== id));
+          }}
+          confirmLabel="Delete Question"
+          cancelLabel="Keep Question"
+        />
+      ),
+    });
+  };
+
+  const openDeleteQuestionsModal = (questionIds: string[]) => {
+    openModal({
+      title: questionIds.length === 1 ? 'Delete Question' : 'Delete Questions',
+      description:
+        questionIds.length === 1
+          ? 'This will permanently remove the selected question.'
+          : `This will permanently remove ${questionIds.length} selected questions.`,
+      content: (
+        <ConfirmationModal
+          title={questionIds.length === 1 ? 'Confirm Delete' : 'Confirm Bulk Delete'}
+          description={
+            questionIds.length === 1
+              ? 'Are you sure you want to delete this question? This cannot be undone.'
+              : `Are you sure you want to delete ${questionIds.length} selected questions? This cannot be undone.`
+          }
+          confirmLabel={questionIds.length === 1 ? 'Delete Question' : `Delete ${questionIds.length} Questions`}
+          cancelLabel="Keep Questions"
+          onConfirm={async () => {
+            if (questionIds.length === 1) {
+              await deleteQuestion(questionIds[0]);
+            } else {
+              await bulkDeleteQuestions({ questionIds });
+            }
+
+            await loadQuestions();
+            setSelectedQuestionIds((prev) => prev.filter((id) => !questionIds.includes(id)));
+            toast({
+              title: 'Success',
+              description:
+                questionIds.length === 1
+                  ? 'Question deleted successfully.'
+                  : `${questionIds.length} questions deleted successfully.`,
+              variant: 'success',
+            });
+          }}
+        />
+      ),
+    });
+  };
+
+  const openMoveQuestionsModal = (questionIds: string[]) => {
+    openModal({
+      title: questionIds.length === 1 ? 'Move Question' : 'Move Questions',
+      description:
+        questionIds.length === 1
+          ? 'Move this question to another folder.'
+          : `Move ${questionIds.length} selected questions to another folder.`,
+      className: 'sm:max-w-lg',
+      content: (
+        <QuestionMoveModalContent
+          folders={folders}
+          itemCount={questionIds.length}
+          onSubmit={async (targetFolderId) => {
+            try {
+              if (questionIds.length === 1) {
+                await moveQuestion({ questionId: questionIds[0], targetFolderId });
+              } else {
+                await bulkMoveQuestions({ questionIds, targetFolderId });
+              }
+
+              await Promise.all([loadQuestions(), loadFolders()]);
+              setSelectedQuestionIds((prev) => prev.filter((id) => !questionIds.includes(id)));
+              toast({
+                title: 'Success',
+                description:
+                  questionIds.length === 1
+                    ? 'Question moved successfully.'
+                    : `${questionIds.length} questions moved successfully.`,
+                variant: 'success',
+              });
+            } catch (error: unknown) {
+              toast({
+                title: 'Move failed',
+                description: error instanceof Error ? error.message : 'Could not move the selected questions.',
+                variant: 'destructive',
+              });
+              throw error;
+            }
           }}
         />
       ),
@@ -470,6 +667,10 @@ export default function QuestionsPage() {
   );
   const nestedLevels = getDescendantFolders(activeFolderId);
   const activeFolderName = getFolderById(activeFolderId)?.name ?? 'Root';
+  const visibleQuestionIds = filteredQuestions.map((question) => question.id);
+  const visibleSelectedQuestionIds = selectedQuestionIds.filter((id) => visibleQuestionIds.includes(id));
+  const allVisibleQuestionsSelected =
+    visibleQuestionIds.length > 0 && visibleSelectedQuestionIds.length === visibleQuestionIds.length;
 
   // ─── Stats ────────────────────────────────────────────────────────────────────
 
@@ -496,6 +697,24 @@ export default function QuestionsPage() {
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
+    });
+  };
+
+  const toggleQuestionSelection = (id: string, checked: boolean) => {
+    setSelectedQuestionIds((prev) => {
+      if (checked) {
+        return prev.includes(id) ? prev : [...prev, id];
+      }
+      return prev.filter((questionId) => questionId !== id);
+    });
+  };
+
+  const toggleSelectAllVisibleQuestions = (checked: boolean) => {
+    setSelectedQuestionIds((prev) => {
+      if (checked) {
+        return [...new Set([...prev, ...visibleQuestionIds])];
+      }
+      return prev.filter((id) => !visibleQuestionIds.includes(id));
     });
   };
 
@@ -999,10 +1218,72 @@ export default function QuestionsPage() {
 
                 {/* ── Questions Table (MCQ_SIMPLE, CQ, SHORT tabs) ── */}
                 {activeTab !== 'MCQ_PASSAGE' && (
+                  <div className="border-b border-slate-100 px-6 py-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-3">
+                      <div className="flex flex-wrap items-center gap-3 text-sm">
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            checked={allVisibleQuestionsSelected}
+                            onCheckedChange={toggleSelectAllVisibleQuestions}
+                            aria-label="Select all visible questions"
+                          />
+                          <span className="font-semibold text-slate-700">Select all visible</span>
+                        </div>
+                        <span className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                          {filteredQuestions.length} visible
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        {selectedQuestionIds.length > 0 && (
+                          <>
+                            <span className="rounded-xl bg-white px-3 py-2 text-xs font-black uppercase tracking-wide text-indigo-600 shadow-sm">
+                              {selectedQuestionIds.length} selected
+                            </span>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="h-9 rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+                              onClick={() => openMoveQuestionsModal(selectedQuestionIds)}
+                            >
+                              <ArrowRightLeft className="mr-1.5 h-4 w-4" />
+                              Move Selected
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="h-9 rounded-xl border-rose-200 bg-white text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                              onClick={() => openDeleteQuestionsModal(selectedQuestionIds)}
+                            >
+                              <Trash2 className="mr-1.5 h-4 w-4" />
+                              Delete Selected
+                            </Button>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedQuestionIds([])}
+                              className="text-[10px] font-black uppercase tracking-widest text-slate-400 transition-colors hover:text-slate-700"
+                            >
+                              Clear selection
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab !== 'MCQ_PASSAGE' && (
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow className="hover:bg-transparent border-b border-slate-100">
+                          <TableHead className="w-[56px] py-3 pl-6">
+                            <Checkbox
+                              checked={allVisibleQuestionsSelected}
+                              onCheckedChange={toggleSelectAllVisibleQuestions}
+                              aria-label="Select all questions"
+                            />
+                          </TableHead>
                           <TableHead className="py-3 pl-6 text-xs font-black uppercase tracking-wider text-slate-500">
                             Question
                           </TableHead>
@@ -1021,7 +1302,7 @@ export default function QuestionsPage() {
                       <TableBody>
                         {filteredQuestions.length === 0 && filteredSubfolders.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={5} className="py-20 text-center text-slate-400 text-sm font-medium">
+                            <TableCell colSpan={6} className="py-20 text-center text-slate-400 text-sm font-medium">
                               No questions found.{' '}
                               <button
                                 onClick={handleCreateQuestion}
@@ -1034,10 +1315,25 @@ export default function QuestionsPage() {
                         ) : (
                           filteredQuestions.map((q) => {
                             const isExpanded = expandedQuestionIds.has(q.id);
-                            const meta = q.meta as any;
+                            const isSelected = selectedQuestionIds.includes(q.id);
+                            const meta = (q.meta ?? null) as QuestionMetaShape | null;
                             return (
                               <React.Fragment key={q.id}>
-                                <TableRow className="group border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                                <TableRow
+                                  className={cn(
+                                    'group border-b border-slate-50 transition-colors hover:bg-slate-50/50',
+                                    isSelected && 'bg-indigo-50/50 hover:bg-indigo-50/70',
+                                  )}
+                                >
+                                  <TableCell className="py-4 pl-6 align-top">
+                                    <div onClick={(e) => e.stopPropagation()}>
+                                      <Checkbox
+                                        checked={isSelected}
+                                        onCheckedChange={(checked) => toggleQuestionSelection(q.id, checked)}
+                                        aria-label={`Select question ${q.id}`}
+                                      />
+                                    </div>
+                                  </TableCell>
                                   <TableCell className="py-4 pl-6 max-w-[420px]">
                                     <div className="space-y-1.5">
                                       <div
@@ -1072,7 +1368,7 @@ export default function QuestionsPage() {
                                       )}
                                       {q.type === 'CQ' && meta?.parts && !isExpanded && (
                                         <div className="flex gap-2 flex-wrap">
-                                          {(meta.parts as any[]).slice(0, 4).map((part: any) => (
+                                          {meta.parts.slice(0, 4).map((part) => (
                                             <span
                                               key={part.label}
                                               className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-lg"
@@ -1135,7 +1431,10 @@ export default function QuestionsPage() {
                                   </TableCell>
                                   <TableCell className="py-4 pr-6">
                                     <div
-                                      className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                      className={cn(
+                                        'flex items-center justify-end gap-1 transition-opacity',
+                                        isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+                                      )}
                                       onClick={(e) => e.stopPropagation()}
                                     >
                                       <Button
@@ -1154,6 +1453,15 @@ export default function QuestionsPage() {
                                       <Button
                                         variant="ghost"
                                         size="icon"
+                                        className="h-8 w-8 rounded-xl text-slate-400 hover:bg-amber-50 hover:text-amber-600"
+                                        onClick={() => openMoveQuestionsModal([q.id])}
+                                        title="Move"
+                                      >
+                                        <ArrowRightLeft className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
                                         className="h-8 w-8 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50"
                                         onClick={() => handleEditQuestion(q.id)}
                                         title="Edit"
@@ -1164,7 +1472,7 @@ export default function QuestionsPage() {
                                         variant="ghost"
                                         size="icon"
                                         className="h-8 w-8 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50"
-                                        onClick={() => handleDeleteQuestion(q.id)}
+                                        onClick={() => openDeleteQuestionsModal([q.id])}
                                         title="Delete"
                                       >
                                         <Trash2 className="h-4 w-4" />
@@ -1176,7 +1484,7 @@ export default function QuestionsPage() {
                                 {/* Expanded row */}
                                 {isExpanded && (
                                   <TableRow className="bg-slate-50/40 border-b border-slate-100">
-                                    <TableCell colSpan={5} className="p-0">
+                                    <TableCell colSpan={6} className="p-0">
                                       <div className="p-6 space-y-4 animate-in slide-in-from-top-2 duration-200">
                                         {/* Full prompt */}
                                         <div className="bg-white rounded-[16px] border border-slate-100 p-5">
@@ -1220,7 +1528,7 @@ export default function QuestionsPage() {
                                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                                               Sub-parts ({meta.totalMarks} total marks)
                                             </p>
-                                            {(meta.parts as any[]).map((part: any) => (
+                                            {meta.parts.map((part) => (
                                               <div
                                                 key={part.label}
                                                 className="flex gap-3 p-4 bg-white rounded-xl border border-slate-100"

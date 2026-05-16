@@ -30,6 +30,16 @@ export interface McqOption {
   isCorrect: boolean;
 }
 
+export interface QuestionSubPart {
+  id?: string;
+  questionId?: string;
+  label: string;
+  prompt: string;
+  marks: number;
+  answerGuide?: string | null;
+  sortOrder: number;
+}
+
 export interface Question {
   id: string;
   folderId: string;
@@ -47,6 +57,7 @@ export interface Question {
   folder?: QuestionFolder;
   options?: McqOption[];
   passage?: McqPassage | null;
+  subParts?: QuestionSubPart[];
 }
 
 export interface McqPassage {
@@ -113,6 +124,16 @@ export interface CopyQuestionDto {
 }
 
 export interface BulkCopyQuestionsDto {
+  questionIds: string[];
+  targetFolderId: string;
+}
+
+export interface MoveQuestionDto {
+  questionId: string;
+  targetFolderId: string;
+}
+
+export interface BulkMoveQuestionsDto {
   questionIds: string[];
   targetFolderId: string;
 }

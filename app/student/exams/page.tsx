@@ -52,10 +52,10 @@ function getEngineBadgeClass(engine?: ExamEngineType) {
   }
 }
 
-function timeRemaining(endAt: string | null | undefined, lang: 'bn' | 'en' = 'bn'): string | null {
+function timeRemaining(endAt: string | null | undefined): string | null {
   if (!endAt) return null;
   const diff = new Date(endAt).getTime() - Date.now();
-  if (diff <= 0) return lang === 'en' ? 'Ended' : 'শেষ হয়েছে';
+  if (diff <= 0) return 'Ended';
   const hours = Math.floor(diff / 3600000);
   const mins = Math.floor((diff % 3600000) / 60000);
   if (hours > 24) return `${Math.floor(hours / 24)}d ${hours % 24}h left`;
@@ -67,22 +67,22 @@ function latestAttempt(exam: Exam) {
   return exam.studentAttempts?.[exam.studentAttempts.length - 1];
 }
 
-function writtenStatusLabel(exam: Exam, lang: 'bn' | 'en') {
+function writtenStatusLabel(exam: Exam) {
   const attempt = latestAttempt(exam);
-  if (exam.hasInProgress) return lang === 'en' ? 'Upload in progress' : 'আপলোড চলছে';
-  if (!attempt) return lang === 'en' ? 'Not started' : 'শুরু হয়নি';
+  if (exam.hasInProgress) return 'Upload in progress';
+  if (!attempt) return 'Not started';
   if (attempt.obtainedMarks == null || attempt.totalMarks == null) {
-    return lang === 'en' ? 'Teacher evaluation pending' : 'শিক্ষক মূল্যায়ন বাকি';
+    return 'Teacher evaluation pending';
   }
-  return lang === 'en' ? 'Evaluated' : 'মূল্যায়ন সম্পন্ন';
+  return 'Evaluated';
 }
 
-function writtenPrimaryAction(exam: Exam, lang: 'bn' | 'en') {
+function writtenPrimaryAction(exam: Exam) {
   const attempt = latestAttempt(exam);
-  if (exam.hasInProgress) return lang === 'en' ? 'Continue upload' : 'আপলোড চালিয়ে যান';
-  if (!attempt) return lang === 'en' ? 'Start upload' : 'আপলোড শুরু করুন';
-  if (attempt.obtainedMarks == null || attempt.totalMarks == null) return lang === 'en' ? 'View submission' : 'সাবমিশন দেখুন';
-  return lang === 'en' ? 'View result' : 'ফলাফল দেখুন';
+  if (exam.hasInProgress) return 'Continue upload';
+  if (!attempt) return 'Start upload';
+  if (attempt.obtainedMarks == null || attempt.totalMarks == null) return 'View submission';
+  return 'View result';
 }
 
 export default function StudentExamsPage() {
@@ -95,7 +95,7 @@ export default function StudentExamsPage() {
     const fetchExams = async () => {
       const userStr = localStorage.getItem('user');
       if (!userStr) {
-        setError('পরীক্ষা দেখতে লগইন করুন');
+        setError('Please log in to view your exams');
         setLoading(false);
         return;
       }
@@ -104,7 +104,7 @@ export default function StudentExamsPage() {
         const res = await getStudentExams(user.id);
         if (res.success && res.data) setExams(res.data);
       } catch (e: unknown) {
-        setError(e instanceof Error ? e.message : 'পরীক্ষা লোড ব্যর্থ');
+        setError(e instanceof Error ? e.message : 'Failed to load exams');
       } finally {
         setLoading(false);
       }
@@ -142,7 +142,7 @@ export default function StudentExamsPage() {
       <div className="flex min-h-100 items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-12 w-12 animate-spin text-indigo-600" />
-          <p className="text-slate-500 font-bold animate-pulse">পরীক্ষা লোড হচ্ছে...</p>
+          <p className="text-slate-500 font-bold animate-pulse">Loading exams...</p>
         </div>
       </div>
     );
@@ -151,7 +151,7 @@ export default function StudentExamsPage() {
   if (error) {
     return (
       <div className="space-y-10">
-        <h1 className="text-4xl font-black text-slate-900 tracking-tight">পরীক্ষা</h1>
+        <h1 className="text-4xl font-black text-slate-900 tracking-tight">Exams</h1>
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-8 text-center">
           <AlertCircle className="h-10 w-10 text-rose-400 mx-auto mb-4" />
           <p className="text-lg font-bold text-rose-600">{error}</p>
@@ -164,12 +164,12 @@ export default function StudentExamsPage() {
     <div className="space-y-10">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-black text-slate-900 tracking-tight">পরীক্ষা</h1>
-          <p className="text-slate-500 font-medium mt-1">আপনার সকল পরীক্ষা এখানে</p>
+          <h1 className="text-4xl font-black text-slate-900 tracking-tight">Exams</h1>
+          <p className="text-slate-500 font-medium mt-1">All your exams in one place</p>
         </div>
         <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-2 text-sm font-black text-slate-500 shadow-sm">
           <BookOpenCheck className="h-4 w-4 text-indigo-500" />
-          মোট {exams.length} টি পরীক্ষা
+          {exams.length} total exams
         </div>
       </div>
 
@@ -177,7 +177,7 @@ export default function StudentExamsPage() {
       {upcomingExams.length > 0 && (
         <section className="rounded-2xl border border-indigo-200 bg-indigo-50/40 p-6">
           <h2 className="text-[11px] font-black uppercase tracking-[0.25em] text-indigo-700 mb-4 flex items-center gap-2">
-            <CalendarClock className="h-3.5 w-3.5" /> আসন্ন পরীক্ষা
+            <CalendarClock className="h-3.5 w-3.5" /> Upcoming Exams
           </h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {upcomingExams.map((exam) => {
@@ -185,10 +185,10 @@ export default function StudentExamsPage() {
               const diff = Math.max(0, startDate.getTime() - Date.now());
               const totalHours = Math.floor(diff / 3600000);
               const countdown = totalHours >= 24
-                ? `${Math.floor(totalHours / 24)} দিন বাকি`
+                ? `${Math.floor(totalHours / 24)} days left`
                 : totalHours > 0
-                  ? `${totalHours} ঘণ্টা বাকি`
-                  : `${Math.max(1, Math.floor((diff % 3600000) / 60000))} মিনিট বাকি`;
+                  ? `${totalHours} hours left`
+                  : `${Math.max(1, Math.floor((diff % 3600000) / 60000))} minutes left`;
               return (
                 <div
                   key={exam.id}
@@ -210,7 +210,7 @@ export default function StudentExamsPage() {
                   <div className="flex items-center justify-between pt-3 border-t border-indigo-100">
                     <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-700">
                       <CalendarClock className="h-3.5 w-3.5" />
-                      {startDate.toLocaleDateString('bn-BD', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {startDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </div>
                     <div className="flex items-center gap-1.5 rounded-lg bg-indigo-100 px-2.5 py-1 text-[10px] font-black text-indigo-800">
                       <Clock className="h-3 w-3" />
@@ -228,12 +228,11 @@ export default function StudentExamsPage() {
       {hallExams.length > 0 && (
         <section>
           <h2 className="text-[11px] font-black uppercase tracking-[0.25em] text-amber-700 mb-4 flex items-center gap-2">
-            <Building2 className="h-3.5 w-3.5" /> হল পরীক্ষা / Offline hall exams
+            <Building2 className="h-3.5 w-3.5" /> Hall Exams / Offline Exams
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {hallExams.map((exam) => {
-              const lang: 'bn' | 'en' = exam.language === 'en' ? 'en' : 'bn';
-              const remaining = timeRemaining(exam.endAt, lang);
+              const remaining = timeRemaining(exam.endAt);
               return (
                 <div
                   key={exam.id}
@@ -266,7 +265,7 @@ export default function StudentExamsPage() {
                   <div className="flex items-center gap-4 text-xs font-medium text-slate-500 mt-3">
                     {exam.durationMinutes ? (
                       <span className="flex items-center gap-1">
-                        <Timer className="h-3 w-3" /> {exam.durationMinutes} {lang === 'en' ? 'min' : 'মিনিট'}
+                        <Timer className="h-3 w-3" /> {exam.durationMinutes} min
                       </span>
                     ) : null}
                     {remaining ? (
@@ -284,7 +283,7 @@ export default function StudentExamsPage() {
                       }}
                     >
                       <Download className="h-3.5 w-3.5 mr-2" />
-                      {lang === 'en' ? 'Instructions & PDF' : 'নির্দেশনা ও PDF'}
+                      Instructions & PDF
                     </Button>
                     {exam.showLeaderboard ? (
                       <Button
@@ -296,7 +295,7 @@ export default function StudentExamsPage() {
                         }}
                       >
                         <Trophy className="h-3.5 w-3.5 mr-2" />
-                        {lang === 'en' ? 'Leaderboard' : 'লিডারবোর্ড'}
+                        Leaderboard
                       </Button>
                     ) : null}
                   </div>
@@ -311,12 +310,11 @@ export default function StudentExamsPage() {
       {availableWritten.length > 0 && (
         <section>
           <h2 className="text-[11px] font-black uppercase tracking-[0.25em] text-violet-600 mb-4 flex items-center gap-2">
-            <PenLine className="h-3.5 w-3.5" /> লিখিত পরীক্ষা — চলমান / নতুন
+            <PenLine className="h-3.5 w-3.5" /> Written Exams - New / In Progress
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {availableWritten.map((exam) => {
-              const lang: 'bn' | 'en' = exam.language === 'en' ? 'en' : 'bn';
-              const remaining = timeRemaining(exam.endAt, lang);
+              const remaining = timeRemaining(exam.endAt);
               return (
                 <div
                   key={exam.id}
@@ -346,19 +344,15 @@ export default function StudentExamsPage() {
                   <div className="mt-3 rounded-xl border border-violet-200 bg-white/80 p-3">
                     <p className="text-[10px] font-black uppercase tracking-widest text-violet-700">
                       {exam.mode === 'HYBRID'
-                        ? lang === 'en'
-                          ? 'MCQ + handwritten upload'
-                          : 'MCQ + হাতে লেখা আপলোড'
-                        : lang === 'en'
-                          ? 'Camera/PDF written upload'
-                          : 'ক্যামেরা/PDF লিখিত আপলোড'}
+                        ? 'MCQ + handwritten upload'
+                        : 'Camera/PDF written upload'}
                     </p>
-                    <p className="mt-1 text-xs font-bold text-slate-600">{writtenStatusLabel(exam, lang)}</p>
+                    <p className="mt-1 text-xs font-bold text-slate-600">{writtenStatusLabel(exam)}</p>
                   </div>
                   <div className="flex items-center gap-4 text-xs font-medium text-slate-400 mt-3">
                     {exam.durationMinutes && (
                       <span className="flex items-center gap-1">
-                        <Timer className="h-3 w-3" /> {exam.durationMinutes} {lang === 'en' ? 'minutes' : 'মিনিট'}
+                        <Timer className="h-3 w-3" /> {exam.durationMinutes} minutes
                       </span>
                     )}
                     {remaining && (
@@ -381,9 +375,9 @@ export default function StudentExamsPage() {
                       }}
                     >
                       {exam.hasInProgress ? (
-                        <><RotateCcw className="h-3.5 w-3.5 mr-2" /> {writtenPrimaryAction(exam, lang)}</>
+                        <><RotateCcw className="h-3.5 w-3.5 mr-2" /> {writtenPrimaryAction(exam)}</>
                       ) : (
-                        <><PenLine className="h-3.5 w-3.5 mr-2" /> {writtenPrimaryAction(exam, lang)}</>
+                        <><PenLine className="h-3.5 w-3.5 mr-2" /> {writtenPrimaryAction(exam)}</>
                       )}
                     </Button>
                     {exam.showLeaderboard ? (
@@ -396,7 +390,7 @@ export default function StudentExamsPage() {
                         }}
                       >
                         <Trophy className="h-3.5 w-3.5 mr-2" />
-                        {lang === 'en' ? 'Leaderboard' : 'লিডারবোর্ড'}
+                        Leaderboard
                       </Button>
                     ) : null}
                   </div>
@@ -411,11 +405,10 @@ export default function StudentExamsPage() {
       {completedWritten.length > 0 && (
         <section>
           <h2 className="text-[11px] font-black uppercase tracking-[0.25em] text-emerald-600 mb-4 flex items-center gap-2">
-            <CheckCircle2 className="h-3.5 w-3.5" /> সম্পন্ন লিখিত পরীক্ষা
+            <CheckCircle2 className="h-3.5 w-3.5" /> Completed Written Exams
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {completedWritten.map((exam) => {
-              const lang: 'bn' | 'en' = exam.language === 'en' ? 'en' : 'bn';
               const lastAttempt = latestAttempt(exam);
               const totalM = lastAttempt?.totalMarks ?? 0;
               const obtainedM = lastAttempt?.obtainedMarks ?? 0;
@@ -447,7 +440,7 @@ export default function StudentExamsPage() {
                         {percentage}%
                       </span>
                     ) : (
-                      <span className="text-xs font-bold text-amber-600">মূল্যায়ন বাকি</span>
+                      <span className="text-xs font-bold text-amber-600">Evaluation pending</span>
                     )}
                   </div>
                   <h3 className="text-lg font-bold text-slate-800 group-hover:text-violet-600 transition-colors mb-1">
@@ -457,14 +450,10 @@ export default function StudentExamsPage() {
                   <div className="mt-3 rounded-xl border border-violet-100 bg-violet-50/50 p-3">
                     <p className="text-[10px] font-black uppercase tracking-widest text-violet-700">
                       {exam.mode === 'HYBRID'
-                        ? lang === 'en'
-                          ? 'Hybrid submission'
-                          : 'হাইব্রিড সাবমিশন'
-                        : lang === 'en'
-                          ? 'Written upload submission'
-                          : 'লিখিত আপলোড সাবমিশন'}
+                        ? 'Hybrid submission'
+                        : 'Written upload submission'}
                     </p>
-                    <p className="mt-1 text-xs font-bold text-slate-600">{writtenStatusLabel(exam, lang)}</p>
+                    <p className="mt-1 text-xs font-bold text-slate-600">{writtenStatusLabel(exam)}</p>
                   </div>
 
                   {lastAttempt && (
@@ -474,7 +463,7 @@ export default function StudentExamsPage() {
                         {obtainedM}/{totalM}
                       </span>
                       <span className="text-slate-300">
-                        {lang === 'en' ? `Attempt ${attemptCount}/${exam.allowedAttempts ?? 1}` : `চেষ্টা ${attemptCount}/${exam.allowedAttempts ?? 1}`}
+                        {`Attempt ${attemptCount}/${exam.allowedAttempts ?? 1}`}
                       </span>
                     </div>
                   )}
@@ -488,7 +477,7 @@ export default function StudentExamsPage() {
                         router.push(`/student/exams/${exam.id}?view=result`);
                       }}
                     >
-                      <FileText className="h-3.5 w-3.5 mr-2" /> {writtenPrimaryAction(exam, lang)}
+                      <FileText className="h-3.5 w-3.5 mr-2" /> {writtenPrimaryAction(exam)}
                     </Button>
                     {canRetry && (
                       <Button
@@ -498,7 +487,7 @@ export default function StudentExamsPage() {
                           router.push(`/student/exams/${exam.id}`);
                         }}
                       >
-                        <RotateCcw className="h-3.5 w-3.5 mr-2" /> {lang === 'en' ? 'Re-attempt' : 'পুনরায় চেষ্টা'}
+                        <RotateCcw className="h-3.5 w-3.5 mr-2" /> Re-attempt
                       </Button>
                     )}
                   </div>
@@ -513,12 +502,11 @@ export default function StudentExamsPage() {
       {availableOnline.length > 0 && (
         <section>
           <h2 className="text-[11px] font-black uppercase tracking-[0.25em] text-indigo-600 mb-4 flex items-center gap-2">
-            <Play className="h-3.5 w-3.5" /> অনলাইন — চলমান / নতুন
+            <Play className="h-3.5 w-3.5" /> Online Exams - New / In Progress
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {availableOnline.map((exam) => {
-              const lang: 'bn' | 'en' = exam.language === 'en' ? 'en' : 'bn';
-              const remaining = timeRemaining(exam.endAt, lang);
+              const remaining = timeRemaining(exam.endAt);
               return (
                 <div
                   key={exam.id}
@@ -565,7 +553,7 @@ export default function StudentExamsPage() {
                   <div className="flex items-center gap-4 text-xs font-medium text-slate-400 mt-3">
                     {exam.durationMinutes && (
                       <span className="flex items-center gap-1">
-                        <Timer className="h-3 w-3" /> {exam.durationMinutes} {lang === 'en' ? 'minutes' : 'মিনিট'}
+                        <Timer className="h-3 w-3" /> {exam.durationMinutes} minutes
                       </span>
                     )}
                     {remaining && (
@@ -589,9 +577,9 @@ export default function StudentExamsPage() {
                       }}
                     >
                       {exam.hasInProgress ? (
-                        <><RotateCcw className="h-3.5 w-3.5 mr-2" /> {lang === 'en' ? 'Return to exam' : 'পরীক্ষায় ফিরুন'}</>
+                        <><RotateCcw className="h-3.5 w-3.5 mr-2" /> Return to exam</>
                       ) : (
-                        <><Play className="h-3.5 w-3.5 mr-2" /> {lang === 'en' ? 'Start exam' : 'পরীক্ষা শুরু করুন'}</>
+                        <><Play className="h-3.5 w-3.5 mr-2" /> Start exam</>
                       )}
                     </Button>
                     {exam.showLeaderboard ? (
@@ -604,7 +592,7 @@ export default function StudentExamsPage() {
                         }}
                       >
                         <Trophy className="h-3.5 w-3.5 mr-2" />
-                        {lang === 'en' ? 'Leaderboard' : 'লিডারবোর্ড'}
+                        Leaderboard
                       </Button>
                     ) : null}
                   </div>
@@ -619,11 +607,10 @@ export default function StudentExamsPage() {
       {completedOnline.length > 0 && (
         <section>
           <h2 className="text-[11px] font-black uppercase tracking-[0.25em] text-emerald-600 mb-4 flex items-center gap-2">
-            <CheckCircle2 className="h-3.5 w-3.5" /> সম্পন্ন অনলাইন পরীক্ষা
+            <CheckCircle2 className="h-3.5 w-3.5" /> Completed Online Exams
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {completedOnline.map((exam) => {
-              const lang: 'bn' | 'en' = exam.language === 'en' ? 'en' : 'bn';
               const lastAttempt = exam.studentAttempts?.[exam.studentAttempts.length - 1];
               const totalM = lastAttempt?.totalMarks ?? 0;
               const obtainedM = lastAttempt?.obtainedMarks ?? 0;
@@ -677,10 +664,10 @@ export default function StudentExamsPage() {
                         {obtainedM}/{totalM}
                       </span>
                       {lastAttempt.submittedAt && (
-                        <span>{new Date(lastAttempt.submittedAt).toLocaleDateString(lang === 'en' ? 'en-US' : 'bn-BD')}</span>
+                        <span>{new Date(lastAttempt.submittedAt).toLocaleDateString('en-US')}</span>
                       )}
                       <span className="text-slate-300">
-                        {lang === 'en' ? `Attempt ${attemptCount}/${exam.allowedAttempts ?? 1}` : `চেষ্টা ${attemptCount}/${exam.allowedAttempts ?? 1}`}
+                        {`Attempt ${attemptCount}/${exam.allowedAttempts ?? 1}`}
                       </span>
                     </div>
                   )}
@@ -694,7 +681,7 @@ export default function StudentExamsPage() {
                         router.push(`/student/exams/${exam.id}?view=result`);
                       }}
                     >
-                      <FileText className="h-3.5 w-3.5 mr-2" /> {lang === 'en' ? 'View results' : 'ফলাফল দেখুন'}
+                      <FileText className="h-3.5 w-3.5 mr-2" /> View results
                     </Button>
                     {canRetry && (
                       <Button
@@ -704,7 +691,7 @@ export default function StudentExamsPage() {
                           router.push(`/student/exams/${exam.id}`);
                         }}
                       >
-                        <RotateCcw className="h-3.5 w-3.5 mr-2" /> {lang === 'en' ? 'Re-attempt' : 'পুনরায় চেষ্টা'}
+                        <RotateCcw className="h-3.5 w-3.5 mr-2" /> Re-attempt
                       </Button>
                     )}
                     {exam.showLeaderboard ? (
@@ -716,7 +703,7 @@ export default function StudentExamsPage() {
                           router.push(`/student/leaderboard/${exam.id}`);
                         }}
                       >
-                        <Trophy className="h-3.5 w-3.5 mr-2" /> {lang === 'en' ? 'Leaderboard' : 'লিডারবোর্ড'}
+                        <Trophy className="h-3.5 w-3.5 mr-2" /> Leaderboard
                       </Button>
                     ) : null}
                   </div>
@@ -730,8 +717,8 @@ export default function StudentExamsPage() {
       {exams.length === 0 && (
         <div className="flex flex-col items-center justify-center p-20 rounded-3xl border border-dashed border-slate-200 bg-slate-50">
           <BookOpenCheck className="h-16 w-16 text-slate-300 mb-4" />
-          <p className="text-lg font-bold text-slate-400">এখনো কোনো পরীক্ষা নেই</p>
-          <p className="text-sm text-slate-400 mt-1">কোর্সে ভর্তি হলে পরীক্ষা দেখতে পাবেন</p>
+          <p className="text-lg font-bold text-slate-400">No exams available yet</p>
+          <p className="text-sm text-slate-400 mt-1">You will see exams here after enrolling in a course</p>
         </div>
       )}
     </div>
