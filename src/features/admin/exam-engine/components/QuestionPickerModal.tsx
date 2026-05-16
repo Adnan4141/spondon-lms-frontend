@@ -288,7 +288,11 @@ export function QuestionPickerModal({
                         <div className="flex flex-wrap gap-1">
                           {q.passageId ? (
                             <Badge variant="outline" className="text-[10px] text-amber-900">
-                              Passage
+                              {q.type === 'CQ' ? 'Grouped creative CQ' : 'Passage'}
+                            </Badge>
+                          ) : q.type === 'CQ' ? (
+                            <Badge variant="outline" className="text-[10px] text-indigo-700">
+                              Standalone CQ
                             </Badge>
                           ) : null}
                         </div>
@@ -303,6 +307,8 @@ export function QuestionPickerModal({
               Order follows your selection order. Saving with pins switches this rule to manual selection for generators that support it.
               {questionType === 'MCQ'
                 ? ' Pinning one passage question selects every MCQ under that passage.'
+                : questionType === 'CQ'
+                  ? ' Grouped creative CQ is generated as one stimulus with ক-ঘ together.'
                 : null}
             </p>
           </TabsContent>

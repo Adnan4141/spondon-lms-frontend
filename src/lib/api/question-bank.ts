@@ -17,6 +17,7 @@ import type {
   QuestionImportRow,
   QuestionImportCommitResult,
   QuestionImportJobStatusPayload,
+  CqAuditReport,
 } from '@/types/question';
 
 export async function getQuestionFolders(
@@ -101,6 +102,11 @@ export async function getQuestions(
 
 export async function getQuestionById(id: string): Promise<ApiResponse<Question>> {
   return apiRequest<ApiResponse<Question>>(`/question-bank/questions/${id}`);
+}
+
+export async function auditCqQuestions(folderId?: string): Promise<ApiResponse<CqAuditReport>> {
+  const query = folderId ? `?folderId=${encodeURIComponent(folderId)}` : '';
+  return apiRequest<ApiResponse<CqAuditReport>>(`/question-bank/questions/audit/cq${query}`);
 }
 
 export async function createQuestion(data: CreateQuestionDto): Promise<ApiResponse<Question>> {

@@ -319,7 +319,7 @@ export function BulkQuestionImportModal({ folder }: BulkQuestionImportModalProps
               <div className="mt-3 space-y-2 text-sm font-medium leading-6 text-slate-600">
                 <p>Use one row per question. For passage MCQ, use the same passage_key on 2 to 8 rows.</p>
                 <p>Difficulty must be EASY, MEDIUM, or HARD. Correct option must be A, B, C, or D.</p>
-                <p>CQ rows should include all four parts: cq_k, cq_kh, cq_g, and cq_gh.</p>
+                <p>For CQ rows, use `prompt` as the stimulus (উদ্দীপক) and include all four parts: cq_k, cq_kh, cq_g, and cq_gh.</p>
               </div>
               <Button
                 type="button"

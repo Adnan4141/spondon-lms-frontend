@@ -6,6 +6,7 @@ import {
   deleteQuestionFolder,
   getQuestions,
   getQuestionById,
+  auditCqQuestions,
   deleteQuestion,
   bulkDeleteQuestions,
   moveQuestion,
@@ -60,6 +61,7 @@ import {
   PenLine,
   ArrowRightLeft,
   Upload,
+  ShieldAlert,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
@@ -471,6 +473,54 @@ export default function QuestionsPage() {
       description: `Import questions into ${folder.name}.`,
       className: 'sm:max-w-6xl',
       content: <BulkQuestionImportModal folder={folder} />,
+    });
+  };
+
+  const handleCqAudit = async () => {
+    if (!activeFolderId) return;
+    const res = await auditCqQuestions(activeFolderId);
+    if (!res.success || !res.data) {
+      toast({ title: 'CQ audit failed', description: res.message || 'Could not audit CQ questions.', variant: 'destructive' });
+      return;
+    }
+
+    openModal({
+      title: 'CQ Quality Audit',
+      description: `${res.data.issueCount} issue(s) across ${res.data.blockCount} creative block(s).`,
+      className: 'sm:max-w-3xl',
+      content: (
+        <div className="max-h-[65vh] space-y-3 overflow-y-auto">
+          {res.data.issues.length === 0 ? (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-700">
+              No CQ quality issues found in this folder.
+            </div>
+          ) : (
+            res.data.issues.map((issue) => (
+              <div key={`${issue.groupId}-${issue.code}`} className="rounded-xl border border-rose-200 bg-rose-50 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="border-rose-200 bg-white text-rose-700">
+                      {issue.code}
+                    </Badge>
+                    <span className="text-sm font-bold text-rose-700">{issue.message}</span>
+                  </div>
+                  {issue.questionIds[0] ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void handleEditQuestion(issue.questionIds[0])}
+                      className="h-8 rounded-lg border-rose-200 bg-white text-xs font-bold text-rose-700"
+                    >
+                      Edit CQ
+                    </Button>
+                  ) : null}
+                </div>
+                <p className="mt-2 text-xs font-medium text-slate-500">Question ID: {issue.questionIds.join(', ')}</p>
+              </div>
+            ))
+          )}
+        </div>
+      ),
     });
   };
 
@@ -919,6 +969,17 @@ export default function QuestionsPage() {
                 <Upload className="mr-1.5 h-4 w-4" />
                 Bulk Import
               </Button>
+              {activeTab === 'CQ' ? (
+                <Button
+                  variant="outline"
+                  onClick={() => void handleCqAudit()}
+                  disabled={!activeFolderId}
+                  className="h-9 rounded-xl bg-white border-slate-200 text-slate-700 font-bold hover:bg-slate-50 shadow-sm text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <ShieldAlert className="mr-1.5 h-4 w-4" />
+                  CQ Audit
+                </Button>
+              ) : null}
               <Button
                 variant="outline"
                 onClick={() => handleCreateFolder()}

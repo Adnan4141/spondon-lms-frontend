@@ -60,6 +60,20 @@ export interface Question {
   subParts?: QuestionSubPart[];
 }
 
+export interface CqAuditIssue {
+  code: 'MISSING_STIMULUS' | 'PLACEHOLDER_TEXT' | 'BROKEN_PARTS' | 'BROKEN_PASSAGE_GROUP' | 'DUPLICATE_BLOCK';
+  severity: 'critical' | 'major';
+  groupId: string;
+  questionIds: string[];
+  message: string;
+}
+
+export interface CqAuditReport {
+  blockCount: number;
+  issueCount: number;
+  issues: CqAuditIssue[];
+}
+
 export interface McqPassage {
   id: string;
   folderId: string;

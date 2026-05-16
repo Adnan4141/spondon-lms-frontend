@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createQuestion, updateQuestion, uploadQuestionImage } from '@/lib/api/question-bank';
 import { useModalStore } from '@/store/modalStore';
 import { useToast } from '@/hooks/use-toast';
@@ -20,7 +20,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Plus, ChevronDown, ChevronUp, Trash2, CalendarIcon } from 'lucide-react';
+import { ChevronDown, ChevronUp, CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -30,8 +30,15 @@ const inputClass =
   'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
 const sectionLabel = 'text-[11px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2 block';
 
-const PART_LABELS = ['ক', 'খ', 'গ', 'ঘ', 'ঙ', 'চ', 'ছ', 'জ'];
+const PART_LABELS = ['ক', 'খ', 'গ', 'ঘ'];
+const PART_MARKS = [1, 2, 3, 4];
 const KNOWLEDGE_LEVELS = ['জ্ঞান', 'অনুধাবন', 'প্রয়োগ', 'উচ্চতর দক্ষতা'];
+const PART_EXPECTATIONS = [
+  'Definition / fact',
+  'Explain with concept',
+  'Apply data from stimulus',
+  'Analyze or evaluate',
+];
 const difficultyOptions: Difficulty[] = ['EASY', 'MEDIUM', 'HARD'];
 
 interface CqPart {
@@ -53,7 +60,7 @@ function createEmptyPart(index: number): CqPart {
   return {
     label: PART_LABELS[index] || String.fromCharCode(0x0995 + index),
     prompt: '',
-    marks: 1,
+    marks: PART_MARKS[index] ?? 1,
     knowledgeLevel: KNOWLEDGE_LEVELS[Math.min(index, KNOWLEDGE_LEVELS.length - 1)],
     answer: '',
   };
@@ -81,7 +88,6 @@ export function CqForm({ folders, question, initialFolderId, onSuccess }: CqForm
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [yearOpen, setYearOpen] = useState(false);
-  const partsEndRef = useRef<HTMLDivElement | null>(null);
 
   const isEdit = !!question;
 
@@ -100,13 +106,16 @@ export function CqForm({ folders, question, initialFolderId, onSuccess }: CqForm
       const meta = question.meta as any;
       if (meta?.parts && Array.isArray(meta.parts) && meta.parts.length > 0) {
         setParts(
-          meta.parts.map((p: any, i: number) => ({
-            label: p.label || PART_LABELS[i] || `${i + 1}`,
+          PART_LABELS.map((label, i) => {
+            const p = meta.parts[i] ?? {};
+            return {
+            label,
             prompt: p.prompt || '',
             marks: p.marks ?? 1,
             knowledgeLevel: p.knowledgeLevel || '',
             answer: p.answer || '',
-          }))
+            };
+          })
         );
       }
       setExpandedParts(new Set([0]));
@@ -122,28 +131,6 @@ export function CqForm({ folders, question, initialFolderId, onSuccess }: CqForm
       toast({ title: 'Image upload failed', description: err.message, variant: 'destructive' });
       throw err;
     }
-  };
-
-  const addPart = () => {
-    const newIdx = parts.length;
-    setParts((prev) => [...prev, createEmptyPart(newIdx)]);
-    setExpandedParts((prev) => new Set([...prev, newIdx]));
-    setTimeout(() => partsEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-  };
-
-  const removePart = (idx: number) => {
-    setParts((prev) => {
-      const updated = prev.filter((_, i) => i !== idx);
-      return updated.map((p, i) => ({ ...p, label: PART_LABELS[i] || `${i + 1}` }));
-    });
-    setExpandedParts((prev) => {
-      const next = new Set<number>();
-      prev.forEach((i) => {
-        if (i < idx) next.add(i);
-        else if (i > idx) next.add(i - 1);
-      });
-      return next;
-    });
   };
 
   const updatePart = (idx: number, field: keyof CqPart, value: any) => {
@@ -163,7 +150,12 @@ export function CqForm({ folders, question, initialFolderId, onSuccess }: CqForm
 
   const handleSubmit = async () => {
     if (!form.folderId || !form.prompt.trim()) {
-      setError('Folder and main question stem are required.');
+      setError('Folder and stimulus (উদ্দীপক) are required.');
+      return;
+    }
+
+    if (parts.length !== 4) {
+      setError('Creative questions must have exactly four parts: ক, খ, গ, ঘ.');
       return;
     }
 
@@ -331,22 +323,11 @@ export function CqForm({ folders, question, initialFolderId, onSuccess }: CqForm
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <label className={sectionLabel}>
-                  প্রশ্ন — Sub-Parts ({parts.length})
-                </label>
+                <label className={sectionLabel}>প্রশ্ন — Sub-Parts (ক-ঘ)</label>
                 <p className="text-xs font-bold text-slate-500 -mt-1">
                   Total Marks: <span className="text-indigo-600">{totalMarks}</span>
                 </p>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={addPart}
-                className="h-8 rounded-xl border-slate-200 bg-white text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:bg-indigo-50"
-              >
-                <Plus className="mr-1.5 h-3.5 w-3.5" /> Add Part
-              </Button>
             </div>
 
             {parts.map((part, pIdx) => {
@@ -376,6 +357,8 @@ export function CqForm({ folders, question, initialFolderId, onSuccess }: CqForm
                       </p>
                       <div className="flex items-center gap-3 mt-0.5">
                         <span className="text-[10px] font-black uppercase text-indigo-600">{part.marks} mark{part.marks !== 1 ? 's' : ''}</span>
+                        <span className="text-slate-200">·</span>
+                        <span className="text-[10px] font-black uppercase text-slate-400">{PART_EXPECTATIONS[pIdx]}</span>
                         {part.knowledgeLevel && (
                           <>
                             <span className="text-slate-200">·</span>
@@ -389,20 +372,6 @@ export function CqForm({ folders, question, initialFolderId, onSuccess }: CqForm
                       </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      {parts.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-slate-300 hover:text-rose-500 hover:bg-rose-50"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removePart(pIdx);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
                       {isOpen ? <ChevronUp className="h-4 w-4 text-indigo-500" /> : <ChevronDown className="h-4 w-4 text-slate-300" />}
                     </div>
                   </div>
@@ -416,10 +385,11 @@ export function CqForm({ folders, question, initialFolderId, onSuccess }: CqForm
                           <label className={sectionLabel}>Marks</label>
                           <Input
                             type="number"
-                            min={1}
+                            min={PART_MARKS[pIdx]}
+                            max={PART_MARKS[pIdx]}
                             className="h-10 rounded-xl border-slate-200 bg-white px-3 text-sm font-medium"
                             value={part.marks}
-                            onChange={(e) => updatePart(pIdx, 'marks', Number(e.target.value) || 1)}
+                            readOnly
                           />
                         </div>
                         <div className="space-y-2">
@@ -467,7 +437,20 @@ export function CqForm({ folders, question, initialFolderId, onSuccess }: CqForm
                 </div>
               );
             })}
-            <div ref={partsEndRef} />
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+            <label className={sectionLabel}>Board Preview</label>
+            <div className="space-y-3 text-sm text-slate-800">
+              <div className="font-bold" dangerouslySetInnerHTML={{ __html: form.prompt || 'উদ্দীপক এখানে দেখা যাবে' }} />
+              {parts.map((part) => (
+                <div key={part.label} className="grid grid-cols-[32px_1fr_auto] gap-2">
+                  <span className="font-black">({part.label})</span>
+                  <span dangerouslySetInnerHTML={{ __html: part.prompt || 'প্রশ্ন লিখুন' }} />
+                  <span className="font-bold text-slate-500">[{part.marks}]</span>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* General Explanation */}
