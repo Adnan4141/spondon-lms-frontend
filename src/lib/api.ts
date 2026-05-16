@@ -2,6 +2,18 @@
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 export const API_ORIGIN = API_BASE_URL.replace(/\/api$/, '');
 
+export class ApiError extends Error {
+  status: number;
+  body?: unknown;
+
+  constructor(message: string, status: number, body?: unknown) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.body = body;
+  }
+}
+
 export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
@@ -42,9 +54,11 @@ export async function apiRequest<T>(
 
     const raw = await response.text();
     let msg = '';
+    let parsedBody: unknown;
     if (raw) {
       try {
         const body = JSON.parse(raw) as { message?: string; error?: unknown };
+        parsedBody = body;
         if (body && typeof body === 'object') {
           const apiMsg = typeof body.message === 'string' ? body.message.trim() : '';
           const apiErr = typeof body.error === 'string' ? body.error.trim() : '';
@@ -61,7 +75,7 @@ export async function apiRequest<T>(
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('api-error', { detail: errMsg }));
     }
-    throw new Error(errMsg);
+    throw new ApiError(errMsg, response.status, parsedBody);
   }
 
   const text = await response.text();

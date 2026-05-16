@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import { ApiError } from '@/lib/api';
 import { startExamAttempt, getAttemptResult, getExamStudentView, getExamPdfDownloadUrl } from '@/lib/api/exams';
 import type { StartAttemptResponse, AttemptResultResponse, ExamStudentView } from '@/types/exam';
 import { ExamTakingView } from '@/components/student/exam-window/ExamTakingView';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Timer, AlertTriangle, CheckCircle2, Loader2, Eye, Trophy, XCircle, Building2, Download, FileText, PenLine, CalendarClock } from 'lucide-react';
+import { Timer, AlertTriangle, CheckCircle2, Loader2, Eye, Trophy, XCircle, Building2, Download, FileText, PenLine, CalendarClock, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 import {
@@ -22,6 +23,11 @@ type ResultQuestion = AttemptResultResponse['questions'][number];
 type ResultDisplayItem =
   | { kind: 'single'; id: string; firstQuestionIndex: number; questions: [ResultQuestion] }
   | { kind: 'passage'; id: string; firstQuestionIndex: number; questions: ResultQuestion[] };
+
+type AttemptRecoveryPayload = {
+  attemptId?: string | null;
+  latestCompletedAttemptId?: string | null;
+};
 
 function buildResultDisplayItems(questions: ResultQuestion[]): ResultDisplayItem[] {
   const items: ResultDisplayItem[] = [];
@@ -43,6 +49,38 @@ function buildResultDisplayItems(questions: ResultQuestion[]): ResultDisplayItem
   return items;
 }
 
+function getAttemptRecoveryPayload(error: unknown): AttemptRecoveryPayload {
+  if (!(error instanceof ApiError) || !error.body || typeof error.body !== 'object') return {};
+  const body = error.body as {
+    data?: { attemptId?: string | null; latestCompletedAttemptId?: string | null };
+  };
+  return {
+    attemptId: body.data?.attemptId ?? null,
+    latestCompletedAttemptId: body.data?.latestCompletedAttemptId ?? null,
+  };
+}
+
+function hasPendingWrittenEvaluation(result: AttemptResultResponse | null): boolean {
+  if (!result) return false;
+  if (result.attempt.obtainedMarks != null) return false;
+  return result.questions.some((question) => {
+    const type = question.question?.type;
+    return type === 'CQ' || type === 'SHORT';
+  });
+}
+
+function getProvisionalMcqScore(result: AttemptResultResponse | null): { obtained: number; total: number } | null {
+  if (!result) return null;
+  let obtained = 0;
+  let total = 0;
+  result.questions.forEach((question) => {
+    if (question.question?.type !== 'MCQ') return;
+    total += Number(question.marks || 0);
+    obtained += Number(question.studentAnswer?.obtainedMarks || 0);
+  });
+  return total > 0 ? { obtained: Math.max(0, obtained), total } : null;
+}
+
 export default function StudentExamTakingPage() {
   const router = useRouter();
   const params = useParams();
@@ -58,10 +96,86 @@ export default function StudentExamTakingPage() {
   const [attemptData, setAttemptData] = useState<StartAttemptResponse | null>(null);
   const [result, setResult] = useState<AttemptResultResponse | null>(null);
   const [countdown, setCountdown] = useState('');
+  const [notice, setNotice] = useState<string | null>(null);
   const waitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const shellLang: Lang = examMeta?.language === 'en' ? 'en' : 'bn';
   const baseUi = getExamUiStrings(shellLang);
+
+  const openResultAttempt = useCallback(async (attemptId: string, nextNotice?: string | null) => {
+    const resultRes = await getAttemptResult(attemptId);
+    if (!resultRes.success || !resultRes.data) {
+      throw new Error(resultRes.message || 'ফলাফল লোড করা যায়নি');
+    }
+    setResult(resultRes.data);
+    setAttemptData(null);
+    setNotice(nextNotice ?? null);
+    setError(null);
+    setPhase('result');
+  }, []);
+
+  const recoverLatestAttempt = useCallback(async (
+    studentId: string,
+    reason: string,
+    preferredAttemptId?: string | null,
+  ): Promise<boolean> => {
+    const candidateIds = [preferredAttemptId].filter(Boolean) as string[];
+    for (const candidateId of candidateIds) {
+      try {
+        await openResultAttempt(candidateId, reason);
+        return true;
+      } catch {
+        // Fall through to student-view recovery.
+      }
+    }
+
+    const viewRes = await getExamStudentView(examId, studentId);
+    if (!viewRes.success || !viewRes.data) {
+      setError(reason);
+      setPhase('loading');
+      return false;
+    }
+
+    setExamMeta(viewRes.data);
+    const latestAttemptId = viewRes.data.latestCompletedAttemptId;
+    if (!latestAttemptId) {
+      setError(reason);
+      setPhase('loading');
+      return false;
+    }
+
+    await openResultAttempt(latestAttemptId, reason);
+    return true;
+  }, [examId, openResultAttempt]);
+
+  const beginAttempt = useCallback(async (studentId: string): Promise<boolean> => {
+    try {
+      const res = await startExamAttempt(examId, studentId);
+      if (!res.success || !res.data) {
+        setError(res.message || 'পরীক্ষা শুরু করা যায়নি');
+        setPhase('loading');
+        return false;
+      }
+      setNotice(null);
+      setError(null);
+      setResult(null);
+      setAttemptData(res.data);
+      setPhase('exam');
+      return true;
+    } catch (e: unknown) {
+      const reason = e instanceof Error ? e.message : 'পরীক্ষা শুরু ব্যর্থ';
+      const recovery = getAttemptRecoveryPayload(e);
+      const recovered = await recoverLatestAttempt(
+        studentId,
+        reason,
+        recovery.attemptId ?? recovery.latestCompletedAttemptId ?? null,
+      ).catch(() => false);
+      if (recovered) return false;
+      setError(reason);
+      setPhase('loading');
+      return false;
+    }
+  }, [examId, recoverLatestAttempt]);
 
   // Initialize: student-safe exam view, then offline panel or online attempt
   useEffect(() => {
@@ -93,13 +207,7 @@ export default function StudentExamTakingPage() {
             setError('ফলাফল এখনো পাওয়া যায়নি');
             return;
           }
-          const resultRes = await getAttemptResult(latestAttemptId);
-          if (!resultRes.success || !resultRes.data) {
-            setError(resultRes.message || 'ফলাফল লোড করা যায়নি');
-            return;
-          }
-          setResult(resultRes.data);
-          setPhase('result');
+          await openResultAttempt(latestAttemptId);
           return;
         }
 
@@ -109,36 +217,13 @@ export default function StudentExamTakingPage() {
           return;
         }
 
-        const res = await startExamAttempt(examId, user.id);
-        if (res.success && res.data) {
-          setAttemptData(res.data);
-          setPhase('exam');
-        } else {
-          const failedStart = res as typeof res & {
-            code?: string;
-            data?: { latestCompletedAttemptId?: string | null };
-          };
-          const maxAttemptId = failedStart.data?.latestCompletedAttemptId ?? undefined;
-          const maxAttemptsReached =
-            failedStart.code === 'MAX_ATTEMPTS_REACHED' ||
-            /maximum attempts reached/i.test(String(res.message || ''));
-
-          if (maxAttemptsReached && maxAttemptId) {
-            const resultRes = await getAttemptResult(maxAttemptId);
-            if (resultRes.success && resultRes.data) {
-              setResult(resultRes.data);
-              setPhase('result');
-              return;
-            }
-          }
-          setError(res.message || 'পরীক্ষা শুরু করা যায়নি');
-        }
+        await beginAttempt(user.id);
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : 'পরীক্ষা শুরু ব্যর্থ');
       }
     };
     run();
-  }, [examId, router, viewMode]);
+  }, [beginAttempt, examId, openResultAttempt, viewMode]);
 
   // Countdown ticker for waiting phase
   useEffect(() => {
@@ -148,15 +233,7 @@ export default function StudentExamTakingPage() {
       if (diff <= 0) {
         setCountdown('');
         // Auto-start when time arrives
-        startExamAttempt(examId, userId).then((res) => {
-          if (res.success && res.data) {
-            setAttemptData(res.data);
-            setPhase('exam');
-          } else {
-            setError(res.message || 'পরীক্ষা শুরু করা যায়নি');
-            setPhase('loading');
-          }
-        });
+        void beginAttempt(userId);
         return;
       }
       const h = Math.floor(diff / 3600000);
@@ -171,7 +248,7 @@ export default function StudentExamTakingPage() {
     };
     tick();
     return () => { if (waitTimerRef.current) clearTimeout(waitTimerRef.current); };
-  }, [phase, examMeta, examId, userId]);
+  }, [beginAttempt, phase, examMeta, examId, userId]);
 
   // Waiting — exam not started yet
   if (phase === 'waiting' && examMeta) {
@@ -380,6 +457,8 @@ export default function StudentExamTakingPage() {
   if (phase === 'result') {
     const resultLang: Lang = result?.exam.language === 'en' ? 'en' : shellLang;
     const resultUi = getExamUiStrings(resultLang);
+    const pendingWrittenEvaluation = hasPendingWrittenEvaluation(result);
+    const provisionalMcqScore = getProvisionalMcqScore(result);
     const resultDisplayItems = buildResultDisplayItems(result?.questions ?? []);
     const resultQuestionIndexById = new Map((result?.questions ?? []).map((q, index) => [q.id, index]));
     const renderResultQuestion = (eq: ResultQuestion, idx: number) => {
@@ -517,22 +596,73 @@ export default function StudentExamTakingPage() {
 
           {result && (
             <div className="space-y-8">
+              {notice ? (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-left text-sm font-bold text-amber-900">
+                  <div className="flex items-start gap-3">
+                    <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>{notice}</span>
+                  </div>
+                </div>
+              ) : null}
+
               {/* Score card */}
               <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm text-center">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">{baseUi.scoreLabel}</p>
-                <div className="flex items-baseline justify-center gap-2">
-                  <span className="text-6xl font-black text-indigo-600">{result.attempt.obtainedMarks ?? 0}</span>
-                  <span className="text-2xl font-bold text-slate-400">/ {result.attempt.totalMarks ?? 0}</span>
-                </div>
-                {result.attempt.totalMarks && result.attempt.obtainedMarks != null && (
-                  <div className="mt-4">
-                    <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-6 py-2">
-                      <Trophy className="h-4 w-4 text-amber-500" />
-                      <span className="text-lg font-black text-indigo-600">
-                        {Math.round((result.attempt.obtainedMarks / result.attempt.totalMarks) * 100)}%
-                      </span>
+                {result.attempt.status === 'AUTO_SUBMITTED' ? (
+                  <Badge variant="outline" className="mb-4 border-amber-200 bg-amber-50 text-[10px] font-black uppercase tracking-[0.2em] text-amber-900">
+                    {resultLang === 'en' ? 'Auto submitted' : 'স্বয়ংক্রিয়ভাবে জমা হয়েছে'}
+                  </Badge>
+                ) : null}
+                {pendingWrittenEvaluation ? (
+                  <>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500 mb-2">
+                      {resultLang === 'en' ? 'Teacher evaluation pending' : 'শিক্ষক মূল্যায়ন বাকি'}
+                    </p>
+                    <h2 className="text-3xl font-black text-slate-900">
+                      {resultLang === 'en' ? 'Your exam has been submitted' : 'আপনার পরীক্ষা জমা হয়েছে'}
+                    </h2>
+                    <p className="mt-3 text-sm font-medium text-slate-500">
+                      {resultLang === 'en'
+                        ? 'Written answers are still being evaluated. Final score and percentage will appear after marking is complete.'
+                        : 'লিখিত উত্তর এখনো মূল্যায়ন চলছে। মূল্যায়ন শেষ হলে চূড়ান্ত স্কোর ও শতাংশ দেখানো হবে।'}
+                    </p>
+                    <div className="mt-6 grid gap-4 md:grid-cols-2">
+                      {provisionalMcqScore ? (
+                        <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-5 text-left">
+                          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500 mb-2">
+                            {resultLang === 'en' ? 'Provisional MCQ score' : 'এমসিকিউ-এর অস্থায়ী স্কোর'}
+                          </p>
+                          <p className="text-3xl font-black text-indigo-700">
+                            {provisionalMcqScore.obtained}
+                            <span className="text-lg text-indigo-300"> / {provisionalMcqScore.total}</span>
+                          </p>
+                        </div>
+                      ) : null}
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5 text-left">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">
+                          {resultLang === 'en' ? 'Total exam marks' : 'মোট পরীক্ষার মার্কস'}
+                        </p>
+                        <p className="text-3xl font-black text-slate-900">{result.attempt.totalMarks ?? 0}</p>
+                      </div>
                     </div>
-                  </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">{baseUi.scoreLabel}</p>
+                    <div className="flex items-baseline justify-center gap-2">
+                      <span className="text-6xl font-black text-indigo-600">{result.attempt.obtainedMarks ?? 0}</span>
+                      <span className="text-2xl font-bold text-slate-400">/ {result.attempt.totalMarks ?? 0}</span>
+                    </div>
+                    {result.attempt.totalMarks && result.attempt.obtainedMarks != null ? (
+                      <div className="mt-4">
+                        <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-6 py-2">
+                          <Trophy className="h-4 w-4 text-amber-500" />
+                          <span className="text-lg font-black text-indigo-600">
+                            {Math.round((result.attempt.obtainedMarks / result.attempt.totalMarks) * 100)}%
+                          </span>
+                        </div>
+                      </div>
+                    ) : null}
+                  </>
                 )}
               </div>
 
@@ -613,11 +743,14 @@ export default function StudentExamTakingPage() {
       attemptData={attemptData}
       onSubmitted={(data) => {
         setResult(data);
+        setNotice(null);
         setPhase('result');
       }}
-      onSubmitFailed={(msg) => {
-        setError(msg);
-        setPhase('loading');
+      onAutoSubmitted={({ message, attemptId }) => {
+        void recoverLatestAttempt(userId, message, attemptId ?? null).catch(() => {
+          setError(message);
+          setPhase('loading');
+        });
       }}
     />
   );

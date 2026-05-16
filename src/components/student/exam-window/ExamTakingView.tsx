@@ -15,6 +15,7 @@ import {
   ArrowUp,
   ArrowDown,
 } from 'lucide-react';
+import { ApiError } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -648,13 +649,13 @@ export function ExamTakingView({
   studentUserId,
   attemptData,
   onSubmitted,
-  onSubmitFailed,
+  onAutoSubmitted,
 }: {
   examId: string;
   studentUserId: string;
   attemptData: StartAttemptResponse;
   onSubmitted: (result: AttemptResultResponse | null) => void;
-  onSubmitFailed: (msg: string) => void;
+  onAutoSubmitted: (payload: { message: string; attemptId?: string | null }) => void;
 }) {
   const questions = attemptData.questions;
   const examFlow = attemptData.examFlow ?? inferExamFlow(questions);
@@ -682,6 +683,9 @@ export function ExamTakingView({
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [connectionState, setConnectionState] = useState<'stable' | 'reconnecting' | 'timed-out'>('stable');
+  const [runtimeError, setRuntimeError] = useState<string | null>(null);
 
   const [timeLeft, setTimeLeft] = useState<number | null>(() => {
     if (!attemptData.exam.durationMinutes) return null;
@@ -699,6 +703,36 @@ export function ExamTakingView({
   const saveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savingRef = useRef(false);
   const handleSubmitRef = useRef<(auto?: boolean) => void>(() => {});
+  const sessionClosedRef = useRef(false);
+  const statusCopy = examBaseLang === 'en'
+    ? {
+        saveFailed: 'Latest answers could not be synced. Keep this tab open and try again.',
+        saveFailedShort: 'Save failed',
+        submitFailed: 'Could not submit the exam. Please try again.',
+        reconnecting: 'Connection unstable. Trying to reconnect...',
+        reconnectingShort: 'Reconnecting...',
+        autoSubmitted: 'This session was auto-submitted by the server.',
+        autoSubmittedShort: 'Auto-submitted',
+        saving: 'Saving...',
+        saved: 'Saved',
+      }
+    : {
+        saveFailed: 'সর্বশেষ উত্তর সার্ভারে সংরক্ষণ করা যায়নি। ট্যাব খোলা রাখুন এবং আবার চেষ্টা করুন।',
+        saveFailedShort: 'সংরক্ষণ ব্যর্থ',
+        submitFailed: 'পরীক্ষা জমা দেওয়া যায়নি। আবার চেষ্টা করুন।',
+        reconnecting: 'সংযোগে সমস্যা হয়েছে। আবার সংযোগ করার চেষ্টা চলছে...',
+        reconnectingShort: 'আবার সংযোগ হচ্ছে...',
+        autoSubmitted: 'এই সেশনটি সার্ভার থেকে স্বয়ংক্রিয়ভাবে জমা হয়েছে।',
+        autoSubmittedShort: 'স্বয়ংক্রিয় জমা',
+        saving: 'সংরক্ষণ হচ্ছে...',
+        saved: 'সংরক্ষিত',
+      };
+
+  const getAttemptIdFromError = useCallback((error: unknown): string | null => {
+    if (!(error instanceof ApiError) || !error.body || typeof error.body !== 'object') return null;
+    const body = error.body as { data?: { attemptId?: string | null } };
+    return body.data?.attemptId ?? null;
+  }, []);
 
   useEffect(() => {
     setCurrentIndexByTab((prev) => {
@@ -720,6 +754,7 @@ export function ExamTakingView({
       saveDebounceRef.current = null;
       if (savingRef.current || dirtyRef.current.size === 0) return;
       savingRef.current = true;
+      setSaveState('saving');
       const ids = Array.from(dirtyRef.current);
       dirtyRef.current.clear();
       const batch = ids.map((questionId) => ({
@@ -733,13 +768,17 @@ export function ExamTakingView({
         } else {
           setLastSavedAt(new Date().toISOString());
         }
+        setSaveState('saved');
+        setRuntimeError(null);
       } catch {
         ids.forEach((id) => dirtyRef.current.add(id));
+        setSaveState('error');
+        setRuntimeError(statusCopy.saveFailed);
       } finally {
         savingRef.current = false;
       }
     }, 500);
-  }, [examId, studentUserId]);
+  }, [examId, statusCopy.saveFailed, studentUserId]);
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -747,32 +786,61 @@ export function ExamTakingView({
       const ids = Array.from(dirtyRef.current);
       dirtyRef.current.clear();
       savingRef.current = true;
+      setSaveState('saving');
       const batch = ids.map((questionId) => ({
         questionId,
         answer: answersRef.current[questionId] ?? {},
       }));
       saveExamAnswers(examId, { studentUserId, answers: batch })
         .then((res) => {
-          if (res.success) setLastSavedAt(new Date().toISOString());
+          if (res.success) {
+            setLastSavedAt(new Date().toISOString());
+            setSaveState('saved');
+            setRuntimeError(null);
+          }
         })
-        .catch(() => ids.forEach((i) => dirtyRef.current.add(i)))
+        .catch(() => {
+          ids.forEach((i) => dirtyRef.current.add(i));
+          setSaveState('error');
+          setRuntimeError(statusCopy.saveFailed);
+        })
         .finally(() => {
           savingRef.current = false;
         });
     }, 45_000);
     return () => clearInterval(id);
-  }, [examId, studentUserId]);
+  }, [examId, statusCopy.saveFailed, studentUserId]);
 
   useEffect(() => {
+    const sendHeartbeat = async () => {
+      if (sessionClosedRef.current) return;
+      try {
+        await sendExamHeartbeat(examId, studentUserId);
+        setConnectionState('stable');
+      } catch (error) {
+        if (sessionClosedRef.current) return;
+        if (error instanceof ApiError && error.status === 409) {
+          sessionClosedRef.current = true;
+          setConnectionState('timed-out');
+          setRuntimeError(error.message || statusCopy.autoSubmitted);
+          onAutoSubmitted({
+            message: error.message || statusCopy.autoSubmitted,
+            attemptId: getAttemptIdFromError(error),
+          });
+          return;
+        }
+        setConnectionState('reconnecting');
+        setRuntimeError(statusCopy.reconnecting);
+      }
+    };
+
     const intervalMs = Math.max(5, attemptData.exam.disconnectGraceSeconds ?? 10) * 1000;
     const id = setInterval(() => {
-      sendExamHeartbeat(examId, studentUserId).catch(() => {
-        /* best effort */
-      });
+      void sendHeartbeat();
     }, Math.min(10_000, intervalMs));
-    void sendExamHeartbeat(examId, studentUserId);
+    void sendHeartbeat();
     return () => clearInterval(id);
-  }, [attemptData.exam.disconnectGraceSeconds, examId, studentUserId]);
+  }, [attemptData.exam.disconnectGraceSeconds, examId, getAttemptIdFromError, onAutoSubmitted, statusCopy.autoSubmitted, statusCopy.reconnecting, studentUserId]);
 
   const hasTime = timeLeft !== null;
   useEffect(() => {
@@ -874,6 +942,7 @@ export function ExamTakingView({
     if (submitting) return;
     setSubmitting(true);
     setShowSubmitConfirm(false);
+    setRuntimeError(null);
     if (saveDebounceRef.current) {
       clearTimeout(saveDebounceRef.current);
       saveDebounceRef.current = null;
@@ -907,10 +976,18 @@ export function ExamTakingView({
         const resultRes = await getAttemptResult(res.data.attemptId);
         onSubmitted(resultRes.success ? resultRes.data ?? null : null);
       } else {
-        onSubmitFailed('Submit failed');
+        setRuntimeError(statusCopy.submitFailed);
       }
     } catch (e: unknown) {
-      onSubmitFailed(e instanceof Error ? e.message : 'Submit failed');
+      if (e instanceof ApiError && e.status === 409) {
+        sessionClosedRef.current = true;
+        onAutoSubmitted({
+          message: e.message || statusCopy.autoSubmitted,
+          attemptId: getAttemptIdFromError(e),
+        });
+      } else {
+        setRuntimeError(e instanceof Error ? e.message : statusCopy.submitFailed);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -955,6 +1032,24 @@ export function ExamTakingView({
   const totalQuestions = questions.length;
   const totalDisplayItems = displayItems.length;
   const isTimeLow = timeLeft !== null && timeLeft < 300;
+  const syncStatusLabel =
+    connectionState === 'timed-out'
+      ? statusCopy.autoSubmittedShort
+      : connectionState === 'reconnecting'
+        ? statusCopy.reconnectingShort
+        : saveState === 'saving'
+          ? statusCopy.saving
+          : saveState === 'error'
+            ? statusCopy.saveFailedShort
+            : lastSavedAt
+              ? `${ui.lastSaved}: ${new Date(lastSavedAt).toLocaleTimeString()}`
+              : null;
+  const syncStatusTone =
+    connectionState === 'timed-out' || saveState === 'error'
+      ? 'border-rose-200 bg-rose-50 text-rose-700'
+      : connectionState === 'reconnecting'
+        ? 'border-amber-200 bg-amber-50 text-amber-700'
+        : 'border-emerald-200 bg-emerald-50 text-emerald-700';
 
   const currentLang = detectQuestionLang(currentQ?.question, examBaseLang);
   const ui = getExamUiStrings(currentLang);
@@ -1052,9 +1147,9 @@ export function ExamTakingView({
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-            {lastSavedAt ? (
-              <span className="text-[10px] font-bold text-slate-400 hidden md:inline">
-                {ui.lastSaved}: {new Date(lastSavedAt).toLocaleTimeString()}
+            {syncStatusLabel ? (
+              <span className={cn('hidden rounded-xl border px-2.5 py-1 text-[10px] font-black md:inline', syncStatusTone)}>
+                {syncStatusLabel}
               </span>
             ) : null}
             {timeLeft !== null && (
@@ -1139,6 +1234,11 @@ export function ExamTakingView({
             </div>
           </div>
         ) : null}
+        {runtimeError ? (
+          <div className="border-t border-rose-100 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 sm:px-6 md:hidden">
+            {runtimeError}
+          </div>
+        ) : null}
         {/* Progress bar */}
         <div className="h-1 bg-slate-100">
           <div
@@ -1221,6 +1321,11 @@ export function ExamTakingView({
         </div>
 
         <div className="flex-1 flex flex-col overflow-hidden">
+          {runtimeError ? (
+            <div className="shrink-0 border-b border-rose-100 bg-rose-50 px-6 py-3 text-sm font-bold text-rose-700 hidden md:block">
+              {runtimeError}
+            </div>
+          ) : null}
           {activeSections.length > 1 ? (
             <div className="shrink-0 border-b border-slate-100 bg-slate-50/80 px-6 py-2 flex flex-wrap gap-2">
               {activeSections.map((sec, si) => {
