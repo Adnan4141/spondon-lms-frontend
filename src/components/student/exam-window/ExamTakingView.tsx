@@ -122,29 +122,7 @@ function inferExamFlow(questions: StartAttemptResponse['questions']): 'MCQ_ONLY'
 }
 
 function buildDisplayItems(questions: AttemptQuestion[]): ExamDisplayItem[] {
-  const items: ExamDisplayItem[] = [];
-  const passageItemById = new Map<string, Extract<ExamDisplayItem, { kind: 'passage' }>>();
-  questions.forEach((q, index) => {
-    const passage = q.question?.type === 'MCQ' ? q.question?.passage : null;
-    if (!passage?.id) {
-      items.push({ kind: 'single', id: q.id, firstQuestionIndex: index, questions: [q] });
-      return;
-    }
-    const existingPassageItem = passageItemById.get(passage.id);
-    if (existingPassageItem) {
-      existingPassageItem.questions.push(q);
-      return;
-    }
-    const item: Extract<ExamDisplayItem, { kind: 'passage' }> = {
-      kind: 'passage',
-      id: `passage-${passage.id}`,
-      firstQuestionIndex: index,
-      questions: [q],
-    };
-    passageItemById.set(passage.id, item);
-    items.push(item);
-  });
-  return items;
+  return questions.map((q, index) => ({ kind: 'single', id: q.id, firstQuestionIndex: index, questions: [q] }));
 }
 
 function sectionIdentityForQuestion(q: AttemptQuestion): { key: string; label: string } {
@@ -247,8 +225,6 @@ function buildDisplayTabLayouts(items: ExamDisplayItem[]): Record<HybridTabKey, 
     mcq: createDisplayTabLayout('mcq'),
     written: createDisplayTabLayout('written'),
   };
-  const singleCounters: Record<HybridTabKey, number> = { mcq: 0, written: 0 };
-
   items.forEach((item, displayIndex) => {
     const tabKey = displayItemTabKey(item);
     const layout = layouts[tabKey];
@@ -262,21 +238,10 @@ function buildDisplayTabLayouts(items: ExamDisplayItem[]): Record<HybridTabKey, 
       layout.questionCount += 1;
     });
 
-    if (item.kind === 'passage') {
-      layout.passageCount += 1;
-      layout.navMetaByDisplayIndex.set(displayIndex, {
-        label: `P${layout.passageCount} (${item.questions.length})`,
-        itemPosition: layout.itemCount,
-        passagePosition: layout.passageCount,
-      });
-      return;
-    }
-
-    singleCounters[tabKey] += 1;
     layout.navMetaByDisplayIndex.set(displayIndex, {
-      label: String(singleCounters[tabKey]),
+      label: String(layout.questionCount),
       itemPosition: layout.itemCount,
-      singlePosition: singleCounters[tabKey],
+      singlePosition: layout.questionCount,
     });
   });
 
@@ -562,12 +527,30 @@ function WrittenQuestionBlock({
   onTextChange: (questionId: string, text: string) => void;
 }) {
   const ui = getExamUiStrings(lang);
+  const cqBlock = q.question?.cqBlock;
   return (
     <div className="space-y-4 rounded-2xl border border-violet-100 bg-white p-5">
-      <div
-        className="prose prose-lg max-w-none font-medium text-slate-800"
-        dangerouslySetInnerHTML={{ __html: q.question?.prompt ?? '' }}
-      />
+      {q.question?.type === 'CQ' && cqBlock ? (
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-violet-100 bg-violet-50/40 p-4">
+            <p className="mb-2 text-xs font-black uppercase tracking-widest text-violet-600">উদ্দীপক</p>
+            <div className="prose prose-lg max-w-none font-medium text-slate-800" dangerouslySetInnerHTML={{ __html: cqBlock.stimulus }} />
+          </div>
+          <div className="space-y-3">
+            {cqBlock.parts.map((part) => (
+              <div key={`${cqBlock.groupId}-${part.label}`} className="grid grid-cols-[42px_1fr_auto] gap-3 rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+                <span className="font-black text-violet-700">({part.label})</span>
+                <div className="prose prose-sm max-w-none text-slate-800" dangerouslySetInnerHTML={{ __html: part.prompt }} />
+                <Badge variant="outline" className="h-fit border-violet-200 bg-white text-violet-700">
+                  {part.marks}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="prose prose-lg max-w-none font-medium text-slate-800" dangerouslySetInnerHTML={{ __html: q.question?.prompt ?? '' }} />
+      )}
       <WrittenUploadPanel
         examId={examId}
         attemptId={attemptId}
@@ -1015,6 +998,8 @@ export function ExamTakingView({
   const totalQuestions = questions.length;
   const totalDisplayItems = displayItems.length;
   const isTimeLow = timeLeft !== null && timeLeft < 300;
+  const currentLang = detectQuestionLang(currentQ?.question, examBaseLang);
+  const ui = getExamUiStrings(currentLang);
   const syncStatusLabel =
     connectionState === 'timed-out'
       ? statusCopy.autoSubmittedShort
@@ -1033,9 +1018,6 @@ export function ExamTakingView({
       : connectionState === 'reconnecting'
         ? 'border-amber-200 bg-amber-50 text-amber-700'
         : 'border-emerald-200 bg-emerald-50 text-emerald-700';
-
-  const currentLang = detectQuestionLang(currentQ?.question, examBaseLang);
-  const ui = getExamUiStrings(currentLang);
 
   const activeSections = useMemo(
     () =>
@@ -1266,14 +1248,14 @@ export function ExamTakingView({
                   }}
                   className={cn(
                     'relative h-10 rounded-xl text-sm font-black transition-all',
-                    item.kind === 'passage' ? 'col-span-2 w-full' : 'w-10',
+                    'w-10',
                     isCurrent
                       ? 'bg-indigo-600 text-white shadow-lg scale-110'
                       : isAnswered
                         ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
                         : 'bg-white text-slate-600 border border-slate-200 hover:border-indigo-300',
                   )}
-                  title={item.kind === 'passage' ? `${item.questions.length} passage MCQs` : undefined}
+                  title={undefined}
                 >
                   {navMeta?.label ?? displayIndex + 1}
                   {isFlagged ? (
@@ -1336,13 +1318,11 @@ export function ExamTakingView({
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-3">
                     <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 font-black text-lg">
-                      {currentItemMeta?.passagePosition ? `P${currentItemMeta.passagePosition}` : (currentItemMeta?.label ?? currentIndex + 1)}
+                      {currentItemMeta?.label ?? currentIndex + 1}
                     </span>
                     <div>
                       <span className="text-xs font-bold text-slate-400">
-                        {currentItem.kind === 'passage'
-                          ? `Passage group ${currentItemMeta?.passagePosition ?? 1} / ${activeTabLayout.passageCount}`
-                          : ui.questionLabel(questionNumberFor(currentQ), activeQuestionTotal)}
+                        {ui.questionLabel(questionNumberFor(currentQ), activeQuestionTotal)}
                       </span>
                       <div className="flex items-center gap-2 flex-wrap">
                         <Badge variant="outline" className="text-[9px] font-black">
@@ -1351,11 +1331,6 @@ export function ExamTakingView({
                         {currentQ.negativeMarks ? (
                           <Badge variant="outline" className="text-[9px] font-black text-rose-600 border-rose-200">
                             -{currentQ.negativeMarks} {ui.negativeLabel}
-                          </Badge>
-                        ) : null}
-                        {currentItem.kind === 'passage' ? (
-                          <Badge variant="outline" className="border-indigo-200 text-[9px] font-black text-indigo-700">
-                            {currentItem.questions.length} MCQ
                           </Badge>
                         ) : null}
                         {showHybridTabs ? (
@@ -1392,16 +1367,7 @@ export function ExamTakingView({
                   </Button>
                 </div>
 
-                {currentItem.kind === 'passage' ? (
-                  <PassageGroupBlock
-                    item={currentItem}
-                    answers={answers}
-                    questionNumberFor={questionNumberFor}
-                    totalQuestions={activeQuestionTotal}
-                    lang={currentLang}
-                    onSelect={handleSelectOption}
-                  />
-                ) : currentQ.question.type === 'CQ' || currentQ.question.type === 'SHORT' ? (
+                {currentQ.question.type === 'CQ' || currentQ.question.type === 'SHORT' ? (
                   <WrittenQuestionBlock
                     q={currentQ}
                     examId={examId}
@@ -1412,14 +1378,24 @@ export function ExamTakingView({
                     onTextChange={handleTextAnswer}
                   />
                 ) : (
-                  <McqQuestionBlock
-                    q={currentQ}
-                    questionNumber={questionNumberFor(currentQ)}
-                    totalQuestions={activeQuestionTotal}
-                    answer={answers[currentQ.questionId]}
-                    lang={currentLang}
-                    onSelect={handleSelectOption}
-                  />
+                  <div className="space-y-5">
+                    {currentQ.question.passage ? (
+                      <div className="sticky top-0 z-10 rounded-2xl border border-indigo-100 bg-indigo-50/95 p-6 shadow-sm backdrop-blur">
+                        <p className="mb-3 text-sm font-black text-indigo-700">
+                          {currentQ.question.passage.title || 'Passage'}
+                        </p>
+                        <div className="prose prose-sm max-w-none text-slate-700" dangerouslySetInnerHTML={{ __html: currentQ.question.passage.content }} />
+                      </div>
+                    ) : null}
+                    <McqQuestionBlock
+                      q={currentQ}
+                      questionNumber={questionNumberFor(currentQ)}
+                      totalQuestions={activeQuestionTotal}
+                      answer={answers[currentQ.questionId]}
+                      lang={currentLang}
+                      onSelect={handleSelectOption}
+                    />
+                  </div>
                 )}
               </div>
             ) : null}

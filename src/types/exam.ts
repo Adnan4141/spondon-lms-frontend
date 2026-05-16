@@ -144,6 +144,13 @@ export interface ExamQuestion {
     prompt: string;
     type: string;
     meta?: any;
+    subParts?: { label: string; prompt: string; marks: number; sortOrder?: number }[];
+    cqBlock?: {
+      stimulus: string;
+      sourceKind: 'standalone' | 'passage_group';
+      groupId: string;
+      parts: { label: string; prompt: string; marks: number }[];
+    } | null;
     explanation?: string | null;
     options?: { id: string; label: string; text: string; isCorrect?: boolean }[];
     passage?: { id: string; title?: string | null; content: string } | null;

@@ -245,7 +245,7 @@ export default function WrittenExamPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header */}
+  asdf    {/* Header */}
       <div className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm">
         <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
           <div className="min-w-0">

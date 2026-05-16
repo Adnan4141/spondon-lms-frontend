@@ -487,7 +487,25 @@ export default function StudentExamTakingPage() {
               {isCorrect === false && <XCircle className="h-5 w-5 text-rose-500" />}
             </div>
           </div>
-          <div className="prose prose-sm mb-4 max-w-none" dangerouslySetInnerHTML={{ __html: q.prompt }} />
+          {q.type === 'CQ' && q.cqBlock ? (
+            <div className="mb-4 space-y-3">
+              <div className="rounded-xl border border-violet-100 bg-violet-50/40 p-4">
+                <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-violet-600">উদ্দীপক</p>
+                <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: q.cqBlock.stimulus }} />
+              </div>
+              {q.cqBlock.parts.map((part) => (
+                <div key={`${q.cqBlock?.groupId}-${part.label}`} className="grid grid-cols-[36px_1fr_auto] gap-2 rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+                  <span className="font-black text-violet-700">({part.label})</span>
+                  <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: part.prompt }} />
+                  <Badge variant="outline" className="h-fit border-violet-200 bg-white text-violet-700">
+                    {part.marks}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="prose prose-sm mb-4 max-w-none" dangerouslySetInnerHTML={{ __html: q.prompt }} />
+          )}
           {(q.type === 'CQ' || q.type === 'SHORT') && (
             <div className="mt-4 rounded-xl border border-violet-100 bg-violet-50/40 p-4">
               <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-violet-600">
