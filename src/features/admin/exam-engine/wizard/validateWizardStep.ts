@@ -15,7 +15,7 @@ export function validateStep(state: ExamWizardState, step: number): StepValidati
     const step1Fields: Partial<Record<Step1FieldKey, boolean>> = {
       uiCategory: !state.uiCategory,
       title: state.title.trim().length <= 2,
-      courseId: !state.courseId,
+      courseId: state.courseIds.length === 0,
     };
     const ok = !step1Fields.uiCategory && !step1Fields.title && !step1Fields.courseId;
     if (ok) return { ok: true };

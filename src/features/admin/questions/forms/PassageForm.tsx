@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 const inputClass =
   'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner';
 const sectionLabel = 'text-[11px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2 block';
+const CURRENT_YEAR = new Date().getFullYear();
 
 interface ChildQuestion {
   id?: string;
@@ -58,8 +59,8 @@ export function PassageForm({ folders, passage, initialFolderId, onSuccess }: Pa
     folderId: initialFolderId || '',
     title: '',
     content: '',
-    difficulty: undefined as Difficulty | undefined,
-    year: undefined as number | undefined,
+    difficulty: 'EASY' as Difficulty | undefined,
+    year: CURRENT_YEAR as number | undefined,
     tags: '',
   });
   const [childQuestions, setChildQuestions] = useState<ChildQuestion[]>([createEmptyQuestion()]);

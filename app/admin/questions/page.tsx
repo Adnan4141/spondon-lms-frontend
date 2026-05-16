@@ -641,6 +641,15 @@ export default function QuestionsPage() {
     });
   };
 
+  const handleEditPassage = (passage: McqPassage) => {
+    openModal({
+      title: 'Edit Combined MCQ Passage',
+      description: 'Update the full passage, shared metadata, and linked MCQ questions in one place.',
+      className: 'sm:max-w-4xl',
+      content: <PassageForm folders={folders} passage={passage} onSuccess={loadPassages} />,
+    });
+  };
+
   // ─── Filtering ────────────────────────────────────────────────────────────────
 
   const filteredQuestions = questions.filter((q) => {
@@ -1134,6 +1143,15 @@ export default function QuestionsPage() {
                                 className="flex items-center gap-1 shrink-0"
                                 onClick={(e) => e.stopPropagation()}
                               >
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50"
+                                  onClick={() => handleEditPassage(p)}
+                                  title="Edit full passage"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
                                 <Button
                                   variant="ghost"
                                   size="icon"

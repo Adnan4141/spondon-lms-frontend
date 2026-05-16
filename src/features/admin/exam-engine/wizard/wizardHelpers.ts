@@ -104,14 +104,10 @@ export const WIZARD_FORM_INITIAL: ExamWizardState = {
   uiCategory: '',
   deliveryMode: 'ONLINE',
   title: '',
-  courseId: '',
-  additionalCourseIds: [],
+  courseIds: [],
   branchId: EXAM_WIZARD_ALL_BRANCHES,
   language: 'bn',
   durationMinutes: '60',
-  instituteLabel: '',
-  paperCode: '',
-  syllabusHtml: '',
   autoSubmitOnDisconnect: false,
   disconnectGraceSeconds: '10',
   scheduleAt: undefined,
@@ -143,6 +139,13 @@ export function deserializeWizardForm(json: string): ExamWizardState | null {
   try {
     const o = JSON.parse(json) as Record<string, unknown>;
     const base = { ...WIZARD_FORM_INITIAL, ...o } as ExamWizardState;
+    const legacyCourseId = typeof o.courseId === 'string' ? o.courseId : '';
+    const legacyAdditionalCourseIds = Array.isArray(o.additionalCourseIds)
+      ? o.additionalCourseIds.filter((id): id is string => typeof id === 'string')
+      : [];
+    if (!Array.isArray(o.courseIds)) {
+      base.courseIds = [legacyCourseId, ...legacyAdditionalCourseIds].filter(Boolean);
+    }
     if (o.scheduleAt && typeof o.scheduleAt === 'string') base.scheduleAt = new Date(o.scheduleAt);
     if (o.solveAt && typeof o.solveAt === 'string') base.solveAt = new Date(o.solveAt);
     if (!base.branchId) base.branchId = EXAM_WIZARD_ALL_BRANCHES;
@@ -162,4 +165,8 @@ export function deserializeWizardForm(json: string): ExamWizardState | null {
 
 export function draftStorageKey(examId?: string) {
   return `exam-wizard-draft:${examId ?? 'new'}`;
+}
+
+export function primaryCourseId(courseIds: string[]): string {
+  return courseIds[0] ?? '';
 }

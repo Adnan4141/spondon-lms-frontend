@@ -25,7 +25,10 @@ import {
   getExamSubjects,
   getExamById,
   getExamCourseLinks,
-  getExams,
+  listBlueprintPresets,
+  getBlueprintPreset,
+  createBlueprintPreset,
+  updateBlueprintPreset,
   linkExamCourse,
   unlinkExamCourse,
   validateExamSubjects,
@@ -36,6 +39,7 @@ import type { Course } from '@/types/course';
 import type { ExamSubject } from '@/types/exam';
 import type { Branch } from '@/lib/api/branches';
 import type { CreateExamDto, Exam, ExamStatus, UpdateExamDto } from '@/types/exam';
+import type { ExamBlueprintPreset } from '@/lib/api/exams';
 import { QuestionPickerModal } from './components/QuestionPickerModal';
 import { ExamEngineSubnav } from './components/ExamEngineSubnav';
 import {
@@ -55,10 +59,15 @@ import {
   deserializeWizardForm,
   draftStorageKey,
   flattenFolders,
-  newLocalId,
   parseStepParam,
+  primaryCourseId,
   serializeWizardForm,
 } from './wizard/wizardHelpers';
+import {
+  buildPresetStructure,
+  presetPatchFromStructure,
+  type WizardPresetStructure,
+} from './wizard/presetHelpers';
 import { EXAM_WIZARD_ALL_BRANCHES } from './wizard/constants';
 import { useExamWizardFolderTree } from './wizard/useExamWizardFolderTree';
 import { validateStep, type Step1FieldKey } from './wizard/validateWizardStep';
@@ -96,12 +105,10 @@ function buildWizardPatchFromExam(exam: Exam): Partial<ExamWizardState> {
   const wizard = (exam.settings?.examWizard as Record<string, unknown> | undefined) ?? undefined;
   return {
     title: exam.title,
-    courseId: exam.courseId,
     branchId: exam.branchId ?? EXAM_WIZARD_ALL_BRANCHES,
     language: exam.language ?? 'bn',
     durationMinutes: String(exam.durationMinutes ?? 60),
     deliveryMode: exam.mode === 'OFFLINE' ? 'OFFLINE' : 'ONLINE',
-    syllabusHtml: exam.syllabusHtml ?? '',
     autoSubmitOnDisconnect: Boolean(exam.autoSubmitOnDisconnect),
     disconnectGraceSeconds: String(exam.disconnectGraceSeconds ?? 10),
     showSolve:
@@ -113,8 +120,6 @@ function buildWizardPatchFromExam(exam: Exam): Partial<ExamWizardState> {
     nSets: String(exam.totalSets ?? 4),
     shuffle: typeof wizard?.shuffle === 'string' ? wizard.shuffle : 'FULL',
     setNaming: (wizard?.setNaming as ExamWizardState['setNaming']) ?? 'ALPHA',
-    instituteLabel: typeof wizard?.instituteLabel === 'string' ? wizard.instituteLabel : '',
-    paperCode: typeof wizard?.paperCode === 'string' ? wizard.paperCode : '',
     resultModes: Array.isArray(wizard?.resultModes)
       ? (wizard.resultModes as string[])
       : Array.isArray((exam.settings?.examWorkflow as Record<string, unknown> | undefined)?.resultInputModes)
@@ -142,14 +147,16 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
   const [picker, setPicker] = useState<PickerTarget>(null);
   const [step1FieldErrors, setStep1FieldErrors] = useState<Partial<Record<Step1FieldKey, boolean>>>({});
   const [serverExam, setServerExam] = useState<{ status: ExamStatus; pdfUrl?: string | null } | null>(null);
-  const [importSourceExams, setImportSourceExams] = useState<{ id: string; title: string }[]>([]);
-  const [importBusy, setImportBusy] = useState(false);
+  const [presets, setPresets] = useState<ExamBlueprintPreset[]>([]);
+  const [presetBusy, setPresetBusy] = useState(false);
+  const [appliedPresetId, setAppliedPresetId] = useState<string | null>(null);
   const [isLoadingExam, setIsLoadingExam] = useState(Boolean(examId));
 
   const draftHydratedRef = useRef(false);
   const urlInitializedRef = useRef(false);
 
-  const { tree, loading: folderLoading, fallbackAll: folderFallbackAll } = useExamWizardFolderTree(state.courseId, step, 3);
+  const selectedPrimaryCourseId = primaryCourseId(state.courseIds);
+  const { tree, loading: folderLoading, fallbackAll: folderFallbackAll } = useExamWizardFolderTree(selectedPrimaryCourseId, step, 3);
   const leaves = useMemo(() => flattenFolders(tree), [tree]);
 
   const toast = useAdminToast();
@@ -196,19 +203,18 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
     });
   }, []);
 
-  useEffect(() => {
-    if (!state.courseId) {
-      setImportSourceExams([]);
+  const loadPresets = useCallback(async () => {
+    const response = await listBlueprintPresets();
+    if (response.success && response.data) {
+      setPresets(response.data);
       return;
     }
-    void getExams({ courseId: state.courseId, limit: 100 }).then((r) => {
-      if (r.success && r.data) {
-        setImportSourceExams(
-          r.data.filter((e) => e.id !== examId).map((e) => ({ id: e.id, title: e.title })),
-        );
-      } else setImportSourceExams([]);
-    });
-  }, [state.courseId, examId]);
+    setPresets([]);
+  }, []);
+
+  useEffect(() => {
+    void loadPresets();
+  }, [loadPresets]);
 
   useEffect(() => {
     if (examId || draftHydratedRef.current) return;
@@ -261,11 +267,12 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
         if (!ex.success || !ex.data) return;
 
         const basePatch = buildWizardPatchFromExam(ex.data);
-        const additionalCourseIds = (
+        const linkedCourseIds = (
           courseLinks.success && courseLinks.data ? courseLinks.data : ex.data.examCourses || []
         )
           .map((link) => link.courseId)
           .filter((courseId) => courseId !== ex.data.courseId);
+        const courseIds = [ex.data.courseId, ...linkedCourseIds];
 
         setServerExam({ status: ex.data.status, pdfUrl: ex.data.pdfUrl ?? null });
 
@@ -295,7 +302,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
             type: 'MERGE',
             patch: {
               ...basePatch,
-              additionalCourseIds,
+              courseIds,
               subjects: mappedSubjects,
               sections: [],
               uiCategory: 'MULTI',
@@ -331,7 +338,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
             type: 'MERGE',
             patch: {
               ...basePatch,
-              additionalCourseIds,
+              courseIds,
               sections: mapped,
               subjects: [],
               uiCategory: basePatch.uiCategory || inferUiCategoryFromSections(secRes.data),
@@ -342,7 +349,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
           return;
         }
 
-        dispatch({ type: 'MERGE', patch: { ...basePatch, additionalCourseIds } });
+        dispatch({ type: 'MERGE', patch: { ...basePatch, courseIds } });
         setStep1FieldErrors({});
       } finally {
         setIsLoadingExam(false);
@@ -367,10 +374,11 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
 
   const persistExam = useCallback(
     async (finalize: boolean) => {
-      if (!state.courseId || !state.title.trim()) {
+      const primaryCourse = primaryCourseId(state.courseIds);
+      if (!primaryCourse || !state.title.trim()) {
         toast({
           title: 'Missing fields',
-          description: 'Course and title are required.',
+          description: 'At least one course and a title are required.',
           variant: 'destructive',
         });
         return null;
@@ -378,7 +386,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
       const branchResolved =
         !state.branchId || state.branchId === EXAM_WIZARD_ALL_BRANCHES ? null : state.branchId;
       const dto: CreateExamDto = {
-        courseId: state.courseId,
+        courseId: primaryCourse,
         branchId: branchResolved,
         title: state.title.trim(),
         type: mapUiCategoryToExamType(state.uiCategory as UiExamCategory),
@@ -390,7 +398,6 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
         showLeaderboard: state.showLeaderboard,
         hideResult: state.hideResult,
         showPercentile: state.showPct,
-        syllabusHtml: state.syllabusHtml.trim() || null,
         autoSubmitOnDisconnect: state.autoSubmitOnDisconnect,
         disconnectGraceSeconds: Math.max(5, Number(state.disconnectGraceSeconds) || 10),
         solveSheetVisibility: state.showSolve ? 'IMMEDIATELY' : 'HIDDEN',
@@ -400,8 +407,6 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
             uiCategory: state.uiCategory,
             shuffle: state.shuffle,
             setNaming: state.setNaming,
-            instituteLabel: state.instituteLabel,
-            paperCode: state.paperCode,
             resultModes: state.resultModes,
             showSolve: state.showSolve,
           },
@@ -440,7 +445,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
         }
         if (!id) return null;
 
-        const desiredAdditionalCourses = [...new Set(state.additionalCourseIds.filter((courseId) => courseId && courseId !== state.courseId))];
+        const desiredAdditionalCourses = [...new Set(state.courseIds.slice(1).filter((courseId) => courseId && courseId !== primaryCourse))];
         const currentLinks = await getExamCourseLinks(id);
         if (currentLinks.success) {
           const currentAdditionalCourses = new Set((currentLinks.data || []).map((link) => link.courseId));
@@ -603,106 +608,107 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
     [examId, serverExam, state, toast],
   );
 
-  const applyImportFromExam = useCallback(
-    async (sourceExamId: string) => {
-      setImportBusy(true);
+  const recommendedPresetId = useMemo(() => {
+    if (!selectedPrimaryCourseId) return null;
+    return presets.find((preset) => preset.courseId === selectedPrimaryCourseId && preset.isDefault)?.id ?? null;
+  }, [presets, selectedPrimaryCourseId]);
+
+  const applyPreset = useCallback(
+    async (presetId: string) => {
+      setPresetBusy(true);
       try {
-        const [exRes, secRes] = await Promise.all([
-          getExamById(sourceExamId),
-          getExamSections(sourceExamId),
-        ]);
-        if (!exRes.success || !exRes.data) {
+        const response = await getBlueprintPreset(presetId);
+        if (!response.success || !response.data) {
           toast({
-            title: 'Import failed',
-            description: (exRes as { message?: string }).message ?? 'Could not load source exam',
+            title: 'Preset failed',
+            description: response.message ?? 'Could not load preset.',
             variant: 'destructive',
           });
           return;
         }
-        const ex = exRes.data;
-        const w = ex.settings?.examWizard as Record<string, unknown> | undefined;
-        const nextCat = ((w?.uiCategory as UiExamCategory | undefined) || state.uiCategory) as UiExamCategory | '';
 
-        const common: Partial<ExamWizardState> = {
-          courseId: ex.courseId,
-          additionalCourseIds: (ex.examCourses || []).map((link) => link.courseId).filter((courseId) => courseId !== ex.courseId),
-          deliveryMode: ex.mode === 'ONLINE' ? 'ONLINE' : 'OFFLINE',
-          durationMinutes: String(ex.durationMinutes ?? 60),
-          language: ex.language ?? 'bn',
-          nSets: String(ex.totalSets ?? 4),
-          showLeaderboard: ex.showLeaderboard ?? true,
-          hideResult: ex.hideResult ?? false,
-          showPct: ex.showPercentile ?? false,
-          showSolve: ex.solveSheetVisibility === 'IMMEDIATELY' || (typeof w?.showSolve === 'boolean' ? w.showSolve : true),
-          syllabusHtml: ex.syllabusHtml ?? '',
-          autoSubmitOnDisconnect: Boolean(ex.autoSubmitOnDisconnect),
-          disconnectGraceSeconds: String(ex.disconnectGraceSeconds ?? 10),
-          shuffle: typeof w?.shuffle === 'string' ? (w.shuffle as string) : 'FULL',
-          setNaming: (w?.setNaming as ExamWizardState['setNaming']) ?? 'ALPHA',
-          instituteLabel: typeof w?.instituteLabel === 'string' ? (w.instituteLabel as string) : '',
-          paperCode: typeof w?.paperCode === 'string' ? (w.paperCode as string) : '',
-          resultModes: Array.isArray(w?.resultModes) ? (w.resultModes as string[]) : ['AUTO'],
-        };
-        if (nextCat) common.uiCategory = nextCat;
-
-        if (nextCat === 'MULTI' && ex.subjects && ex.subjects.length > 0) {
-          const subjects: WizardSubject[] = (ex.subjects as ExamSubject[]).map((s) => ({
-            localId: newLocalId(),
-            name: s.name,
-            count: s.questionCount,
-            mcqSingleCount: Number(s.mcqSingleCount ?? 0),
-            mcqPassageCount: Number(s.mcqPassageCount ?? 0),
-            cqCount: Number(s.cqCount ?? 0),
-            shortCount: Number(s.shortCount ?? 0),
-            marks: Number(s.marksPerQuestion ?? 1),
-            neg: Number(s.negativeMarks ?? 0),
-            passMarks: s.passMarks != null ? String(s.passMarks) : '',
-            compulsory: s.isMandatory,
-            folderRules: (s.folderRules ?? []).map((r) => ({
-              folderId: r.folderId,
-              folderName: r.folder?.name,
-              questionCount: r.questionCount,
-              selectionMode: r.selectionMode ?? 'RANDOM_COUNT',
-              excludedQuestionIds: r.excludedQuestionIds ?? [],
-              pinnedQuestionIds: r.pinnedQuestionIds ?? [],
-            })),
-          }));
-          dispatch({ type: 'MERGE', patch: { ...common, subjects, sections: [] } });
-          setActiveSectionId(null);
-        } else if (secRes.success && secRes.data?.length) {
-          const mapped: WizardSection[] = secRes.data.map((s: ExamSection) => ({
-            localId: newLocalId(),
-            label: s.name,
-            type: s.type as SectionTypeUi,
-            count: s.questionCount || 0,
-            ...(s.type === 'MCQ' ? { mcqPassageCount: s.mcqPassageCount ?? 0 } : {}),
-            marks: Number(s.marksPerQuestion ?? 1),
-            neg: Number(s.negativeMarks ?? 0),
-            difficulty: 'MIXED',
-            folderRules: Array.isArray(s.folderRules)
-              ? (s.folderRules as FolderRuleDraft[]).map((r) => ({
-                  folderId: r.folderId,
-                  questionCount: r.questionCount,
-                  selectionMode: r.selectionMode ?? 'RANDOM_COUNT',
-                  excludedQuestionIds: r.excludedQuestionIds ?? [],
-                  pinnedQuestionIds: r.pinnedQuestionIds ?? [],
-                }))
-              : [],
-          }));
-          dispatch({ type: 'MERGE', patch: { ...common, sections: mapped, subjects: [] } });
-          setActiveSectionId(mapped[0]?.localId ?? null);
-        } else {
-          dispatch({ type: 'MERGE', patch: { ...common } });
+        const patch = presetPatchFromStructure(response.data.structure as WizardPresetStructure);
+        if (!patch) {
+          toast({
+            title: 'Preset failed',
+            description: 'This preset does not contain reusable wizard settings.',
+            variant: 'destructive',
+          });
+          return;
         }
-        toast({
-          title: 'Config imported',
-          description: 'Review steps and click Save Draft to persist.',
-        });
+
+        dispatch({ type: 'MERGE', patch });
+        setAppliedPresetId(response.data.id);
+        setActiveSectionId(patch.subjects?.[0]?.localId ?? patch.sections?.[0]?.localId ?? null);
+        toast({ title: 'Preset applied', description: 'Review the configuration before saving.' });
       } finally {
-        setImportBusy(false);
+        setPresetBusy(false);
       }
     },
-    [dispatch, state.uiCategory, toast],
+    [toast],
+  );
+
+  useEffect(() => {
+    if (examId || appliedPresetId || !recommendedPresetId) return;
+    if (state.uiCategory || state.sections.length || state.subjects.length) return;
+    void applyPreset(recommendedPresetId);
+  }, [
+    appliedPresetId,
+    applyPreset,
+    examId,
+    recommendedPresetId,
+    state.sections.length,
+    state.subjects.length,
+    state.uiCategory,
+  ]);
+
+  const startBlankExam = useCallback(() => {
+    const currentTitle = state.title;
+    dispatch({ type: 'HYDRATE', state: { ...WIZARD_FORM_INITIAL, title: currentTitle, step } });
+    setAppliedPresetId(null);
+    setActiveSectionId(null);
+  }, [state.title, step]);
+
+  const savePreset = useCallback(
+    async (name: string, isDefault: boolean) => {
+      const courseId = primaryCourseId(state.courseIds);
+      const response = await createBlueprintPreset({
+        name,
+        courseId: courseId || undefined,
+        structure: buildPresetStructure(state),
+        duration: Number(state.durationMinutes) || undefined,
+        isDefault,
+      });
+      if (!response.success || !response.data) {
+        toast({ title: 'Preset save failed', description: response.message, variant: 'destructive' });
+        return null;
+      }
+      setAppliedPresetId(response.data.id);
+      await loadPresets();
+      toast({ title: 'Preset saved' });
+      return response.data;
+    },
+    [loadPresets, state, toast],
+  );
+
+  const updatePreset = useCallback(
+    async (presetId: string, isDefault: boolean) => {
+      const courseId = primaryCourseId(state.courseIds);
+      const response = await updateBlueprintPreset(presetId, {
+        courseId: courseId || '',
+        structure: buildPresetStructure(state),
+        duration: Number(state.durationMinutes) || undefined,
+        isDefault,
+      });
+      if (!response.success || !response.data) {
+        toast({ title: 'Preset update failed', description: response.message, variant: 'destructive' });
+        return null;
+      }
+      await loadPresets();
+      toast({ title: 'Preset updated' });
+      return response.data;
+    },
+    [loadPresets, state, toast],
   );
 
   const goSaveDraft = async () => {
@@ -964,12 +970,15 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
           dispatch={dispatch}
           courses={courses}
           branches={branches}
+          presets={presets}
+          appliedPresetId={appliedPresetId}
+          recommendedPresetId={recommendedPresetId}
+          presetBusy={presetBusy}
           fieldErrors={step1FieldErrors}
           onSelectCategory={applyCategory}
           clearFieldError={(k) => setStep1FieldErrors((prev) => ({ ...prev, [k]: false }))}
-          importSourceExams={importSourceExams}
-          importBusy={importBusy}
-          onImportFromExam={(id) => void applyImportFromExam(id)}
+          onStartBlank={startBlankExam}
+          onApplyPreset={(id) => void applyPreset(id)}
         />
       ) : null}
 
@@ -1004,6 +1013,11 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
           serverExam={serverExam}
           onPublish={() => void handlePublish()}
           onRefreshMeta={() => void refreshServerExam()}
+          presets={presets}
+          appliedPresetId={appliedPresetId}
+          presetBusy={presetBusy}
+          onSavePreset={(name, isDefault) => void savePreset(name, isDefault)}
+          onUpdatePreset={(presetId, isDefault) => void updatePreset(presetId, isDefault)}
         />
       ) : null}
 

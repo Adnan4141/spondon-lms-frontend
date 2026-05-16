@@ -554,6 +554,8 @@ export interface BlueprintFolderRule {
   includeDescendants?: boolean;
   selectionMode?: SelectionMode;
   difficulty?: Difficulty | null;
+  pinnedQuestionIds?: string[];
+  excludedQuestionIds?: string[];
 }
 
 export interface BlueprintSection {
@@ -825,7 +827,10 @@ export interface ExamBlueprintPreset {
   name: string;
   description?: string;
   courseId?: string;
-  structure: ExamBlueprint;
+  structure: ExamBlueprint & {
+    wizard?: Record<string, unknown>;
+    subjects?: unknown[];
+  };
   totalMarks?: number;
   duration?: number;
   isDefault: boolean;
@@ -848,7 +853,10 @@ export async function createBlueprintPreset(data: {
   name: string;
   description?: string;
   courseId?: string;
-  structure: ExamBlueprint;
+  structure: ExamBlueprint & {
+    wizard?: Record<string, unknown>;
+    subjects?: unknown[];
+  };
   totalMarks?: number;
   duration?: number;
   isDefault?: boolean;
@@ -864,7 +872,10 @@ export async function updateBlueprintPreset(id: string, data: Partial<{
   name: string;
   description: string;
   courseId: string;
-  structure: ExamBlueprint;
+  structure: ExamBlueprint & {
+    wizard?: Record<string, unknown>;
+    subjects?: unknown[];
+  };
   totalMarks: number;
   duration: number;
   isDefault: boolean;

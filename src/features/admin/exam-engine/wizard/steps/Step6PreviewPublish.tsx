@@ -7,10 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { regenerateExamPdf, getExamPdfDownloadUrl, getAnswerSheetTemplateUrl } from '@/lib/api/exams';
 import type { ExamStatus } from '@/types/exam';
+import type { ExamBlueprintPreset } from '@/lib/api/exams';
 import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
 import type { ExamWizardState } from '../../types';
 import { PaperPreview } from '../components/PaperPreview';
 import { ExamPdfPreviewDialog } from '../../components/ExamPdfPreviewDialog';
+import { PresetSaveActions } from '../components/PresetSaveActions';
 
 type Props = {
   state: ExamWizardState;
@@ -22,6 +24,11 @@ type Props = {
   serverExam: { status: ExamStatus; pdfUrl?: string | null } | null;
   onPublish: () => void | Promise<void>;
   onRefreshMeta: () => void | Promise<void>;
+  presets: ExamBlueprintPreset[];
+  appliedPresetId: string | null;
+  presetBusy: boolean;
+  onSavePreset: (name: string, isDefault: boolean) => void | Promise<void>;
+  onUpdatePreset: (presetId: string, isDefault: boolean) => void | Promise<void>;
 };
 
 export function Step6PreviewPublish({
@@ -34,6 +41,11 @@ export function Step6PreviewPublish({
   serverExam,
   onPublish,
   onRefreshMeta,
+  presets,
+  appliedPresetId,
+  presetBusy,
+  onSavePreset,
+  onUpdatePreset,
 }: Props) {
   const toast = useAdminToast();
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
@@ -80,6 +92,15 @@ export function Step6PreviewPublish({
   return (
     <div className="space-y-4">
       <PaperPreview state={state} step={step} />
+
+      <PresetSaveActions
+        key={appliedPresetId ?? 'new-preset'}
+        presets={presets}
+        appliedPresetId={appliedPresetId}
+        busy={presetBusy}
+        onSaveNew={onSavePreset}
+        onUpdate={onUpdatePreset}
+      />
 
       {examId ? (
         <Card className="border-slate-200 shadow-sm">

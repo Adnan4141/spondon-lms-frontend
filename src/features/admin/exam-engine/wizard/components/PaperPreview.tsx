@@ -37,8 +37,6 @@ export function PaperPreview({ state, step, className }: Props) {
           {state.title.trim() || 'Untitled exam'}
         </h3>
         <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-[#E2C98A]/90">
-          {state.instituteLabel ? <span>{state.instituteLabel}</span> : null}
-          {state.paperCode ? <span>Code: {state.paperCode}</span> : null}
           <span>{state.durationMinutes} min</span>
           <span>{state.deliveryMode === 'ONLINE' ? 'Online' : 'Offline'}</span>
         </div>

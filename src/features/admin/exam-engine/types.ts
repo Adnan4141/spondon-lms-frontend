@@ -50,14 +50,10 @@ export interface ExamWizardState {
   uiCategory: UiExamCategory | '';
   deliveryMode: 'ONLINE' | 'OFFLINE';
   title: string;
-  courseId: string;
-  additionalCourseIds: string[];
+  courseIds: string[];
   branchId: string;
   language: string;
   durationMinutes: string;
-  instituteLabel: string;
-  paperCode: string;
-  syllabusHtml: string;
   autoSubmitOnDisconnect: boolean;
   disconnectGraceSeconds: string;
   scheduleAt: Date | undefined;
