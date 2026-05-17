@@ -1,10 +1,12 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import {
   BarChart3,
   CalendarClock,
+  Copy,
   Download,
   LayoutList,
   Pencil,
@@ -20,10 +22,12 @@ import { ConfirmationModal } from '@/features/admin/shared';
 import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
 import { useModalStore } from '@/store/modalStore';
 import { cn } from '@/lib/utils';
-import { deleteExam, getExams } from '@/lib/api/exams';
+import { deleteExam, duplicateExam, getExams } from '@/lib/api/exams';
 import type { Exam, ExamMode, ExamStatus } from '@/types/exam';
+import type { ExamProductType } from './types';
 
 type HubTab = 'ALL' | 'DRAFT' | 'PUBLISHED' | 'UPCOMING' | 'OFFLINE';
+type TypeFilter = 'ALL' | ExamProductType;
 
 const TABS: { id: HubTab; label: string }[] = [
   { id: 'ALL', label: 'All' },
@@ -31,6 +35,14 @@ const TABS: { id: HubTab; label: string }[] = [
   { id: 'PUBLISHED', label: 'Published' },
   { id: 'UPCOMING', label: 'Upcoming' },
   { id: 'OFFLINE', label: 'Offline' },
+];
+
+const TYPE_FILTERS: { id: TypeFilter; label: string }[] = [
+  { id: 'ALL', label: 'All types' },
+  { id: 'MCQ', label: 'MCQ' },
+  { id: 'WRITTEN', label: 'Written' },
+  { id: 'COMBINED', label: 'MCQ + Written' },
+  { id: 'MULTI', label: 'Multi-subject' },
 ];
 
 function isUpcoming(exam: Exam) {
@@ -50,6 +62,44 @@ function modeTone(mode: ExamMode) {
   return 'bg-orange-50 text-orange-700 border-orange-200';
 }
 
+const TYPE_TONE: Record<ExamProductType, string> = {
+  MCQ: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  WRITTEN: 'bg-violet-50 text-violet-700 border-violet-200',
+  COMBINED: 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200',
+  MULTI: 'bg-amber-50 text-amber-800 border-amber-200',
+};
+
+const TYPE_LABEL: Record<ExamProductType, string> = {
+  MCQ: 'MCQ',
+  WRITTEN: 'Written',
+  COMBINED: 'MCQ + Written',
+  MULTI: 'Multi-subject',
+};
+
+/** Derive the new ProductType from an exam — falls back to wizard settings, then to legacy heuristics on mode. */
+function readProductType(exam: Exam): ExamProductType {
+  const wizard = (exam.settings?.examWizard as Record<string, unknown> | undefined) ?? undefined;
+  const stored = wizard?.productType;
+  if (stored === 'MCQ' || stored === 'WRITTEN' || stored === 'COMBINED' || stored === 'MULTI') {
+    return stored;
+  }
+  if (exam.examEngine === 'MULTI_SUBJECT') return 'MULTI';
+  if (exam.mode === 'WRITTEN') return 'WRITTEN';
+  if (exam.mode === 'HYBRID') return 'COMBINED';
+  return 'MCQ';
+}
+
+function formatSchedule(exam: Exam): string {
+  if (!exam.startAt && !exam.endAt) return 'Any time';
+  const fmt = (raw?: string | null) =>
+    raw
+      ? new Date(raw).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+      : '—';
+  if (exam.startAt && exam.endAt) return `${fmt(exam.startAt)} → ${fmt(exam.endAt)}`;
+  if (exam.startAt) return `From ${fmt(exam.startAt)}`;
+  return `Until ${fmt(exam.endAt)}`;
+}
+
 export function ExamHub() {
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,8 +108,11 @@ export function ExamHub() {
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | ExamStatus>('ALL');
   const [modeFilter, setModeFilter] = useState<'ALL' | ExamMode>('ALL');
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('ALL');
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const { openModal } = useModalStore();
   const toast = useAdminToast();
+  const router = useRouter();
 
   useEffect(() => {
     getExams({ limit: 200 })
@@ -101,12 +154,39 @@ export function ExamHub() {
       if (tab === 'OFFLINE' && exam.mode !== 'OFFLINE') return false;
       if (statusFilter !== 'ALL' && exam.status !== statusFilter) return false;
       if (modeFilter !== 'ALL' && exam.mode !== modeFilter) return false;
+      if (typeFilter !== 'ALL' && readProductType(exam) !== typeFilter) return false;
       if (!q) return true;
       return [exam.title, exam.course?.name, exam.branch?.name, exam.batch?.name]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(q));
     });
-  }, [exams, modeFilter, query, statusFilter, tab]);
+  }, [exams, modeFilter, query, statusFilter, tab, typeFilter]);
+
+  const handleDuplicate = async (exam: Exam) => {
+    setDuplicatingId(exam.id);
+    try {
+      const response = await duplicateExam(exam.id);
+      if (response.success && response.data) {
+        toast({ title: 'Exam duplicated', description: `New draft: ${response.data.title}` });
+        setExams((prev) => [response.data as Exam, ...prev]);
+        router.push(`/admin/exam/${response.data.id}?step=1`);
+      } else {
+        toast({
+          title: 'Duplicate failed',
+          description: response.message ?? 'Could not duplicate this exam.',
+          variant: 'destructive',
+        });
+      }
+    } catch (err) {
+      toast({
+        title: 'Duplicate failed',
+        description: err instanceof Error ? err.message : 'Could not duplicate this exam.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDuplicatingId(null);
+    }
+  };
 
   const handleDeleteExam = (exam: Exam) => {
     openModal({
@@ -221,6 +301,24 @@ export function ExamHub() {
           </div>
         </div>
 
+        <div className="flex flex-wrap gap-1 border-b border-slate-100 px-3 py-2">
+          {TYPE_FILTERS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setTypeFilter(item.id)}
+              className={cn(
+                'rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-wide transition-colors',
+                typeFilter === item.id
+                  ? 'border-[#0D1B35] bg-[#0D1B35] text-[#E2C98A]'
+                  : 'border-slate-200 text-slate-500 hover:border-[#C8A96E] hover:text-[#0D1B35]',
+              )}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+
         {loading ? (
           <p className="p-10 text-center text-sm text-slate-500">Loading exams...</p>
         ) : error ? (
@@ -233,10 +331,11 @@ export function ExamHub() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] text-left text-sm">
+            <table className="w-full min-w-[1080px] text-left text-sm">
               <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Exam</th>
+                  <th className="px-4 py-3">Type</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Mode</th>
                   <th className="px-4 py-3">Schedule</th>
@@ -245,69 +344,92 @@ export function ExamHub() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filtered.map((exam) => (
-                  <tr key={exam.id} className="hover:bg-slate-50/70">
-                    <td className="px-4 py-3">
-                      <p className="max-w-[320px] truncate font-bold text-slate-900">{exam.title}</p>
-                      <p className="mt-0.5 text-xs text-slate-500">
-                        {exam.course?.name ?? 'No course'} {exam.branch?.name ? `· ${exam.branch.name}` : ''}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant="outline" className={cn('text-[10px] font-black uppercase', statusTone(exam.status))}>
-                        {exam.status}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant="outline" className={cn('text-[10px] font-black uppercase', modeTone(exam.mode))}>
-                        {exam.mode}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-xs font-medium text-slate-600">
-                      {exam.startAt ? new Date(exam.startAt).toLocaleString() : 'Any time'}
-                    </td>
-                    <td className="px-4 py-3 text-xs font-black text-slate-700">{exam._count?.sets ?? 0}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-1">
-                        <Button asChild size="icon" variant="ghost" className="h-8 w-8" title="Edit">
-                          <Link href={`/admin/exam/${exam.id}`}>
-                            <Pencil className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                        <Button asChild size="icon" variant="ghost" className="h-8 w-8" title="Details">
-                          <Link href={`/admin/exam/${exam.id}/details`}>
-                            <LayoutList className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                        <Button asChild size="icon" variant="ghost" className="h-8 w-8" title="PDF">
-                          <Link href={`/admin/exam/${exam.id}/pdf`}>
-                            <Download className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                        <Button asChild size="icon" variant="ghost" className="h-8 w-8" title="Results">
-                          <Link href={`/admin/exam/${exam.id}/results`}>
-                            <BarChart3 className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                        <Button asChild size="icon" variant="ghost" className="h-8 w-8" title="Leaderboard">
-                          <Link href={`/admin/exam/${exam.id}/leaderboard`}>
-                            <Trophy className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8 text-rose-600 hover:bg-rose-50"
-                          title="Delete"
-                          onClick={() => handleDeleteExam(exam)}
+                {filtered.map((exam) => {
+                  const productType = readProductType(exam);
+                  return (
+                    <tr key={exam.id} className="hover:bg-slate-50/70">
+                      <td className="px-4 py-3">
+                        <p className="max-w-[320px] truncate font-bold text-slate-900">{exam.title}</p>
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          {exam.course?.name ?? 'No course'} {exam.branch?.name ? `· ${exam.branch.name}` : ''}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge
+                          variant="outline"
+                          className={cn('whitespace-nowrap text-[10px] font-black uppercase', TYPE_TONE[productType])}
                         >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          {TYPE_LABEL[productType]}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge
+                          variant="outline"
+                          className={cn('text-[10px] font-black uppercase', statusTone(exam.status))}
+                        >
+                          {exam.status}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge variant="outline" className={cn('text-[10px] font-black uppercase', modeTone(exam.mode))}>
+                          {exam.mode}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-xs font-medium text-slate-600">{formatSchedule(exam)}</td>
+                      <td className="px-4 py-3 text-xs font-black text-slate-700">{exam._count?.sets ?? 0}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex justify-end gap-1">
+                          <Button asChild size="icon" variant="ghost" className="h-8 w-8" title="Edit">
+                            <Link href={`/admin/exam/${exam.id}`}>
+                              <Pencil className="h-4 w-4" />
+                            </Link>
+                          </Button>
+                          <Button asChild size="icon" variant="ghost" className="h-8 w-8" title="Details">
+                            <Link href={`/admin/exam/${exam.id}/details`}>
+                              <LayoutList className="h-4 w-4" />
+                            </Link>
+                          </Button>
+                          <Button asChild size="icon" variant="ghost" className="h-8 w-8" title="PDF">
+                            <Link href={`/admin/exam/${exam.id}/pdf`}>
+                              <Download className="h-4 w-4" />
+                            </Link>
+                          </Button>
+                          <Button asChild size="icon" variant="ghost" className="h-8 w-8" title="Results">
+                            <Link href={`/admin/exam/${exam.id}/results`}>
+                              <BarChart3 className="h-4 w-4" />
+                            </Link>
+                          </Button>
+                          <Button asChild size="icon" variant="ghost" className="h-8 w-8" title="Leaderboard">
+                            <Link href={`/admin/exam/${exam.id}/leaderboard`}>
+                              <Trophy className="h-4 w-4" />
+                            </Link>
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8"
+                            title="Duplicate"
+                            disabled={duplicatingId === exam.id}
+                            onClick={() => void handleDuplicate(exam)}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-rose-600 hover:bg-rose-50"
+                            title="Delete"
+                            onClick={() => handleDeleteExam(exam)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

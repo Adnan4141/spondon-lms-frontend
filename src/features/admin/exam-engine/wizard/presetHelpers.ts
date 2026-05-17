@@ -1,9 +1,20 @@
 import type { ExamBlueprint } from '@/lib/api/exams';
-import type { ExamWizardState, UiExamCategory, WizardSection, WizardSubject } from '../types';
+import type {
+  ExamProductType,
+  ExamWizardState,
+  OmrConfig,
+  SolveSheetVisibility,
+  UiExamCategory,
+  WizardSection,
+  WizardSubject,
+} from '../types';
+import { migrateLegacyUiCategory } from '../types';
 import { newLocalId } from './wizardHelpers';
+import type { ResultInputMode } from '@/types/exam';
 
-type WizardPresetConfig = {
+type WizardPresetConfigV1 = {
   version: 1;
+  /** @deprecated v1 schema — migrated to v2 on load. */
   uiCategory: UiExamCategory | '';
   deliveryMode: ExamWizardState['deliveryMode'];
   courseIds: string[];
@@ -23,8 +34,33 @@ type WizardPresetConfig = {
   resultModes: string[];
 };
 
+type WizardPresetConfigV2 = {
+  version: 2;
+  productType: ExamProductType | '';
+  deliveryMode: ExamWizardState['deliveryMode'];
+  omrConfig: OmrConfig | null;
+  resultInputModes: ResultInputMode[];
+  smsNotification: boolean;
+  solveVisibility: SolveSheetVisibility;
+  defaultNegativeMarks: number;
+  courseIds: string[];
+  language: string;
+  durationMinutes: string;
+  autoSubmitOnDisconnect: boolean;
+  disconnectGraceSeconds: string;
+  sections: WizardSection[];
+  subjects: WizardSubject[];
+  nSets: string;
+  shuffle: string;
+  setNaming: ExamWizardState['setNaming'];
+  showLeaderboard: boolean;
+  hideResult: boolean;
+  showSolve: boolean;
+  showPct: boolean;
+};
+
 export type WizardPresetStructure = ExamBlueprint & {
-  wizard?: WizardPresetConfig;
+  wizard?: WizardPresetConfigV1 | WizardPresetConfigV2;
 };
 
 function sectionDifficulty() {
@@ -32,7 +68,7 @@ function sectionDifficulty() {
 }
 
 function buildBlueprintSections(state: ExamWizardState): ExamBlueprint['sections'] {
-  if (state.uiCategory === 'MULTI') return [];
+  if (state.productType === 'MULTI') return [];
 
   return state.sections.map((section) => ({
     name: section.label,
@@ -55,6 +91,31 @@ function buildBlueprintSections(state: ExamWizardState): ExamBlueprint['sections
 }
 
 export function buildPresetStructure(state: ExamWizardState): WizardPresetStructure {
+  const v2: WizardPresetConfigV2 = {
+    version: 2,
+    productType: state.productType,
+    deliveryMode: state.deliveryMode,
+    omrConfig: state.omrConfig,
+    resultInputModes: state.resultInputModes,
+    smsNotification: state.smsNotification,
+    solveVisibility: state.solveVisibility,
+    defaultNegativeMarks: state.defaultNegativeMarks,
+    courseIds: [...state.courseIds],
+    language: state.language,
+    durationMinutes: state.durationMinutes,
+    autoSubmitOnDisconnect: state.autoSubmitOnDisconnect,
+    disconnectGraceSeconds: state.disconnectGraceSeconds,
+    sections: state.sections,
+    subjects: state.subjects,
+    nSets: state.nSets,
+    shuffle: state.shuffle,
+    setNaming: state.setNaming,
+    showLeaderboard: state.showLeaderboard,
+    hideResult: state.hideResult,
+    showSolve: state.showSolve,
+    showPct: state.showPct,
+  };
+
   return {
     sections: buildBlueprintSections(state),
     settings: {
@@ -64,62 +125,82 @@ export function buildPresetStructure(state: ExamWizardState): WizardPresetStruct
       shuffleOptions: state.shuffle === 'FULL' || state.shuffle === 'OPTS' || state.shuffle === 'MIXED',
       uniqueSets: true,
       language: state.language === 'en' ? 'en' : 'bn',
-      negativeMarking: state.sections.some((section) => section.neg > 0) || state.subjects.some((subject) => subject.neg > 0),
+      negativeMarking:
+        state.defaultNegativeMarks > 0
+        || state.sections.some((section) => section.neg > 0)
+        || state.subjects.some((subject) => subject.neg > 0),
     },
-    wizard: {
-      version: 1,
-      uiCategory: state.uiCategory,
-      deliveryMode: state.deliveryMode,
-      courseIds: [...state.courseIds],
-      language: state.language,
-      durationMinutes: state.durationMinutes,
-      autoSubmitOnDisconnect: state.autoSubmitOnDisconnect,
-      disconnectGraceSeconds: state.disconnectGraceSeconds,
-      sections: state.sections,
-      subjects: state.subjects,
-      nSets: state.nSets,
-      shuffle: state.shuffle,
-      setNaming: state.setNaming,
-      showLeaderboard: state.showLeaderboard,
-      hideResult: state.hideResult,
-      showSolve: state.showSolve,
-      showPct: state.showPct,
-      resultModes: state.resultModes,
-    },
+    wizard: v2,
   };
 }
 
 export function presetPatchFromStructure(structure: WizardPresetStructure): Partial<ExamWizardState> | null {
-  if (structure.wizard?.version === 1) {
+  const wizard = structure.wizard;
+  if (wizard?.version === 2) {
     return {
-      uiCategory: structure.wizard.uiCategory,
-      deliveryMode: structure.wizard.deliveryMode,
-      courseIds: Array.isArray(structure.wizard.courseIds) ? [...structure.wizard.courseIds] : [],
-      language: structure.wizard.language,
-      durationMinutes: structure.wizard.durationMinutes,
-      autoSubmitOnDisconnect: structure.wizard.autoSubmitOnDisconnect,
-      disconnectGraceSeconds: structure.wizard.disconnectGraceSeconds,
-      sections: structure.wizard.sections.map((section) => ({ ...section, localId: newLocalId() })),
-      subjects: structure.wizard.subjects.map((subject) => ({ ...subject, localId: newLocalId() })),
-      nSets: structure.wizard.nSets,
-      shuffle: structure.wizard.shuffle,
-      setNaming: structure.wizard.setNaming,
-      showLeaderboard: structure.wizard.showLeaderboard,
-      hideResult: structure.wizard.hideResult,
-      showSolve: structure.wizard.showSolve,
-      showPct: structure.wizard.showPct,
-      resultModes: structure.wizard.resultModes,
+      productType: wizard.productType,
+      deliveryMode: wizard.deliveryMode,
+      omrConfig: wizard.omrConfig ?? null,
+      resultInputModes: Array.isArray(wizard.resultInputModes) && wizard.resultInputModes.length
+        ? wizard.resultInputModes
+        : ['AUTOMATED'],
+      smsNotification: Boolean(wizard.smsNotification),
+      solveVisibility: wizard.solveVisibility ?? 'IMMEDIATELY',
+      defaultNegativeMarks: typeof wizard.defaultNegativeMarks === 'number' ? wizard.defaultNegativeMarks : 0.25,
+      courseIds: Array.isArray(wizard.courseIds) ? [...wizard.courseIds] : [],
+      language: wizard.language,
+      durationMinutes: wizard.durationMinutes,
+      autoSubmitOnDisconnect: wizard.autoSubmitOnDisconnect,
+      disconnectGraceSeconds: wizard.disconnectGraceSeconds,
+      sections: wizard.sections.map((section) => ({ ...section, localId: newLocalId() })),
+      subjects: wizard.subjects.map((subject) => ({ ...subject, localId: newLocalId() })),
+      nSets: wizard.nSets,
+      shuffle: wizard.shuffle,
+      setNaming: wizard.setNaming,
+      showLeaderboard: wizard.showLeaderboard,
+      hideResult: wizard.hideResult,
+      showSolve: wizard.showSolve,
+      showPct: wizard.showPct,
+    };
+  }
+
+  if (wizard?.version === 1) {
+    const migrated = migrateLegacyUiCategory(wizard.uiCategory, undefined);
+    return {
+      productType: migrated.productType,
+      deliveryMode: wizard.deliveryMode ?? migrated.deliveryMode,
+      omrConfig: null,
+      resultInputModes: migrated.resultInputModes,
+      smsNotification: false,
+      solveVisibility: wizard.showSolve ? 'IMMEDIATELY' : 'HIDDEN',
+      defaultNegativeMarks: 0.25,
+      courseIds: Array.isArray(wizard.courseIds) ? [...wizard.courseIds] : [],
+      language: wizard.language,
+      durationMinutes: wizard.durationMinutes,
+      autoSubmitOnDisconnect: wizard.autoSubmitOnDisconnect,
+      disconnectGraceSeconds: wizard.disconnectGraceSeconds,
+      sections: wizard.sections.map((section) => ({ ...section, localId: newLocalId() })),
+      subjects: wizard.subjects.map((subject) => ({ ...subject, localId: newLocalId() })),
+      nSets: wizard.nSets,
+      shuffle: wizard.shuffle,
+      setNaming: wizard.setNaming,
+      showLeaderboard: wizard.showLeaderboard,
+      hideResult: wizard.hideResult,
+      showSolve: wizard.showSolve,
+      showPct: wizard.showPct,
     };
   }
 
   if (!structure.sections?.length) return null;
 
+  const inferredType: ExamProductType = structure.sections.some((section) => section.type === 'CQ')
+    ? structure.sections.some((section) => section.type === 'MCQ')
+      ? 'COMBINED'
+      : 'WRITTEN'
+    : 'MCQ';
+
   return {
-    uiCategory: structure.sections.some((section) => section.type === 'CQ')
-      ? structure.sections.some((section) => section.type === 'MCQ')
-        ? 'MCQCQ'
-        : 'CQ'
-      : 'MCQ',
+    productType: inferredType,
     durationMinutes: String(structure.settings.durationMinutes ?? 60),
     language: structure.settings.language ?? 'bn',
     nSets: String(structure.settings.totalSets ?? 1),
@@ -145,7 +226,7 @@ export function presetPatchFromStructure(structure: WizardPresetStructure): Part
 }
 
 export function presetQuestionTotal(state: ExamWizardState): number {
-  if (state.uiCategory === 'MULTI') {
+  if (state.productType === 'MULTI') {
     return state.subjects.reduce((sum, subject) => sum + subject.count, 0);
   }
   return state.sections.reduce((sum, section) => sum + section.count, 0);

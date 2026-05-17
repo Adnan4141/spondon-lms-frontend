@@ -16,11 +16,14 @@ import { buildSectionFromType } from '../examWizardReducer';
 import { SEC_TYPES } from '../constants';
 import { sectionMcqPassageGoal } from '../wizardHelpers';
 import { MultiSubjectBuilder } from '../components/MultiSubjectBuilder';
+import type { MergedFolderTreeResponse } from '@/lib/api/question-bank';
 
 type Props = {
   state: ExamWizardState;
   dispatch: React.Dispatch<WizardFormAction>;
   onAddSection: (section: ReturnType<typeof buildSectionFromType>) => void;
+  /** Merged folder trees (per linked course) — used by the "Add subjects from folder roots" shortcut. */
+  folderTrees?: MergedFolderTreeResponse['trees'];
 };
 
 function mcqCompositionLine(s: WizardSection): string {
@@ -32,24 +35,21 @@ function mcqCompositionLine(s: WizardSection): string {
   return `Up to ${pg} whole passage block(s) within ${total} total slots; remaining slots use standalone MCQs.`;
 }
 
-export function Step2Sections({ state, dispatch, onAddSection }: Props) {
-  if (state.uiCategory === 'MULTI') {
-    return <MultiSubjectBuilder state={state} dispatch={dispatch} />;
+export function Step2Sections({ state, dispatch, onAddSection, folderTrees }: Props) {
+  if (state.productType === 'MULTI') {
+    return <MultiSubjectBuilder state={state} dispatch={dispatch} folderTrees={folderTrees} />;
   }
 
-  if (state.uiCategory === 'OMRB') {
-    return (
-      <Card className="border-slate-200 shadow-sm">
-        <CardContent className="py-8 text-center text-sm text-slate-600">OMR book flow — sections optional.</CardContent>
-      </Card>
-    );
-  }
+  const isManualOffline =
+    state.deliveryMode === 'OFFLINE'
+    && !state.resultInputModes.includes('AUTOMATED')
+    && !state.resultInputModes.includes('OMR_SCAN');
 
-  if (state.uiCategory === 'OFFLINE_RESULT') {
+  if (isManualOffline) {
     return (
       <Card className="border-slate-200 shadow-sm">
         <CardContent className="py-8 text-center text-sm text-slate-600">
-          Offline result-entry exams do not need online sections. Teachers will mark scripts outside LMS, then enter
+          Manual-entry exams do not need online sections. Teachers will mark scripts outside LMS, then enter
           results from the Results page using single entry, bulk manual rows, or Excel import.
         </CardContent>
       </Card>

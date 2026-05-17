@@ -1,8 +1,8 @@
 import type {
+  ExamProductType,
   ExamWizardState,
   FolderRuleDraft,
   SectionTypeUi,
-  UiExamCategory,
   WizardSection,
   WizardSubject,
 } from '../types';
@@ -13,7 +13,7 @@ export type WizardFormAction =
   | { type: 'MERGE'; patch: Partial<ExamWizardState> }
   | { type: 'SET_STEP'; step: number }
   | { type: 'HYDRATE'; state: ExamWizardState }
-  | { type: 'APPLY_CATEGORY'; category: UiExamCategory }
+  | { type: 'APPLY_PRODUCT_TYPE'; productType: ExamProductType }
   | { type: 'ADD_SECTION'; section: WizardSection }
   | { type: 'REMOVE_SECTION'; localId: string }
   | { type: 'UPDATE_SECTION'; localId: string; patch: Partial<WizardSection> }
@@ -35,6 +35,10 @@ export type WizardFormAction =
       selectionMode: FolderRuleDraft['selectionMode'];
     }
   | { type: 'ADD_SUBJECT' }
+  | {
+      type: 'ADD_SUBJECTS_FROM_FOLDER_ROOTS';
+      roots: Array<{ folderId: string; name: string; defaultCount?: number }>;
+    }
   | { type: 'UPDATE_SUBJECT'; localId: string; patch: Partial<WizardSubject> }
   | { type: 'REMOVE_SUBJECT'; localId: string };
 
@@ -48,17 +52,14 @@ export function examWizardReducer(state: ExamWizardState, action: WizardFormActi
     }
     case 'HYDRATE':
       return { ...action.state };
-    case 'APPLY_CATEGORY': {
-      const sections = defaultSectionsFor(action.category);
-      const deliveryMode = action.category === 'OFFLINE_RESULT' || action.category === 'OMR' || action.category === 'OMRB'
-        ? 'OFFLINE'
-        : 'ONLINE';
+    case 'APPLY_PRODUCT_TYPE': {
+      const sections = defaultSectionsFor(action.productType, state.defaultNegativeMarks);
+      // Type changes never force a mode change — Mode is orthogonal now.
       return {
         ...state,
-        uiCategory: action.category,
-        deliveryMode,
+        productType: action.productType,
         sections,
-        subjects: action.category === 'MULTI' ? state.subjects : [],
+        subjects: action.productType === 'MULTI' ? state.subjects : [],
       };
     }
     case 'ADD_SECTION':
@@ -191,6 +192,43 @@ export function examWizardReducer(state: ExamWizardState, action: WizardFormActi
           },
         ],
       };
+    case 'ADD_SUBJECTS_FROM_FOLDER_ROOTS': {
+      // Bulk-create one subject per top-level folder. Skip folders that are
+      // already referenced (by folderId) in any existing subject so the action
+      // is idempotent and safe to repeat.
+      const existingFolderIds = new Set(
+        state.subjects.flatMap((s) => s.folderRules.map((r) => r.folderId)),
+      );
+      const newSubjects: WizardSubject[] = action.roots
+        .filter((r) => r.folderId && !existingFolderIds.has(r.folderId))
+        .map((r) => {
+          const count = Math.max(1, r.defaultCount ?? 20);
+          return {
+            localId: newLocalId(),
+            name: r.name || 'Subject',
+            count,
+            mcqSingleCount: count,
+            mcqPassageCount: 0,
+            cqCount: 0,
+            shortCount: 0,
+            marks: 1,
+            neg: state.defaultNegativeMarks ?? 0.25,
+            passMarks: '',
+            compulsory: true,
+            folderRules: [
+              {
+                folderId: r.folderId,
+                folderName: r.name,
+                questionCount: count,
+                selectionMode: 'RANDOM_COUNT',
+                excludedQuestionIds: [],
+                pinnedQuestionIds: [],
+              },
+            ],
+          };
+        });
+      return { ...state, subjects: [...state.subjects, ...newSubjects] };
+    }
     case 'UPDATE_SUBJECT':
       return {
         ...state,

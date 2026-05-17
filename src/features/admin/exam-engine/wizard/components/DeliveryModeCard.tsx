@@ -2,7 +2,7 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { ExamWizardState } from '../../types';
 
 type Props = {
@@ -11,17 +11,20 @@ type Props = {
 };
 
 export function DeliveryModeCard({ state, onChange }: Props) {
-  if (!state.uiCategory || state.uiCategory === 'OMRB' || state.uiCategory === 'OFFLINE_RESULT' || state.uiCategory === 'CQ' || state.uiCategory === 'MCQCQ') {
-    return null;
-  }
+  if (!state.productType) return null;
 
   return (
     <Card className="border-slate-200 shadow-sm">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="font-serif text-base text-[#0D1B35]">Delivery</CardTitle>
-        <Badge className={state.deliveryMode === 'ONLINE' ? 'bg-sky-100 text-sky-800' : 'bg-orange-100 text-orange-800'}>
-          {state.deliveryMode === 'ONLINE' ? 'Online' : 'Offline'}
-        </Badge>
+      <CardHeader className="space-y-1 pb-2">
+        <div className="flex flex-row items-center justify-between gap-2">
+          <CardTitle className="font-serif text-base text-[#0D1B35]">Delivery mode</CardTitle>
+          <Badge className={state.deliveryMode === 'ONLINE' ? 'bg-sky-100 text-sky-800' : 'bg-orange-100 text-orange-800'}>
+            {state.deliveryMode === 'ONLINE' ? 'Online' : 'Offline'}
+          </Badge>
+        </div>
+        <CardDescription>
+          Choose how students take the exam. Result entry, OMR sheets, and SMS options adjust to your choice in later steps.
+        </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-wrap gap-2">
         <Button

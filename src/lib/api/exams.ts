@@ -119,6 +119,21 @@ export async function deleteExam(id: string, opts?: { teacherUserId?: string }):
   });
 }
 
+/**
+ * Clone an existing exam (sections, subjects, folder rules, settings) into a
+ * brand-new draft. Sets and result data are NOT copied. Title gets " (Copy)"
+ * appended on the server.
+ */
+export async function duplicateExam(
+  id: string,
+  payload?: { title?: string },
+): Promise<ApiResponse<Exam>> {
+  return apiRequest<ApiResponse<Exam>>(`/exams/${id}/duplicate`, {
+    method: 'POST',
+    body: JSON.stringify(payload ?? {}),
+  });
+}
+
 // Exam Set Management
 export async function createExamSet(data: { examId: string; name: string }): Promise<ApiResponse<any>> {
   return apiRequest<ApiResponse<any>>('/exams/sets', {

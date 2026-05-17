@@ -156,6 +156,85 @@ export interface FolderTreeNode {
   children: FolderTreeNode[];
 }
 
+export interface MergedFolderTreeResponse {
+  trees: Array<{ courseId: string; courseName: string | null; roots: FolderTreeNode[] }>;
+  fallbackAll: boolean;
+}
+
+/**
+ * Merged folder tree across one or more linked courses. The backend returns
+ * a grouped response so the wizard can render per-course headers and apply
+ * "select all in course" actions without re-fetching.
+ */
+export async function getMergedFolderTree(
+  courseIds: string[],
+  teacherUserId?: string,
+  init?: RequestInit,
+): Promise<ApiResponse<MergedFolderTreeResponse>> {
+  const queryParams = new URLSearchParams();
+  const filtered = courseIds.filter((id) => typeof id === 'string' && id.length > 0);
+  if (filtered.length > 0) queryParams.append('courseIds', filtered.join(','));
+  if (teacherUserId) queryParams.append('teacherUserId', teacherUserId);
+  const query = queryParams.toString();
+  return apiRequest<ApiResponse<MergedFolderTreeResponse>>(
+    `/question-bank/folders/tree${query ? `?${query}` : ''}`,
+    init,
+  );
+}
+
+export interface FolderSampleRow {
+  folderId: string;
+  sample: Array<{
+    id: string;
+    prompt: string;
+    type: 'MCQ' | 'CQ' | 'SHORT';
+    mcqType: 'SINGLE' | 'PASSAGE_CHILD' | null;
+    difficulty: 'EASY' | 'MEDIUM' | 'HARD' | null;
+  }>;
+}
+
+export async function sampleQuestionsFromFolders(payload: {
+  folderIds: string[];
+  questionType: 'MCQ' | 'CQ' | 'SHORT';
+  perFolder?: number;
+}): Promise<ApiResponse<FolderSampleRow[]>> {
+  return apiRequest<ApiResponse<FolderSampleRow[]>>('/question-bank/folders/sample', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export interface FolderPreflightRule {
+  folderId: string;
+  questionCount: number;
+  selectionMode: 'RANDOM_COUNT' | 'ALL_FROM_FOLDER' | 'MANUAL_PICK';
+  questionType: 'MCQ' | 'CQ' | 'SHORT';
+  excludedQuestionIds?: string[];
+  pinnedQuestionIds?: string[];
+}
+
+export interface FolderPreflightRow {
+  index: number;
+  folderId: string;
+  questionType: 'MCQ' | 'CQ' | 'SHORT';
+  requested: number;
+  available: number;
+  fits: boolean;
+  reason?: string;
+}
+
+export async function preflightFolderRules(payload: {
+  rules: FolderPreflightRule[];
+}): Promise<ApiResponse<{ ok: boolean; rows: FolderPreflightRow[] }>> {
+  return apiRequest<ApiResponse<{ ok: boolean; rows: FolderPreflightRow[] }>>(
+    '/question-bank/folders/preflight',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
 export async function getQuestionFolderTree(
   courseId?: string,
   teacherUserId?: string,

@@ -1,64 +1,102 @@
 import { useEffect, useMemo, useState } from 'react';
-import { getQuestionFolderTree, type FolderTreeNode } from '@/lib/api/question-bank';
+import {
+  getMergedFolderTree,
+  getQuestionFolderTree,
+  type FolderTreeNode,
+  type MergedFolderTreeResponse,
+} from '@/lib/api/question-bank';
 
-type FetchState = { courseId: string; nodes: FolderTreeNode[]; loading: boolean; fallbackAll: boolean };
+type FetchState = {
+  key: string;
+  trees: MergedFolderTreeResponse['trees'];
+  loading: boolean;
+  fallbackAll: boolean;
+};
+
+const EMPTY_TREES: MergedFolderTreeResponse['trees'] = [];
 
 /**
- * Loads folder tree when `courseId` is set and `step >= minStep`, cancelling stale requests if `courseId` changes.
+ * Loads the folder tree for every course linked to the current exam.
+ *
+ * When the wizard's linked courses produce zero folders, falls back to the
+ * legacy single-call "all folders" endpoint and surfaces `fallbackAll` so
+ * the UI can render a warning banner.
+ *
+ * Consumers get:
+ *  - `trees` — per-course grouped roots (for the new Step 3 group headers).
+ *  - `tree`  — a flat `FolderTreeNode[]` (concat of all roots) so callers
+ *              that only care about a single merged tree keep working.
  */
-export function useExamWizardFolderTree(courseId: string, step: number, minStep = 3) {
+export function useExamWizardFolderTree(courseIds: string[], step: number, minStep = 3) {
+  const courseIdsKey = useMemo(() => [...courseIds].sort().join('|'), [courseIds]);
   const [fetchState, setFetchState] = useState<FetchState>({
-    courseId: '',
-    nodes: [],
+    key: '',
+    trees: EMPTY_TREES,
     loading: false,
     fallbackAll: false,
   });
 
-  const inRange = Boolean(courseId && step >= minStep);
+  const inRange = Boolean(courseIds.length > 0 && step >= minStep);
 
   useEffect(() => {
     if (!inRange) return;
-    const c = courseId;
+    const key = courseIdsKey;
     const ac = new AbortController();
     const tid = window.setTimeout(() => {
-      setFetchState({ courseId: c, nodes: [], loading: true, fallbackAll: false });
+      setFetchState({ key, trees: EMPTY_TREES, loading: true, fallbackAll: false });
     }, 0);
-    getQuestionFolderTree(c, undefined, { signal: ac.signal })
+
+    getMergedFolderTree(courseIds, undefined, { signal: ac.signal })
       .then(async (r) => {
         if (ac.signal.aborted) return;
-        if (r.success && (!r.data || r.data.length === 0)) {
-          const fallback = await getQuestionFolderTree(undefined, undefined, { signal: ac.signal });
-          if (ac.signal.aborted) return;
-          setFetchState({
-            courseId: c,
-            nodes: fallback.success && fallback.data ? fallback.data : [],
-            loading: false,
-            fallbackAll: true,
-          });
+
+        const trees = r.success && r.data?.trees ? r.data.trees : [];
+        const hasAnyFolders = trees.some((entry) => entry.roots.length > 0);
+        if (hasAnyFolders) {
+          setFetchState({ key, trees, loading: false, fallbackAll: false });
           return;
         }
+
+        // Legacy fallback: courses have no folders linked, so show every
+        // folder admin-side. Mirrors the previous single-course behaviour.
+        const fallback = await getQuestionFolderTree(undefined, undefined, { signal: ac.signal });
+        if (ac.signal.aborted) return;
         setFetchState({
-          courseId: c,
-          nodes: r.success && r.data ? r.data : [],
+          key,
+          trees:
+            fallback.success && fallback.data
+              ? [{ courseId: '', courseName: null, roots: fallback.data }]
+              : [],
           loading: false,
-          fallbackAll: false,
+          fallbackAll: true,
         });
       })
       .catch((e) => {
         if (ac.signal.aborted || (e as Error)?.name === 'AbortError') return;
-        setFetchState({ courseId: c, nodes: [], loading: false, fallbackAll: false });
+        setFetchState({ key, trees: EMPTY_TREES, loading: false, fallbackAll: false });
       });
+
     return () => {
       window.clearTimeout(tid);
       ac.abort();
     };
-  }, [courseId, step, minStep, inRange]);
+  }, [courseIds, courseIdsKey, step, minStep, inRange]);
 
-  const { tree, loading, fallbackAll } = useMemo(() => {
-    if (!inRange) return { tree: [] as FolderTreeNode[], loading: false, fallbackAll: false };
-    if (fetchState.courseId !== courseId) return { tree: [] as FolderTreeNode[], loading: true, fallbackAll: false };
-    return { tree: fetchState.nodes, loading: fetchState.loading, fallbackAll: fetchState.fallbackAll };
-  }, [inRange, courseId, fetchState]);
+  const { trees, tree, loading, fallbackAll } = useMemo(() => {
+    if (!inRange) {
+      return { trees: EMPTY_TREES, tree: [] as FolderTreeNode[], loading: false, fallbackAll: false };
+    }
+    if (fetchState.key !== courseIdsKey) {
+      return { trees: EMPTY_TREES, tree: [] as FolderTreeNode[], loading: true, fallbackAll: false };
+    }
+    const flat = fetchState.trees.flatMap((entry) => entry.roots);
+    return {
+      trees: fetchState.trees,
+      tree: flat,
+      loading: fetchState.loading,
+      fallbackAll: fetchState.fallbackAll,
+    };
+  }, [inRange, courseIdsKey, fetchState]);
 
-  return { tree, loading, fallbackAll };
+  return { trees, tree, loading, fallbackAll };
 }

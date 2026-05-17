@@ -1,16 +1,33 @@
-import type { UiExamCategory, SectionTypeUi } from '../types';
+import type { ExamProductType, SectionTypeUi } from '../types';
 
 /** Select value for branchless exams → saved as `branchId: null` on the server */
 export const EXAM_WIZARD_ALL_BRANCHES = '__all__';
 
-export const EXAM_CATS: { id: UiExamCategory; name: string; desc: string; bestFor: string }[] = [
-  { id: 'MCQ', name: 'Online MCQ', desc: 'Students answer inside LMS; system auto-grades instantly.', bestFor: 'Digital MCQ' },
-  { id: 'CQ', name: 'Written Upload', desc: 'Students write by hand, upload camera/PDF pages, then teachers evaluate.', bestFor: 'CQ / Written' },
-  { id: 'MCQCQ', name: 'Hybrid MCQ + Handwritten', desc: 'MCQ is auto-graded; written pages are uploaded for teacher marking.', bestFor: 'MCQ + CQ' },
-  { id: 'OFFLINE_RESULT', name: 'Offline Result Entry', desc: 'Teachers mark physical scripts and input results manually or by bulk import.', bestFor: 'Classroom exam' },
-  { id: 'OMR', name: 'OMR / Scan', desc: 'Paper exam with OMR-style scanning and result sync.', bestFor: 'Large MCQ hall exam' },
-  { id: 'OMRB', name: 'OMR Book', desc: 'Book-format OMR workflow with printable/downloadable assets.', bestFor: 'Book format' },
-  { id: 'MULTI', name: 'Multi-subject', desc: 'Per-subject question counts, pass marks, and folder allocation.', bestFor: 'Admission model' },
+export const EXAM_PRODUCT_TYPES: { id: ExamProductType; name: string; desc: string; bestFor: string }[] = [
+  {
+    id: 'MCQ',
+    name: 'MCQ',
+    desc: 'Single MCQ + passage-based combined MCQ. Auto-graded online, or printable for OMR / paper.',
+    bestFor: 'Random from bank',
+  },
+  {
+    id: 'WRITTEN',
+    name: 'Written (CQ / Short)',
+    desc: 'Creative-question and/or short-answer sets. Multiple sets, teacher-reviewed marks.',
+    bestFor: 'Teacher review',
+  },
+  {
+    id: 'COMBINED',
+    name: 'MCQ + Written',
+    desc: 'One exam, two parts. MCQ auto-graded; CQ/Short reviewed by teachers, then merged into one result.',
+    bestFor: 'Hybrid model test',
+  },
+  {
+    id: 'MULTI',
+    name: 'Multi-subject MCQ',
+    desc: 'Per-subject question counts, pass marks, optional/compulsory subjects. Admission / model-test style.',
+    bestFor: 'Admission model',
+  },
 ];
 
 export const SEC_TYPES: {

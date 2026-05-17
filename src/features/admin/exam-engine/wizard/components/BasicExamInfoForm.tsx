@@ -1,5 +1,6 @@
 'use client';
 
+import type { Dispatch } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -11,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { DatePicker } from '@/components/ui/date-picker';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { cn } from '@/lib/utils';
 import type { Course } from '@/types/course';
 import type { Branch } from '@/lib/api/branches';
@@ -19,11 +20,10 @@ import type { ExamWizardState } from '../../types';
 import type { WizardFormAction } from '../examWizardReducer';
 import type { Step1FieldKey } from '../validateWizardStep';
 import { EXAM_WIZARD_ALL_BRANCHES } from '../constants';
-import { CourseMultiSelect } from './CourseMultiSelect';
 
 type Props = {
   state: ExamWizardState;
-  dispatch: React.Dispatch<WizardFormAction>;
+  dispatch: Dispatch<WizardFormAction>;
   courses: Course[];
   branches: Branch[];
   fieldErrors?: Partial<Record<Step1FieldKey, boolean>>;
@@ -40,7 +40,10 @@ export function BasicExamInfoForm({
 }: Props) {
   const err = (key: Step1FieldKey) => Boolean(fieldErrors?.[key]);
 
-  if (!state.uiCategory) return null;
+  const handleCourseSelect = (courseId: string) => {
+    clearFieldError('courseId');
+    dispatch({ type: 'MERGE', patch: { courseIds: [courseId] } });
+  };
 
   return (
     <Card className="border-slate-200 shadow-sm">
@@ -63,17 +66,20 @@ export function BasicExamInfoForm({
         </div>
 
         <div className="md:col-span-2 space-y-2">
-          <Label>Courses *</Label>
-          <CourseMultiSelect
-            courses={courses}
-            value={state.courseIds}
-            invalid={err('courseId')}
-            onChange={(courseIds) => {
-              clearFieldError('courseId');
-              dispatch({ type: 'MERGE', patch: { courseIds } });
-            }}
+          <Label>Course *</Label>
+          <SearchableSelect
+            options={courses.map((course) => ({ value: course.id, label: course.name }))}
+            value={state.courseIds[0] ?? ''}
+            onValueChange={handleCourseSelect}
+            placeholder="Select a course"
+            searchPlaceholder="Search courses..."
+            emptyMessage="No courses found."
+            triggerClassName={cn(
+              'h-10 rounded-md bg-white px-3 font-normal text-black shadow-none hover:bg-white',
+              err('courseId') ? 'border-rose-400' : 'border-slate-200',
+            )}
           />
-          {err('courseId') ? <p className="text-xs text-rose-600">Select at least one course.</p> : null}
+          {err('courseId') ? <p className="text-xs text-rose-600">Select a course.</p> : null}
         </div>
 
         <div className="space-y-2">
@@ -153,30 +159,6 @@ export function BasicExamInfoForm({
           </div>
         ) : null}
 
-        {state.deliveryMode === 'OFFLINE' ? (
-          <>
-            <div className="space-y-2">
-              <Label>Result release date</Label>
-              <DatePicker date={state.scheduleAt} setDate={(date) => dispatch({ type: 'MERGE', patch: { scheduleAt: date } })} />
-              <Input
-                type="time"
-                value={state.scheduleTime}
-                onChange={(event) => dispatch({ type: 'MERGE', patch: { scheduleTime: event.target.value } })}
-                className="border-slate-200"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Solve sheet visible from</Label>
-              <DatePicker date={state.solveAt} setDate={(date) => dispatch({ type: 'MERGE', patch: { solveAt: date } })} />
-              <Input
-                type="time"
-                value={state.solveTime}
-                onChange={(event) => dispatch({ type: 'MERGE', patch: { solveTime: event.target.value } })}
-                className="border-slate-200"
-              />
-            </div>
-          </>
-        ) : null}
       </CardContent>
     </Card>
   );

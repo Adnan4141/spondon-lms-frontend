@@ -3,12 +3,13 @@
 import type { Course } from '@/types/course';
 import type { Branch } from '@/lib/api/branches';
 import type { ExamBlueprintPreset } from '@/lib/api/exams';
-import type { ExamWizardState, UiExamCategory } from '../../types';
+import type { ExamProductType, ExamWizardState } from '../../types';
 import type { WizardFormAction } from '../examWizardReducer';
 import type { Step1FieldKey } from '../validateWizardStep';
 import { BasicExamInfoForm } from '../components/BasicExamInfoForm';
 import { DeliveryModeCard } from '../components/DeliveryModeCard';
 import { ExamMethodPicker } from '../components/ExamMethodPicker';
+import { OmrSheetConfigCard } from '../components/OmrSheetConfigCard';
 import { PresetSelectorCard } from '../components/PresetSelectorCard';
 import { WorkflowSummaryCard } from '../components/WorkflowSummaryCard';
 
@@ -22,7 +23,7 @@ type Props = {
   recommendedPresetId: string | null;
   presetBusy: boolean;
   fieldErrors?: Partial<Record<Step1FieldKey, boolean>>;
-  onSelectCategory: (id: UiExamCategory) => void;
+  onSelectProductType: (id: ExamProductType) => void;
   clearFieldError: (key: Step1FieldKey) => void;
   onStartBlank: () => void;
   onApplyPreset: (presetId: string) => void;
@@ -38,7 +39,7 @@ export function Step1CategoryInfo({
   recommendedPresetId,
   presetBusy,
   fieldErrors,
-  onSelectCategory,
+  onSelectProductType,
   clearFieldError,
   onStartBlank,
   onApplyPreset,
@@ -54,22 +55,6 @@ export function Step1CategoryInfo({
         onApplyPreset={onApplyPreset}
       />
 
-      <ExamMethodPicker
-        value={state.uiCategory}
-        invalid={Boolean(fieldErrors?.uiCategory)}
-        onChange={(category) => {
-          clearFieldError('uiCategory');
-          onSelectCategory(category);
-        }}
-      />
-
-      <DeliveryModeCard
-        state={state}
-        onChange={(deliveryMode) => dispatch({ type: 'MERGE', patch: { deliveryMode } })}
-      />
-
-      <WorkflowSummaryCard state={state} />
-
       <BasicExamInfoForm
         state={state}
         dispatch={dispatch}
@@ -78,6 +63,24 @@ export function Step1CategoryInfo({
         fieldErrors={fieldErrors}
         clearFieldError={clearFieldError}
       />
+
+      <ExamMethodPicker
+        value={state.productType}
+        invalid={Boolean(fieldErrors?.productType)}
+        onChange={(productType) => {
+          clearFieldError('productType');
+          onSelectProductType(productType);
+        }}
+      />
+
+      <DeliveryModeCard
+        state={state}
+        onChange={(deliveryMode) => dispatch({ type: 'MERGE', patch: { deliveryMode } })}
+      />
+
+      <OmrSheetConfigCard state={state} dispatch={dispatch} />
+
+      <WorkflowSummaryCard state={state} />
     </div>
   );
 }

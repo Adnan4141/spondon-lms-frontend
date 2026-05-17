@@ -21,15 +21,34 @@ import type { Question } from '@/types/question';
 import type { SelectionMode } from '@/types/exam';
 import { cn } from '@/lib/utils';
 
+type SingleFolderInit = { excludedQuestionIds: string[]; pinnedQuestionIds: string[] };
+
 type Props = {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  folderId: string;
+  /** Single-folder mode (legacy). Required unless `folderIds` is set. */
+  folderId?: string;
   folderName?: string;
+  /**
+   * Multi-folder mode. When supplied, the modal loads questions across all
+   * folders, exposes a folder filter chip row, and emits per-folder save
+   * payloads via {@link onSaveMulti}. Falls back to single-folder behaviour
+   * when only `folderId` is set.
+   */
+  folderIds?: string[];
+  folderLookup?: Record<string, { name: string; initial?: SingleFolderInit }>;
   questionType: 'MCQ' | 'CQ' | 'SHORT';
-  excludedIds: string[];
-  pinnedIds: string[];
-  onSave: (next: { excludedQuestionIds: string[]; pinnedQuestionIds: string[]; selectionMode: SelectionMode }) => void;
+  excludedIds?: string[];
+  pinnedIds?: string[];
+  onSave?: (next: { excludedQuestionIds: string[]; pinnedQuestionIds: string[]; selectionMode: SelectionMode }) => void;
+  onSaveMulti?: (
+    rows: Array<{
+      folderId: string;
+      excludedQuestionIds: string[];
+      pinnedQuestionIds: string[];
+      selectionMode: SelectionMode;
+    }>,
+  ) => void;
 };
 
 function stripHtml(s: string, max = 160) {
@@ -71,10 +90,13 @@ export function QuestionPickerModal({
   onOpenChange,
   folderId,
   folderName,
+  folderIds,
+  folderLookup,
   questionType,
-  excludedIds,
-  pinnedIds,
+  excludedIds = [],
+  pinnedIds = [],
   onSave,
+  onSaveMulti,
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -82,13 +104,20 @@ export function QuestionPickerModal({
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const [pinned, setPinned] = useState<string[]>([]);
   const [tab, setTab] = useState<'exclude' | 'pin'>('exclude');
+  const [folderFilter, setFolderFilter] = useState<string | null>(null);
   const passageMergeDone = useRef(false);
 
+  const isMulti = Array.isArray(folderIds) && folderIds.length > 0;
+  const activeFolderIds = isMulti ? folderIds! : folderId ? [folderId] : [];
+  const folderIdsKey = activeFolderIds.join('|');
+
   const load = useCallback(async () => {
-    if (!folderId) return;
+    if (activeFolderIds.length === 0) return;
     setLoading(true);
     try {
-      const res = await getQuestions(folderId, questionType);
+      const res = isMulti
+        ? await getQuestions(undefined, questionType, undefined, undefined, undefined, undefined, undefined, activeFolderIds)
+        : await getQuestions(activeFolderIds[0], questionType);
       if (res.success && res.data) setQuestions(res.data);
       else setQuestions([]);
     } catch {
@@ -96,7 +125,7 @@ export function QuestionPickerModal({
     } finally {
       setLoading(false);
     }
-  }, [folderId, questionType]);
+  }, [folderIdsKey, isMulti, questionType]);
 
   useEffect(() => {
     if (!open) passageMergeDone.current = false;
@@ -104,30 +133,61 @@ export function QuestionPickerModal({
 
   useEffect(() => {
     passageMergeDone.current = false;
-  }, [folderId]);
+  }, [folderIdsKey]);
 
   useEffect(() => {
-    if (open && folderId) {
-      setExcluded(new Set(excludedIds));
-      setPinned([...pinnedIds]);
+    if (open && activeFolderIds.length > 0) {
+      // In multi mode, hydrate from each folder's per-folder init list so we
+      // don't lose existing pins/excludes when bulk-editing.
+      if (isMulti && folderLookup) {
+        const excludedMerged = new Set<string>();
+        const pinnedMerged: string[] = [];
+        for (const id of activeFolderIds) {
+          const init = folderLookup[id]?.initial;
+          init?.excludedQuestionIds?.forEach((qid) => excludedMerged.add(qid));
+          init?.pinnedQuestionIds?.forEach((qid) => {
+            if (!pinnedMerged.includes(qid)) pinnedMerged.push(qid);
+          });
+        }
+        setExcluded(excludedMerged);
+        setPinned(pinnedMerged);
+      } else {
+        setExcluded(new Set(excludedIds));
+        setPinned([...pinnedIds]);
+      }
       setSearch('');
       setTab('exclude');
+      setFolderFilter(null);
       void load();
     }
-  }, [open, folderId, excludedIds, pinnedIds, load]);
+  }, [open, folderIdsKey, excludedIds, pinnedIds, isMulti, folderLookup, load]);
 
   /** After questions load, expand any passage pins once so the list matches server generation rules. */
   useEffect(() => {
     if (!open || questionType !== 'MCQ' || questions.length === 0 || passageMergeDone.current) return;
     passageMergeDone.current = true;
-    setPinned(mergePassagePinsInto([...pinnedIds], questions));
-  }, [open, questionType, questions, pinnedIds]);
+    setPinned((prev) => mergePassagePinsInto([...prev], questions));
+  }, [open, questionType, questions]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return questions;
-    return questions.filter((x) => stripHtml(x.prompt, 500).toLowerCase().includes(q));
-  }, [questions, search]);
+    const scoped = folderFilter
+      ? questions.filter((x) => x.folderId === folderFilter)
+      : questions;
+    if (!q) return scoped;
+    return scoped.filter((x) => stripHtml(x.prompt, 500).toLowerCase().includes(q));
+  }, [questions, search, folderFilter]);
+
+  const folderChips = useMemo(() => {
+    if (!isMulti) return [] as Array<{ id: string; label: string; count: number }>;
+    const counts = new Map<string, number>();
+    for (const q of questions) counts.set(q.folderId, (counts.get(q.folderId) ?? 0) + 1);
+    return activeFolderIds.map((id) => ({
+      id,
+      label: folderLookup?.[id]?.name ?? id.slice(0, 6),
+      count: counts.get(id) ?? 0,
+    }));
+  }, [isMulti, questions, activeFolderIds, folderLookup]);
 
   const toggleExclude = (id: string) => {
     setExcluded((prev) => {
@@ -165,11 +225,38 @@ export function QuestionPickerModal({
 
   const handleSave = () => {
     const mode: SelectionMode = pinned.length > 0 ? 'MANUAL_PICK' : 'RANDOM_COUNT';
-    onSave({
-      excludedQuestionIds: [...excluded],
-      pinnedQuestionIds: pinned,
-      selectionMode: mode,
-    });
+    if (isMulti && onSaveMulti) {
+      // Partition the user's selections back per-folder so each underlying
+      // rule keeps its own pin/exclude lists.
+      const byFolder = new Map<string, { excluded: string[]; pinned: string[] }>();
+      for (const id of activeFolderIds) byFolder.set(id, { excluded: [], pinned: [] });
+      const qById = new Map(questions.map((q) => [q.id, q]));
+      for (const qid of excluded) {
+        const folder = qById.get(qid)?.folderId;
+        if (folder && byFolder.has(folder)) byFolder.get(folder)!.excluded.push(qid);
+      }
+      for (const qid of pinned) {
+        const folder = qById.get(qid)?.folderId;
+        if (folder && byFolder.has(folder)) byFolder.get(folder)!.pinned.push(qid);
+      }
+      onSaveMulti(
+        activeFolderIds.map((id) => {
+          const row = byFolder.get(id)!;
+          return {
+            folderId: id,
+            excludedQuestionIds: row.excluded,
+            pinnedQuestionIds: row.pinned,
+            selectionMode: row.pinned.length > 0 ? ('MANUAL_PICK' as SelectionMode) : ('RANDOM_COUNT' as SelectionMode),
+          };
+        }),
+      );
+    } else {
+      onSave?.({
+        excludedQuestionIds: [...excluded],
+        pinnedQuestionIds: pinned,
+        selectionMode: mode,
+      });
+    }
     onOpenChange(false);
   };
 
@@ -214,6 +301,38 @@ export function QuestionPickerModal({
               className="mt-1 border-slate-200 focus-visible:ring-[#C8A96E]/40"
             />
           </div>
+          {isMulti && folderChips.length > 0 ? (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setFolderFilter(null)}
+                className={cn(
+                  'rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider transition-colors',
+                  folderFilter === null
+                    ? 'border-[#0D1B35] bg-[#0D1B35] text-[#E2C98A]'
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-400',
+                )}
+              >
+                All · {questions.length}
+              </button>
+              {folderChips.map((chip) => (
+                <button
+                  key={chip.id}
+                  type="button"
+                  onClick={() => setFolderFilter(chip.id)}
+                  className={cn(
+                    'max-w-[200px] truncate rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider transition-colors',
+                    folderFilter === chip.id
+                      ? 'border-[#0D1B35] bg-[#0D1B35] text-[#E2C98A]'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-400',
+                  )}
+                  title={chip.label}
+                >
+                  {chip.label} · {chip.count}
+                </button>
+              ))}
+            </div>
+          ) : null}
           <TabsContent value="exclude" className="mt-2 space-y-0">
             <div className="max-h-[min(52vh,360px)] overflow-y-auto rounded-md border border-slate-200 bg-white p-2">
               {loading ? (

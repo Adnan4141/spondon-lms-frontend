@@ -1,26 +1,36 @@
 import type { FolderTreeNode } from '@/lib/api/question-bank';
-import type { ExamWizardState, UiExamCategory, WizardSection } from '../types';
+import type { ExamProductType, ExamWizardState, WizardSection } from '../types';
 import { EXAM_WIZARD_ALL_BRANCHES } from './constants';
 
 export function newLocalId() {
   return `w_${Math.random().toString(36).slice(2, 11)}`;
 }
 
-export function defaultSectionsFor(cat: UiExamCategory): WizardSection[] {
-  if (cat === 'CQ')
+export function defaultSectionsFor(productType: ExamProductType, defaultNeg = 0.25): WizardSection[] {
+  if (productType === 'WRITTEN')
     return [
       {
         localId: newLocalId(),
         type: 'CQ',
-        label: 'CQ — written',
+        label: 'Creative / CQ',
         count: 8,
         marks: 10,
         neg: 0,
         difficulty: 'MIXED',
         folderRules: [],
       },
+      {
+        localId: newLocalId(),
+        type: 'SHORT',
+        label: 'Short answers',
+        count: 10,
+        marks: 2,
+        neg: 0,
+        difficulty: 'MIXED',
+        folderRules: [],
+      },
     ];
-  if (cat === 'MCQCQ')
+  if (productType === 'COMBINED')
     return [
       {
         localId: newLocalId(),
@@ -29,7 +39,7 @@ export function defaultSectionsFor(cat: UiExamCategory): WizardSection[] {
         count: 30,
         mcqPassageCount: 0,
         marks: 1,
-        neg: 0.25,
+        neg: defaultNeg,
         difficulty: 'MIXED',
         folderRules: [],
       },
@@ -44,7 +54,7 @@ export function defaultSectionsFor(cat: UiExamCategory): WizardSection[] {
         folderRules: [],
       },
     ];
-  if (cat === 'MULTI' || cat === 'OMR' || cat === 'OMRB' || cat === 'OFFLINE_RESULT') return [];
+  if (productType === 'MULTI') return [];
   return [
     {
       localId: newLocalId(),
@@ -53,7 +63,7 @@ export function defaultSectionsFor(cat: UiExamCategory): WizardSection[] {
       count: 25,
       mcqPassageCount: 0,
       marks: 1,
-      neg: 0.25,
+      neg: defaultNeg,
       difficulty: 'MIXED',
       folderRules: [],
     },
@@ -71,6 +81,60 @@ export function flattenFolders(
     if (n.children?.length) out.push(...flattenFolders(n.children, p));
   }
   return out;
+}
+
+export interface FolderCounts {
+  mcqSingle: number;
+  mcqPassage: number;
+  cq: number;
+  short: number;
+  total: number;
+}
+
+/**
+ * Sum the `counts.*` of a folder and all its descendants. The backend tree
+ * only returns own-counts per node, so the wizard rolls them up client-side
+ * to show meaningful totals on parent rows (e.g. "Physics → 45Q" even when
+ * Physics has zero direct questions and 45 live under chapters).
+ */
+export function rollupFolderCounts(node: FolderTreeNode): FolderCounts {
+  const own = node.counts ?? { mcqSingle: 0, mcqPassage: 0, cq: 0, short: 0, total: 0 };
+  let total = own.total ?? 0;
+  let mcqSingle = own.mcqSingle ?? 0;
+  let mcqPassage = own.mcqPassage ?? 0;
+  let cq = own.cq ?? 0;
+  let short = own.short ?? 0;
+  for (const child of node.children ?? []) {
+    const childRollup = rollupFolderCounts(child);
+    total += childRollup.total;
+    mcqSingle += childRollup.mcqSingle;
+    mcqPassage += childRollup.mcqPassage;
+    cq += childRollup.cq;
+    short += childRollup.short;
+  }
+  return { mcqSingle, mcqPassage, cq, short, total };
+}
+
+/** Build a `folderId → rollupCounts` map for an entire tree (memoise-friendly). */
+export function buildRollupCountsMap(
+  nodes: FolderTreeNode[],
+  out: Map<string, FolderCounts> = new Map(),
+): Map<string, FolderCounts> {
+  for (const node of nodes) {
+    out.set(node.id, rollupFolderCounts(node));
+    if (node.children?.length) buildRollupCountsMap(node.children, out);
+  }
+  return out;
+}
+
+export function folderCapacityForType(
+  counts: FolderCounts | undefined,
+  type: 'MCQ' | 'CQ' | 'SHORT',
+): number {
+  if (!counts) return 0;
+  if (type === 'MCQ') return counts.mcqSingle + counts.mcqPassage;
+  if (type === 'CQ') return counts.cq;
+  return counts.short;
 }
 
 export function sectionAllocatedTotal(s: WizardSection): number {
@@ -101,8 +165,16 @@ export function setLabelsForPreview(setNaming: ExamWizardState['setNaming'], nSe
 
 export const WIZARD_FORM_INITIAL: ExamWizardState = {
   step: 1,
-  uiCategory: '',
+  productType: '',
   deliveryMode: 'ONLINE',
+  omrConfig: null,
+  resultInputModes: ['AUTOMATED'],
+  smsNotification: false,
+  startAt: undefined,
+  endAt: undefined,
+  solveVisibility: 'IMMEDIATELY',
+  solveScheduledAt: undefined,
+  defaultNegativeMarks: 0.25,
   title: '',
   courseIds: [],
   branchId: EXAM_WIZARD_ALL_BRANCHES,
@@ -123,7 +195,7 @@ export const WIZARD_FORM_INITIAL: ExamWizardState = {
   hideResult: false,
   showSolve: true,
   showPct: false,
-  resultModes: ['AUTO'],
+  resultModes: ['AUTOMATED'],
 };
 
 /** Strip non-serializable / normalize for JSON storage */
@@ -132,6 +204,9 @@ export function serializeWizardForm(s: ExamWizardState): string {
     ...s,
     scheduleAt: s.scheduleAt?.toISOString() ?? null,
     solveAt: s.solveAt?.toISOString() ?? null,
+    startAt: s.startAt?.toISOString() ?? null,
+    endAt: s.endAt?.toISOString() ?? null,
+    solveScheduledAt: s.solveScheduledAt?.toISOString() ?? null,
   });
 }
 
@@ -148,6 +223,11 @@ export function deserializeWizardForm(json: string): ExamWizardState | null {
     }
     if (o.scheduleAt && typeof o.scheduleAt === 'string') base.scheduleAt = new Date(o.scheduleAt);
     if (o.solveAt && typeof o.solveAt === 'string') base.solveAt = new Date(o.solveAt);
+    if (o.startAt && typeof o.startAt === 'string') base.startAt = new Date(o.startAt);
+    if (o.endAt && typeof o.endAt === 'string') base.endAt = new Date(o.endAt);
+    if (o.solveScheduledAt && typeof o.solveScheduledAt === 'string') {
+      base.solveScheduledAt = new Date(o.solveScheduledAt);
+    }
     if (!base.branchId) base.branchId = EXAM_WIZARD_ALL_BRANCHES;
     base.subjects = (base.subjects ?? []).map((sub) => ({
       ...sub,
@@ -157,14 +237,20 @@ export function deserializeWizardForm(json: string): ExamWizardState | null {
       shortCount: Number(sub.shortCount ?? 0),
       folderRules: sub.folderRules ?? [],
     }));
+    if (!Array.isArray(base.resultInputModes) || base.resultInputModes.length === 0) {
+      base.resultInputModes = ['AUTOMATED'];
+    }
+    if (!base.solveVisibility) base.solveVisibility = 'IMMEDIATELY';
+    if (typeof base.defaultNegativeMarks !== 'number') base.defaultNegativeMarks = 0.25;
+    if (typeof base.smsNotification !== 'boolean') base.smsNotification = false;
     return base;
   } catch {
     return null;
   }
 }
 
-export function draftStorageKey(examId?: string) {
-  return `exam-wizard-draft:${examId ?? 'new'}`;
+export function draftStorageKey(examId?: string, scope = 'new') {
+  return `exam-wizard-draft:${examId ?? scope}`;
 }
 
 export function primaryCourseId(courseIds: string[]): string {

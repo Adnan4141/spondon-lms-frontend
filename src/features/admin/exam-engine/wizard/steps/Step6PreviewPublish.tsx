@@ -13,9 +13,12 @@ import type { ExamWizardState } from '../../types';
 import { PaperPreview } from '../components/PaperPreview';
 import { ExamPdfPreviewDialog } from '../../components/ExamPdfPreviewDialog';
 import { PresetSaveActions } from '../components/PresetSaveActions';
+import { ExamScheduleCard } from '../components/ExamScheduleCard';
+import type { WizardFormAction } from '../examWizardReducer';
 
 type Props = {
   state: ExamWizardState;
+  dispatch: React.Dispatch<WizardFormAction>;
   step: number;
   saveAction: null | 'draft' | 'finalize';
   onSaveDraft: () => void;
@@ -33,6 +36,7 @@ type Props = {
 
 export function Step6PreviewPublish({
   state,
+  dispatch,
   step,
   saveAction,
   onSaveDraft,
@@ -93,6 +97,8 @@ export function Step6PreviewPublish({
     <div className="space-y-4">
       <PaperPreview state={state} step={step} />
 
+      <ExamScheduleCard state={state} dispatch={dispatch} />
+
       <PresetSaveActions
         key={appliedPresetId ?? 'new-preset'}
         presets={presets}
@@ -136,7 +142,7 @@ export function Step6PreviewPublish({
               <Button type="button" variant="secondary" size="sm" className="gap-2" onClick={downloadMaster}>
                 <Download className="h-4 w-4" /> Download master
               </Button>
-              {(state.uiCategory === 'CQ' || state.uiCategory === 'MCQCQ') ? (
+              {(state.productType === 'WRITTEN' || state.productType === 'COMBINED') ? (
                 <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => window.open(getAnswerSheetTemplateUrl(examId), '_blank', 'noopener,noreferrer')}>
                   <Download className="h-4 w-4" /> Answer sheet template
                 </Button>
