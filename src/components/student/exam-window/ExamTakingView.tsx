@@ -1109,7 +1109,9 @@ export function ExamTakingView({
             >
               <span className="text-[11px] font-black">{currentItemMeta?.label ?? currentIndex + 1}</span>
             </button>
-            <h1 className="max-w-[200px] truncate text-base font-black text-slate-900 sm:max-w-[300px] sm:text-lg">{examId}</h1>
+            <h1 className="max-w-[200px] truncate text-base font-black text-slate-900 sm:max-w-[300px] sm:text-lg">
+              {attemptData.exam.title || examId}
+            </h1>
             <Badge variant="outline" className="text-[9px] font-black uppercase shrink-0 hidden sm:inline-flex">
               {attemptData.setName}
             </Badge>

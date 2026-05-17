@@ -169,6 +169,7 @@ export const WIZARD_FORM_INITIAL: ExamWizardState = {
   deliveryMode: 'ONLINE',
   omrConfig: null,
   resultInputModes: ['AUTOMATED'],
+  resultInputModesUserEdited: false,
   smsNotification: false,
   startAt: undefined,
   endAt: undefined,

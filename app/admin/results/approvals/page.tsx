@@ -151,7 +151,7 @@ export default function ResultApprovalsPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8 pb-16 pt-4">
+    <div className="mx-auto max-w-full space-y-8 pb-16 pt-4">
       {/* Header */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
@@ -159,7 +159,7 @@ export default function ResultApprovalsPage() {
           <p className="mt-2 max-w-xl text-sm font-medium leading-relaxed text-slate-500">
             Review and approve result batches. Students see marks only after central approval.
             {branchScope ? (
-              <span className="mt-2 block font-semibold text-teal-700">
+              <span className="mt-2 block font-semibold text-blue-700">
                 Branch view: only your branch batches are shown.
               </span>
             ) : null}
@@ -296,7 +296,7 @@ export default function ResultApprovalsPage() {
                   <div className="flex flex-wrap gap-2 sm:shrink-0 sm:flex-col sm:items-stretch">
                     {b.approvalStatus === 'PENDING' && (
                       <>
-                        <Button type="button" size="sm" className="rounded-xl bg-sky-600 font-bold hover:bg-sky-700" disabled={busy}
+                        <Button type="button" size="sm" className="rounded-xl bg-sky-600 font-bold hover:bg-sky-700 text-white" disabled={busy}
                           onClick={() => run(b, 'Branch approved', () => approveResultBatchBranch(b.examId, b.id))}>
                           <Building2 className="mr-2 h-4 w-4" /> Branch approve
                         </Button>
@@ -322,7 +322,7 @@ export default function ResultApprovalsPage() {
                     )}
                     {b.approvalStatus === 'APPROVED_BY_BRANCH' && (
                       <>
-                        <Button type="button" size="sm" className="rounded-xl bg-emerald-600 font-bold hover:bg-emerald-700" disabled={busy}
+                        <Button type="button" size="sm" className="rounded-xl bg-emerald-600 font-bold hover:bg-emerald-700 text-white" disabled={busy}
                           onClick={() => run(b, 'Central approved', () => approveResultBatchCentral(b.examId, b.id, note || undefined))}>
                           <Shield className="mr-2 h-4 w-4" /> Central approve
                         </Button>

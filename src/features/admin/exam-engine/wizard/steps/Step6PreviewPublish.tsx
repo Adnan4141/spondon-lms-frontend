@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { CheckCircle2, Download, ExternalLink, Loader2, RefreshCw, Trophy, BarChart3, LayoutList } from 'lucide-react';
+import { CheckCircle2, Download, ExternalLink, Loader2, RefreshCw, Trophy, BarChart3, LayoutList, FileScan } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { regenerateExamPdf, getExamPdfDownloadUrl, getAnswerSheetTemplateUrl } from '@/lib/api/exams';
+import { regenerateExamPdf, getExamPdfDownloadUrl, getAnswerSheetTemplateUrl, generateOmrPdfBatch } from '@/lib/api/exams';
 import type { ExamStatus } from '@/types/exam';
 import type { ExamBlueprintPreset } from '@/lib/api/exams';
 import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
@@ -54,6 +54,8 @@ export function Step6PreviewPublish({
   const toast = useAdminToast();
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [masterPdfBusy, setMasterPdfBusy] = useState(false);
+  const [omrSheetBusy, setOmrSheetBusy] = useState(false);
+  const omrEnabled = state.resultInputModes.includes('OMR_SCAN');
   const status = serverExam?.status ?? null;
   const isDraft = status === 'DRAFT';
   const isPublished = status === 'PUBLISHED';
@@ -91,6 +93,32 @@ export function Step6PreviewPublish({
       return;
     }
     window.open(getExamPdfDownloadUrl(url), '_blank', 'noopener,noreferrer');
+  };
+
+  const generateOmrSheets = async () => {
+    if (!examId) return;
+    setOmrSheetBusy(true);
+    try {
+      const r = await generateOmrPdfBatch(examId, {
+        branchId: state.branchId || undefined,
+      });
+      if (!r.success || !r.data?.pdfUrl) {
+        toast({
+          title: 'OMR sheets failed',
+          description: r.message ?? 'Make sure students are enrolled in the exam course and a branch is selected.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      toast({
+        title: 'OMR sheets ready',
+        description: `${r.data.studentCount} per-student OMR pages generated. Print on plain A4 (no scaling).`,
+      });
+      window.open(getExamPdfDownloadUrl(r.data.pdfUrl), '_blank', 'noopener,noreferrer');
+      await onRefreshMeta();
+    } finally {
+      setOmrSheetBusy(false);
+    }
   };
 
   return (
@@ -145,6 +173,19 @@ export function Step6PreviewPublish({
               {(state.productType === 'WRITTEN' || state.productType === 'COMBINED') ? (
                 <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => window.open(getAnswerSheetTemplateUrl(examId), '_blank', 'noopener,noreferrer')}>
                   <Download className="h-4 w-4" /> Answer sheet template
+                </Button>
+              ) : null}
+              {omrEnabled ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 border-[#C8A96E] text-[#7A6035] hover:bg-[#FBF4E6]"
+                  disabled={omrSheetBusy}
+                  onClick={() => void generateOmrSheets()}
+                >
+                  {omrSheetBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileScan className="h-4 w-4" />}
+                  Generate printable OMR sheets
                 </Button>
               ) : null}
               <Button

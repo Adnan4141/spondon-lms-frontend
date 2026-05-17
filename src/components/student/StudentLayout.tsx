@@ -36,7 +36,12 @@ function resolveStudentHeader(pathname: string | null) {
 
   const cleanPath = pathname.replace(/\/$/, '');
   const segments = cleanPath.split('/').filter(Boolean);
-  const examId = segments[0] === 'student' && segments[1] === 'exams' ? segments[2] : undefined;
+  const examId =
+    segments[0] === 'student' && segments[1] === 'exams'
+      ? segments[2]
+      : segments[0] === 'student' && segments[1] === 'leaderboard'
+        ? segments[2]
+        : undefined;
 
   if (examId) {
     return {
@@ -101,7 +106,9 @@ export function StudentLayout({ children }: { children: React.ReactNode }) {
   const examIdFromPath = useMemo(() => {
     const cleanPath = (pathname || '').replace(/\/$/, '');
     const segments = cleanPath.split('/').filter(Boolean);
-    return segments[0] === 'student' && segments[1] === 'exams' ? segments[2] : undefined;
+    if (segments[0] !== 'student') return undefined;
+    if (segments[1] === 'exams' || segments[1] === 'leaderboard') return segments[2];
+    return undefined;
   }, [pathname]);
 
   useEffect(() => {

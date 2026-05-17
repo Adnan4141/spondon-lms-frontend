@@ -233,6 +233,27 @@ export async function regenerateSolveSheet(examId: string): Promise<ApiResponse<
   });
 }
 
+export interface OmrPdfBatchResponse {
+  pdfUrl: string;
+  studentCount: number;
+  generatedAt: string;
+}
+
+/**
+ * Generate per-student printable OMR sheets (one A4 page per student) and
+ * persist a "last generated" record on the exam. Returns the merged PDF URL
+ * so the wizard can preview it immediately.
+ */
+export async function generateOmrPdfBatch(
+  examId: string,
+  body: { branchId?: string; studentIds?: string[]; setLabel?: string } = {},
+): Promise<ApiResponse<OmrPdfBatchResponse>> {
+  return apiRequest<ApiResponse<OmrPdfBatchResponse>>(`/exams/${examId}/omr/pdf-batch`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
 export function getExamPdfDownloadUrl(pdfUrl: string): string {
   if (!pdfUrl) return '';
   const trimmed = pdfUrl.trim();

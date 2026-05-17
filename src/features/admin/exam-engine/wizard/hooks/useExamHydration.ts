@@ -109,6 +109,9 @@ export function buildWizardPatchFromExam(exam: Exam): Partial<ExamWizardState> {
     productType,
     omrConfig,
     resultInputModes: resultInputModesFromExam,
+    // Loaded exams count as the admin's intentional configuration — suppress
+    // smart-preset auto-fills until they manually clear the field.
+    resultInputModesUserEdited: true,
     smsNotification: Boolean(wizard?.smsNotification),
     startAt,
     endAt,

@@ -102,6 +102,7 @@ export default function StudentExamTakingPage() {
 
   const shellLang: Lang = examMeta?.language === 'en' ? 'en' : 'bn';
   const baseUi = getExamUiStrings(shellLang);
+  const examDisplayTitle = result?.exam.title || attemptData?.exam.title || examMeta?.title || examId;
 
   const openResultAttempt = useCallback(async (attemptId: string, nextNotice?: string | null) => {
     const resultRes = await getAttemptResult(attemptId);
@@ -262,7 +263,7 @@ export default function StudentExamTakingPage() {
           </div>
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-400 mb-1">Upcoming Exam</p>
-            <h1 className="text-2xl font-black text-slate-900">{examId}</h1>
+            <h1 className="text-2xl font-black text-slate-900">{examDisplayTitle}</h1>
           </div>
           <div className="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-6">
             <p className="text-xs font-bold text-slate-500 mb-1">Exam starts at</p>
@@ -366,7 +367,7 @@ export default function StudentExamTakingPage() {
               <Badge variant="outline" className="mb-1 text-[9px] font-black uppercase bg-orange-100 text-orange-800 border-orange-200">
                 OFFLINE
               </Badge>
-              <h1 className="text-2xl font-black text-slate-900">{examId}</h1>
+              <h1 className="text-2xl font-black text-slate-900">{examDisplayTitle}</h1>
             </div>
           </div>
           <p className="text-slate-600 font-medium leading-relaxed mb-6">{ui.sub}</p>
@@ -603,7 +604,7 @@ export default function StudentExamTakingPage() {
             </div>
             <h1 className="text-3xl font-black text-slate-900">{resultUi.examCompleted}</h1>
             {result && (
-              <p className="text-lg font-medium text-slate-500 mt-2">{examId}</p>
+              <p className="text-lg font-medium text-slate-500 mt-2">{examDisplayTitle}</p>
             )}
           </div>
 

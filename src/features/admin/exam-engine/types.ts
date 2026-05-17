@@ -82,6 +82,13 @@ export interface ExamWizardState {
   deliveryMode: 'ONLINE' | 'OFFLINE';
   omrConfig: OmrConfig | null;
   resultInputModes: ResultInputMode[];
+  /**
+   * True once the admin has explicitly toggled a result-input mode. Suppresses
+   * the smart-preset auto-fill that fires when Type or DeliveryMode changes so
+   * we never clobber an intentional pick. Cleared when the wizard is re-hydrated
+   * from a saved exam (the saved selection counts as the user's intent).
+   */
+  resultInputModesUserEdited: boolean;
   smsNotification: boolean;
   startAt: Date | undefined;
   endAt: Date | undefined;
@@ -207,6 +214,61 @@ export const OMR_SHEET_PRESETS: Record<OmrSheetSize, { label: string; questionCo
   '120': { label: '120 questions', questionCount: 120, optionCount: 4 },
   COMPETITIVE: { label: 'Competitive (200, 5 options)', questionCount: 200, optionCount: 5 },
 };
+
+/**
+ * Recommended `resultInputModes` per (productType, deliveryMode) combination.
+ *
+ * The wizard pre-checks these when the admin first picks a Type or toggles the
+ * delivery mode, *only if* the user hasn't manually edited the field yet — we
+ * never overwrite an explicit choice. Mirrors the policy:
+ *
+ *  - Online MCQ / Multi / Combined → automatic grading
+ *  - Online Written → manual entry (per-student + bulk rows)
+ *  - Offline MCQ / Multi → OMR scan with manual entry as backup
+ *  - Offline Combined → OMR scan + Excel bulk (for the written section)
+ *  - Offline Written → manual entry + Excel bulk
+ */
+export const SUGGESTED_RESULT_MODES: Record<
+  Exclude<ExamProductType, never>,
+  Record<'ONLINE' | 'OFFLINE', ResultInputMode[]>
+> = {
+  MCQ: {
+    ONLINE: ['AUTOMATED'],
+    OFFLINE: ['OMR_SCAN', 'SINGLE_MANUAL'],
+  },
+  WRITTEN: {
+    ONLINE: ['SINGLE_MANUAL', 'BULK_MANUAL'],
+    OFFLINE: ['SINGLE_MANUAL', 'BULK_EXCEL'],
+  },
+  COMBINED: {
+    ONLINE: ['AUTOMATED', 'SINGLE_MANUAL'],
+    OFFLINE: ['OMR_SCAN', 'BULK_EXCEL'],
+  },
+  MULTI: {
+    ONLINE: ['AUTOMATED'],
+    OFFLINE: ['OMR_SCAN', 'SINGLE_MANUAL'],
+  },
+};
+
+/**
+ * Convenience accessor that handles the empty productType case. Returns
+ * `null` when no suggestion exists so callers can no-op.
+ */
+export function suggestedResultModes(
+  productType: ExamProductType | '',
+  deliveryMode: 'ONLINE' | 'OFFLINE',
+): ResultInputMode[] | null {
+  if (!productType) return null;
+  return SUGGESTED_RESULT_MODES[productType]?.[deliveryMode] ?? null;
+}
+
+/** Shallow-equality check for two result-mode arrays (order-insensitive). */
+export function resultInputModesEqual(a: ResultInputMode[], b: ResultInputMode[]): boolean {
+  if (a.length !== b.length) return false;
+  const sa = [...a].sort();
+  const sb = [...b].sort();
+  return sa.every((v, i) => v === sb[i]);
+}
 
 export const RESULT_INPUT_MODE_LABELS: Record<ResultInputMode, string> = {
   AUTOMATED: 'Automatic (online grading)',

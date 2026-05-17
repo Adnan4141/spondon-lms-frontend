@@ -35,6 +35,7 @@ import { getBranches } from '@/lib/api/branches';
 import { getActorUserIdFromStorage } from '@/lib/actor-user';
 import type { Exam } from '@/types/exam';
 import { ExamEngineSubnav } from './components/ExamEngineSubnav';
+import { OmrScanReviewPanel } from './components/OmrScanReviewPanel';
 import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
 
 type MeritRow = Record<string, unknown>;
@@ -127,6 +128,7 @@ export function ExamResultsPage({ examId }: { examId: string }) {
   const stats = analytics;
   const isOfflineResultFlow = exam?.mode === 'OFFLINE' || exam?.settings?.examWorkflow?.method === 'OFFLINE_RESULT';
   const isWrittenEvalFlow = exam?.mode === 'WRITTEN' || exam?.mode === 'HYBRID';
+  const omrScanEnabled = (exam?.resultInputModes ?? []).includes('OMR_SCAN');
   const selectedBranchId = branchId || exam?.branchId || '';
 
   const parseBulkRows = () => bulkRows
@@ -312,6 +314,14 @@ export function ExamResultsPage({ examId }: { examId: string }) {
           </CardContent>
         </Card>
       )}
+
+      {omrScanEnabled ? (
+        <OmrScanReviewPanel
+          examId={examId}
+          branchId={selectedBranchId || null}
+          onFinalized={() => void load()}
+        />
+      ) : null}
 
       {isOfflineResultFlow ? (
         <Card className="border-slate-200 shadow-sm">

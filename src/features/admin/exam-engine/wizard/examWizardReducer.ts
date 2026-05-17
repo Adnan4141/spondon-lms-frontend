@@ -6,6 +6,7 @@ import type {
   WizardSection,
   WizardSubject,
 } from '../types';
+import { resultInputModesEqual, suggestedResultModes } from '../types';
 import { SEC_TYPES } from './constants';
 import { defaultSectionsFor, newLocalId } from './wizardHelpers';
 
@@ -14,6 +15,9 @@ export type WizardFormAction =
   | { type: 'SET_STEP'; step: number }
   | { type: 'HYDRATE'; state: ExamWizardState }
   | { type: 'APPLY_PRODUCT_TYPE'; productType: ExamProductType }
+  | { type: 'SET_DELIVERY_MODE'; deliveryMode: 'ONLINE' | 'OFFLINE' }
+  | { type: 'SET_RESULT_INPUT_MODES'; modes: ExamWizardState['resultInputModes']; userEdited?: boolean }
+  | { type: 'APPLY_SUGGESTED_RESULT_MODES' }
   | { type: 'ADD_SECTION'; section: WizardSection }
   | { type: 'REMOVE_SECTION'; localId: string }
   | { type: 'UPDATE_SECTION'; localId: string; patch: Partial<WizardSection> }
@@ -55,12 +59,40 @@ export function examWizardReducer(state: ExamWizardState, action: WizardFormActi
     case 'APPLY_PRODUCT_TYPE': {
       const sections = defaultSectionsFor(action.productType, state.defaultNegativeMarks);
       // Type changes never force a mode change — Mode is orthogonal now.
+      // Auto-fill the recommended `resultInputModes` only when the admin
+      // hasn't manually touched the field yet. Mirrors DeliveryMode behaviour.
+      const suggestion = state.resultInputModesUserEdited
+        ? state.resultInputModes
+        : (suggestedResultModes(action.productType, state.deliveryMode) ?? state.resultInputModes);
       return {
         ...state,
         productType: action.productType,
         sections,
         subjects: action.productType === 'MULTI' ? state.subjects : [],
+        resultInputModes: suggestion,
       };
+    }
+    case 'SET_DELIVERY_MODE': {
+      const suggestion = state.resultInputModesUserEdited
+        ? state.resultInputModes
+        : (suggestedResultModes(state.productType, action.deliveryMode) ?? state.resultInputModes);
+      return { ...state, deliveryMode: action.deliveryMode, resultInputModes: suggestion };
+    }
+    case 'SET_RESULT_INPUT_MODES': {
+      // Default: any explicit change counts as a user edit so we stop
+      // overwriting the field on subsequent Type/Mode changes.
+      const userEdited = action.userEdited ?? true;
+      const next = action.modes.length ? action.modes : (['AUTOMATED'] as ExamWizardState['resultInputModes']);
+      return { ...state, resultInputModes: next, resultInputModesUserEdited: userEdited };
+    }
+    case 'APPLY_SUGGESTED_RESULT_MODES': {
+      const suggestion = suggestedResultModes(state.productType, state.deliveryMode);
+      if (!suggestion || suggestion.length === 0) return state;
+      if (resultInputModesEqual(state.resultInputModes, suggestion)) return state;
+      // Applying the suggestion explicitly still counts as the user opting in
+      // — but it's a controlled opt-in so we leave `userEdited` false. That
+      // way switching Type/Mode again still flows fresh suggestions.
+      return { ...state, resultInputModes: suggestion, resultInputModesUserEdited: false };
     }
     case 'ADD_SECTION':
       return { ...state, sections: [...state.sections, action.section] };

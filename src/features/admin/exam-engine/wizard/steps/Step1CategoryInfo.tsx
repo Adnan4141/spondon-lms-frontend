@@ -75,7 +75,7 @@ export function Step1CategoryInfo({
 
       <DeliveryModeCard
         state={state}
-        onChange={(deliveryMode) => dispatch({ type: 'MERGE', patch: { deliveryMode } })}
+        onChange={(deliveryMode) => dispatch({ type: 'SET_DELIVERY_MODE', deliveryMode })}
       />
 
       <OmrSheetConfigCard state={state} dispatch={dispatch} />
