@@ -45,7 +45,7 @@ export default function StudentMyCoursesPage() {
       <div className="flex justify-end">
         <div className="flex items-center gap-2 text-sm font-bold text-slate-400 bg-white px-4 py-2 rounded-2xl shadow-sm border border-slate-100">
           <BookOpen className="h-4 w-4 text-indigo-500" />
-          <span>{courses.length} কোর্স</span>
+          <span>{courses.length} courses</span>
         </div>
       </div>
 
@@ -99,7 +99,7 @@ export default function StudentMyCoursesPage() {
                         ) : null}
                         {c.billingType === 'MONTHLY' ? (
                           <span className="inline-block px-3 py-1 rounded-full bg-violet-50 text-violet-700 text-[10px] font-black uppercase tracking-widest">
-                            মাসিক বিলিং
+                            Monthly
                             {c.billingStartMonth ? ` · ${c.billingStartMonth}` : ''}
                           </span>
                         ) : null}
@@ -111,7 +111,7 @@ export default function StudentMyCoursesPage() {
 
                     <div className="space-y-2">
                       <div className="flex justify-between text-xs font-bold">
-                        <span className="text-slate-400 uppercase tracking-widest">অগ্রগতি</span>
+                        <span className="text-slate-400 uppercase tracking-widest">Progress</span>
                         <span className="text-indigo-600">{c.progress ?? 0}%</span>
                       </div>
                       <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
@@ -124,7 +124,7 @@ export default function StudentMyCoursesPage() {
 
                     <div className="pt-4 flex items-center justify-between">
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-widest">
-                        চলমান
+                        Active
                       </span>
                       <Link
                         href={`/student/courses/${c.course.slug ?? c.courseId}`}

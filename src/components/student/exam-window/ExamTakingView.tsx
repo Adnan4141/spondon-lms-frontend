@@ -359,7 +359,7 @@ function WrittenUploadPanel({
   };
 
   return (
-    <div className="space-y-3 rounded-2xl border border-violet-100 bg-violet-50/40 p-4">
+    <div className="space-y-3 rounded-2xl border border-blue-100 bg-blue-50/40 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm font-black text-slate-800">
@@ -369,7 +369,7 @@ function WrittenUploadPanel({
             Snap pages from your phone or upload a PDF. Images are compressed before upload.
           </p>
         </div>
-        <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-xl bg-violet-600 px-4 text-xs font-black uppercase tracking-wider text-white hover:bg-violet-700">
+        <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-xl bg-blue-600 px-4 text-xs font-black uppercase tracking-wider text-white hover:bg-blue-700">
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
           Add pages
           <input
@@ -396,12 +396,12 @@ function WrittenUploadPanel({
               <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-xs font-black text-slate-700">
                 {index + 1}
               </span>
-              <FileText className="h-4 w-4 text-violet-500" />
+              <FileText className="h-4 w-4 text-blue-500" />
               <a
                 href={getExamPdfDownloadUrl(page.url)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-700 hover:text-violet-700"
+                className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-700 hover:text-blue-700"
               >
                 {page.fileName || page.url.split('/').pop()}
               </a>
@@ -436,7 +436,7 @@ function WrittenUploadPanel({
           ) : null}
         </div>
       ) : (
-        <div className="rounded-xl border border-dashed border-violet-200 bg-white/70 px-4 py-6 text-center text-xs font-medium text-slate-500">
+        <div className="rounded-xl border border-dashed border-blue-200 bg-white/70 px-4 py-6 text-center text-xs font-medium text-slate-500">
             No handwritten pages uploaded yet.
         </div>
       )}
@@ -528,20 +528,21 @@ function WrittenQuestionBlock({
 }) {
   const ui = getExamUiStrings(lang);
   const cqBlock = q.question?.cqBlock;
+  const [showTextNote, setShowTextNote] = useState(false);
   return (
-    <div className="space-y-4 rounded-2xl border border-violet-100 bg-white p-5">
+    <div className="space-y-4 rounded-2xl border border-blue-100 bg-white p-5">
       {q.question?.type === 'CQ' && cqBlock ? (
         <div className="space-y-4">
-          <div className="rounded-2xl border border-violet-100 bg-violet-50/40 p-4">
-            <p className="mb-2 text-xs font-black uppercase tracking-widest text-violet-600">উদ্দীপক</p>
+          <div className="rounded-2xl border border-blue-100 bg-blue-50/40 p-4">
+            <p className="mb-2 text-xs font-black uppercase tracking-widest text-blue-600">উদ্দীপক</p>
             <div className="prose prose-lg max-w-none font-medium text-slate-800" dangerouslySetInnerHTML={{ __html: cqBlock.stimulus }} />
           </div>
           <div className="space-y-3">
             {cqBlock.parts.map((part) => (
               <div key={`${cqBlock.groupId}-${part.label}`} className="grid grid-cols-[42px_1fr_auto] gap-3 rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-                <span className="font-black text-violet-700">({part.label})</span>
+                <span className="font-black text-blue-700">({part.label})</span>
                 <div className="prose prose-sm max-w-none text-slate-800" dangerouslySetInnerHTML={{ __html: part.prompt }} />
-                <Badge variant="outline" className="h-fit border-violet-200 bg-white text-violet-700">
+                <Badge variant="outline" className="h-fit border-blue-200 bg-white text-blue-700">
                   {part.marks}
                 </Badge>
               </div>
@@ -558,17 +559,25 @@ function WrittenQuestionBlock({
         answer={answer}
         onChange={(nextAnswer) => onAnswerChange(q.questionId, nextAnswer)}
       />
-      <details className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
-        <summary className="cursor-pointer text-sm font-bold text-slate-500">
-          Optional typed note
-        </summary>
-        <textarea
-          className="mt-3 w-full min-h-24 rounded-2xl border border-slate-200 bg-white p-5 text-base font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all resize-y"
-          value={(answer?.text as string) || ''}
-          onChange={(e) => onTextChange(q.questionId, e.target.value)}
-          placeholder={ui.cqPlaceholder}
-        />
-      </details>
+      <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 space-y-3">
+        <label className="flex items-center gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showTextNote}
+            onChange={(e) => setShowTextNote(e.target.checked)}
+            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+          />
+          <span className="text-sm font-bold text-slate-600">Add optional typed note</span>
+        </label>
+        {showTextNote && (
+          <textarea
+            className="w-full min-h-24 rounded-2xl border border-slate-200 bg-white p-5 text-base font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-400 transition-all resize-y"
+            value={(answer?.text as string) || ''}
+            onChange={(e) => onTextChange(q.questionId, e.target.value)}
+            placeholder={ui.cqPlaceholder}
+          />
+        )}
+      </div>
     </div>
   );
 }
@@ -1100,12 +1109,12 @@ export function ExamTakingView({
             >
               <span className="text-[11px] font-black">{currentItemMeta?.label ?? currentIndex + 1}</span>
             </button>
-            <h1 className="max-w-[200px] truncate text-base font-black text-slate-900 sm:max-w-[300px] sm:text-lg">{attemptData.exam.title}</h1>
+            <h1 className="max-w-[200px] truncate text-base font-black text-slate-900 sm:max-w-[300px] sm:text-lg">{examId}</h1>
             <Badge variant="outline" className="text-[9px] font-black uppercase shrink-0 hidden sm:inline-flex">
               {attemptData.setName}
             </Badge>
             {examFlow === 'MIXED' ? (
-              <Badge variant="outline" className="text-[9px] font-black uppercase shrink-0 border-violet-200 text-violet-700 hidden sm:inline-flex">
+              <Badge variant="outline" className="text-[9px] font-black uppercase shrink-0 border-blue-200 text-blue-700 hidden sm:inline-flex">
                 Mixed
               </Badge>
             ) : null}
@@ -1162,7 +1171,7 @@ export function ExamTakingView({
                       }}
                       className={cn(
                         'h-14 rounded-xl px-4 text-left transition-all',
-                        active ? 'bg-slate-900 text-white shadow-md' : 'text-slate-600 hover:bg-slate-50',
+                        active ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-50',
                       )}
                     >
                       <div className="flex items-center justify-between gap-3">
@@ -1449,9 +1458,9 @@ export function ExamTakingView({
                 <span className="text-emerald-700">{mcqAnsweredCount}/{mcqQuestionCount}</span>
               </div>
               {writtenQuestionCount > 0 ? (
-                <div className="flex justify-between p-3 rounded-xl bg-violet-50 text-sm font-bold">
-                  <span className="text-violet-600">Written uploads</span>
-                  <span className="text-violet-700">{writtenUploadCompletedCount}/{writtenQuestionCount}</span>
+                <div className="flex justify-between p-3 rounded-xl bg-blue-50 text-sm font-bold">
+                  <span className="text-blue-600">Written uploads</span>
+                  <span className="text-blue-700">{writtenUploadCompletedCount}/{writtenQuestionCount}</span>
                 </div>
               ) : null}
               <div className="flex justify-between p-3 rounded-xl bg-emerald-50 text-sm font-bold">

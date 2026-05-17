@@ -31,7 +31,7 @@ export default function StudentExamLeaderboardPage() {
   useEffect(() => {
     const userStr = localStorage.getItem('user');
     if (!userStr) {
-      setErr('লগইন প্রয়োজন');
+      setErr('Login required');
       setLoading(false);
       return;
     }
@@ -49,14 +49,14 @@ export default function StudentExamLeaderboardPage() {
         const meta = await getExamStudentView(examId, userId);
         if (cancelled) return;
         if (!meta.success || !meta.data) {
-          setErr(meta.message || 'পরীক্ষা খুঁজে পাওয়া যায়নি');
+          setErr(meta.message || 'Exam not found');
           return;
         }
         setTitle(meta.data.title);
         setShowLb(!!meta.data.showLeaderboard);
         setShowPct(!!meta.data.showPercentile || meta.data.examEngine === 'COMPETITIVE');
         const opts: { id: string; name: string }[] = [
-          { id: meta.data.courseId, name: meta.data.course?.name ?? 'প্রাথমিক কোর্স' },
+          { id: meta.data.courseId, name: meta.data.course?.name ?? 'Default Course' },
         ];
         const seen = new Set(opts.map((o) => o.id));
         for (const ec of meta.data.examCourses || []) {
@@ -67,7 +67,7 @@ export default function StudentExamLeaderboardPage() {
         }
         setLinkedNames(opts);
       } catch (e: unknown) {
-        if (!cancelled) setErr(e instanceof Error ? e.message : 'লোড ব্যর্থ');
+        if (!cancelled) setErr(e instanceof Error ? e.message : 'Load failed');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -111,7 +111,7 @@ export default function StudentExamLeaderboardPage() {
     return (
       <div className="mx-auto max-w-lg space-y-6 py-12">
         <Button variant="outline" className="rounded-xl" onClick={() => router.push('/student/exams')}>
-          <ChevronLeft className="mr-2 h-4 w-4" /> পরীক্ষায় ফিরুন
+          <ChevronLeft className="mr-2 h-4 w-4" /> Back to Exam
         </Button>
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-8 text-center">
           <AlertCircle className="mx-auto mb-3 h-10 w-10 text-rose-400" />
@@ -125,11 +125,11 @@ export default function StudentExamLeaderboardPage() {
     return (
       <div className="mx-auto max-w-lg space-y-6 py-12">
         <Button variant="outline" className="rounded-xl" onClick={() => router.push(`/student/exams/${examId}`)}>
-          <ChevronLeft className="mr-2 h-4 w-4" /> ফিরুন
+          <ChevronLeft className="mr-2 h-4 w-4" /> Back
         </Button>
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center">
           <Trophy className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-          <p className="font-bold text-slate-600">এই পরীক্ষার জন্য লিডারবোর্ড চালু নেই</p>
+          <p className="font-bold text-slate-600">Leaderboard is not enabled for this exam</p>
         </div>
       </div>
     );
@@ -139,15 +139,15 @@ export default function StudentExamLeaderboardPage() {
     <div className="mx-auto max-w-3xl space-y-8 py-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <Button variant="ghost" className="rounded-xl" onClick={() => router.push(`/student/exams/${examId}`)}>
-          <ChevronLeft className="mr-2 h-4 w-4" /> ফিরুন
+          <ChevronLeft className="mr-2 h-4 w-4" /> Back
         </Button>
         {linkedNames.length > 0 ? (
           <Select value={scope} onValueChange={setScope}>
             <SelectTrigger className="h-10 w-[220px] rounded-xl">
-              <SelectValue placeholder="বিভাগ" />
+              <SelectValue placeholder="Division" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__all__">সব কোর্স</SelectItem>
+              <SelectItem value="__all__">All Courses</SelectItem>
               {linkedNames.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.name}
@@ -161,16 +161,16 @@ export default function StudentExamLeaderboardPage() {
       <div className="text-center">
         <Trophy className="mx-auto mb-3 h-12 w-12 text-amber-500" />
         <h1 className="text-2xl font-black text-slate-900">{title}</h1>
-        <p className="mt-1 text-sm font-medium text-slate-500">লিডারবোর্ড</p>
+        <p className="mt-1 text-sm font-medium text-slate-500">Leaderboard</p>
       </div>
 
       {rankSelf ? (
         <div className="rounded-2xl border border-indigo-200 bg-indigo-50/80 p-5 text-center">
-          <p className="text-xs font-bold uppercase tracking-widest text-indigo-600">আপনার অবস্থান</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-indigo-600">Your Position</p>
           <p className="mt-2 text-3xl font-black text-indigo-900">#{rankSelf.rank}</p>
           <p className="mt-1 text-sm font-semibold text-slate-700">
-            নম্বর: {rankSelf.obtainedMarks ?? '—'}
-            {showPct && rankSelf.percentile != null ? ` · শতাংশাইল ${rankSelf.percentile}` : ''}
+            Marks: {rankSelf.obtainedMarks ?? '—'}
+            {showPct && rankSelf.percentile != null ? ` · Percentile ${rankSelf.percentile}` : ''}
           </p>
         </div>
       ) : null}
@@ -180,8 +180,8 @@ export default function StudentExamLeaderboardPage() {
           <thead className="bg-slate-50 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-4 py-3">#</th>
-              <th className="px-4 py-3">নাম</th>
-              <th className="px-4 py-3 text-right">নম্বর</th>
+              <th className="px-4 py-3">Name</th>
+              <th className="px-4 py-3 text-right">Marks</th>
               {showPct ? <th className="px-4 py-3 text-right">%ile</th> : null}
             </tr>
           </thead>
@@ -204,7 +204,7 @@ export default function StudentExamLeaderboardPage() {
           </tbody>
         </table>
         {rows.length === 0 ? (
-          <p className="p-8 text-center text-sm text-slate-500">এখনও কেউ জমা দেয়নি</p>
+          <p className="p-8 text-center text-sm text-slate-500">No submissions yet</p>
         ) : null}
       </div>
     </div>

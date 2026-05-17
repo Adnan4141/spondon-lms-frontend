@@ -160,16 +160,16 @@ export default function StudentCourseHubPage() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <Link href="/student/courses" className="text-sm text-indigo-600 hover:underline mb-2 inline-block">
-            ← আমার কোর্স
+            ← My Courses
           </Link>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">{course?.name || 'কোর্স'}</h1>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">{course?.name || 'Course'}</h1>
           <p className="text-slate-500 mt-2 max-w-2xl">
-            প্রথমে একটি <strong className="text-slate-700">বিষয়</strong> বেছে নিন। প্রতিটি বিষয়ের ভিতরে অধ্যায় ও টপিক (ভিডিও, পিডিএফ, নোট) ধাপে ধাপে খুলবে।
+            Select a <strong className="text-slate-700">subject</strong> to get started. Chapters and topics (video, PDF, notes) inside each subject unlock step by step.
           </p>
         </div>
         <div className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-white px-5 py-3 shadow-sm">
           <div className="text-right">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">সামগ্রিক অগ্রগতি</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Overall Progress</p>
             <p className="text-2xl font-black text-indigo-600">{courseProgress}%</p>
           </div>
           <div className="w-28 h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -216,8 +216,8 @@ export default function StudentCourseHubPage() {
             )}
             {course.startMonth && (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-bold">
-                শুরু: {course.startMonth}
-                {course.durationMonths ? ` · ${course.durationMonths} মাস` : ''}
+                Start: {course.startMonth}
+                {course.durationMonths ? ` · ${course.durationMonths} months` : ''}
               </span>
             )}
           </div>
@@ -230,7 +230,7 @@ export default function StudentCourseHubPage() {
       {/* ── Highlights / features ── */}
       {course?.features && course.features.length > 0 && (
         <div>
-          <h2 className="text-lg font-black text-slate-900 mb-4">কোর্সের বিশেষত্ব</h2>
+          <h2 className="text-lg font-black text-slate-900 mb-4">Course Features</h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {course.features.map((f) => (
               <div key={f.id} className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
@@ -248,7 +248,7 @@ export default function StudentCourseHubPage() {
       <div>
         <h2 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-2">
           <FileText className="h-5 w-5 text-emerald-500" />
-          সিলেবাস
+          Syllabus
         </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {syllabusItems.map((item) => {
@@ -272,7 +272,7 @@ export default function StudentCourseHubPage() {
                       rel="noopener noreferrer"
                       className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition-colors"
                     >
-                      <Download className="h-3.5 w-3.5" /> ডাউনলোড
+                      <Download className="h-3.5 w-3.5" /> Download
                     </a>
                   )}
                 </div>
@@ -285,14 +285,14 @@ export default function StudentCourseHubPage() {
       <div>
         <h2 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-2">
           <Layers className="h-5 w-5 text-indigo-500" />
-          বিষয়সমূহ
+          Subjects
         </h2>
         {subjectRows.length === 0 ? (
           <Card className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50">
             <CardContent className="p-12 text-center">
               <BookOpen className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-              <p className="font-bold text-slate-700">এখনও কোনো বিষয় বা কন্টেন্ট যোগ করা হয়নি</p>
-              <p className="text-sm text-slate-500 mt-2">অ্যাডমিন কোর্সে রিসোর্স যোগ করলে এখানে বিষয়ভিত্তিক কার্ড দেখা যাবে।</p>
+              <p className="font-bold text-slate-700">No subjects or content added yet</p>
+              <p className="text-sm text-slate-500 mt-2">Subject cards will appear here once resources are added by admin.</p>
             </CardContent>
           </Card>
         ) : (
@@ -314,20 +314,20 @@ export default function StudentCourseHubPage() {
                 <div className="mt-4 grid grid-cols-3 gap-2 text-center">
                   <div className="rounded-xl bg-slate-50 py-2">
                     <p className="text-lg font-black text-slate-800">{row.stats.chapters}</p>
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">অধ্যায়</p>
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Chapters</p>
                   </div>
                   <div className="rounded-xl bg-slate-50 py-2">
                     <p className="text-lg font-black text-slate-800">{row.stats.segments}</p>
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">সেগমেন্ট</p>
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Segments</p>
                   </div>
                   <div className="rounded-xl bg-indigo-50 py-2">
                     <p className="text-lg font-black text-indigo-700">{row.stats.progressPct}%</p>
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-indigo-400">অগ্রগতি</p>
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-indigo-400">Progress</p>
                   </div>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-3 text-xs font-bold text-slate-500">
                   <span className="inline-flex items-center gap-1">
-                    <ListVideo className="h-3.5 w-3.5" /> {row.stats.videos} ভিডিও
+                    <ListVideo className="h-3.5 w-3.5" /> {row.stats.videos} videos
                   </span>
                 </div>
               </Link>
@@ -341,7 +341,7 @@ export default function StudentCourseHubPage() {
         <div>
           <h2 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-2">
             <Users className="h-5 w-5 text-indigo-500" />
-            শিক্ষকবৃন্দ
+            Teachers
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {course.teachers
@@ -387,7 +387,7 @@ export default function StudentCourseHubPage() {
         <div>
           <h2 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-2">
             <BookOpen className="h-5 w-5 text-amber-500" />
-            কোর্সের বই
+            Course Books
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {course.courseBooks.map((cb) => {
@@ -415,7 +415,7 @@ export default function StudentCourseHubPage() {
                     <div className="mt-2">
                       {cb.isFree ? (
                         <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-black">
-                          বিনামূল্যে
+                          Free
                         </span>
                       ) : (
                         <span className="text-sm font-bold text-slate-700">৳{cb.book.price}</span>
@@ -435,12 +435,12 @@ export default function StudentCourseHubPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-500">Course reviews</p>
-                <h3 className="text-xl font-black text-slate-900">এই কোর্সের রিভিউ</h3>
+                <h3 className="text-xl font-black text-slate-900">Course Reviews</h3>
               </div>
               <span className="text-xs font-bold text-slate-400">{reviews.length} reviews</span>
             </div>
             {reviews.length === 0 ? (
-              <p className="text-sm text-slate-500">এখনও কোনো রিভিউ নেই।</p>
+              <p className="text-sm text-slate-500">No reviews yet.</p>
             ) : (
               <div className="space-y-4">
                 {reviews.map((r) => (
@@ -467,10 +467,10 @@ export default function StudentCourseHubPage() {
 
         <Card className="rounded-2xl border border-slate-100 shadow-sm">
           <CardContent className="p-6 space-y-4">
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-500">আপনার মতামত</p>
-            <h3 className="text-lg font-black text-slate-900">কোর্স রিভিউ দিন</h3>
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-500">Your Opinion</p>
+            <h3 className="text-lg font-black text-slate-900">Write a Review</h3>
             {!studentUserId ? (
-              <p className="text-sm text-rose-500">রিভিউ দিতে লগইন থাকতে হবে।</p>
+              <p className="text-sm text-rose-500">Please log in to write a review.</p>
             ) : (
               <>
                 <div className="flex gap-2">
@@ -489,7 +489,7 @@ export default function StudentCourseHubPage() {
                 </div>
                 <Textarea
                   rows={5}
-                  placeholder="আপনার অভিজ্ঞতা লিখুন..."
+                  placeholder="Share your experience..."
                   value={reviewForm.quote}
                   onChange={(e) => setReviewForm((p) => ({ ...p, quote: e.target.value }))}
                 />
@@ -511,16 +511,16 @@ export default function StudentCourseHubPage() {
                       });
                       setReviewForm({ quote: '', rating: 5 });
                       await loadReviews();
-                      alert('রিভিউ পাঠানো হয়েছে। অনুমোদনের পর প্রকাশ হবে।');
+                      alert('Review submitted. It will be published after approval.');
                     } catch (err) {
-                      const msg = err instanceof Error ? err.message : 'রিভিউ পাঠানো যায়নি';
+                      const msg = err instanceof Error ? err.message : 'Could not submit review';
                       alert(msg);
                     } finally {
                       setReviewSubmitting(false);
                     }
                   }}
                 >
-                  জমা দিন
+                  Submit
                 </Button>
               </>
             )}

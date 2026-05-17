@@ -88,16 +88,16 @@ export default function StudentBooksPage() {
   const confirmPurchase = async () => {
     const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
     if (!userStr) {
-      alert('কিনতে লগইন করুন');
+      alert('Please log in to purchase');
       return;
     }
     const user = JSON.parse(userStr);
     if (String(user.role || '').toUpperCase() !== 'STUDENT') {
-      setFormError('শুধুমাত্র শিক্ষার্থী অ্যাকাউন্ট দিয়ে কেনা যাবে।');
+      setFormError('Only student accounts can make purchases.');
       return;
     }
     if (!recipientName.trim() || !phone.trim() || !address.trim()) {
-      setFormError('নাম, মোবাইল ও ঠিকানা পূরণ করুন।');
+      setFormError('Please fill in your name, phone, and address.');
       return;
     }
     if (!checkoutBook) return;
@@ -130,9 +130,9 @@ export default function StudentBooksPage() {
       const uid = user.id as string;
       const mine = await getMyBookPurchases(uid);
       if (mine.success && mine.data) setMyPurchases(mine.data);
-      throw new Error('গেটওয়ে খুলতে ব্যর্থ — অর্ডার তৈরি হয়েছে; পেমেন্ট পেজ থেকে শোধ করুন।');
+      throw new Error('Failed to open payment gateway — order created; please pay from the payment page.');
     } catch (e: unknown) {
-      setFormError(e instanceof Error ? e.message : 'কেনা ব্যর্থ');
+      setFormError(e instanceof Error ? e.message : 'Purchase failed');
     } finally {
       setPurchasingId(null);
     }
@@ -143,7 +143,7 @@ export default function StudentBooksPage() {
       <div className="flex min-h-[400px] items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-12 w-12 animate-spin text-indigo-600" />
-          <p className="animate-pulse font-bold text-slate-500">লোড হচ্ছে...</p>
+          <p className="animate-pulse font-bold text-slate-500">Loading...</p>
         </div>
       </div>
     );
@@ -154,9 +154,9 @@ export default function StudentBooksPage() {
       <section id="my-books" className="scroll-mt-8 space-y-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="text-2xl font-black tracking-tight text-slate-900">আমার বই ও অর্ডার</h2>
+            <h2 className="text-2xl font-black tracking-tight text-slate-900">My Books & Orders</h2>
             <p className="text-sm font-medium text-slate-500">
-              ই-বুক (অনলাইন) ও প্রিন্ট অর্ডারের অবস্থা, ইনভয়েস PDF।
+              Status of e-book (online) and print orders, invoice PDF.
             </p>
           </div>
         </div>
@@ -169,7 +169,7 @@ export default function StudentBooksPage() {
             <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="বই খুঁজুন"
+              placeholder="Search books"
               className="w-64 rounded-2xl border border-slate-100 bg-white py-3 pl-11 pr-4 font-medium transition-all focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
             />
           </div>
@@ -187,8 +187,8 @@ export default function StudentBooksPage() {
           <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-slate-50">
             <BookMarked className="h-12 w-12 text-slate-300" />
           </div>
-          <h3 className="mb-2 text-2xl font-black text-slate-900">কোনো বই নেই</h3>
-          <p className="font-medium text-slate-500">পরবর্তীতে আবার দেখুন</p>
+          <h3 className="mb-2 text-2xl font-black text-slate-900">No Books Available</h3>
+          <p className="font-medium text-slate-500">Check back later</p>
         </Card>
       ) : (
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -249,23 +249,23 @@ export default function StudentBooksPage() {
       <Dialog open={!!checkoutBook} onOpenChange={(o) => !o && setCheckoutBook(null)}>
         <DialogContent className="rounded-3xl sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="font-black">অর্ডার নিশ্চিত করুন</DialogTitle>
+            <DialogTitle className="font-black">Confirm Order</DialogTitle>
             <DialogDescription>
-              {checkoutBook?.name} — ডেলিভারি ও যোগাযোগের তথ্য দিন, তারপর অনলাইন পেমেন্ট।
+              {checkoutBook?.name} — provide delivery and contact details, then proceed to online payment.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 py-2">
             {formError ? <p className="text-sm font-semibold text-rose-600">{formError}</p> : null}
             <div className="space-y-1.5">
-              <Label htmlFor="sb-name">পূর্ণ নাম</Label>
+              <Label htmlFor="sb-name">Full Name</Label>
               <Input id="sb-name" className="rounded-xl" value={recipientName} onChange={(e) => setRecipientName(e.target.value)} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="sb-phone">মোবাইল</Label>
+              <Label htmlFor="sb-phone">Phone</Label>
               <Input id="sb-phone" className="rounded-xl" value={phone} onChange={(e) => setPhone(e.target.value)} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="sb-address">ঠিকানা</Label>
+              <Label htmlFor="sb-address">Address</Label>
               <Textarea
                 id="sb-address"
                 className="min-h-[72px] rounded-xl"
@@ -275,11 +275,11 @@ export default function StudentBooksPage() {
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5">
-                <Label htmlFor="sb-city">শহর</Label>
+                <Label htmlFor="sb-city">City</Label>
                 <Input id="sb-city" className="rounded-xl" value={city} onChange={(e) => setCity(e.target.value)} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="sb-post">পোস্ট কোড</Label>
+                <Label htmlFor="sb-post">Postal Code</Label>
                 <Input
                   id="sb-post"
                   className="rounded-xl"
@@ -289,16 +289,16 @@ export default function StudentBooksPage() {
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="sb-notes">নোট</Label>
+              <Label htmlFor="sb-notes">Note</Label>
               <Input id="sb-notes" className="rounded-xl" value={notes} onChange={(e) => setNotes(e.target.value)} />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" className="rounded-2xl" onClick={() => setCheckoutBook(null)}>
-              বাতিল
+              Cancel
             </Button>
             <Button className="rounded-2xl font-black" onClick={confirmPurchase} disabled={!!purchasingId}>
-              {purchasingId ? <Loader2 className="h-4 w-4 animate-spin" /> : 'পেমেন্টে যান'}
+              {purchasingId ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Proceed to Payment'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -18,7 +18,7 @@ export default function StudentAllCoursesPage() {
            </div>
            
             <p className="mx-auto max-w-md text-lg font-medium leading-relaxed text-slate-500">
-              নতুন কোর্স দেখুন ও ভর্তি হোন
+              Browse new courses and enroll today
             </p>
 
            <div className="pt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -26,10 +26,10 @@ export default function StudentAllCoursesPage() {
                 href="/courses" 
                 className="w-full sm:w-auto px-10 py-5 rounded-[2rem] bg-indigo-600 text-white font-black text-lg hover:bg-indigo-700 transition-all shadow-2xl shadow-indigo-100 flex items-center justify-center gap-3 group"
               >
-                কোর্স দেখুন <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                Browse Courses <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
               </Link>
               <button className="w-full sm:w-auto px-10 py-5 rounded-[2rem] bg-slate-50 text-slate-600 font-black text-lg hover:bg-slate-100 transition-all">
-                ক্যাটাগরি
+                Category
               </button>
            </div>
         </CardContent>

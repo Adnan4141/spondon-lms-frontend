@@ -46,7 +46,7 @@ function getEngineBadgeClass(engine?: ExamEngineType) {
     case 'TALENT_HUNT':
       return 'bg-fuchsia-50 text-fuchsia-800 border-fuchsia-200';
     case 'OMR_BOOK':
-      return 'bg-teal-50 text-teal-800 border-teal-200';
+      return 'bg-blue-50 text-blue-800 border-blue-200';
     default:
       return 'bg-slate-50 text-slate-600 border-slate-200';
   }

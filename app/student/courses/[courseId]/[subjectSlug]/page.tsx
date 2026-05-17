@@ -263,15 +263,15 @@ export default function StudentCourseSubjectPage() {
           href={`/student/courses/${courseId}`}
           className="text-sm text-indigo-600 hover:underline inline-block"
         >
-          ← বিষয়ের তালিকায় ফিরুন
+          ← Back to Subjects
         </Link>
         <Card className="rounded-2xl border border-rose-100 bg-rose-50/50 p-8">
-          <h1 className="text-xl font-black text-slate-900">বিষয় পাওয়া যায়নি</h1>
+          <h1 className="text-xl font-black text-slate-900">Subject Not Found</h1>
           <p className="text-slate-600 mt-2">
-            এই লিঙ্কের বিষয়টি কোর্সে নেই বা সরানো হয়েছে। কোর্স হাব থেকে সঠিক বিষয় বেছে নিন।
+            The subject in this link is not in the course or has been removed. Choose the correct subject from the course hub.
           </p>
           <Button asChild className="mt-6 rounded-xl">
-            <Link href={`/student/courses/${courseId}`}>কোর্স পেজে যান</Link>
+            <Link href={`/student/courses/${courseId}`}>Go to Course Page</Link>
           </Button>
         </Card>
       </div>
@@ -282,13 +282,13 @@ export default function StudentCourseSubjectPage() {
     return (
       <div className="space-y-6 max-w-lg">
         <Link href={`/student/courses/${courseId}`} className="text-sm text-indigo-600 hover:underline">
-          ← কোর্স হাব
+          ← Course Hub
         </Link>
         <Card className="rounded-2xl border border-slate-100 p-8">
-          <h1 className="text-xl font-black text-slate-900">কোনো কন্টেন্ট নেই</h1>
-          <p className="text-slate-600 mt-2">এই কোর্সে এখনও কোনো পাঠ যোগ করা হয়নি।</p>
+          <h1 className="text-xl font-black text-slate-900">No Content</h1>
+          <p className="text-slate-600 mt-2">No lessons have been added to this course yet.</p>
           <Button asChild className="mt-6 rounded-xl">
-            <Link href="/student/courses">আমার কোর্স</Link>
+            <Link href="/student/courses">My Courses</Link>
           </Button>
         </Card>
       </div>
@@ -301,24 +301,24 @@ export default function StudentCourseSubjectPage() {
         <div>
           <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500 mb-2">
             <Link href="/student/courses" className="text-indigo-600 hover:underline">
-              আমার কোর্স
+              My Courses
             </Link>
             <span>/</span>
             <Link href={`/student/courses/${courseId}`} className="text-indigo-600 hover:underline">
-              {course?.name || 'কোর্স'}
+              {course?.name || 'Course'}
             </Link>
             <span>/</span>
             <span className="font-bold text-slate-800">{resolvedSubject}</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900">{resolvedSubject}</h1>
           <p className="text-slate-500 mt-1">
-            {course?.name ? `কোর্স: ${course.name}` : ''} · {totalLessons} ভিডিও ·{' '}
-            {formatDuration(totalMins)} মোট
+            {course?.name ? `Course: ${course.name}` : ''} · {totalLessons} videos ·{' '}
+            {formatDuration(totalMins)} total
           </p>
         </div>
         <div className="flex items-center gap-4">
           <div className="text-right">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">বিষয় অগ্রগতি</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Subject Progress</p>
             <p className="text-xl font-black text-indigo-600">{progressPct}%</p>
           </div>
           <div className="w-32 h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -403,15 +403,15 @@ export default function StudentCourseSubjectPage() {
                           ? 'Preview not available for this item'
                           : selectedContent.title
                       : subjectContents.length === 0
-                        ? 'এই বিষয়ে এখনও কন্টেন্ট নেই'
-                        : 'একটি টপিক বেছে নিন'}
+                        ? 'No content in this subject yet'
+                        : 'Select a topic'}
                   </p>
                 </div>
               )}
             </div>
             <CardContent className="p-6">
               <h2 className="text-xl font-black text-slate-900">
-                {selectedContent?.title || 'সাইডবার থেকে অধ্যায় ও টপিক বেছে নিন'}
+                {selectedContent?.title || 'Select a chapter and topic from the sidebar'}
               </h2>
               {selectedContent?.durationMinutes != null && selectedContent.durationMinutes > 0 && (
                 <p className="text-slate-500 text-sm mt-1">{formatDuration(selectedContent.durationMinutes)}</p>
@@ -447,12 +447,12 @@ export default function StudentCourseSubjectPage() {
           <div className="flex items-center gap-3">
             <MessageSquare className="h-5 w-5 text-indigo-500" />
             <div>
-              <p className="font-bold text-slate-900">কোর্স রিভিউ</p>
-              <p className="text-sm text-slate-500">রিভিউ দেখতে ও জমা দিতে কোর্স হাব পেজে যান।</p>
+              <p className="font-bold text-slate-900">Course Review</p>
+              <p className="text-sm text-slate-500">Go to the course hub to view and submit a review.</p>
             </div>
           </div>
           <Button asChild variant="outline" className="rounded-xl shrink-0">
-            <Link href={`/student/courses/${courseId}#course-reviews`}>কোর্স হাবে যান</Link>
+            <Link href={`/student/courses/${courseId}#course-reviews`}>Go to Course Hub</Link>
           </Button>
         </CardContent>
       </Card>

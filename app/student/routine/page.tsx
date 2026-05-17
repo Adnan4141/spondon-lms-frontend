@@ -107,7 +107,7 @@ export default function StudentRoutinePage() {
               <div className="h-24 w-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
                 <Calendar className="h-12 w-12 text-slate-300" />
               </div>
-              <h3 className="text-2xl font-black text-slate-900 mb-2">আজ ক্লাস নেই</h3>
+              <h3 className="text-2xl font-black text-slate-900 mb-2">No Classes Today</h3>
            
             </Card>
           ) : (

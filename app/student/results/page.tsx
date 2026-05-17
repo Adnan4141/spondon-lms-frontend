@@ -38,7 +38,7 @@ export default function StudentResultsPage() {
       if (typeof window === 'undefined') return;
       const userStr = localStorage.getItem('user');
       if (!userStr) {
-        setError('ফলাফল দেখতে লগইন করুন');
+        setError('Please log in to view results');
         setLoading(false);
         return;
       }
@@ -48,10 +48,10 @@ export default function StudentResultsPage() {
         if (res.success && res.data) {
           setData(res.data);
         } else if (!res.success) {
-          setError(res.message || 'ফলাফল লোড ব্যর্থ');
+          setError(res.message || 'Failed to load results');
         }
       } catch (e: unknown) {
-        setError(e instanceof Error ? e.message : 'ফলাফল লোড ব্যর্থ');
+        setError(e instanceof Error ? e.message : 'Failed to load results');
       } finally {
         setLoading(false);
       }
@@ -64,7 +64,7 @@ export default function StudentResultsPage() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-12 w-12 animate-spin text-indigo-600" />
-          <p className="text-slate-500 font-bold animate-pulse">লোড হচ্ছে...</p>
+          <p className="text-slate-500 font-bold animate-pulse">Loading...</p>
         </div>
       </div>
     );
@@ -100,7 +100,7 @@ export default function StudentResultsPage() {
         <div className="flex items-center gap-3">
            <div className="px-5 py-3 rounded-2xl bg-white border border-slate-100 shadow-sm flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-emerald-500" />
-              <span className="text-sm font-black text-slate-900">গড়: 84%</span>
+              <span className="text-sm font-black text-slate-900">Avg: 84%</span>
            </div>
         </div>
       </div>
@@ -110,22 +110,22 @@ export default function StudentResultsPage() {
           <div className="h-24 w-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
             <Award className="h-12 w-12 text-slate-300" />
           </div>
-          <h3 className="text-2xl font-black text-slate-900 mb-2">কোনো ফলাফল নেই</h3>
+          <h3 className="text-2xl font-black text-slate-900 mb-2">No Results Yet</h3>
           <p className="text-slate-500 font-medium max-w-sm mx-auto">
-            অনলাইন পরীক্ষা শেষ করলে চেষ্টার ফল এখানে দেখা যাবে। অফিসিয়াল নম্বর কেন্দ্রীয় অনুমোদনের পর দেখাবে।
+            Your results will appear here after completing online exams. Official marks are shown after central approval.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Link
               href="/student/exams"
               className="rounded-2xl bg-indigo-600 px-6 py-3 text-sm font-black text-white shadow-lg hover:bg-indigo-700"
             >
-              পরীক্ষা দেখুন
+              View Exams
             </Link>
             <Link
               href="/student/academic-record"
               className="rounded-2xl border border-slate-200 bg-white px-6 py-3 text-sm font-black text-slate-700 hover:bg-slate-50"
             >
-              একাডেমিক রেকর্ড
+              Academic Record
             </Link>
           </div>
         </Card>
@@ -137,7 +137,7 @@ export default function StudentResultsPage() {
                 <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
                   <Award className="h-5 w-5" />
                 </div>
-                <h2 className="text-2xl font-black text-slate-900 tracking-tight">অফিসিয়াল ফলাফল</h2>
+                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Official Results</h2>
               </div>
               <div className="grid gap-6">
                 {visibleOfficial.map((r) => (
@@ -146,9 +146,9 @@ export default function StudentResultsPage() {
                     className="overflow-hidden rounded-[2rem] border-none bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)]"
                   >
                     <CardContent className="p-8">
-                      <h3 className="text-xl font-black text-slate-900">{r.exam?.title ?? 'পরীক্ষা'}</h3>
+                      <h3 className="text-xl font-black text-slate-900">{r.exam?.title ?? 'Exam'}</h3>
                       <p className="mt-2 text-sm font-bold text-slate-400">
-                        রোল: {r.rollNo} · কেন্দ্রীয় অনুমোদন
+                        Roll: {r.rollNo} · Centrally Approved
                       </p>
                       <div className="mt-6 flex items-baseline gap-2">
                         <span className="text-4xl font-black text-violet-600">{Number(r.marks)}</span>
@@ -170,7 +170,7 @@ export default function StudentResultsPage() {
                  <div className="h-8 w-8 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
                     <CheckCircle2 className="h-5 w-5" />
                  </div>
-                 <h2 className="text-2xl font-black text-slate-900 tracking-tight">অনলাইন পরীক্ষা</h2>
+                 <h2 className="text-2xl font-black text-slate-900 tracking-tight">Online Exams</h2>
               </div>
               <div className="grid gap-6">
                 {attempts.map((attempt: OnlineExamAttempt) => (
@@ -198,7 +198,7 @@ export default function StudentResultsPage() {
 
                         <div className="flex flex-col sm:flex-row items-center gap-6">
                            <div className="text-center px-8 py-4 rounded-3xl bg-slate-50 group-hover:bg-indigo-50/50 transition-colors">
-                              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">নম্বর</p>
+                              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Marks</p>
                               <p className="text-3xl font-black text-indigo-600">
                                 {attempt.obtainedMarks ?? '—'} <span className="text-slate-300 text-xl">/</span> {attempt.totalMarks ?? '—'}
                               </p>
@@ -212,7 +212,7 @@ export default function StudentResultsPage() {
                                className="flex items-center gap-2 px-6 py-4 rounded-2xl bg-slate-900 text-white font-black text-sm hover:bg-indigo-600 transition-all shadow-xl shadow-slate-200"
                              >
                                <Download className="h-4 w-4" />
-                               সমাধান দেখুন
+                               View Solution
                              </a>
                            )}
                         </div>
@@ -230,7 +230,7 @@ export default function StudentResultsPage() {
                  <div className="h-8 w-8 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
                     <Award className="h-5 w-5" />
                  </div>
-                 <h2 className="text-2xl font-black text-slate-900 tracking-tight">অফলাইন পরীক্ষার ফলাফল</h2>
+                 <h2 className="text-2xl font-black text-slate-900 tracking-tight">Offline Exam Results</h2>
               </div>
               <div className="grid gap-6 sm:grid-cols-2">
                 {offlineResults.map((r: OfflineResult) => (
@@ -251,7 +251,7 @@ export default function StudentResultsPage() {
                       
                       <div className="flex items-center justify-between pt-6 border-t border-slate-50">
                          <div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">নম্বর</p>
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Marks</p>
                             <p className="text-2xl font-black text-slate-900">
                               {r.obtainedMarks ?? '—'} <span className="text-slate-300">/</span> {r.totalMarks ?? '—'}
                             </p>
@@ -273,7 +273,7 @@ export default function StudentResultsPage() {
                  <div className="h-8 w-8 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
                     <FileText className="h-5 w-5" />
                  </div>
-                 <h2 className="text-2xl font-black text-slate-900 tracking-tight">একাডেমিক রেকর্ড</h2>
+                 <h2 className="text-2xl font-black text-slate-900 tracking-tight">Academic Record</h2>
               </div>
               <div className="grid gap-6 sm:grid-cols-2">
                 {academicRecords.map((r: any) => (

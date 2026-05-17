@@ -97,6 +97,7 @@ export default function StudentExamTakingPage() {
   const [result, setResult] = useState<AttemptResultResponse | null>(null);
   const [countdown, setCountdown] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
+  const [resultTab, setResultTab] = useState<'mcq' | 'written'>('mcq');
   const waitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const shellLang: Lang = examMeta?.language === 'en' ? 'en' : 'bn';
@@ -105,7 +106,7 @@ export default function StudentExamTakingPage() {
   const openResultAttempt = useCallback(async (attemptId: string, nextNotice?: string | null) => {
     const resultRes = await getAttemptResult(attemptId);
     if (!resultRes.success || !resultRes.data) {
-      throw new Error(resultRes.message || 'ফলাফল লোড করা যায়নি');
+      throw new Error(resultRes.message || 'Could not load results');
     }
     setResult(resultRes.data);
     setAttemptData(null);
@@ -152,7 +153,7 @@ export default function StudentExamTakingPage() {
     try {
       const res = await startExamAttempt(examId, studentId);
       if (!res.success || !res.data) {
-        setError(res.message || 'পরীক্ষা শুরু করা যায়নি');
+        setError(res.message || 'Could not start exam');
         setPhase('loading');
         return false;
       }
@@ -163,7 +164,7 @@ export default function StudentExamTakingPage() {
       setPhase('exam');
       return true;
     } catch (e: unknown) {
-      const reason = e instanceof Error ? e.message : 'পরীক্ষা শুরু ব্যর্থ';
+      const reason = e instanceof Error ? e.message : 'Failed to start exam';
       const recovery = getAttemptRecoveryPayload(e);
       const recovered = await recoverLatestAttempt(
         studentId,
@@ -181,7 +182,7 @@ export default function StudentExamTakingPage() {
   useEffect(() => {
     const userStr = localStorage.getItem('user');
     if (!userStr) {
-      queueMicrotask(() => setError('পরীক্ষা দিতে লগইন করুন'));
+      queueMicrotask(() => setError('Please log in to take the exam'));
       return;
     }
     const user = JSON.parse(userStr);
@@ -191,7 +192,7 @@ export default function StudentExamTakingPage() {
       try {
         const viewRes = await getExamStudentView(examId, user.id);
         if (!viewRes.success || !viewRes.data) {
-          setError(viewRes.message || 'পরীক্ষা লোড করা যায়নি');
+          setError(viewRes.message || 'Could not load exam');
           return;
         }
         setExamMeta(viewRes.data);
@@ -204,7 +205,7 @@ export default function StudentExamTakingPage() {
         if (viewMode === 'result') {
           const latestAttemptId = viewRes.data.latestCompletedAttemptId;
           if (!latestAttemptId) {
-            setError('ফলাফল এখনো পাওয়া যায়নি');
+            setError('Results not available yet');
             return;
           }
           await openResultAttempt(latestAttemptId);
@@ -219,7 +220,7 @@ export default function StudentExamTakingPage() {
 
         await beginAttempt(user.id);
       } catch (e: unknown) {
-        setError(e instanceof Error ? e.message : 'পরীক্ষা শুরু ব্যর্থ');
+        setError(e instanceof Error ? e.message : 'Failed to start exam');
       }
     };
     run();
@@ -241,8 +242,8 @@ export default function StudentExamTakingPage() {
       const s = Math.floor((diff % 60000) / 1000);
       setCountdown(
         h > 0
-          ? `${h} ঘণ্টা ${String(m).padStart(2, '0')} মিনিট ${String(s).padStart(2, '0')} সেকেন্ড`
-          : `${m} মিনিট ${String(s).padStart(2, '0')} সেকেন্ড`,
+          ? `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`
+          : `${m}m ${String(s).padStart(2, '0')}s`,
       );
       waitTimerRef.current = setTimeout(tick, 1000);
     };
@@ -260,27 +261,27 @@ export default function StudentExamTakingPage() {
             <CalendarClock className="h-10 w-10 text-indigo-600" />
           </div>
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-400 mb-1">আসন্ন পরীক্ষা</p>
-            <h1 className="text-2xl font-black text-slate-900">{examMeta.title}</h1>
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-400 mb-1">Upcoming Exam</p>
+            <h1 className="text-2xl font-black text-slate-900">{examId}</h1>
           </div>
           <div className="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-6">
-            <p className="text-xs font-bold text-slate-500 mb-1">পরীক্ষা শুরু হবে</p>
+            <p className="text-xs font-bold text-slate-500 mb-1">Exam starts at</p>
             <p className="text-base font-black text-indigo-800">
-              {startDate.toLocaleString('bn-BD', { dateStyle: 'full', timeStyle: 'short' })}
+              {startDate.toLocaleString('en-GB', { dateStyle: 'full', timeStyle: 'short' })}
             </p>
           </div>
           {countdown && (
             <div className="rounded-2xl bg-slate-900 text-white px-8 py-5">
-              <p className="text-[9px] font-black uppercase tracking-[0.25em] text-slate-400 mb-1">বাকি সময়</p>
+              <p className="text-[9px] font-black uppercase tracking-[0.25em] text-slate-400 mb-1">Time Remaining</p>
               <p className="text-2xl font-black tabular-nums">{countdown}</p>
             </div>
           )}
-          <p className="text-sm font-medium text-slate-500">নির্ধারিত সময়ে স্বয়ংক্রিয়ভাবে পরীক্ষা শুরু হবে।</p>
+          <p className="text-sm font-medium text-slate-500">Exam will start automatically at the scheduled time.</p>
           <button
             onClick={() => router.push('/student/exams')}
             className="text-sm font-bold text-indigo-600 underline underline-offset-2"
           >
-            পরীক্ষার তালিকায় ফিরুন
+            Back to Exams
           </button>
         </div>
       </div>
@@ -330,19 +331,19 @@ export default function StudentExamTakingPage() {
             back: 'Back to exams',
           }
         : {
-            title: 'হলে অনুষ্ঠিত পরীক্ষা',
-            sub: 'এটি কাগজে দেওয়া হয়। PDF এ এমসিকিউ ও লিখিত (রচনামূলক) উভয় অংশ থাকতে পারে।',
-            course: 'কোর্স',
-            branch: 'শাখা',
-            batch: 'ব্যাচ',
-            window: 'সময়সূচি',
-            open: 'শুরু',
-            closes: 'শেষ',
-            pdf: 'প্রশ্নপত্র PDF ডাউনলোড',
-            noPdf: 'শিক্ষক PDF আপলোড করলে এখানে লিংক আসবে।',
-            solve: 'সমাধান / মাননির্ধারণ শিট (PDF)',
-            sets: 'প্রশ্ন সেট প্রস্তুত',
-            back: 'পরীক্ষার তালিকা',
+            title: 'Offline Hall Exam',
+            sub: 'This exam is held on paper. The PDF may contain both MCQ and written (essay) sections.',
+            course: 'Course',
+            branch: 'Branch',
+            batch: 'Batch',
+            window: 'Schedule',
+            open: 'Opens',
+            closes: 'Closes',
+            pdf: 'Download Question Paper (PDF)',
+            noPdf: 'Your teacher will upload the PDF soon. Check back later.',
+            solve: 'Solution / Marks Sheet (PDF)',
+            sets: 'Question sets prepared',
+            back: 'Back to Exams',
           };
 
     const pdfHref = examMeta.pdfUrl ? getExamPdfDownloadUrl(examMeta.pdfUrl) : null;
@@ -365,7 +366,7 @@ export default function StudentExamTakingPage() {
               <Badge variant="outline" className="mb-1 text-[9px] font-black uppercase bg-orange-100 text-orange-800 border-orange-200">
                 OFFLINE
               </Badge>
-              <h1 className="text-2xl font-black text-slate-900">{examMeta.title}</h1>
+              <h1 className="text-2xl font-black text-slate-900">{examId}</h1>
             </div>
           </div>
           <p className="text-slate-600 font-medium leading-relaxed mb-6">{ui.sub}</p>
@@ -387,10 +388,8 @@ export default function StudentExamTakingPage() {
             <li className="flex items-center gap-2 text-slate-500">
               <Timer className="h-4 w-4 shrink-0" />
               {examMeta.durationMinutes
-                ? `${examMeta.durationMinutes} ${lang === 'en' ? 'minutes' : 'মিনিট'}`
-                : lang === 'en'
-                  ? 'Duration: as announced'
-                  : 'সময়: ঘোষণা অনুযায়ী'}
+                ? `${examMeta.durationMinutes} minutes`
+                : 'Duration: as announced'}
             </li>
           </ul>
           <div className="rounded-2xl bg-white border border-slate-100 p-4 text-sm font-bold text-slate-600 mb-6">
@@ -398,24 +397,20 @@ export default function StudentExamTakingPage() {
             <p>
               {ui.open}:{' '}
               {examMeta.startAt
-                ? new Date(examMeta.startAt).toLocaleString(lang === 'en' ? 'en-GB' : 'bn-BD')
-                : lang === 'en'
-                  ? 'Any time'
-                  : 'যেকোনো সময়'}
+                ? new Date(examMeta.startAt).toLocaleString('en-GB')
+                : 'Any time'}
             </p>
             <p>
               {ui.closes}:{' '}
               {examMeta.endAt
-                ? new Date(examMeta.endAt).toLocaleString(lang === 'en' ? 'en-GB' : 'bn-BD')
-                : lang === 'en'
-                  ? 'As announced'
-                  : 'ঘোষণা অনুযায়ী'}
+                ? new Date(examMeta.endAt).toLocaleString('en-GB')
+                : 'As announced'}
             </p>
           </div>
           {examMeta.syllabusHtml ? (
             <div className="rounded-2xl bg-indigo-50/70 border border-indigo-100 p-4 text-sm text-slate-700 mb-6">
               <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500 mb-2">
-                {lang === 'en' ? 'Syllabus' : 'সিলেবাস'}
+                Syllabus
               </p>
               <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: examMeta.syllabusHtml }} />
             </div>
@@ -461,6 +456,12 @@ export default function StudentExamTakingPage() {
     const provisionalMcqScore = getProvisionalMcqScore(result);
     const resultDisplayItems = buildResultDisplayItems(result?.questions ?? []);
     const resultQuestionIndexById = new Map((result?.questions ?? []).map((q, index) => [q.id, index]));
+    const mcqResultItems = resultDisplayItems.filter((item) => item.questions[0]?.question?.type === 'MCQ');
+    const writtenResultItems = resultDisplayItems.filter((item) => item.questions[0]?.question?.type !== 'MCQ');
+    const hasResultMixed = mcqResultItems.length > 0 && writtenResultItems.length > 0;
+    const activeResultItems = hasResultMixed
+      ? (resultTab === 'mcq' ? mcqResultItems : writtenResultItems)
+      : resultDisplayItems;
     const renderResultQuestion = (eq: ResultQuestion, idx: number) => {
       const q = eq.question;
       if (!q) return null;
@@ -490,7 +491,7 @@ export default function StudentExamTakingPage() {
           {q.type === 'CQ' && q.cqBlock ? (
             <div className="mb-4 space-y-3">
               <div className="rounded-xl border border-violet-100 bg-violet-50/40 p-4">
-                <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-violet-600">উদ্দীপক</p>
+                <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-violet-600">Stimulus</p>
                 <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: q.cqBlock.stimulus }} />
               </div>
               {q.cqBlock.parts.map((part) => (
@@ -510,20 +511,16 @@ export default function StudentExamTakingPage() {
             <div className="mt-4 rounded-xl border border-violet-100 bg-violet-50/40 p-4">
               <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-violet-600">
                 {q.type === 'SHORT'
-                  ? qLang === 'en'
-                    ? 'Your short answer'
-                    : 'আপনার সংক্ষিপ্ত উত্তর'
-                  : qLang === 'en'
-                    ? 'Your written answer'
-                    : 'আপনার লিখিত উত্তর'}
+                  ? 'Your short answer'
+                  : 'Your written answer'}
               </p>
               <p className="whitespace-pre-wrap text-sm font-medium text-slate-800">
-                {studentAns?.answer?.text?.trim() ? studentAns.answer.text : qLang === 'en' ? '—' : '(জমা দেওয়া নেই)'}
+                {studentAns?.answer?.text?.trim() ? studentAns.answer.text : '—'}
               </p>
               {studentAns?.writtenSubmission?.pages?.length ? (
                 <div className="mt-3 space-y-2">
                   <p className="text-[10px] font-black uppercase tracking-widest text-violet-600">
-                    {qLang === 'en' ? 'Uploaded pages' : 'আপলোড করা পেজ'}
+                    Uploaded pages
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {studentAns.writtenSubmission.pages.map((page, pageIndex) => (
@@ -534,7 +531,7 @@ export default function StudentExamTakingPage() {
                         rel="noopener noreferrer"
                         className="rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-xs font-bold text-violet-700"
                       >
-                        {qLang === 'en' ? 'Page' : 'পেজ'} {pageIndex + 1}
+                        Page {pageIndex + 1}
                       </a>
                     ))}
                     {studentAns.writtenSubmission.finalPdfUrl ? (
@@ -544,7 +541,7 @@ export default function StudentExamTakingPage() {
                         rel="noopener noreferrer"
                         className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700"
                       >
-                        {qLang === 'en' ? 'Combined PDF' : 'কম্বাইন্ড PDF'}
+                        Combined PDF
                       </a>
                     ) : null}
                   </div>
@@ -552,13 +549,11 @@ export default function StudentExamTakingPage() {
               ) : null}
               {studentAns?.obtainedMarks != null ? (
                 <p className="mt-3 text-sm font-black text-violet-800">
-                  {qLang === 'en' ? 'Marks' : 'নম্বর'}: {studentAns.obtainedMarks}
+                  Marks: {studentAns.obtainedMarks}
                 </p>
               ) : (
                 <p className="mt-3 text-xs font-bold text-amber-700">
-                  {qLang === 'en'
-                    ? 'Written answers are marked by your teacher; score may appear later.'
-                    : 'লিখিত উত্তর শিক্ষক মূল্যায়ন করবেন; নম্বর পরে দেখাতে পারে।'}
+                  {'Written answers are marked by your teacher; score may appear later.'}
                 </p>
               )}
             </div>
@@ -608,7 +603,7 @@ export default function StudentExamTakingPage() {
             </div>
             <h1 className="text-3xl font-black text-slate-900">{resultUi.examCompleted}</h1>
             {result && (
-              <p className="text-lg font-medium text-slate-500 mt-2">{result.exam.title}</p>
+              <p className="text-lg font-medium text-slate-500 mt-2">{examId}</p>
             )}
           </div>
 
@@ -627,27 +622,25 @@ export default function StudentExamTakingPage() {
               <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm text-center">
                 {result.attempt.status === 'AUTO_SUBMITTED' ? (
                   <Badge variant="outline" className="mb-4 border-amber-200 bg-amber-50 text-[10px] font-black uppercase tracking-[0.2em] text-amber-900">
-                    {resultLang === 'en' ? 'Auto submitted' : 'স্বয়ংক্রিয়ভাবে জমা হয়েছে'}
+                    Auto submitted
                   </Badge>
                 ) : null}
                 {pendingWrittenEvaluation ? (
                   <>
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500 mb-2">
-                      {resultLang === 'en' ? 'Teacher evaluation pending' : 'শিক্ষক মূল্যায়ন বাকি'}
+                      Teacher evaluation pending
                     </p>
                     <h2 className="text-3xl font-black text-slate-900">
-                      {resultLang === 'en' ? 'Your exam has been submitted' : 'আপনার পরীক্ষা জমা হয়েছে'}
+                      Your exam has been submitted
                     </h2>
                     <p className="mt-3 text-sm font-medium text-slate-500">
-                      {resultLang === 'en'
-                        ? 'Written answers are still being evaluated. Final score and percentage will appear after marking is complete.'
-                        : 'লিখিত উত্তর এখনো মূল্যায়ন চলছে। মূল্যায়ন শেষ হলে চূড়ান্ত স্কোর ও শতাংশ দেখানো হবে।'}
+                      {'Written answers are still being evaluated. Final score and percentage will appear after marking is complete.'}
                     </p>
                     <div className="mt-6 grid gap-4 md:grid-cols-2">
                       {provisionalMcqScore ? (
                         <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-5 text-left">
                           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500 mb-2">
-                            {resultLang === 'en' ? 'Provisional MCQ score' : 'এমসিকিউ-এর অস্থায়ী স্কোর'}
+                            Provisional MCQ score
                           </p>
                           <p className="text-3xl font-black text-indigo-700">
                             {provisionalMcqScore.obtained}
@@ -657,7 +650,7 @@ export default function StudentExamTakingPage() {
                       ) : null}
                       <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5 text-left">
                         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">
-                          {resultLang === 'en' ? 'Total exam marks' : 'মোট পরীক্ষার মার্কস'}
+                          Total exam marks
                         </p>
                         <p className="text-3xl font-black text-slate-900">{result.attempt.totalMarks ?? 0}</p>
                       </div>
@@ -692,7 +685,7 @@ export default function StudentExamTakingPage() {
                     onClick={() => router.push(`/student/leaderboard/${examId}`)}
                   >
                     <Trophy className="mr-2 h-4 w-4" />
-                    {resultLang === 'en' ? 'Leaderboard' : 'লিডারবোর্ড'}
+                    Leaderboard
                   </Button>
                 </div>
               ) : null}
@@ -700,10 +693,29 @@ export default function StudentExamTakingPage() {
               {/* Show questions with solutions */}
               {result.showSolutions && result.questions.length > 0 && (
                 <div className="space-y-4">
-                  <h2 className="text-[11px] font-black uppercase tracking-[0.25em] text-indigo-600 flex items-center gap-2">
-                    <Eye className="h-3.5 w-3.5" /> {resultUi.solutionsLabel}
-                  </h2>
-                  {resultDisplayItems.map((item) => {
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h2 className="text-[11px] font-black uppercase tracking-[0.25em] text-indigo-600 flex items-center gap-2">
+                      <Eye className="h-3.5 w-3.5" /> {resultUi.solutionsLabel}
+                    </h2>
+                    {hasResultMixed && (
+                      <div className="grid grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-1">
+                        {(['mcq', 'written'] as const).map((tab) => (
+                          <button
+                            key={tab}
+                            type="button"
+                            onClick={() => setResultTab(tab)}
+                            className={cn(
+                              'h-8 rounded-xl px-5 text-xs font-black uppercase tracking-wider transition-all',
+                              resultTab === tab ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:bg-white',
+                            )}
+                          >
+                            {tab === 'mcq' ? 'MCQ' : 'Written'}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {activeResultItems.map((item) => {
                     if (item.kind === 'single') {
                       const idx = resultQuestionIndexById.get(item.questions[0].id) ?? item.firstQuestionIndex;
                       return renderResultQuestion(item.questions[0], idx);
@@ -715,7 +727,7 @@ export default function StudentExamTakingPage() {
                           <div className="rounded-xl bg-white p-4">
                             <div className="mb-2 flex items-center justify-between gap-2">
                               <p className="text-sm font-black text-indigo-700">
-                                {passage.title || (resultLang === 'en' ? 'Passage' : 'অনুচ্ছেদ')}
+                                {passage.title || 'Passage'}
                               </p>
                               <Badge variant="outline" className="text-[10px] font-black">
                                 {item.questions.length} MCQ

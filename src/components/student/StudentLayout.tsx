@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { Menu } from 'lucide-react';
 import { StudentSidebar } from './StudentSidebar';
 import { cn } from '@/lib/utils';
+import { getExamStudentView } from '@/lib/api/exams';
 
 const STUDENT_ROUTE_LABELS: Record<string, { title: string; subtitle?: string }> = {
   '/student': { title: 'Dashboard', subtitle: 'Welcome back to your student portal' },
@@ -35,6 +36,15 @@ function resolveStudentHeader(pathname: string | null) {
 
   const cleanPath = pathname.replace(/\/$/, '');
   const segments = cleanPath.split('/').filter(Boolean);
+  const examId = segments[0] === 'student' && segments[1] === 'exams' ? segments[2] : undefined;
+
+  if (examId) {
+    return {
+      title: examId,
+      subtitle: 'Exam session overview',
+    };
+  }
+
   const lastSegment = segments[segments.length - 1];
 
   if (!lastSegment || lastSegment === 'student') {
@@ -50,6 +60,7 @@ function resolveStudentHeader(pathname: string | null) {
 export function StudentLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [examHeaderTitle, setExamHeaderTitle] = useState<{ examId: string; title: string } | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window === 'undefined') return false;
     const stored = window.localStorage.getItem('student-sidebar-collapsed');
@@ -87,7 +98,42 @@ export function StudentLayout({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
+  const examIdFromPath = useMemo(() => {
+    const cleanPath = (pathname || '').replace(/\/$/, '');
+    const segments = cleanPath.split('/').filter(Boolean);
+    return segments[0] === 'student' && segments[1] === 'exams' ? segments[2] : undefined;
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!examIdFromPath) return;
+
+    let cancelled = false;
+
+    const run = async () => {
+      try {
+        const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+        const user = userStr ? JSON.parse(userStr) : null;
+        if (!user?.id) return;
+        const res = await getExamStudentView(examIdFromPath, user.id);
+        if (!cancelled && res.success && res.data?.title) {
+          setExamHeaderTitle({ examId: examIdFromPath, title: res.data.title });
+        }
+      } catch {
+        // Keep route-based fallback title when fetch fails.
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [examIdFromPath]);
+
   const headerContent = useMemo(() => resolveStudentHeader(pathname), [pathname]);
+  const resolvedHeaderTitle =
+    examIdFromPath && examHeaderTitle?.examId === examIdFromPath
+      ? examHeaderTitle.title
+      : headerContent.title;
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900">
@@ -105,7 +151,7 @@ export function StudentLayout({ children }: { children: React.ReactNode }) {
       >
         <header className="sticky top-0 z-40">
           <div className="absolute inset-0 border-b border-slate-200/50 bg-white/60 backdrop-blur-xl" />
-          <div className="relative mx-auto flex h-16 max-w-400 items-center justify-between px-4 sm:px-6 lg:px-10">
+          <div className="relative mx-auto flex h-16 max-w-full items-center justify-between px-4 sm:px-6 lg:px-10">
             <div className="flex min-w-0 items-center gap-3 sm:gap-4">
               <button
                 type="button"
@@ -117,7 +163,7 @@ export function StudentLayout({ children }: { children: React.ReactNode }) {
               </button>
               <div className="min-w-0">
                 <p className="truncate text-lg font-black tracking-tight text-slate-900 sm:text-xl">
-                  {headerContent.title}
+                  {resolvedHeaderTitle}
                 </p>
                 <p className="truncate text-xs font-semibold text-slate-500 sm:text-sm">
                   {headerContent.subtitle}
@@ -134,7 +180,7 @@ export function StudentLayout({ children }: { children: React.ReactNode }) {
         </header>
 
         <main className="relative">
-          <div className="mx-auto max-w-400 px-3 py-6 sm:px-4 sm:py-8 lg:px-6 lg:py-10">
+          <div className="mx-auto max-w-full px-3 py-6 sm:px-4 sm:py-8 lg:px-6 lg:py-10">
             {children}
           </div>
         </main>

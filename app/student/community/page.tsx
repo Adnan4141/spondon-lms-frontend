@@ -18,6 +18,7 @@ import {
   uploadCommunityAttachment,
   type Community,
   type CommunityAttachment,
+  type CommunityReply,
   type CommunityPost,
 } from '@/lib/api/community';
 import {
@@ -331,7 +332,17 @@ export default function StudentCommunityPage() {
                   onReplyToggle={(p) => setReplyingToPost(replyingToPost === p.id ? null : p.id)}
                   onShare={(p) => navigator.clipboard?.writeText(`${window.location.origin}/student/community?post=${p.id}`)}
                   footer={replyingToPost === post.id ? (
-                    <ReplyBox value={replyBody} onChange={setReplyBody} onCancel={() => { setReplyingToPost(null); setReplyBody(''); }} onSubmit={() => handlePostReply(post.id)} submitting={submitting} />
+                    <PostInsightsPanel
+                      replies={post.replies || []}
+                      replyBody={replyBody}
+                      onReplyBodyChange={setReplyBody}
+                      onCancel={() => {
+                        setReplyingToPost(null);
+                        setReplyBody('');
+                      }}
+                      onSubmit={() => handlePostReply(post.id)}
+                      submitting={submitting}
+                    />
                   ) : null}
                 />
               ))}
@@ -461,6 +472,50 @@ function Stat({ value, label }: { value: number; label: string }) {
 
 function SideList({ items }: { items: Array<{ title: string; meta: string }> }) {
   return <div className="space-y-3">{items.length ? items.map((item, i) => <div key={`${item.title}-${i}`} className="border-l-2 border-slate-200 pl-3"><p className="line-clamp-2 text-sm font-bold text-slate-800">{item.title}</p><p className="text-xs text-rose-500">{item.meta}</p></div>) : <p className="text-sm text-slate-500">Nothing trending yet.</p>}</div>;
+}
+
+function PostInsightsPanel({
+  replies,
+  replyBody,
+  onReplyBodyChange,
+  onSubmit,
+  onCancel,
+  submitting,
+}: {
+  replies: CommunityReply[];
+  replyBody: string;
+  onReplyBodyChange: (value: string) => void;
+  onSubmit: () => void;
+  onCancel: () => void;
+  submitting: boolean;
+}) {
+  return (
+    <div className="mt-4 space-y-3 rounded-xl bg-slate-50 p-3">
+      {replies.length ? (
+        <div className="space-y-2">
+          {replies.map((reply) => (
+            <div key={reply.id} className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-black text-slate-900">{reply.author?.fullName || 'User'}</p>
+                <p className="text-[11px] font-medium text-slate-400">{formatTimeAgo(reply.createdAt)}</p>
+              </div>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-slate-600">{reply.body}</p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm font-medium text-slate-500">No insights yet. Add the first one.</p>
+      )}
+
+      <ReplyBox
+        value={replyBody}
+        onChange={onReplyBodyChange}
+        onCancel={onCancel}
+        onSubmit={onSubmit}
+        submitting={submitting}
+      />
+    </div>
+  );
 }
 
 function AttachmentInput({
