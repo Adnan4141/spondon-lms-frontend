@@ -288,8 +288,17 @@ export interface CourseDetailBatch {
   id: string;
   name: string;
   status: string;
+  branchId: string;
+  capacity?: number | null;
+  availableSeats?: number | null;
+  activeEnrollments?: number;
   startDate?: string | null;
   endDate?: string | null;
+  branch?: {
+    id: string;
+    name: string;
+    code?: string | null;
+  } | null;
 }
 
 export interface CourseDetailTeacher {
