@@ -1,7 +1,19 @@
 import { useEffect, useState } from 'react';
 import type { ExamSubject } from '@/types/exam';
 import { getExamById, getExamCourseLinks, getExamSections, getExamSubjects, type ExamSection } from '@/lib/api/exams';
-import { migrateLegacyUiCategory, type ExamProductType, type ExamWizardState, type FolderRuleDraft, type SectionTypeUi, type SolveSheetVisibility, type WizardSection, type WizardSubject } from '../../types';
+import {
+  defaultOmrConfig,
+  migrateLegacyUiCategory,
+  sanitizeResultInputModes,
+  suggestedResultModes,
+  type ExamProductType,
+  type ExamWizardState,
+  type FolderRuleDraft,
+  type SectionTypeUi,
+  type SolveSheetVisibility,
+  type WizardSection,
+  type WizardSubject,
+} from '../../types';
 import type { WizardFormAction } from '../examWizardReducer';
 import { EXAM_WIZARD_ALL_BRANCHES } from '../constants';
 import type { ExamStatus, ResultInputMode } from '@/types/exam';
@@ -58,18 +70,29 @@ export function buildWizardPatchFromExam(exam: Exam): Partial<ExamWizardState> {
       );
 
   const productType: ExamProductType | '' = storedProductType || legacyMigration?.productType || '';
-  const deliveryMode: 'ONLINE' | 'OFFLINE' =
-    exam.mode === 'OFFLINE'
-      ? 'OFFLINE'
-      : exam.mode === 'WRITTEN' || exam.mode === 'HYBRID'
-        ? (legacyMigration?.deliveryMode ?? 'ONLINE')
-        : exam.mode === 'ONLINE'
-          ? 'ONLINE'
-          : (legacyMigration?.deliveryMode ?? 'ONLINE');
 
-  const resultInputModesFromExam: ResultInputMode[] = Array.isArray(exam.resultInputModes) && exam.resultInputModes.length
+  const deliveryModeFromWizard =
+    wizard?.deliveryMode === 'ONLINE' || wizard?.deliveryMode === 'OFFLINE'
+      ? wizard.deliveryMode
+      : null;
+  const deliveryMode: 'ONLINE' | 'OFFLINE' =
+    deliveryModeFromWizard
+    ?? (exam.mode === 'OFFLINE'
+      ? 'OFFLINE'
+      : exam.mode === 'ONLINE'
+        ? 'ONLINE'
+        : exam.mode === 'WRITTEN' || exam.mode === 'HYBRID'
+          ? (legacyMigration?.deliveryMode ?? 'ONLINE')
+          : (legacyMigration?.deliveryMode ?? 'ONLINE'));
+
+  const rawResultModes: ResultInputMode[] = Array.isArray(exam.resultInputModes) && exam.resultInputModes.length
     ? exam.resultInputModes
     : readResultInputModes(wizard?.resultInputModes ?? workflow?.resultInputModes, legacyMigration?.resultInputModes ?? ['AUTOMATED']);
+  const sanitizedModes = sanitizeResultInputModes(productType, deliveryMode, rawResultModes);
+  const resultInputModesFromExam: ResultInputMode[] =
+    sanitizedModes.length > 0
+      ? sanitizedModes
+      : (suggestedResultModes(productType, deliveryMode) ?? ['AUTOMATED']);
 
   const startAt = exam.startAt ? new Date(exam.startAt) : undefined;
   const endAt = exam.endAt ? new Date(exam.endAt) : undefined;
@@ -80,7 +103,7 @@ export function buildWizardPatchFromExam(exam: Exam): Partial<ExamWizardState> {
   const solveVisibility: SolveSheetVisibility =
     solveFromExam ?? solveFromWizard ?? (wizard?.showSolve === false ? 'HIDDEN' : 'IMMEDIATELY');
 
-  const omrConfig =
+  const omrFromDb =
     exam.omrQuestionCount && exam.omrOptionCount
       ? {
           sheetSize: (typeof wizard?.omrSheetSize === 'string' ? wizard.omrSheetSize : '50') as ExamWizardState['omrConfig'] extends { sheetSize: infer S } | null ? Exclude<S, undefined> : never,
@@ -88,6 +111,13 @@ export function buildWizardPatchFromExam(exam: Exam): Partial<ExamWizardState> {
           optionCount: Number(exam.omrOptionCount),
         }
       : null;
+  const omrConfig =
+    omrFromDb
+    ?? (resultInputModesFromExam.includes('OMR_SCAN')
+      && deliveryMode === 'OFFLINE'
+      && productType !== 'WRITTEN'
+      ? defaultOmrConfig()
+      : null);
 
   return {
     title: exam.title,

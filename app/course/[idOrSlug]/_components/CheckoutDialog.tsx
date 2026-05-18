@@ -1,4 +1,4 @@
-import { ArrowRight, BookOpen, CheckCircle2, Download, MapPin, Receipt, Sparkles, Users } from 'lucide-react';
+import { ArrowRight, BookOpen, MapPin, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -30,33 +30,24 @@ type DeliveryState = {
   notes: string;
 };
 
-type CreatedInvoice = {
-  id: string;
-  total?: number;
-  quote?: {
-    courseFee: number;
-    booksTotal: number;
-    admissionFee: number;
-    payableTotal: number;
-    currency: string;
-  };
-};
-
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   course: CourseDetails;
-  createdInvoice: CreatedInvoice | null;
   checkoutCourseFee: number;
   checkoutBooksTotal: number;
   checkoutAdmissionFee: number;
   checkoutTotal: number;
+  checkoutBillingType?: 'MONTHLY' | 'ONE_TIME';
+  checkoutBillingMonth?: string | null;
   courseBooks: CourseDetailCourseBook[];
   selectedPaidBooks: CourseDetailCourseBook[];
   selectedPaidBookIds: string[];
   setPaidBookIncluded: (bookId: string, included: boolean) => void;
   offlineBatches: CourseDetailBatch[];
   offlineBranches: { id: string; name: string }[];
+  lockedBranch: { id: string; name: string } | null;
+  branchLocked: boolean;
   selectedBranchId: string;
   setSelectedBranchId: (id: string) => void;
   batchesLoading: boolean;
@@ -67,26 +58,29 @@ type Props = {
   delivery: DeliveryState;
   setDelivery: React.Dispatch<React.SetStateAction<DeliveryState>>;
   enrolling: boolean;
+  quoteLoading: boolean;
+  quoteError: string | null;
   submitDeliveryAndEnroll: () => void;
-  openInvoicePdf: () => void;
-  payInvoiceNow: () => void;
 };
 
 export function CheckoutDialog({
   open,
   onOpenChange,
   course,
-  createdInvoice,
   checkoutCourseFee,
   checkoutBooksTotal,
   checkoutAdmissionFee,
   checkoutTotal,
+  checkoutBillingType,
+  checkoutBillingMonth,
   courseBooks,
   selectedPaidBooks,
   selectedPaidBookIds,
   setPaidBookIncluded,
   offlineBatches,
   offlineBranches,
+  lockedBranch,
+  branchLocked,
   selectedBranchId,
   setSelectedBranchId,
   batchesLoading,
@@ -97,13 +91,17 @@ export function CheckoutDialog({
   delivery,
   setDelivery,
   enrolling,
+  quoteLoading,
+  quoteError,
   submitDeliveryAndEnroll,
-  openInvoicePdf,
-  payInvoiceNow,
 }: Props) {
   const optionalPaidBooks = courseBooks.filter((cb) => !cb.isFree);
   const visibleBatches = offlineBatches.filter((batch) => !selectedBranchId || batch.branchId === selectedBranchId);
   const hasSelectableBatch = visibleBatches.some((batch) => batch.availableSeats !== 0);
+  const visibleBranches =
+    branchLocked && lockedBranch && !offlineBranches.some((branch) => branch.id === lockedBranch.id)
+      ? [lockedBranch, ...offlineBranches]
+      : offlineBranches;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -113,14 +111,13 @@ export function CheckoutDialog({
             <div className="flex flex-col gap-4 pr-8 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-white/80 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-indigo-700 shadow-sm">
-                  {createdInvoice ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
-                  {createdInvoice ? 'Invoice Ready' : 'Secure Checkout'}
+                  Secure Checkout
                 </div>
                 <DialogTitle className="truncate text-xl font-black text-slate-900">
-                  {createdInvoice ? 'ইনভয়েস তৈরি হয়েছে' : 'ভর্তি নিশ্চিত করুন'}
+                  ভর্তি নিশ্চিত করুন
                 </DialogTitle>
                 <DialogDescription className="mt-1 text-left text-sm font-medium text-slate-500">
-                  {createdInvoice ? 'পেমেন্ট সম্পন্ন হলে কোর্স অ্যাক্সেস চালু হবে।' : course.name}
+                  {course.name}
                 </DialogDescription>
               </div>
               <div className="shrink-0 text-right">
@@ -140,7 +137,9 @@ export function CheckoutDialog({
                 </div>
                 <div className="divide-y divide-slate-200">
                   <div className="flex items-center justify-between px-4 py-3 text-sm">
-                    <span className="font-bold text-slate-500">কোর্স ফি</span>
+                    <span className="font-bold text-slate-500">
+                      {checkoutBillingType === 'MONTHLY' ? `প্রথম মাসের ফি${checkoutBillingMonth ? ` (${checkoutBillingMonth})` : ''}` : 'কোর্স ফি'}
+                    </span>
                     <span className="font-black text-slate-900">৳{checkoutCourseFee.toLocaleString()}</span>
                   </div>
                   {selectedPaidBooks.length > 0 ? (
@@ -175,29 +174,18 @@ export function CheckoutDialog({
                 </div>
               </div>
 
-              {createdInvoice ? (
-                <div className="rounded-3xl border border-emerald-100 bg-emerald-50 px-4 py-4 text-sm text-emerald-950">
-                  <div className="flex items-center gap-2 font-black">
-                    <Receipt className="h-4 w-4" />
-                    ইনভয়েস ID: <span className="font-mono text-xs">{createdInvoice.id}</span>
-                  </div>
-                  <p className="mt-2 font-medium">ইনভয়েস তৈরি হয়েছে। পেমেন্ট সম্পন্ন হলে কোর্স অ্যাক্সেস চালু হবে।</p>
+              <div className="rounded-3xl border border-indigo-100 bg-indigo-50/70 px-4 py-4 text-sm font-medium text-indigo-950">
+                <div className="mb-2 flex items-center gap-2 font-black">
+                  <Users className="h-4 w-4" />
+                  ভর্তি সারাংশ
                 </div>
-              ) : (
-                <div className="rounded-3xl border border-indigo-100 bg-indigo-50/70 px-4 py-4 text-sm font-medium text-indigo-950">
-                  <div className="mb-2 flex items-center gap-2 font-black">
-                    <Users className="h-4 w-4" />
-                    ভর্তি সারাংশ
-                  </div>
-                  <p>{course.name}</p>
-                </div>
-              )}
+                <p>{course.name}</p>
+              </div>
             </div>
 
             <div className="space-y-5">
-              {!createdInvoice ? (
-                <>
-                  {optionalPaidBooks.length > 0 ? (
+              <>
+                {optionalPaidBooks.length > 0 ? (
                     <div className="space-y-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                       <div>
                         <p className="text-xs font-black uppercase tracking-widest text-slate-500">বই যোগ করুন</p>
@@ -241,17 +229,25 @@ export function CheckoutDialog({
                       <div className="space-y-2">
                         <Label className="text-xs font-black uppercase tracking-widest text-slate-500">Branch নির্বাচন করুন</Label>
                         <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
-                          <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50 font-bold text-slate-800 shadow-none">
+                          <SelectTrigger
+                            disabled={branchLocked || batchesLoading}
+                            className="h-12 rounded-2xl border-slate-200 bg-slate-50 font-bold text-slate-800 shadow-none"
+                          >
                             <SelectValue placeholder={batchesLoading ? 'Branch লোড হচ্ছে...' : 'Branch বেছে নিন'} />
                           </SelectTrigger>
                           <SelectContent className="rounded-2xl">
-                            {offlineBranches.map((branch) => (
+                            {visibleBranches.map((branch) => (
                               <SelectItem key={branch.id} value={branch.id} className="font-bold">
                                 {branch.name}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
+                        {branchLocked ? (
+                          <p className="text-xs font-bold text-slate-500">
+                            আপনার saved branch checkout থেকে পরিবর্তন করা যাবে না।
+                          </p>
+                        ) : null}
                       </div>
 
                       <div className="space-y-2">
@@ -369,41 +365,34 @@ export function CheckoutDialog({
                       </div>
                     </div>
                   ) : null}
-                </>
-              ) : null}
+
+                {quoteError ? (
+                  <div className="rounded-3xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+                    {quoteError}
+                  </div>
+                ) : null}
+              </>
             </div>
           </div>
         </div>
 
         <DialogFooter className="gap-2 border-t border-slate-100 bg-white px-6 py-4 sm:gap-2 sm:px-7">
-          {createdInvoice ? (
-            <>
-              <Button type="button" variant="outline" className="h-11 gap-2 rounded-2xl" onClick={openInvoicePdf}>
-                <Download className="h-4 w-4" />
-                PDF দেখুন
-              </Button>
-              <Button type="button" variant="outline" className="h-11 rounded-2xl" onClick={() => onOpenChange(false)}>
-                পরে পেমেন্ট করব
-              </Button>
-              <Button type="button" className="h-11 gap-2 rounded-2xl bg-[#5C2D91] hover:bg-[#4A2475]" onClick={payInvoiceNow}>
-                পেমেন্ট করুন <ArrowRight className="h-4 w-4" />
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button type="button" variant="outline" className="h-11 rounded-2xl" onClick={() => onOpenChange(false)}>
-                বাতিল
-              </Button>
-              <Button
-                type="button"
-                onClick={submitDeliveryAndEnroll}
-                disabled={enrolling || (course.type === 'OFFLINE' && (!selectedBranchId || !hasSelectableBatch || batchesLoading))}
-                className="h-11 rounded-2xl bg-[#5C2D91] px-6 hover:bg-[#4A2475]"
-              >
-                {enrolling ? 'প্রসেসিং...' : 'ইনভয়েস তৈরি করুন'}
-              </Button>
-            </>
-          )}
+          <Button type="button" variant="outline" className="h-11 rounded-2xl" onClick={() => onOpenChange(false)}>
+            বাতিল
+          </Button>
+          <Button
+            type="button"
+            onClick={submitDeliveryAndEnroll}
+            disabled={
+              enrolling ||
+              quoteLoading ||
+              Boolean(quoteError) ||
+              (course.type === 'OFFLINE' && (!selectedBranchId || !hasSelectableBatch || batchesLoading))
+            }
+            className="h-11 rounded-2xl bg-[#5C2D91] px-6 text-white hover:bg-[#4A2475]"
+          >
+            {enrolling ? 'প্রসেসিং...' : quoteLoading ? 'মূল্য যাচাই হচ্ছে...' : <>পেমেন্ট করুন <ArrowRight className="h-4 w-4" /></>}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

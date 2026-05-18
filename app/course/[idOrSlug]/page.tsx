@@ -7,9 +7,15 @@ import { Footer } from '@/components/layout/Footer';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { getCourseById } from '@/lib/api/courses';
-import { enrollInCourse, checkEnrollment, type EnrollCourseDelivery } from '@/lib/api/student-portal';
-import { getInvoicePdfUrl, initInvoicePayment } from '@/lib/api/invoices';
-import { API_ORIGIN } from '@/lib/api';
+import {
+    checkEnrollment,
+    createSelfCheckoutOrder,
+    getEnrollCourseQuote,
+    type EnrollCourseDelivery,
+    type EnrollCourseQuote,
+} from '@/lib/api/student-portal';
+import { initSelfCheckoutPayment } from '@/lib/api/payment-gateway';
+import { getMyStudentProfile } from '@/lib/api/student-profiles';
 import { useCourseInitialData } from '@/components/course/CourseInitialDataContext';
 import {
     type CourseDetailCourseBook,
@@ -60,21 +66,15 @@ export default function CourseDetailsPage() {
         postalCode: '',
         notes: '',
     });
-    const [createdInvoice, setCreatedInvoice] = useState<{
-        id: string;
-        total?: number;
-        quote?: {
-            courseFee: number;
-            booksTotal: number;
-            admissionFee: number;
-            payableTotal: number;
-            currency: string;
-        };
-    } | null>(null);
     // Batch selection for OFFLINE courses
     const [offlineBatches, setOfflineBatches] = useState<CourseDetailBatch[]>([]);
     const [selectedBranchId, setSelectedBranchId] = useState<string>('');
     const [selectedBatchId, setSelectedBatchId] = useState<string>('');
+    const [savedBranch, setSavedBranch] = useState<{ id: string; name: string } | null>(null);
+    const [branchProfileLoading, setBranchProfileLoading] = useState(false);
+    const [checkoutQuote, setCheckoutQuote] = useState<EnrollCourseQuote | null>(null);
+    const [quoteLoading, setQuoteLoading] = useState(false);
+    const [quoteError, setQuoteError] = useState<string | null>(null);
 
     const fetchCourse = useCallback(async () => {
         try {
@@ -120,6 +120,18 @@ export default function CourseDetailsPage() {
     const branchBatches = useMemo(
         () => offlineBatches.filter((batch) => !selectedBranchId || batch.branchId === selectedBranchId),
         [offlineBatches, selectedBranchId]
+    );
+    const selectedBatch = branchBatches.find((batch) => batch.id === selectedBatchId);
+    const offlineBranches = useMemo(
+        () =>
+            Array.from(
+                new Map(
+                    offlineBatches
+                        .filter((batch) => batch.branchId && batch.branch)
+                        .map((batch) => [batch.branchId, { id: batch.branchId, name: batch.branch!.name }])
+                ).values()
+            ),
+        [offlineBatches]
     );
 
     useEffect(() => {
@@ -181,16 +193,11 @@ export default function CourseDetailsPage() {
     }, [courseBooks, selectedPaidBookIds]);
 
     const effectiveCourseFee = course ? Number(course.offerPrice ?? course.fee) : 0;
-    const estimatedAdmissionFee =
-        course?.program?.admissionFeeEnabled && course.program.admissionFeeAmount
-            ? Number(course.program.admissionFeeAmount)
-            : 0;
-    const enrollTotal = effectiveCourseFee + booksAddonTotal + estimatedAdmissionFee;
-    const invoiceQuote = createdInvoice?.quote;
-    const checkoutCourseFee = invoiceQuote?.courseFee ?? effectiveCourseFee;
-    const checkoutBooksTotal = invoiceQuote?.booksTotal ?? booksAddonTotal;
-    const checkoutAdmissionFee = invoiceQuote?.admissionFee ?? estimatedAdmissionFee;
-    const checkoutTotal = createdInvoice?.total ?? invoiceQuote?.payableTotal ?? enrollTotal;
+    const enrollTotal = effectiveCourseFee + booksAddonTotal;
+    const checkoutCourseFee = checkoutQuote?.courseFee ?? effectiveCourseFee;
+    const checkoutBooksTotal = checkoutQuote?.booksTotal ?? booksAddonTotal;
+    const checkoutAdmissionFee = checkoutQuote?.admissionFee ?? 0;
+    const checkoutTotal = checkoutQuote?.payableTotal ?? enrollTotal;
 
     const togglePaidBook = (bookId: string) => {
         setSelectedPaidBookIds((prev) =>
@@ -204,7 +211,7 @@ export default function CourseDetailsPage() {
         });
     };
 
-    const performEnroll = async (deliveryPayload?: EnrollCourseDelivery) => {
+    const startSelfCheckoutPayment = async (deliveryPayload?: EnrollCourseDelivery) => {
         const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
         if (!userStr) {
             redirectToLogin();
@@ -224,26 +231,21 @@ export default function CourseDetailsPage() {
         }
         setEnrolling(true);
         try {
-            const res = await enrollInCourse({
+            const orderRes = await createSelfCheckoutOrder({
                 courseId: course.id,
                 branchId: course.type === 'OFFLINE' ? selectedBranchId : undefined,
                 batchId: selectedBatchId || undefined,
                 includeBookIds: selectedPaidBookIds.length ? selectedPaidBookIds : undefined,
                 delivery: deliveryPayload,
             });
-            if (!res.success || !res.data?.invoice?.id) {
-                throw new Error((res as { message?: string }).message || 'Failed to enroll');
+            if (!orderRes.success || !orderRes.data?.id) {
+                throw new Error(orderRes.message || 'Failed to create checkout order');
             }
-            const inv = res.data.invoice as { id: string; totalAmount?: unknown; payableAmount?: unknown };
-            const quote = res.data.quote;
-            const total =
-                Number(quote?.payableTotal ?? inv.payableAmount ?? inv.totalAmount ?? enrollTotal) || enrollTotal;
-            setCreatedInvoice({ id: inv.id, total, quote });
-            toast({
-                title: 'ইনভয়েস তৈরি হয়েছে',
-                description: 'পেমেন্ট সম্পন্ন হলে কোর্স অ্যাক্সেস চালু হবে।',
-                variant: 'success',
-            });
+            const payRes = await initSelfCheckoutPayment(orderRes.data.id);
+            if (!payRes.success || !payRes.data?.GatewayPageURL) {
+                throw new Error('Failed to initiate payment');
+            }
+            window.location.href = payRes.data.GatewayPageURL;
         } catch (e: unknown) {
             const err = e as ApiErrorWithResponse;
             const apiRes = err.response;
@@ -264,8 +266,8 @@ export default function CourseDetailsPage() {
                 redirectToLogin();
             } else {
                 toast({
-                    title: 'ভর্তি ব্যর্থ',
-                    description: msg,
+                    title: 'পেমেন্ট শুরু করা যায়নি',
+                    description: msg || 'আবার চেষ্টা করুন।',
                     variant: 'destructive',
                 });
             }
@@ -285,9 +287,85 @@ export default function CourseDetailsPage() {
             const preselectedBatch = offlineBatches.find((batch) => batch.id === selectedBatchId);
             if (preselectedBatch?.branchId) setSelectedBranchId(preselectedBatch.branchId);
         }
-        setCreatedInvoice(null);
+        setCheckoutQuote(null);
+        setQuoteError(null);
+        setQuoteLoading(true);
         setCheckoutOpen(true);
     };
+
+    const loadCheckoutBranch = useCallback(async () => {
+        if (course?.type !== 'OFFLINE') return;
+        setBranchProfileLoading(true);
+        try {
+            const profileRes = await getMyStudentProfile();
+            if (!profileRes.success || !profileRes.data) {
+                throw new Error(profileRes.message || 'Student profile not found');
+            }
+            const profileBranch = profileRes.data?.user?.branchId
+                ? {
+                      id: profileRes.data.user.branchId,
+                      name: profileRes.data.user.branch?.name ?? 'Saved branch',
+                  }
+                : null;
+            setSavedBranch(profileBranch);
+            if (profileBranch) {
+                setSelectedBranchId(profileBranch.id);
+                setSelectedBatchId('');
+            }
+        } catch {
+            const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+            if (!userStr) return;
+            try {
+                const user = JSON.parse(userStr) as { branchId?: string };
+                if (user.branchId) {
+                    const localBranch = offlineBranches.find((branch) => branch.id === user.branchId);
+                    setSavedBranch(localBranch ?? { id: user.branchId, name: 'Saved branch' });
+                    setSelectedBranchId(user.branchId);
+                    setSelectedBatchId('');
+                }
+            } catch {
+                // Keep checkout usable when local cache is malformed.
+            }
+        } finally {
+            setBranchProfileLoading(false);
+        }
+    }, [course?.type, offlineBranches]);
+
+    useEffect(() => {
+        if (!checkoutOpen || course?.type !== 'OFFLINE') return;
+        void loadCheckoutBranch();
+    }, [checkoutOpen, course?.type, loadCheckoutBranch]);
+
+    useEffect(() => {
+        if (!checkoutOpen || !course?.id) return;
+
+        let cancelled = false;
+        setQuoteLoading(true);
+        setQuoteError(null);
+        getEnrollCourseQuote({
+            courseId: course.id,
+            includeBookIds: selectedPaidBookIds.length ? selectedPaidBookIds : undefined,
+        })
+            .then((res) => {
+                if (cancelled) return;
+                if (!res.success || !res.data) {
+                    throw new Error(res.message || 'মূল্য যাচাই করা যায়নি।');
+                }
+                setCheckoutQuote(res.data);
+            })
+            .catch((err: unknown) => {
+                if (cancelled) return;
+                setCheckoutQuote(null);
+                setQuoteError(err instanceof Error ? err.message : 'মূল্য যাচাই করা যায়নি।');
+            })
+            .finally(() => {
+                if (!cancelled) setQuoteLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [checkoutOpen, course?.id, selectedPaidBookIds]);
 
     const submitDeliveryAndEnroll = () => {
         if (course?.type === 'OFFLINE' && !selectedBranchId) {
@@ -322,48 +400,7 @@ export default function CourseDetailsPage() {
             });
             return;
         }
-        void performEnroll(needsDelivery ? d : undefined);
-    };
-
-    const openInvoicePdf = async () => {
-        if (!createdInvoice?.id) return;
-        try {
-            const res = await getInvoicePdfUrl(createdInvoice.id);
-            if (!res.success || !res.data?.pdfUrl) throw new Error(res.message || 'No PDF');
-            const path = res.data.pdfUrl.startsWith('http')
-                ? res.data.pdfUrl
-                : `${API_ORIGIN}${res.data.pdfUrl.startsWith('/') ? '' : '/'}${res.data.pdfUrl}`;
-            const fr = await fetch(path, { credentials: 'include' });
-            if (!fr.ok) throw new Error('PDF download failed');
-            const blob = await fr.blob();
-            const url = URL.createObjectURL(blob);
-            window.open(url, '_blank', 'noopener,noreferrer');
-        } catch (err) {
-            toast({
-                title: 'PDF',
-                description: err instanceof Error ? err.message : 'Could not open PDF',
-                variant: 'destructive',
-            });
-        }
-    };
-
-    const payInvoiceNow = async () => {
-        if (!createdInvoice?.id) return;
-        try {
-            const payRes = await initInvoicePayment(createdInvoice.id);
-            if (payRes.success && payRes.data?.GatewayPageURL) {
-                window.location.href = payRes.data.GatewayPageURL;
-            } else {
-                throw new Error('Failed to initiate payment');
-            }
-        } catch (e: unknown) {
-            const err = e as Error;
-            toast({
-                title: 'পেমেন্ট',
-                description: err.message || 'গেটওয়ে খুলতে ব্যর্থ',
-                variant: 'destructive',
-            });
-        }
+        void startSelfCheckoutPayment(needsDelivery ? d : undefined);
     };
 
     if (loading) {
@@ -440,15 +477,6 @@ export default function CourseDetailsPage() {
         typeof outline?.teachersSectionTitle === 'string' && outline.teachersSectionTitle.trim()
             ? outline.teachersSectionTitle.trim()
             : 'কোর্সের শিক্ষক';
-    const selectedBatch = branchBatches.find((batch) => batch.id === selectedBatchId);
-    const offlineBranches = Array.from(
-        new Map(
-            offlineBatches
-                .filter((batch) => batch.branchId && batch.branch)
-                .map((batch) => [batch.branchId, { id: batch.branchId, name: batch.branch!.name }])
-        ).values()
-    );
-
     return (
         <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-indigo-100">
             <Toaster toasts={toasts} removeToast={removeToast} />
@@ -506,23 +534,26 @@ export default function CourseDetailsPage() {
                 open={checkoutOpen}
                 onOpenChange={setCheckoutOpen}
                 course={course}
-                createdInvoice={createdInvoice}
                 checkoutCourseFee={checkoutCourseFee}
                 checkoutBooksTotal={checkoutBooksTotal}
                 checkoutAdmissionFee={checkoutAdmissionFee}
                 checkoutTotal={checkoutTotal}
+                checkoutBillingType={checkoutQuote?.billingType}
+                checkoutBillingMonth={checkoutQuote?.billingMonth}
                 courseBooks={courseBooks}
                 selectedPaidBooks={selectedPaidBooks}
                 selectedPaidBookIds={selectedPaidBookIds}
                 setPaidBookIncluded={setPaidBookIncluded}
                 offlineBatches={offlineBatches}
                 offlineBranches={offlineBranches}
+                lockedBranch={savedBranch}
+                branchLocked={Boolean(savedBranch)}
                 selectedBranchId={selectedBranchId}
                 setSelectedBranchId={(branchId) => {
                     setSelectedBranchId(branchId);
                     setSelectedBatchId('');
                 }}
-                batchesLoading={false}
+                batchesLoading={branchProfileLoading}
                 selectedBatchId={selectedBatchId}
                 setSelectedBatchId={setSelectedBatchId}
                 selectedBatch={selectedBatch}
@@ -530,9 +561,9 @@ export default function CourseDetailsPage() {
                 delivery={delivery}
                 setDelivery={setDelivery}
                 enrolling={enrolling}
+                quoteLoading={quoteLoading}
+                quoteError={quoteError}
                 submitDeliveryAndEnroll={submitDeliveryAndEnroll}
-                openInvoicePdf={() => void openInvoicePdf()}
-                payInvoiceNow={() => void payInvoiceNow()}
             />
 
             <Footer />

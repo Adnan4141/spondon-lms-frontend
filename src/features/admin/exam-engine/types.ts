@@ -215,6 +215,26 @@ export const OMR_SHEET_PRESETS: Record<OmrSheetSize, { label: string; questionCo
   COMPETITIVE: { label: 'Competitive (200, 5 options)', questionCount: 200, optionCount: 5 },
 };
 
+/** Default OMR sheet preset used when OMR scan is enabled without explicit config. */
+export function defaultOmrConfig(): OmrConfig {
+  const preset = OMR_SHEET_PRESETS['50'];
+  return { sheetSize: '50', questionCount: preset.questionCount, optionCount: preset.optionCount };
+}
+
+/**
+ * When OMR scan is selected for an offline exam, ensure `omrConfig` exists so
+ * preflight and persistence can set `omrQuestionCount` / `omrOptionCount`.
+ */
+export function resolveOmrConfigForState(
+  state: Pick<ExamWizardState, 'resultInputModes' | 'omrConfig' | 'productType' | 'deliveryMode'>,
+): OmrConfig | null {
+  if (!state.resultInputModes.includes('OMR_SCAN')) return state.omrConfig;
+  if (state.omrConfig !== null) return state.omrConfig;
+  if (state.deliveryMode !== 'OFFLINE') return null;
+  if (state.productType === 'WRITTEN') return null;
+  return defaultOmrConfig();
+}
+
 /**
  * Recommended `resultInputModes` per (productType, deliveryMode) combination.
  *
@@ -268,6 +288,29 @@ export function resultInputModesEqual(a: ResultInputMode[], b: ResultInputMode[]
   const sa = [...a].sort();
   const sb = [...b].sort();
   return sa.every((v, i) => v === sb[i]);
+}
+
+/** Mirrors {@link preflightExam} / ResultInputModeSelector — one source of truth. */
+export function isResultInputModeAllowed(
+  mode: ResultInputMode,
+  productType: ExamProductType | '',
+  deliveryMode: 'ONLINE' | 'OFFLINE',
+): boolean {
+  if (mode === 'AUTOMATED' && deliveryMode !== 'ONLINE') return false;
+  if (mode === 'OMR_SCAN') {
+    if (deliveryMode !== 'OFFLINE') return false;
+    if (productType === 'WRITTEN') return false;
+  }
+  return true;
+}
+
+/** Drop modes that conflict with the current type + delivery (e.g. AUTOMATED + Offline). */
+export function sanitizeResultInputModes(
+  productType: ExamProductType | '',
+  deliveryMode: 'ONLINE' | 'OFFLINE',
+  modes: ResultInputMode[],
+): ResultInputMode[] {
+  return modes.filter((m) => isResultInputModeAllowed(m, productType, deliveryMode));
 }
 
 export const RESULT_INPUT_MODE_LABELS: Record<ResultInputMode, string> = {

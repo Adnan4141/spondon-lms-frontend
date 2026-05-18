@@ -90,6 +90,7 @@ export function useExamPersistence({ examId, state, serverExam }: Options) {
         settings: {
           examWizard: {
             productType,
+            deliveryMode: state.deliveryMode,
             shuffle: state.shuffle,
             setNaming: state.setNaming,
             resultInputModes: state.resultInputModes,

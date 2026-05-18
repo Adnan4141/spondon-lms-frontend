@@ -40,6 +40,33 @@ export async function getPortalBooks(): Promise<ApiResponse<Book[]>> {
   return apiRequest<ApiResponse<Book[]>>('/student-portal/all-books');
 }
 
+export type PortalCatalogCourse = {
+  id: string;
+  name: string;
+  slug: string;
+  thumbnail?: string | null;
+  type: 'ONLINE' | 'OFFLINE';
+  fee: number | string;
+  offerPrice?: number | string | null;
+  description?: string | null;
+  featured?: boolean;
+  program?: { id: string; name: string } | null;
+  _count?: { enrollmentCourses?: number };
+};
+
+export async function getPortalCourses(params?: {
+  programId?: string;
+  courseId?: string;
+}): Promise<ApiResponse<PortalCatalogCourse[]>> {
+  const q = new URLSearchParams();
+  if (params?.programId) q.set('programId', params.programId);
+  if (params?.courseId) q.set('courseId', params.courseId);
+  const query = q.toString();
+  return apiRequest<ApiResponse<PortalCatalogCourse[]>>(
+    `/student-portal/all-courses${query ? `?${query}` : ''}`,
+  );
+}
+
 export async function getMyBookPurchases(
   studentUserId: string
 ): Promise<ApiResponse<MyBookPurchaseRow[]>> {
@@ -129,6 +156,33 @@ export type EnrollCourseDelivery = {
   city?: string;
   postalCode?: string;
   notes?: string;
+};
+
+export type EnrollCourseQuote = {
+  courseFee: number;
+  booksTotal: number;
+  admissionFee: number;
+  payableTotal: number;
+  currency: string;
+  billingType: 'MONTHLY' | 'ONE_TIME';
+  billingMonth?: string | null;
+};
+
+export type StudentCheckoutOrderStatus = 'PENDING' | 'PAYMENT_INITIATED' | 'PAID' | 'EXPIRED' | 'FAILED';
+
+export type StudentCheckoutOrder = {
+  id: string;
+  studentUserId: string;
+  courseId: string;
+  branchId: string;
+  batchId?: string | null;
+  billingType: 'MONTHLY' | 'ONE_TIME';
+  billingMonth?: string | null;
+  quote: EnrollCourseQuote;
+  amount: number | string;
+  status: StudentCheckoutOrderStatus;
+  expiresAt: string;
+  invoiceId?: string | null;
 };
 
 export type FinancialDashboardInvoice = {
@@ -238,26 +292,43 @@ export async function getFinancialDashboard(studentUserId: string): Promise<ApiR
   );
 }
 
+/** Legacy endpoint alias: student self-enrollment now returns a payable checkout order, not an unpaid invoice. */
 export async function enrollInCourse(data: {
   courseId: string;
   branchId?: string;
   batchId?: string;
   includeBookIds?: string[];
   delivery?: EnrollCourseDelivery;
-}): Promise<ApiResponse<{
-  enrollmentId?: string;
-  enrollment: unknown;
-  invoice: { id: string; totalAmount?: number; payableAmount?: number; dueAmount?: number };
-  quote?: {
-    courseFee: number;
-    booksTotal: number;
-    admissionFee: number;
-    payableTotal: number;
-    currency: string;
-  };
-}>> {
+}): Promise<ApiResponse<{ order: StudentCheckoutOrder }>> {
   return apiRequest('/student-portal/enroll-course', {
     method: 'POST',
     body: JSON.stringify(data),
   });
+}
+
+export async function getEnrollCourseQuote(data: {
+  courseId: string;
+  includeBookIds?: string[];
+}): Promise<ApiResponse<EnrollCourseQuote>> {
+  return apiRequest<ApiResponse<EnrollCourseQuote>>('/student-portal/enroll-course/quote', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function createSelfCheckoutOrder(data: {
+  courseId: string;
+  branchId?: string;
+  batchId?: string;
+  includeBookIds?: string[];
+  delivery?: EnrollCourseDelivery;
+}): Promise<ApiResponse<StudentCheckoutOrder>> {
+  return apiRequest<ApiResponse<StudentCheckoutOrder>>('/student-portal/self-checkout/orders', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getSelfCheckoutOrder(id: string): Promise<ApiResponse<StudentCheckoutOrder>> {
+  return apiRequest<ApiResponse<StudentCheckoutOrder>>(`/student-portal/self-checkout/orders/${encodeURIComponent(id)}`);
 }

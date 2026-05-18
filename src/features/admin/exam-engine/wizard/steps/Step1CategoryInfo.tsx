@@ -1,5 +1,6 @@
 'use client';
 
+import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
 import type { Course } from '@/types/course';
 import type { Branch } from '@/lib/api/branches';
 import type { ExamBlueprintPreset } from '@/lib/api/exams';
@@ -44,6 +45,23 @@ export function Step1CategoryInfo({
   onStartBlank,
   onApplyPreset,
 }: Props) {
+  const toast = useAdminToast();
+
+  const handleDeliveryModeChange = (deliveryMode: ExamWizardState['deliveryMode']) => {
+    const hadAutomated = state.resultInputModes.includes('AUTOMATED');
+    dispatch({ type: 'SET_DELIVERY_MODE', deliveryMode });
+    if (
+      deliveryMode === 'OFFLINE'
+      && hadAutomated
+      && (state.productType === 'MCQ' || state.productType === 'MULTI' || state.productType === 'COMBINED')
+    ) {
+      toast({
+        title: 'Automatic grading removed',
+        description: 'Use OMR scan in step 5 for offline MCQ papers. Question sets still come from the bank.',
+      });
+    }
+  };
+
   return (
     <div className="space-y-4">
       <PresetSelectorCard
@@ -73,10 +91,7 @@ export function Step1CategoryInfo({
         }}
       />
 
-      <DeliveryModeCard
-        state={state}
-        onChange={(deliveryMode) => dispatch({ type: 'SET_DELIVERY_MODE', deliveryMode })}
-      />
+      <DeliveryModeCard state={state} onChange={handleDeliveryModeChange} />
 
       <OmrSheetConfigCard state={state} dispatch={dispatch} />
 

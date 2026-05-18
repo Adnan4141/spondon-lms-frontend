@@ -6,7 +6,12 @@ import type {
   WizardSection,
   WizardSubject,
 } from '../types';
-import { resultInputModesEqual, suggestedResultModes } from '../types';
+import {
+  resolveOmrConfigForState,
+  resultInputModesEqual,
+  sanitizeResultInputModes,
+  suggestedResultModes,
+} from '../types';
 import { SEC_TYPES } from './constants';
 import { defaultSectionsFor, newLocalId } from './wizardHelpers';
 
@@ -64,26 +69,43 @@ export function examWizardReducer(state: ExamWizardState, action: WizardFormActi
       const suggestion = state.resultInputModesUserEdited
         ? state.resultInputModes
         : (suggestedResultModes(action.productType, state.deliveryMode) ?? state.resultInputModes);
-      return {
+      const next = {
         ...state,
         productType: action.productType,
         sections,
         subjects: action.productType === 'MULTI' ? state.subjects : [],
         resultInputModes: suggestion,
       };
+      return { ...next, omrConfig: resolveOmrConfigForState(next) };
     }
     case 'SET_DELIVERY_MODE': {
-      const suggestion = state.resultInputModesUserEdited
-        ? state.resultInputModes
-        : (suggestedResultModes(state.productType, action.deliveryMode) ?? state.resultInputModes);
-      return { ...state, deliveryMode: action.deliveryMode, resultInputModes: suggestion };
+      const stripped = sanitizeResultInputModes(
+        state.productType,
+        action.deliveryMode,
+        state.resultInputModes,
+      );
+      const suggestion = suggestedResultModes(state.productType, action.deliveryMode);
+      const nextModes = state.resultInputModesUserEdited
+        ? (stripped.length > 0 ? stripped : (suggestion ?? stripped))
+        : (suggestion ?? stripped);
+      const next = { ...state, deliveryMode: action.deliveryMode, resultInputModes: nextModes };
+      return { ...next, omrConfig: resolveOmrConfigForState(next) };
     }
     case 'SET_RESULT_INPUT_MODES': {
       // Default: any explicit change counts as a user edit so we stop
       // overwriting the field on subsequent Type/Mode changes.
       const userEdited = action.userEdited ?? true;
-      const next = action.modes.length ? action.modes : (['AUTOMATED'] as ExamWizardState['resultInputModes']);
-      return { ...state, resultInputModes: next, resultInputModesUserEdited: userEdited };
+      const sanitized = sanitizeResultInputModes(
+        state.productType,
+        state.deliveryMode,
+        action.modes,
+      );
+      const fallback =
+        suggestedResultModes(state.productType, state.deliveryMode)
+        ?? (['AUTOMATED'] as ExamWizardState['resultInputModes']);
+      const nextModes = sanitized.length > 0 ? sanitized : fallback;
+      const next = { ...state, resultInputModes: nextModes, resultInputModesUserEdited: userEdited };
+      return { ...next, omrConfig: resolveOmrConfigForState(next) };
     }
     case 'APPLY_SUGGESTED_RESULT_MODES': {
       const suggestion = suggestedResultModes(state.productType, state.deliveryMode);
@@ -92,7 +114,8 @@ export function examWizardReducer(state: ExamWizardState, action: WizardFormActi
       // Applying the suggestion explicitly still counts as the user opting in
       // — but it's a controlled opt-in so we leave `userEdited` false. That
       // way switching Type/Mode again still flows fresh suggestions.
-      return { ...state, resultInputModes: suggestion, resultInputModesUserEdited: false };
+      const next = { ...state, resultInputModes: suggestion, resultInputModesUserEdited: false };
+      return { ...next, omrConfig: resolveOmrConfigForState(next) };
     }
     case 'ADD_SECTION':
       return { ...state, sections: [...state.sections, action.section] };

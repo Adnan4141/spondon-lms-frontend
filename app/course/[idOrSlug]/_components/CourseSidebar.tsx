@@ -112,39 +112,8 @@ export function CourseSidebar({
             <div className="mb-6" />
           )}
 
-          {/* Batch selector */}
-          {course.type === 'OFFLINE' && offlineBatches.length > 0 && (
-            <div className="mb-4">
-              <p className="mb-2 text-xs font-black uppercase tracking-widest text-slate-500">Batch নির্বাচন করুন</p>
-              <Select value={selectedBatchId} onValueChange={setSelectedBatchId}>
-                <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-white font-bold text-slate-800">
-                  <SelectValue placeholder="Batch বেছে নিন" />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl">
-                  {offlineBatches.map((b) => {
-                    const seats = b.availableSeats;
-                    const isFull = seats === 0;
-                    return (
-                      <SelectItem key={b.id} value={b.id} disabled={isFull} className="font-bold">
-                        {b.name}
-                        {seats != null ? (
-                          <span className={cn('ml-2 text-[10px] font-black', isFull ? 'text-rose-500' : 'text-slate-400')}>
-                            {isFull ? '· পূর্ণ' : `· ${seats} seats`}
-                          </span>
-                        ) : null}
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {course.type === 'OFFLINE' && offlineBatches.length === 0 && !loading && (
-            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
-              সব ব্যাচ পূর্ণ। নতুন ব্যাচ শীঘ্রই আসছে।
-            </div>
-          )}
+         
+        
 
           {alreadyEnrolled ? (
             <Link

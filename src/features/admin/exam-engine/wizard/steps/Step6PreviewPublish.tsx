@@ -14,6 +14,7 @@ import { PaperPreview } from '../components/PaperPreview';
 import { ExamPdfPreviewDialog } from '../../components/ExamPdfPreviewDialog';
 import { PresetSaveActions } from '../components/PresetSaveActions';
 import { ExamScheduleCard } from '../components/ExamScheduleCard';
+import { OfflineOmrWorkflowCard } from '../components/OfflineOmrWorkflowCard';
 import type { WizardFormAction } from '../examWizardReducer';
 
 type Props = {
@@ -127,6 +128,12 @@ export function Step6PreviewPublish({
 
       <ExamScheduleCard state={state} dispatch={dispatch} />
 
+      <OfflineOmrWorkflowCard
+        state={state}
+        examId={examId}
+        hasMasterPdf={Boolean(serverExam?.pdfUrl)}
+      />
+
       <PresetSaveActions
         key={appliedPresetId ?? 'new-preset'}
         presets={presets}
@@ -185,7 +192,7 @@ export function Step6PreviewPublish({
                   onClick={() => void generateOmrSheets()}
                 >
                   {omrSheetBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileScan className="h-4 w-4" />}
-                  Generate printable OMR sheets
+                  Generate answer OMR sheets
                 </Button>
               ) : null}
               <Button
@@ -197,7 +204,7 @@ export function Step6PreviewPublish({
                 onClick={() => void regenerateMaster()}
               >
                 {masterPdfBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                Regenerate master PDF
+                Regenerate question paper PDF
               </Button>
               {isDraft ? (
                 <Button
@@ -235,7 +242,7 @@ export function Step6PreviewPublish({
                     onClick={onFinalize}
                   >
                     {saveAction === 'finalize' ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                    Regenerate sets
+                    Re-pull questions from bank
                   </Button>
                   <Button asChild variant="secondary" size="sm" className="gap-2">
                     <Link href={`/student/exams/${examId}`}>
@@ -275,8 +282,8 @@ export function Step6PreviewPublish({
         <CardHeader>
           <CardTitle className="font-serif text-lg text-[#0D1B35]">Preview & publish</CardTitle>
           <CardDescription>
-            Save draft stores sections and folder rules. Finalize also generates sets from the bank using your
-            exclusions / pins.
+            Save draft stores sections and folder rules. For offline OMR exams, use the button below to pull
+            questions from the bank into sets — then generate the question paper PDF and OMR answer sheets above.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3 sm:flex-row">
@@ -304,7 +311,7 @@ export function Step6PreviewPublish({
             disabled={saveAction !== null}
           >
             {saveAction === 'finalize' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Save & generate sets
+            Save & pull questions from bank
           </Button>
         </CardContent>
       </Card>

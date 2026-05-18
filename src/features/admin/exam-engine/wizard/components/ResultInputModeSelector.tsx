@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import type { ResultInputMode } from '@/types/exam';
 import type { ExamWizardState, ExamProductType } from '../../types';
 import {
+  isResultInputModeAllowed,
   RESULT_INPUT_MODE_LABELS,
   resultInputModesEqual,
   suggestedResultModes,
@@ -41,12 +42,10 @@ const PRODUCT_TYPE_LABEL: Record<ExamProductType, string> = {
  * out instead of hitting the error on finalize.
  */
 function disabledReason(mode: ResultInputMode, state: ExamWizardState): string | null {
-  if (mode === 'AUTOMATED' && state.deliveryMode !== 'ONLINE') {
-    return 'Auto grading needs Online delivery.';
-  }
-  if (mode === 'OMR_SCAN') {
-    if (state.deliveryMode !== 'OFFLINE') return 'OMR scan needs Offline delivery.';
-    if (state.productType === 'WRITTEN') return 'OMR scan is not supported for Written exams.';
+  if (!isResultInputModeAllowed(mode, state.productType, state.deliveryMode)) {
+    if (mode === 'AUTOMATED') return 'Auto grading needs Online delivery.';
+    if (mode === 'OMR_SCAN' && state.deliveryMode !== 'OFFLINE') return 'OMR scan needs Offline delivery.';
+    if (mode === 'OMR_SCAN') return 'OMR scan is not supported for Written exams.';
   }
   return null;
 }
