@@ -7,8 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { BookStandardModal } from '@/components/books/BookStandardModal';
 import { AlertTriangle, ChevronLeft, ChevronRight, ExternalLink, FileText, LoaderCircle, Search, ZoomIn, ZoomOut } from 'lucide-react';
 
-pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
-
 function SamplePdfViewer({ sampleUrl }: { sampleUrl: string }) {
   const previewRef = useRef<HTMLDivElement | null>(null);
   const [pageCount, setPageCount] = useState(0);
@@ -16,6 +14,11 @@ function SamplePdfViewer({ sampleUrl }: { sampleUrl: string }) {
   const [scale, setScale] = useState(1);
   const [previewWidth, setPreviewWidth] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [workerReady] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
+    return true;
+  });
 
   useEffect(() => {
     const element = previewRef.current;
@@ -109,7 +112,12 @@ function SamplePdfViewer({ sampleUrl }: { sampleUrl: string }) {
         ref={previewRef}
         className="flex min-h-[72vh] items-center justify-center overflow-auto rounded-[22px] border border-slate-200 bg-linear-to-b from-slate-200 via-slate-100 to-white p-4"
       >
-        {loadError ? (
+        {!workerReady ? (
+          <div className="flex flex-col items-center gap-3 text-slate-500">
+            <LoaderCircle className="h-7 w-7 animate-spin" />
+            <p className="text-sm font-semibold">পিডিএফ ভিউয়ার প্রস্তুত হচ্ছে...</p>
+          </div>
+        ) : loadError ? (
           <div className="max-w-lg rounded-[28px] border border-amber-200 bg-white px-6 py-8 text-center shadow-sm">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-amber-50 text-amber-600">
               <AlertTriangle className="h-7 w-7" />
