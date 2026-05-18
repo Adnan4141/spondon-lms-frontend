@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { BookOpen, ArrowRight, Layers, ListVideo, Star, FileText, Download, Users, Tag, GraduationCap } from 'lucide-react';
 import { getCourseContentsWithProgress } from '@/lib/api/student-portal';
 import { getCourseById } from '@/lib/api/courses';
+import { ApiError } from '@/lib/api';
 import { resolveAttachmentUrl } from '@/lib/attachment-url';
 import type { CourseDetails } from '@/types/course';
 import { createTestimonial, getPublicTestimonials, type Testimonial } from '@/lib/api/testimonials';
@@ -52,6 +53,7 @@ export default function StudentCourseHubPage() {
   const [reviews, setReviews] = useState<Testimonial[]>([]);
   const [reviewForm, setReviewForm] = useState({ quote: '', rating: 5 });
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [accessEndedMonth, setAccessEndedMonth] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -71,6 +73,7 @@ export default function StudentCourseHubPage() {
     }
     try {
       setLoading(true);
+      setAccessEndedMonth(null);
       const courseRes = await getCourseById(courseId);
       const loadedCourse = courseRes.success && courseRes.data ? courseRes.data as CourseDetails : null;
       const resolvedCourseId = loadedCourse?.id ?? courseId;
@@ -85,6 +88,12 @@ export default function StudentCourseHubPage() {
     } catch (err) {
       console.error(err);
       setContents([]);
+      if (err instanceof ApiError && err.body && typeof err.body === 'object') {
+        const body = err.body as { code?: string; data?: { effectiveMonth?: string } };
+        if (body.code === 'COURSE_ACCESS_ENDED') {
+          setAccessEndedMonth(body.data?.effectiveMonth || null);
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -151,6 +160,23 @@ export default function StudentCourseHubPage() {
     return (
       <div className="flex justify-center py-20">
         <div className="h-12 w-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (accessEndedMonth) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-amber-50 text-amber-600">
+          <BookOpen className="h-10 w-10" />
+        </div>
+        <h1 className="text-2xl font-black text-slate-900">Course access ended</h1>
+        <p className="mt-3 max-w-md text-slate-500">
+          Your access to this course ended from {accessEndedMonth}. You can enroll again later if admission is available.
+        </p>
+        <Link href="/student/courses" className="mt-6">
+          <Button className="rounded-2xl bg-indigo-600 text-white hover:bg-indigo-700">Back to My Courses</Button>
+        </Link>
       </div>
     );
   }
