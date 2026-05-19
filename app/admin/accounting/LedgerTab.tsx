@@ -16,6 +16,7 @@ import type { Branch } from '@/lib/api/branches';
 import type { DistributionChannel, StockSource } from '@/lib/api/books';
 import type { ExportFormat } from '@/lib/export';
 import { useToast } from '@/hooks/use-toast';
+import { useAdminSession } from '@/features/admin/shared/admin-session';
 import { exportFilename, runExport } from './utils';
 import { LedgerEntriesTable } from './ledger/LedgerEntriesTable';
 import { ledgerExportColumns } from './ledger/ledgerExport';
@@ -37,6 +38,7 @@ export function LedgerTab({
   channels: DistributionChannel[];
 }) {
   const { toast } = useToast();
+  const { user } = useAdminSession();
   const [accountId, setAccountId] = useState('');
   const [branchId, setBranchId] = useState('');
   const [flowType, setFlowType] = useState('');
@@ -173,6 +175,7 @@ export function LedgerTab({
         onEdit={setEditEntry}
         onDelete={setEntryToDelete}
         deletingId={deletingId}
+        actorRole={user?.role}
       />
 
       <AlertDialog open={!!entryToDelete} onOpenChange={(open) => !open && setEntryToDelete(null)}>

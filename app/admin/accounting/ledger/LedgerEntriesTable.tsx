@@ -21,9 +21,12 @@ type Props = {
   onEdit?: (entry: LedgerEntry) => void;
   onDelete?: (entry: LedgerEntry) => void;
   deletingId?: string | null;
+  actorRole?: string;
 };
 
-export function LedgerEntriesTable({ loading, entries, onEdit, onDelete, deletingId }: Props) {
+export function LedgerEntriesTable({ loading, entries, onEdit, onDelete, deletingId, actorRole }: Props) {
+  const canDeleteManualEntries = actorRole === 'SUPER_ADMIN' || actorRole === 'ACCOUNTS';
+
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       {loading ? (
@@ -41,7 +44,15 @@ export function LedgerEntriesTable({ loading, entries, onEdit, onDelete, deletin
             <TableBody>
               {entries.length === 0 ? (
                 <TableRow><TableCell colSpan={9} className="py-12 text-center text-sm font-bold text-slate-400">No ledger entries found.</TableCell></TableRow>
-              ) : entries.map((entry) => (
+              ) : entries.map((entry) => {
+                const isManualEntry = entry.refType === 'simple-entry';
+                const deleteDisabled = !isManualEntry || !canDeleteManualEntries || deletingId === entry.id;
+                const deleteTitle = !isManualEntry
+                  ? 'Generated/system ledger rows are protected'
+                  : !canDeleteManualEntries
+                    ? 'Only Super Admin or Accounts can delete manual daily entries'
+                    : 'Delete manual daily entry';
+                return (
                 <TableRow key={entry.id} className="hover:bg-slate-50/60">
                   <TableCell className="font-mono text-xs text-slate-500 whitespace-nowrap">{fmtDate(entry.entryDate)}</TableCell>
                   <TableCell>
@@ -103,16 +114,17 @@ export function LedgerEntriesTable({ loading, entries, onEdit, onDelete, deletin
                         size="sm"
                         variant="outline"
                         className="h-8 w-8 border-rose-200 p-0 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
-                        title="Delete entry"
+                        title={deleteTitle}
                         onClick={() => onDelete?.(entry)}
-                        disabled={entry.refType !== 'simple-entry' || deletingId === entry.id}
+                        disabled={deleteDisabled}
                       >
                         {deletingId === entry.id ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                       </Button>
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+              );
+              })}
             </TableBody>
           </Table>
         </div>
