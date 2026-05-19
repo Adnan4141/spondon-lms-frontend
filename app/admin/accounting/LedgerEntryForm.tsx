@@ -51,11 +51,13 @@ export function LedgerEntryForm({
 }) {
   const { toast } = useToast();
   const [entryDate, setEntryDate] = useState(initialEntry?.entryDate ? new Date(initialEntry.entryDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
+  const initialSourceType = (initialEntry?.sourceType as SourceTypeValue) || 'NONE';
   const [flowType, setFlowType] = useState<FlowType>((initialEntry?.flowType as FlowType) || 'CREDIT');
   const [amount, setAmount] = useState(initialEntry?.amount != null ? String(initialEntry.amount) : '');
   const [accountId, setAccountId] = useState(initialEntry?.accountId || '');
+  const [branchId, setBranchId] = useState(initialEntry?.branchId || (initialSourceType === 'BRANCH' ? initialEntry?.sourceId || '' : ''));
   const [toAccountId, setToAccountId] = useState('');
-  const [sourceType, setSourceType] = useState<SourceTypeValue>((initialEntry?.sourceType as SourceTypeValue) || 'NONE');
+  const [sourceType, setSourceType] = useState<SourceTypeValue>(initialSourceType);
   const [sourceId, setSourceId] = useState(initialEntry?.sourceType === 'OTHER' ? '' : initialEntry?.sourceId || '');
   const [manualSourceLabel, setManualSourceLabel] = useState(initialEntry?.sourceType === 'OTHER' ? initialEntry?.sourceId || '' : '');
   const [purpose, setPurpose] = useState(initialEntry?.purpose || '');
@@ -111,6 +113,7 @@ export function LedgerEntryForm({
         flowType,
         amount: Number(numericAmount.toFixed(2)),
         accountId,
+        branchId: branchId || undefined,
         toAccountId: flowType === 'TRANSFER' ? toAccountId : undefined,
         sourceType: sourceType === 'NONE' ? undefined : sourceType,
         sourceId:
@@ -140,7 +143,7 @@ export function LedgerEntryForm({
       {error ? <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</div> : null}
 
       <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-sm text-slate-600">
-        Entries are recorded only for head office. Balance always follows credit minus debit.
+        Entries can be recorded for head office or a selected branch. Balance always follows credit minus debit.
       </div>
 
       <div className="grid grid-cols-1 gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-2 xl:grid-cols-4">
@@ -187,7 +190,15 @@ export function LedgerEntryForm({
         ) : null}
         <div>
           <Label className="text-xs font-black uppercase tracking-wider text-slate-500">Source</Label>
-          <Select value={sourceType} onValueChange={(v) => { setSourceType(v as SourceTypeValue); setSourceId(''); setManualSourceLabel(''); }}>
+          <Select
+            value={sourceType}
+            onValueChange={(v) => {
+              const nextType = v as SourceTypeValue;
+              setSourceType(nextType);
+              setSourceId(nextType === 'BRANCH' ? branchId : '');
+              setManualSourceLabel('');
+            }}
+          >
             <SelectTrigger className={cn(inputCls, 'mt-1')}><SelectValue /></SelectTrigger>
             <SelectContent>
               {SOURCE_TYPES.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
@@ -202,7 +213,14 @@ export function LedgerEntryForm({
         ) : sourceType !== 'NONE' ? (
           <div>
             <Label className="text-xs font-black uppercase tracking-wider text-slate-500">Source Reference</Label>
-            <Select value={sourceId || 'none'} onValueChange={(v) => setSourceId(v === 'none' ? '' : v)}>
+            <Select
+              value={sourceId || 'none'}
+              onValueChange={(v) => {
+                const next = v === 'none' ? '' : v;
+                setSourceId(next);
+                if (sourceType === 'BRANCH') setBranchId(next);
+              }}
+            >
               <SelectTrigger className={cn(inputCls, 'mt-1')}><SelectValue placeholder="Select source" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Select source</SelectItem>
@@ -211,6 +229,23 @@ export function LedgerEntryForm({
             </Select>
           </div>
         ) : null}
+        <div>
+          <Label className="text-xs font-black uppercase tracking-wider text-slate-500">Branch</Label>
+          <Select
+            value={branchId || 'head-office'}
+            onValueChange={(v) => {
+              const next = v === 'head-office' ? '' : v;
+              setBranchId(next);
+              if (sourceType === 'BRANCH') setSourceId(next);
+            }}
+          >
+            <SelectTrigger className={cn(inputCls, 'mt-1')}><SelectValue placeholder="Head office" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="head-office">Head office</SelectItem>
+              {branches.map((branch) => <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
         <div className="md:col-span-2">
           <Label className="text-xs font-black uppercase tracking-wider text-slate-500">Purpose</Label>
           <Input className={cn(inputCls, 'mt-1')} value={purpose} onChange={(e) => setPurpose(e.target.value)} placeholder="Fee collection, salary, rent, book sale, etc." />

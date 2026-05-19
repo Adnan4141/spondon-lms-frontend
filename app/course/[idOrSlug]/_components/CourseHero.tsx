@@ -45,15 +45,15 @@ export function CourseHero({ course, heroHeading }: Props) {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="hidden md:block"
+            className="w-full"
           >
-            <div className="relative aspect-video overflow-hidden rounded-3xl border-4 border-white/10 shadow-2xl">
+            <div className="relative aspect-video overflow-hidden rounded-2xl border-4 border-white/10 shadow-2xl md:rounded-3xl">
               <Image
                 src={resolveAttachmentUrl(course.thumbnail, API_ORIGIN)}
                 alt={course.name}
                 fill
                 className="object-cover"
-                sizes="50vw"
+                sizes="(max-width: 768px) 100vw, 50vw"
               />
             </div>
           </motion.div>

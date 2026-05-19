@@ -38,6 +38,7 @@ export function LedgerTab({
 }) {
   const { toast } = useToast();
   const [accountId, setAccountId] = useState('');
+  const [branchId, setBranchId] = useState('');
   const [flowType, setFlowType] = useState('');
   const [sourceType, setSourceType] = useState('');
   const [from, setFrom] = useState('');
@@ -59,6 +60,7 @@ export function LedgerTab({
     try {
       const res = await getLedgerEntries({
         accountId: accountId || undefined,
+        branchId: branchId || undefined,
         from: from || undefined,
         to: to || undefined,
         entryType: flowType || undefined,
@@ -77,7 +79,7 @@ export function LedgerTab({
     } finally {
       setLoading(false);
     }
-  }, [accountId, flowType, from, sourceType, to, toast]);
+  }, [accountId, branchId, flowType, from, sourceType, to, toast]);
 
   useEffect(() => {
     void load(1);
@@ -127,8 +129,11 @@ export function LedgerTab({
     <div className="space-y-5">
       <LedgerTabFilters
         accounts={accounts}
+        branches={branches}
         accountId={accountId}
         onAccountIdChange={setAccountId}
+        branchId={branchId}
+        onBranchIdChange={setBranchId}
         flowType={flowType}
         onFlowTypeChange={setFlowType}
         sourceType={sourceType}

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
+import Image from 'next/image';
 import { BookOpen, FileUp, HelpCircle, ImageIcon, LinkIcon, MessageSquare, Search, Send, Users, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -33,6 +34,8 @@ import { getMyCourses } from '@/lib/api/student-portal';
 import { CommunityPostCard } from '@/features/community/components/CommunityPostCard';
 import { DoubtCard } from '@/features/community/components/DoubtCard';
 import { formatTimeAgo, initials } from '@/features/community/components/community-utils';
+import { API_ORIGIN } from '@/lib/api';
+import { resolveAttachmentUrl } from '@/lib/attachment-url';
 import { cn } from '@/lib/utils';
 
 type StudentCourse = { id: string; name: string; batchName?: string };
@@ -332,7 +335,7 @@ export default function StudentCommunityPage() {
                   onReplyToggle={(p) => setReplyingToPost(replyingToPost === p.id ? null : p.id)}
                   onShare={(p) => navigator.clipboard?.writeText(`${window.location.origin}/student/community?post=${p.id}`)}
                   footer={replyingToPost === post.id ? (
-                    <PostInsightsPanel
+                    <PostCommentsPanel
                       replies={post.replies || []}
                       replyBody={replyBody}
                       onReplyBodyChange={setReplyBody}
@@ -474,7 +477,7 @@ function SideList({ items }: { items: Array<{ title: string; meta: string }> }) 
   return <div className="space-y-3">{items.length ? items.map((item, i) => <div key={`${item.title}-${i}`} className="border-l-2 border-slate-200 pl-3"><p className="line-clamp-2 text-sm font-bold text-slate-800">{item.title}</p><p className="text-xs text-rose-500">{item.meta}</p></div>) : <p className="text-sm text-slate-500">Nothing trending yet.</p>}</div>;
 }
 
-function PostInsightsPanel({
+function PostCommentsPanel({
   replies,
   replyBody,
   onReplyBodyChange,
@@ -495,16 +498,19 @@ function PostInsightsPanel({
         <div className="space-y-2">
           {replies.map((reply) => (
             <div key={reply.id} className="rounded-lg border border-slate-200 bg-white px-3 py-2">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-black text-slate-900">{reply.author?.fullName || 'User'}</p>
-                <p className="text-[11px] font-medium text-slate-400">{formatTimeAgo(reply.createdAt)}</p>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <CommentAuthorAvatar reply={reply} />
+                  <p className="truncate text-xs font-black text-slate-900">{reply.author?.fullName || 'User'}</p>
+                </div>
+                <p className="shrink-0 text-[11px] font-medium text-slate-400">{formatTimeAgo(reply.createdAt)}</p>
               </div>
               <p className="mt-1 whitespace-pre-wrap text-sm text-slate-600">{reply.body}</p>
             </div>
           ))}
         </div>
       ) : (
-        <p className="text-sm font-medium text-slate-500">No insights yet. Add the first one.</p>
+        <p className="text-sm font-medium text-slate-500">No comments yet. Add the first one.</p>
       )}
 
       <ReplyBox
@@ -514,6 +520,32 @@ function PostInsightsPanel({
         onSubmit={onSubmit}
         submitting={submitting}
       />
+    </div>
+  );
+}
+
+function CommentAuthorAvatar({ reply }: { reply: CommunityReply }) {
+  const authorName = reply.author?.fullName || 'User';
+  const authorImage = reply.author?.profileImage?.trim()
+    ? resolveAttachmentUrl(reply.author.profileImage.trim(), API_ORIGIN)
+    : '';
+
+  return (
+    <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-linear-to-br from-sky-500 to-violet-500 text-[10px] font-black text-white">
+      {initials(authorName)}
+      {authorImage ? (
+        <Image
+          src={authorImage}
+          alt={authorName}
+          fill
+          sizes="32px"
+          unoptimized
+          className="object-cover"
+          onError={(event) => {
+            event.currentTarget.style.display = 'none';
+          }}
+        />
+      ) : null}
     </div>
   );
 }

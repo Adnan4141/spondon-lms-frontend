@@ -1,6 +1,10 @@
 import type { ReactNode } from 'react';
+import Image from 'next/image';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Heart, MessageSquare, Pin, Share2 } from 'lucide-react';
 import type { CommunityPost } from '@/lib/api/community';
+import { API_ORIGIN } from '@/lib/api';
+import { resolveAttachmentUrl } from '@/lib/attachment-url';
 import { cn } from '@/lib/utils';
 import { AttachmentRenderer } from './AttachmentRenderer';
 import { formatTimeAgo, initials, voteSum } from './community-utils';
@@ -25,14 +29,30 @@ export function CommunityPostCard({
   const liked = Boolean(currentUserId && post.votes?.some((v) => v.userId === currentUserId && v.value === 1));
   const score = voteSum(post.votes);
   const replyCount = post._count?.replies ?? post.replies?.length ?? 0;
+  const authorImage = post.author?.profileImage?.trim()
+    ? resolveAttachmentUrl(post.author.profileImage.trim(), API_ORIGIN)
+    : '';
 
   return (
     <article className="overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm">
       <div className="p-5 sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-sky-500 to-violet-500 text-sm font-black text-white">
+            <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-linear-to-br from-sky-500 to-violet-500 text-sm font-black text-white">
               {initials(post.author?.fullName || 'User')}
+              {authorImage ? (
+                <Image
+                  src={authorImage}
+                  alt={post.author?.fullName || 'User'}
+                  fill
+                  sizes="44px"
+                  unoptimized
+                  className="object-cover"
+                  onError={(event) => {
+                    event.currentTarget.style.display = 'none';
+                  }}
+                />
+              ) : null}
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
@@ -73,7 +93,7 @@ export function CommunityPostCard({
               className="flex items-center gap-1.5 text-sm font-bold text-slate-500 hover:text-sky-600"
             >
               <MessageSquare className="h-5 w-5" />
-              {replyCount} Insights
+              {replyCount} Comments
             </button>
           </div>
           <button
@@ -86,7 +106,20 @@ export function CommunityPostCard({
           </button>
         </div>
 
-        {footer}
+        <AnimatePresence initial={false}>
+          {footer ? (
+            <motion.div
+              key="community-post-footer"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+              className="overflow-hidden"
+            >
+              {footer}
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
       </div>
     </article>
   );

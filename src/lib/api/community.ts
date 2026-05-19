@@ -34,7 +34,7 @@ export interface CommunityReply {
   authorId: string;
   body: string;
   createdAt: string;
-  author?: { id: string; fullName: string };
+  author?: { id: string; fullName: string; profileImage?: string | null };
 }
 
 export interface CommunityVote {
@@ -77,7 +77,7 @@ export async function createCommunityPost(data: {
   visibility?: 'PUBLIC' | 'COURSE_ONLY' | 'BATCH_ONLY';
   title: string;
   body: string;
-  attachments?: any;
+  attachments?: CommunityPost['attachments'];
 }): Promise<ApiResponse<CommunityPost>> {
   return apiRequest<ApiResponse<CommunityPost>>('/community/posts', {
     method: 'POST',

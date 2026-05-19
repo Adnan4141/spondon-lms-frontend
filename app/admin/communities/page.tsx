@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -41,6 +42,8 @@ import {
   type DoubtThread,
 } from '@/lib/api/doubts';
 import { getCourses, type Course } from '@/lib/api/courses';
+import { API_ORIGIN } from '@/lib/api';
+import { resolveAttachmentUrl } from '@/lib/attachment-url';
 import { cn } from '@/lib/utils';
 import { useModalStore } from '@/store/modalStore';
 
@@ -630,9 +633,12 @@ function PostReplyPanel({
         <div className="space-y-2">
           {post.replies.map((reply) => (
             <div key={reply.id} className="rounded-lg border border-slate-200 bg-white px-3 py-2">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-black text-slate-900">{reply.author?.fullName || 'User'}</p>
-                <p className="text-[11px] font-medium text-slate-400">{formatTimeAgo(reply.createdAt)}</p>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <CommunityReplyAvatar reply={reply} />
+                  <p className="truncate text-xs font-black text-slate-900">{reply.author?.fullName || 'User'}</p>
+                </div>
+                <p className="shrink-0 text-[11px] font-medium text-slate-400">{formatTimeAgo(reply.createdAt)}</p>
               </div>
               <p className="mt-1 whitespace-pre-wrap text-sm text-slate-600">{reply.body}</p>
             </div>
@@ -653,6 +659,32 @@ function PostReplyPanel({
         <Button size="sm" onClick={onSubmit} disabled={submitting || !replyBody.trim()}>Reply</Button>
         <Button size="sm" variant="outline" onClick={onCancel}>Cancel</Button>
       </div>
+    </div>
+  );
+}
+
+function CommunityReplyAvatar({ reply }: { reply: NonNullable<CommunityPost['replies']>[number] }) {
+  const authorName = reply.author?.fullName || 'User';
+  const authorImage = reply.author?.profileImage?.trim()
+    ? resolveAttachmentUrl(reply.author.profileImage.trim(), API_ORIGIN)
+    : '';
+
+  return (
+    <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-linear-to-br from-sky-500 to-violet-500 text-[10px] font-black text-white">
+      {initials(authorName)}
+      {authorImage ? (
+        <Image
+          src={authorImage}
+          alt={authorName}
+          fill
+          sizes="32px"
+          unoptimized
+          className="object-cover"
+          onError={(event) => {
+            event.currentTarget.style.display = 'none';
+          }}
+        />
+      ) : null}
     </div>
   );
 }

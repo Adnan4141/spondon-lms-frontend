@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { HelpCircle, MessageCircle } from 'lucide-react';
 import type { DoubtThread } from '@/lib/api/doubts';
 import { cn } from '@/lib/utils';
@@ -52,7 +53,20 @@ export function DoubtCard({
           {replyCount} replies
         </button>
       </div>
-      {expanded ? <div className="mt-4 border-t border-slate-100 pt-4">{children}</div> : null}
+      <AnimatePresence initial={false}>
+        {expanded ? (
+          <motion.div
+            key="doubt-card-expanded"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+            className="overflow-hidden"
+          >
+            <div className="mt-4 border-t border-slate-100 pt-4">{children}</div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </article>
   );
 }

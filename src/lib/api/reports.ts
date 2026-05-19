@@ -296,15 +296,16 @@ export interface LedgerSummaryRow {
   accountName: string;
   accountType: string;
   accountCode: string;
-  entryType: string;
-  total: number;
+  totalDebit: number;
+  totalCredit: number;
+  balance: number;
 }
 
 export interface LedgerTypeSummary {
   type: string;
-  income: number;
-  expense: number;
-  net: number;
+  totalDebit: number;
+  totalCredit: number;
+  balance: number;
 }
 
 export interface LedgerSummaryResponse {

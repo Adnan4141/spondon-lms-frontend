@@ -1190,8 +1190,9 @@ function LedgerSummaryTab({ branches }: { branches: Branch[] }) {
         { header: 'Account Code', value: (row) => row.accountCode },
         { header: 'Account Name', value: (row) => row.accountName },
         { header: 'Account Type', value: (row) => row.accountType },
-        { header: 'Entry Type', value: (row) => row.entryType },
-        { header: 'Total Amount', value: (row) => row.total },
+        { header: 'Total Debit', value: (row) => row.totalDebit },
+        { header: 'Total Credit', value: (row) => row.totalCredit },
+        { header: 'Balance', value: (row) => row.balance },
       ],
     });
   }
@@ -1233,16 +1234,16 @@ function LedgerSummaryTab({ branches }: { branches: Branch[] }) {
               </Badge>
               <div className="space-y-1">
                 <div className="flex justify-between text-xs">
-                  <span className="text-slate-400 font-bold">Income</span>
-                  <span className="font-black text-emerald-600">{fmtCur(s.income)}</span>
+                  <span className="text-slate-400 font-bold">Debit</span>
+                  <span className="font-black text-rose-500">{fmtCur(s.totalDebit)}</span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="text-slate-400 font-bold">Expense</span>
-                  <span className="font-black text-rose-500">{fmtCur(s.expense)}</span>
+                  <span className="text-slate-400 font-bold">Credit</span>
+                  <span className="font-black text-emerald-600">{fmtCur(s.totalCredit)}</span>
                 </div>
                 <div className="flex justify-between text-xs border-t border-slate-100 pt-1 mt-1">
-                  <span className="text-slate-600 font-black">Net</span>
-                  <span className={cn('font-black', s.net >= 0 ? 'text-indigo-600' : 'text-rose-600')}>{fmtCur(s.net)}</span>
+                  <span className="text-slate-600 font-black">Balance</span>
+                  <span className={cn('font-black', s.balance >= 0 ? 'text-indigo-600' : 'text-rose-600')}>{fmtCur(s.balance)}</span>
                 </div>
               </div>
             </div>
@@ -1258,14 +1259,14 @@ function LedgerSummaryTab({ branches }: { branches: Branch[] }) {
             <Table>
               <TableHeader className="bg-slate-50/80">
                 <TableRow>
-                  {['Code', 'Account', 'Type', 'Entry Type', 'Total Amount'].map((h) => (
+                  {['Code', 'Account', 'Type', 'Debit', 'Credit', 'Balance'].map((h) => (
                     <TableHead key={h} className="text-[10px] font-black uppercase tracking-widest text-slate-400">{h}</TableHead>
                   ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="py-12 text-center text-slate-400 text-sm font-bold">No ledger entries found. Load to view data.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="py-12 text-center text-slate-400 text-sm font-bold">No ledger entries found. Load to view data.</TableCell></TableRow>
                 ) : rows.map((row, i) => (
                   <TableRow key={i} className="hover:bg-slate-50/60">
                     <TableCell className="font-mono text-xs text-slate-500">{row.accountCode}</TableCell>
@@ -1275,13 +1276,14 @@ function LedgerSummaryTab({ branches }: { branches: Branch[] }) {
                         {row.accountType}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      <span className={cn('text-[10px] font-black uppercase tracking-wider', row.entryType === 'INCOME' ? 'text-emerald-600' : 'text-rose-500')}>
-                        {row.entryType === 'INCOME' ? '↑ ' : '↓ '}{row.entryType}
-                      </span>
+                    <TableCell className="font-black text-rose-500">
+                      {fmtCur(row.totalDebit)}
                     </TableCell>
-                    <TableCell className={cn('font-black', row.entryType === 'INCOME' ? 'text-emerald-600' : 'text-rose-500')}>
-                      {fmtCur(row.total)}
+                    <TableCell className="font-black text-emerald-600">
+                      {fmtCur(row.totalCredit)}
+                    </TableCell>
+                    <TableCell className={cn('font-black', row.balance >= 0 ? 'text-indigo-600' : 'text-rose-600')}>
+                      {fmtCur(row.balance)}
                     </TableCell>
                   </TableRow>
                 ))}
