@@ -1,12 +1,15 @@
 import { apiRequest } from '../api';
 
 export interface SmsConfig {
-  id: string;
+  id?: string;
   scope?: 'ORG' | 'BRANCH';
+  branchId?: string | null;
   provider: string;
   apiKey: string;
   senderId?: string | null;
   nonMaskingNumber?: string | null;
+  maskingRate?: number;
+  nonMaskingRate?: number;
   isActive: boolean;
 }
 
@@ -72,22 +75,38 @@ export interface ApiResponse<T> {
 
 export interface SmsQueueItem {
   id: string;
+  jobId?: string | null;
   mobile: string;
   type?: string | null;
+  smsType?: 'masking' | 'non_masking';
+  context?: string | null;
   priority: number;
   status: string;
   message: string;
+  cost?: string | number | null;
 }
 
 export interface SmsLog {
   id: string;
+  jobId?: string | null;
   scope: 'ORG' | 'BRANCH';
   type?: string | null;
   source?: string | null;
+  smsType?: 'masking' | 'non_masking';
+  context?: string | null;
   message: string;
   recipientCount: number;
   successCount: number;
   failedCount: number;
+  cost?: string | number | null;
+  sentAt?: string | null;
+  recipients?: Array<{
+    id: string;
+    mobile: string;
+    status: string;
+    message?: string | null;
+    cost?: string | number | null;
+  }>;
 }
 
 export interface SmsReportRow {
@@ -116,7 +135,7 @@ const qs = (params?: Record<string, unknown>) => {
   return q ? `?${q}` : '';
 };
 
-export const getSmsConfig = () => apiRequest<ApiResponse<SmsConfig | null>>('/sms/config');
+export const getSmsConfig = (params?: Record<string, unknown>) => apiRequest<ApiResponse<SmsConfig | null>>(`/sms/config${qs(params)}`);
 export const upsertSmsConfig = (data: Partial<SmsConfig>) => apiRequest<ApiResponse<SmsConfig>>('/sms/config', {
   method: 'POST',
   body: JSON.stringify(data),
@@ -158,6 +177,40 @@ export const deleteBranchSystemSettings = (branchId: string, type?: string) =>
 export const sendDirectSms = (to: string, message: string, isMasking: boolean, branchId?: string, scope?: string) => apiRequest<ApiResponse<unknown>>('/sms/send-direct', {
   method: 'POST',
   body: JSON.stringify({ to, message, isMasking, branchId, scope }),
+});
+
+export interface SmsRecipient {
+  id?: string | null;
+  name?: string | null;
+  phone: string;
+  branchId?: string | null;
+  variables?: Record<string, unknown>;
+}
+
+export const resolveSmsRecipients = (data: {
+  branchId?: string;
+  courseIds?: string[];
+  batchIds?: string[];
+  studentIds?: string[];
+}) => apiRequest<ApiResponse<{ recipients: SmsRecipient[]; count: number }>>('/sms/resolve-recipients', {
+  method: 'POST',
+  body: JSON.stringify(data),
+});
+
+export const dispatchSms = (data: {
+  recipients: SmsRecipient[];
+  message?: string;
+  templateKey?: string;
+  defaultVars?: Record<string, unknown>;
+  smsType: 'masking' | 'non_masking';
+  context: string;
+  scope?: 'ORG' | 'BRANCH';
+  branchId?: string;
+  type?: string;
+  source?: string;
+}) => apiRequest<ApiResponse<{ jobId: string; queuedCount: number; estimatedCost: number; invalid: string[] }>>('/sms/send', {
+  method: 'POST',
+  body: JSON.stringify(data),
 });
 
 export const previewBulkManual = (numbers: string) => apiRequest<ApiResponse<BulkPreview>>('/sms/bulk/manual/preview', {

@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { Activity, Bell, FileSpreadsheet, History, Save, Settings, Wallet } from 'lucide-react';
+import { FileText, History, Save, Send, Settings } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { SmsSystemSetting } from '@/lib/api/sms';
@@ -18,13 +18,11 @@ export const smsTypeLabels: Record<string, string> = {
 };
 
 export const tabItems = [
-  { value: 'overview', label: 'Overview', icon: Activity },
-  { value: 'system', label: 'System SMS', icon: Bell },
-  { value: 'bulk', label: 'Bulk SMS', icon: FileSpreadsheet },
+  { value: 'send', label: 'Send SMS', icon: Send },
   { value: 'templates', label: 'Templates', icon: Save },
-  { value: 'balances', label: 'Balances', icon: Wallet },
-  { value: 'reports', label: 'Reports', icon: History },
-  { value: 'gateway', label: 'Gateway', icon: Settings },
+  { value: 'gateway', label: 'Settings', icon: Settings },
+  { value: 'logs', label: 'SMS Logs', icon: History },
+  { value: 'reports', label: 'Reports', icon: FileText },
 ];
 
 export function errorMessage(error: unknown) {

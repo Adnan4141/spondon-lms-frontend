@@ -22,14 +22,22 @@ export function AdminToastProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const handler = (e: Event) => {
-      const msg = (e as CustomEvent<string>).detail;
-      if (msg) {
-        toast({
-          title: 'Something went wrong',
-          description: msg,
-          variant: 'destructive',
-        });
-      }
+      const detail = (e as CustomEvent<{ message: string; status: number } | string>).detail;
+      const msg = typeof detail === 'string' ? detail : detail?.message;
+      const status = typeof detail === 'object' ? detail?.status : undefined;
+      if (!msg) return;
+
+      let title = 'Something went wrong';
+      if (status === 503) title = 'Service Unavailable';
+      else if (status === 500) title = 'Server Error';
+      else if (status === 403) title = 'Access Denied';
+      else if (status === 404) title = 'Not Found';
+
+      toast({
+        title,
+        description: msg,
+        variant: 'destructive',
+      });
     };
     window.addEventListener('api-error', handler);
     return () => window.removeEventListener('api-error', handler);

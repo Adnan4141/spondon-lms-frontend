@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, Loader2, Printer } from 'lucide-react';
+import { ChevronLeft, Loader2, MessageSquare, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -29,6 +29,7 @@ import {
   postExamResultBulkExcel,
   postExamResultBulkManual,
   postExamResultSingle,
+  sendExamResultBatchSms,
   type ResultBatchSummary,
 } from '@/lib/api/exam-result-batches';
 import { getBranches } from '@/lib/api/branches';
@@ -161,7 +162,7 @@ export function ExamResultsPage({ examId }: { examId: string }) {
         branchId: selectedBranchId || undefined,
       });
       if (!r.success) throw new Error(r.message || 'Single result failed');
-      toast({ title: 'Result row queued' });
+      toast({ title: 'Result row queued', description: 'Result SMS preview is ready; messages will be sent after approval.' });
       setSingleRoll('');
       setSingleMarks('');
       await load();
@@ -184,7 +185,7 @@ export function ExamResultsPage({ examId }: { examId: string }) {
       const r = await postExamResultBulkManual(examId, rows, selectedBranchId || undefined);
       if (!r.success) throw new Error(r.message || 'Bulk result failed');
       setOfflineErrors((r.data?.errors || []) as Array<Record<string, unknown>>);
-      toast({ title: `Bulk rows queued: ${r.data?.inserted ?? 0}` });
+      toast({ title: `Bulk rows queued: ${r.data?.inserted ?? 0}`, description: 'Result SMS will send after approval when enabled.' });
       await load();
     } catch (e) {
       toast({ title: e instanceof Error ? e.message : 'Bulk import failed', variant: 'destructive' });
@@ -204,7 +205,7 @@ export function ExamResultsPage({ examId }: { examId: string }) {
       const r = await postExamResultBulkExcel(examId, excelFile, selectedBranchId || undefined);
       if (!r.success) throw new Error(r.message || 'Excel import failed');
       setOfflineErrors((r.data?.errors || []) as Array<Record<string, unknown>>);
-      toast({ title: `Excel rows queued: ${r.data?.inserted ?? 0}` });
+      toast({ title: `Excel rows queued: ${r.data?.inserted ?? 0}`, description: 'Result SMS will send after approval when enabled.' });
       setExcelFile(null);
       await load();
     } catch (e) {
@@ -257,6 +258,17 @@ export function ExamResultsPage({ examId }: { examId: string }) {
     toast({ title: 'Evaluation finalized' });
     await load();
     await openWrittenAttempt(attemptId);
+  };
+
+  const sendBatchSms = async (batchId: string) => {
+    try {
+      const r = await sendExamResultBatchSms(examId, batchId, 'masking');
+      if (!r.success) throw new Error(r.message || 'Could not queue result SMS');
+      toast({ title: r.message || 'Result SMS queued' });
+      await load();
+    } catch (e) {
+      toast({ title: e instanceof Error ? e.message : 'Could not queue result SMS', variant: 'destructive' });
+    }
   };
 
   return (
@@ -430,6 +442,7 @@ export function ExamResultsPage({ examId }: { examId: string }) {
                     <TableHead>Status</TableHead>
                     <TableHead>Uploaded by</TableHead>
                     <TableHead>Date</TableHead>
+                    <TableHead className="text-right">SMS</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -440,10 +453,23 @@ export function ExamResultsPage({ examId }: { examId: string }) {
                       <TableCell>{b.approvalStatus}</TableCell>
                       <TableCell>{b.uploaderUser?.fullName ?? '—'}</TableCell>
                       <TableCell>{new Date(b.createdAt).toLocaleString()}</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={!['APPROVED_BY_BRANCH', 'APPROVED_BY_CENTRAL'].includes(b.approvalStatus)}
+                          onClick={() => void sendBatchSms(b.id)}
+                          className="gap-1"
+                        >
+                          <MessageSquare className="h-4 w-4" />
+                          Send all
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   )) : (
                     <TableRow>
-                      <TableCell colSpan={5} className="py-6 text-center text-sm text-slate-500">
+                      <TableCell colSpan={6} className="py-6 text-center text-sm text-slate-500">
                         No result batches queued yet.
                       </TableCell>
                     </TableRow>

@@ -66,6 +66,30 @@ export function SmsGatewayTab({
             className="mt-1 bg-white"
           />
         </div>
+        <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+          <Label>Masking Rate (BDT / SMS)</Label>
+          <Input
+            type="number"
+            step="0.01"
+            min="0"
+            value={config.maskingRate ?? 0.5}
+            onChange={(event) => setConfig((prev) => ({ ...prev, maskingRate: Number(event.target.value) }))}
+            className="mt-1 bg-white"
+          />
+          <p className="mt-1 text-xs text-slate-500">Branded sender ID, for example CoachingXYZ.</p>
+        </div>
+        <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+          <Label>Non-masking Rate (BDT / SMS)</Label>
+          <Input
+            type="number"
+            step="0.01"
+            min="0"
+            value={config.nonMaskingRate ?? 0.35}
+            onChange={(event) => setConfig((prev) => ({ ...prev, nonMaskingRate: Number(event.target.value) }))}
+            className="mt-1 bg-white"
+          />
+          <p className="mt-1 text-xs text-slate-500">Generic sender number SMS.</p>
+        </div>
         <div className="flex items-center justify-between rounded-md border border-slate-200 p-3 lg:col-span-2">
           <Label>Active gateway</Label>
           <Switch checked={config.isActive ?? true} onCheckedChange={(checked) => setConfig((prev) => ({ ...prev, isActive: checked }))} />

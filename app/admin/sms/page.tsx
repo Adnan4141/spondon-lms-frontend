@@ -10,7 +10,9 @@ import { SmsOverviewTab } from '@/features/admin/sms/components/SmsOverviewTab';
 import { SmsReportsTab } from '@/features/admin/sms/components/SmsReportsTab';
 import { SmsSystemTab } from '@/features/admin/sms/components/SmsSystemTab';
 import { SmsTemplatesTab } from '@/features/admin/sms/components/SmsTemplatesTab';
+import { SmsStudentSendSection } from '@/features/admin/sms/components/SmsStudentSendSection';
 import { useAdminSession } from '@/features/admin/shared/admin-session';
+import { hasPermission } from '@/features/admin/shared/permissions';
 import {
   useSmsBalancesActions,
   useSmsBulkActions,
@@ -23,6 +25,7 @@ import {
   Metric,
   tabItems,
 } from '@/features/admin/sms/sms-shared';
+import { SmsLogsTab } from '@/features/admin/sms/components/SmsLogsTab';
 
 export default function SmsManagementPage() {
   const { user } = useAdminSession();
@@ -35,6 +38,7 @@ export default function SmsManagementPage() {
     submitting: smsData.submitting,
     setSubmitting: smsData.setSubmitting,
     refresh: smsData.loadData,
+    actor: user,
   });
   const bulkActions = useSmsBulkActions({
     branchBalances: smsData.branchBalances,
@@ -66,8 +70,8 @@ export default function SmsManagementPage() {
     refresh: smsData.loadData,
   });
   const visibleTabs = isBranchAdmin
-    ? tabItems.filter((item) => ['overview', 'bulk', 'templates', 'balances', 'reports'].includes(item.value))
-    : tabItems;
+    ? tabItems.filter((item) => ['send', 'logs', 'reports'].includes(item.value))
+    : tabItems.filter((item) => item.value !== 'templates' || hasPermission(user?.role, 'sms:templates:manage'));
   const branchBalance = isBranchAdmin ? smsData.branchBalances.find((balance) => balance.branchId === user?.branchId) : undefined;
 
   return (
@@ -77,7 +81,7 @@ export default function SmsManagementPage() {
           <div className="min-w-0">
             <h1 className="truncate text-xl font-bold text-slate-950">SMS Control Center</h1>
             <p className="truncate text-sm text-slate-500">
-              {isBranchAdmin ? 'Branch wallet, bulk SMS, templates, and usage reports' : 'Unified queue, automated policies, bulk SMS, balance, and reports'}
+              {isBranchAdmin ? 'Send branch SMS, monitor logs, and review usage reports' : 'Send SMS, manage templates, configure rates, and monitor delivery'}
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={smsData.loadData} disabled={smsData.loading} className="shrink-0 gap-2">
@@ -91,11 +95,11 @@ export default function SmsManagementPage() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Metric label={isBranchAdmin ? 'Branch Balance' : 'Central Balance'} value={isBranchAdmin ? branchBalance?.balanceCount ?? 0 : smsData.orgBalance?.balanceCount ?? '-'} tone="emerald" />
           <Metric label={isBranchAdmin ? 'SMS Rate' : 'Provider Balance'} value={isBranchAdmin ? `৳${smsData.smsPricing.pricePerSms}` : smsData.providerBalanceValue} tone="blue" />
-          <Metric label="Queue Pending" value={smsData.queue.summary?.PENDING ?? 0} tone="amber" />
+          <Metric label="Queue Pending" value={smsData.queue.summary?.QUEUED ?? smsData.queue.summary?.PENDING ?? 0} tone="amber" />
           <Metric label="Sent SMS" value={smsData.sentSmsValue} tone="slate" />
         </div>
 
-        <Tabs defaultValue="overview" className="space-y-4">
+        <Tabs defaultValue="send" className="space-y-4">
           <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
             <TabsList className="flex h-auto w-max min-w-full justify-start gap-1 rounded-lg border border-slate-200 bg-white p-1 sm:w-full sm:flex-wrap">
               {visibleTabs.map(({ value, label, icon: Icon }) => (
@@ -107,31 +111,21 @@ export default function SmsManagementPage() {
             </TabsList>
           </div>
 
-          <TabsContent value="overview" className="space-y-4">
-            <SmsOverviewTab
-              queue={smsData.queue}
-              config={smsData.config}
-              providerBalanceValue={smsData.providerBalanceValue}
-              providerBalanceError={smsData.providerBalanceError}
-              failedQueue={smsData.failedQueue}
-            />
-          </TabsContent>
-
-          <TabsContent value="system" className="space-y-4">
-            <SmsSystemTab
-              templates={smsData.templates}
-              branches={smsData.branches}
-              settingsState={systemSettings.state}
-              settingsActions={systemSettings.actions}
-            />
-          </TabsContent>
-
-          <TabsContent value="bulk" className="space-y-4">
+          <TabsContent value="send" className="space-y-4">
             <SmsBulkTab
               branches={smsData.branches}
               bulkState={bulkActions.bulkState}
               bulkActions={bulkActions.bulkActions}
               directState={bulkActions.directState}
+            />
+            <SmsStudentSendSection
+              branches={smsData.branches}
+              actor={user}
+              rates={{
+                maskingRate: Number(smsData.config.maskingRate || 0.5),
+                nonMaskingRate: Number(smsData.config.nonMaskingRate || 0.35),
+              }}
+              onSuccess={smsData.loadData}
             />
           </TabsContent>
 
@@ -143,7 +137,24 @@ export default function SmsManagementPage() {
             />
           </TabsContent>
 
-          <TabsContent value="balances" className="space-y-4">
+          {!isBranchAdmin && <TabsContent value="gateway" className="space-y-4">
+            <SmsOverviewTab
+              queue={smsData.queue}
+              config={smsData.config}
+              providerBalanceValue={smsData.providerBalanceValue}
+              providerBalanceError={smsData.providerBalanceError}
+              failedQueue={smsData.failedQueue}
+            />
+            <SmsGatewayTab
+              gatewayState={gatewayActions.state}
+              gatewayActions={gatewayActions.actions}
+            />
+            <SmsSystemTab
+              templates={smsData.templates}
+              branches={smsData.branches}
+              settingsState={systemSettings.state}
+              settingsActions={systemSettings.actions}
+            />
             <SmsBalancesTab
               orgBalance={smsData.orgBalance}
               branches={smsData.branches}
@@ -153,6 +164,10 @@ export default function SmsManagementPage() {
               balanceActions={balanceActions.actions}
               isBranchAdmin={isBranchAdmin}
             />
+          </TabsContent>}
+
+          <TabsContent value="logs" className="space-y-4">
+            <SmsLogsTab logs={smsData.logs} queue={smsData.queue} />
           </TabsContent>
 
           <TabsContent value="reports" className="space-y-4">
@@ -169,13 +184,6 @@ export default function SmsManagementPage() {
               branches={smsData.branches}
             />
           </TabsContent>
-
-          {!isBranchAdmin && <TabsContent value="gateway" className="space-y-4">
-            <SmsGatewayTab
-              gatewayState={gatewayActions.state}
-              gatewayActions={gatewayActions.actions}
-            />
-          </TabsContent>}
         </Tabs>
       </div>
     </main>

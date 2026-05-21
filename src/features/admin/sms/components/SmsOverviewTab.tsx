@@ -22,7 +22,7 @@ export function SmsOverviewTab({
       <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
         <Panel title="Queue Status">
           <div className="grid gap-3 sm:grid-cols-4">
-            {['PENDING', 'SENDING', 'SENT', 'FAILED'].map((status) => (
+            {['QUEUED', 'SENDING', 'DELIVERED', 'FAILED'].map((status) => (
               <div key={status} className="rounded-md border border-slate-200 bg-slate-50 p-3">
                 <p className="text-xs font-semibold text-slate-500">{status}</p>
                 <p className="mt-1 text-xl font-bold text-slate-950">{queue.summary?.[status] ?? 0}</p>

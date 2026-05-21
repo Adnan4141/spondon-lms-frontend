@@ -56,10 +56,11 @@ export function SmsSystemTab({
   settingsState: SmsSystemSettingsHook['state'];
   settingsActions: SmsSystemSettingsHook['actions'];
 }) {
-  const { policyBranchId, dueMonth, submitting } = settingsState;
+  const { policyBranchId, dueMonth, submitting, branchRateForm, branchRateSource, branchRatesLoading } = settingsState;
   const {
     setPolicyBranchId,
     setDueMonth,
+    setBranchRateForm,
     getOrgSetting,
     getBranchSetting,
     getEffectiveBranchSetting,
@@ -68,6 +69,7 @@ export function SmsSystemTab({
     resetBranchToDefaultPolicy,
     copyOrgDefaultsToBranch,
     setAllTypesBranchBalance,
+    saveBranchRates,
   } = settingsActions;
 
   return (
@@ -167,6 +169,57 @@ export function SmsSystemTab({
         </p>
         {policyBranchId ? (
           <div className="space-y-4">
+            <div className="rounded-md border border-slate-200 bg-white p-3">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-semibold text-slate-950">Branch SMS Rates</p>
+                    <Badge
+                      variant="outline"
+                      className={branchRateSource === 'CUSTOM' ? 'border-emerald-200 text-emerald-800' : 'border-slate-300 text-slate-600'}
+                    >
+                      {branchRateSource === 'CUSTOM' ? 'Custom rates' : 'Inherited rates'}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Rates are branch-wide and apply to all system SMS types for this branch.
+                  </p>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-[minmax(130px,1fr)_minmax(150px,1fr)_auto] sm:items-end lg:min-w-[520px]">
+                  <div>
+                    <Label className="text-xs">Masking Rate</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={branchRateForm.maskingRate}
+                      onChange={(event) => setBranchRateForm((prev) => ({ ...prev, maskingRate: event.target.value }))}
+                      className="mt-1 bg-white"
+                      disabled={branchRatesLoading}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Non-masking Rate</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={branchRateForm.nonMaskingRate}
+                      onChange={(event) => setBranchRateForm((prev) => ({ ...prev, nonMaskingRate: event.target.value }))}
+                      className="mt-1 bg-white"
+                      disabled={branchRatesLoading}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    disabled={submitting || branchRatesLoading}
+                    onClick={() => void saveBranchRates(policyBranchId)}
+                  >
+                    Save Rates
+                  </Button>
+                </div>
+              </div>
+            </div>
             <div className="flex flex-wrap gap-2 rounded-md border border-slate-100 bg-slate-50/80 p-3">
               <Button
                 type="button"
@@ -175,7 +228,7 @@ export function SmsSystemTab({
                 disabled={submitting}
                 onClick={() => void resetBranchToDefaultPolicy(policyBranchId)}
               >
-                Use default policy
+                Reset to defaults
               </Button>
               <Button
                 type="button"
@@ -184,7 +237,7 @@ export function SmsSystemTab({
                 disabled={submitting}
                 onClick={() => void copyOrgDefaultsToBranch(policyBranchId)}
               >
-                Copy default to this branch
+                Copy defaults
               </Button>
               <Button
                 type="button"
@@ -193,8 +246,14 @@ export function SmsSystemTab({
                 disabled={submitting}
                 onClick={() => void setAllTypesBranchBalance(policyBranchId)}
               >
-                Set all SMS types to branch balance
+                Use branch balance for all
               </Button>
+            </div>
+            <div className="hidden grid-cols-[1.35fr_.85fr_.8fr_1fr] gap-3 px-3 text-xs font-semibold uppercase text-slate-500 lg:grid">
+              <span>SMS Type</span>
+              <span>Balance</span>
+              <span>SMS Mode</span>
+              <span>Template</span>
             </div>
             <div className="space-y-2">
               {systemTypes.map((type) => {
@@ -219,7 +278,7 @@ export function SmsSystemTab({
                       <div className="min-w-0">
                         <p className="truncate font-semibold text-slate-950">{smsTypeLabels[type] || type}</p>
                         <p className="text-xs text-slate-500">
-                          {branchSetting ? 'Custom policy' : 'Using default policy'} ·{' '}
+                          {branchSetting ? 'Custom branch policy' : 'Inherited default'} ·{' '}
                           {setting.balanceSource === 'ORG' ? 'Uses central balance' : 'Uses branch balance'}
                         </p>
                       </div>

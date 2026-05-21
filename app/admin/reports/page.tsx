@@ -26,6 +26,7 @@ import { getPrograms } from '@/lib/api/programs';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -58,7 +59,9 @@ import {
   Download,
   ArrowUpRight,
   Package,
+  MessageSquare,
 } from 'lucide-react';
+import { SmsSendDrawer } from '@/features/admin/sms/components/SmsSendDrawer';
 import {
   BarChart,
   Bar,
@@ -927,6 +930,7 @@ function BookSalesTab({ branches }: { branches: Branch[] }) {
 
 function DueCollectionTab({ branches }: { branches: Branch[] }) {
   const { toast } = useToast();
+  const { user } = useAdminSession();
   const [branchId, setBranchId] = useState('');
   const [month, setMonth] = useState('');
   const [status, setStatus] = useState('');
@@ -936,6 +940,9 @@ function DueCollectionTab({ branches }: { branches: Branch[] }) {
   const [data, setData] = useState<DueSummaryRow[]>([]);
   const [studentRows, setStudentRows] = useState<DueSummaryStudentRow[]>([]);
   const [totals, setTotals] = useState<{ totalPayable: number; totalPaid: number; totalDue: number } | null>(null);
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [smsRows, setSmsRows] = useState<DueSummaryStudentRow[]>([]);
+  const [smsDrawerOpen, setSmsDrawerOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -952,6 +959,7 @@ function DueCollectionTab({ branches }: { branches: Branch[] }) {
         setData(res.data);
         setTotals(res.totals);
         setStudentRows(res.studentSummaries ?? []);
+        setSelectedStudentIds([]);
       }
     } catch { toast({ title: 'Failed to load due summary', variant: 'destructive' }); }
     finally { setLoading(false); }
@@ -998,6 +1006,18 @@ function DueCollectionTab({ branches }: { branches: Branch[] }) {
     });
   }
 
+  function openSmsDrawer(rows: DueSummaryStudentRow[]) {
+    if (!rows.length) {
+      toast({ title: 'Select at least one due student', variant: 'destructive' });
+      return;
+    }
+    setSmsRows(rows);
+    setSmsDrawerOpen(true);
+  }
+
+  const selectedRows = studentRows.filter((row) => selectedStudentIds.includes(row.studentUserId));
+  const allSelected = studentRows.length > 0 && selectedStudentIds.length === studentRows.length;
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap gap-3 items-end rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -1039,6 +1059,16 @@ function DueCollectionTab({ branches }: { branches: Branch[] }) {
         <Button onClick={load} disabled={loading} className="h-9 bg-indigo-600 text-white hover:bg-indigo-700 hover:text-white gap-2">
           {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Building2 className="h-4 w-4" />}
           Load
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={selectedRows.length === 0}
+          onClick={() => openSmsDrawer(selectedRows)}
+          className="h-9 gap-2"
+        >
+          <MessageSquare className="h-4 w-4" />
+          Send SMS ({selectedRows.length})
         </Button>
         <ExportButtons onExport={handleExport} disabled={loading || (studentRows.length === 0 && data.length === 0)} />
       </div>
@@ -1118,16 +1148,29 @@ function DueCollectionTab({ branches }: { branches: Branch[] }) {
             <Table>
               <TableHeader className="bg-slate-50/80">
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={allSelected}
+                      onCheckedChange={(checked) => setSelectedStudentIds(checked ? studentRows.map((row) => row.studentUserId) : [])}
+                    />
+                  </TableHead>
                   {['Reg #', 'Student Name', 'Mobile', 'Branch', 'Invoices', 'Payable', 'Paid', 'Due'].map((h) => (
                     <TableHead key={h} className="text-[10px] font-black uppercase tracking-widest text-slate-400">{h}</TableHead>
                   ))}
+                  <TableHead className="text-right text-[10px] font-black uppercase tracking-widest text-slate-400">SMS</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {studentRows.length === 0 ? (
-                  <TableRow><TableCell colSpan={8} className="py-12 text-center text-slate-400 text-sm font-bold">No student due found for current filters.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={10} className="py-12 text-center text-slate-400 text-sm font-bold">No student due found for current filters.</TableCell></TableRow>
                 ) : studentRows.map((row) => (
                   <TableRow key={`${row.branchId}:${row.studentUserId}`} className="hover:bg-slate-50/60">
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedStudentIds.includes(row.studentUserId)}
+                        onCheckedChange={(checked) => setSelectedStudentIds((prev) => checked ? [...new Set([...prev, row.studentUserId])] : prev.filter((id) => id !== row.studentUserId))}
+                      />
+                    </TableCell>
                     <TableCell className="text-xs font-bold text-slate-700">{row.registrationNumber || '—'}</TableCell>
                     <TableCell className="font-bold text-slate-900">{row.fullName}</TableCell>
                     <TableCell className="text-xs text-slate-600">{row.mobile}</TableCell>
@@ -1136,6 +1179,11 @@ function DueCollectionTab({ branches }: { branches: Branch[] }) {
                     <TableCell className="font-bold text-slate-700">{fmtCur(row.totalPayable)}</TableCell>
                     <TableCell className="font-black text-emerald-600">{fmtCur(row.totalPaid)}</TableCell>
                     <TableCell className="font-black text-rose-500">{fmtCur(row.totalDue)}</TableCell>
+                    <TableCell className="text-right">
+                      <Button type="button" size="sm" variant="ghost" onClick={() => openSmsDrawer([row])} aria-label={`Send due SMS to ${row.fullName}`}>
+                        <MessageSquare className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -1143,6 +1191,35 @@ function DueCollectionTab({ branches }: { branches: Branch[] }) {
           </div>
         )}
       </div>
+
+      <SmsSendDrawer
+        open={smsDrawerOpen}
+        onOpenChange={setSmsDrawerOpen}
+        recipients={smsRows.map((row) => ({
+          id: row.studentUserId,
+          name: row.fullName,
+          phone: row.mobile,
+          branchId: row.branchId,
+          variables: {
+            name: row.fullName,
+            phone: row.mobile,
+            amount: fmtNum(row.totalDue),
+            course: row.courseSummary || 'course fees',
+            date: row.nextDueDate ? new Date(row.nextDueDate).toLocaleDateString('en-GB') : 'the due date',
+            institute: 'Spondon LMS',
+          },
+        }))}
+        defaultMessage="Dear {name}, you have a due of ৳{amount} for {course}. Please clear by {date}. - {institute}"
+        defaultVars={{ institute: 'Spondon LMS' }}
+        contextLabel="Due Reminder"
+        context="due_reminder"
+        branchId={user?.role === 'BRANCH_ADMIN' ? user.branchId || undefined : smsRows[0]?.branchId || branchId || undefined}
+        scope="BRANCH"
+        onSuccess={() => {
+          setSelectedStudentIds([]);
+          void load();
+        }}
+      />
     </div>
   );
 }

@@ -263,6 +263,8 @@ export interface DueSummaryStudentRow {
   totalPayable: number;
   totalPaid: number;
   totalDue: number;
+  courseSummary?: string | null;
+  nextDueDate?: string | null;
 }
 
 export interface DueSummaryResponse {

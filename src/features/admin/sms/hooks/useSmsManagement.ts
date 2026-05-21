@@ -241,6 +241,9 @@ export function useSmsSystemSettings({
   const actorBranchId = actor?.branchId || '';
   const [policyBranchId, setPolicyBranchId] = useState(actorBranchId);
   const [dueMonth, setDueMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [branchRateForm, setBranchRateForm] = useState({ maskingRate: '', nonMaskingRate: '' });
+  const [branchRateSource, setBranchRateSource] = useState<'CUSTOM' | 'DEFAULT'>('DEFAULT');
+  const [branchRatesLoading, setBranchRatesLoading] = useState(false);
 
   useEffect(() => {
     if (isBranchAdmin && actorBranchId) setPolicyBranchId(actorBranchId);
@@ -263,6 +266,31 @@ export function useSmsSystemSettings({
   }, [settings]);
 
   const selectedPolicyBranchId = isBranchAdmin ? actorBranchId : policyBranchId || branches[0]?.id || '';
+
+  const loadBranchRates = useCallback(async (branchId: string) => {
+    if (!branchId) return;
+    setBranchRatesLoading(true);
+    try {
+      const res = await getSmsConfig({ branchId });
+      const config = res.data;
+      if (res.success && config) {
+        setBranchRateForm({
+          maskingRate: String(config.maskingRate ?? 0.5),
+          nonMaskingRate: String(config.nonMaskingRate ?? 0.35),
+        });
+        setBranchRateSource(config.scope === 'BRANCH' && config.branchId === branchId ? 'CUSTOM' : 'DEFAULT');
+      }
+    } catch (error: unknown) {
+      toast({ title: 'Branch rates unavailable', description: errorMessage(error), variant: 'destructive' });
+    } finally {
+      setBranchRatesLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    if (!selectedPolicyBranchId || isBranchAdmin) return;
+    void loadBranchRates(selectedPolicyBranchId);
+  }, [isBranchAdmin, loadBranchRates, selectedPolicyBranchId]);
 
   const getOrgSetting = useCallback((type: string) => {
     return orgSettingsByType.get(type) || defaultSystemSetting(type);
@@ -413,6 +441,39 @@ export function useSmsSystemSettings({
     [refresh, saveSetting, setSubmitting, toast],
   );
 
+  const saveBranchRates = useCallback(async (branchId: string) => {
+    if (!branchId) return;
+    const maskingRate = Number(branchRateForm.maskingRate);
+    const nonMaskingRate = Number(branchRateForm.nonMaskingRate);
+    if (!Number.isFinite(maskingRate) || maskingRate <= 0 || !Number.isFinite(nonMaskingRate) || nonMaskingRate <= 0) {
+      return toast({
+        title: 'Invalid SMS rates',
+        description: 'Masking and non-masking rates must be greater than zero.',
+        variant: 'destructive',
+      });
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await upsertSmsConfig({
+        scope: 'BRANCH',
+        branchId,
+        maskingRate,
+        nonMaskingRate,
+        isActive: true,
+      });
+      if (res.success) {
+        toast({ title: 'Branch SMS rates saved', variant: 'success' });
+        await loadBranchRates(branchId);
+        await refresh();
+      }
+    } catch (error: unknown) {
+      toast({ title: 'Rate save failed', description: errorMessage(error), variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
+  }, [branchRateForm, loadBranchRates, refresh, setSubmitting, toast]);
+
   return {
     state: {
       policyBranchId: selectedPolicyBranchId,
@@ -420,10 +481,14 @@ export function useSmsSystemSettings({
       isBranchAdmin,
       actorBranchId,
       submitting,
+      branchRateForm,
+      branchRateSource,
+      branchRatesLoading,
     },
     actions: {
       setPolicyBranchId,
       setDueMonth,
+      setBranchRateForm,
       getOrgSetting,
       getBranchSetting,
       getEffectiveBranchSetting,
@@ -432,6 +497,7 @@ export function useSmsSystemSettings({
       resetBranchToDefaultPolicy,
       copyOrgDefaultsToBranch,
       setAllTypesBranchBalance,
+      saveBranchRates,
     },
   };
 }
