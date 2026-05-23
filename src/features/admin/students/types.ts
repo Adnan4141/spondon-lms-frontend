@@ -33,6 +33,7 @@ export interface Course {
   programId: string;
   name: string;
   fee: number;
+  offerPrice?: number | string | null;
   type: 'OFFLINE' | 'ONLINE';
   startMonth: string;
   endMonth: string;

@@ -20,22 +20,8 @@ import {
   useSmsSystemSettings,
   useSmsTemplateActions,
 } from '@/features/admin/sms/hooks/useSmsManagement';
-import {
-  formatRemainingBdt,
-  formatSmsCredits,
-  ledgerBalanceToBdt,
-  Metric,
-  SmsWarningBanner,
-  tabItems,
-} from '@/features/admin/sms/sms-shared';
+import { formatRemainingBdt, Metric, SmsWarningBanner, tabItems } from '@/features/admin/sms/sms-shared';
 import { SmsLogsTab } from '@/features/admin/sms/components/SmsLogsTab';
-
-const gatewaySubTabs = [
-  { value: 'overview', label: 'Overview' },
-  { value: 'gateway', label: 'Gateway' },
-  { value: 'policies', label: 'Policies' },
-  { value: 'balances', label: 'Balances' },
-] as const;
 
 export default function SmsManagementPage() {
   const { user } = useAdminSession();
@@ -87,23 +73,25 @@ export default function SmsManagementPage() {
     setSubmitting: smsData.setSubmitting,
     refresh: smsData.loadData,
   });
+  const gatewaySubTabs = isBranchAdmin
+    ? [{ value: 'balances' as const, label: 'Wallet' }]
+    : [
+        { value: 'overview' as const, label: 'Overview' },
+        { value: 'gateway' as const, label: 'Gateway' },
+        { value: 'policies' as const, label: 'Policies' },
+        { value: 'balances' as const, label: 'Balances' },
+      ];
+
   const visibleTabs = isBranchAdmin
-    ? tabItems.filter((item) => ['logs', 'reports'].includes(item.value))
+    ? tabItems.filter((item) => ['logs', 'reports', 'gateway'].includes(item.value))
     : tabItems.filter((item) => item.value !== 'templates' || hasPermission(user?.role, 'sms:templates:manage'));
 
   const branchBalance = isBranchAdmin
     ? smsData.branchBalances.find((balance) => balance.branchId === user?.branchId)
     : undefined;
-  const branchRemainingBdt = ledgerBalanceToBdt(branchBalance?.balanceCount, smsData.smsPricing.pricePerSms);
   const remainingCreditValue = isBranchAdmin
-    ? formatRemainingBdt(branchRemainingBdt)
+    ? formatRemainingBdt(branchBalance?.balanceCount)
     : smsData.providerBalanceValue;
-  const remainingCreditDescription =
-    !isBranchAdmin && smsData.orgBalance?.balanceCount != null
-      ? `Internal units: ${formatSmsCredits(smsData.orgBalance.balanceCount)}`
-      : isBranchAdmin && branchBalance?.balanceCount != null
-        ? `Internal units: ${formatSmsCredits(branchBalance.balanceCount)}`
-        : undefined;
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -124,12 +112,7 @@ export default function SmsManagementPage() {
 
       <div className="mx-auto max-w-full space-y-4 px-4 py-4 sm:px-6">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <Metric
-            label="Remaining credit"
-            value={remainingCreditValue}
-            description={remainingCreditDescription}
-            tone="emerald"
-          />
+          <Metric label="Remaining credit" value={remainingCreditValue} tone="emerald" />
           <Metric label="Queue Pending" value={smsData.queue.summary?.QUEUED ?? smsData.queue.summary?.PENDING ?? 0} tone="amber" />
           <Metric label="Sent SMS" value={smsData.sentSmsValue} tone="slate" />
         </div>
@@ -165,55 +148,57 @@ export default function SmsManagementPage() {
             </TabsContent>
           )}
 
-          {!isBranchAdmin && (
-            <TabsContent value="gateway" className="space-y-4">
-              <Tabs defaultValue="overview" className="space-y-4">
-                <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-lg border border-slate-200 bg-white p-1">
-                  {gatewaySubTabs.map(({ value, label }) => (
-                    <TabsTrigger key={value} value={value} className="flex-1 px-3 text-xs sm:text-sm">
-                      {label}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
+          <TabsContent value="gateway" className="space-y-4">
+            <Tabs defaultValue={isBranchAdmin ? 'balances' : 'overview'} className="space-y-4">
+              <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-lg border border-slate-200 bg-white p-1">
+                {gatewaySubTabs.map(({ value, label }) => (
+                  <TabsTrigger key={value} value={value} className="flex-1 px-3 text-xs sm:text-sm">
+                    {label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
 
-                <TabsContent value="overview" className="mt-0 space-y-4">
-                  <SmsOverviewTab
-                    queue={smsData.queue}
-                    config={smsData.config}
-                    providerBalanceValue={smsData.providerBalanceValue}
-                    providerBalanceError={smsData.providerBalanceError}
-                    failedQueue={smsData.failedQueue}
-                  />
-                </TabsContent>
+              {!isBranchAdmin && (
+                <>
+                  <TabsContent value="overview" className="mt-0 space-y-4">
+                    <SmsOverviewTab
+                      queue={smsData.queue}
+                      config={smsData.config}
+                      providerBalanceValue={smsData.providerBalanceValue}
+                      providerBalanceError={smsData.providerBalanceError}
+                      failedQueue={smsData.failedQueue}
+                    />
+                  </TabsContent>
 
-                <TabsContent value="gateway" className="mt-0 space-y-4">
-                  <SmsGatewayTab gatewayState={gatewayActions.state} gatewayActions={gatewayActions.actions} />
-                </TabsContent>
+                  <TabsContent value="gateway" className="mt-0 space-y-4">
+                    <SmsGatewayTab gatewayState={gatewayActions.state} gatewayActions={gatewayActions.actions} />
+                  </TabsContent>
 
-                <TabsContent value="policies" className="mt-0 space-y-4">
-                  <SmsSystemTab
-                    templates={smsData.templates}
-                    branches={smsData.branches}
-                    settingsState={systemSettings.state}
-                    settingsActions={systemSettings.actions}
-                  />
-                </TabsContent>
+                  <TabsContent value="policies" className="mt-0 space-y-4">
+                    <SmsSystemTab
+                      templates={smsData.templates}
+                      branches={smsData.branches}
+                      settingsState={systemSettings.state}
+                      settingsActions={systemSettings.actions}
+                    />
+                  </TabsContent>
+                </>
+              )}
 
-                <TabsContent value="balances" className="mt-0 space-y-4">
-                  <SmsBalancesTab
-                    orgBalance={smsData.orgBalance}
-                    branches={smsData.branches}
-                    branchBalances={smsData.branchBalances}
-                    smsTransactions={smsData.smsTransactions}
-                    balanceState={balanceActions.state}
-                    balanceActions={balanceActions.actions}
-                    providerBalanceValue={smsData.providerBalanceValue}
-                    isBranchAdmin={isBranchAdmin}
-                  />
-                </TabsContent>
-              </Tabs>
-            </TabsContent>
-          )}
+              <TabsContent value="balances" className="mt-0 space-y-4">
+                <SmsBalancesTab
+                  orgBalance={smsData.orgBalance}
+                  branches={smsData.branches}
+                  branchBalances={smsData.branchBalances}
+                  smsTransactions={smsData.smsTransactions}
+                  balanceState={balanceActions.state}
+                  balanceActions={balanceActions.actions}
+                  providerBalanceValue={smsData.providerBalanceValue}
+                  isBranchAdmin={isBranchAdmin}
+                />
+              </TabsContent>
+            </Tabs>
+          </TabsContent>
 
           <TabsContent value="logs" className="space-y-4">
             <SmsLogsTab branches={smsData.branches} actor={user} />

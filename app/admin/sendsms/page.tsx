@@ -5,7 +5,7 @@ import { Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { SmsSendWorkspace } from '@/features/admin/sms/components/SmsSendWorkspace';
 import { useSmsBulkActions, useSmsManagementData } from '@/features/admin/sms/hooks/useSmsManagement';
-import { formatRemainingBdt, formatSmsCredits, ledgerBalanceToBdt, Metric, SmsWarningBanner } from '@/features/admin/sms/sms-shared';
+import { formatRemainingBdt, Metric, SmsWarningBanner } from '@/features/admin/sms/sms-shared';
 import { useAdminSession } from '@/features/admin/shared/admin-session';
 
 export default function SendSmsPage() {
@@ -22,14 +22,9 @@ export default function SendSmsPage() {
   const branchBalance = isBranchAdmin
     ? smsData.branchBalances.find((balance) => balance.branchId === user?.branchId)
     : undefined;
-  const branchRemainingBdt = ledgerBalanceToBdt(branchBalance?.balanceCount, smsData.smsPricing.pricePerSms);
-  const remainingCreditValue = isBranchAdmin ? formatRemainingBdt(branchRemainingBdt) : smsData.providerBalanceValue;
-  const remainingCreditDescription =
-    !isBranchAdmin && smsData.orgBalance?.balanceCount != null
-      ? `Internal units: ${formatSmsCredits(smsData.orgBalance.balanceCount)}`
-      : isBranchAdmin && branchBalance?.balanceCount != null
-        ? `Internal units: ${formatSmsCredits(branchBalance.balanceCount)}`
-        : undefined;
+  const remainingCreditValue = isBranchAdmin
+    ? formatRemainingBdt(branchBalance?.balanceCount)
+    : smsData.providerBalanceValue;
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -48,12 +43,7 @@ export default function SendSmsPage() {
 
       <div className="mx-auto max-w-full space-y-4 px-4 py-4 sm:px-6">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <Metric
-            label="Remaining credit"
-            value={remainingCreditValue}
-            description={remainingCreditDescription}
-            tone="emerald"
-          />
+          <Metric label="Remaining credit" value={remainingCreditValue} tone="emerald" />
           <Metric label="Queue Pending" value={smsData.queue.summary?.QUEUED ?? smsData.queue.summary?.PENDING ?? 0} tone="amber" />
           <Metric label="Sent SMS" value={smsData.sentSmsValue} tone="slate" />
         </div>

@@ -48,7 +48,6 @@ import {
   defaultSystemSetting,
   errorMessage,
   formatProviderRemainingCredit,
-  ledgerBalanceToBdt,
   parseProviderBalanceBdt,
   renderSmsPreview,
   settingKey,
@@ -142,7 +141,7 @@ export function useSmsManagementData(actor?: SmsActor) {
       ] = await Promise.allSettled([
         getBranches(),
         isSuperAdmin ? getSmsConfig() : Promise.resolve({ success: false, data: null }),
-        getSmsTemplates(),
+        isSuperAdmin ? getSmsTemplates() : Promise.resolve({ success: true, data: [] }),
         getSmsBalance(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : undefined),
         getSmsQueue(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : undefined),
         getSmsLogs({ page: 1, limit: 20, ...(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : {}) }),
@@ -224,7 +223,6 @@ export function useSmsManagementData(actor?: SmsActor) {
       ? 'Gateway not configured'
       : 'Unavailable'
     : formatProviderRemainingCredit(providerBalance?.balanceText, providerBalance?.balanceBdt ?? null);
-  const orgLedgerBdt = ledgerBalanceToBdt(orgBalance?.balanceCount, smsPricing.pricePerSms);
   const sentSmsValue = Number(((summary?.totals as { _sum?: { successCount?: number | null } } | undefined)?._sum?.successCount) ?? 0);
   const monthlyRows = Array.isArray(summary?.monthly)
     ? summary.monthly as Array<{ month: string; successCount: number; failedCount: number; recipientCount: number }>
@@ -259,7 +257,6 @@ export function useSmsManagementData(actor?: SmsActor) {
     providerBalanceValue,
     providerBalanceBdt,
     providerBalanceError,
-    orgLedgerBdt,
     queueError,
     smsConfigError,
     sentSmsValue,
@@ -763,9 +760,9 @@ export function useSmsBalancesActions({
     if (!orgBalanceInput) return;
     setSubmitting(true);
     try {
-      const res = await updateSmsBalance({ scope: 'ORG', balanceCount: Number(orgBalanceInput) });
+      const res = await updateSmsBalance({ scope: 'ORG', balanceCount: Math.round(Number(orgBalanceInput)) });
       if (res.success) {
-        toast({ title: 'Central balance updated', variant: 'success' });
+        toast({ title: 'Central balance updated', description: 'Balance set in BDT.', variant: 'success' });
         setOrgBalanceInput('');
         await refresh();
       }
@@ -780,9 +777,9 @@ export function useSmsBalancesActions({
     if (!transfer.branchId || !Number(transfer.count)) return;
     setSubmitting(true);
     try {
-      const res = await transferSmsBalance(transfer.branchId, Number(transfer.count));
+      const res = await transferSmsBalance(transfer.branchId, Math.round(Number(transfer.count)));
       if (res.success) {
-        toast({ title: 'Credits transferred', variant: 'success' });
+        toast({ title: 'Credit transferred', description: 'Amount moved in BDT.', variant: 'success' });
         setTransfer({ branchId: '', count: '' });
         await refresh();
       }
@@ -796,7 +793,11 @@ export function useSmsBalancesActions({
   const handlePurchaseSms = useCallback(async () => {
     const quantity = Number(purchase.quantity);
     if (!quantity || quantity < smsPricing.minPurchase) {
-      return toast({ title: 'Invalid quantity', description: `Minimum purchase is ${smsPricing.minPurchase} SMS.`, variant: 'destructive' });
+      return toast({
+        title: 'Invalid amount',
+        description: `Minimum purchase is ৳${smsPricing.minPurchase} BDT.`,
+        variant: 'destructive',
+      });
     }
     if (purchase.scope === 'BRANCH' && !purchase.branchId) {
       return toast({ title: 'Branch required', description: 'Select a branch for branch balance purchase.', variant: 'destructive' });
@@ -822,19 +823,21 @@ export function useSmsBalancesActions({
 
   const handleSavePricing = useCallback(async () => {
     if (!pricingForm.branchId) return toast({ title: 'Branch required', variant: 'destructive' });
-    const pricePerSms = Number(pricingForm.pricePerSms);
     const minPurchase = Number(pricingForm.minPurchase);
-    if (!Number.isFinite(pricePerSms) || pricePerSms <= 0) {
-      return toast({ title: 'Invalid rate', description: 'SMS rate must be greater than zero.', variant: 'destructive' });
+    if (!Number.isFinite(minPurchase) || minPurchase <= 0) {
+      return toast({ title: 'Invalid minimum', description: 'Minimum purchase must be greater than zero BDT.', variant: 'destructive' });
     }
     setSubmitting(true);
     try {
-      await setSmsPricing({ branchId: pricingForm.branchId, pricePerSms, minPurchase: Math.max(1, minPurchase || 100) });
-      toast({ title: 'Branch SMS rate saved', variant: 'success' });
-      setPricingForm((prev) => ({ ...prev, pricePerSms: '' }));
+      await setSmsPricing({
+        branchId: pricingForm.branchId,
+        pricePerSms: 1,
+        minPurchase: Math.max(1, Math.round(minPurchase)),
+      });
+      toast({ title: 'Minimum purchase saved', variant: 'success' });
       await refresh();
     } catch (error: unknown) {
-      toast({ title: 'Rate save failed', description: errorMessage(error), variant: 'destructive' });
+      toast({ title: 'Save failed', description: errorMessage(error), variant: 'destructive' });
     } finally {
       setSubmitting(false);
     }

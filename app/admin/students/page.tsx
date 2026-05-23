@@ -222,6 +222,7 @@ export default function StudentsPage() {
           name: c.name,
           programId: c.programId,
           fee: Number(c.fee ?? 0),
+          offerPrice: c.offerPrice ?? null,
           type: (c.type === 'OFFLINE' ? 'OFFLINE' : 'ONLINE') as 'OFFLINE' | 'ONLINE',
           startMonth: c.startMonth ?? '',
           endMonth: c.endMonth ?? '',

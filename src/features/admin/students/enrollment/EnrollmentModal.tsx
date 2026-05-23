@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowLeft, Check, Info } from 'lucide-react';
 import { z } from 'zod';
+import { format as formatDate } from 'date-fns';
 import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { getBatches } from '@/lib/api/batches';
@@ -30,6 +32,17 @@ function collectZodErrors(result: unknown): EnrollmentValidationErrors {
 
 function roundMoney(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+function moneyNumber(value: number | string | null | undefined): number {
+  const amount = Number(value ?? 0);
+  return Number.isFinite(amount) ? amount : 0;
+}
+
+function effectiveCourseFee(course: Course): number {
+  return course.offerPrice !== null && course.offerPrice !== undefined
+    ? moneyNumber(course.offerPrice)
+    : moneyNumber(course.fee);
 }
 
 function distributeEqualCents<T extends { due: number }>(items: T[], amount: number) {
@@ -83,9 +96,11 @@ export function EnrollmentModal({
   const [branchId, setBranchId] = useState('');
   const [selCourses, setSelCourses] = useState<Record<string, SelCourseState>>({});
   const [monthlyDiscount, setMonthlyDiscount] = useState('0');
+  const [oneTimeDiscount, setOneTimeDiscount] = useState('0');
   const [admDiscount, setAdmDiscount] = useState('0');
   const [payNowAmount, setPayNowAmount] = useState('0');
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'BKASH'>('CASH');
+  const [nextPaymentDueDate, setNextPaymentDueDate] = useState<Date | undefined>(undefined);
   const [billingStart, setBillingStart] = useState(() => currentMonth());
   const [courseBatches, setCourseBatches] = useState<Record<string, { id: string; name: string; status: string }[]>>({});
   const [loadingBatches, setLoadingBatches] = useState(false);
@@ -180,16 +195,28 @@ export function EnrollmentModal({
     ? []
     : availableCourses.filter(c => c.type === 'OFFLINE' && !courseBatches[c.id]?.some(b => b.status === 'ACTIVE'));
   const selected = availableCourses.filter(c => selCourses[c.id]?.checked);
-  const totalFee = selected.reduce((s, c) => s + c.fee, 0);
-  const distributed = distributeDiscount(selected, Number(monthlyDiscount) || 0);
-  const netMonthly = totalFee - (Number(monthlyDiscount) || 0);
+  const grossCourseTotal = selected.reduce((s, c) => s + moneyNumber(c.fee), 0);
+  const totalFee = selected.reduce((s, c) => s + effectiveCourseFee(c), 0);
+  const promotionalDiscount = Math.max(0, grossCourseTotal - totalFee);
+  const activeDiscount = isMonthlyProgram ? Number(monthlyDiscount) || 0 : Number(oneTimeDiscount) || 0;
+  const selectedEffectiveCourses = selected.map(c => ({ ...c, fee: effectiveCourseFee(c) }));
+  const distributed = distributeDiscount(selectedEffectiveCourses, activeDiscount);
+  const netMonthly = Math.max(0, totalFee - (Number(monthlyDiscount) || 0));
+  const oneTimeCoursePayable = Math.max(0, totalFee - (Number(oneTimeDiscount) || 0));
   const admFee = program?.admissionFeeEnabled
     ? Math.max(0, program.admissionFeeAmount - (Number(admDiscount) || 0))
     : 0;
-  const coursePayable = isMonthlyProgram ? netMonthly : totalFee;
+  const coursePayable = isMonthlyProgram ? netMonthly : oneTimeCoursePayable;
   const totalPayable = Math.max(0, coursePayable + admFee);
   const payNow = Math.min(Number(payNowAmount) || 0, totalPayable);
   const dueAfterPay = Math.max(0, totalPayable - payNow);
+  const needsNextDueDate = !isMonthlyProgram && dueAfterPay > 0;
+  const nextDueDatePayload = needsNextDueDate && nextPaymentDueDate
+    ? formatDate(nextPaymentDueDate, 'yyyy-MM-dd')
+    : '';
+  const nextDueDateLabel = nextPaymentDueDate
+    ? formatDate(nextPaymentDueDate, 'dd-MM-yyyy')
+    : '';
   const accessPreview = payNow > 0 ? 'FULL_ACCESS' : 'NO_ACCESS';
   const paymentDistributionPreview = useMemo(() => {
     const admissionApplied = roundMoney(Math.min(admFee, payNow));
@@ -197,7 +224,7 @@ export function EnrollmentModal({
     const courseRows = distributed.map(course => ({
       id: course.id,
       name: course.name,
-      due: roundMoney(Math.max(0, isMonthlyProgram ? course.fee - course.discount : course.fee)),
+      due: roundMoney(Math.max(0, course.fee - course.discount)),
     }));
     const distribution = distributeEqualCents(courseRows, remainingAfterAdmission);
     const courseAllocations = courseRows.map((course, index) => {
@@ -216,22 +243,31 @@ export function EnrollmentModal({
       remaining: distribution.remainingAmount,
       totalCourseDueAfter: roundMoney(courseAllocations.reduce((sum, row) => sum + row.dueAfter, 0)),
     };
-  }, [admFee, distributed, isMonthlyProgram, payNow]);
+  }, [admFee, distributed, payNow]);
   const validation = useMemo(() => {
     const schema = z.object({
       programId: z.string().trim().min(1, 'Program is required'),
       branchId: z.string().trim().min(1, 'Branch is required'),
       monthlyDiscount: z.coerce.number().refine(Number.isFinite, 'Monthly discount must be a valid amount').min(0, 'Monthly discount cannot be negative'),
+      oneTimeDiscount: z.coerce.number().refine(Number.isFinite, 'One-time discount must be a valid amount').min(0, 'One-time discount cannot be negative'),
       admDiscount: z.coerce.number().refine(Number.isFinite, 'Admission discount must be a valid amount').min(0, 'Admission discount cannot be negative'),
       payNowAmount: z.coerce.number().refine(Number.isFinite, 'Pay now must be a valid amount').min(0, 'Pay now cannot be negative'),
+      nextPaymentDueDate: z.date().optional(),
       paymentMethod: z.enum(['CASH', 'BKASH']),
       selectedCourseCount: z.number().min(1, 'Select at least one course'),
     }).superRefine((draft, ctx) => {
-      if (draft.monthlyDiscount > totalFee) {
+      if (isMonthlyProgram && draft.monthlyDiscount > totalFee) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['monthlyDiscount'],
           message: 'Monthly discount cannot exceed selected course total',
+        });
+      }
+      if (!isMonthlyProgram && draft.oneTimeDiscount > totalFee) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['oneTimeDiscount'],
+          message: 'One-time discount cannot exceed selected course total',
         });
       }
       if (program?.admissionFeeEnabled && draft.admDiscount > program.admissionFeeAmount) {
@@ -253,6 +289,13 @@ export function EnrollmentModal({
           code: z.ZodIssueCode.custom,
           path: ['paymentMethod'],
           message: 'Payment method is required when payment is collected',
+        });
+      }
+      if (step === 2 && !isMonthlyProgram && dueAfterPay > 0 && !draft.nextPaymentDueDate) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['nextPaymentDueDate'],
+          message: 'Next due date is required when one-time enrollment has a due amount',
         });
       }
       for (const course of selected) {
@@ -309,13 +352,15 @@ export function EnrollmentModal({
       programId,
       branchId,
       monthlyDiscount,
+      oneTimeDiscount,
       admDiscount,
       payNowAmount,
+      nextPaymentDueDate,
       paymentMethod,
       selectedCourseCount: selected.length,
     });
     return { success: result.success, errors: collectZodErrors(result) };
-  }, [admDiscount, billingStart, branchId, isMonthlyProgram, monthlyDiscount, payNowAmount, paymentMethod, program, programId, selCourses, selected, totalFee, totalPayable]);
+  }, [admDiscount, billingStart, branchId, dueAfterPay, isMonthlyProgram, monthlyDiscount, nextPaymentDueDate, oneTimeDiscount, payNowAmount, paymentMethod, program, programId, selCourses, selected, step, totalFee, totalPayable]);
   const canNext = validation.success;
 
   const toggle = (cid: string) =>
@@ -358,8 +403,11 @@ export function EnrollmentModal({
         courses: coursePayload,
         branchId,
         billingType: isMonthlyProgram ? 'MONTHLY' : 'ONE_TIME',
-        ...(isMonthlyProgram ? { billingStartMonth: billingStart, monthlyDiscount: Number(monthlyDiscount) || 0 } : {}),
+        ...(isMonthlyProgram
+          ? { billingStartMonth: billingStart, monthlyDiscount: Number(monthlyDiscount) || 0 }
+          : { oneTimeDiscount: Number(oneTimeDiscount) || 0 }),
         admissionFeeAmountOverrides: program?.admissionFeeEnabled ? { [programId]: admFee } : undefined,
+        nextPaymentDueDate: nextDueDatePayload || undefined,
         paymentAmount: payNow > 0 ? payNow : undefined,
         paymentMethod: payNow > 0 ? paymentMethod : undefined,
       };
@@ -371,6 +419,8 @@ export function EnrollmentModal({
       } else {
         setEnrollError((res as { message?: string }).message ?? 'Enrollment failed');
       }
+    } catch (error) {
+      setEnrollError(error instanceof Error ? error.message : 'Enrollment failed');
     } finally {
       setSaving(false);
     }
@@ -412,7 +462,14 @@ export function EnrollmentModal({
               <Field label="Program" required>
                 <AppSelect
                   value={programId}
-                  onChange={v => { setProgramId(v); setSelCourses({}); }}
+                  onChange={v => {
+                    setProgramId(v);
+                    setSelCourses({});
+                    setMonthlyDiscount('0');
+                    setOneTimeDiscount('0');
+                    setPayNowAmount('0');
+                    setNextPaymentDueDate(undefined);
+                  }}
                   placeholder="Select program"
                   options={programs.map(p => ({
                     value: p.id,
@@ -466,8 +523,15 @@ export function EnrollmentModal({
                               <div className="flex-1">
                                 <div className="flex justify-between">
                                   <span className="font-bold text-sm text-slate-900">{c.name}</span>
-                                  <span className="font-black text-rose-700 text-sm">
-                                    {fmt(c.fee)}{isMonthlyProgram ? '/month' : ''}
+                                  <span className="text-right text-sm">
+                                    {effectiveCourseFee(c) < moneyNumber(c.fee) && (
+                                      <span className="mr-1 font-semibold text-slate-400 line-through">
+                                        {fmt(c.fee)}
+                                      </span>
+                                    )}
+                                    <span className="font-black text-rose-700">
+                                      {fmt(effectiveCourseFee(c))}{isMonthlyProgram ? '/month' : ''}
+                                    </span>
                                   </span>
                                 </div>
                                 <div className="flex flex-wrap gap-1.5 mt-1 items-center">
@@ -597,7 +661,7 @@ export function EnrollmentModal({
                                     <span className="font-bold text-sm text-slate-500">{c.name}</span>
                                     <div className="flex items-center gap-2">
                                       <span className="font-black text-slate-400 text-sm">
-                                        {fmt(c.fee)}{isMonthlyProgram ? '/month' : ''}
+                                        {fmt(effectiveCourseFee(c))}{isMonthlyProgram ? '/month' : ''}
                                       </span>
                                       <AppBadge label="Already Enrolled" color="slate" />
                                     </div>
@@ -652,10 +716,10 @@ export function EnrollmentModal({
                     ))}
                   </ul>
                   <div className="border-t border-slate-200 pt-3 space-y-1.5">
-                    {[['Course fee', fmt(totalFee)], ['Promotional discount', '৳0']].map(([k, v]) => (
+                    {[['Course fee', fmt(grossCourseTotal)], ['Promotional discount', promotionalDiscount > 0 ? `−${fmt(promotionalDiscount)}` : '৳0']].map(([k, v]) => (
                       <div key={k} className="flex justify-between">
                         <span className="text-sm text-slate-500">{k}</span>
-                        <span className="text-sm font-semibold text-slate-900">{v}</span>
+                        <span className={cn('text-sm font-semibold text-slate-900', k === 'Promotional discount' && promotionalDiscount > 0 && 'text-emerald-700')}>{v}</span>
                       </div>
                     ))}
                     <div className="flex justify-between pt-2 border-t border-slate-200 mb-1">
@@ -686,6 +750,29 @@ export function EnrollmentModal({
                         <div className="flex justify-between items-center">
                           <span className="font-bold text-sm text-slate-900">Total (monthly fee)</span>
                           <span className="font-black text-base text-rose-700">{fmt(netMonthly)}</span>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  {!isMonthlyProgram && (
+                    <>
+                      <Field label="One-time Discount">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={totalFee}
+                          value={oneTimeDiscount}
+                          onChange={e => setOneTimeDiscount(e.target.value)}
+                          className="text-right focus-visible:ring-indigo-400"
+                        />
+                        {validation.errors.oneTimeDiscount && (
+                          <p className="text-[11px] text-rose-600 mt-1 font-semibold">{validation.errors.oneTimeDiscount}</p>
+                        )}
+                      </Field>
+                      <div className="bg-white border-2 border-rose-200 rounded-xl px-3.5 py-2.5 mb-3">
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-sm text-slate-900">Total (one-time fee)</span>
+                          <span className="font-black text-base text-rose-700">{fmt(oneTimeCoursePayable)}</span>
                         </div>
                       </div>
                     </>
@@ -803,10 +890,10 @@ export function EnrollmentModal({
                   </td>
                   <td className="px-3.5 py-3 text-right font-bold">{fmt(totalFee)}</td>
                   <td className="px-3.5 py-3 text-right font-bold text-rose-500">
-                    {Number(monthlyDiscount) > 0 ? `−${fmt(monthlyDiscount)}` : '—'}
+                    {activeDiscount > 0 ? `−${fmt(activeDiscount)}` : '—'}
                   </td>
                   <td className="px-3.5 py-3 text-right font-black text-rose-700 text-base">
-                    {fmt(isMonthlyProgram ? netMonthly : totalFee)}
+                    {fmt(coursePayable)}
                   </td>
                 </tr>
               </tbody>
@@ -880,6 +967,18 @@ export function EnrollmentModal({
                   </button>
                 ))}
               </div>
+              {needsNextDueDate && (
+                <Field label="Next Due Date" required>
+                  <DatePicker
+                    date={nextPaymentDueDate}
+                    setDate={setNextPaymentDueDate}
+                    placeholder="Pick next due date"
+                  />
+                  {validation.errors.nextPaymentDueDate && (
+                    <p className="text-[11px] text-rose-600 mt-1 font-semibold">{validation.errors.nextPaymentDueDate}</p>
+                  )}
+                </Field>
+              )}
             </div>
 
             <div className="border border-slate-200 rounded-xl p-4 bg-slate-50">
@@ -888,6 +987,7 @@ export function EnrollmentModal({
                 ['Total payable', fmt(totalPayable)],
                 ['Pay now', fmt(payNow)],
                 ['Due after admission', fmt(dueAfterPay)],
+                ...(needsNextDueDate && nextPaymentDueDate ? [['Next due date', nextDueDateLabel]] : []),
                 ['Invoice status', payNow <= 0 ? 'ISSUED' : dueAfterPay > 0 ? 'PARTIAL' : 'PAID'],
                 ['Enrollment status', payNow > 0 ? 'ACTIVE' : 'PENDING_PAYMENT'],
                 ['Access status', accessPreview],
@@ -927,7 +1027,7 @@ export function EnrollmentModal({
                   {dueAfterPay > 0 && (
                     <p className="mt-2 flex gap-1.5 text-xs font-semibold text-amber-700">
                       <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                      Partial payment leaves {fmt(dueAfterPay)} due after admission. Admission fee is covered first, then course rows are split equally.
+                      Partial payment leaves {fmt(dueAfterPay)} due after admission. 
                     </p>
                   )}
                 </div>

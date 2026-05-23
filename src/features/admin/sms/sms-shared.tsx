@@ -56,9 +56,9 @@ export function smsBalanceValue(balanceCount: string | number | null | undefined
   return Number.isFinite(count) && Number.isFinite(price) ? count * price : 0;
 }
 
-/** Internal ledger units → BDT for branch/org pools (single purchase rate). */
-export function ledgerBalanceToBdt(balanceCount: string | number | null | undefined, pricePerSms: string | number | null | undefined) {
-  return smsBalanceValue(balanceCount, pricePerSms);
+/** balanceCount is stored as BDT taka in the ledger. */
+export function ledgerBalanceToBdt(balanceCount: string | number | null | undefined, _pricePerSms?: string | number | null | undefined) {
+  return Number(balanceCount || 0);
 }
 
 export function parseProviderBalanceBdt(

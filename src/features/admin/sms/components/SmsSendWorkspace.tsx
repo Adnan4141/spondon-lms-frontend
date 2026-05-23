@@ -86,14 +86,16 @@ function queueDisabledReason(args: {
   providerError?: string;
   recipients: number;
   message: string;
-  totalSms: number;
-  availableBalance?: number;
+  estimatedCostBdt: number;
+  availableBalanceBdt?: number;
   scheduledAt?: string;
 }) {
   if (args.providerError) return args.providerError;
   if (args.recipients <= 0) return 'Select recipients first';
   if (!args.message.trim()) return 'Write your message';
-  if (args.availableBalance !== undefined && args.totalSms > args.availableBalance) return 'Insufficient balance';
+  if (args.availableBalanceBdt !== undefined && args.estimatedCostBdt > args.availableBalanceBdt) {
+    return 'Insufficient balance';
+  }
   if (args.scheduledAt && new Date(args.scheduledAt).getTime() <= Date.now()) return 'Invalid schedule time';
   return '';
 }
@@ -203,8 +205,8 @@ export function SmsSendWorkspace({
     providerError: sendBlockedMessage,
     recipients: pickedRecipients.length,
     message: composer.message,
-    totalSms,
-    availableBalance,
+    estimatedCostBdt: estimatedCost,
+    availableBalanceBdt: availableBalance,
     scheduledAt: composer.scheduledAt,
   });
 
@@ -313,7 +315,15 @@ export function SmsSendWorkspace({
             <SummaryItem label="Recipients" value={pickedRecipients.length.toLocaleString()} />
             <SummaryItem label="Total SMS" value={totalSms.toLocaleString()} />
             <SummaryItem label="Est. Cost" value={`৳${estimatedCost.toFixed(2)}`} tone="emerald" />
-            <SummaryItem label="Balance After" value={availableBalance === undefined ? '—' : `${availableBalance - totalSms} SMS`} tone={availableBalance !== undefined && availableBalance - totalSms < 0 ? 'rose' : 'slate'} />
+            <SummaryItem
+              label="Balance After"
+              value={
+                availableBalance === undefined
+                  ? '—'
+                  : `৳${Math.max(0, availableBalance - estimatedCost).toFixed(2)}`
+              }
+              tone={availableBalance !== undefined && availableBalance - estimatedCost < 0 ? 'rose' : 'slate'}
+            />
           </div>
           <Tooltip>
             <TooltipTrigger asChild>
