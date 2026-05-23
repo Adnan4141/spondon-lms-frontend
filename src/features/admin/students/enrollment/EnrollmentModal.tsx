@@ -854,7 +854,7 @@ export function EnrollmentModal({
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="bg-slate-50">
-                  {['Course', 'Type', 'Batch', 'Fee', 'Discount', 'Net Fee'].map(h => (
+                  {['Course', 'Type', 'Batch', 'Course Fee', 'Promo', isMonthlyProgram ? 'Scholarship' : 'One-time Discount', 'Net Fee'].map(h => (
                     <th
                       key={h}
                       className={cn(
@@ -868,27 +868,38 @@ export function EnrollmentModal({
                 </tr>
               </thead>
               <tbody>
-                {distributed.map(c => (
-                  <tr key={c.id} className="border-b border-slate-100">
-                    <td className="px-3.5 py-3 font-bold text-slate-900">{c.name}</td>
-                    <td className="px-3.5 py-3">
-                      <AppBadge label={c.type} color={c.type === 'OFFLINE' ? 'amber' : 'blue'} />
-                    </td>
-                    <td className="px-3.5 py-3 text-slate-500">
-                      {courseBatches[c.id]?.find(b => b.id === selCourses[c.id]?.batch)?.name || '—'}
-                    </td>
-                    <td className="px-3.5 py-3 text-right font-semibold">{fmt(c.fee)}</td>
-                    <td className="px-3.5 py-3 text-right text-rose-500 font-semibold">
-                      {c.discount > 0 ? `−${fmt(c.discount)}` : '—'}
-                    </td>
-                    <td className="px-3.5 py-3 text-right font-black text-rose-700">{fmt(c.fee - c.discount)}</td>
-                  </tr>
-                ))}
+                {distributed.map(c => {
+                  const originalCourse = selected.find(course => course.id === c.id);
+                  const grossFee = moneyNumber(originalCourse?.fee);
+                  const promoDiscount = Math.max(0, grossFee - c.fee);
+                  return (
+                    <tr key={c.id} className="border-b border-slate-100">
+                      <td className="px-3.5 py-3 font-bold text-slate-900">{c.name}</td>
+                      <td className="px-3.5 py-3">
+                        <AppBadge label={c.type} color={c.type === 'OFFLINE' ? 'amber' : 'blue'} />
+                      </td>
+                      <td className="px-3.5 py-3 text-slate-500">
+                        {courseBatches[c.id]?.find(b => b.id === selCourses[c.id]?.batch)?.name || '—'}
+                      </td>
+                      <td className="px-3.5 py-3 text-right font-semibold">{fmt(grossFee)}</td>
+                      <td className="px-3.5 py-3 text-right font-semibold text-emerald-700">
+                        {promoDiscount > 0 ? `−${fmt(promoDiscount)}` : '—'}
+                      </td>
+                      <td className="px-3.5 py-3 text-right text-rose-500 font-semibold">
+                        {c.discount > 0 ? `−${fmt(c.discount)}` : '—'}
+                      </td>
+                      <td className="px-3.5 py-3 text-right font-black text-rose-700">{fmt(c.fee - c.discount)}</td>
+                    </tr>
+                  );
+                })}
                 <tr className="bg-rose-50 border-t-2 border-rose-200">
                   <td colSpan={3} className="px-3.5 py-3 font-black text-slate-900">
                     {isMonthlyProgram ? 'Total Monthly Payable' : 'Total Payable'}
                   </td>
-                  <td className="px-3.5 py-3 text-right font-bold">{fmt(totalFee)}</td>
+                  <td className="px-3.5 py-3 text-right font-bold">{fmt(grossCourseTotal)}</td>
+                  <td className="px-3.5 py-3 text-right font-bold text-emerald-700">
+                    {promotionalDiscount > 0 ? `−${fmt(promotionalDiscount)}` : '—'}
+                  </td>
                   <td className="px-3.5 py-3 text-right font-bold text-rose-500">
                     {activeDiscount > 0 ? `−${fmt(activeDiscount)}` : '—'}
                   </td>
@@ -984,6 +995,10 @@ export function EnrollmentModal({
             <div className="border border-slate-200 rounded-xl p-4 bg-slate-50">
               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3">Payment Preview</p>
               {[
+                ['Course fee', fmt(grossCourseTotal)],
+                ...(promotionalDiscount > 0 ? [['Promotional discount', `−${fmt(promotionalDiscount)}`]] : []),
+                [isMonthlyProgram ? 'Scholarship' : 'One-time discount', activeDiscount > 0 ? `−${fmt(activeDiscount)}` : '—'],
+                ...(admFee > 0 ? [['Admission fee', fmt(admFee)]] : []),
                 ['Total payable', fmt(totalPayable)],
                 ['Pay now', fmt(payNow)],
                 ['Due after admission', fmt(dueAfterPay)],
