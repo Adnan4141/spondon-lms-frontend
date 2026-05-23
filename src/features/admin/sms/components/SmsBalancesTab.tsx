@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import type { Branch } from '@/lib/api/branches';
 import type { SmsBalance } from '@/lib/api/sms';
 import type { SmsBalancesActionsHook } from '../hooks/useSmsManagement';
-import { EmptyState, Panel } from '../sms-shared';
+import { EmptyState, formatBdt, formatSmsCredits, Panel, smsBalanceValue } from '../sms-shared';
 
 export function SmsBalancesTab({
   orgBalance,
@@ -43,7 +43,10 @@ export function SmsBalancesTab({
       <div className="space-y-4">
         {!isBranchAdmin && <Panel title="Central Balance">
           <div className="space-y-3">
-            <p className="text-3xl font-bold text-emerald-700">{orgBalance?.balanceCount ?? 0}</p>
+            <p className="text-3xl font-bold text-emerald-700">{formatSmsCredits(orgBalance?.balanceCount)}</p>
+            <p className="text-sm font-medium text-slate-500">
+              ≈ {formatBdt(smsBalanceValue(orgBalance?.balanceCount, smsPricing.pricePerSms))}
+            </p>
             <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
               <Input
                 type="number"
@@ -163,8 +166,8 @@ export function SmsBalancesTab({
             />
             <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
               <p className="text-sm font-semibold">Estimated total</p>
-              <p className="mt-1 text-2xl font-bold">৳ {(Number(purchase.quantity || 0) * smsPricing.pricePerSms).toFixed(2)}</p>
-              <p className="text-xs text-slate-500">৳{smsPricing.pricePerSms} per SMS · Minimum {smsPricing.minPurchase}</p>
+              <p className="mt-1 text-2xl font-bold">{formatBdt(Number(purchase.quantity || 0) * smsPricing.pricePerSms)}</p>
+              <p className="text-xs text-slate-500">{formatBdt(smsPricing.pricePerSms)} per SMS · Minimum {formatSmsCredits(smsPricing.minPurchase)}</p>
             </div>
             <Button type="button" onClick={() => void handlePurchaseSms()} disabled={submitting}>
               Buy Credits
@@ -177,7 +180,8 @@ export function SmsBalancesTab({
           {branchBalances.map((balance) => (
             <div key={balance.id} className="rounded-md border border-slate-200 p-3">
               <p className="truncate font-semibold">{balance.branch?.name || 'Branch'}</p>
-              <p className="mt-1 text-2xl font-bold">{balance.balanceCount}</p>
+              <p className="mt-1 text-2xl font-bold">{formatSmsCredits(balance.balanceCount)}</p>
+              <p className="text-xs font-medium text-slate-500">≈ {formatBdt(smsBalanceValue(balance.balanceCount, smsPricing.pricePerSms))}</p>
             </div>
           ))}
           {branchBalances.length === 0 && <EmptyState>No branch balances available.</EmptyState>}

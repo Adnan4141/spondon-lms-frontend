@@ -17,6 +17,7 @@ export function SmsOverviewTab({
   providerBalanceError: string;
   failedQueue: SmsQueueItem[];
 }) {
+  const gatewayNotConfigured = providerBalanceValue === 'Gateway not configured';
   return (
     <div className="space-y-4">
       <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
@@ -54,7 +55,10 @@ export function SmsOverviewTab({
             </div>
           </div>
           {providerBalanceError && (
-            <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">{providerBalanceError}</p>
+            <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              <span className="font-semibold">{gatewayNotConfigured ? 'Gateway not configured: ' : 'Provider warning: '}</span>
+              {providerBalanceError}
+            </p>
           )}
         </Panel>
       </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { FileText, History, Save, Send, Settings } from 'lucide-react';
+import { FileText, History, Save, Settings } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { SmsSystemSetting } from '@/lib/api/sms';
@@ -18,15 +18,30 @@ export const smsTypeLabels: Record<string, string> = {
 };
 
 export const tabItems = [
-  { value: 'send', label: 'Send SMS', icon: Send },
   { value: 'templates', label: 'Templates', icon: Save },
   { value: 'gateway', label: 'Settings', icon: Settings },
-  { value: 'logs', label: 'SMS Logs', icon: History },
+  { value: 'logs', label: 'History', icon: History },
   { value: 'reports', label: 'Reports', icon: FileText },
 ];
 
 export function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Something went wrong';
+}
+
+export function formatBdt(value: string | number | null | undefined) {
+  const amount = Number(value || 0);
+  return `৳${Number.isFinite(amount) ? amount.toFixed(2) : '0.00'}`;
+}
+
+export function formatSmsCredits(value: string | number | null | undefined) {
+  const count = Number(value || 0);
+  return `${Number.isFinite(count) ? count.toLocaleString() : '0'} SMS`;
+}
+
+export function smsBalanceValue(balanceCount: string | number | null | undefined, rate: string | number | null | undefined) {
+  const count = Number(balanceCount || 0);
+  const price = Number(rate || 0);
+  return Number.isFinite(count) && Number.isFinite(price) ? count * price : 0;
 }
 
 export function smsLengthInfo(value: string) {
@@ -91,10 +106,12 @@ export function Panel({
 export function Metric({
   label,
   value,
+  description,
   tone = 'slate',
 }: {
   label: string;
   value: string | number;
+  description?: string;
   tone?: 'emerald' | 'blue' | 'amber' | 'slate';
 }) {
   const toneClass = {
@@ -108,6 +125,16 @@ export function Metric({
     <div className="rounded-lg border border-slate-200 bg-white p-4">
       <p className="text-xs font-semibold uppercase text-slate-500">{label}</p>
       <p className={`mt-2 text-2xl font-bold ${toneClass}`}>{value}</p>
+      {description ? <p className="mt-1 text-xs font-medium text-slate-500">{description}</p> : null}
+    </div>
+  );
+}
+
+export function SmsWarningBanner({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+      <p className="font-bold">{title}</p>
+      <div className="mt-1 text-amber-800">{children}</div>
     </div>
   );
 }

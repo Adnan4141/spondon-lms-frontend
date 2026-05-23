@@ -14,6 +14,26 @@ export class ApiError extends Error {
   }
 }
 
+function professionalApiMessage(message: string, body?: unknown) {
+  if (body && typeof body === 'object' && 'code' in body) {
+    const code = (body as { code?: unknown }).code;
+    if (code === 'SMS_SCHEMA_MISMATCH') {
+      return 'SMS database migration is pending. Please run the latest migrations before using SMS queue features.';
+    }
+    if (code === 'SMS_PROVIDER_NOT_CONFIGURED') {
+      return 'SMS gateway is not configured. Add the API key in SMS Console > Settings.';
+    }
+  }
+
+  if (/Invalid `prisma\.smsQueue\.findMany\(\)`|SmsQueue\.scheduledAt|column `SmsQueue\.scheduledAt` does not exist/i.test(message)) {
+    return 'SMS database migration is pending. Please run the latest migrations before using SMS queue features.';
+  }
+  if (/No active SMS configuration|api key|sender ID not configured|Non-masking sender ID not configured|Masking sender ID not configured/i.test(message)) {
+    return 'SMS gateway is not configured. Add the API key and sender details in SMS Console > Settings.';
+  }
+  return message;
+}
+
 export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
@@ -71,7 +91,7 @@ export async function apiRequest<T>(
         msg = snippet;
       }
     }
-    const errMsg = msg || `Something went wrong (${response.status}). Try again.`;
+    const errMsg = professionalApiMessage(msg || `Something went wrong (${response.status}). Try again.`, parsedBody);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('api-error', { detail: { message: errMsg, status: response.status } }));
     }

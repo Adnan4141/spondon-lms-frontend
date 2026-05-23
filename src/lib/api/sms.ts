@@ -45,7 +45,7 @@ export interface SmsProviderBalance {
   provider: string;
   balanceText: string | null;
   raw?: unknown;
-  status?: 'ERROR';
+  status?: 'ERROR' | 'NOT_CONFIGURED';
 }
 
 export interface BulkPreview {
@@ -59,11 +59,14 @@ export interface BulkPreview {
   valid: string[];
   invalid: string[];
   duplicates: string[];
+  validRecipients?: SmsRecipient[];
 }
 
 export interface ApiResponse<T> {
   success: boolean;
+  code?: string;
   message?: string;
+  details?: unknown;
   data: T;
   pagination?: {
     page: number;
@@ -84,6 +87,8 @@ export interface SmsQueueItem {
   status: string;
   message: string;
   cost?: string | number | null;
+  scheduledAt?: string | null;
+  cancelledAt?: string | null;
 }
 
 export interface SmsLog {
@@ -94,19 +99,53 @@ export interface SmsLog {
   source?: string | null;
   smsType?: 'masking' | 'non_masking';
   context?: string | null;
+  campaignName?: string | null;
   message: string;
   recipientCount: number;
   successCount: number;
   failedCount: number;
   cost?: string | number | null;
   sentAt?: string | null;
+  scheduledAt?: string | null;
+  providerRef?: string | null;
   recipients?: Array<{
     id: string;
     mobile: string;
     status: string;
     message?: string | null;
+    resolvedMessage?: string | null;
     cost?: string | number | null;
+    sentAt?: string | null;
+    error?: string | null;
+    providerRef?: string | null;
   }>;
+}
+
+export interface SmsRecipientLog {
+  id: string;
+  smsLogId: string;
+  jobId?: string | null;
+  recipientUserId?: string | null;
+  mobile: string;
+  message?: string | null;
+  resolvedMessage?: string | null;
+  smsType?: string | null;
+  context?: string | null;
+  cost?: string | number | null;
+  sentByUserId?: string | null;
+  sentAt?: string | null;
+  providerRef?: string | null;
+  status: string;
+  error?: string | null;
+  createdAt: string;
+}
+
+export interface SmsLogStats {
+  sent: number;
+  delivered: number;
+  failed: number;
+  deliveryRate: number;
+  cost: number;
 }
 
 export interface SmsReportRow {
@@ -189,9 +228,11 @@ export interface SmsRecipient {
 
 export const resolveSmsRecipients = (data: {
   branchId?: string;
+  programId?: string;
   courseIds?: string[];
   batchIds?: string[];
   studentIds?: string[];
+  status?: string;
 }) => apiRequest<ApiResponse<{ recipients: SmsRecipient[]; count: number }>>('/sms/resolve-recipients', {
   method: 'POST',
   body: JSON.stringify(data),
@@ -208,9 +249,18 @@ export const dispatchSms = (data: {
   branchId?: string;
   type?: string;
   source?: string;
+  scheduledAt?: string;
+  campaignName?: string;
+  priority?: number;
+  dedupeScope?: { examId?: string; resultBatchId?: string; dueMonth?: string };
+  metadata?: Record<string, unknown>;
 }) => apiRequest<ApiResponse<{ jobId: string; queuedCount: number; estimatedCost: number; invalid: string[] }>>('/sms/send', {
   method: 'POST',
   body: JSON.stringify(data),
+});
+
+export const cancelQueuedSms = (id: string) => apiRequest<ApiResponse<{ id: string; status: string }>>(`/sms/queue/${encodeURIComponent(id)}/cancel`, {
+  method: 'POST',
 });
 
 export const previewBulkManual = (numbers: string) => apiRequest<ApiResponse<BulkPreview>>('/sms/bulk/manual/preview', {
@@ -237,6 +287,15 @@ export const sendBulkUpload = (data: { branchId: string; message: string; file: 
 };
 
 export const getSmsLogs = (params?: Record<string, unknown>) => apiRequest<ApiResponse<SmsLog[]>>(`/sms/logs${qs(params || { page: 1, limit: 20 })}`);
+export const getSmsLogStats = (params?: Record<string, unknown>) => apiRequest<ApiResponse<SmsLogStats>>(`/sms/logs/stats${qs(params)}`);
+export const getSmsLogRecipients = (id: string, params?: Record<string, unknown>) => apiRequest<ApiResponse<SmsRecipientLog[]>>(`/sms/logs/${encodeURIComponent(id)}/recipients${qs(params)}`);
+export const retrySmsRecipient = (id: string, recipientLogId: string) => apiRequest<ApiResponse<{ count: number }>>(`/sms/logs/${encodeURIComponent(id)}/retry`, {
+  method: 'POST',
+  body: JSON.stringify({ recipientLogId }),
+});
+export const retryFailedSmsLog = (id: string) => apiRequest<ApiResponse<{ count: number }>>(`/sms/logs/${encodeURIComponent(id)}/retry-failed`, {
+  method: 'POST',
+});
 export const getSmsQueue = (params?: Record<string, unknown>) => apiRequest<ApiResponse<{ summary: Record<string, number>; items: SmsQueueItem[] }>>(`/sms/queue${qs(params)}`);
 export const getSmsReportSummary = (params?: Record<string, unknown>) => apiRequest<ApiResponse<Record<string, unknown>>>(`/sms/reports/summary${qs(params)}`);
 export const getSmsReportBranch = (params?: Record<string, unknown>) => apiRequest<ApiResponse<SmsReportRow[]>>(`/sms/reports/branch${qs(params)}`);

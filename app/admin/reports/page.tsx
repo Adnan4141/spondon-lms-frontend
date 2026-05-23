@@ -61,7 +61,7 @@ import {
   Package,
   MessageSquare,
 } from 'lucide-react';
-import { SmsSendDrawer } from '@/features/admin/sms/components/SmsSendDrawer';
+import { SmsSendWorkspace } from '@/features/admin/sms/components/SmsSendWorkspace';
 import {
   BarChart,
   Bar,
@@ -1063,15 +1063,28 @@ function DueCollectionTab({ branches }: { branches: Branch[] }) {
         <Button
           type="button"
           variant="outline"
-          disabled={selectedRows.length === 0}
-          onClick={() => openSmsDrawer(selectedRows)}
+          disabled={studentRows.length === 0}
+          onClick={() => openSmsDrawer(studentRows.filter((row) => row.totalDue > 0))}
           className="h-9 gap-2"
         >
           <MessageSquare className="h-4 w-4" />
-          Send SMS ({selectedRows.length})
+          Send to All Unpaid{month ? ` — ${month}` : ''}
         </Button>
         <ExportButtons onExport={handleExport} disabled={loading || (studentRows.length === 0 && data.length === 0)} />
       </div>
+
+      {selectedRows.length > 0 ? (
+        <div className="sticky top-16 z-10 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 shadow-sm">
+          <p className="text-sm font-semibold text-blue-900">{selectedRows.length} students selected with dues</p>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => setSelectedStudentIds([])}>Clear</Button>
+            <Button type="button" size="sm" onClick={() => openSmsDrawer(selectedRows)} className="gap-2">
+              <MessageSquare className="h-4 w-4" />
+              Send Due Reminder
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       {totals && (
         <div className="grid grid-cols-3 gap-4">
@@ -1192,34 +1205,66 @@ function DueCollectionTab({ branches }: { branches: Branch[] }) {
         )}
       </div>
 
-      <SmsSendDrawer
-        open={smsDrawerOpen}
-        onOpenChange={setSmsDrawerOpen}
-        recipients={smsRows.map((row) => ({
-          id: row.studentUserId,
-          name: row.fullName,
-          phone: row.mobile,
-          branchId: row.branchId,
-          variables: {
-            name: row.fullName,
-            phone: row.mobile,
-            amount: fmtNum(row.totalDue),
-            course: row.courseSummary || 'course fees',
-            date: row.nextDueDate ? new Date(row.nextDueDate).toLocaleDateString('en-GB') : 'the due date',
-            institute: 'Spondon LMS',
-          },
-        }))}
-        defaultMessage="Dear {name}, you have a due of ৳{amount} for {course}. Please clear by {date}. - {institute}"
-        defaultVars={{ institute: 'Spondon LMS' }}
-        contextLabel="Due Reminder"
-        context="due_reminder"
-        branchId={user?.role === 'BRANCH_ADMIN' ? user.branchId || undefined : smsRows[0]?.branchId || branchId || undefined}
-        scope="BRANCH"
-        onSuccess={() => {
-          setSelectedStudentIds([]);
-          void load();
-        }}
-      />
+      {smsDrawerOpen ? (
+        <div className="fixed inset-0 z-50">
+          <button
+            type="button"
+            className="absolute inset-0 bg-slate-950/45 backdrop-blur-[1px]"
+            aria-label="Close SMS workspace"
+            onClick={() => setSmsDrawerOpen(false)}
+          />
+          <div className="absolute right-0 top-0 h-full w-full max-w-6xl overflow-y-auto bg-slate-50 shadow-2xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wider text-blue-600">Focused SMS Workspace</p>
+                <h2 className="text-lg font-bold text-slate-950">Due Reminder</h2>
+              </div>
+              <Button type="button" variant="outline" onClick={() => setSmsDrawerOpen(false)}>Close</Button>
+            </div>
+            <div className="p-4 sm:p-6">
+              <SmsSendWorkspace
+                branches={branches}
+                actor={user}
+                rates={{ maskingRate: 0.5, nonMaskingRate: 0.35 }}
+                focused={{
+                  method: 'students',
+                  locked: true,
+                  contextLabel: 'Due Reminder',
+                  templateKey: 'DUE_REMINDER',
+                  defaultMessage: 'Dear {name}, you have a due of ৳{amount} for {course}. Please clear by {due_date}. - {institute}',
+                  context: 'due_reminder',
+                  type: 'DUE_REMINDER',
+                  source: 'DIRECT',
+                  scope: 'BRANCH',
+                  branchId: user?.role === 'BRANCH_ADMIN' ? user.branchId || undefined : smsRows[0]?.branchId || branchId || undefined,
+                  allowSchedule: true,
+                  dedupeScope: { dueMonth: month || new Date().toISOString().slice(0, 7) },
+                  recipients: smsRows.map((row) => ({
+                    id: row.studentUserId,
+                    name: row.fullName,
+                    phone: row.mobile,
+                    branchId: row.branchId,
+                    variables: {
+                      name: row.fullName,
+                      phone: row.mobile,
+                      amount: fmtNum(row.totalDue),
+                      month: month || 'current month',
+                      course: row.courseSummary || 'course fees',
+                      due_date: row.nextDueDate ? new Date(row.nextDueDate).toLocaleDateString('en-GB') : 'the due date',
+                      institute: 'Spondon LMS',
+                    },
+                  })),
+                }}
+                onSuccess={() => {
+                  setSmsDrawerOpen(false);
+                  setSelectedStudentIds([]);
+                  void load();
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

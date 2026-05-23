@@ -40,7 +40,7 @@ import {
   UsersRound,
   ShoppingCart,
   Truck,
-  History,
+  Send,
 } from 'lucide-react';
 
 type MenuItem = {
@@ -145,7 +145,8 @@ function buildMenuSections(role: string | null): MenuSection[] {
   // ----- Administrative -----
   const allAdminItems: MenuItem[] = [
     { title: 'Monthly billing', href: '/admin/monthly-billing', icon: CalendarRange, color: 'text-violet-600', bg: 'bg-violet-50' },
-    { title: 'Payouts', href: '/admin/payouts', icon: CreditCard, color: 'text-green-600', bg: 'bg-green-50' },
+    // { title: 'Payouts', href: '/admin/payouts', icon: CreditCard, color: 'text-green-600', bg: 'bg-green-50' }, // HIDDEN
+    { title: 'Send SMS', href: '/admin/sendsms', icon: Send, color: 'text-blue-600', bg: 'bg-blue-50' },
     { title: 'SMS Console', href: '/admin/sms', icon: MessageSquare, color: 'text-emerald-500', bg: 'bg-emerald-50' },
     { title: 'Reports', href: '/admin/reports', icon: BarChart3, color: 'text-teal-500', bg: 'bg-teal-50' },
     { title: 'Accounting', href: '/admin/accounting', icon: Wallet, color: 'text-sky-600', bg: 'bg-sky-50' },
@@ -155,7 +156,7 @@ function buildMenuSections(role: string | null): MenuSection[] {
   const financeItems: MenuItem[] = isAccounts
     ? allAdminItems.filter((item) => ['/admin/reports', '/admin/accounting'].includes(item.href))
     : isBranchAdmin
-      ? allAdminItems.filter((item) => ['/admin/reports', '/admin/sms'].includes(item.href))
+      ? allAdminItems.filter((item) => ['/admin/reports', '/admin/sendsms', '/admin/sms'].includes(item.href))
       : isModerator
         ? []
         : allAdminItems.filter((item) => ['/admin/reports', '/admin/accounting'].includes(item.href));

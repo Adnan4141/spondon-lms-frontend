@@ -63,6 +63,17 @@ export type SmsGatewayActionsHook = ReturnType<typeof useSmsGatewayActions>;
 
 type SmsActor = { role?: string | null; branchId?: string | null };
 
+function smsAdminErrorMessage(error: unknown) {
+  const message = errorMessage(error);
+  if (/Invalid `prisma\.smsQueue\.findMany\(\)`|SmsQueue\.scheduledAt|column `SmsQueue\.scheduledAt` does not exist/i.test(message)) {
+    return 'SMS database migration is pending. Please run the latest migrations before using SMS queue features.';
+  }
+  if (/No active SMS configuration|api key|sender ID not configured|Gateway not configured/i.test(message)) {
+    return 'SMS gateway is not configured. Add the API key and sender details in SMS Console > Settings.';
+  }
+  return message;
+}
+
 export function useSmsManagementData(actor?: SmsActor) {
   const toast = useAdminToast();
   const actorRole = actor?.role || null;
@@ -79,6 +90,8 @@ export function useSmsManagementData(actor?: SmsActor) {
   const [config, setConfig] = useState<Partial<SmsConfig>>({ provider: 'BulkSMSBD', isActive: true });
   const [providerBalance, setProviderBalance] = useState<SmsProviderBalance | null>(null);
   const [providerBalanceError, setProviderBalanceError] = useState('');
+  const [queueError, setQueueError] = useState('');
+  const [smsConfigError, setSmsConfigError] = useState('');
   const [queue, setQueue] = useState<{ summary: Record<string, number>; items: SmsQueueItem[] }>({ summary: {}, items: [] });
   const [logs, setLogs] = useState<SmsLog[]>([]);
   const [summary, setSummary] = useState<Record<string, unknown> | null>(null);
@@ -94,6 +107,8 @@ export function useSmsManagementData(actor?: SmsActor) {
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setQueueError('');
+    setSmsConfigError('');
     try {
       const [
         branchRes,
@@ -139,10 +154,20 @@ export function useSmsManagementData(actor?: SmsActor) {
         const rows = branchRes.value.data || [];
         setBranches(isBranchAdmin && actorBranchId ? rows.filter((branch) => branch.id === actorBranchId) : rows);
       }
-      if (configRes.status === 'fulfilled' && configRes.value.success && configRes.value.data) setConfig(configRes.value.data);
+      if (configRes.status === 'fulfilled' && configRes.value.success && configRes.value.data) {
+        setConfig(configRes.value.data);
+      } else if (configRes.status === 'rejected') {
+        setSmsConfigError(errorMessage(configRes.reason));
+      }
       if (templateRes.status === 'fulfilled' && templateRes.value.success) setTemplates(templateRes.value.data || []);
       if (balanceRes.status === 'fulfilled' && balanceRes.value.success) setBalances(balanceRes.value.data || []);
-      if (queueRes.status === 'fulfilled' && queueRes.value.success) setQueue(queueRes.value.data || { summary: {}, items: [] });
+      if (queueRes.status === 'fulfilled' && queueRes.value.success) {
+        setQueue(queueRes.value.data || { summary: {}, items: [] });
+      } else if (queueRes.status === 'fulfilled') {
+        setQueueError(queueRes.value.message || 'Queue status is unavailable.');
+      } else {
+        setQueueError(smsAdminErrorMessage(queueRes.reason));
+      }
       if (logsRes.status === 'fulfilled' && logsRes.value.success) setLogs(logsRes.value.data || []);
       if (settingsRes.status === 'fulfilled' && settingsRes.value.success) setSettings(settingsRes.value.data?.settings || []);
       if (summaryRes.status === 'fulfilled' && summaryRes.value.success) setSummary(summaryRes.value.data);
@@ -163,7 +188,7 @@ export function useSmsManagementData(actor?: SmsActor) {
         }
       } else {
         setProviderBalance(null);
-        setProviderBalanceError('Provider balance unavailable');
+        setProviderBalanceError(smsAdminErrorMessage(providerRes.reason));
       }
       if (pricingRes.status === 'fulfilled' && pricingRes.value.success) setSmsPricing(pricingRes.value.data);
       if (txRes.status === 'fulfilled' && txRes.value.success) setSmsTransactions(txRes.value.data || []);
@@ -181,7 +206,9 @@ export function useSmsManagementData(actor?: SmsActor) {
   const orgBalance = balances.find((balance) => balance.scope === 'ORG' && !balance.branchId);
   const branchBalances = balances.filter((balance) => balance.scope === 'BRANCH');
   const failedQueue = queue.items.filter((item) => item.status === 'FAILED');
-  const providerBalanceValue = providerBalanceError ? 'Unavailable' : providerBalance?.balanceText || '-';
+  const providerBalanceValue = providerBalanceError
+    ? providerBalance?.status === 'NOT_CONFIGURED' ? 'Gateway not configured' : 'Unavailable'
+    : providerBalance?.balanceText || '-';
   const sentSmsValue = Number(((summary?.totals as { _sum?: { successCount?: number | null } } | undefined)?._sum?.successCount) ?? 0);
   const monthlyRows = Array.isArray(summary?.monthly)
     ? summary.monthly as Array<{ month: string; successCount: number; failedCount: number; recipientCount: number }>
@@ -214,6 +241,8 @@ export function useSmsManagementData(actor?: SmsActor) {
     failedQueue,
     providerBalanceValue,
     providerBalanceError,
+    queueError,
+    smsConfigError,
     sentSmsValue,
     monthlyRows,
   };

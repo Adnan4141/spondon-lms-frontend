@@ -18,6 +18,7 @@ export function SmsGatewayTab({
 }) {
   const { config, providerBalanceValue, providerBalanceError, submitting } = gatewayState;
   const { setConfig, handleSaveGateway } = gatewayActions;
+  const gatewayNotConfigured = providerBalanceValue === 'Gateway not configured';
 
   return (
     <Panel title="BulkSMSBD Gateway">
@@ -27,7 +28,7 @@ export function SmsGatewayTab({
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <span className="text-lg font-bold text-slate-950">{providerBalanceValue}</span>
             <Badge variant="outline" className={providerBalanceError ? 'border-amber-200 text-amber-700' : 'border-emerald-200 text-emerald-700'}>
-              {providerBalanceError ? 'Gateway error' : 'Connected'}
+              {providerBalanceError ? gatewayNotConfigured ? 'Not configured' : 'Gateway warning' : 'Connected'}
             </Badge>
           </div>
           {providerBalanceError && <p className="mt-2 text-sm text-amber-700">{providerBalanceError}</p>}

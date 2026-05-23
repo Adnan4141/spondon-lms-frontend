@@ -26,10 +26,10 @@ import {
 } from '@/lib/api/exams';
 import {
   listExamResultBatches,
+  getExamResultBatchDetail,
   postExamResultBulkExcel,
   postExamResultBulkManual,
   postExamResultSingle,
-  sendExamResultBatchSms,
   type ResultBatchSummary,
 } from '@/lib/api/exam-result-batches';
 import { getBranches } from '@/lib/api/branches';
@@ -38,6 +38,8 @@ import type { Exam } from '@/types/exam';
 import { ExamEngineSubnav } from './components/ExamEngineSubnav';
 import { OmrScanReviewPanel } from './components/OmrScanReviewPanel';
 import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
+import { SmsSendWorkspace } from '@/features/admin/sms/components/SmsSendWorkspace';
+import type { SmsRecipient } from '@/lib/api/sms';
 
 type MeritRow = Record<string, unknown>;
 type WrittenAttemptRow = {
@@ -85,6 +87,12 @@ export function ExamResultsPage({ examId }: { examId: string }) {
   const [offlineBusy, setOfflineBusy] = useState(false);
   const [offlineErrors, setOfflineErrors] = useState<Array<Record<string, unknown>>>([]);
   const [loading, setLoading] = useState(true);
+  const [smsFocus, setSmsFocus] = useState<{
+    batchId: string;
+    branchId: string;
+    label: string;
+    recipients: SmsRecipient[];
+  } | null>(null);
   const toast = useAdminToast();
 
   const load = useCallback(async () => {
@@ -260,14 +268,45 @@ export function ExamResultsPage({ examId }: { examId: string }) {
     await openWrittenAttempt(attemptId);
   };
 
-  const sendBatchSms = async (batchId: string) => {
+  const openResultSmsWorkspace = async (batch: ResultBatchSummary) => {
     try {
-      const r = await sendExamResultBatchSms(examId, batchId, 'masking');
-      if (!r.success) throw new Error(r.message || 'Could not queue result SMS');
-      toast({ title: r.message || 'Result SMS queued' });
-      await load();
+      const r = await getExamResultBatchDetail(examId, batch.id);
+      if (!r.success || !r.data) throw new Error(r.message || 'Could not load result batch');
+      const detail = r.data as {
+        results?: Array<{
+          id?: string;
+          rollNo?: string;
+          marks?: string | number;
+          totalMarks?: string | number;
+          percentage?: string | number;
+          student?: { id?: string; fullName?: string; mobile?: string };
+        }>;
+      };
+      const sorted = [...(detail.results || [])].sort((a, b) => Number(b.marks || 0) - Number(a.marks || 0));
+      const recipients = sorted.map((row, index) => ({
+        id: row.student?.id,
+        name: row.student?.fullName,
+        phone: row.student?.mobile || '',
+        branchId: batch.branchId,
+        variables: {
+          name: row.student?.fullName || '',
+          roll: row.rollNo || '',
+          marks: Number(row.marks || 0),
+          total: Number(row.totalMarks || 0),
+          grade: `${Number(row.marks || 0)}/${Number(row.totalMarks || 0)}`,
+          rank: index + 1,
+          exam: exam?.title || 'exam',
+          institute: 'Spondon LMS',
+        },
+      })).filter((recipient) => recipient.phone);
+      setSmsFocus({
+        batchId: batch.id,
+        branchId: batch.branchId,
+        label: `${exam?.title || 'Result'} — ${recipients.length} students`,
+        recipients,
+      });
     } catch (e) {
-      toast({ title: e instanceof Error ? e.message : 'Could not queue result SMS', variant: 'destructive' });
+      toast({ title: e instanceof Error ? e.message : 'Could not open result SMS', variant: 'destructive' });
     }
   };
 
@@ -459,7 +498,7 @@ export function ExamResultsPage({ examId }: { examId: string }) {
                           size="sm"
                           variant="outline"
                           disabled={!['APPROVED_BY_BRANCH', 'APPROVED_BY_CENTRAL'].includes(b.approvalStatus)}
-                          onClick={() => void sendBatchSms(b.id)}
+                          onClick={() => void openResultSmsWorkspace(b)}
                           className="gap-1"
                         >
                           <MessageSquare className="h-4 w-4" />
@@ -479,6 +518,52 @@ export function ExamResultsPage({ examId }: { examId: string }) {
             </div>
           </CardContent>
         </Card>
+      ) : null}
+
+      {smsFocus ? (
+        <div className="fixed inset-0 z-50 print:hidden">
+          <button
+            type="button"
+            className="absolute inset-0 bg-slate-950/45 backdrop-blur-[1px]"
+            aria-label="Close result SMS workspace"
+            onClick={() => setSmsFocus(null)}
+          />
+          <div className="absolute right-0 top-0 h-full w-full max-w-6xl overflow-y-auto bg-slate-50 shadow-2xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wider text-blue-600">Focused SMS Workspace</p>
+                <h2 className="text-lg font-bold text-slate-950">{smsFocus.label}</h2>
+              </div>
+              <Button type="button" variant="outline" onClick={() => setSmsFocus(null)}>Close</Button>
+            </div>
+            <div className="p-4 sm:p-6">
+              <SmsSendWorkspace
+                branches={branches}
+                rates={{ maskingRate: 0.5, nonMaskingRate: 0.35 }}
+                focused={{
+                  method: 'students',
+                  locked: true,
+                  contextLabel: 'Result SMS',
+                  templateKey: 'RESULT',
+                  defaultMessage: 'Dear {name}, your result for {exam}: Marks {marks}/{total}, Rank {rank}. - {institute}',
+                  context: 'exam_result',
+                  type: 'RESULT',
+                  source: 'SYSTEM',
+                  scope: 'BRANCH',
+                  branchId: smsFocus.branchId,
+                  allowSchedule: true,
+                  dedupeScope: { examId, resultBatchId: smsFocus.batchId },
+                  metadata: { examId, resultBatchId: smsFocus.batchId },
+                  recipients: smsFocus.recipients,
+                }}
+                onSuccess={() => {
+                  setSmsFocus(null);
+                  void load();
+                }}
+              />
+            </div>
+          </div>
+        </div>
       ) : null}
 
       {isWrittenEvalFlow ? (
