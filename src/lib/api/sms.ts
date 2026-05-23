@@ -44,6 +44,8 @@ export interface SmsBalance {
 export interface SmsProviderBalance {
   provider: string;
   balanceText: string | null;
+  balanceBdt?: number | null;
+  currency?: 'BDT';
   raw?: unknown;
   status?: 'ERROR' | 'NOT_CONFIGURED';
 }

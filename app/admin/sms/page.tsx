@@ -21,14 +21,21 @@ import {
   useSmsTemplateActions,
 } from '@/features/admin/sms/hooks/useSmsManagement';
 import {
-  formatBdt,
+  formatRemainingBdt,
   formatSmsCredits,
+  ledgerBalanceToBdt,
   Metric,
   SmsWarningBanner,
-  smsBalanceValue,
   tabItems,
 } from '@/features/admin/sms/sms-shared';
 import { SmsLogsTab } from '@/features/admin/sms/components/SmsLogsTab';
+
+const gatewaySubTabs = [
+  { value: 'overview', label: 'Overview' },
+  { value: 'gateway', label: 'Gateway' },
+  { value: 'policies', label: 'Policies' },
+  { value: 'balances', label: 'Balances' },
+] as const;
 
 export default function SmsManagementPage() {
   const { user } = useAdminSession();
@@ -83,9 +90,20 @@ export default function SmsManagementPage() {
   const visibleTabs = isBranchAdmin
     ? tabItems.filter((item) => ['logs', 'reports'].includes(item.value))
     : tabItems.filter((item) => item.value !== 'templates' || hasPermission(user?.role, 'sms:templates:manage'));
-  const branchBalance = isBranchAdmin ? smsData.branchBalances.find((balance) => balance.branchId === user?.branchId) : undefined;
-  const activeBalance = isBranchAdmin ? branchBalance?.balanceCount : smsData.orgBalance?.balanceCount;
-  const activeRate = smsData.smsPricing.pricePerSms || smsData.config.nonMaskingRate || 0;
+
+  const branchBalance = isBranchAdmin
+    ? smsData.branchBalances.find((balance) => balance.branchId === user?.branchId)
+    : undefined;
+  const branchRemainingBdt = ledgerBalanceToBdt(branchBalance?.balanceCount, smsData.smsPricing.pricePerSms);
+  const remainingCreditValue = isBranchAdmin
+    ? formatRemainingBdt(branchRemainingBdt)
+    : smsData.providerBalanceValue;
+  const remainingCreditDescription =
+    !isBranchAdmin && smsData.orgBalance?.balanceCount != null
+      ? `Internal units: ${formatSmsCredits(smsData.orgBalance.balanceCount)}`
+      : isBranchAdmin && branchBalance?.balanceCount != null
+        ? `Internal units: ${formatSmsCredits(branchBalance.balanceCount)}`
+        : undefined;
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -105,14 +123,13 @@ export default function SmsManagementPage() {
       </div>
 
       <div className="mx-auto max-w-full space-y-4 px-4 py-4 sm:px-6">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Metric
-            label={isBranchAdmin ? 'Branch Balance' : 'Central Balance'}
-            value={activeBalance === undefined ? '-' : formatSmsCredits(activeBalance)}
-            description={activeBalance === undefined ? undefined : `≈ ${formatBdt(smsBalanceValue(activeBalance, activeRate))}`}
+            label="Remaining credit"
+            value={remainingCreditValue}
+            description={remainingCreditDescription}
             tone="emerald"
           />
-          <Metric label={isBranchAdmin ? 'SMS Rate' : 'Provider Balance'} value={isBranchAdmin ? `${formatBdt(smsData.smsPricing.pricePerSms)} / SMS` : smsData.providerBalanceValue} tone="blue" />
           <Metric label="Queue Pending" value={smsData.queue.summary?.QUEUED ?? smsData.queue.summary?.PENDING ?? 0} tone="amber" />
           <Metric label="Sent SMS" value={smsData.sentSmsValue} tone="slate" />
         </div>
@@ -120,7 +137,7 @@ export default function SmsManagementPage() {
         {smsData.queueError ? (
           <SmsWarningBanner title="SMS queue status unavailable">{smsData.queueError}</SmsWarningBanner>
         ) : null}
-        {smsData.providerBalanceError ? (
+        {!isBranchAdmin && smsData.providerBalanceError ? (
           <SmsWarningBanner title={smsData.providerBalanceValue === 'Gateway not configured' ? 'Gateway not configured' : 'Provider balance unavailable'}>
             {smsData.providerBalanceError}
           </SmsWarningBanner>
@@ -148,34 +165,55 @@ export default function SmsManagementPage() {
             </TabsContent>
           )}
 
-          {!isBranchAdmin && <TabsContent value="gateway" className="space-y-4">
-            <SmsOverviewTab
-              queue={smsData.queue}
-              config={smsData.config}
-              providerBalanceValue={smsData.providerBalanceValue}
-              providerBalanceError={smsData.providerBalanceError}
-              failedQueue={smsData.failedQueue}
-            />
-            <SmsGatewayTab
-              gatewayState={gatewayActions.state}
-              gatewayActions={gatewayActions.actions}
-            />
-            <SmsSystemTab
-              templates={smsData.templates}
-              branches={smsData.branches}
-              settingsState={systemSettings.state}
-              settingsActions={systemSettings.actions}
-            />
-            <SmsBalancesTab
-              orgBalance={smsData.orgBalance}
-              branches={smsData.branches}
-              branchBalances={smsData.branchBalances}
-              smsTransactions={smsData.smsTransactions}
-              balanceState={balanceActions.state}
-              balanceActions={balanceActions.actions}
-              isBranchAdmin={isBranchAdmin}
-            />
-          </TabsContent>}
+          {!isBranchAdmin && (
+            <TabsContent value="gateway" className="space-y-4">
+              <Tabs defaultValue="overview" className="space-y-4">
+                <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-lg border border-slate-200 bg-white p-1">
+                  {gatewaySubTabs.map(({ value, label }) => (
+                    <TabsTrigger key={value} value={value} className="flex-1 px-3 text-xs sm:text-sm">
+                      {label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+
+                <TabsContent value="overview" className="mt-0 space-y-4">
+                  <SmsOverviewTab
+                    queue={smsData.queue}
+                    config={smsData.config}
+                    providerBalanceValue={smsData.providerBalanceValue}
+                    providerBalanceError={smsData.providerBalanceError}
+                    failedQueue={smsData.failedQueue}
+                  />
+                </TabsContent>
+
+                <TabsContent value="gateway" className="mt-0 space-y-4">
+                  <SmsGatewayTab gatewayState={gatewayActions.state} gatewayActions={gatewayActions.actions} />
+                </TabsContent>
+
+                <TabsContent value="policies" className="mt-0 space-y-4">
+                  <SmsSystemTab
+                    templates={smsData.templates}
+                    branches={smsData.branches}
+                    settingsState={systemSettings.state}
+                    settingsActions={systemSettings.actions}
+                  />
+                </TabsContent>
+
+                <TabsContent value="balances" className="mt-0 space-y-4">
+                  <SmsBalancesTab
+                    orgBalance={smsData.orgBalance}
+                    branches={smsData.branches}
+                    branchBalances={smsData.branchBalances}
+                    smsTransactions={smsData.smsTransactions}
+                    balanceState={balanceActions.state}
+                    balanceActions={balanceActions.actions}
+                    providerBalanceValue={smsData.providerBalanceValue}
+                    isBranchAdmin={isBranchAdmin}
+                  />
+                </TabsContent>
+              </Tabs>
+            </TabsContent>
+          )}
 
           <TabsContent value="logs" className="space-y-4">
             <SmsLogsTab branches={smsData.branches} actor={user} />

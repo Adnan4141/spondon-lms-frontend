@@ -33,6 +33,18 @@ export function formatBdt(value: string | number | null | undefined) {
   return `৳${Number.isFinite(amount) ? amount.toFixed(2) : '0.00'}`;
 }
 
+/** Primary display for wallet / remaining credit (BDT). */
+export function formatRemainingBdt(value: string | number | null | undefined) {
+  if (value === null || value === undefined || value === '') return '—';
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) {
+    const trimmed = String(value).trim();
+    if (trimmed.startsWith('৳')) return trimmed;
+    return trimmed || '—';
+  }
+  return formatBdt(amount);
+}
+
 export function formatSmsCredits(value: string | number | null | undefined) {
   const count = Number(value || 0);
   return `${Number.isFinite(count) ? count.toLocaleString() : '0'} SMS`;
@@ -42,6 +54,34 @@ export function smsBalanceValue(balanceCount: string | number | null | undefined
   const count = Number(balanceCount || 0);
   const price = Number(rate || 0);
   return Number.isFinite(count) && Number.isFinite(price) ? count * price : 0;
+}
+
+/** Internal ledger units → BDT for branch/org pools (single purchase rate). */
+export function ledgerBalanceToBdt(balanceCount: string | number | null | undefined, pricePerSms: string | number | null | undefined) {
+  return smsBalanceValue(balanceCount, pricePerSms);
+}
+
+export function parseProviderBalanceBdt(
+  balanceText: string | null | undefined,
+  balanceBdt?: number | null,
+): number | null {
+  if (balanceBdt != null && Number.isFinite(balanceBdt)) return balanceBdt;
+  if (!balanceText?.trim()) return null;
+  const stripped = balanceText.replace(/[^\d.-]/g, '');
+  const parsed = Number(stripped);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function formatProviderRemainingCredit(
+  balanceText: string | null | undefined,
+  balanceBdt?: number | null,
+  unavailableLabel = 'Unavailable',
+) {
+  const bdt = parseProviderBalanceBdt(balanceText, balanceBdt);
+  if (bdt != null) return formatRemainingBdt(bdt);
+  if (!balanceText?.trim() || balanceText === '-' || balanceText === 'Unavailable') return unavailableLabel;
+  if (balanceText === 'Gateway not configured') return balanceText;
+  return formatRemainingBdt(balanceText);
 }
 
 export function smsLengthInfo(value: string) {

@@ -44,7 +44,17 @@ import {
   upsertSmsConfig,
 } from '@/lib/api/sms';
 import { getSmsPricing, getSmsTransactions, initiateSmsPurchase, setSmsPricing, type SmsPricing } from '@/lib/api/sms-purchase';
-import { defaultSystemSetting, errorMessage, renderSmsPreview, settingKey, smsLengthInfo, systemTypes } from '../sms-shared';
+import {
+  defaultSystemSetting,
+  errorMessage,
+  formatProviderRemainingCredit,
+  ledgerBalanceToBdt,
+  parseProviderBalanceBdt,
+  renderSmsPreview,
+  settingKey,
+  smsLengthInfo,
+  systemTypes,
+} from '../sms-shared';
 
 export type DirectSmsState = {
   to: string;
@@ -87,7 +97,7 @@ export function useSmsManagementData(actor?: SmsActor) {
   const [templates, setTemplates] = useState<SmsTemplate[]>([]);
   const [balances, setBalances] = useState<SmsBalance[]>([]);
   const [settings, setSettings] = useState<SmsSystemSetting[]>([]);
-  const [config, setConfig] = useState<Partial<SmsConfig>>({ provider: 'BulkSMSBD', isActive: true });
+  const [config, setConfig] = useState<Partial<SmsConfig>>({ provider: 'Shiram', isActive: true });
   const [providerBalance, setProviderBalance] = useState<SmsProviderBalance | null>(null);
   const [providerBalanceError, setProviderBalanceError] = useState('');
   const [queueError, setQueueError] = useState('');
@@ -206,9 +216,15 @@ export function useSmsManagementData(actor?: SmsActor) {
   const orgBalance = balances.find((balance) => balance.scope === 'ORG' && !balance.branchId);
   const branchBalances = balances.filter((balance) => balance.scope === 'BRANCH');
   const failedQueue = queue.items.filter((item) => item.status === 'FAILED');
+  const providerBalanceBdt = providerBalanceError
+    ? null
+    : parseProviderBalanceBdt(providerBalance?.balanceText, providerBalance?.balanceBdt ?? null);
   const providerBalanceValue = providerBalanceError
-    ? providerBalance?.status === 'NOT_CONFIGURED' ? 'Gateway not configured' : 'Unavailable'
-    : providerBalance?.balanceText || '-';
+    ? providerBalance?.status === 'NOT_CONFIGURED'
+      ? 'Gateway not configured'
+      : 'Unavailable'
+    : formatProviderRemainingCredit(providerBalance?.balanceText, providerBalance?.balanceBdt ?? null);
+  const orgLedgerBdt = ledgerBalanceToBdt(orgBalance?.balanceCount, smsPricing.pricePerSms);
   const sentSmsValue = Number(((summary?.totals as { _sum?: { successCount?: number | null } } | undefined)?._sum?.successCount) ?? 0);
   const monthlyRows = Array.isArray(summary?.monthly)
     ? summary.monthly as Array<{ month: string; successCount: number; failedCount: number; recipientCount: number }>
@@ -239,8 +255,11 @@ export function useSmsManagementData(actor?: SmsActor) {
     orgBalance,
     branchBalances,
     failedQueue,
+    providerBalance,
     providerBalanceValue,
+    providerBalanceBdt,
     providerBalanceError,
+    orgLedgerBdt,
     queueError,
     smsConfigError,
     sentSmsValue,
@@ -942,7 +961,7 @@ export function useSmsGatewayActions({
     setSubmitting(true);
     try {
       await upsertSmsConfig(config);
-      toast({ title: 'Gateway saved', description: 'BulkSMSBD settings updated.', variant: 'success' });
+      toast({ title: 'Gateway saved', description: 'SMS gateway settings updated.', variant: 'success' });
       refresh();
     } catch (error: unknown) {
       toast({ title: 'Gateway failed', description: errorMessage(error), variant: 'destructive' });

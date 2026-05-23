@@ -18,6 +18,8 @@ export function SmsOverviewTab({
   failedQueue: SmsQueueItem[];
 }) {
   const gatewayNotConfigured = providerBalanceValue === 'Gateway not configured';
+  const providerLabel = config.provider?.trim() || 'Shiram';
+
   return (
     <div className="space-y-4">
       <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
@@ -32,10 +34,10 @@ export function SmsOverviewTab({
           </div>
         </Panel>
         <Panel title="Gateway Status">
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-md border border-slate-200 p-3">
               <p className="text-xs font-semibold text-slate-500">Provider</p>
-              <p className="mt-1 truncate font-semibold">{config.provider || 'BulkSMSBD'}</p>
+              <p className="mt-1 truncate font-semibold">{providerLabel}</p>
             </div>
             <div className="rounded-md border border-slate-200 p-3">
               <p className="text-xs font-semibold text-slate-500">Gateway</p>
@@ -43,15 +45,19 @@ export function SmsOverviewTab({
                 {config.isActive === false ? 'Inactive' : 'Active'}
               </Badge>
             </div>
-            <div className="rounded-md border border-slate-200 p-3">
-              <p className="text-xs font-semibold text-slate-500">Provider Balance</p>
-              <p className={providerBalanceError ? 'mt-1 truncate font-semibold text-amber-700' : 'mt-1 truncate font-semibold'}>
+            <div className="rounded-md border border-emerald-100 bg-emerald-50/50 p-3 sm:col-span-2">
+              <p className="text-xs font-semibold text-slate-500">Remaining credit (BDT)</p>
+              <p className={providerBalanceError ? 'mt-1 truncate text-xl font-bold text-amber-700' : 'mt-1 truncate text-xl font-bold text-emerald-800'}>
                 {providerBalanceValue}
               </p>
             </div>
             <div className="rounded-md border border-slate-200 p-3">
-              <p className="text-xs font-semibold text-slate-500">Masking ID</p>
-              <p className="mt-1 truncate font-semibold">{config.senderId || '-'}</p>
+              <p className="text-xs font-semibold text-slate-500">Masking sender</p>
+              <p className="mt-1 truncate font-semibold">{config.senderId || '—'}</p>
+            </div>
+            <div className="rounded-md border border-slate-200 p-3">
+              <p className="text-xs font-semibold text-slate-500">Non-masking number</p>
+              <p className="mt-1 truncate font-semibold">{config.nonMaskingNumber || '—'}</p>
             </div>
           </div>
           {providerBalanceError && (

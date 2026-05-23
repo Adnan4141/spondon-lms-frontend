@@ -5,7 +5,7 @@ import { Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { SmsSendWorkspace } from '@/features/admin/sms/components/SmsSendWorkspace';
 import { useSmsBulkActions, useSmsManagementData } from '@/features/admin/sms/hooks/useSmsManagement';
-import { formatBdt, formatSmsCredits, Metric, SmsWarningBanner, smsBalanceValue } from '@/features/admin/sms/sms-shared';
+import { formatRemainingBdt, formatSmsCredits, ledgerBalanceToBdt, Metric, SmsWarningBanner } from '@/features/admin/sms/sms-shared';
 import { useAdminSession } from '@/features/admin/shared/admin-session';
 
 export default function SendSmsPage() {
@@ -22,8 +22,14 @@ export default function SendSmsPage() {
   const branchBalance = isBranchAdmin
     ? smsData.branchBalances.find((balance) => balance.branchId === user?.branchId)
     : undefined;
-  const activeBalance = isBranchAdmin ? branchBalance?.balanceCount : smsData.orgBalance?.balanceCount;
-  const activeRate = smsData.smsPricing.pricePerSms || smsData.config.nonMaskingRate || 0;
+  const branchRemainingBdt = ledgerBalanceToBdt(branchBalance?.balanceCount, smsData.smsPricing.pricePerSms);
+  const remainingCreditValue = isBranchAdmin ? formatRemainingBdt(branchRemainingBdt) : smsData.providerBalanceValue;
+  const remainingCreditDescription =
+    !isBranchAdmin && smsData.orgBalance?.balanceCount != null
+      ? `Internal units: ${formatSmsCredits(smsData.orgBalance.balanceCount)}`
+      : isBranchAdmin && branchBalance?.balanceCount != null
+        ? `Internal units: ${formatSmsCredits(branchBalance.balanceCount)}`
+        : undefined;
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -41,17 +47,12 @@ export default function SendSmsPage() {
       </div>
 
       <div className="mx-auto max-w-full space-y-4 px-4 py-4 sm:px-6">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Metric
-            label={isBranchAdmin ? 'Branch Balance' : 'Central Balance'}
-            value={activeBalance === undefined ? '-' : formatSmsCredits(activeBalance)}
-            description={activeBalance === undefined ? undefined : `≈ ${formatBdt(smsBalanceValue(activeBalance, activeRate))}`}
+            label="Remaining credit"
+            value={remainingCreditValue}
+            description={remainingCreditDescription}
             tone="emerald"
-          />
-          <Metric
-            label={isBranchAdmin ? 'SMS Rate' : 'Provider Balance'}
-            value={isBranchAdmin ? `${formatBdt(smsData.smsPricing.pricePerSms)} / SMS` : smsData.providerBalanceValue}
-            tone="blue"
           />
           <Metric label="Queue Pending" value={smsData.queue.summary?.QUEUED ?? smsData.queue.summary?.PENDING ?? 0} tone="amber" />
           <Metric label="Sent SMS" value={smsData.sentSmsValue} tone="slate" />
@@ -60,7 +61,7 @@ export default function SendSmsPage() {
         {smsData.queueError ? (
           <SmsWarningBanner title="SMS queue status unavailable">{smsData.queueError}</SmsWarningBanner>
         ) : null}
-        {smsData.providerBalanceError ? (
+        {!isBranchAdmin && smsData.providerBalanceError ? (
           <SmsWarningBanner title={smsData.providerBalanceValue === 'Gateway not configured' ? 'Gateway not configured' : 'Provider balance unavailable'}>
             {smsData.providerBalanceError}
           </SmsWarningBanner>
