@@ -9,26 +9,15 @@ export interface LoginResponse {
     mobile: string;
     role: string;
     branchId?: string;
-    isMobileVerified?: boolean;
   };
   token: string;
 }
 
-export interface LoginRequest {
-  mobile: string;
-  password: string;
-}
-
-export interface LoginApiResponse extends ApiResponse<LoginResponse> {
-  requiresVerification?: boolean;
-  mobile?: string;
-}
-
-export async function login(data: LoginRequest): Promise<LoginApiResponse> {
+export async function login(data: any): Promise<ApiResponse<LoginResponse>> {
   return apiRequest<ApiResponse<LoginResponse>>('/users/login', {
     method: 'POST',
     body: JSON.stringify(data),
-  }) as Promise<LoginApiResponse>;
+  });
 }
 
 export async function register(data: {

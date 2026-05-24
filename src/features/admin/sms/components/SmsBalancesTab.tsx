@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import type { Branch } from '@/lib/api/branches';
 import type { SmsBalance } from '@/lib/api/sms';
 import type { SmsBalancesActionsHook } from '../hooks/useSmsManagement';
-import { EmptyState, formatBdt, formatRemainingBdt, Panel, parseProviderBalanceBdt } from '../sms-shared';
+import { EmptyState, formatBdt, formatRemainingBdt, Panel } from '../sms-shared';
 
 export function SmsBalancesTab({
   orgBalance,
@@ -41,11 +41,9 @@ export function SmsBalancesTab({
     handleSavePricing,
   } = balanceActions;
 
-  const providerBdt = parseProviderBalanceBdt(providerBalanceValue ?? null);
-  const centralDisplay =
-    providerBdt != null
-      ? formatRemainingBdt(providerBdt)
-      : formatRemainingBdt(orgBalance?.balanceCount);
+  const centralDisplay = formatRemainingBdt(orgBalance?.balanceCount);
+  const providerDisplay = providerBalanceValue?.trim() || 'Unavailable';
+  const branchTotal = branchBalances.reduce((sum, balance) => sum + Number(balance.balanceCount || 0), 0);
 
   return (
     <div className="grid gap-4 lg:grid-cols-[.9fr_1.1fr]">
@@ -54,6 +52,16 @@ export function SmsBalancesTab({
           <Panel title="Central remaining credit">
             <div className="space-y-3">
               <p className="text-3xl font-bold text-emerald-700">{centralDisplay}</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs font-semibold uppercase text-slate-500">Gateway provider balance</p>
+                  <p className="mt-1 text-lg font-bold text-slate-900">{providerDisplay}</p>
+                </div>
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs font-semibold uppercase text-slate-500">Branch wallet total</p>
+                  <p className="mt-1 text-lg font-bold text-slate-900">{formatRemainingBdt(branchTotal)}</p>
+                </div>
+              </div>
               <p className="text-xs text-slate-500">
                 Credit is in BDT (৳). Sending deducts the estimated cost per message from the branch or central wallet.
               </p>
@@ -62,13 +70,13 @@ export function SmsBalancesTab({
                   type="number"
                   step="0.01"
                   min="0"
-                  placeholder="Set balance (BDT)"
+                  placeholder="Top-up amount (BDT)"
                   value={orgBalanceInput}
                   onChange={(event) => setOrgBalanceInput(event.target.value)}
                   className="bg-white"
                 />
                 <Button type="button" onClick={() => void handleBalanceUpdate()} disabled={submitting}>
-                  Update balance
+                  Add balance
                 </Button>
               </div>
               <div className="grid gap-2 sm:grid-cols-[1fr_130px_auto]">
@@ -142,7 +150,7 @@ export function SmsBalancesTab({
                 <Label className="text-xs">Amount (BDT)</Label>
                 <Input
                   type="number"
-                  step="0.01"
+                  step="1"
                   min="0"
                   placeholder={`Min ${formatBdt(smsPricing.minPurchase)}`}
                   value={purchase.quantity}

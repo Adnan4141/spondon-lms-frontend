@@ -66,15 +66,16 @@ function LoginForm() {
         localStorage.setItem('auth_token', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
         document.cookie = `auth_token=${response.data.token}; path=/; max-age=${24 * 60 * 60}`;
-        document.cookie = `user_role=${response.data.user.role || ''}; path=/; max-age=${24 * 60 * 60}`;
-
-        if (response.data.user.role === 'STUDENT' && !response.data.user.isMobileVerified) {
-          router.push(`/register?mobile=${encodeURIComponent(response.data.user.mobile)}&step=otp`);
-          return;
-        }
+        document.cookie = `user_role=${(response.data as any).user?.role || ''}; path=/; max-age=${24 * 60 * 60}`;
 
         setTimeout(() => {
-          const user = response.data?.user;
+          const user = (response.data as any)?.user;
+
+          // Safety net: STUDENT with unverified mobile goes to OTP step
+          if (user?.role === 'STUDENT' && !user?.isMobileVerified) {
+            router.push(`/register?mobile=${encodeURIComponent(user.mobile)}&step=otp`);
+            return;
+          }
 
           let target = '/student';
           if (user?.role === 'SUPER_ADMIN' || user?.role === 'ACCOUNTS' || user?.role === 'MODERATOR') {
@@ -87,8 +88,8 @@ function LoginForm() {
           router.push(redirectTo && redirectTo.startsWith('/') ? redirectTo : target);
         }, 1500);
       } else {
-        if (response.requiresVerification) {
-          setVerificationNeeded(response.mobile || null);
+        if ((response as any).requiresVerification) {
+          setVerificationNeeded((response as any).mobile);
           return;
         }
         toast({
@@ -97,11 +98,10 @@ function LoginForm() {
           variant: 'destructive',
         });
       }
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'একটি অপ্রত্যাশিত সমস্যা হয়েছে।';
+    } catch (error: any) {
       toast({
         title: 'ত্রুটি',
-        description: message,
+        description: error.message || 'একটি অপ্রত্যাশিত সমস্যা হয়েছে।',
         variant: 'destructive',
       });
     } finally {

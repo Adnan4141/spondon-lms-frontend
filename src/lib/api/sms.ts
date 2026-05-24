@@ -38,7 +38,7 @@ export interface SmsBalance {
   id: string;
   scope: 'ORG' | 'BRANCH';
   branchId?: string | null;
-  balanceCount: number;
+  balanceCount: number | string;
   branch?: { id: string; name: string } | null;
 }
 

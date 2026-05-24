@@ -757,12 +757,13 @@ export function useSmsBalancesActions({
   }, [actorBranchId, isBranchAdmin]);
 
   const handleBalanceUpdate = useCallback(async () => {
-    if (!orgBalanceInput) return;
+    const amount = Number(orgBalanceInput);
+    if (!Number.isFinite(amount) || amount <= 0) return;
     setSubmitting(true);
     try {
-      const res = await updateSmsBalance({ scope: 'ORG', balanceCount: Math.round(Number(orgBalanceInput)) });
+      const res = await updateSmsBalance({ scope: 'ORG', balanceCount: amount.toFixed(2), mode: 'increment' });
       if (res.success) {
-        toast({ title: 'Central balance updated', description: 'Balance set in BDT.', variant: 'success' });
+        toast({ title: 'Central balance topped up', description: 'Amount added in BDT.', variant: 'success' });
         setOrgBalanceInput('');
         await refresh();
       }
@@ -774,10 +775,11 @@ export function useSmsBalancesActions({
   }, [orgBalanceInput, refresh, setSubmitting, toast]);
 
   const handleTransfer = useCallback(async () => {
-    if (!transfer.branchId || !Number(transfer.count)) return;
+    const amount = Number(transfer.count);
+    if (!transfer.branchId || !Number.isFinite(amount) || amount <= 0) return;
     setSubmitting(true);
     try {
-      const res = await transferSmsBalance(transfer.branchId, Math.round(Number(transfer.count)));
+      const res = await transferSmsBalance(transfer.branchId, Number(amount.toFixed(2)));
       if (res.success) {
         toast({ title: 'Credit transferred', description: 'Amount moved in BDT.', variant: 'success' });
         setTransfer({ branchId: '', count: '' });
@@ -792,10 +794,10 @@ export function useSmsBalancesActions({
 
   const handlePurchaseSms = useCallback(async () => {
     const quantity = Number(purchase.quantity);
-    if (!quantity || quantity < smsPricing.minPurchase) {
+    if (!Number.isInteger(quantity) || quantity < smsPricing.minPurchase) {
       return toast({
         title: 'Invalid amount',
-        description: `Minimum purchase is ৳${smsPricing.minPurchase} BDT.`,
+        description: `Enter a whole BDT amount of at least ৳${smsPricing.minPurchase}.`,
         variant: 'destructive',
       });
     }

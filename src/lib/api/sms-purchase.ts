@@ -7,13 +7,41 @@ export interface SmsPricing {
   minPurchase: number;
 }
 
+export interface SmsPurchaseTransaction {
+  id: string;
+  tranId: string;
+  scope: 'ORG' | 'BRANCH';
+  branchId?: string | null;
+  quantity: number;
+  unitPrice: string | number;
+  totalAmount: string | number;
+  status: string;
+  gatewayProvider?: string;
+  gatewayValId?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+  branch?: { id: string; name: string } | null;
+}
+
+interface ApiResponse<T> {
+  success: boolean;
+  message?: string;
+  data: T;
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
+}
+
 export const getSmsPricing = (params?: { branchId?: string }) => {
   const q = params?.branchId ? `?branchId=${encodeURIComponent(params.branchId)}` : '';
-  return apiRequest<{ success: boolean; data: SmsPricing }>(`/sms-purchase/pricing${q}`);
+  return apiRequest<ApiResponse<SmsPricing>>(`/sms-purchase/pricing${q}`);
 };
 
 export const setSmsPricing = (data: { branchId?: string; pricePerSms: number; minPurchase: number }) =>
-  apiRequest<any>('/sms-purchase/pricing', {
+  apiRequest<ApiResponse<SmsPricing>>('/sms-purchase/pricing', {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -26,7 +54,7 @@ export const initiateSmsPurchase = (data: {
   cusEmail?: string;
   cusPhone?: string;
 }) =>
-  apiRequest<{ success: boolean; data: { GatewayPageURL: string; bkashURL?: string; paymentID?: string; tranId: string; totalAmount: number } }>(
+  apiRequest<ApiResponse<{ GatewayPageURL: string; bkashURL?: string; paymentID?: string; tranId: string; totalAmount: number }>>(
     '/sms-purchase/initiate',
     {
       method: 'POST',
@@ -35,12 +63,12 @@ export const initiateSmsPurchase = (data: {
   );
 
 export const verifySmsPurchase = (tranId: string, body?: Record<string, unknown>) =>
-  apiRequest<any>('/sms-purchase/verify', {
+  apiRequest<ApiResponse<SmsPurchaseTransaction | { tranId: string; amountBdt: number }>>('/sms-purchase/verify', {
     method: 'POST',
     body: JSON.stringify(body || { tran_id: tranId }),
   });
 
 export const getSmsTransactions = (params?: { scope?: string; branchId?: string; status?: string; page?: number; limit?: number }) => {
   const q = params ? new URLSearchParams(params as Record<string, string>).toString() : '';
-  return apiRequest<any>(`/sms-purchase/transactions${q ? `?${q}` : ''}`);
+  return apiRequest<ApiResponse<SmsPurchaseTransaction[]>>(`/sms-purchase/transactions${q ? `?${q}` : ''}`);
 };
