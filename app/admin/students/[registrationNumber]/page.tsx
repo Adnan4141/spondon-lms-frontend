@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  ArrowLeft, BookOpen, Building2, CreditCard, Download, Droplets, Edit2,
+  ArrowLeft, BookOpen, Building2, Calendar, CreditCard, Download, Droplets, Edit2,
   Eye, GraduationCap, Mail, MapPin, Phone, RefreshCw, User,
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/toast';
@@ -126,12 +126,20 @@ export default function StudentDetailPage() {
         status: u.status as 'ACTIVE' | 'BLOCKED',
         branchId: u.branchId ?? '',
         createdAt: u.createdAt ?? '',
+        profileImage: u.profileImage ?? null,
         fatherName: u.studentProfile?.fatherName ?? undefined,
         motherName: u.studentProfile?.motherName ?? undefined,
         fatherMobile: u.studentProfile?.fatherMobile ?? undefined,
         motherMobile: u.studentProfile?.motherMobile ?? undefined,
+        dob: u.studentProfile?.dob ? u.studentProfile.dob.slice(0, 10) : undefined,
         bloodGroup: u.studentProfile?.bloodGroup ?? undefined,
         gender: u.studentProfile?.gender ?? undefined,
+        sscGpa: (u.studentProfile?.sscInfo as { gpa?: unknown } | undefined)?.gpa != null
+          ? String((u.studentProfile?.sscInfo as { gpa?: unknown }).gpa)
+          : undefined,
+        hscGpa: (u.studentProfile?.hscInfo as { gpa?: unknown } | undefined)?.gpa != null
+          ? String((u.studentProfile?.hscInfo as { gpa?: unknown }).gpa)
+          : undefined,
         address: u.studentProfile?.address ?? undefined,
         smsAlertTo: u.studentProfile?.smsAlertTo ?? [],
       });
@@ -343,6 +351,7 @@ export default function StudentDetailPage() {
               <InfoRow icon={Phone} label="Father's Mobile" value={student.fatherMobile} />
               <InfoRow icon={User} label="Mother's Name" value={student.motherName} />
               <InfoRow icon={Phone} label="Mother's Mobile" value={student.motherMobile} />
+              <InfoRow icon={Calendar} label="Date of Birth" value={student.dob} />
               <InfoRow icon={Droplets} label="Blood Group" value={student.bloodGroup} />
               <InfoRow icon={User} label="Gender" value={student.gender ? student.gender.charAt(0) + student.gender.slice(1).toLowerCase() : undefined} />
               <InfoRow icon={MapPin} label="Address" value={student.address} />
@@ -373,6 +382,8 @@ export default function StudentDetailPage() {
                 <p className="text-sm text-slate-400 text-center py-4">No institute assigned</p>
               )}
               {branchName && <InfoRow icon={Building2} label="Branch" value={branchName} />}
+              <InfoRow icon={GraduationCap} label="SSC GPA" value={student.sscGpa} />
+              <InfoRow icon={GraduationCap} label="HSC GPA" value={student.hscGpa} />
 
               {/* Summary stats */}
               <div className="pt-3 border-t border-slate-100 grid grid-cols-2 gap-3 mt-3">

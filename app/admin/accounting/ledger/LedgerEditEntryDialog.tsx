@@ -1,17 +1,12 @@
 'use client';
 
-import type { Account, LedgerEntry } from '@/lib/api/accounting';
-import type { Branch } from '@/lib/api/branches';
-import type { DistributionChannel, StockSource } from '@/lib/api/books';
+import type { LedgerEntry } from '@/lib/api/accounting';
+import type { LedgerReferenceData } from '../types';
 import { LedgerEntryForm } from '../LedgerEntryForm';
 import { LedgerEntryDialogShell } from './LedgerEntryDialogShell';
 
-type Props = {
+type Props = LedgerReferenceData & {
   entry: LedgerEntry | null;
-  accounts: Account[];
-  branches: Branch[];
-  stockSources: StockSource[];
-  channels: DistributionChannel[];
   onClose: () => void;
   onEntryUpdated: () => void | Promise<void>;
 };

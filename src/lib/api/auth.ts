@@ -9,19 +9,75 @@ export interface LoginResponse {
     mobile: string;
     role: string;
     branchId?: string;
+    isMobileVerified?: boolean;
   };
   token: string;
 }
 
-export async function login(data: any): Promise<ApiResponse<LoginResponse>> {
+export interface LoginRequest {
+  mobile: string;
+  password: string;
+}
+
+export interface LoginApiResponse extends ApiResponse<LoginResponse> {
+  requiresVerification?: boolean;
+  mobile?: string;
+}
+
+export async function login(data: LoginRequest): Promise<LoginApiResponse> {
   return apiRequest<ApiResponse<LoginResponse>>('/users/login', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }) as Promise<LoginApiResponse>;
+}
+
+export async function register(data: {
+  fullName: string;
+  mobile: string;
+  gender?: string;
+  password: string;
+}): Promise<ApiResponse<{ userId: string; mobile: string }>> {
+  return apiRequest('/auth/register', {
     method: 'POST',
     body: JSON.stringify(data),
   });
 }
 
-export async function register(data: any): Promise<ApiResponse<any>> {
-  return apiRequest<ApiResponse<any>>('/users', {
+export async function verifyMobile(data: {
+  mobile: string;
+  code: string;
+}): Promise<ApiResponse<null>> {
+  return apiRequest('/auth/verify-mobile', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function forgotPassword(data: {
+  mobile: string;
+}): Promise<ApiResponse<null>> {
+  return apiRequest('/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function resetPassword(data: {
+  mobile: string;
+  code: string;
+  newPassword: string;
+}): Promise<ApiResponse<null>> {
+  return apiRequest('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function resendOtp(data: {
+  mobile: string;
+  purpose: 'REGISTRATION' | 'FORGOT_PASSWORD';
+}): Promise<ApiResponse<null>> {
+  return apiRequest('/auth/resend-otp', {
     method: 'POST',
     body: JSON.stringify(data),
   });

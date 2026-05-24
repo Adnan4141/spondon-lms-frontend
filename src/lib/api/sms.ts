@@ -5,6 +5,7 @@ export interface SmsConfig {
   scope?: 'ORG' | 'BRANCH';
   branchId?: string | null;
   provider: string;
+  apiEmail?: string | null;
   apiKey: string;
   senderId?: string | null;
   nonMaskingNumber?: string | null;

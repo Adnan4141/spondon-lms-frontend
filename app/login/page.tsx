@@ -12,7 +12,9 @@ import {
   ArrowRight, 
   Phone,
   ArrowLeft,
-  CheckCircle2
+  CheckCircle2,
+  AlertCircle,
+  ShieldCheck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,6 +30,7 @@ function LoginForm() {
   const { toast, toasts, removeToast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [verificationNeeded, setVerificationNeeded] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     identifier: '', // Now primarily mobile
     password: '',
@@ -63,10 +66,16 @@ function LoginForm() {
         localStorage.setItem('auth_token', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
         document.cookie = `auth_token=${response.data.token}; path=/; max-age=${24 * 60 * 60}`;
-        document.cookie = `user_role=${(response.data as any).user?.role || ''}; path=/; max-age=${24 * 60 * 60}`;
+        document.cookie = `user_role=${response.data.user.role || ''}; path=/; max-age=${24 * 60 * 60}`;
+
+        if (response.data.user.role === 'STUDENT' && !response.data.user.isMobileVerified) {
+          router.push(`/register?mobile=${encodeURIComponent(response.data.user.mobile)}&step=otp`);
+          return;
+        }
 
         setTimeout(() => {
-          const user = (response.data as any)?.user;
+          const user = response.data?.user;
+
           let target = '/student';
           if (user?.role === 'SUPER_ADMIN' || user?.role === 'ACCOUNTS' || user?.role === 'MODERATOR') {
             target = '/admin';
@@ -78,16 +87,21 @@ function LoginForm() {
           router.push(redirectTo && redirectTo.startsWith('/') ? redirectTo : target);
         }, 1500);
       } else {
+        if (response.requiresVerification) {
+          setVerificationNeeded(response.mobile || null);
+          return;
+        }
         toast({
           title: 'ব্যর্থ হয়েছে',
           description: response.message || 'আপনার তথ্যগুলো সঠিক নয়। আবার চেষ্টা করুন।',
           variant: 'destructive',
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'একটি অপ্রত্যাশিত সমস্যা হয়েছে।';
       toast({
         title: 'ত্রুটি',
-        description: error.message || 'একটি অপ্রত্যাশিত সমস্যা হয়েছে।',
+        description: message,
         variant: 'destructive',
       });
     } finally {
@@ -205,6 +219,26 @@ function LoginForm() {
               )}
             </Button>
           </form>
+
+          {verificationNeeded ? (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-2xl border border-amber-200 bg-amber-50 p-4 flex gap-3"
+            >
+              <AlertCircle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+              <div className="space-y-2">
+                <p className="text-sm font-bold text-amber-800">আপনার মোবাইল নম্বর যাচাই করা হয়নি।</p>
+                <Link
+                  href={`/register?mobile=${encodeURIComponent(verificationNeeded)}&step=otp`}
+                  className="inline-flex items-center gap-1.5 text-sm font-black text-[#5C2D91] hover:underline underline-offset-2"
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  এখানে ক্লিক করে OTP দিয়ে যাচাই করুন →
+                </Link>
+              </div>
+            </motion.div>
+          ) : null}
 
           <footer className="text-center pt-4 border-t border-slate-100">
             <p className="text-slate-500 font-bold">

@@ -1,6 +1,7 @@
 'use client';
 
-import { Save } from 'lucide-react';
+import { useState } from 'react';
+import { Eye, EyeOff, Save } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,10 +17,12 @@ export function SmsGatewayTab({
   gatewayState: SmsGatewayActionsHook['state'];
   gatewayActions: SmsGatewayActionsHook['actions'];
 }) {
+  const [showApiSecret, setShowApiSecret] = useState(false);
   const { config, providerBalanceValue, providerBalanceError, submitting } = gatewayState;
   const { setConfig, handleSaveGateway } = gatewayActions;
   const gatewayNotConfigured = providerBalanceValue === 'Gateway not configured';
   const providerLabel = config.provider?.trim() || 'Shiram';
+  const isShiram = providerLabel.trim().toUpperCase().replace(/\s+/g, '').includes('SHIRAM');
 
   return (
     <Panel title={`${providerLabel} SMS Gateway`}>
@@ -47,15 +50,39 @@ export function SmsGatewayTab({
             placeholder="Shiram"
           />
         </div>
+        {isShiram ? (
+          <div>
+            <Label>Account Email</Label>
+            <Input
+              type="email"
+              autoComplete="off"
+              value={config.apiEmail || ''}
+              onChange={(event) => setConfig((prev) => ({ ...prev, apiEmail: event.target.value }))}
+              className="mt-1 bg-white"
+              placeholder="your-shiram-account@example.com"
+            />
+          </div>
+        ) : null}
         <div>
-          <Label>API Key</Label>
-          <Input
-            type="password"
-            autoComplete="off"
-            value={config.apiKey || ''}
-            onChange={(event) => setConfig((prev) => ({ ...prev, apiKey: event.target.value }))}
-            className="mt-1 bg-white"
-          />
+          <Label>{isShiram ? 'API Password' : 'API Key'}</Label>
+          <div className="relative mt-1">
+            <Input
+              type={showApiSecret ? 'text' : 'password'}
+              autoComplete="off"
+              value={config.apiKey || ''}
+              onChange={(event) => setConfig((prev) => ({ ...prev, apiKey: event.target.value }))}
+              className="bg-white pr-10"
+            />
+            <button
+              type="button"
+              aria-label={showApiSecret ? 'Hide API password' : 'Show API password'}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 disabled:pointer-events-none disabled:opacity-50"
+              onClick={() => setShowApiSecret((value) => !value)}
+              disabled={submitting}
+            >
+              {showApiSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
         </div>
         <div>
           <Label>Masking Sender ID</Label>
@@ -71,7 +98,9 @@ export function SmsGatewayTab({
             value={config.nonMaskingNumber || ''}
             onChange={(event) => setConfig((prev) => ({ ...prev, nonMaskingNumber: event.target.value }))}
             className="mt-1 bg-white"
+            placeholder={isShiram ? 'Non-Masking' : undefined}
           />
+          {isShiram ? <p className="mt-1 text-xs text-slate-500">Leave empty to use the Shiram default Non-Masking label.</p> : null}
         </div>
         <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
           <Label>Masking rate (BDT / segment)</Label>

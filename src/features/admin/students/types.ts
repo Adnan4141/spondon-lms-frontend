@@ -10,12 +10,16 @@ export interface Student {
   branchId: string;
   createdAt: string;
   _count?: { enrollments?: number };
+  profileImage?: string | null;
   fatherName?: string;
   motherName?: string;
   fatherMobile?: string;
   motherMobile?: string;
+  dob?: string;
   bloodGroup?: string;
   gender?: string;
+  sscGpa?: string;
+  hscGpa?: string;
   address?: string;
   smsAlertTo?: string[];
 }

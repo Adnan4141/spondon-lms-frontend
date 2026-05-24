@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SpondonLogo } from '@/components/common/SpondonLogo';
 import {
   SidebarCollapseRow,
   SidebarExpandFooterButton,
@@ -93,19 +94,18 @@ export function StudentSidebar({
           <div className="absolute top-1/2 -right-24 h-64 w-64 rounded-full bg-violet-50 blur-3xl" />
         </div>
 
-        <div className="relative flex h-20 shrink-0 items-center gap-3 border-b border-slate-100/80 px-6">
+        <div className="relative flex h-20 shrink-0 items-center border-b border-slate-100/80 px-6 gap-3">
           <Link href="/student/community" onClick={onCloseMobile} className="flex min-w-0 flex-1 items-center gap-3 group">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-linear-to-br from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-200 transition-transform duration-300 group-hover:scale-105">
-              <GraduationCap className="h-6 w-6" />
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-indigo-100 bg-white shadow-lg shadow-indigo-100 transition-transform group-hover:scale-105 group-hover:rotate-3">
+              <SpondonLogo size={44} className="h-full w-full object-contain p-1.5" />
             </div>
             {!collapsed && (
-              <div className="flex min-w-0 flex-col">
+              <div className="flex flex-col min-w-0">
                 <span className="truncate text-lg font-black leading-none tracking-tight text-slate-900">Spondon</span>
                 <span className="mt-1 text-[10px] font-bold uppercase tracking-widest text-indigo-600">LMS Portal</span>
               </div>
             )}
           </Link>
-
           <button
             type="button"
             onClick={onCloseMobile}

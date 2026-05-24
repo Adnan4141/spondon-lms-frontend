@@ -13,6 +13,7 @@ import {
   GraduationCap,
   X,
 } from 'lucide-react';
+import { SpondonLogo } from '@/components/common/SpondonLogo';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -63,14 +64,8 @@ export function TeacherSidebar({ mobileOpen, onCloseMobile }: TeacherSidebarProp
       >
         <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-5 py-5">
           <Link href="/teacher" className="flex min-w-0 items-center gap-3 group" onClick={onCloseMobile}>
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-linear-to-br from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-200/50 transition-transform group-hover:scale-105">
-              <GraduationCap className="h-5 w-5" />
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-lg font-black tracking-tight text-slate-900">Teacher</p>
-              <p className="truncate text-[10px] font-bold uppercase tracking-widest text-indigo-600/90">
-                Workspace
-              </p>
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-indigo-100 bg-white shadow-lg shadow-indigo-100 transition-transform group-hover:scale-105 group-hover:rotate-3">
+              <SpondonLogo size={44} className="h-full w-full object-contain p-1.5" />
             </div>
           </Link>
           <Button

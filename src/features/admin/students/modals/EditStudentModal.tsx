@@ -6,12 +6,22 @@ import { Button } from '@/components/ui/button';
 import { getBranches } from '@/lib/api/branches';
 import { getInstitutes, type Institute } from '@/lib/api/institutes';
 import { getStudentProfileByUserId, upsertStudentProfile } from '@/lib/api/student-profiles';
-import { updateUser, getUserById } from '@/lib/api/users';
+import { updateUser, getUserById, uploadUserProfileImage } from '@/lib/api/users';
 import type { Student } from '../types';
 import { StudentAdminBadge } from '../components/StudentAdminBadge';
 import { StudentAdminModal } from '../components/StudentAdminModal';
 import { StudentAdminSelect } from '../components/StudentAdminSelect';
 import { StudentFormFields, type StudentForm } from '../components/StudentFormFields';
+import { gpaInfo, validateAdminStudentForm } from '../studentValidation';
+
+function dateOnly(value?: string | null): string {
+  return value ? value.slice(0, 10) : '';
+}
+
+function readGpa(value: unknown): string {
+  const info = value as { gpa?: unknown } | null | undefined;
+  return info?.gpa != null ? String(info.gpa) : '';
+}
 
 export function EditStudentModal({
   student, onClose, onSave,
@@ -28,12 +38,17 @@ export function EditStudentModal({
     motherName: student.motherName ?? '',
     fatherMobile: student.fatherMobile ?? '',
     motherMobile: student.motherMobile ?? '',
+    dob: student.dob ?? '',
     gender: student.gender ?? '',
     bloodGroup: student.bloodGroup ?? '',
+    sscGpa: student.sscGpa ?? '',
+    hscGpa: student.hscGpa ?? '',
     address: student.address ?? '',
     smsAlertTo: student.smsAlertTo ?? [],
+    profileImage: student.profileImage ?? null,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -62,10 +77,14 @@ export function EditStudentModal({
             motherName: prof?.motherName ?? '',
             fatherMobile: prof?.fatherMobile ?? '',
             motherMobile: prof?.motherMobile ?? '',
+            dob: dateOnly(prof?.dob),
             gender: prof?.gender ?? '',
             bloodGroup: prof?.bloodGroup ?? '',
+            sscGpa: readGpa(prof?.sscInfo),
+            hscGpa: readGpa(prof?.hscInfo),
             address: prof?.address ?? '',
             smsAlertTo: prof?.smsAlertTo ?? [],
+            profileImage: u.profileImage ?? null,
           });
           setBranchId(u.branchId ?? student.branchId ?? '');
           setStatus(u.status === 'BLOCKED' ? 'BLOCKED' : 'ACTIVE');
@@ -90,15 +109,7 @@ export function EditStudentModal({
   };
 
   const validate = (): Record<string, string> => {
-    const e: Record<string, string> = {};
-    if (!form.fullName.trim()) e.fullName = 'Name is required';
-    if (!form.mobile.trim()) e.mobile = 'Mobile is required';
-    else if (!/^01[3-9]\d{8}$/.test(form.mobile.replace(/^88/, '')))
-      e.mobile = 'Invalid BD mobile (01XXXXXXXXX)';
-    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
-      e.email = 'Invalid email';
-    if (!branchId) e.branchId = 'Branch is required';
-    return e;
+    return validateAdminStudentForm({ ...form, branchId });
   };
 
   const handleSave = async () => {
@@ -117,12 +128,15 @@ export function EditStudentModal({
           motherName: form.motherName || undefined,
           fatherMobile: form.fatherMobile || undefined,
           motherMobile: form.motherMobile || undefined,
+          dob: form.dob || undefined,
           gender: form.gender || undefined,
           bloodGroup: form.bloodGroup || undefined,
           address: form.address || undefined,
           smsAlertTo: form.smsAlertTo.length
             ? (form.smsAlertTo as ('SELF' | 'FATHER' | 'MOTHER')[])
             : undefined,
+          sscInfo: gpaInfo(form.sscGpa),
+          hscInfo: gpaInfo(form.hscGpa),
         }),
         upsertStudentProfile({
           userId: student.id,
@@ -130,6 +144,7 @@ export function EditStudentModal({
           motherName: form.motherName || undefined,
           fatherMobile: form.fatherMobile || undefined,
           motherMobile: form.motherMobile || undefined,
+          dob: form.dob || undefined,
           gender: form.gender || undefined,
           bloodGroup: form.bloodGroup || undefined,
           address: form.address || undefined,
@@ -137,6 +152,8 @@ export function EditStudentModal({
           smsAlertTo: form.smsAlertTo.length
             ? (form.smsAlertTo as ('SELF' | 'FATHER' | 'MOTHER')[])
             : undefined,
+          sscInfo: gpaInfo(form.sscGpa),
+          hscInfo: gpaInfo(form.hscGpa),
         }),
       ]);
 
@@ -150,6 +167,19 @@ export function EditStudentModal({
         return;
       }
 
+      let profileImage = form.profileImage ?? null;
+      if (profileImageFile) {
+        const imageRes = await uploadUserProfileImage(student.id, profileImageFile);
+        if (!(imageRes.success && imageRes.data)) {
+          const msg = (imageRes as { message?: string }).message ?? 'Student saved, but profile photo upload failed. Please retry.';
+          setErrors({ submit: msg });
+          return;
+        }
+        profileImage = imageRes.data.profileImage ?? null;
+        setForm(current => ({ ...current, profileImage }));
+        setProfileImageFile(null);
+      }
+
       onSave({
         ...student,
         fullName: form.fullName,
@@ -157,12 +187,16 @@ export function EditStudentModal({
         email: form.email || null,
         branchId,
         status,
+        profileImage,
         fatherName: form.fatherName || undefined,
         motherName: form.motherName || undefined,
         fatherMobile: form.fatherMobile || undefined,
         motherMobile: form.motherMobile || undefined,
+        dob: form.dob || undefined,
         gender: form.gender || undefined,
         bloodGroup: form.bloodGroup || undefined,
+        sscGpa: form.sscGpa || undefined,
+        hscGpa: form.hscGpa || undefined,
         address: form.address || undefined,
         smsAlertTo: form.smsAlertTo,
       });
@@ -210,6 +244,12 @@ export function EditStudentModal({
             }))}
             instituteDisabled={saving || loading}
             loadingInstituteHint={loading ? 'Loading institutes...' : undefined}
+            profileImageFile={profileImageFile}
+            onProfileImageFileChange={(file) => {
+              setProfileImageFile(file);
+              if (errors.profileImage) setErrors(prev => { const n = { ...prev }; delete n.profileImage; return n; });
+            }}
+            disabled={saving || loading}
           />
 
           <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">

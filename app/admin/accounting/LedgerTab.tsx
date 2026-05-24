@@ -11,12 +11,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { deleteLedgerEntry, getLedgerEntries, type Account, type LedgerEntry } from '@/lib/api/accounting';
-import type { Branch } from '@/lib/api/branches';
-import type { DistributionChannel, StockSource } from '@/lib/api/books';
+import { deleteLedgerEntry, getLedgerEntries, type LedgerEntry } from '@/lib/api/accounting';
 import type { ExportFormat } from '@/lib/export';
 import { useToast } from '@/hooks/use-toast';
 import { useAdminSession } from '@/features/admin/shared/admin-session';
+import type { LedgerReferenceData } from './types';
 import { exportFilename, runExport } from './utils';
 import { LedgerEntriesTable } from './ledger/LedgerEntriesTable';
 import { ledgerExportColumns } from './ledger/ledgerExport';
@@ -31,18 +30,13 @@ export function LedgerTab({
   branches,
   stockSources,
   channels,
-}: {
-  accounts: Account[];
-  branches: Branch[];
-  stockSources: StockSource[];
-  channels: DistributionChannel[];
-}) {
+}: LedgerReferenceData) {
   const { toast } = useToast();
   const { user } = useAdminSession();
   const [accountId, setAccountId] = useState('');
-  const [branchId, setBranchId] = useState('');
   const [flowType, setFlowType] = useState('');
   const [sourceType, setSourceType] = useState('');
+  const [sourceId, setSourceId] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [page, setPage] = useState(1);
@@ -62,11 +56,11 @@ export function LedgerTab({
     try {
       const res = await getLedgerEntries({
         accountId: accountId || undefined,
-        branchId: branchId || undefined,
         from: from || undefined,
         to: to || undefined,
         entryType: flowType || undefined,
         sourceType: sourceType || undefined,
+        sourceId: sourceId || undefined,
         page: pg,
         limit: LIMIT,
       });
@@ -81,7 +75,7 @@ export function LedgerTab({
     } finally {
       setLoading(false);
     }
-  }, [accountId, branchId, flowType, from, sourceType, to, toast]);
+  }, [accountId, flowType, from, sourceId, sourceType, to, toast]);
 
   useEffect(() => {
     void load(1);
@@ -132,14 +126,19 @@ export function LedgerTab({
       <LedgerTabFilters
         accounts={accounts}
         branches={branches}
+        stockSources={stockSources}
+        channels={channels}
         accountId={accountId}
         onAccountIdChange={setAccountId}
-        branchId={branchId}
-        onBranchIdChange={setBranchId}
         flowType={flowType}
         onFlowTypeChange={setFlowType}
         sourceType={sourceType}
-        onSourceTypeChange={setSourceType}
+        onSourceTypeChange={(next) => {
+          setSourceType(next);
+          setSourceId('');
+        }}
+        sourceId={sourceId}
+        onSourceIdChange={setSourceId}
         from={from}
         onFromChange={setFrom}
         to={to}

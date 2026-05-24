@@ -2,6 +2,7 @@
 
 import type { Account } from '@/lib/api/accounting';
 import type { Branch } from '@/lib/api/branches';
+import type { DistributionChannel, StockSource } from '@/lib/api/books';
 import type { ExportFormat } from '@/lib/export';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,14 +20,16 @@ import { FLOW_TYPES, SOURCE_TYPES } from '../constants';
 type Props = {
   accounts: Account[];
   branches: Branch[];
+  stockSources: StockSource[];
+  channels: DistributionChannel[];
   accountId: string;
   onAccountIdChange: (id: string) => void;
-  branchId: string;
-  onBranchIdChange: (id: string) => void;
   flowType: string;
   onFlowTypeChange: (v: string) => void;
   sourceType: string;
   onSourceTypeChange: (v: string) => void;
+  sourceId: string;
+  onSourceIdChange: (v: string) => void;
   from: string;
   onFromChange: (v: string) => void;
   to: string;
@@ -42,14 +45,16 @@ export function LedgerTabFilters(props: Props) {
   const {
     accounts,
     branches,
+    stockSources,
+    channels,
     accountId,
     onAccountIdChange,
-    branchId,
-    onBranchIdChange,
     flowType,
     onFlowTypeChange,
     sourceType,
     onSourceTypeChange,
+    sourceId,
+    onSourceIdChange,
     from,
     onFromChange,
     to,
@@ -61,6 +66,27 @@ export function LedgerTabFilters(props: Props) {
     onNewEntry,
   } = props;
 
+  const sourceReference =
+    sourceType === 'BRANCH'
+      ? {
+          label: 'Branch Source',
+          placeholder: 'All branch sources',
+          options: branches.map((branch) => ({ value: branch.id, label: branch.name })),
+        }
+      : sourceType === 'STOCK_SOURCE'
+        ? {
+            label: 'Source Reference',
+            placeholder: 'All stock sources',
+            options: stockSources.map((source) => ({ value: source.id, label: source.name })),
+          }
+        : sourceType === 'DISTRIBUTION_CHANNEL'
+          ? {
+              label: 'Source Reference',
+              placeholder: 'All channels',
+              options: channels.map((channel) => ({ value: channel.id, label: channel.name })),
+            }
+          : null;
+
   return (
     <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div>
@@ -70,16 +96,6 @@ export function LedgerTabFilters(props: Props) {
           <SelectContent>
             <SelectItem value="all">All Accounts</SelectItem>
             {accounts.map((account) => <SelectItem key={account.id} value={account.id}>{account.code} - {account.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">Branch</p>
-        <Select value={branchId || 'all'} onValueChange={(v) => onBranchIdChange(v === 'all' ? '' : v)}>
-          <SelectTrigger className="h-9 w-52 rounded-xl text-sm"><SelectValue placeholder="All Branches" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Branches</SelectItem>
-            {branches.map((branch) => <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
@@ -102,7 +118,13 @@ export function LedgerTabFilters(props: Props) {
       </div>
       <div>
         <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">Source Type</p>
-        <Select value={sourceType || 'all'} onValueChange={(v) => onSourceTypeChange(v === 'all' ? '' : v)}>
+        <Select
+          value={sourceType || 'all'}
+          onValueChange={(v) => {
+            onSourceTypeChange(v === 'all' ? '' : v);
+            onSourceIdChange('');
+          }}
+        >
           <SelectTrigger className="h-9 w-40 rounded-xl text-sm"><SelectValue placeholder="All" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
@@ -110,6 +132,20 @@ export function LedgerTabFilters(props: Props) {
           </SelectContent>
         </Select>
       </div>
+      {sourceReference ? (
+        <div>
+          <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">{sourceReference.label}</p>
+          <Select value={sourceId || 'all'} onValueChange={(v) => onSourceIdChange(v === 'all' ? '' : v)}>
+            <SelectTrigger className="h-9 w-52 rounded-xl text-sm"><SelectValue placeholder={sourceReference.placeholder} /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{sourceReference.placeholder}</SelectItem>
+              {sourceReference.options.map((option) => (
+                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      ) : null}
       <div>
         <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">From</p>
         <AdminDatePicker className="w-36" value={from} onChange={onFromChange} placeholder="From date" />

@@ -71,6 +71,7 @@ export interface LedgerEntry {
   createdByUserId?: string | null;
   createdAt: string;
   account?: { id: string; name: string; code: string; type: string; category?: string } | null;
+  toAccountId?: string | null;
 }
 
 export interface CreateLedgerEntryPayload {

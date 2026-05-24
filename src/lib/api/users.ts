@@ -35,6 +35,8 @@ export interface User {
     gender?: string;
     address?: string;
     smsAlertTo?: string[];
+    sscInfo?: unknown;
+    hscInfo?: unknown;
   };
 }
 
@@ -47,6 +49,18 @@ export type CreateUserPayload = {
   branchId?: string;
   status?: string;
   profileImage?: string;
+  fatherName?: string;
+  motherName?: string;
+  fatherMobile?: string;
+  motherMobile?: string;
+  dob?: string;
+  bloodGroup?: string;
+  gender?: string;
+  address?: string;
+  instituteId?: string;
+  smsAlertTo?: ('SELF' | 'FATHER' | 'MOTHER')[];
+  sscInfo?: unknown;
+  hscInfo?: unknown;
 };
 
 export type UpdateUserPayload = {
@@ -68,10 +82,14 @@ export type UpdateUserPayload = {
   motherName?: string;
   fatherMobile?: string;
   motherMobile?: string;
+  dob?: string;
   bloodGroup?: string;
   gender?: string;
   address?: string;
+  instituteId?: string;
   smsAlertTo?: ('SELF' | 'FATHER' | 'MOTHER')[];
+  sscInfo?: unknown;
+  hscInfo?: unknown;
 };
 
 export async function changeMyPassword(body: {

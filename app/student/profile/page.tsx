@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { Camera, Loader2, Phone, ShieldCheck, UserCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { API_ORIGIN } from '@/lib/api';
+import { resolveAttachmentUrl } from '@/lib/attachment-url';
 import { getInstitutes } from '@/lib/api/institutes';
 import {
   getMyStudentProfile,
@@ -19,6 +21,12 @@ import {
 import { uploadMyProfileImage } from '@/lib/api/users';
 import { InstituteCombobox } from '@/features/admin/shared';
 import type { Institute } from '@/types/student';
+import {
+  BLOOD_GROUP_OPTIONS,
+  GENDER_OPTIONS,
+  gpaInfo,
+  validateStudentProfileForm,
+} from '@/features/admin/students/studentValidation';
 
 const inputClass =
   'h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/40 transition-all shadow-inner outline-none';
@@ -57,6 +65,7 @@ export default function StudentProfilePage() {
   const [smsAlertTo, setSmsAlertTo] = useState<SmsAlertTo[]>([]);
   const [sscGpa, setSscGpa] = useState('');
   const [hscGpa, setHscGpa] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -126,6 +135,12 @@ export default function StudentProfilePage() {
 
   const handleSave = async () => {
     if (!userId) return;
+    const nextErrors = validateStudentProfileForm({ dob, gender, bloodGroup, sscGpa, hscGpa });
+    if (Object.keys(nextErrors).length) {
+      setErrors(nextErrors);
+      toast({ title: 'Check the highlighted fields', variant: 'destructive' });
+      return;
+    }
     setSaving(true);
     try {
       const res = await updateMyStudentProfile({
@@ -134,8 +149,8 @@ export default function StudentProfilePage() {
         gender: gender || undefined,
         address: address || undefined,
         instituteId: instituteId || undefined,
-        sscInfo: sscGpa.trim() ? { gpa: sscGpa.trim() } : undefined,
-        hscInfo: hscGpa.trim() ? { gpa: hscGpa.trim() } : undefined,
+        sscInfo: gpaInfo(sscGpa),
+        hscInfo: gpaInfo(hscGpa),
       });
       if (res.success) {
         toast({ title: 'Profile saved', variant: 'success' });
@@ -168,13 +183,14 @@ export default function StudentProfilePage() {
   };
 
   if (!userId && !loading) return null;
+  const resolvedProfileImage = profileImage ? resolveAttachmentUrl(profileImage, API_ORIGIN) : '';
 
   return (
     <div className="mx-auto max-w-4xl space-y-8 pb-16">
       <div className="flex flex-col gap-4 rounded-[28px] border border-slate-100 bg-white p-5 shadow-sm sm:flex-row sm:items-center">
         <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl border border-slate-200 bg-indigo-50 text-indigo-600">
           {profileImage ? (
-            <img src={profileImage} alt={fullName || 'Student'} className="h-full w-full object-cover" />
+            <img src={resolvedProfileImage} alt={fullName || 'Student'} className="h-full w-full object-cover" />
           ) : (
             <div className="flex h-full w-full items-center justify-center">
               <UserCircle className="h-10 w-10" />
@@ -233,33 +249,58 @@ export default function StudentProfilePage() {
             <div className="grid gap-6 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label className={sectionLabel}>Date of Birth</Label>
-                <Input type="date" className={inputClass} value={dob} onChange={(event) => setDob(event.target.value)} />
+                <Input
+                  type="date"
+                  className={inputClass}
+                  value={dob}
+                  onChange={(event) => {
+                    setDob(event.target.value);
+                    if (errors.dob) setErrors(prev => { const n = { ...prev }; delete n.dob; return n; });
+                  }}
+                />
+                {errors.dob && <FieldError>{errors.dob}</FieldError>}
               </div>
               <div className="space-y-2">
                 <Label className={sectionLabel}>Gender</Label>
-                <Select value={gender || undefined} onValueChange={setGender}>
+                <Select
+                  value={gender || undefined}
+                  onValueChange={(value) => {
+                    setGender(value);
+                    if (errors.gender) setErrors(prev => { const n = { ...prev }; delete n.gender; return n; });
+                  }}
+                >
                   <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 font-bold">
                     <SelectValue placeholder="Select gender" />
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl">
-                    <SelectItem value="MALE">Male</SelectItem>
-                    <SelectItem value="FEMALE">Female</SelectItem>
-                    <SelectItem value="OTHER">Other</SelectItem>
+                    {GENDER_OPTIONS.map((value) => (
+                      <SelectItem key={value} value={value}>
+                        {value === 'MALE' ? 'Male' : value === 'FEMALE' ? 'Female' : 'Other'}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
+                {errors.gender && <FieldError>{errors.gender}</FieldError>}
               </div>
               <div className="space-y-2">
                 <Label className={sectionLabel}>Blood Group</Label>
-                <Select value={bloodGroup || undefined} onValueChange={setBloodGroup}>
+                <Select
+                  value={bloodGroup || undefined}
+                  onValueChange={(value) => {
+                    setBloodGroup(value);
+                    if (errors.bloodGroup) setErrors(prev => { const n = { ...prev }; delete n.bloodGroup; return n; });
+                  }}
+                >
                   <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 font-bold">
                     <SelectValue placeholder="Select blood group" />
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl">
-                    {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((bg) => (
+                    {BLOOD_GROUP_OPTIONS.map((bg) => (
                       <SelectItem key={bg} value={bg}>{bg}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {errors.bloodGroup && <FieldError>{errors.bloodGroup}</FieldError>}
               </div>
               <div className="space-y-2 sm:col-span-2">
                 <Label className={sectionLabel}>Institute</Label>
@@ -280,8 +321,26 @@ export default function StudentProfilePage() {
           <section>
             <h2 className="mb-6 text-sm font-black uppercase tracking-widest text-indigo-600">Academic Summary And SMS</h2>
             <div className="grid gap-6 sm:grid-cols-2">
-              <TextField label="SSC GPA" value={sscGpa} onChange={setSscGpa} placeholder="Example: 5.00" />
-              <TextField label="HSC GPA" value={hscGpa} onChange={setHscGpa} placeholder="Example: 5.00" />
+              <TextField
+                label="SSC GPA"
+                value={sscGpa}
+                onChange={(value) => {
+                  setSscGpa(value);
+                  if (errors.sscGpa) setErrors(prev => { const n = { ...prev }; delete n.sscGpa; return n; });
+                }}
+                placeholder="Example: 5.00"
+                error={errors.sscGpa}
+              />
+              <TextField
+                label="HSC GPA"
+                value={hscGpa}
+                onChange={(value) => {
+                  setHscGpa(value);
+                  if (errors.hscGpa) setErrors(prev => { const n = { ...prev }; delete n.hscGpa; return n; });
+                }}
+                placeholder="Example: 5.00"
+                error={errors.hscGpa}
+              />
               <div className="space-y-3 sm:col-span-2">
                 <Label className={sectionLabel}>SMS Alerts</Label>
                 <div className="flex flex-wrap gap-6">
@@ -311,13 +370,18 @@ export default function StudentProfilePage() {
   );
 }
 
-function TextField({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string }) {
+function TextField({ label, value, onChange, placeholder, error }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; error?: string }) {
   return (
     <div className="space-y-2">
       <Label className={sectionLabel}>{label}</Label>
       <Input className={inputClass} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} />
+      {error && <FieldError>{error}</FieldError>}
     </div>
   );
+}
+
+function FieldError({ children }: { children: ReactNode }) {
+  return <p className="text-[11px] font-semibold text-rose-600">{children}</p>;
 }
 
 function PhoneField({ label, value }: { label: string; value: string }) {

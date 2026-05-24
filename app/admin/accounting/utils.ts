@@ -1,5 +1,4 @@
 import { downloadTableExport, type ExportFormat } from '@/lib/export';
-import type { LedgerLineForm } from './types';
 import { INTERNAL_CATEGORY_LABELS } from './constants';
 import type { Account, LedgerEntry } from '@/lib/api/accounting';
 
@@ -19,16 +18,6 @@ export function slugify(name: string) {
 export function exportFilename(prefix: string) {
   const stamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
   return `${slugify(prefix)}-${stamp}`;
-}
-
-export function createLine(initial?: Partial<LedgerLineForm>): LedgerLineForm {
-  return {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    accountId: initial?.accountId ?? '',
-    debitCredit: initial?.debitCredit ?? 'DEBIT',
-    amount: initial?.amount ?? '',
-    description: initial?.description ?? '',
-  };
 }
 
 export function parseAmount(value: string) {

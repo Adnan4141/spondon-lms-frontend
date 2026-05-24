@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Check, Eye, EyeOff, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getBranches } from '@/lib/api/branches';
-import { createUser } from '@/lib/api/users';
+import { createUser, uploadUserProfileImage } from '@/lib/api/users';
 import { getInstitutes, type Institute } from '@/lib/api/institutes';
 import { upsertStudentProfile } from '@/lib/api/student-profiles';
 import type { Student } from '../types';
@@ -13,6 +13,7 @@ import { StudentAdminField } from '../components/StudentAdminField';
 import { EMPTY_FORM, StudentFormFields, type StudentForm } from '../components/StudentFormFields';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { gpaInfo, validateAdminStudentForm } from '../studentValidation';
 
 const MIN_PASSWORD_LENGTH = 6;
 
@@ -40,6 +41,7 @@ export function AddStudentModal({
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [instituteId, setInstituteId] = useState('');
   const [institutes, setInstitutes] = useState<Institute[]>([]);
@@ -53,6 +55,7 @@ export function AddStudentModal({
     mobile: string;
     email?: string | null;
     branchId?: string;
+    profileImage?: string | null;
     createdAt?: string;
     studentProfile?: { registrationNumber?: string };
   }>(null);
@@ -78,14 +81,7 @@ export function AddStudentModal({
   };
 
   const validate = (): Record<string, string> => {
-    const e: Record<string, string> = {};
-    if (!form.fullName.trim()) e.fullName = 'Name is required';
-    if (!form.mobile.trim()) e.mobile = 'Mobile is required';
-    else if (!/^01[3-9]\d{8}$/.test(form.mobile.replace(/^88/, '')))
-      e.mobile = 'Invalid BD mobile (01XXXXXXXXX)';
-    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
-      e.email = 'Invalid email';
-    if (!branchId) e.branchId = 'Branch is required';
+    const e = validateAdminStudentForm({ ...form, branchId });
 
     const pw = password.trim();
     const cpw = confirmPassword.trim();
@@ -114,6 +110,20 @@ export function AddStudentModal({
           email: form.email || undefined,
           role: 'STUDENT',
           branchId: branchId || undefined,
+          fatherName: form.fatherName || undefined,
+          motherName: form.motherName || undefined,
+          fatherMobile: form.fatherMobile || undefined,
+          motherMobile: form.motherMobile || undefined,
+          dob: form.dob || undefined,
+          bloodGroup: form.bloodGroup || undefined,
+          gender: form.gender || undefined,
+          address: form.address || undefined,
+          instituteId: instituteId || undefined,
+          smsAlertTo: form.smsAlertTo.length
+            ? (form.smsAlertTo as ('SELF' | 'FATHER' | 'MOTHER')[])
+            : undefined,
+          sscInfo: gpaInfo(form.sscGpa),
+          hscInfo: gpaInfo(form.hscGpa),
           ...(pw ? { password: pw } : {}),
         });
 
@@ -134,19 +144,33 @@ export function AddStudentModal({
         }
       }
 
+      let profileImage = user.profileImage ?? form.profileImage ?? null;
+      if (profileImageFile) {
+        const imageRes = await uploadUserProfileImage(user.id, profileImageFile);
+        if (!(imageRes.success && imageRes.data)) {
+          const msg = (imageRes as { message?: string }).message ?? 'Student created, but profile photo upload failed. Please retry.';
+          setErrors({ submit: msg });
+          return;
+        }
+        profileImage = imageRes.data.profileImage ?? null;
+      }
+
       const profileRes = await upsertStudentProfile({
         userId: user.id,
         fatherName: form.fatherName || undefined,
         motherName: form.motherName || undefined,
         fatherMobile: form.fatherMobile || undefined,
         motherMobile: form.motherMobile || undefined,
+        dob: form.dob || undefined,
         bloodGroup: form.bloodGroup || undefined,
         gender: form.gender || undefined,
         address: form.address || undefined,
         instituteId: instituteId || undefined,
         smsAlertTo: form.smsAlertTo.length
-          ? (form.smsAlertTo as ('SELF' | 'FATHER' | 'MOTHER')[])
-          : undefined,
+            ? (form.smsAlertTo as ('SELF' | 'FATHER' | 'MOTHER')[])
+            : undefined,
+        sscInfo: gpaInfo(form.sscGpa),
+        hscInfo: gpaInfo(form.hscGpa),
       });
 
       if (!(profileRes.success && profileRes.data)) {
@@ -165,6 +189,10 @@ export function AddStudentModal({
           email: user.email ?? null,
           status: 'ACTIVE',
           branchId: user.branchId ?? '',
+          profileImage,
+          dob: form.dob || undefined,
+          sscGpa: form.sscGpa || undefined,
+          hscGpa: form.hscGpa || undefined,
           createdAt: user.createdAt ?? new Date().toISOString().slice(0, 10),
         },
         usedCustomPassword
@@ -182,6 +210,7 @@ export function AddStudentModal({
       setConfirmPassword('');
       setShowPassword(false);
       setShowConfirmPassword(false);
+      setProfileImageFile(null);
       setErrors({});
     } catch (err: unknown) {
       const msg = (err as Error).message ?? 'Failed to create student';
@@ -220,6 +249,12 @@ export function AddStudentModal({
         }))}
         instituteDisabled={loadingInstitutes || saving}
         loadingInstituteHint={loadingInstitutes ? 'Loading institutes...' : undefined}
+        profileImageFile={profileImageFile}
+        onProfileImageFileChange={(file) => {
+          setProfileImageFile(file);
+          if (errors.profileImage) setErrors(prev => { const n = { ...prev }; delete n.profileImage; return n; });
+        }}
+        disabled={saving}
       />
 
       <div className="grid grid-cols-2 gap-x-4 mb-1">
