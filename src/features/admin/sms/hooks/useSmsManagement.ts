@@ -147,7 +147,7 @@ export function useSmsManagementData(actor?: SmsActor) {
         ledgerRes,
       ] = await Promise.allSettled([
         getBranches(),
-        isSuperAdmin ? getSmsConfig() : Promise.resolve({ success: false, data: null }),
+        (isSuperAdmin || isBranchAdmin) ? getSmsConfig(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : undefined) : Promise.resolve({ success: false, data: null }),
         isSuperAdmin ? getSmsTemplates() : Promise.resolve({ success: true, data: [] }),
         getSmsBalance(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : undefined),
         getSmsQueue(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : undefined),
