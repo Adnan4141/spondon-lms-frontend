@@ -9,6 +9,7 @@ export interface SmsConfig {
   apiKey?: string;
   hasApiEmail?: boolean;
   hasApiKey?: boolean;
+  hasMask?: boolean;
   credentialsSource?: 'env' | 'database';
   senderId?: string | null;
   nonMaskingNumber?: string | null;

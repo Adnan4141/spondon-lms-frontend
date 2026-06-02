@@ -997,10 +997,13 @@ export function useSmsGatewayActions({
   const handleSaveGateway = useCallback(async () => {
     setSubmitting(true);
     try {
-      const providerLabel = config.provider?.trim() || 'Shiram';
-      const isShiram = providerLabel.trim().toUpperCase().replace(/\s+/g, '').includes('SHIRAM');
-      await upsertSmsConfig(isShiram ? { ...config, apiEmail: undefined, apiKey: undefined } : config);
-      toast({ title: 'Gateway saved', description: 'SMS gateway settings updated.', variant: 'success' });
+      await upsertSmsConfig({
+        scope: 'ORG',
+        maskingRate: Number(config.maskingRate ?? 0.6),
+        nonMaskingRate: Number(config.nonMaskingRate ?? 0.35),
+        isActive: true,
+      });
+      toast({ title: 'Default SMS rates saved', description: 'Shiram gateway still uses backend .env.', variant: 'success' });
       refresh();
     } catch (error: unknown) {
       toast({ title: 'Gateway failed', description: errorMessage(error), variant: 'destructive' });
