@@ -51,11 +51,44 @@ export type StudentLookupMatch = {
   matchedBy: 'id' | 'registrationNumber' | 'mobile';
 };
 
+export type StudentSmsSuggestion = {
+  id: string;
+  fullName: string;
+  mobile: string;
+  phone: string;
+  branchId?: string | null;
+  branchName?: string | null;
+  registrationNumber?: string | null;
+  roll?: string | null;
+  primaryMobile?: string | null;
+  secondaryMobile?: string | null;
+  fatherName?: string | null;
+  fatherMobile?: string | null;
+  motherName?: string | null;
+  motherMobile?: string | null;
+  program?: string;
+  course?: string;
+  batch?: string;
+  smsVariables: Record<string, string>;
+};
+
 /** Resolve student user id from internal id, registration number, or BD mobile. */
 export async function lookupStudentUser(q: string): Promise<ApiResponse<StudentLookupMatch>> {
   return apiRequest<ApiResponse<StudentLookupMatch>>(
     `/users/lookup/student?q=${encodeURIComponent(q.trim())}`,
   );
+}
+
+export async function searchStudentSmsSuggestions(params: {
+  q: string;
+  branchId?: string;
+  limit?: number;
+}): Promise<ApiResponse<StudentSmsSuggestion[]>> {
+  const query = new URLSearchParams();
+  query.set('q', params.q.trim());
+  if (params.branchId) query.set('branchId', params.branchId);
+  if (params.limit) query.set('limit', String(params.limit));
+  return apiRequest<ApiResponse<StudentSmsSuggestion[]>>(`/users/lookup/students?${query.toString()}`);
 }
 
 export async function createStudent(

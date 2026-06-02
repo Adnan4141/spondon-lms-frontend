@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
 import { getSmsTemplates, type SmsTemplate } from '@/lib/api/sms';
 import { smsLengthInfo } from '../sms-shared';
 
@@ -16,6 +15,16 @@ export type SmsComposerValue = {
   campaignName: string;
   scheduledAt?: string;
   templateKey?: string;
+};
+
+export type SmsGatewayCapability = {
+  credentialsConfigured: boolean;
+  maskingConfigured: boolean;
+  nonMaskingConfigured: boolean;
+  maskingSenderLabel: string;
+  nonMaskingSenderLabel: string;
+  maskingRate: number;
+  nonMaskingRate: number;
 };
 
 const DEFAULT_VARIABLES = ['name', 'roll', 'phone', 'course', 'batch', 'marks', 'total', 'grade', 'rank', 'amount', 'month', 'due_date', 'date', 'exam', 'institute'];
@@ -41,6 +50,7 @@ export function SmsComposerPanel({
   allowSchedule = true,
   templates,
   lockedTemplateKey,
+  gatewayCapability,
 }: {
   value: SmsComposerValue;
   onChange: (value: SmsComposerValue) => void;
@@ -49,6 +59,7 @@ export function SmsComposerPanel({
   allowSchedule?: boolean;
   templates?: SmsTemplate[];
   lockedTemplateKey?: string;
+  gatewayCapability?: SmsGatewayCapability;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [loadedTemplates, setLoadedTemplates] = useState<SmsTemplate[]>([]);
@@ -68,6 +79,17 @@ export function SmsComposerPanel({
   );
   const length = smsLengthInfo(value.message);
   const rate = value.smsType === 'masking' ? rates.maskingRate : rates.nonMaskingRate;
+  const maskingLabel = gatewayCapability?.maskingSenderLabel || 'Sender ID';
+  const nonMaskingLabel = gatewayCapability?.nonMaskingSenderLabel || 'Non-Masking';
+  const maskingDisabled = gatewayCapability ? !gatewayCapability.maskingConfigured : false;
+  const nonMaskingDisabled = gatewayCapability ? !gatewayCapability.nonMaskingConfigured : false;
+  const modeWarning = !gatewayCapability?.credentialsConfigured
+    ? 'SMS gateway credentials are missing.'
+    : value.smsType === 'masking' && maskingDisabled
+      ? 'Masking sender ID is missing. Configure it before sending masking SMS.'
+      : value.smsType === 'non_masking' && nonMaskingDisabled
+        ? 'Non-masking sender is missing for this provider.'
+        : '';
 
   function update(patch: Partial<SmsComposerValue>) {
     onChange({ ...value, ...patch });
@@ -168,12 +190,38 @@ export function SmsComposerPanel({
         </div>
 
         <div className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2">
-          <div className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-3 py-2">
-            <div>
-              <p className="text-sm font-semibold text-slate-900">Masking</p>
-              <p className="text-xs text-slate-500">{value.smsType === 'masking' ? 'Sender ID' : 'Non-masking number'}</p>
+          <div className="rounded-md border border-slate-200 bg-white p-2">
+            <div className="grid grid-cols-2 gap-1">
+              <button
+                type="button"
+                disabled={maskingDisabled}
+                onClick={() => update({ smsType: 'masking' })}
+                className={`rounded-md border px-3 py-2 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                  value.smsType === 'masking'
+                    ? 'border-blue-500 bg-blue-50 text-blue-900'
+                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <span className="block text-sm font-semibold">Masking</span>
+                <span className="block truncate text-xs">Sender ID: {maskingLabel}</span>
+                <span className="mt-1 block text-xs font-semibold">৳{rates.maskingRate.toFixed(2)} / segment</span>
+              </button>
+              <button
+                type="button"
+                disabled={nonMaskingDisabled}
+                onClick={() => update({ smsType: 'non_masking' })}
+                className={`rounded-md border px-3 py-2 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                  value.smsType === 'non_masking'
+                    ? 'border-blue-500 bg-blue-50 text-blue-900'
+                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <span className="block text-sm font-semibold">Non-masking</span>
+                <span className="block truncate text-xs">Sender: {nonMaskingLabel}</span>
+                <span className="mt-1 block text-xs font-semibold">৳{rates.nonMaskingRate.toFixed(2)} / segment</span>
+              </button>
             </div>
-            <Switch checked={value.smsType === 'masking'} onCheckedChange={(checked) => update({ smsType: checked ? 'masking' : 'non_masking' })} />
+            {modeWarning ? <p className="mt-2 text-xs font-semibold text-amber-700">{modeWarning}</p> : null}
           </div>
 
           {allowSchedule ? (

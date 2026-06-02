@@ -65,9 +65,10 @@ export default function SendSmsPage() {
             directState={bulkActions.directState}
             actor={user}
             rates={{
-              maskingRate: Number(smsData.config.maskingRate || 0.5),
+              maskingRate: Number(smsData.config.maskingRate || 0.6),
               nonMaskingRate: Number(smsData.config.nonMaskingRate || 0.35),
             }}
+            config={smsData.config}
             templates={smsData.templates}
             orgBalance={smsData.orgBalance}
             branchBalances={smsData.branchBalances}
