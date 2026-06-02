@@ -119,7 +119,7 @@ export function SmsGatewayTab({
             type="number"
             step="0.01"
             min="0"
-            value={config.maskingRate ?? 0.5}
+            value={config.maskingRate ?? 0.6}
             onChange={(event) => setConfig((prev) => ({ ...prev, maskingRate: Number(event.target.value) }))}
             className="mt-1 bg-white"
           />

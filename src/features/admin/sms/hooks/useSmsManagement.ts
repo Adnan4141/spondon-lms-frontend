@@ -14,11 +14,13 @@ import {
   type SmsReportRow,
   type SmsSystemSetting,
   type SmsTemplate,
+  type SmsWalletLedger,
   createSmsTemplate,
   getProviderBalance,
   deleteBranchSystemSettings,
   getSmsBalance,
   getSmsConfig,
+  getSmsWalletLedger,
   getSmsLogs,
   getSmsQueue,
   getSmsReportBatch,
@@ -116,6 +118,7 @@ export function useSmsManagementData(actor?: SmsActor) {
   const [resultReport, setResultReport] = useState<SmsLog[]>([]);
   const [smsPricing, setSmsPricing] = useState<SmsPricing>({ pricePerSms: 0.5, minPurchase: 100 });
   const [smsTransactions, setSmsTransactions] = useState<Array<{ id: string; quantity: number; status: string; totalAmount: string | number; createdAt: string }>>([]);
+  const [walletLedger, setWalletLedger] = useState<SmsWalletLedger[]>([]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -141,6 +144,7 @@ export function useSmsManagementData(actor?: SmsActor) {
         providerRes,
         pricingRes,
         txRes,
+        ledgerRes,
       ] = await Promise.allSettled([
         getBranches(),
         isSuperAdmin ? getSmsConfig() : Promise.resolve({ success: false, data: null }),
@@ -160,6 +164,7 @@ export function useSmsManagementData(actor?: SmsActor) {
         isSuperAdmin ? getProviderBalance() : Promise.resolve({ success: false, data: null }),
         getSmsPricing(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : undefined),
         getSmsTransactions({ page: 1, limit: 8, ...(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : {}) }),
+        getSmsWalletLedger({ page: 1, limit: 10, ...(isBranchAdmin && actorBranchId ? { scope: 'BRANCH', branchId: actorBranchId } : {}) }),
       ]);
 
       if (branchRes.status === 'fulfilled' && branchRes.value.success) {
@@ -204,6 +209,7 @@ export function useSmsManagementData(actor?: SmsActor) {
       }
       if (pricingRes.status === 'fulfilled' && pricingRes.value.success) setSmsPricing(pricingRes.value.data);
       if (txRes.status === 'fulfilled' && txRes.value.success) setSmsTransactions(txRes.value.data || []);
+      if (ledgerRes.status === 'fulfilled' && ledgerRes.value.success) setWalletLedger(ledgerRes.value.data || []);
     } catch (error: unknown) {
       toast({ title: 'SMS data failed', description: errorMessage(error), variant: 'destructive' });
     } finally {
@@ -253,6 +259,7 @@ export function useSmsManagementData(actor?: SmsActor) {
     resultReport,
     smsPricing,
     smsTransactions,
+    walletLedger,
     orgBalance,
     branchBalances,
     failedQueue,
@@ -323,7 +330,7 @@ export function useSmsSystemSettings({
       const config = res.data;
       if (res.success && config) {
         setBranchRateForm({
-          maskingRate: String(config.maskingRate ?? 0.5),
+          maskingRate: String(config.maskingRate ?? 0.6),
           nonMaskingRate: String(config.nonMaskingRate ?? 0.35),
         });
         setBranchRateSource(config.scope === 'BRANCH' && config.branchId === branchId ? 'CUSTOM' : 'DEFAULT');
@@ -750,6 +757,7 @@ export function useSmsBalancesActions({
   const isBranchAdmin = actor?.role === 'BRANCH_ADMIN';
   const actorBranchId = actor?.branchId || '';
   const [orgBalanceInput, setOrgBalanceInput] = useState('');
+  const [orgDeductInput, setOrgDeductInput] = useState('');
   const [transfer, setTransfer] = useState({ branchId: '', count: '' });
   const [purchase, setPurchase] = useState({ scope: 'BRANCH', branchId: actorBranchId, quantity: '' });
   const [pricingForm, setPricingForm] = useState({ branchId: '', pricePerSms: '', minPurchase: '100' });
@@ -776,6 +784,24 @@ export function useSmsBalancesActions({
       setSubmitting(false);
     }
   }, [orgBalanceInput, refresh, setSubmitting, toast]);
+
+  const handleBalanceDeduct = useCallback(async () => {
+    const amount = Number(orgDeductInput);
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    setSubmitting(true);
+    try {
+      const res = await updateSmsBalance({ scope: 'ORG', balanceCount: amount.toFixed(2), mode: 'decrement' });
+      if (res.success) {
+        toast({ title: 'Central balance deducted', description: 'Amount deducted in BDT.', variant: 'success' });
+        setOrgDeductInput('');
+        await refresh();
+      }
+    } catch (error: unknown) {
+      toast({ title: 'Balance deduction failed', description: errorMessage(error), variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
+  }, [orgDeductInput, refresh, setSubmitting, toast]);
 
   const handleTransfer = useCallback(async () => {
     const amount = Number(transfer.count);
@@ -851,6 +877,7 @@ export function useSmsBalancesActions({
   return {
     state: {
       orgBalanceInput,
+      orgDeductInput,
       transfer,
       purchase,
       pricingForm,
@@ -860,10 +887,12 @@ export function useSmsBalancesActions({
     },
     actions: {
       setOrgBalanceInput,
+      setOrgDeductInput,
       setTransfer,
       setPurchase,
       setPricingForm,
       handleBalanceUpdate,
+      handleBalanceDeduct,
       handleTransfer,
       handlePurchaseSms,
       handleSavePricing,

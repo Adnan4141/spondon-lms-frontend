@@ -32,7 +32,7 @@ export function SmsSendDrawer({
 }) {
   if (!open) return null;
 
-  const maskingRate = Number(defaultVars.maskingRate || 0.5);
+  const maskingRate = Number(defaultVars.maskingRate || 0.6);
   const nonMaskingRate = Number(defaultVars.nonMaskingRate || 0.35);
 
   return (

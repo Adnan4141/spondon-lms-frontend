@@ -190,6 +190,7 @@ export default function SmsManagementPage() {
                   orgBalance={smsData.orgBalance}
                   branches={smsData.branches}
                   branchBalances={smsData.branchBalances}
+                  walletLedger={smsData.walletLedger}
                   smsTransactions={smsData.smsTransactions}
                   balanceState={balanceActions.state}
                   balanceActions={balanceActions.actions}

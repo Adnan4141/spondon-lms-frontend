@@ -45,6 +45,21 @@ export interface SmsBalance {
   branch?: { id: string; name: string } | null;
 }
 
+export interface SmsWalletLedger {
+  id: string;
+  scope: 'ORG' | 'BRANCH';
+  branchId?: string | null;
+  type: string;
+  amount: number | string;
+  balanceBefore: number | string;
+  balanceAfter: number | string;
+  actorUserId?: string | null;
+  referenceType?: string | null;
+  referenceId?: string | null;
+  note?: string | null;
+  createdAt: string;
+}
+
 export interface SmsProviderBalance {
   provider: string;
   balanceText: string | null;
@@ -197,6 +212,7 @@ export const updateSmsTemplate = (key: string, data: Partial<SmsTemplate>) => ap
 });
 
 export const getSmsBalance = (params?: Record<string, unknown>) => apiRequest<ApiResponse<SmsBalance[]>>(`/sms/balance${qs(params)}`);
+export const getSmsWalletLedger = (params?: Record<string, unknown>) => apiRequest<ApiResponse<SmsWalletLedger[]>>(`/sms/balance/ledger${qs(params)}`);
 export const getProviderBalance = () => apiRequest<ApiResponse<SmsProviderBalance>>('/sms/provider-balance');
 export const updateSmsBalance = (data: Record<string, unknown>) => apiRequest<ApiResponse<SmsBalance>>('/sms/balance', {
   method: 'POST',
