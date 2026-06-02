@@ -2,6 +2,8 @@
 
 import type { ReactNode } from 'react';
 import { FileText, History, Save, Settings } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { SmsSystemSetting } from '@/lib/api/sms';
@@ -181,6 +183,79 @@ export function SmsWarningBanner({ title, children }: { title: string; children:
 
 export function EmptyState({ children }: { children: ReactNode }) {
   return <p className="rounded-md border border-dashed border-slate-200 px-3 py-4 text-sm text-slate-500">{children}</p>;
+}
+
+// ─── Status badge (queue / delivery statuses) ────────────────────────────────
+const STATUS_STYLES: Record<string, string> = {
+  QUEUED:    'border-blue-200 bg-blue-50 text-blue-700',
+  SENDING:   'border-amber-200 bg-amber-50 text-amber-700',
+  DELIVERED: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  FAILED:    'border-red-200 bg-red-50 text-red-700',
+  SENT:      'border-emerald-200 bg-emerald-50 text-emerald-700',
+  PENDING:   'border-slate-200 bg-slate-50 text-slate-600',
+  CANCELLED: 'border-slate-200 bg-slate-100 text-slate-500',
+};
+
+export function StatusBadge({ status }: { status: string }) {
+  const cls = STATUS_STYLES[status] ?? 'border-slate-200 text-slate-600';
+  return (
+    <Badge variant="outline" className={cls}>
+      {status}
+    </Badge>
+  );
+}
+
+// ─── Section divider ─────────────────────────────────────────────────────────
+export function SectionDivider({ label }: { label?: string }) {
+  if (!label) return <hr className="border-slate-200" />;
+  return (
+    <div className="flex items-center gap-3">
+      <hr className="flex-1 border-slate-200" />
+      <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</span>
+      <hr className="flex-1 border-slate-200" />
+    </div>
+  );
+}
+
+// ─── Shared rate card (BDT formatted, used by Gateway + System tabs) ─────────
+export function RateCard({
+  label,
+  description,
+  value,
+  disabled = false,
+  onChange,
+}: {
+  label: string;
+  description: string;
+  value: string | number;
+  disabled?: boolean;
+  onChange: (value: string) => void;
+}) {
+  const numeric = Number(value);
+  const formatted = `৳${Number.isFinite(numeric) ? numeric.toFixed(2) : '0.00'}`;
+  return (
+    <div className="rounded-md border border-slate-200 bg-white p-3">
+      <div className="flex items-start justify-between gap-2">
+        <Label className="text-slate-600">{label}</Label>
+        <span className="rounded-md bg-slate-100 px-2 py-0.5 text-sm font-bold tabular-nums text-slate-700">
+          {formatted}
+        </span>
+      </div>
+      <div className="relative mt-2">
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">৳</span>
+        <Input
+          type="number"
+          step="0.01"
+          min="0"
+          value={value}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.value)}
+          className="bg-slate-50 pl-7"
+        />
+      </div>
+      <p className="mt-1.5 text-xs text-slate-400">{description}</p>
+    </div>
+  );
 }
 
 export function SmsComposer({
