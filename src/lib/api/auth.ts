@@ -13,7 +13,7 @@ export interface LoginResponse {
   token: string;
 }
 
-export async function login(data: any): Promise<ApiResponse<LoginResponse>> {
+export async function login(data: { mobile: string; password: string }): Promise<ApiResponse<LoginResponse>> {
   return apiRequest<ApiResponse<LoginResponse>>('/users/login', {
     method: 'POST',
     body: JSON.stringify(data),
@@ -25,7 +25,7 @@ export async function register(data: {
   mobile: string;
   gender?: string;
   password: string;
-}): Promise<ApiResponse<{ userId: string; mobile: string }>> {
+}): Promise<ApiResponse<{ userId: string; mobile: string; otpQueued?: boolean; otpFailureReason?: string }>> {
   return apiRequest('/auth/register', {
     method: 'POST',
     body: JSON.stringify(data),
@@ -35,7 +35,7 @@ export async function register(data: {
 export async function verifyMobile(data: {
   mobile: string;
   code: string;
-}): Promise<ApiResponse<null>> {
+}): Promise<ApiResponse<{ registrationNumber: string }>> {
   return apiRequest('/auth/verify-mobile', {
     method: 'POST',
     body: JSON.stringify(data),

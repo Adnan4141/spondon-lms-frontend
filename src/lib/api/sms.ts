@@ -6,7 +6,10 @@ export interface SmsConfig {
   branchId?: string | null;
   provider: string;
   apiEmail?: string | null;
-  apiKey: string;
+  apiKey?: string;
+  hasApiEmail?: boolean;
+  hasApiKey?: boolean;
+  credentialsSource?: 'env' | 'database';
   senderId?: string | null;
   nonMaskingNumber?: string | null;
   maskingRate?: number;

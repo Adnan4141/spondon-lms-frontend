@@ -77,8 +77,11 @@ function smsAdminErrorMessage(error: unknown) {
   if (/Invalid `prisma\.smsQueue\.findMany\(\)`|SmsQueue\.scheduledAt|column `SmsQueue\.scheduledAt` does not exist/i.test(message)) {
     return 'SMS database migration is pending. Please run the latest migrations before using SMS queue features.';
   }
+  if (/SHIRAM_SMS_EMAIL|SHIRAM_SMS_PASSWORD/i.test(message)) {
+    return message;
+  }
   if (/No active SMS configuration|api key|sender ID not configured|Gateway not configured/i.test(message)) {
-    return 'SMS gateway is not configured. Add the API key and sender details in SMS Console > Settings.';
+    return 'SMS gateway is not configured. Add gateway settings in SMS Console > Settings.';
   }
   return message;
 }
@@ -965,7 +968,9 @@ export function useSmsGatewayActions({
   const handleSaveGateway = useCallback(async () => {
     setSubmitting(true);
     try {
-      await upsertSmsConfig(config);
+      const providerLabel = config.provider?.trim() || 'Shiram';
+      const isShiram = providerLabel.trim().toUpperCase().replace(/\s+/g, '').includes('SHIRAM');
+      await upsertSmsConfig(isShiram ? { ...config, apiEmail: undefined, apiKey: undefined } : config);
       toast({ title: 'Gateway saved', description: 'SMS gateway settings updated.', variant: 'success' });
       refresh();
     } catch (error: unknown) {

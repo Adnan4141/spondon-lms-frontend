@@ -15,6 +15,7 @@ export async function getStudents(params?: {
   courseId?: string;
   batchId?: string;
   status?: string;
+  includeUnverified?: boolean;
   search?: string;
   includeDetails?: boolean;
   page?: number;
@@ -28,6 +29,7 @@ export async function getStudents(params?: {
   if (params?.courseId) queryParams.append('courseId', params.courseId);
   if (params?.batchId) queryParams.append('batchId', params.batchId);
   if (params?.status) queryParams.append('status', params.status);
+  if (params?.includeUnverified !== undefined) queryParams.append('includeUnverified', String(params.includeUnverified));
   if (params?.search) queryParams.append('search', params.search);
   if (params?.includeDetails !== undefined) queryParams.append('includeDetails', String(params.includeDetails));
   if (params?.page) queryParams.append('page', String(params.page));

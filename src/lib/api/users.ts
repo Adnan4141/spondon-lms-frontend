@@ -106,6 +106,7 @@ export async function getUsers(params?: {
   role?: string;
   branchId?: string;
   status?: string;
+  includeUnverified?: boolean;
   programId?: string;
   courseId?: string;
   batchId?: string;
@@ -126,6 +127,7 @@ export async function getUsers(params?: {
   if (params?.role) queryParams.append('role', params.role);
   if (params?.branchId) queryParams.append('branchId', params.branchId);
   if (params?.status) queryParams.append('status', params.status);
+  if (params?.includeUnverified !== undefined) queryParams.append('includeUnverified', String(params.includeUnverified));
   if (params?.programId) queryParams.append('programId', params.programId);
   if (params?.courseId) queryParams.append('courseId', params.courseId);
   if (params?.batchId) queryParams.append('batchId', params.batchId);

@@ -20,7 +20,7 @@ function StudentsStatsInner({ stats, loading }: StudentsStatsProps) {
   const show = (n: number) => (loading ? '…' : n);
 
   const cards = [
-    { label: 'Total Students', value: show(display.total), icon: '👥', color: 'text-indigo-600', bg: 'bg-indigo-50' },
+    { label: 'Verified Students', value: show(display.total), icon: '👥', color: 'text-indigo-600', bg: 'bg-indigo-50' },
     { label: 'Active', value: show(display.active), icon: '✅', color: 'text-emerald-600', bg: 'bg-emerald-50' },
     { label: 'Blocked', value: show(display.blocked), icon: '🚫', color: 'text-rose-600', bg: 'bg-rose-50' },
     { label: 'New This Month', value: show(display.newThisMonth), icon: '🆕', color: 'text-amber-600', bg: 'bg-amber-50' },

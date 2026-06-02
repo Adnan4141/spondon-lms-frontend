@@ -23,6 +23,7 @@ export function SmsGatewayTab({
   const gatewayNotConfigured = providerBalanceValue === 'Gateway not configured';
   const providerLabel = config.provider?.trim() || 'Shiram';
   const isShiram = providerLabel.trim().toUpperCase().replace(/\s+/g, '').includes('SHIRAM');
+  const shiramCredentialsReady = Boolean(config.hasApiEmail && config.hasApiKey);
 
   return (
     <Panel title={`${providerLabel} SMS Gateway`}>
@@ -54,35 +55,45 @@ export function SmsGatewayTab({
           <div>
             <Label>Account Email</Label>
             <Input
-              type="email"
-              autoComplete="off"
-              value={config.apiEmail || ''}
-              onChange={(event) => setConfig((prev) => ({ ...prev, apiEmail: event.target.value }))}
-              className="mt-1 bg-white"
-              placeholder="your-shiram-account@example.com"
+              value={config.hasApiEmail ? 'Configured in backend .env' : 'Missing SHIRAM_SMS_EMAIL'}
+              className="mt-1 bg-slate-50 text-slate-600"
+              readOnly
             />
           </div>
         ) : null}
         <div>
           <Label>{isShiram ? 'API Password' : 'API Key'}</Label>
-          <div className="relative mt-1">
+          {isShiram ? (
             <Input
-              type={showApiSecret ? 'text' : 'password'}
-              autoComplete="off"
-              value={config.apiKey || ''}
-              onChange={(event) => setConfig((prev) => ({ ...prev, apiKey: event.target.value }))}
-              className="bg-white pr-10"
+              value={config.hasApiKey ? 'Configured in backend .env' : 'Missing SHIRAM_SMS_PASSWORD'}
+              className="mt-1 bg-slate-50 text-slate-600"
+              readOnly
             />
-            <button
-              type="button"
-              aria-label={showApiSecret ? 'Hide API password' : 'Show API password'}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 disabled:pointer-events-none disabled:opacity-50"
-              onClick={() => setShowApiSecret((value) => !value)}
-              disabled={submitting}
-            >
-              {showApiSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
+          ) : (
+            <div className="relative mt-1">
+              <Input
+                type={showApiSecret ? 'text' : 'password'}
+                autoComplete="off"
+                value={config.apiKey || ''}
+                onChange={(event) => setConfig((prev) => ({ ...prev, apiKey: event.target.value }))}
+                className="bg-white pr-10"
+              />
+              <button
+                type="button"
+                aria-label={showApiSecret ? 'Hide API key' : 'Show API key'}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 disabled:pointer-events-none disabled:opacity-50"
+                onClick={() => setShowApiSecret((value) => !value)}
+                disabled={submitting}
+              >
+                {showApiSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          )}
+          {isShiram ? (
+            <p className={shiramCredentialsReady ? 'mt-1 text-xs text-emerald-700' : 'mt-1 text-xs text-amber-700'}>
+              {shiramCredentialsReady ? 'Env credentials ready' : 'Env credentials incomplete'}
+            </p>
+          ) : null}
         </div>
         <div>
           <Label>Masking Sender ID</Label>
