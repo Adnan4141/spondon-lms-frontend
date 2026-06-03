@@ -14,6 +14,7 @@ import { SmsNotificationCard } from '../components/SmsNotificationCard';
 type Props = {
   state: ExamWizardState;
   dispatch: React.Dispatch<WizardFormAction>;
+  deliveryMode: 'ONLINE' | 'OFFLINE';
 };
 
 const SOLVE_OPTIONS: { id: SolveSheetVisibility; label: string; description: string }[] = [
@@ -37,7 +38,7 @@ function combineDateTime(date: Date | undefined, time: string): Date | undefined
   return next;
 }
 
-export function Step5ResultVisibility({ state, dispatch }: Props) {
+export function Step5ResultVisibility({ state, dispatch, deliveryMode }: Props) {
   const setSolve = (visibility: SolveSheetVisibility) => {
     const patch: Partial<ExamWizardState> = {
       solveVisibility: visibility,
@@ -63,7 +64,7 @@ export function Step5ResultVisibility({ state, dispatch }: Props) {
 
   return (
     <div className="space-y-4">
-      <ResultInputModeSelector state={state} dispatch={dispatch} />
+      <ResultInputModeSelector state={state} dispatch={dispatch} deliveryMode={deliveryMode} />
 
       <Card className="border-slate-200 shadow-sm">
         <CardHeader>

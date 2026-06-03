@@ -5,12 +5,14 @@ import type {
   ResultInputMode,
   SelectionMode,
 } from '@/types/exam';
+import type { Course } from '@/types/course';
 
 /**
  * Spec exam types (4). Replaces the previous 7-way `UiExamCategory` which
  * conflated type, mode, and result-entry method.
  *
- * Orthogonal axes are now: { productType, deliveryMode, omrConfig?, resultInputModes[], smsNotification }.
+ * Orthogonal axes are now: { productType, courseId, omrConfig?, resultInputModes[], smsNotification }.
+ * Delivery mode is derived from the selected course's type — never stored in state.
  */
 export type ExamProductType = 'MCQ' | 'WRITTEN' | 'COMBINED' | 'MULTI';
 
@@ -77,15 +79,17 @@ export interface WizardSubject {
 export interface ExamWizardState {
   step: number;
 
-  /** New orthogonal axes. */
+  /**
+   * Exam product type axis.
+   * Delivery mode is NOT stored here — derive it via {@link getEffectiveDeliveryMode}.
+   */
   productType: ExamProductType | '';
-  deliveryMode: 'ONLINE' | 'OFFLINE';
   omrConfig: OmrConfig | null;
   resultInputModes: ResultInputMode[];
   /**
    * True once the admin has explicitly toggled a result-input mode. Suppresses
-   * the smart-preset auto-fill that fires when Type or DeliveryMode changes so
-   * we never clobber an intentional pick. Cleared when the wizard is re-hydrated
+   * the smart-preset auto-fill that fires when Type or Course changes so we
+   * never clobber an intentional pick. Cleared when the wizard is re-hydrated
    * from a saved exam (the saved selection counts as the user's intent).
    */
   resultInputModesUserEdited: boolean;
@@ -97,7 +101,8 @@ export interface ExamWizardState {
   defaultNegativeMarks: number;
 
   title: string;
-  courseIds: string[];
+  /** Single required course. Delivery mode is computed from this course's type. */
+  courseId: string;
   branchId: string;
   language: string;
   durationMinutes: string;
@@ -120,6 +125,18 @@ export interface ExamWizardState {
   showPct: boolean;
   /** @deprecated mirror of `resultInputModes` kept while presets stabilise. */
   resultModes: string[];
+}
+
+/**
+ * Pure selector — never stored in state.
+ * Returns the delivery mode of the selected course, defaulting to ONLINE
+ * when the course list has not yet loaded or no course is selected.
+ */
+export function getEffectiveDeliveryMode(
+  courseId: string,
+  courses: Pick<Course, 'id' | 'type'>[],
+): 'ONLINE' | 'OFFLINE' {
+  return courses.find((c) => c.id === courseId)?.type ?? 'ONLINE';
 }
 
 export const WIZARD_STEPS = [
@@ -224,13 +241,15 @@ export function defaultOmrConfig(): OmrConfig {
 /**
  * When OMR scan is selected for an offline exam, ensure `omrConfig` exists so
  * preflight and persistence can set `omrQuestionCount` / `omrOptionCount`.
+ * `deliveryMode` is passed explicitly since it is no longer stored in state.
  */
 export function resolveOmrConfigForState(
-  state: Pick<ExamWizardState, 'resultInputModes' | 'omrConfig' | 'productType' | 'deliveryMode'>,
+  state: Pick<ExamWizardState, 'resultInputModes' | 'omrConfig' | 'productType'>,
+  deliveryMode: 'ONLINE' | 'OFFLINE',
 ): OmrConfig | null {
   if (!state.resultInputModes.includes('OMR_SCAN')) return state.omrConfig;
   if (state.omrConfig !== null) return state.omrConfig;
-  if (state.deliveryMode !== 'OFFLINE') return null;
+  if (deliveryMode !== 'OFFLINE') return null;
   if (state.productType === 'WRITTEN') return null;
   return defaultOmrConfig();
 }

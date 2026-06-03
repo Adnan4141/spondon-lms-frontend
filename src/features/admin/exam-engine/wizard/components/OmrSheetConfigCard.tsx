@@ -13,6 +13,7 @@ import type { WizardFormAction } from '../examWizardReducer';
 type Props = {
   state: ExamWizardState;
   dispatch: React.Dispatch<WizardFormAction>;
+  deliveryMode: 'ONLINE' | 'OFFLINE';
 };
 
 /**
@@ -21,9 +22,9 @@ type Props = {
  * `state.omrConfig`, which the persistence layer maps to
  * `exam.omrQuestionCount` / `exam.omrOptionCount`.
  */
-export function OmrSheetConfigCard({ state, dispatch }: Props) {
+export function OmrSheetConfigCard({ state, dispatch, deliveryMode }: Props) {
   const offlineMcq =
-    state.deliveryMode === 'OFFLINE' && (state.productType === 'MCQ' || state.productType === 'COMBINED');
+    deliveryMode === 'OFFLINE' && (state.productType === 'MCQ' || state.productType === 'COMBINED');
   if (!offlineMcq) return null;
 
   const enabled = state.omrConfig !== null;

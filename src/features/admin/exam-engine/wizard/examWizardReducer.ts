@@ -19,10 +19,10 @@ export type WizardFormAction =
   | { type: 'MERGE'; patch: Partial<ExamWizardState> }
   | { type: 'SET_STEP'; step: number }
   | { type: 'HYDRATE'; state: ExamWizardState }
-  | { type: 'APPLY_PRODUCT_TYPE'; productType: ExamProductType }
-  | { type: 'SET_DELIVERY_MODE'; deliveryMode: 'ONLINE' | 'OFFLINE' }
-  | { type: 'SET_RESULT_INPUT_MODES'; modes: ExamWizardState['resultInputModes']; userEdited?: boolean }
-  | { type: 'APPLY_SUGGESTED_RESULT_MODES' }
+  | { type: 'SET_COURSE'; courseId: string; deliveryMode: 'ONLINE' | 'OFFLINE' }
+  | { type: 'APPLY_PRODUCT_TYPE'; productType: ExamProductType; deliveryMode: 'ONLINE' | 'OFFLINE' }
+  | { type: 'SET_RESULT_INPUT_MODES'; modes: ExamWizardState['resultInputModes']; deliveryMode: 'ONLINE' | 'OFFLINE'; userEdited?: boolean }
+  | { type: 'APPLY_SUGGESTED_RESULT_MODES'; deliveryMode: 'ONLINE' | 'OFFLINE' }
   | { type: 'ADD_SECTION'; section: WizardSection }
   | { type: 'REMOVE_SECTION'; localId: string }
   | { type: 'UPDATE_SECTION'; localId: string; patch: Partial<WizardSection> }
@@ -61,24 +61,7 @@ export function examWizardReducer(state: ExamWizardState, action: WizardFormActi
     }
     case 'HYDRATE':
       return { ...action.state };
-    case 'APPLY_PRODUCT_TYPE': {
-      const sections = defaultSectionsFor(action.productType, state.defaultNegativeMarks);
-      // Type changes never force a mode change — Mode is orthogonal now.
-      // Auto-fill the recommended `resultInputModes` only when the admin
-      // hasn't manually touched the field yet. Mirrors DeliveryMode behaviour.
-      const suggestion = state.resultInputModesUserEdited
-        ? state.resultInputModes
-        : (suggestedResultModes(action.productType, state.deliveryMode) ?? state.resultInputModes);
-      const next = {
-        ...state,
-        productType: action.productType,
-        sections,
-        subjects: action.productType === 'MULTI' ? state.subjects : [],
-        resultInputModes: suggestion,
-      };
-      return { ...next, omrConfig: resolveOmrConfigForState(next) };
-    }
-    case 'SET_DELIVERY_MODE': {
+    case 'SET_COURSE': {
       const stripped = sanitizeResultInputModes(
         state.productType,
         action.deliveryMode,
@@ -88,34 +71,58 @@ export function examWizardReducer(state: ExamWizardState, action: WizardFormActi
       const nextModes = state.resultInputModesUserEdited
         ? (stripped.length > 0 ? stripped : (suggestion ?? stripped))
         : (suggestion ?? stripped);
-      const next = { ...state, deliveryMode: action.deliveryMode, resultInputModes: nextModes };
-      return { ...next, omrConfig: resolveOmrConfigForState(next) };
+      const offlineReset =
+        action.deliveryMode === 'OFFLINE'
+          ? { autoSubmitOnDisconnect: false as const, disconnectGraceSeconds: '10' }
+          : {};
+      const next = {
+        ...state,
+        courseId: action.courseId,
+        resultInputModes: nextModes,
+        ...offlineReset,
+      };
+      return { ...next, omrConfig: resolveOmrConfigForState(next, action.deliveryMode) };
+    }
+    case 'APPLY_PRODUCT_TYPE': {
+      const sections = defaultSectionsFor(action.productType, state.defaultNegativeMarks);
+      // Auto-fill result modes only when the admin hasn't manually touched the field.
+      const suggestion = state.resultInputModesUserEdited
+        ? state.resultInputModes
+        : (suggestedResultModes(action.productType, action.deliveryMode) ?? state.resultInputModes);
+      const next = {
+        ...state,
+        productType: action.productType,
+        sections,
+        subjects: action.productType === 'MULTI' ? state.subjects : [],
+        resultInputModes: suggestion,
+      };
+      return { ...next, omrConfig: resolveOmrConfigForState(next, action.deliveryMode) };
     }
     case 'SET_RESULT_INPUT_MODES': {
       // Default: any explicit change counts as a user edit so we stop
-      // overwriting the field on subsequent Type/Mode changes.
+      // overwriting the field on subsequent Type/Course changes.
       const userEdited = action.userEdited ?? true;
       const sanitized = sanitizeResultInputModes(
         state.productType,
-        state.deliveryMode,
+        action.deliveryMode,
         action.modes,
       );
       const fallback =
-        suggestedResultModes(state.productType, state.deliveryMode)
+        suggestedResultModes(state.productType, action.deliveryMode)
         ?? (['AUTOMATED'] as ExamWizardState['resultInputModes']);
       const nextModes = sanitized.length > 0 ? sanitized : fallback;
       const next = { ...state, resultInputModes: nextModes, resultInputModesUserEdited: userEdited };
-      return { ...next, omrConfig: resolveOmrConfigForState(next) };
+      return { ...next, omrConfig: resolveOmrConfigForState(next, action.deliveryMode) };
     }
     case 'APPLY_SUGGESTED_RESULT_MODES': {
-      const suggestion = suggestedResultModes(state.productType, state.deliveryMode);
+      const suggestion = suggestedResultModes(state.productType, action.deliveryMode);
       if (!suggestion || suggestion.length === 0) return state;
       if (resultInputModesEqual(state.resultInputModes, suggestion)) return state;
       // Applying the suggestion explicitly still counts as the user opting in
       // — but it's a controlled opt-in so we leave `userEdited` false. That
-      // way switching Type/Mode again still flows fresh suggestions.
+      // way switching Type/Course again still flows fresh suggestions.
       const next = { ...state, resultInputModes: suggestion, resultInputModesUserEdited: false };
-      return { ...next, omrConfig: resolveOmrConfigForState(next) };
+      return { ...next, omrConfig: resolveOmrConfigForState(next, action.deliveryMode) };
     }
     case 'ADD_SECTION':
       return { ...state, sections: [...state.sections, action.section] };

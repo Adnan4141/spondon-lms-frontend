@@ -16,6 +16,7 @@ import { PresetSaveActions } from '../components/PresetSaveActions';
 import { ExamScheduleCard } from '../components/ExamScheduleCard';
 import { OfflineOmrWorkflowCard } from '../components/OfflineOmrWorkflowCard';
 import type { WizardFormAction } from '../examWizardReducer';
+import { resolveWizardBranchIdForApi } from '../constants';
 
 type Props = {
   state: ExamWizardState;
@@ -33,6 +34,7 @@ type Props = {
   presetBusy: boolean;
   onSavePreset: (name: string, isDefault: boolean) => void | Promise<void>;
   onUpdatePreset: (presetId: string, isDefault: boolean) => void | Promise<void>;
+  deliveryMode: 'ONLINE' | 'OFFLINE';
 };
 
 export function Step6PreviewPublish({
@@ -48,6 +50,7 @@ export function Step6PreviewPublish({
   onRefreshMeta,
   presets,
   appliedPresetId,
+  deliveryMode,
   presetBusy,
   onSavePreset,
   onUpdatePreset,
@@ -101,7 +104,7 @@ export function Step6PreviewPublish({
     setOmrSheetBusy(true);
     try {
       const r = await generateOmrPdfBatch(examId, {
-        branchId: state.branchId || undefined,
+        branchId: resolveWizardBranchIdForApi(state.branchId),
       });
       if (!r.success || !r.data?.pdfUrl) {
         toast({
@@ -124,7 +127,7 @@ export function Step6PreviewPublish({
 
   return (
     <div className="space-y-4">
-      <PaperPreview state={state} step={step} />
+      <PaperPreview state={state} step={step} deliveryMode={deliveryMode} />
 
       <ExamScheduleCard state={state} dispatch={dispatch} />
 
@@ -132,6 +135,7 @@ export function Step6PreviewPublish({
         state={state}
         examId={examId}
         hasMasterPdf={Boolean(serverExam?.pdfUrl)}
+        deliveryMode={deliveryMode}
       />
 
       <PresetSaveActions

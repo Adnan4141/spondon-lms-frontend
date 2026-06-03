@@ -10,6 +10,7 @@ type Props = {
   state: ExamWizardState;
   examId?: string;
   hasMasterPdf: boolean;
+  deliveryMode: 'ONLINE' | 'OFFLINE';
 };
 
 function StepRow({ done, children }: { done: boolean; children: ReactNode }) {
@@ -29,9 +30,9 @@ function StepRow({ done, children }: { done: boolean; children: ReactNode }) {
  * Step 6 checklist for offline MCQ exams that use OMR scan — replaces the
  * need to hunt through docs for the bank → PDF → OMR pipeline.
  */
-export function OfflineOmrWorkflowCard({ state, examId, hasMasterPdf }: Props) {
+export function OfflineOmrWorkflowCard({ state, examId, hasMasterPdf, deliveryMode }: Props) {
   const omrFlow =
-    state.deliveryMode === 'OFFLINE'
+    deliveryMode === 'OFFLINE'
     && state.resultInputModes.includes('OMR_SCAN')
     && state.productType !== 'WRITTEN';
 

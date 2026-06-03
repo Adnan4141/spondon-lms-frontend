@@ -19,6 +19,7 @@ import type { WizardFormAction } from '../examWizardReducer';
 type Props = {
   state: ExamWizardState;
   dispatch: React.Dispatch<WizardFormAction>;
+  deliveryMode: 'ONLINE' | 'OFFLINE';
 };
 
 const ALL_MODES: ResultInputMode[] = [
@@ -37,23 +38,27 @@ const PRODUCT_TYPE_LABEL: Record<ExamProductType, string> = {
 };
 
 /**
- * Marks a mode as unavailable for the current type/mode combo. Mirrors the
- * preflight checks in `preflightExam` so admins see invalid choices greyed
- * out instead of hitting the error on finalize.
+ * Marks a mode as unavailable for the current type/course delivery combo.
+ * Mirrors the preflight checks in `preflightExam` so admins see invalid
+ * choices greyed out instead of hitting the error on finalize.
  */
-function disabledReason(mode: ResultInputMode, state: ExamWizardState): string | null {
-  if (!isResultInputModeAllowed(mode, state.productType, state.deliveryMode)) {
-    if (mode === 'AUTOMATED') return 'Auto grading needs Online delivery.';
-    if (mode === 'OMR_SCAN' && state.deliveryMode !== 'OFFLINE') return 'OMR scan needs Offline delivery.';
-    if (mode === 'OMR_SCAN') return 'OMR scan is not supported for Written exams.';
+function disabledReason(
+  mode: ResultInputMode,
+  state: ExamWizardState,
+  deliveryMode: 'ONLINE' | 'OFFLINE',
+): string | null {
+  if (!isResultInputModeAllowed(mode, state.productType, deliveryMode)) {
+    if (mode === 'AUTOMATED') return 'Online course only.';
+    if (mode === 'OMR_SCAN' && deliveryMode !== 'OFFLINE') return 'Offline course only.';
+    if (mode === 'OMR_SCAN') return 'Not supported for Written exams.';
   }
   return null;
 }
 
-export function ResultInputModeSelector({ state, dispatch }: Props) {
+export function ResultInputModeSelector({ state, dispatch, deliveryMode }: Props) {
   const suggestion = useMemo(
-    () => suggestedResultModes(state.productType, state.deliveryMode),
-    [state.productType, state.deliveryMode],
+    () => suggestedResultModes(state.productType, deliveryMode),
+    [state.productType, deliveryMode],
   );
   const suggestedSet = useMemo(() => new Set(suggestion ?? []), [suggestion]);
   const alreadyMatchingSuggestion = useMemo(
@@ -65,11 +70,11 @@ export function ResultInputModeSelector({ state, dispatch }: Props) {
     const next = state.resultInputModes.includes(mode)
       ? state.resultInputModes.filter((m) => m !== mode)
       : [...state.resultInputModes, mode];
-    dispatch({ type: 'SET_RESULT_INPUT_MODES', modes: next });
+    dispatch({ type: 'SET_RESULT_INPUT_MODES', modes: next, deliveryMode });
   };
 
   const applySuggestion = () => {
-    dispatch({ type: 'APPLY_SUGGESTED_RESULT_MODES' });
+    dispatch({ type: 'APPLY_SUGGESTED_RESULT_MODES', deliveryMode });
   };
 
   const productTypeLabel = state.productType ? PRODUCT_TYPE_LABEL[state.productType] : 'this exam';
@@ -90,7 +95,7 @@ export function ResultInputModeSelector({ state, dispatch }: Props) {
               <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[#0D1B35]" />
               <div className="min-w-0">
                 <p className="text-xs font-bold text-[#0D1B35]">
-                  Recommended for {productTypeLabel} + {state.deliveryMode === 'ONLINE' ? 'Online' : 'Offline'}
+                  Recommended for {productTypeLabel} + {deliveryMode === 'ONLINE' ? 'Online' : 'Offline'} course
                 </p>
                 <p className="text-[11px] text-slate-600">{suggestionLabels}</p>
               </div>
@@ -110,7 +115,7 @@ export function ResultInputModeSelector({ state, dispatch }: Props) {
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {ALL_MODES.map((mode) => {
             const checked = state.resultInputModes.includes(mode);
-            const reason = disabledReason(mode, state);
+            const reason = disabledReason(mode, state, deliveryMode);
             const isSuggested = suggestedSet.has(mode) && !reason;
             return (
               <button
@@ -141,7 +146,7 @@ export function ResultInputModeSelector({ state, dispatch }: Props) {
                 </div>
                 {reason ? <p className="mt-1 text-[11px] text-slate-500">{reason}</p> : null}
                 {isSuggested && !reason && !checked ? (
-                  <p className="mt-1 text-[11px] text-[#7A6035]">Recommended for the current Type + Mode.</p>
+                  <p className="mt-1 text-[11px] text-[#7A6035]">Recommended for the current type + course.</p>
                 ) : null}
               </button>
             );

@@ -26,8 +26,10 @@ type Props = {
   dispatch: Dispatch<WizardFormAction>;
   courses: Course[];
   branches: Branch[];
+  deliveryMode: 'ONLINE' | 'OFFLINE';
   fieldErrors?: Partial<Record<Step1FieldKey, boolean>>;
   clearFieldError: (key: Step1FieldKey) => void;
+  onCourseSelect: (course: Course) => void;
 };
 
 export function BasicExamInfoForm({
@@ -35,14 +37,20 @@ export function BasicExamInfoForm({
   dispatch,
   courses,
   branches,
+  deliveryMode,
   fieldErrors,
   clearFieldError,
+  onCourseSelect,
 }: Props) {
   const err = (key: Step1FieldKey) => Boolean(fieldErrors?.[key]);
 
   const handleCourseSelect = (courseId: string) => {
     clearFieldError('courseId');
-    dispatch({ type: 'MERGE', patch: { courseIds: [courseId] } });
+    const selected = courses.find((c) => c.id === courseId);
+    if (selected) {
+      dispatch({ type: 'MERGE', patch: { courseId } });
+      onCourseSelect(selected);
+    }
   };
 
   return (
@@ -68,8 +76,11 @@ export function BasicExamInfoForm({
         <div className="md:col-span-2 space-y-2">
           <Label>Course *</Label>
           <SearchableSelect
-            options={courses.map((course) => ({ value: course.id, label: course.name }))}
-            value={state.courseIds[0] ?? ''}
+            options={courses.map((course) => ({
+              value: course.id,
+              label: `${course.name} · ${course.type === 'ONLINE' ? 'ONLINE' : 'OFFLINE'}`,
+            }))}
+            value={state.courseId}
             onValueChange={handleCourseSelect}
             placeholder="Select a course"
             searchPlaceholder="Search courses..."
@@ -130,7 +141,7 @@ export function BasicExamInfoForm({
           />
         </div>
 
-        {state.deliveryMode === 'ONLINE' ? (
+        {deliveryMode === 'ONLINE' ? (
           <div className="md:col-span-2 rounded-lg border border-slate-100 bg-slate-50 p-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>

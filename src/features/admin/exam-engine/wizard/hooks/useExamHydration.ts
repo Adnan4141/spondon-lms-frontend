@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { ExamSubject } from '@/types/exam';
-import { getExamById, getExamCourseLinks, getExamSections, getExamSubjects, type ExamSection } from '@/lib/api/exams';
+import { getExamById, getExamSections, getExamSubjects, type ExamSection } from '@/lib/api/exams';
 import {
   defaultOmrConfig,
   migrateLegacyUiCategory,
-  sanitizeResultInputModes,
-  suggestedResultModes,
   type ExamProductType,
   type ExamWizardState,
   type FolderRuleDraft,
@@ -71,28 +69,15 @@ export function buildWizardPatchFromExam(exam: Exam): Partial<ExamWizardState> {
 
   const productType: ExamProductType | '' = storedProductType || legacyMigration?.productType || '';
 
-  const deliveryModeFromWizard =
-    wizard?.deliveryMode === 'ONLINE' || wizard?.deliveryMode === 'OFFLINE'
-      ? wizard.deliveryMode
-      : null;
-  const deliveryMode: 'ONLINE' | 'OFFLINE' =
-    deliveryModeFromWizard
-    ?? (exam.mode === 'OFFLINE'
-      ? 'OFFLINE'
-      : exam.mode === 'ONLINE'
-        ? 'ONLINE'
-        : exam.mode === 'WRITTEN' || exam.mode === 'HYBRID'
-          ? (legacyMigration?.deliveryMode ?? 'ONLINE')
-          : (legacyMigration?.deliveryMode ?? 'ONLINE'));
-
+  // deliveryMode is no longer stored in state — load raw resultInputModes from the
+  // saved exam and let the SET_COURSE action (fired after courses list loads)
+  // sanitize them against the live course.type.
   const rawResultModes: ResultInputMode[] = Array.isArray(exam.resultInputModes) && exam.resultInputModes.length
     ? exam.resultInputModes
-    : readResultInputModes(wizard?.resultInputModes ?? workflow?.resultInputModes, legacyMigration?.resultInputModes ?? ['AUTOMATED']);
-  const sanitizedModes = sanitizeResultInputModes(productType, deliveryMode, rawResultModes);
-  const resultInputModesFromExam: ResultInputMode[] =
-    sanitizedModes.length > 0
-      ? sanitizedModes
-      : (suggestedResultModes(productType, deliveryMode) ?? ['AUTOMATED']);
+    : readResultInputModes(
+        wizard?.resultInputModes ?? workflow?.resultInputModes,
+        legacyMigration?.resultInputModes ?? ['AUTOMATED'],
+      );
 
   const startAt = exam.startAt ? new Date(exam.startAt) : undefined;
   const endAt = exam.endAt ? new Date(exam.endAt) : undefined;
@@ -103,6 +88,8 @@ export function buildWizardPatchFromExam(exam: Exam): Partial<ExamWizardState> {
   const solveVisibility: SolveSheetVisibility =
     solveFromExam ?? solveFromWizard ?? (wizard?.showSolve === false ? 'HIDDEN' : 'IMMEDIATELY');
 
+  // OMR config: prefer DB values (from previously saved exam), then default
+  // if OMR_SCAN is in the result modes (will be re-validated by SET_COURSE).
   const omrFromDb =
     exam.omrQuestionCount && exam.omrOptionCount
       ? {
@@ -111,20 +98,15 @@ export function buildWizardPatchFromExam(exam: Exam): Partial<ExamWizardState> {
           optionCount: Number(exam.omrOptionCount),
         }
       : null;
-  const omrConfig =
-    omrFromDb
-    ?? (resultInputModesFromExam.includes('OMR_SCAN')
-      && deliveryMode === 'OFFLINE'
-      && productType !== 'WRITTEN'
-      ? defaultOmrConfig()
-      : null);
+  const omrConfig = omrFromDb ?? (rawResultModes.includes('OMR_SCAN') && productType !== 'WRITTEN' ? defaultOmrConfig() : null);
 
   return {
     title: exam.title,
+    courseId: exam.courseId,
     branchId: exam.branchId ?? EXAM_WIZARD_ALL_BRANCHES,
     language: exam.language ?? 'bn',
     durationMinutes: String(exam.durationMinutes ?? 60),
-    deliveryMode,
+    // deliveryMode intentionally omitted — derived from course.type via selector
     autoSubmitOnDisconnect: Boolean(exam.autoSubmitOnDisconnect),
     disconnectGraceSeconds: String(exam.disconnectGraceSeconds ?? 10),
     showSolve:
@@ -138,7 +120,7 @@ export function buildWizardPatchFromExam(exam: Exam): Partial<ExamWizardState> {
     setNaming: (wizard?.setNaming as ExamWizardState['setNaming']) ?? 'ALPHA',
     productType,
     omrConfig,
-    resultInputModes: resultInputModesFromExam,
+    resultInputModes: rawResultModes,
     // Loaded exams count as the admin's intentional configuration — suppress
     // smart-preset auto-fills until they manually clear the field.
     resultInputModesUserEdited: true,
@@ -149,7 +131,7 @@ export function buildWizardPatchFromExam(exam: Exam): Partial<ExamWizardState> {
     solveScheduledAt,
     defaultNegativeMarks:
       typeof wizard?.defaultNegativeMarks === 'number' ? (wizard.defaultNegativeMarks as number) : 0.25,
-    resultModes: resultInputModesFromExam,
+    resultModes: rawResultModes,
   };
 }
 
@@ -174,21 +156,16 @@ export function useExamHydration({ examId, dispatch, setActiveSectionId, setServ
     (async () => {
       setIsLoadingExam(true);
       try {
-        const [ex, courseLinks, secRes, subRes] = await Promise.all([
+        const [ex, secRes, subRes] = await Promise.all([
           getExamById(examId),
-          getExamCourseLinks(examId),
           getExamSections(examId),
           getExamSubjects(examId),
         ]);
         if (cancelled || !ex.success || !ex.data) return;
 
+        // buildWizardPatchFromExam already sets courseId from ex.data.courseId.
+        // deliveryMode is not in state — SET_COURSE fires in ExamWizard once courses load.
         const basePatch = buildWizardPatchFromExam(ex.data);
-        const linkedCourseIds = (
-          courseLinks.success && courseLinks.data ? courseLinks.data : ex.data.examCourses || []
-        )
-          .map((link) => link.courseId)
-          .filter((courseId) => courseId !== ex.data.courseId);
-        const courseIds = [ex.data.courseId, ...linkedCourseIds];
 
         setServerExam({ status: ex.data.status, pdfUrl: ex.data.pdfUrl ?? null });
 
@@ -218,7 +195,6 @@ export function useExamHydration({ examId, dispatch, setActiveSectionId, setServ
             type: 'MERGE',
             patch: {
               ...basePatch,
-              courseIds,
               subjects: mappedSubjects,
               sections: [],
               productType: 'MULTI',
@@ -254,7 +230,6 @@ export function useExamHydration({ examId, dispatch, setActiveSectionId, setServ
             type: 'MERGE',
             patch: {
               ...basePatch,
-              courseIds,
               sections: mapped,
               subjects: [],
               productType: basePatch.productType || inferProductTypeFromSections(secRes.data),
@@ -265,7 +240,7 @@ export function useExamHydration({ examId, dispatch, setActiveSectionId, setServ
           return;
         }
 
-        dispatch({ type: 'MERGE', patch: { ...basePatch, courseIds } });
+        dispatch({ type: 'MERGE', patch: basePatch });
         setStep1FieldErrors({});
       } finally {
         if (!cancelled) setIsLoadingExam(false);

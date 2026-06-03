@@ -16,8 +16,10 @@ type WizardPresetConfigV1 = {
   version: 1;
   /** @deprecated v1 schema — migrated to v2 on load. */
   uiCategory: UiExamCategory | '';
-  deliveryMode: ExamWizardState['deliveryMode'];
-  courseIds: string[];
+  /** @deprecated deliveryMode is now course-derived, ignored on load. */
+  deliveryMode?: string;
+  /** @deprecated courseIds no longer stored in presets. */
+  courseIds?: string[];
   language: string;
   durationMinutes: string;
   autoSubmitOnDisconnect: boolean;
@@ -37,13 +39,16 @@ type WizardPresetConfigV1 = {
 type WizardPresetConfigV2 = {
   version: 2;
   productType: ExamProductType | '';
-  deliveryMode: ExamWizardState['deliveryMode'];
+  /**
+   * deliveryMode is no longer stored in presets (it is course-derived).
+   * Field kept as optional for reading old saved presets — ignored on apply.
+   */
+  deliveryMode?: string;
   omrConfig: OmrConfig | null;
   resultInputModes: ResultInputMode[];
   smsNotification: boolean;
   solveVisibility: SolveSheetVisibility;
   defaultNegativeMarks: number;
-  courseIds: string[];
   language: string;
   durationMinutes: string;
   autoSubmitOnDisconnect: boolean;
@@ -94,13 +99,13 @@ export function buildPresetStructure(state: ExamWizardState): WizardPresetStruct
   const v2: WizardPresetConfigV2 = {
     version: 2,
     productType: state.productType,
-    deliveryMode: state.deliveryMode,
+    // deliveryMode intentionally omitted — course-derived, not stored in presets
     omrConfig: state.omrConfig,
     resultInputModes: state.resultInputModes,
     smsNotification: state.smsNotification,
     solveVisibility: state.solveVisibility,
     defaultNegativeMarks: state.defaultNegativeMarks,
-    courseIds: [...state.courseIds],
+    // courseId intentionally omitted — presets are course-agnostic
     language: state.language,
     durationMinutes: state.durationMinutes,
     autoSubmitOnDisconnect: state.autoSubmitOnDisconnect,
@@ -139,7 +144,7 @@ export function presetPatchFromStructure(structure: WizardPresetStructure): Part
   if (wizard?.version === 2) {
     return {
       productType: wizard.productType,
-      deliveryMode: wizard.deliveryMode,
+      // deliveryMode intentionally excluded — course controls it
       omrConfig: wizard.omrConfig ?? null,
       resultInputModes: Array.isArray(wizard.resultInputModes) && wizard.resultInputModes.length
         ? wizard.resultInputModes
@@ -147,7 +152,7 @@ export function presetPatchFromStructure(structure: WizardPresetStructure): Part
       smsNotification: Boolean(wizard.smsNotification),
       solveVisibility: wizard.solveVisibility ?? 'IMMEDIATELY',
       defaultNegativeMarks: typeof wizard.defaultNegativeMarks === 'number' ? wizard.defaultNegativeMarks : 0.25,
-      courseIds: Array.isArray(wizard.courseIds) ? [...wizard.courseIds] : [],
+      // courseId intentionally excluded — presets are course-agnostic
       language: wizard.language,
       durationMinutes: wizard.durationMinutes,
       autoSubmitOnDisconnect: wizard.autoSubmitOnDisconnect,
@@ -168,13 +173,13 @@ export function presetPatchFromStructure(structure: WizardPresetStructure): Part
     const migrated = migrateLegacyUiCategory(wizard.uiCategory, undefined);
     return {
       productType: migrated.productType,
-      deliveryMode: wizard.deliveryMode ?? migrated.deliveryMode,
+      // deliveryMode intentionally excluded — course controls it
       omrConfig: null,
       resultInputModes: migrated.resultInputModes,
       smsNotification: false,
       solveVisibility: wizard.showSolve ? 'IMMEDIATELY' : 'HIDDEN',
       defaultNegativeMarks: 0.25,
-      courseIds: Array.isArray(wizard.courseIds) ? [...wizard.courseIds] : [],
+      // courseId intentionally excluded — presets are course-agnostic
       language: wizard.language,
       durationMinutes: wizard.durationMinutes,
       autoSubmitOnDisconnect: wizard.autoSubmitOnDisconnect,

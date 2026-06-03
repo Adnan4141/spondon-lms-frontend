@@ -22,6 +22,7 @@ type Props = {
   state: ExamWizardState;
   dispatch: React.Dispatch<WizardFormAction>;
   onAddSection: (section: ReturnType<typeof buildSectionFromType>) => void;
+  deliveryMode: 'ONLINE' | 'OFFLINE';
   /** Merged folder trees (per linked course) — used by the "Add subjects from folder roots" shortcut. */
   folderTrees?: MergedFolderTreeResponse['trees'];
 };
@@ -35,13 +36,13 @@ function mcqCompositionLine(s: WizardSection): string {
   return `Up to ${pg} whole passage block(s) within ${total} total slots; remaining slots use standalone MCQs.`;
 }
 
-export function Step2Sections({ state, dispatch, onAddSection, folderTrees }: Props) {
+export function Step2Sections({ state, dispatch, onAddSection, deliveryMode, folderTrees }: Props) {
   if (state.productType === 'MULTI') {
     return <MultiSubjectBuilder state={state} dispatch={dispatch} folderTrees={folderTrees} />;
   }
 
   const isManualOffline =
-    state.deliveryMode === 'OFFLINE'
+    deliveryMode === 'OFFLINE'
     && !state.resultInputModes.includes('AUTOMATED')
     && !state.resultInputModes.includes('OMR_SCAN');
 

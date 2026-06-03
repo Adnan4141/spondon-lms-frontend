@@ -36,17 +36,17 @@ export function useExamWizardFolderTree(courseIds: string[], step: number, minSt
     fallbackAll: false,
   });
 
-  const inRange = Boolean(courseIds.length > 0 && step >= minStep);
+  const inRange = Boolean(courseIdsKey.length > 0 && step >= minStep);
 
   useEffect(() => {
     if (!inRange) return;
     const key = courseIdsKey;
+    const ids = key.split('|').filter(Boolean);
     const ac = new AbortController();
-    const tid = window.setTimeout(() => {
-      setFetchState({ key, trees: EMPTY_TREES, loading: true, fallbackAll: false });
-    }, 0);
 
-    getMergedFolderTree(courseIds, undefined, { signal: ac.signal })
+    setFetchState({ key, trees: EMPTY_TREES, loading: true, fallbackAll: false });
+
+    getMergedFolderTree(ids, undefined, { signal: ac.signal })
       .then(async (r) => {
         if (ac.signal.aborted) return;
 
@@ -77,10 +77,9 @@ export function useExamWizardFolderTree(courseIds: string[], step: number, minSt
       });
 
     return () => {
-      window.clearTimeout(tid);
       ac.abort();
     };
-  }, [courseIds, courseIdsKey, step, minStep, inRange]);
+  }, [courseIdsKey, step, minStep, inRange]);
 
   const { trees, tree, loading, fallbackAll } = useMemo(() => {
     if (!inRange) {

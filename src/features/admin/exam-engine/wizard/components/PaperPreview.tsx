@@ -7,16 +7,17 @@ import { sectionMcqPassageGoal, setLabelsForPreview } from '../wizardHelpers';
 type Props = {
   state: ExamWizardState;
   step: number;
+  deliveryMode: 'ONLINE' | 'OFFLINE';
   className?: string;
 };
 
 /** Visual summary of paper layout (not a real PDF) — mirrors the prototype’s “premium” preview. */
-export function PaperPreview({ state, step, className }: Props) {
+export function PaperPreview({ state, step, deliveryMode, className }: Props) {
   const nSets = Math.min(26, Math.max(1, Number(state.nSets) || 1));
   const setLabels = setLabelsForPreview(state.setNaming, nSets);
   const sections: WizardSection[] = state.productType === 'MULTI' ? [] : state.sections;
 
-  const omrish = state.deliveryMode === 'OFFLINE' && state.resultInputModes.includes('OMR_SCAN');
+  const omrish = deliveryMode === 'OFFLINE' && state.resultInputModes.includes('OMR_SCAN');
 
   return (
     <div
@@ -35,7 +36,7 @@ export function PaperPreview({ state, step, className }: Props) {
         </h3>
         <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-[#E2C98A]/90">
           <span>{state.durationMinutes} min</span>
-          <span>{state.deliveryMode === 'ONLINE' ? 'Online' : 'Offline'}</span>
+          <span>{deliveryMode === 'ONLINE' ? 'Online' : 'Offline'}</span>
         </div>
       </div>
 
@@ -46,7 +47,7 @@ export function PaperPreview({ state, step, className }: Props) {
             <p className="rounded-lg border border-dashed border-slate-300 bg-white/60 p-4 text-center text-xs text-slate-500">
               {state.productType === 'MULTI'
                 ? 'Multi-subject: sections attach after save from the subjects screen.'
-                : state.deliveryMode === 'OFFLINE' && !state.resultInputModes.includes('AUTOMATED') && !state.resultInputModes.includes('OMR_SCAN')
+                  : deliveryMode === 'OFFLINE' && !state.resultInputModes.includes('AUTOMATED') && !state.resultInputModes.includes('OMR_SCAN')
                   ? 'Manual entry workflow: no online paper required. Teachers will mark physical scripts and enter results.'
                   : 'Add sections in step 2 to see the paper outline.'}
             </p>

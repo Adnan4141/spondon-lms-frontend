@@ -7,11 +7,8 @@ import {
   deleteExamSubject,
   generateFromSubjects,
   generateSectionSets,
-  getExamCourseLinks,
   getExamSections,
   getExamSubjects,
-  linkExamCourse,
-  unlinkExamCourse,
   updateExam,
   validateExamSubjects,
   validateSectionGeneration,
@@ -25,12 +22,13 @@ import {
   mapToExamMode,
 } from '../../types';
 import { EXAM_WIZARD_ALL_BRANCHES } from '../constants';
-import { primaryCourseId } from '../wizardHelpers';
 
 interface Options {
   examId?: string;
   state: ExamWizardState;
   serverExam: { status: ExamStatus; pdfUrl?: string | null } | null;
+  /** Effective delivery mode derived from the selected course — not stored in state. */
+  effectiveDeliveryMode: 'ONLINE' | 'OFFLINE';
 }
 
 /**
@@ -39,13 +37,12 @@ interface Options {
  * resultInputModes, solve sheet, schedule, smsNotification flag) to the
  * Exam DTO + nested settings JSON.
  */
-export function useExamPersistence({ examId, state, serverExam }: Options) {
+export function useExamPersistence({ examId, state, serverExam, effectiveDeliveryMode }: Options) {
   const toast = useAdminToast();
 
   const persistExam = useCallback(
     async (finalize: boolean): Promise<string | null> => {
-      const primaryCourse = primaryCourseId(state.courseIds);
-      if (!primaryCourse || !state.title.trim() || !state.productType) {
+      if (!state.courseId || !state.title.trim() || !state.productType) {
         toast({
           title: 'Missing fields',
           description: 'Course, title, and exam type are all required.',
@@ -60,14 +57,14 @@ export function useExamPersistence({ examId, state, serverExam }: Options) {
       const isOmrBook =
         state.resultInputModes.includes('OMR_SCAN')
         && state.omrConfig != null
-        && state.deliveryMode === 'OFFLINE';
+        && effectiveDeliveryMode === 'OFFLINE';
       const dto: CreateExamDto = {
-        courseId: primaryCourse,
+        courseId: state.courseId,
         branchId: branchResolved,
         title: state.title.trim(),
         type: mapProductTypeToExamType(productType),
-        mode: mapToExamMode(productType, state.deliveryMode),
-        examEngine: mapProductTypeToEngine(productType, isOmrBook && state.deliveryMode === 'OFFLINE'),
+        mode: mapToExamMode(productType, effectiveDeliveryMode),
+        examEngine: mapProductTypeToEngine(productType, isOmrBook && effectiveDeliveryMode === 'OFFLINE'),
         durationMinutes: Number(state.durationMinutes) || 60,
         language: state.language,
         status: examId ? (serverExam?.status ?? 'DRAFT') : 'DRAFT',
@@ -90,7 +87,7 @@ export function useExamPersistence({ examId, state, serverExam }: Options) {
         settings: {
           examWizard: {
             productType,
-            deliveryMode: state.deliveryMode,
+            // deliveryMode intentionally omitted — course-derived, not stored
             shuffle: state.shuffle,
             setNaming: state.setNaming,
             resultInputModes: state.resultInputModes,
@@ -130,24 +127,6 @@ export function useExamPersistence({ examId, state, serverExam }: Options) {
         }
         if (!id) return null;
 
-        const desiredAdditionalCourses = [
-          ...new Set(state.courseIds.slice(1).filter((courseId) => courseId && courseId !== primaryCourse)),
-        ];
-        const currentLinks = await getExamCourseLinks(id);
-        if (currentLinks.success) {
-          const currentAdditionalCourses = new Set((currentLinks.data || []).map((link) => link.courseId));
-          for (const courseId of currentAdditionalCourses) {
-            if (!desiredAdditionalCourses.includes(courseId)) {
-              await unlinkExamCourse(id, courseId);
-            }
-          }
-          for (const courseId of desiredAdditionalCourses) {
-            if (!currentAdditionalCourses.has(courseId)) {
-              await linkExamCourse(id, courseId);
-            }
-          }
-        }
-
         if (state.productType === 'MULTI') {
           const ok = await persistMultiSubjects(id, state, finalize, toast);
           if (!ok) return null;
@@ -165,7 +144,7 @@ export function useExamPersistence({ examId, state, serverExam }: Options) {
         return null;
       }
     },
-    [examId, serverExam, state, toast],
+    [examId, serverExam, state, toast, effectiveDeliveryMode],
   );
 
   return { persistExam };

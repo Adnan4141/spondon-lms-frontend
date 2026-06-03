@@ -14,7 +14,6 @@ import {
   presetPatchFromStructure,
   type WizardPresetStructure,
 } from '../presetHelpers';
-import { primaryCourseId } from '../wizardHelpers';
 
 interface Options {
   examId?: string;
@@ -47,11 +46,10 @@ export function useExamPresets({ examId, state, dispatch, setActiveSectionId }: 
     void loadPresets();
   }, [loadPresets]);
 
-  const selectedPrimaryCourseId = primaryCourseId(state.courseIds);
   const recommendedPresetId = useMemo(() => {
-    if (!selectedPrimaryCourseId) return null;
-    return presets.find((preset) => preset.courseId === selectedPrimaryCourseId && preset.isDefault)?.id ?? null;
-  }, [presets, selectedPrimaryCourseId]);
+    if (!state.courseId) return null;
+    return presets.find((preset) => preset.courseId === state.courseId && preset.isDefault)?.id ?? null;
+  }, [presets, state.courseId]);
 
   const applyPreset = useCallback(
     async (presetId: string) => {
@@ -109,10 +107,9 @@ export function useExamPresets({ examId, state, dispatch, setActiveSectionId }: 
 
   const savePreset = useCallback(
     async (name: string, isDefault: boolean) => {
-      const courseId = primaryCourseId(state.courseIds);
       const response = await createBlueprintPreset({
         name,
-        courseId: courseId || undefined,
+        courseId: state.courseId || undefined,
         structure: buildPresetStructure(state),
         duration: Number(state.durationMinutes) || undefined,
         isDefault,
@@ -131,9 +128,8 @@ export function useExamPresets({ examId, state, dispatch, setActiveSectionId }: 
 
   const updatePreset = useCallback(
     async (presetId: string, isDefault: boolean) => {
-      const courseId = primaryCourseId(state.courseIds);
       const response = await updateBlueprintPreset(presetId, {
-        courseId: courseId || '',
+        courseId: state.courseId || '',
         structure: buildPresetStructure(state),
         duration: Number(state.durationMinutes) || undefined,
         isDefault,

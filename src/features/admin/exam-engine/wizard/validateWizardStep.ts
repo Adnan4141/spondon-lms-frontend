@@ -37,12 +37,16 @@ function fail(summary: string, step?: number, step1Fields?: Partial<Record<Step1
   };
 }
 
-export function validateStep(state: ExamWizardState, step: number): StepValidation {
+export function validateStep(
+  state: ExamWizardState,
+  step: number,
+  deliveryMode: 'ONLINE' | 'OFFLINE' = 'ONLINE',
+): StepValidation {
   if (step === 1) {
     const step1Fields: Partial<Record<Step1FieldKey, boolean>> = {
       productType: !state.productType,
       title: state.title.trim().length <= 2,
-      courseId: state.courseIds.length === 0,
+      courseId: !state.courseId,
     };
     const passed = !step1Fields.productType && !step1Fields.title && !step1Fields.courseId;
     if (passed) return ok();
@@ -77,7 +81,7 @@ export function validateStep(state: ExamWizardState, step: number): StepValidati
     }
 
     const isManualOffline =
-      state.deliveryMode === 'OFFLINE'
+      deliveryMode === 'OFFLINE'
       && !state.resultInputModes.includes('AUTOMATED')
       && !state.resultInputModes.includes('OMR_SCAN');
     if (isManualOffline) return ok();
@@ -130,8 +134,12 @@ export function validateStep(state: ExamWizardState, step: number): StepValidati
   return ok();
 }
 
-export function canAdvance(state: ExamWizardState, step: number): boolean {
-  return validateStep(state, step).ok;
+export function canAdvance(
+  state: ExamWizardState,
+  step: number,
+  deliveryMode: 'ONLINE' | 'OFFLINE' = 'ONLINE',
+): boolean {
+  return validateStep(state, step, deliveryMode).ok;
 }
 
 /**
@@ -198,13 +206,17 @@ function rulesToPreflightPayload(state: ExamWizardState): FolderPreflightRule[] 
   return rules;
 }
 
-export function preflightExam(state: ExamWizardState, ctx: PreflightContext = {}): PreflightResult {
+export function preflightExam(
+  state: ExamWizardState,
+  ctx: PreflightContext = {},
+  deliveryMode: 'ONLINE' | 'OFFLINE' = 'ONLINE',
+): PreflightResult {
   const errors: ValidationIssue[] = [];
   const warnings: ValidationIssue[] = [];
 
   // Run per-step validation up to (but not including) step 6.
   for (const step of [1, 2, 3, 5] as const) {
-    const result = validateStep(state, step);
+    const result = validateStep(state, step, deliveryMode);
     if (!result.ok) {
       errors.push(...result.errors);
     }
@@ -218,19 +230,19 @@ export function preflightExam(state: ExamWizardState, ctx: PreflightContext = {}
     warnings.push({ level: 'warning', message: 'End time is in the past — students will not be able to attempt.', step: 6 });
   }
 
-  // Result-mode validity for the chosen Type/Mode.
+  // Result-mode validity for the chosen type / course delivery.
   if (state.productType) {
     const modes = state.resultInputModes;
-    if (modes.includes('AUTOMATED') && state.deliveryMode !== 'ONLINE') {
+    if (modes.includes('AUTOMATED') && deliveryMode !== 'ONLINE') {
       errors.push({
         level: 'error',
-        message: 'Automatic grading requires Online delivery mode.',
+        message: 'Automatic grading requires an Online course.',
         step: 5,
       });
     }
     if (modes.includes('OMR_SCAN')) {
-      if (state.deliveryMode !== 'OFFLINE') {
-        errors.push({ level: 'error', message: 'OMR scan requires Offline delivery mode.', step: 5 });
+      if (deliveryMode !== 'OFFLINE') {
+        errors.push({ level: 'error', message: 'OMR scan requires an Offline course.', step: 5 });
       }
       if (state.productType === 'WRITTEN') {
         errors.push({ level: 'error', message: 'OMR scan is not supported for Written exams.', step: 5 });
@@ -301,8 +313,9 @@ export function preflightExam(state: ExamWizardState, ctx: PreflightContext = {}
 export async function preflightExamWithBackend(
   state: ExamWizardState,
   ctx: PreflightContext = {},
+  deliveryMode: 'ONLINE' | 'OFFLINE' = 'ONLINE',
 ): Promise<PreflightResult> {
-  const sync = preflightExam(state, ctx);
+  const sync = preflightExam(state, ctx, deliveryMode);
   const errors = [...sync.errors];
   const warnings = [...sync.warnings];
 
@@ -330,10 +343,10 @@ export async function preflightExamWithBackend(
         step: 3,
       });
     }
-  } catch (e: any) {
+  } catch (e: unknown) {
     warnings.push({
       level: 'warning',
-      message: `Folder preflight unavailable: ${e?.message ?? 'network error'}.`,
+      message: `Folder preflight unavailable: ${e instanceof Error ? e.message : 'network error'}.`,
       step: 3,
     });
   }

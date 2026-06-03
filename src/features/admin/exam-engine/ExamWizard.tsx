@@ -19,9 +19,9 @@ import { QuestionPickerModal } from './components/QuestionPickerModal';
 import { ExamEngineSubnav } from './components/ExamEngineSubnav';
 import {
   type ExamProductType,
-  type ExamWizardState,
   type FolderRuleDraft,
   WIZARD_STEPS,
+  getEffectiveDeliveryMode,
 } from './types';
 import { examWizardReducer, buildSectionFromType } from './wizard/examWizardReducer';
 import {
@@ -29,7 +29,6 @@ import {
   draftStorageKey,
   flattenFolders,
   parseStepParam,
-  primaryCourseId,
 } from './wizard/wizardHelpers';
 import { useExamWizardFolderTree } from './wizard/useExamWizardFolderTree';
 import { useExamHydration } from './wizard/hooks/useExamHydration';
@@ -65,13 +64,22 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
 
   const urlInitializedRef = useRef(false);
 
-  const selectedPrimaryCourseId = primaryCourseId(state.courseIds);
+  const effectiveDeliveryMode = useMemo(
+    () => getEffectiveDeliveryMode(state.courseId, courses),
+    [state.courseId, courses],
+  );
+
+  const folderTreeCourseIds = useMemo(
+    () => (state.courseId ? [state.courseId] : []),
+    [state.courseId],
+  );
+
   const {
     tree,
     trees: folderTrees,
     loading: folderLoading,
     fallbackAll: folderFallbackAll,
-  } = useExamWizardFolderTree(state.courseIds, step, 2);
+  } = useExamWizardFolderTree(folderTreeCourseIds, step, 2);
   const leaves = useMemo(() => flattenFolders(tree), [tree]);
 
   const toast = useAdminToast();
@@ -137,7 +145,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
       }
     },
   });
-  const { persistExam } = useExamPersistence({ examId, state, serverExam });
+  const { persistExam } = useExamPersistence({ examId, state, serverExam, effectiveDeliveryMode });
 
   const refreshServerExam = useCallback(async () => {
     if (!examId) return;
@@ -218,8 +226,38 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
     setActiveSectionId(section.localId);
   };
 
+  const handleCourseSelect = useCallback(
+    (course: Course) => {
+      const deliveryMode = (course.type as 'ONLINE' | 'OFFLINE') ?? 'ONLINE';
+      dispatch({ type: 'SET_COURSE', courseId: course.id, deliveryMode });
+    },
+    [dispatch],
+  );
+
+  // After courses list loads and we have a courseId (e.g. on edit), fire
+  // SET_COURSE once to sanitize saved resultInputModes against the live course.
+  const coursesSyncedRef = useRef(false);
+  useEffect(() => {
+    if (coursesSyncedRef.current) return;
+    if (!state.courseId || courses.length === 0) return;
+    const course = courses.find((c) => c.id === state.courseId);
+    if (!course) return;
+    coursesSyncedRef.current = true;
+    const deliveryMode = (course.type as 'ONLINE' | 'OFFLINE') ?? 'ONLINE';
+    dispatch({ type: 'SET_COURSE', courseId: course.id, deliveryMode });
+  }, [courses, state.courseId, dispatch]);
+
+  // Reset the sync flag when the courseId changes so the next course also gets synced.
+  const prevCourseIdRef = useRef(state.courseId);
+  useEffect(() => {
+    if (prevCourseIdRef.current !== state.courseId) {
+      prevCourseIdRef.current = state.courseId;
+      coursesSyncedRef.current = false;
+    }
+  }, [state.courseId]);
+
   const applyProductType = (id: ExamProductType) => {
-    dispatch({ type: 'APPLY_PRODUCT_TYPE', productType: id });
+    dispatch({ type: 'APPLY_PRODUCT_TYPE', productType: id, deliveryMode: effectiveDeliveryMode });
   };
 
   /**
@@ -258,7 +296,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
   );
 
   const goNext = () => {
-    const v = validateStep(state, step);
+    const v = validateStep(state, step, effectiveDeliveryMode);
     if (!v.ok) {
       if (step === 1 && v.step1Fields) setStep1FieldErrors(v.step1Fields);
       toast({
@@ -344,7 +382,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
   const validateBeforeFinalize = async (): Promise<boolean> => {
     for (const item of visibleSteps) {
       if (item.stepNumber >= 6) continue;
-      const validation = validateStep(state, item.stepNumber);
+      const validation = validateStep(state, item.stepNumber, effectiveDeliveryMode);
       if (validation.ok) continue;
       if (item.stepNumber === 1 && validation.step1Fields) setStep1FieldErrors(validation.step1Fields);
       toast({
@@ -355,7 +393,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
       goToStep(item.stepNumber);
       return false;
     }
-    const preflight = await preflightExamWithBackend(state);
+    const preflight = await preflightExamWithBackend(state, {}, effectiveDeliveryMode);
     if (!preflight.ok) {
       const first = preflight.errors[0];
       toast({
@@ -394,7 +432,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
           {visibleSteps.map(({ label, stepNumber: n }, i) => {
             const active = n === normalizeStepNumber(step);
             const done = i < currentVisibleStepIndex;
-            const valid = validateStep(state, n).ok;
+            const valid = validateStep(state, n, effectiveDeliveryMode).ok;
             return (
               <button
                 key={label}
@@ -442,11 +480,13 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
           appliedPresetId={presetsApi.appliedPresetId}
           recommendedPresetId={presetsApi.recommendedPresetId}
           presetBusy={presetsApi.presetBusy}
+          deliveryMode={effectiveDeliveryMode}
           fieldErrors={step1FieldErrors}
           onSelectProductType={applyProductType}
           clearFieldError={(k) => setStep1FieldErrors((prev) => ({ ...prev, [k]: false }))}
           onStartBlank={startBlankExam}
           onApplyPreset={(id) => void presetsApi.applyPreset(id)}
+          onCourseSelect={handleCourseSelect}
         />
       ) : null}
 
@@ -455,6 +495,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
           state={state}
           dispatch={dispatch}
           onAddSection={handleAddSection}
+          deliveryMode={effectiveDeliveryMode}
           folderTrees={folderTrees}
         />
       ) : null}
@@ -477,7 +518,9 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
       ) : null}
 
       {!isLoadingExam && step === 4 ? <Step4SetsPdf state={state} dispatch={dispatch} /> : null}
-      {!isLoadingExam && step === 5 ? <Step5ResultVisibility state={state} dispatch={dispatch} /> : null}
+      {!isLoadingExam && step === 5 ? (
+        <Step5ResultVisibility state={state} dispatch={dispatch} deliveryMode={effectiveDeliveryMode} />
+      ) : null}
       {!isLoadingExam && step === 6 ? (
         <Step6PreviewPublish
           state={state}
@@ -495,6 +538,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
           presetBusy={presetsApi.presetBusy}
           onSavePreset={(name, isDefault) => void presetsApi.savePreset(name, isDefault)}
           onUpdatePreset={(presetId, isDefault) => void presetsApi.updatePreset(presetId, isDefault)}
+          deliveryMode={effectiveDeliveryMode}
         />
       ) : null}
 

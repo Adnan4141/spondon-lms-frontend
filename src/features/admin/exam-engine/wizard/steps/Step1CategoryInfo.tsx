@@ -1,6 +1,5 @@
 'use client';
 
-import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
 import type { Course } from '@/types/course';
 import type { Branch } from '@/lib/api/branches';
 import type { ExamBlueprintPreset } from '@/lib/api/exams';
@@ -23,11 +22,13 @@ type Props = {
   appliedPresetId: string | null;
   recommendedPresetId: string | null;
   presetBusy: boolean;
+  deliveryMode: 'ONLINE' | 'OFFLINE';
   fieldErrors?: Partial<Record<Step1FieldKey, boolean>>;
   onSelectProductType: (id: ExamProductType) => void;
   clearFieldError: (key: Step1FieldKey) => void;
   onStartBlank: () => void;
   onApplyPreset: (presetId: string) => void;
+  onCourseSelect: (course: Course) => void;
 };
 
 export function Step1CategoryInfo({
@@ -39,29 +40,14 @@ export function Step1CategoryInfo({
   appliedPresetId,
   recommendedPresetId,
   presetBusy,
+  deliveryMode,
   fieldErrors,
   onSelectProductType,
   clearFieldError,
   onStartBlank,
   onApplyPreset,
+  onCourseSelect,
 }: Props) {
-  const toast = useAdminToast();
-
-  const handleDeliveryModeChange = (deliveryMode: ExamWizardState['deliveryMode']) => {
-    const hadAutomated = state.resultInputModes.includes('AUTOMATED');
-    dispatch({ type: 'SET_DELIVERY_MODE', deliveryMode });
-    if (
-      deliveryMode === 'OFFLINE'
-      && hadAutomated
-      && (state.productType === 'MCQ' || state.productType === 'MULTI' || state.productType === 'COMBINED')
-    ) {
-      toast({
-        title: 'Automatic grading removed',
-        description: 'Use OMR scan in step 5 for offline MCQ papers. Question sets still come from the bank.',
-      });
-    }
-  };
-
   return (
     <div className="space-y-4">
       <PresetSelectorCard
@@ -78,8 +64,10 @@ export function Step1CategoryInfo({
         dispatch={dispatch}
         courses={courses}
         branches={branches}
+        deliveryMode={deliveryMode}
         fieldErrors={fieldErrors}
         clearFieldError={clearFieldError}
+        onCourseSelect={onCourseSelect}
       />
 
       <ExamMethodPicker
@@ -91,11 +79,15 @@ export function Step1CategoryInfo({
         }}
       />
 
-      <DeliveryModeCard state={state} onChange={handleDeliveryModeChange} />
+      <DeliveryModeCard
+        courseId={state.courseId}
+        deliveryMode={deliveryMode}
+        productType={state.productType}
+      />
 
-      <OmrSheetConfigCard state={state} dispatch={dispatch} />
+      <OmrSheetConfigCard state={state} dispatch={dispatch} deliveryMode={deliveryMode} />
 
-      <WorkflowSummaryCard state={state} />
+      <WorkflowSummaryCard state={state} deliveryMode={deliveryMode} />
     </div>
   );
 }

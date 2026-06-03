@@ -638,7 +638,7 @@ export function Step3QuestionBank({
               {renderTreeControls()}
             </CardHeader>
             <CardContent className="px-2 pb-3">
-              {state.courseIds.length === 0 ? (
+              {!state.courseId ? (
                 <p className="p-4 text-center text-xs text-slate-500">Select at least one course in step 1 to load folders.</p>
               ) : folderLoading ? (
                 <p className="p-4 text-center text-xs text-slate-500">Loading folders…</p>
@@ -875,7 +875,7 @@ export function Step3QuestionBank({
             {renderTreeControls()}
           </CardHeader>
           <CardContent className="px-2 pb-3">
-            {state.courseIds.length === 0 ? (
+            {!state.courseId ? (
               <p className="p-4 text-center text-xs text-slate-500">Select a course in step 1 to load folders.</p>
             ) : folderLoading ? (
               <p className="p-4 text-center text-xs text-slate-500">Loading folders…</p>

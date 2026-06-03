@@ -4,15 +4,21 @@ import { Card, CardContent } from '@/components/ui/card';
 import type { ExamWizardState } from '../../types';
 import { RESULT_INPUT_MODE_LABELS } from '../../types';
 
-export function WorkflowSummaryCard({ state }: { state: ExamWizardState }) {
+export function WorkflowSummaryCard({
+  state,
+  deliveryMode,
+}: {
+  state: ExamWizardState;
+  deliveryMode: 'ONLINE' | 'OFFLINE';
+}) {
   if (!state.productType) return null;
 
   const isWritten = state.productType === 'WRITTEN' || state.productType === 'COMBINED';
   const submissionLabel = isWritten
-    ? state.deliveryMode === 'ONLINE'
+    ? deliveryMode === 'ONLINE'
       ? 'Student camera/PDF upload'
       : 'Teacher result entry'
-    : state.deliveryMode === 'ONLINE'
+    : deliveryMode === 'ONLINE'
       ? 'Auto-graded online attempt'
       : state.resultInputModes.includes('OMR_SCAN')
         ? 'OMR sheet scan'
@@ -20,7 +26,7 @@ export function WorkflowSummaryCard({ state }: { state: ExamWizardState }) {
 
   const evaluationLabel = isWritten
     ? 'Teacher reviewed written marks'
-    : state.deliveryMode === 'OFFLINE'
+    : deliveryMode === 'OFFLINE'
       ? state.resultInputModes.includes('OMR_SCAN')
         ? 'OMR auto-grade + admin verify'
         : 'Physical script marked offline'
