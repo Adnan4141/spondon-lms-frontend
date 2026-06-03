@@ -44,10 +44,6 @@ function balanceToNumber(value: string | number | null | undefined): number | un
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-function isShiramProvider(provider?: string | null) {
-  return (provider || 'Shiram').trim().toUpperCase().replace(/[\s_-]+/g, '').includes('SHIRAM');
-}
-
 function buildGatewayCapability(config: Partial<SmsConfig> | undefined, rates: { maskingRate: number; nonMaskingRate: number }): SmsGatewayCapability {
   if (!config) {
     return {
@@ -61,17 +57,14 @@ function buildGatewayCapability(config: Partial<SmsConfig> | undefined, rates: {
     };
   }
 
-  const shiram = isShiramProvider(config.provider);
-  const credentialsConfigured = shiram
-    ? Boolean(config.hasApiEmail && config.hasApiKey)
-    : Boolean(config.apiKey?.trim() || config.hasApiKey);
-  const maskingSenderLabel = config.senderId?.trim() || (shiram ? 'Spondon' : 'Missing sender');
-  const nonMaskingSenderLabel = config.nonMaskingNumber?.trim() || (shiram ? 'Non-Masking' : 'Missing sender');
+  const credentialsConfigured = Boolean(config.hasApiEmail && config.hasApiKey);
+  const maskingSenderLabel = config.senderId?.trim() || 'Spondon';
+  const nonMaskingSenderLabel = config.nonMaskingNumber?.trim() || 'Non-Masking';
 
   return {
     credentialsConfigured,
-    maskingConfigured: credentialsConfigured && (shiram || Boolean(config.senderId?.trim())),
-    nonMaskingConfigured: credentialsConfigured && (shiram || Boolean(config.nonMaskingNumber?.trim())),
+    maskingConfigured: credentialsConfigured,
+    nonMaskingConfigured: credentialsConfigured,
     maskingSenderLabel,
     nonMaskingSenderLabel,
     maskingRate: Number(config.maskingRate ?? rates.maskingRate),

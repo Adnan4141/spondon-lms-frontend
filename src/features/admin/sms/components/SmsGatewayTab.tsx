@@ -180,8 +180,8 @@ export function SmsGatewayTab({
           </p>
         </Section>
 
-        {/* ── Sender configuration ── */}
-        <Section title="Sender configuration from .env" icon={Tag}>
+        {/* ── Mask label configuration ── */}
+        <Section title="Mask labels from .env" icon={Tag}>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <Label className="text-slate-600">Masking mask</Label>

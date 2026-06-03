@@ -82,7 +82,7 @@ function smsAdminErrorMessage(error: unknown) {
   if (/SHIRAM_SMS_EMAIL|SHIRAM_SMS_PASSWORD/i.test(message)) {
     return message;
   }
-  if (/No active SMS configuration|api key|sender ID not configured|Gateway not configured/i.test(message)) {
+  if (/No active SMS configuration|api key|mask label not configured|Gateway not configured/i.test(message)) {
     return 'SMS gateway is not configured. Add SMS credentials in backend .env.';
   }
   return message;

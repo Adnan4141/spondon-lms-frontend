@@ -122,7 +122,7 @@ export function SmsOverviewTab({
                 </Badge>
               </div>
               <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                <p className="text-xs font-semibold uppercase text-slate-400">Masking sender</p>
+                <p className="text-xs font-semibold uppercase text-slate-400">Masking mask</p>
                 <p className="mt-1 truncate font-semibold text-slate-800">{config.senderId || '—'}</p>
               </div>
               <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
