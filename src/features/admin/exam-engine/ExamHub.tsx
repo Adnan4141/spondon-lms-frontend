@@ -8,7 +8,8 @@ import {
   CalendarClock,
   Copy,
   Download,
-  LayoutList,
+  Eye,
+  MoreHorizontal,
   Pencil,
   Plus,
   Search,
@@ -17,6 +18,14 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { ConfirmationModal } from '@/features/admin/shared';
 import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
@@ -26,7 +35,7 @@ import { deleteExam, duplicateExam, getExams } from '@/lib/api/exams';
 import type { Exam, ExamMode, ExamStatus } from '@/types/exam';
 import type { ExamProductType } from './types';
 
-type HubTab = 'ALL' | 'DRAFT' | 'PUBLISHED' | 'UPCOMING' | 'OFFLINE';
+type HubTab = 'ALL' | 'DRAFT' | 'PUBLISHED' | 'UPCOMING' | 'OFFLINE' | 'NEEDS_ACTION';
 type TypeFilter = 'ALL' | ExamProductType;
 
 const TABS: { id: HubTab; label: string }[] = [
@@ -35,6 +44,7 @@ const TABS: { id: HubTab; label: string }[] = [
   { id: 'PUBLISHED', label: 'Published' },
   { id: 'UPCOMING', label: 'Upcoming' },
   { id: 'OFFLINE', label: 'Offline' },
+  { id: 'NEEDS_ACTION', label: 'Needs action' },
 ];
 
 const TYPE_FILTERS: { id: TypeFilter; label: string }[] = [
@@ -100,6 +110,31 @@ function formatSchedule(exam: Exam): string {
   return `Until ${fmt(exam.endAt)}`;
 }
 
+function setCount(exam: Exam) {
+  return exam._count?.sets ?? exam.sets?.length ?? 0;
+}
+
+function hasGeneratedSets(exam: Exam) {
+  return setCount(exam) > 0;
+}
+
+function needsAction(exam: Exam) {
+  if (exam.status === 'DRAFT') return true;
+  if (!hasGeneratedSets(exam)) return true;
+  if (!exam.pdfUrl) return true;
+  return false;
+}
+
+function readinessLabel(exam: Exam) {
+  if (!hasGeneratedSets(exam)) return { label: 'Needs sets', tone: 'border-amber-200 bg-amber-50 text-amber-800' };
+  if (!exam.pdfUrl) return { label: 'PDF needed', tone: 'border-amber-200 bg-amber-50 text-amber-800' };
+  return { label: 'Ready', tone: 'border-emerald-200 bg-emerald-50 text-emerald-700' };
+}
+
+function DisabledHint({ children }: { children: string }) {
+  return <span className="ml-auto text-[10px] font-semibold text-slate-400">{children}</span>;
+}
+
 export function ExamHub() {
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(true);
@@ -136,12 +171,14 @@ export function ExamHub() {
     const upcoming = exams.filter(isUpcoming).length;
     const online = exams.filter((x) => x.mode === 'ONLINE').length;
     const offline = exams.filter((x) => x.mode === 'OFFLINE').length;
+    const action = exams.filter(needsAction).length;
     return [
       { label: 'Draft', value: draft },
       { label: 'Published', value: published },
       { label: 'Upcoming', value: upcoming },
       { label: 'Online', value: online },
       { label: 'Offline', value: offline },
+      { label: 'Needs action', value: action },
     ];
   }, [exams]);
 
@@ -152,6 +189,7 @@ export function ExamHub() {
       if (tab === 'PUBLISHED' && exam.status !== 'PUBLISHED') return false;
       if (tab === 'UPCOMING' && !isUpcoming(exam)) return false;
       if (tab === 'OFFLINE' && exam.mode !== 'OFFLINE') return false;
+      if (tab === 'NEEDS_ACTION' && !needsAction(exam)) return false;
       if (statusFilter !== 'ALL' && exam.status !== statusFilter) return false;
       if (modeFilter !== 'ALL' && exam.mode !== modeFilter) return false;
       if (typeFilter !== 'ALL' && readProductType(exam) !== typeFilter) return false;
@@ -241,7 +279,7 @@ export function ExamHub() {
         </Button>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
         {metrics.map((m) => (
           <div key={m.label} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">{m.label}</p>
@@ -346,13 +384,36 @@ export function ExamHub() {
               <tbody className="divide-y divide-slate-100">
                 {filtered.map((exam) => {
                   const productType = readProductType(exam);
+                  const sets = setCount(exam);
+                  const readiness = readinessLabel(exam);
+                  const editDisabled = exam.status === 'CLOSED';
+                  const pdfDisabled = sets === 0;
+                  const resultsDisabled = exam.status === 'DRAFT' && sets === 0;
+                  const leaderboardDisabled = exam.status === 'DRAFT' || exam.showLeaderboard === false;
+                  const duplicateDisabled = duplicatingId === exam.id;
+                  const deleteDisabled = exam.status === 'PUBLISHED' && Number(exam._count?.attempts ?? 0) > 0;
                   return (
                     <tr key={exam.id} className="hover:bg-slate-50/70">
                       <td className="px-4 py-3">
-                        <p className="max-w-[320px] truncate font-bold text-slate-900">{exam.title}</p>
+                        <Link
+                          href={`/admin/exam/${exam.id}/details`}
+                          className="block max-w-[320px] truncate font-bold text-slate-900 hover:text-[#0D1B35] hover:underline"
+                        >
+                          {exam.title}
+                        </Link>
                         <p className="mt-0.5 text-xs text-slate-500">
                           {exam.course?.name ?? 'No course'} {exam.branch?.name ? `· ${exam.branch.name}` : ''}
                         </p>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          <Badge variant="outline" className={cn('text-[10px] font-black uppercase', readiness.tone)}>
+                            {readiness.label}
+                          </Badge>
+                          {exam.status === 'DRAFT' && sets === 0 ? (
+                            <Badge variant="outline" className="border-amber-200 bg-amber-50 text-[10px] font-black uppercase text-amber-800">
+                              Setup needed
+                            </Badge>
+                          ) : null}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <Badge
@@ -376,55 +437,89 @@ export function ExamHub() {
                         </Badge>
                       </td>
                       <td className="px-4 py-3 text-xs font-medium text-slate-600">{formatSchedule(exam)}</td>
-                      <td className="px-4 py-3 text-xs font-black text-slate-700">{exam._count?.sets ?? 0}</td>
+                      <td className="px-4 py-3 text-xs font-black text-slate-700">
+                        {sets} {sets === 1 ? 'set' : 'sets'}
+                      </td>
                       <td className="px-4 py-3">
-                        <div className="flex justify-end gap-1">
-                          <Button asChild size="icon" variant="ghost" className="h-8 w-8" title="Edit">
-                            <Link href={`/admin/exam/${exam.id}`}>
-                              <Pencil className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                          <Button asChild size="icon" variant="ghost" className="h-8 w-8" title="Details">
+                        <div className="flex justify-end gap-2">
+                          <Button asChild size="sm" className="h-8 bg-[#0D1B35] px-3 text-xs text-[#E2C98A] hover:bg-[#1E2F55]">
                             <Link href={`/admin/exam/${exam.id}/details`}>
-                              <LayoutList className="h-4 w-4" />
+                              <Eye className="mr-1 h-3.5 w-3.5" /> View
                             </Link>
                           </Button>
-                          <Button asChild size="icon" variant="ghost" className="h-8 w-8" title="PDF">
-                            <Link href={`/admin/exam/${exam.id}/pdf`}>
-                              <Download className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                          <Button asChild size="icon" variant="ghost" className="h-8 w-8" title="Results">
-                            <Link href={`/admin/exam/${exam.id}/results`}>
-                              <BarChart3 className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                          <Button asChild size="icon" variant="ghost" className="h-8 w-8" title="Leaderboard">
-                            <Link href={`/admin/exam/${exam.id}/leaderboard`}>
-                              <Trophy className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                          <Button
-                            type="button"
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8"
-                            title="Duplicate"
-                            disabled={duplicatingId === exam.id}
-                            onClick={() => void handleDuplicate(exam)}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 text-rose-600 hover:bg-rose-50"
-                            title="Delete"
-                            onClick={() => handleDeleteExam(exam)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button type="button" size="icon" variant="outline" className="h-8 w-8" aria-label={`Actions for ${exam.title}`}>
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-64">
+                              <DropdownMenuLabel className="text-xs text-slate-500">Exam actions</DropdownMenuLabel>
+                              <DropdownMenuItem asChild>
+                                <Link href={`/admin/exam/${exam.id}/details`}>
+                                  <Eye className="h-4 w-4" /> View
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem disabled={editDisabled} asChild={!editDisabled}>
+                                {editDisabled ? (
+                                  <>
+                                    <Pencil className="h-4 w-4" /> Edit <DisabledHint>Closed exam</DisabledHint>
+                                  </>
+                                ) : (
+                                  <Link href={`/admin/exam/${exam.id}`}>
+                                    <Pencil className="h-4 w-4" /> Edit
+                                  </Link>
+                                )}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem disabled={pdfDisabled} asChild={!pdfDisabled}>
+                                {pdfDisabled ? (
+                                  <>
+                                    <Download className="h-4 w-4" /> PDF / Paper <DisabledHint>Generate sets first</DisabledHint>
+                                  </>
+                                ) : (
+                                  <Link href={`/admin/exam/${exam.id}/pdf`}>
+                                    <Download className="h-4 w-4" /> PDF / Paper
+                                  </Link>
+                                )}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem disabled={resultsDisabled} asChild={!resultsDisabled}>
+                                {resultsDisabled ? (
+                                  <>
+                                    <BarChart3 className="h-4 w-4" /> Results & evaluation <DisabledHint>Draft not ready</DisabledHint>
+                                  </>
+                                ) : (
+                                  <Link href={`/admin/exam/${exam.id}/results`}>
+                                    <BarChart3 className="h-4 w-4" /> Results & evaluation
+                                  </Link>
+                                )}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem disabled={leaderboardDisabled} asChild={!leaderboardDisabled}>
+                                {leaderboardDisabled ? (
+                                  <>
+                                    <Trophy className="h-4 w-4" /> Leaderboard <DisabledHint>{exam.status === 'DRAFT' ? 'Draft not ready' : 'Disabled'}</DisabledHint>
+                                  </>
+                                ) : (
+                                  <Link href={`/admin/exam/${exam.id}/leaderboard`}>
+                                    <Trophy className="h-4 w-4" /> Leaderboard
+                                  </Link>
+                                )}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem disabled={duplicateDisabled} onClick={() => void handleDuplicate(exam)}>
+                                <Copy className="h-4 w-4" /> Duplicate
+                                {duplicateDisabled ? <DisabledHint>Working</DisabledHint> : null}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                disabled={deleteDisabled}
+                                variant="destructive"
+                                onClick={() => handleDeleteExam(exam)}
+                              >
+                                <Trash2 className="h-4 w-4" /> Delete
+                                {deleteDisabled ? <DisabledHint>Has attempts</DisabledHint> : null}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </td>
                     </tr>

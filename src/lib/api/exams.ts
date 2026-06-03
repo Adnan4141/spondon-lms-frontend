@@ -267,6 +267,63 @@ export async function getExamAnalytics(examId: string): Promise<ApiResponse<Exam
   return apiRequest<ApiResponse<ExamAnalytics>>(`/exams/${examId}/analytics`);
 }
 
+export type ExamOperationsSummary = {
+  exam: {
+    id: string;
+    title: string;
+    mode: string;
+    status: string;
+    branchId?: string | null;
+    resultInputModes?: string[];
+  };
+  setup: {
+    hasSections: boolean;
+    hasSets: boolean;
+    hasPdf: boolean;
+    hasSolveSheet: boolean;
+    hasOmrPdf: boolean;
+    configuredSetCount?: number | null;
+    setCount: number;
+    blueprintQuestionCount: number;
+    blueprintTotalMarks: number;
+    generatedQuestionCount: number;
+    generatedTotalMarks: number;
+  };
+  attempts: { total: number; submitted: number };
+  written: {
+    enabled: boolean;
+    totalAttempts: number;
+    pending: number;
+    partial: number;
+    evaluated: number;
+    missingMarkAnswers: number;
+  };
+  offlineResults: {
+    enabled: boolean;
+    batchTotal: number;
+    byApprovalStatus: Record<'PENDING' | 'APPROVED_BY_BRANCH' | 'APPROVED_BY_CENTRAL' | 'REJECTED', number>;
+    smsReadyBatches: number;
+  };
+  omr: {
+    enabled: boolean;
+    batchTotal: number;
+    scansByStatus: Record<'PENDING' | 'PROCESSING' | 'PROCESSED' | 'REVIEW_NEEDED' | 'REJECTED' | 'DISCARDED', number>;
+    batchesByStatus: Record<'PENDING' | 'READY' | 'FINALIZED' | 'CANCELLED', number>;
+    reviewNeeded: number;
+    finalizeReadyBatches: number;
+  };
+  recommendedAction: {
+    key: string;
+    label: string;
+    href: string;
+    severity: 'neutral' | 'warning' | 'success';
+  };
+};
+
+export async function getExamOperationsSummary(examId: string): Promise<ApiResponse<ExamOperationsSummary>> {
+  return apiRequest<ApiResponse<ExamOperationsSummary>>(`/exams/${examId}/operations-summary`);
+}
+
 export interface ExamAnalytics {
   totalAttempts: number;
   totalMarks: number;

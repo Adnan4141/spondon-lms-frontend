@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { type ElementType, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, Loader2, MessageSquare, Printer } from 'lucide-react';
+import { BarChart3, ChevronLeft, ClipboardCheck, FileSpreadsheet, Loader2, MessageSquare, Printer, ScanLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -40,6 +40,7 @@ import { OmrScanReviewPanel } from './components/OmrScanReviewPanel';
 import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
 import { SmsSendWorkspace } from '@/features/admin/sms/components/SmsSendWorkspace';
 import type { SmsRecipient } from '@/lib/api/sms';
+import { cn } from '@/lib/utils';
 
 type MeritRow = Record<string, unknown>;
 type WrittenAttemptRow = {
@@ -67,6 +68,60 @@ type WrittenAttemptDetail = {
   exam?: { title?: string };
   questions?: WrittenAttemptQuestion[];
 };
+
+function supportsWrittenEvaluation(exam: Exam | null) {
+  return Boolean(exam && ['WRITTEN', 'HYBRID', 'OFFLINE'].includes(exam.mode));
+}
+
+function supportsOfflineResults(exam: Exam | null) {
+  return Boolean(exam && (exam.mode === 'OFFLINE' || exam.settings?.examWorkflow?.method === 'OFFLINE_RESULT'));
+}
+
+function supportsOmrScan(exam: Exam | null) {
+  return Boolean(exam && (exam.resultInputModes ?? []).includes('OMR_SCAN'));
+}
+
+function WorkflowJump({
+  enabled,
+  href,
+  icon: Icon,
+  label,
+  detail,
+}: {
+  enabled: boolean;
+  href: string;
+  icon: ElementType;
+  label: string;
+  detail: string;
+}) {
+  const className = cn(
+    'flex min-h-[74px] items-start gap-3 rounded-lg border px-3 py-3 text-left transition',
+    enabled
+      ? 'border-slate-200 bg-white text-slate-900 hover:border-blue-200 hover:bg-blue-50/40'
+      : 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400',
+  );
+  const content = (
+    <>
+      <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', enabled ? 'text-blue-600' : 'text-slate-300')} />
+      <span className="min-w-0">
+        <span className="block text-sm font-bold">{label}</span>
+        <span className="mt-0.5 block text-xs leading-snug">{detail}</span>
+      </span>
+    </>
+  );
+  if (!enabled) {
+    return (
+      <button type="button" className={className} disabled>
+        {content}
+      </button>
+    );
+  }
+  return (
+    <a href={href} className={className}>
+      {content}
+    </a>
+  );
+}
 
 export function ExamResultsPage({ examId }: { examId: string }) {
   const [exam, setExam] = useState<Exam | null>(null);
@@ -98,19 +153,29 @@ export function ExamResultsPage({ examId }: { examId: string }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [ex, an, merit, batches, written] = await Promise.all([
+      const [ex, an, merit, batches] = await Promise.all([
         getExamById(examId),
         getExamAnalytics(examId),
         getExamMeritListAll(examId),
         listExamResultBatches(examId),
-        listWrittenAttempts(examId).catch(() => ({ success: false, data: [] })),
       ]);
-      if (ex.success && ex.data) setExam(ex.data);
+      const nextExam = ex.success && ex.data ? ex.data : null;
+      setExam(nextExam);
       if (an.success && an.data) setAnalytics(an.data);
       if (merit.success && merit.data?.rows) setMeritRows(merit.data.rows as MeritRow[]);
       else setMeritRows([]);
       if (batches.success && batches.data) setResultBatches(batches.data);
-      if (written.success && written.data) setWrittenAttempts(written.data as WrittenAttemptRow[]);
+      else setResultBatches([]);
+
+      if (supportsWrittenEvaluation(nextExam)) {
+        const written = await listWrittenAttempts(examId);
+        if (written.success && written.data) setWrittenAttempts(written.data as WrittenAttemptRow[]);
+        else setWrittenAttempts([]);
+      } else {
+        setWrittenAttempts([]);
+        setActiveWrittenAttempt(null);
+        setMarksDraft({});
+      }
     } finally {
       setLoading(false);
     }
@@ -135,9 +200,13 @@ export function ExamResultsPage({ examId }: { examId: string }) {
   }
 
   const stats = analytics;
-  const isOfflineResultFlow = exam?.mode === 'OFFLINE' || exam?.settings?.examWorkflow?.method === 'OFFLINE_RESULT';
-  const isWrittenEvalFlow = exam?.mode === 'WRITTEN' || exam?.mode === 'HYBRID';
-  const omrScanEnabled = (exam?.resultInputModes ?? []).includes('OMR_SCAN');
+  const isOfflineResultFlow = supportsOfflineResults(exam);
+  const isWrittenEvalFlow = supportsWrittenEvaluation(exam);
+  const omrScanEnabled = supportsOmrScan(exam);
+  const hasAnalyticsRows = Boolean((stats && stats.totalAttempts > 0) || meritRows.length || resultBatches.length);
+  const showEvaluationNotRequired = Boolean(
+    exam && !isWrittenEvalFlow && typeof window !== 'undefined' && window.location.hash === '#evaluation',
+  );
   const selectedBranchId = branchId || exam?.branchId || '';
 
   const parseBulkRows = () => bulkRows
@@ -328,8 +397,39 @@ export function ExamResultsPage({ examId }: { examId: string }) {
         <p className="mt-1 text-sm text-slate-600">Aggregated performance from submitted attempts.</p>
       </div>
 
+      <div className="grid gap-2 print:hidden sm:grid-cols-2 lg:grid-cols-4">
+        <WorkflowJump
+          enabled={hasAnalyticsRows}
+          href="#analytics"
+          icon={BarChart3}
+          label="Analytics"
+          detail={hasAnalyticsRows ? 'Performance and merit are available' : 'No attempts or result rows yet'}
+        />
+        <WorkflowJump
+          enabled={omrScanEnabled}
+          href="#omr"
+          icon={ScanLine}
+          label="OMR"
+          detail={omrScanEnabled ? 'Scan review workflow enabled' : 'OMR scan is not configured'}
+        />
+        <WorkflowJump
+          enabled={isOfflineResultFlow}
+          href="#results"
+          icon={FileSpreadsheet}
+          label="Offline results"
+          detail={isOfflineResultFlow ? 'Single, bulk, and Excel entry' : 'Not needed for this exam'}
+        />
+        <WorkflowJump
+          enabled={isWrittenEvalFlow}
+          href="#evaluation"
+          icon={ClipboardCheck}
+          label="Written evaluation"
+          detail={isWrittenEvalFlow ? 'Review scripts and finalize marks' : 'Not required for this exam'}
+        />
+      </div>
+
       {stats && stats.totalAttempts > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div id="analytics" className="grid scroll-mt-24 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Average</CardDescription>
@@ -359,7 +459,7 @@ export function ExamResultsPage({ examId }: { examId: string }) {
           </Card>
         </div>
       ) : (
-        <Card>
+        <Card id="analytics" className="scroll-mt-24">
           <CardContent className="py-8 text-center text-sm text-slate-500">
             No analytics yet — students need to submit attempts first.
           </CardContent>
@@ -367,15 +467,17 @@ export function ExamResultsPage({ examId }: { examId: string }) {
       )}
 
       {omrScanEnabled ? (
-        <OmrScanReviewPanel
-          examId={examId}
-          branchId={selectedBranchId || null}
-          onFinalized={() => void load()}
-        />
+        <div id="omr" className="scroll-mt-24">
+          <OmrScanReviewPanel
+            examId={examId}
+            branchId={selectedBranchId || null}
+            onFinalized={() => void load()}
+          />
+        </div>
       ) : null}
 
       {isOfflineResultFlow ? (
-        <Card className="border-slate-200 shadow-sm">
+        <Card id="results" className="scroll-mt-24 border-slate-200 shadow-sm">
           <CardHeader>
             <CardTitle className="font-serif text-lg text-[#0D1B35]">Offline result entry</CardTitle>
             <CardDescription>
@@ -566,8 +668,16 @@ export function ExamResultsPage({ examId }: { examId: string }) {
         </div>
       ) : null}
 
+      {showEvaluationNotRequired ? (
+        <Card id="evaluation" className="scroll-mt-24 border-slate-200 shadow-sm">
+          <CardContent className="py-8 text-center text-sm text-slate-500">
+            Written evaluation is not required for this exam.
+          </CardContent>
+        </Card>
+      ) : null}
+
       {isWrittenEvalFlow ? (
-        <Card className="border-slate-200 shadow-sm">
+        <Card id="evaluation" className="scroll-mt-24 border-slate-200 shadow-sm">
           <CardHeader>
             <CardTitle className="font-serif text-lg text-[#0D1B35]">Written evaluation</CardTitle>
             <CardDescription>Review uploaded handwritten pages, enter marks, then finalize the attempt score.</CardDescription>
