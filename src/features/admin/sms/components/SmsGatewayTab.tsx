@@ -184,13 +184,13 @@ export function SmsGatewayTab({
         <Section title="Sender configuration from .env" icon={Tag}>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <Label className="text-slate-600">Masking Sender ID</Label>
+              <Label className="text-slate-600">Masking mask</Label>
               <Input
                 value={config.senderId || 'Missing SHIRAM_SMS_MASK'}
                 readOnly
                 className={`mt-1 ${maskingReady ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}
               />
-              <p className="mt-1 text-xs text-slate-400">Masking SMS is enabled only when <code>SHIRAM_SMS_MASK</code> is set.</p>
+              <p className="mt-1 text-xs text-slate-400">Sent as Shiram <code>mask</code>; defaults to Spondon.</p>
             </div>
             <div>
               <Label className="text-slate-600">Non-masking label</Label>
@@ -209,7 +209,7 @@ export function SmsGatewayTab({
           <div className="grid gap-3 sm:grid-cols-2">
             <RateCard
               label="Masking rate"
-              description="Branded sender ID — cost per SMS segment."
+              description="Branded mask — cost per SMS segment."
               value={config.maskingRate ?? 0.6}
               onChange={(v) => update({ maskingRate: Number(v) })}
             />

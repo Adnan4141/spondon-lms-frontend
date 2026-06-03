@@ -79,16 +79,16 @@ export function SmsComposerPanel({
   );
   const length = smsLengthInfo(value.message);
   const rate = value.smsType === 'masking' ? rates.maskingRate : rates.nonMaskingRate;
-  const maskingLabel = gatewayCapability?.maskingSenderLabel || 'Sender ID';
+  const maskingLabel = gatewayCapability?.maskingSenderLabel || 'Spondon';
   const nonMaskingLabel = gatewayCapability?.nonMaskingSenderLabel || 'Non-Masking';
   const maskingDisabled = gatewayCapability ? !gatewayCapability.maskingConfigured : false;
   const nonMaskingDisabled = gatewayCapability ? !gatewayCapability.nonMaskingConfigured : false;
   const modeWarning = !gatewayCapability?.credentialsConfigured
     ? 'SMS gateway credentials are missing.'
     : value.smsType === 'masking' && maskingDisabled
-      ? 'Masking sender ID is missing. Configure it before sending masking SMS.'
+      ? 'Masking mask label is missing. Configure it before sending masking SMS.'
       : value.smsType === 'non_masking' && nonMaskingDisabled
-        ? 'Non-masking sender is missing for this provider.'
+        ? 'Non-masking mask label is missing for this provider.'
         : '';
 
   function update(patch: Partial<SmsComposerValue>) {

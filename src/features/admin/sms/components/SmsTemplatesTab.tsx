@@ -83,7 +83,7 @@ export function SmsTemplatesTab({
             <div>
               <Label>Masking default</Label>
               <p className="mt-0.5 text-xs text-slate-400">
-                {templateForm.isMasking ? 'Sends as branded sender ID' : 'Sends as non-masking number'}
+                {templateForm.isMasking ? 'Sends with branded mask' : 'Sends with non-masking mask'}
               </p>
             </div>
             <Switch

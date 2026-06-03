@@ -21,7 +21,7 @@ function professionalApiMessage(message: string, body?: unknown) {
       return 'SMS database migration is pending. Please run the latest migrations before using SMS queue features.';
     }
     if (code === 'SMS_PROVIDER_NOT_CONFIGURED') {
-      return 'SMS gateway is not configured. Add the API key in SMS Console > Settings.';
+      return 'SMS gateway is not configured. Add the SMS credentials in backend .env.';
     }
   }
 
@@ -29,7 +29,7 @@ function professionalApiMessage(message: string, body?: unknown) {
     return 'SMS database migration is pending. Please run the latest migrations before using SMS queue features.';
   }
   if (/No active SMS configuration|api key|sender ID not configured|Non-masking sender ID not configured|Masking sender ID not configured/i.test(message)) {
-    return 'SMS gateway is not configured. Add the API key and sender details in SMS Console > Settings.';
+    return 'SMS gateway is not configured. Add the SMS credentials in backend .env.';
   }
   return message;
 }

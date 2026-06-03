@@ -217,7 +217,7 @@ export function SmsSystemTab({
               <div className="grid gap-3 sm:grid-cols-2">
                 <RateCard
                   label="Masking rate"
-                  description="Branded sender ID — cost per segment."
+                  description="Branded mask — cost per segment."
                   value={branchRateForm.maskingRate}
                   disabled={branchRatesLoading}
                   onChange={(v) => setBranchRateForm((prev) => ({ ...prev, maskingRate: v }))}

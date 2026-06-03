@@ -54,7 +54,7 @@ function buildGatewayCapability(config: Partial<SmsConfig> | undefined, rates: {
       credentialsConfigured: true,
       maskingConfigured: true,
       nonMaskingConfigured: true,
-      maskingSenderLabel: 'Sender ID',
+      maskingSenderLabel: 'Spondon',
       nonMaskingSenderLabel: 'Non-Masking',
       maskingRate: rates.maskingRate,
       nonMaskingRate: rates.nonMaskingRate,
@@ -65,12 +65,12 @@ function buildGatewayCapability(config: Partial<SmsConfig> | undefined, rates: {
   const credentialsConfigured = shiram
     ? Boolean(config.hasApiEmail && config.hasApiKey)
     : Boolean(config.apiKey?.trim() || config.hasApiKey);
-  const maskingSenderLabel = config.senderId?.trim() || 'Missing sender ID';
+  const maskingSenderLabel = config.senderId?.trim() || (shiram ? 'Spondon' : 'Missing sender');
   const nonMaskingSenderLabel = config.nonMaskingNumber?.trim() || (shiram ? 'Non-Masking' : 'Missing sender');
 
   return {
     credentialsConfigured,
-    maskingConfigured: credentialsConfigured && Boolean(config.senderId?.trim()),
+    maskingConfigured: credentialsConfigured && (shiram || Boolean(config.senderId?.trim())),
     nonMaskingConfigured: credentialsConfigured && (shiram || Boolean(config.nonMaskingNumber?.trim())),
     maskingSenderLabel,
     nonMaskingSenderLabel,
@@ -92,8 +92,8 @@ function queueDisabledReason(args: {
 }) {
   if (args.providerError) return args.providerError;
   if (!args.gatewayCapability.credentialsConfigured) return 'SMS gateway credentials are missing';
-  if (args.smsType === 'masking' && !args.gatewayCapability.maskingConfigured) return 'Masking sender ID is missing';
-  if (args.smsType === 'non_masking' && !args.gatewayCapability.nonMaskingConfigured) return 'Non-masking sender is missing';
+  if (args.smsType === 'masking' && !args.gatewayCapability.maskingConfigured) return 'Masking mask label is missing';
+  if (args.smsType === 'non_masking' && !args.gatewayCapability.nonMaskingConfigured) return 'Non-masking mask label is missing';
   if (args.recipients <= 0) return 'Select recipients first';
   if (!args.message.trim()) return 'Write your message';
   if (args.wallet.scope === 'BRANCH' && !args.wallet.branchId) return 'Select a branch wallet';

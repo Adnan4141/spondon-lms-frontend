@@ -83,7 +83,7 @@ function smsAdminErrorMessage(error: unknown) {
     return message;
   }
   if (/No active SMS configuration|api key|sender ID not configured|Gateway not configured/i.test(message)) {
-    return 'SMS gateway is not configured. Add gateway settings in SMS Console > Settings.';
+    return 'SMS gateway is not configured. Add SMS credentials in backend .env.';
   }
   return message;
 }
