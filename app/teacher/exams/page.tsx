@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState, useCallback } from 'react';
 import { getExams, deleteExam } from '@/lib/api/exams';
 import { getCourses } from '@/lib/api/courses';
@@ -43,6 +44,7 @@ import {
   Activity,
   Layers,
   History,
+  ClipboardCheck,
   Calendar,
   MapPin,
   BookOpen,
@@ -73,6 +75,10 @@ function getTypeBadgeClass(type: string) {
     case 'UNIVERSITY': return 'bg-indigo-50 text-indigo-700 border-indigo-100';
     default: return 'bg-slate-50 text-slate-600 border-slate-200';
   }
+}
+
+function supportsWrittenEvaluationMode(mode: string) {
+  return ['WRITTEN', 'HYBRID', 'OFFLINE'].includes(mode);
 }
 
 function getModeBadgeClass(mode: string) {
@@ -331,6 +337,18 @@ export default function TeacherExamsPage() {
                           >
                             <Edit className="h-3.5 w-3.5 mr-1" /> Edit
                           </Button>
+                          {supportsWrittenEvaluationMode(exam.mode) ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 rounded-xl border-violet-200 bg-violet-50 px-3 text-xs font-black uppercase tracking-wider text-violet-800 hover:bg-violet-600 hover:text-white hover:border-violet-600 transition-all shadow-sm"
+                              asChild
+                            >
+                              <Link href={`/admin/exam/${exam.id}/results#evaluation`}>
+                                <ClipboardCheck className="h-3.5 w-3.5 mr-1" /> Evaluate
+                              </Link>
+                            </Button>
+                          ) : null}
                        </div>
                     </TableCell>
                   </TableRow>

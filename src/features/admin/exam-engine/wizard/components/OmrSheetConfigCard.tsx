@@ -23,13 +23,13 @@ type Props = {
  * `exam.omrQuestionCount` / `exam.omrOptionCount`.
  */
 export function OmrSheetConfigCard({ state, dispatch, deliveryMode }: Props) {
+  const sheetOptions = useMemo(() => Object.entries(OMR_SHEET_PRESETS) as [OmrSheetSize, (typeof OMR_SHEET_PRESETS)[OmrSheetSize]][], []);
   const offlineMcq =
     deliveryMode === 'OFFLINE' && (state.productType === 'MCQ' || state.productType === 'COMBINED');
   if (!offlineMcq) return null;
 
   const enabled = state.omrConfig !== null;
   const config: OmrConfig = state.omrConfig ?? { sheetSize: '50', questionCount: 50, optionCount: 4 };
-  const sheetOptions = useMemo(() => Object.entries(OMR_SHEET_PRESETS) as [OmrSheetSize, (typeof OMR_SHEET_PRESETS)[OmrSheetSize]][], []);
 
   const setConfig = (next: OmrConfig | null) => {
     dispatch({ type: 'MERGE', patch: { omrConfig: next } });
@@ -82,13 +82,13 @@ export function OmrSheetConfigCard({ state, dispatch, deliveryMode }: Props) {
               <Label>Question count</Label>
               <Input
                 type="number"
-                min={5}
-                max={500}
+                min={25}
+                max={200}
                 value={config.questionCount}
                 onChange={(event) =>
                   setConfig({
                     ...config,
-                    questionCount: Math.max(1, Math.min(500, Number(event.target.value) || 0)),
+                    questionCount: Math.max(25, Math.min(200, Number(event.target.value) || 25)),
                   })
                 }
                 className="border-slate-200"
@@ -96,19 +96,21 @@ export function OmrSheetConfigCard({ state, dispatch, deliveryMode }: Props) {
             </div>
             <div className="space-y-2">
               <Label>Options per question</Label>
-              <Input
-                type="number"
-                min={2}
-                max={6}
+              <select
                 value={config.optionCount}
-                onChange={(event) =>
+                onChange={(event) => {
+                  const optionCount = Number(event.target.value) as 3 | 4 | 5;
                   setConfig({
                     ...config,
-                    optionCount: Math.max(2, Math.min(6, Number(event.target.value) || 4)),
-                  })
-                }
-                className="border-slate-200"
-              />
+                    optionCount,
+                  });
+                }}
+                className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm"
+              >
+                <option value={3}>3 options</option>
+                <option value={4}>4 options</option>
+                <option value={5}>5 options</option>
+              </select>
             </div>
           </div>
           <p className="text-[11px] text-slate-500">

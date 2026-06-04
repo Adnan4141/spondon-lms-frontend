@@ -249,6 +249,13 @@ export function preflightExam(
       }
       if (!state.omrConfig) {
         errors.push({ level: 'error', message: 'Configure the OMR sheet (size + question count) in step 1.', step: 1 });
+      } else {
+        if (state.omrConfig.questionCount < 25 || state.omrConfig.questionCount > 200) {
+          errors.push({ level: 'error', message: 'OMR sheet supports 25–200 questions.', step: 1 });
+        }
+        if (![3, 4, 5].includes(state.omrConfig.optionCount)) {
+          errors.push({ level: 'error', message: 'OMR options must be 3, 4, or 5.', step: 1 });
+        }
       }
     }
   }
@@ -259,11 +266,13 @@ export function preflightExam(
       .filter((s) => s.type === 'MCQ')
       .reduce((sum, s) => sum + Number(s.count || 0), 0);
     if (mcqTotal && mcqTotal !== state.omrConfig.questionCount) {
-      warnings.push({
-        level: 'warning',
+      const issue = {
+        level: 'error' as const,
         message: `OMR sheet expects ${state.omrConfig.questionCount} questions, but MCQ sections total ${mcqTotal}.`,
         step: 2,
-      });
+      };
+      if (state.resultInputModes.includes('OMR_SCAN')) errors.push(issue);
+      else warnings.push({ ...issue, level: 'warning' });
     }
   }
 

@@ -24,13 +24,13 @@ export type UiExamCategory = 'MCQ' | 'CQ' | 'MCQCQ' | 'MULTI' | 'OMR' | 'OMRB' |
 
 export type SectionTypeUi = 'MCQ' | 'CQ' | 'SHORT';
 
-/** Predefined OMR sheet sizes per spec (20/30/50/100/120/Competitive). */
-export type OmrSheetSize = '20' | '30' | '50' | '100' | '120' | 'COMPETITIVE';
+/** Predefined OMR sheet sizes per Spondon public dynamic spec. */
+export type OmrSheetSize = '30' | '50' | '100' | '120' | 'COMPETITIVE';
 
 export interface OmrConfig {
   sheetSize: OmrSheetSize;
   questionCount: number;
-  optionCount: number; // 4 or 5
+  optionCount: 3 | 4 | 5;
 }
 
 export type SolveSheetVisibility = 'IMMEDIATELY' | 'HIDDEN' | 'SCHEDULED';
@@ -223,8 +223,7 @@ export function migrateLegacyUiCategory(
   }
 }
 
-export const OMR_SHEET_PRESETS: Record<OmrSheetSize, { label: string; questionCount: number; optionCount: number }> = {
-  '20': { label: '20 questions', questionCount: 20, optionCount: 4 },
+export const OMR_SHEET_PRESETS: Record<OmrSheetSize, { label: string; questionCount: number; optionCount: 3 | 4 | 5 }> = {
   '30': { label: '30 questions', questionCount: 30, optionCount: 4 },
   '50': { label: '50 questions', questionCount: 50, optionCount: 4 },
   '100': { label: '100 questions', questionCount: 100, optionCount: 4 },

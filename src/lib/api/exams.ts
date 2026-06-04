@@ -237,6 +237,12 @@ export interface OmrPdfBatchResponse {
   pdfUrl: string;
   studentCount: number;
   generatedAt: string;
+  batchId?: string;
+  layoutVersion?: string;
+  questionCount?: number;
+  optionCount?: number;
+  columns?: number;
+  warnings?: string[];
 }
 
 /**

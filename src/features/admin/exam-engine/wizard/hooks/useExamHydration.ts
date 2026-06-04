@@ -90,12 +90,13 @@ export function buildWizardPatchFromExam(exam: Exam): Partial<ExamWizardState> {
 
   // OMR config: prefer DB values (from previously saved exam), then default
   // if OMR_SCAN is in the result modes (will be re-validated by SET_COURSE).
+  const dbOptionCount = Number(exam.omrOptionCount);
   const omrFromDb =
     exam.omrQuestionCount && exam.omrOptionCount
       ? {
           sheetSize: (typeof wizard?.omrSheetSize === 'string' ? wizard.omrSheetSize : '50') as ExamWizardState['omrConfig'] extends { sheetSize: infer S } | null ? Exclude<S, undefined> : never,
           questionCount: Number(exam.omrQuestionCount),
-          optionCount: Number(exam.omrOptionCount),
+          optionCount: (dbOptionCount === 3 || dbOptionCount === 5 ? dbOptionCount : 4) as 3 | 4 | 5,
         }
       : null;
   const omrConfig = omrFromDb ?? (rawResultModes.includes('OMR_SCAN') && productType !== 'WRITTEN' ? defaultOmrConfig() : null);

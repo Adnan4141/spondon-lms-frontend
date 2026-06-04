@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server';
 const ADMIN_ROLES = ['SUPER_ADMIN', 'BRANCH_ADMIN', 'ACCOUNTS', 'MODERATOR'];
 const TEACHER_ROLE = 'TEACHER';
 const STUDENT_ROLE = 'STUDENT';
+const TEACHER_EXAM_RESULTS_PATH = /^\/admin\/exam\/[^/]+\/results\/?$/;
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -17,9 +18,12 @@ export function middleware(request: NextRequest) {
     if (role === STUDENT_ROLE) return NextResponse.redirect(new URL('/student', request.url));
   }
 
-  // Admin dashboard: require auth + admin role
+  // Admin dashboard: require auth + admin role (teachers may access exam results evaluation only)
   if (pathname.startsWith('/admin')) {
     if (!token) return NextResponse.redirect(new URL('/login', request.url));
+    if (role === TEACHER_ROLE && TEACHER_EXAM_RESULTS_PATH.test(pathname)) {
+      return NextResponse.next();
+    }
     if (role && !ADMIN_ROLES.includes(role)) {
       if (role === TEACHER_ROLE) return NextResponse.redirect(new URL('/teacher', request.url));
       if (role === STUDENT_ROLE) return NextResponse.redirect(new URL('/student', request.url));

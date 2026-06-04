@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { CheckCircle2, Download, ExternalLink, Loader2, RefreshCw, Trophy, BarChart3, LayoutList, FileScan } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { regenerateExamPdf, getExamPdfDownloadUrl, getAnswerSheetTemplateUrl, generateOmrPdfBatch } from '@/lib/api/exams';
+import { regenerateExamPdf, getExamPdfDownloadUrl, getAnswerSheetTemplateUrl, generateOmrPdfBatch, type OmrPdfBatchResponse } from '@/lib/api/exams';
 import type { ExamStatus } from '@/types/exam';
 import type { ExamBlueprintPreset } from '@/lib/api/exams';
 import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
@@ -59,6 +59,8 @@ export function Step6PreviewPublish({
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [masterPdfBusy, setMasterPdfBusy] = useState(false);
   const [omrSheetBusy, setOmrSheetBusy] = useState(false);
+  const [omrSetLabel, setOmrSetLabel] = useState('A');
+  const [latestOmrBatch, setLatestOmrBatch] = useState<OmrPdfBatchResponse | null>(null);
   const omrEnabled = state.resultInputModes.includes('OMR_SCAN');
   const status = serverExam?.status ?? null;
   const isDraft = status === 'DRAFT';
@@ -99,12 +101,33 @@ export function Step6PreviewPublish({
     window.open(getExamPdfDownloadUrl(url), '_blank', 'noopener,noreferrer');
   };
 
+  const omrMcqTotal = state.productType === 'MULTI'
+    ? state.subjects.reduce((sum, subject) => sum + Number(subject.mcqSingleCount || 0) + Number(subject.mcqPassageCount || 0), 0)
+    : state.sections
+      .filter((section) => section.type === 'MCQ')
+      .reduce((sum, section) => sum + Number(section.count || 0), 0);
+  const omrCountMismatch = Boolean(
+    omrEnabled
+    && state.omrConfig
+    && omrMcqTotal
+    && omrMcqTotal !== state.omrConfig.questionCount,
+  );
+
   const generateOmrSheets = async () => {
     if (!examId) return;
+    if (omrCountMismatch) {
+      toast({
+        title: 'OMR count mismatch',
+        description: `OMR sheet expects ${state.omrConfig?.questionCount} questions, but MCQ sections total ${omrMcqTotal}.`,
+        variant: 'destructive',
+      });
+      return;
+    }
     setOmrSheetBusy(true);
     try {
       const r = await generateOmrPdfBatch(examId, {
         branchId: resolveWizardBranchIdForApi(state.branchId),
+        setLabel: omrSetLabel,
       });
       if (!r.success || !r.data?.pdfUrl) {
         toast({
@@ -118,6 +141,7 @@ export function Step6PreviewPublish({
         title: 'OMR sheets ready',
         description: `${r.data.studentCount} per-student OMR pages generated. Print on plain A4 (no scaling).`,
       });
+      setLatestOmrBatch(r.data);
       window.open(getExamPdfDownloadUrl(r.data.pdfUrl), '_blank', 'noopener,noreferrer');
       await onRefreshMeta();
     } finally {
@@ -187,17 +211,29 @@ export function Step6PreviewPublish({
                 </Button>
               ) : null}
               {omrEnabled ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="gap-2 border-[#C8A96E] text-[#7A6035] hover:bg-[#FBF4E6]"
-                  disabled={omrSheetBusy}
-                  onClick={() => void generateOmrSheets()}
-                >
-                  {omrSheetBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileScan className="h-4 w-4" />}
-                  Generate answer OMR sheets
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    value={omrSetLabel}
+                    onChange={(event) => setOmrSetLabel(event.target.value)}
+                    className="h-9 rounded-md border border-[#C8A96E] bg-white px-2 text-sm font-semibold text-[#7A6035]"
+                    aria-label="OMR set label"
+                  >
+                    {'ABCDEFGHIJ'.split('').map((label) => (
+                      <option key={label} value={label}>SET {label}</option>
+                    ))}
+                  </select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 border-[#C8A96E] text-[#7A6035] hover:bg-[#FBF4E6]"
+                    disabled={omrSheetBusy || omrCountMismatch}
+                    onClick={() => void generateOmrSheets()}
+                  >
+                    {omrSheetBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileScan className="h-4 w-4" />}
+                    Generate answer OMR sheets
+                  </Button>
+                </div>
               ) : null}
               <Button
                 type="button"
@@ -269,6 +305,26 @@ export function Step6PreviewPublish({
                 <span className="self-center text-xs text-slate-500">Status: —</span>
               ) : null}
             </div>
+            {omrCountMismatch ? (
+              <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800">
+                OMR sheet expects {state.omrConfig?.questionCount} questions, but MCQ sections total {omrMcqTotal}. Update Step 1 or Step 2 before generating OMR sheets.
+              </div>
+            ) : null}
+            {latestOmrBatch ? (
+              <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+                <p className="font-bold">
+                  OMR batch ready: {latestOmrBatch.questionCount}Q / {latestOmrBatch.optionCount} options · {latestOmrBatch.columns} columns · {latestOmrBatch.studentCount} students
+                </p>
+                <p className="mt-1">Layout: {latestOmrBatch.layoutVersion ?? 'spondon_public_dynamic_v1'} · SET {omrSetLabel}</p>
+                {latestOmrBatch.warnings?.length ? (
+                  <ul className="mt-2 list-disc space-y-1 pl-4">
+                    {latestOmrBatch.warnings.slice(0, 6).map((warning, index) => (
+                      <li key={index}>{warning}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            ) : null}
             {isPublished ? (
               <p className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
                 This exam is already published. Students can access it if schedule and enrollment allow.
