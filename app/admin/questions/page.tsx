@@ -6,9 +6,10 @@ import {
   deleteQuestionFolder,
   getQuestions,
   getQuestionById,
-  auditCqQuestions,
   deleteQuestion,
   bulkDeleteQuestions,
+  copyQuestion,
+  bulkCopyQuestions,
   moveQuestion,
   bulkMoveQuestions,
   getPassages,
@@ -60,8 +61,8 @@ import {
   AlignLeft,
   PenLine,
   ArrowRightLeft,
+  Copy,
   Upload,
-  ShieldAlert,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
@@ -134,13 +135,15 @@ function buildFolderPathLabel(folder: QuestionFolder, folders: QuestionFolder[])
   return segments.join(' / ');
 }
 
-function QuestionMoveModalContent({
+function QuestionFolderActionModalContent({
   folders,
   itemCount,
+  action,
   onSubmit,
 }: {
   folders: QuestionFolder[];
   itemCount: number;
+  action: 'move' | 'copy';
   onSubmit: (targetFolderId: string) => Promise<void>;
 }) {
   const { closeModal } = useModalStore();
@@ -168,13 +171,18 @@ function QuestionMoveModalContent({
       setSubmitting(false);
     }
   };
+  const actionLabel = action === 'move' ? 'Move' : 'Copy';
+  const actionVerb = action === 'move' ? 'moved' : 'copied';
+  const submittingLabel = action === 'move' ? 'Moving...' : 'Copying...';
 
   return (
     <div className="space-y-5">
       <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Move Selection</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
+          {actionLabel} Selection
+        </p>
         <p className="mt-2 text-sm font-semibold text-slate-700">
-          {itemCount} question{itemCount > 1 ? 's' : ''} will be moved to a new folder.
+          {itemCount} question{itemCount > 1 ? 's' : ''} will be {actionVerb} to a new folder.
         </p>
       </div>
 
@@ -210,7 +218,7 @@ function QuestionMoveModalContent({
           onClick={handleSubmit}
           disabled={!targetFolderId || submitting}
         >
-          {submitting ? 'Moving...' : `Move ${itemCount} Question${itemCount > 1 ? 's' : ''}`}
+          {submitting ? submittingLabel : `${actionLabel} ${itemCount} Question${itemCount > 1 ? 's' : ''}`}
         </Button>
       </div>
     </div>
@@ -476,54 +484,6 @@ export default function QuestionsPage() {
     });
   };
 
-  const handleCqAudit = async () => {
-    if (!activeFolderId) return;
-    const res = await auditCqQuestions(activeFolderId);
-    if (!res.success || !res.data) {
-      toast({ title: 'CQ audit failed', description: res.message || 'Could not audit CQ questions.', variant: 'destructive' });
-      return;
-    }
-
-    openModal({
-      title: 'CQ Quality Audit',
-      description: `${res.data.issueCount} issue(s) across ${res.data.blockCount} creative block(s).`,
-      className: 'sm:max-w-3xl',
-      content: (
-        <div className="max-h-[65vh] space-y-3 overflow-y-auto">
-          {res.data.issues.length === 0 ? (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-700">
-              No CQ quality issues found in this folder.
-            </div>
-          ) : (
-            res.data.issues.map((issue) => (
-              <div key={`${issue.groupId}-${issue.code}`} className="rounded-xl border border-rose-200 bg-rose-50 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="border-rose-200 bg-white text-rose-700">
-                      {issue.code}
-                    </Badge>
-                    <span className="text-sm font-bold text-rose-700">{issue.message}</span>
-                  </div>
-                  {issue.questionIds[0] ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => void handleEditQuestion(issue.questionIds[0])}
-                      className="h-8 rounded-lg border-rose-200 bg-white text-xs font-bold text-rose-700"
-                    >
-                      Edit CQ
-                    </Button>
-                  ) : null}
-                </div>
-                <p className="mt-2 text-xs font-medium text-slate-500">Question ID: {issue.questionIds.join(', ')}</p>
-              </div>
-            ))
-          )}
-        </div>
-      ),
-    });
-  };
-
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -639,9 +599,10 @@ export default function QuestionsPage() {
           : `Move ${questionIds.length} selected questions to another folder.`,
       className: 'sm:max-w-lg',
       content: (
-        <QuestionMoveModalContent
+        <QuestionFolderActionModalContent
           folders={folders}
           itemCount={questionIds.length}
+          action="move"
           onSubmit={async (targetFolderId) => {
             try {
               if (questionIds.length === 1) {
@@ -664,6 +625,51 @@ export default function QuestionsPage() {
               toast({
                 title: 'Move failed',
                 description: error instanceof Error ? error.message : 'Could not move the selected questions.',
+                variant: 'destructive',
+              });
+              throw error;
+            }
+          }}
+        />
+      ),
+    });
+  };
+
+  const openCopyQuestionsModal = (questionIds: string[]) => {
+    openModal({
+      title: questionIds.length === 1 ? 'Copy Question' : 'Copy Questions',
+      description:
+        questionIds.length === 1
+          ? 'Copy this question to another folder.'
+          : `Copy ${questionIds.length} selected questions to another folder.`,
+      className: 'sm:max-w-lg',
+      content: (
+        <QuestionFolderActionModalContent
+          folders={folders}
+          itemCount={questionIds.length}
+          action="copy"
+          onSubmit={async (targetFolderId) => {
+            try {
+              if (questionIds.length === 1) {
+                await copyQuestion({ questionId: questionIds[0], targetFolderId });
+              } else {
+                await bulkCopyQuestions({ questionIds, targetFolderId });
+              }
+
+              await Promise.all([loadQuestions(), loadFolders()]);
+              setSelectedQuestionIds((prev) => prev.filter((id) => !questionIds.includes(id)));
+              toast({
+                title: 'Success',
+                description:
+                  questionIds.length === 1
+                    ? 'Question copied successfully.'
+                    : `${questionIds.length} questions copied successfully.`,
+                variant: 'success',
+              });
+            } catch (error: unknown) {
+              toast({
+                title: 'Copy failed',
+                description: error instanceof Error ? error.message : 'Could not copy the selected questions.',
                 variant: 'destructive',
               });
               throw error;
@@ -969,17 +975,6 @@ export default function QuestionsPage() {
                 <Upload className="mr-1.5 h-4 w-4" />
                 Bulk Import
               </Button>
-              {activeTab === 'CQ' ? (
-                <Button
-                  variant="outline"
-                  onClick={() => void handleCqAudit()}
-                  disabled={!activeFolderId}
-                  className="h-9 rounded-xl bg-white border-slate-200 text-slate-700 font-bold hover:bg-slate-50 shadow-sm text-sm disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <ShieldAlert className="mr-1.5 h-4 w-4" />
-                  CQ Audit
-                </Button>
-              ) : null}
               <Button
                 variant="outline"
                 onClick={() => handleCreateFolder()}
@@ -1331,6 +1326,15 @@ export default function QuestionsPage() {
                             <Button
                               type="button"
                               variant="outline"
+                              className="h-9 rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+                              onClick={() => openCopyQuestionsModal(selectedQuestionIds)}
+                            >
+                              <Copy className="mr-1.5 h-4 w-4" />
+                              Copy Selected
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
                               className="h-9 rounded-xl border-rose-200 bg-white text-rose-600 hover:bg-rose-50 hover:text-rose-700"
                               onClick={() => openDeleteQuestionsModal(selectedQuestionIds)}
                             >
@@ -1375,7 +1379,7 @@ export default function QuestionsPage() {
                           <TableHead className="py-3 text-xs font-black uppercase tracking-wider text-slate-500 w-[70px]">
                             Year
                           </TableHead>
-                          <TableHead className="py-3 pr-6 w-[90px]" />
+                          <TableHead className="py-3 pr-6 w-[180px]" />
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1537,6 +1541,15 @@ export default function QuestionsPage() {
                                         title="Move"
                                       >
                                         <ArrowRightLeft className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 rounded-xl text-slate-400 hover:bg-sky-50 hover:text-sky-600"
+                                        onClick={() => openCopyQuestionsModal([q.id])}
+                                        title="Copy"
+                                      >
+                                        <Copy className="h-4 w-4" />
                                       </Button>
                                       <Button
                                         variant="ghost"

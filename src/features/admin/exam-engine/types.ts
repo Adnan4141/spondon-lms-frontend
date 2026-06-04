@@ -12,7 +12,8 @@ import type { Course } from '@/types/course';
  * conflated type, mode, and result-entry method.
  *
  * Orthogonal axes are now: { productType, courseId, omrConfig?, resultInputModes[], smsNotification }.
- * Delivery mode is derived from the selected course's type — never stored in state.
+ * Delivery mode is derived from the selected course's type in the wizard, then persisted
+ * into settings.examWorkflow so runtime routing never has to guess from Exam.mode.
  */
 export type ExamProductType = 'MCQ' | 'WRITTEN' | 'COMBINED' | 'MULTI';
 
@@ -81,7 +82,7 @@ export interface ExamWizardState {
 
   /**
    * Exam product type axis.
-   * Delivery mode is NOT stored here — derive it via {@link getEffectiveDeliveryMode}.
+   * Delivery mode is not stored in wizard state — derive it via {@link getEffectiveDeliveryMode}.
    */
   productType: ExamProductType | '';
   omrConfig: OmrConfig | null;

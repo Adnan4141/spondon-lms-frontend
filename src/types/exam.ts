@@ -106,6 +106,21 @@ export type ExamEngineType =
   | 'OMR_BOOK';
 export type ExamMode = 'ONLINE' | 'OFFLINE' | 'WRITTEN' | 'HYBRID';
 export type ExamStatus = 'DRAFT' | 'PUBLISHED' | 'CLOSED';
+export type ExamDeliveryMode = 'ONLINE' | 'OFFLINE';
+export type ExamEvaluationMode = 'AGGREGATE' | 'SCRIPT_UPLOAD';
+export type StudentExamResultStatus =
+  | 'NOT_SUBMITTED'
+  | 'PENDING_BRANCH_APPROVAL'
+  | 'PENDING_CENTRAL_APPROVAL'
+  | 'PUBLISHED'
+  | 'LEGACY_RESULT';
+
+export interface ExamWorkflowSnapshot {
+  deliveryMode: ExamDeliveryMode;
+  resultInputModes: ResultInputMode[];
+  evaluationMode: ExamEvaluationMode;
+  officialResultPipeline: 'RESULT_BATCH';
+}
 
 export interface Course {
   id: string;
@@ -218,6 +233,8 @@ export interface Exam {
   omrOptionCount?: number | null;
   omrGeneratedUrl?: string | null;
   resultInputModes?: ResultInputMode[];
+  examWorkflow?: ExamWorkflowSnapshot;
+  resultStatus?: StudentExamResultStatus;
   language?: string;
   examCourses?: ExamCourseLink[];
   solveSheetVisibility?: string | null;
@@ -287,6 +304,8 @@ export interface ExamStudentView {
   canAttempt?: boolean;
   hasInProgressAttempt?: boolean;
   latestCompletedAttemptId?: string | null;
+  examWorkflow?: ExamWorkflowSnapshot;
+  resultStatus?: StudentExamResultStatus;
 }
 
 export interface CreateExamDto {

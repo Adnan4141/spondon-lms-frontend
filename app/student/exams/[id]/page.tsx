@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Timer, AlertTriangle, CheckCircle2, Loader2, Eye, Trophy, XCircle, Building2, Download, FileText, PenLine, CalendarClock, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { isOfflineDeliveryExam } from '@/lib/exam-workflow';
 
 import {
   detectQuestionLang,
@@ -198,7 +199,7 @@ export default function StudentExamTakingPage() {
         }
         setExamMeta(viewRes.data);
 
-        if (viewRes.data.mode === 'OFFLINE') {
+        if (isOfflineDeliveryExam(viewRes.data)) {
           setPhase('offline');
           return;
         }

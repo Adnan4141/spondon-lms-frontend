@@ -27,9 +27,16 @@ import {
   type OmrScanStatus,
 } from '@/lib/api/exam-results';
 
+type BranchOption = { id: string; name: string };
+
 type Props = {
   examId: string;
   branchId?: string | null;
+  examBranchId?: string | null;
+  branches?: BranchOption[];
+  /** When true (e.g. Super Admin + all-branches exam), show branch selector before finalize. */
+  showBranchPicker?: boolean;
+  onBranchIdChange?: (branchId: string) => void;
   onFinalized?: (resultBatchId: string) => void;
 };
 
@@ -54,7 +61,15 @@ const STATUS_BADGE: Record<OmrScanStatus, { label: string; className: string }> 
   DISCARDED: { label: 'Discarded', className: 'bg-slate-100 text-slate-500' },
 };
 
-export function OmrScanReviewPanel({ examId, branchId, onFinalized }: Props) {
+export function OmrScanReviewPanel({
+  examId,
+  branchId,
+  examBranchId,
+  branches = [],
+  showBranchPicker = false,
+  onBranchIdChange,
+  onFinalized,
+}: Props) {
   const toast = useAdminToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [scans, setScans] = useState<OmrScan[]>([]);
@@ -120,7 +135,7 @@ export function OmrScanReviewPanel({ examId, branchId, onFinalized }: Props) {
     setUploading(true);
     try {
       const r = await uploadOmrScanBatch(examId, Array.from(files), {
-        branchId: branchId ?? undefined,
+        branchId: branchId || examBranchId || undefined,
         uploadedBy,
       });
       if (!r.success) {
@@ -177,6 +192,9 @@ export function OmrScanReviewPanel({ examId, branchId, onFinalized }: Props) {
     }
   };
 
+  const effectiveBranchId = branchId || examBranchId || '';
+  const needsBranchSelection = showBranchPicker && !examBranchId && !effectiveBranchId;
+
   const finalize = async (batch: OmrScanBatch) => {
     if (batch.status === 'FINALIZED') return;
     const uploadedBy = getActorUserIdFromStorage();
@@ -184,16 +202,25 @@ export function OmrScanReviewPanel({ examId, branchId, onFinalized }: Props) {
       toast({ title: 'Sign in required', variant: 'destructive' });
       return;
     }
+    const finalizeBranchId = branchId || examBranchId || batch.branchId || undefined;
+    if (showBranchPicker && !examBranchId && !finalizeBranchId) {
+      toast({
+        title: 'Select a branch',
+        description: 'All-branches exams need a branch before writing OMR results to the result queue.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setFinalizingBatchId(batch.id);
     try {
       const r = await finalizeOmrBatch(examId, batch.id, {
-        branchId: branchId ?? batch.branchId ?? undefined,
+        branchId: finalizeBranchId,
         uploadedBy,
       });
       if (!r.success) {
         toast({
           title: r.message ?? 'Finalize failed',
-          description: 'Make sure scans have matched students and the branch is set.',
+          description: 'Make sure scans have matched students. For all-branches exams, pick a branch above.',
           variant: 'destructive',
         });
         return;
@@ -231,6 +258,28 @@ export function OmrScanReviewPanel({ examId, branchId, onFinalized }: Props) {
       </CardHeader>
 
       <CardContent className="space-y-5">
+        {showBranchPicker && !examBranchId ? (
+          <div className="max-w-sm space-y-2 rounded-lg border border-amber-200 bg-amber-50/80 p-3">
+            <label className="text-xs font-semibold text-amber-900">Branch for result batch</label>
+            <p className="text-[11px] text-amber-800">
+              This exam applies to all branches. Choose which branch receives the result batch when you write OMR scans to results (Super Admin can pick any branch).
+            </p>
+            <select
+              className="h-10 w-full rounded-md border border-amber-200 bg-white px-3 text-sm"
+              value={branchId ?? ''}
+              onChange={(event) => onBranchIdChange?.(event.target.value)}
+            >
+              <option value="">Select branch</option>
+              {branches.map((b) => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))}
+            </select>
+            {needsBranchSelection ? (
+              <p className="text-[11px] font-medium text-amber-900">Required before &quot;Write to results&quot;.</p>
+            ) : null}
+          </div>
+        ) : null}
+
         {/* ── Upload ─────────────────────────────────────────────────── */}
         <div
           className="rounded-lg border-2 border-dashed border-slate-300 bg-slate-50/60 p-6 text-center"

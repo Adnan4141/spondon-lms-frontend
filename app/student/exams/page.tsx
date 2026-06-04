@@ -23,6 +23,7 @@ import {
   CalendarClock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { isOfflineDeliveryExam } from '@/lib/exam-workflow';
 
 function getTypeBadgeClass(type: string) {
   switch (type) {
@@ -85,6 +86,21 @@ function writtenPrimaryAction(exam: Exam) {
   return 'View result';
 }
 
+function resultStatusLabel(exam: Exam): string | null {
+  switch (exam.resultStatus) {
+    case 'PUBLISHED':
+      return 'Result published';
+    case 'PENDING_CENTRAL_APPROVAL':
+      return 'Result pending central approval';
+    case 'PENDING_BRANCH_APPROVAL':
+      return 'Result pending branch approval';
+    case 'LEGACY_RESULT':
+      return 'Legacy result available';
+    default:
+      return null;
+  }
+}
+
 export default function StudentExamsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -112,17 +128,18 @@ export default function StudentExamsPage() {
     fetchExams();
   }, []);
 
-  const hallExams = exams.filter((e) => e.mode === 'OFFLINE');
-  const writtenExams = exams.filter((e) => e.mode === 'WRITTEN' || e.mode === 'HYBRID');
+  const hallExams = exams.filter((e) => isOfflineDeliveryExam(e));
+  const writtenExams = exams.filter((e) => !isOfflineDeliveryExam(e) && (e.mode === 'WRITTEN' || e.mode === 'HYBRID'));
   const availableWritten = writtenExams.filter((e) => e.canAttempt || e.hasInProgress);
   const completedWritten = writtenExams.filter(
     (e) => !e.canAttempt && !e.hasInProgress && (e.studentAttempts?.length ?? 0) > 0,
   );
   const availableOnline = exams.filter(
-    (e) => e.mode === 'ONLINE' && (e.canAttempt || e.hasInProgress),
+    (e) => !isOfflineDeliveryExam(e) && e.mode === 'ONLINE' && (e.canAttempt || e.hasInProgress),
   );
   const completedOnline = exams.filter(
     (e) =>
+      !isOfflineDeliveryExam(e) &&
       e.mode === 'ONLINE' &&
       !e.canAttempt &&
       !e.hasInProgress &&
@@ -275,6 +292,11 @@ export default function StudentExamsPage() {
                     ) : null}
                   </div>
                   <div className="mt-4 pt-4 border-t border-amber-200/80 flex flex-col gap-2">
+                    {resultStatusLabel(exam) ? (
+                      <div className="rounded-lg border border-amber-200 bg-white/80 px-3 py-2 text-[11px] font-black text-amber-900">
+                        {resultStatusLabel(exam)}
+                      </div>
+                    ) : null}
                     <Button
                       className="w-full h-10 rounded-xl font-black uppercase tracking-widest text-[10px] bg-amber-600 hover:bg-amber-700 text-white"
                       onClick={(e) => {

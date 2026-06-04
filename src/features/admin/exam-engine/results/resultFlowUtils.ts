@@ -1,15 +1,16 @@
 import type { Exam } from '@/types/exam';
+import { resolveExamWorkflow } from '@/lib/exam-workflow';
 
 export function supportsWrittenEvaluation(exam: Exam | null) {
-  return Boolean(exam && ['WRITTEN', 'HYBRID', 'OFFLINE'].includes(exam.mode));
+  return Boolean(resolveExamWorkflow(exam)?.supportsWrittenEvaluation);
 }
 
 export function supportsOfflineResults(exam: Exam | null) {
-  return Boolean(exam && (exam.mode === 'OFFLINE' || exam.settings?.examWorkflow?.method === 'OFFLINE_RESULT'));
+  return Boolean(resolveExamWorkflow(exam)?.supportsOfflineResults);
 }
 
 export function supportsOmrScan(exam: Exam | null) {
-  return Boolean(exam && (exam.resultInputModes ?? []).includes('OMR_SCAN'));
+  return Boolean(resolveExamWorkflow(exam)?.supportsOmrScan);
 }
 
 export function parseBulkResultRows(input: string) {

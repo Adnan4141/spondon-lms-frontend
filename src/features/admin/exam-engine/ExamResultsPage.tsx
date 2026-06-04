@@ -67,7 +67,7 @@ type ExamResultsPageProps = {
 };
 
 export function ExamResultsPage({ examId, teacherEvaluatorMode = false }: ExamResultsPageProps) {
-  const { can, isTeacherEvaluator, branchScope } = useExamResultsPermissions();
+  const { can, isTeacherEvaluator, branchScope, isOrgWide } = useExamResultsPermissions();
   const evaluatorMode = teacherEvaluatorMode || isTeacherEvaluator;
   const [exam, setExam] = useState<Exam | null>(null);
   const [analytics, setAnalytics] = useState<ExamAnalytics | null>(null);
@@ -397,7 +397,15 @@ export function ExamResultsPage({ examId, teacherEvaluatorMode = false }: ExamRe
 
         <TabsContent value="omr" className="mt-0">
           {omrScanEnabled ? (
-            <OmrResultsTab examId={examId} branchId={selectedBranchId || null} onFinalized={() => void load()} />
+            <OmrResultsTab
+              examId={examId}
+              branchId={branchId || selectedBranchId || null}
+              examBranchId={exam?.branchId}
+              branches={branches}
+              showBranchPicker={isOrgWide && !exam?.branchId}
+              onBranchIdChange={setBranchId}
+              onFinalized={() => void load()}
+            />
           ) : (
             <UnavailableResultsTab message="OMR scan review is not configured for this exam." />
           )}

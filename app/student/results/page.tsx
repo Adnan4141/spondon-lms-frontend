@@ -10,6 +10,7 @@ import { getExamPdfDownloadUrl } from '@/lib/api/exams';
 
 interface OfflineResult {
   id: string;
+  examId?: string;
   subject?: string;
   rollNo?: string;
   obtainedMarks?: number;
@@ -88,9 +89,11 @@ export default function StudentResultsPage() {
   const visibleOfficial = officialExamResults.filter(
     (r) => r.batchApprovalStatus === 'APPROVED_BY_CENTRAL',
   );
+  const officialExamIds = new Set(visibleOfficial.map((r) => r.examId).filter(Boolean));
+  const visibleLegacyOffline = offlineResults.filter((r) => !r.examId || !officialExamIds.has(r.examId));
   const hasResults =
     attempts.length > 0 ||
-    offlineResults.length > 0 ||
+    visibleLegacyOffline.length > 0 ||
     academicRecords.length > 0 ||
     visibleOfficial.length > 0;
 
@@ -224,16 +227,16 @@ export default function StudentResultsPage() {
             </div>
           )}
 
-          {offlineResults.length > 0 && (
+          {visibleLegacyOffline.length > 0 && (
             <div className="space-y-6">
                <div className="flex items-center gap-3">
                  <div className="h-8 w-8 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
                     <Award className="h-5 w-5" />
                  </div>
-                 <h2 className="text-2xl font-black text-slate-900 tracking-tight">Offline Exam Results</h2>
+                 <h2 className="text-2xl font-black text-slate-900 tracking-tight">Legacy Offline Results</h2>
               </div>
               <div className="grid gap-6 sm:grid-cols-2">
-                {offlineResults.map((r: OfflineResult) => (
+                {visibleLegacyOffline.map((r: OfflineResult) => (
                   <Card key={r.id} className="group rounded-[2rem] border-none bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] transition-all duration-500 overflow-hidden">
                     <CardContent className="p-8">
                       <div className="flex items-start justify-between mb-6">

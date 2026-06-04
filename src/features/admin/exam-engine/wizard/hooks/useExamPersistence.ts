@@ -87,7 +87,7 @@ export function useExamPersistence({ examId, state, serverExam, effectiveDeliver
         settings: {
           examWizard: {
             productType,
-            // deliveryMode intentionally omitted — course-derived, not stored
+            deliveryMode: effectiveDeliveryMode,
             shuffle: state.shuffle,
             setNaming: state.setNaming,
             resultInputModes: state.resultInputModes,
@@ -99,9 +99,12 @@ export function useExamPersistence({ examId, state, serverExam, effectiveDeliver
           },
           examWorkflow: {
             productType,
-            submissionOwner: isWritten ? 'STUDENT' : undefined,
-            writtenSubmission: isWritten ? 'CAMERA_OR_PDF' : undefined,
+            deliveryMode: effectiveDeliveryMode,
             resultInputModes: state.resultInputModes,
+            evaluationMode: effectiveDeliveryMode === 'OFFLINE' ? 'AGGREGATE' : 'SCRIPT_UPLOAD',
+            officialResultPipeline: 'RESULT_BATCH',
+            submissionOwner: isWritten && effectiveDeliveryMode === 'ONLINE' ? 'STUDENT' : 'ADMIN',
+            writtenSubmission: isWritten && effectiveDeliveryMode === 'ONLINE' ? 'CAMERA_OR_PDF' : undefined,
             enableQrAnswerSheet: isWritten,
             enablePdfCombine: isWritten,
             sms: { enabled: state.smsNotification },

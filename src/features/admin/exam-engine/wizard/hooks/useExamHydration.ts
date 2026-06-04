@@ -69,7 +69,8 @@ export function buildWizardPatchFromExam(exam: Exam): Partial<ExamWizardState> {
 
   const productType: ExamProductType | '' = storedProductType || legacyMigration?.productType || '';
 
-  // deliveryMode is no longer stored in state — load raw resultInputModes from the
+  // deliveryMode is persisted in examWorkflow for routing, but not kept in wizard
+  // state. Load raw resultInputModes from the
   // saved exam and let the SET_COURSE action (fired after courses list loads)
   // sanitize them against the live course.type.
   const rawResultModes: ResultInputMode[] = Array.isArray(exam.resultInputModes) && exam.resultInputModes.length
@@ -107,7 +108,7 @@ export function buildWizardPatchFromExam(exam: Exam): Partial<ExamWizardState> {
     branchId: exam.branchId ?? EXAM_WIZARD_ALL_BRANCHES,
     language: exam.language ?? 'bn',
     durationMinutes: String(exam.durationMinutes ?? 60),
-    // deliveryMode intentionally omitted — derived from course.type via selector
+    // deliveryMode intentionally omitted from state — derived from course.type via selector
     autoSubmitOnDisconnect: Boolean(exam.autoSubmitOnDisconnect),
     disconnectGraceSeconds: String(exam.disconnectGraceSeconds ?? 10),
     showSolve:
