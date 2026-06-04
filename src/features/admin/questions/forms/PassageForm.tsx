@@ -57,7 +57,6 @@ export function PassageForm({ folders, passage, initialFolderId, onSuccess }: Pa
   const { toast } = useToast();
   const [form, setForm] = useState({
     folderId: initialFolderId || '',
-    title: '',
     content: '',
     difficulty: 'EASY' as Difficulty | undefined,
     year: CURRENT_YEAR as number | undefined,
@@ -75,7 +74,6 @@ export function PassageForm({ folders, passage, initialFolderId, onSuccess }: Pa
     if (passage) {
       setForm({
         folderId: passage.folderId,
-        title: passage.title || '',
         content: passage.content,
         difficulty: passage.difficulty || undefined,
         year: passage.year || undefined,
@@ -214,7 +212,7 @@ export function PassageForm({ folders, passage, initialFolderId, onSuccess }: Pa
 
       const payload = {
         folderId: form.folderId,
-        title: form.title || undefined,
+        title: null,
         content: form.content,
         difficulty: form.difficulty,
         year: form.year,
@@ -258,31 +256,20 @@ export function PassageForm({ folders, passage, initialFolderId, onSuccess }: Pa
       <div className="flex-1 min-h-0 overflow-y-auto px-8 py-8 no-scrollbar">
         <div className="space-y-8">
           {/* Passage Metadata */}
-          <div className="grid gap-6 sm:grid-cols-2">
-            <div className="space-y-2">
-              <label className={sectionLabel}>Target Folder</label>
-              <Select value={form.folderId} onValueChange={(v) => setForm((prev) => ({ ...prev, folderId: v }))}>
-                <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
-                  <SelectValue placeholder="Select Folder" />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
-                  {folders.map((f) => (
-                    <SelectItem key={f.id} value={f.id} className="text-sm font-medium">
-                      {f.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <label className={sectionLabel}>Title (Optional)</label>
-              <Input
-                className={inputClass}
-                value={form.title}
-                onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
-                placeholder="e.g., Physics Passage Set"
-              />
-            </div>
+          <div className="space-y-2">
+            <label className={sectionLabel}>Target Folder</label>
+            <Select value={form.folderId} onValueChange={(v) => setForm((prev) => ({ ...prev, folderId: v }))}>
+              <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-slate-50/50 px-4 font-bold text-slate-700 shadow-inner">
+                <SelectValue placeholder="Select Folder" />
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
+                {folders.map((f) => (
+                  <SelectItem key={f.id} value={f.id} className="text-sm font-medium">
+                    {f.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid gap-6 sm:grid-cols-3">

@@ -358,7 +358,7 @@ export function QuestionForm({
                         </SelectTrigger>
                         <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
                            <SelectItem value="none" className="text-sm font-medium">No Combined MCQ</SelectItem>
-                           {passages.map(p => <SelectItem key={p.id} value={p.id} className="text-sm font-medium">{p.title || p.content.slice(0, 30)}...</SelectItem>)}
+                           {passages.map(p => <SelectItem key={p.id} value={p.id} className="text-sm font-medium">{p.content.replace(/<[^>]+>/g, ' ').trim().slice(0, 40)}...</SelectItem>)}
                         </SelectContent>
                      </Select>
                   </div>

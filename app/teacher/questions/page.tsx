@@ -513,7 +513,9 @@ export default function TeacherQuestionsPage() {
                                   {p.difficulty && <Badge variant="outline" className={cn("px-2 py-0.5 text-[10px] shadow-sm", getDifficultyBadgeClass(p.difficulty))}>{p.difficulty}</Badge>}
                                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">({p.questions?.length || 0} Inquiries)</span>
                                 </div>
-                                <h3 className="text-lg font-black tracking-tight text-slate-900 group-hover:text-indigo-600 transition-colors">{p.title || 'Untitled Combined Asset'}</h3>
+                                <h3 className="text-lg font-black tracking-tight text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-2">
+                                  {(p.content || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120) || 'Passage'}
+                                </h3>
                                 {!isExpanded && <p className="text-base font-medium text-slate-500 line-clamp-2 leading-relaxed">{stripHtml(p.content)}</p>}
                               </div>
                               <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { CheckCircle2, Download, ExternalLink, Loader2, RefreshCw, Trophy, BarChart3, LayoutList, FileScan } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { regenerateExamPdf, getExamPdfDownloadUrl, getAnswerSheetTemplateUrl, generateOmrPdfBatch, type OmrPdfBatchResponse } from '@/lib/api/exams';
+import { regenerateExamPdf, getExamPdfDownloadUrl, generateOmrPdfBatch, type OmrPdfBatchResponse } from '@/lib/api/exams';
 import type { ExamStatus } from '@/types/exam';
 import type { ExamBlueprintPreset } from '@/lib/api/exams';
 import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
@@ -138,8 +138,8 @@ export function Step6PreviewPublish({
         return;
       }
       toast({
-        title: 'OMR sheets ready',
-        description: `${r.data.studentCount} per-student OMR pages generated. Print on plain A4 (no scaling).`,
+        title: 'Hall OMR sheets ready',
+        description: `${r.data.studentCount} per-student OMR pages generated. Print on plain A4 (no scaling). Scan uploads in Results → OMR review.`,
       });
       setLatestOmrBatch(r.data);
       window.open(getExamPdfDownloadUrl(r.data.pdfUrl), '_blank', 'noopener,noreferrer');
@@ -205,13 +205,12 @@ export function Step6PreviewPublish({
               <Button type="button" variant="secondary" size="sm" className="gap-2" onClick={downloadMaster}>
                 <Download className="h-4 w-4" /> Download master
               </Button>
-              {(state.productType === 'WRITTEN' || state.productType === 'COMBINED') ? (
-                <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => window.open(getAnswerSheetTemplateUrl(examId), '_blank', 'noopener,noreferrer')}>
-                  <Download className="h-4 w-4" /> Answer sheet template
-                </Button>
-              ) : null}
               {omrEnabled ? (
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex w-full flex-col gap-2 sm:w-auto">
+                  <p className="text-xs font-medium text-slate-600">
+                    Written/CQ: students may use any paper. MCQ (when OMR scan is on): print hall OMR sheets below, then scan in Results.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
                   <select
                     value={omrSetLabel}
                     onChange={(event) => setOmrSetLabel(event.target.value)}
@@ -231,8 +230,9 @@ export function Step6PreviewPublish({
                     onClick={() => void generateOmrSheets()}
                   >
                     {omrSheetBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileScan className="h-4 w-4" />}
-                    Generate answer OMR sheets
+                    Print hall OMR sheets (scan in Results)
                   </Button>
+                  </div>
                 </div>
               ) : null}
               <Button
@@ -342,8 +342,8 @@ export function Step6PreviewPublish({
         <CardHeader>
           <CardTitle className="font-serif text-lg text-[#0D1B35]">Preview & publish</CardTitle>
           <CardDescription>
-            Save draft stores sections and folder rules. For offline OMR exams, use the button below to pull
-            questions from the bank into sets — then generate the question paper PDF and OMR answer sheets above.
+            Save draft stores sections and folder rules. For offline OMR exams, pull questions from the bank below,
+            then regenerate the question paper PDF and print hall OMR sheets in Exam outputs (not student upload).
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3 sm:flex-row">

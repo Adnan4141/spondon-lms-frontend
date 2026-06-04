@@ -28,7 +28,6 @@ import {
   generateSetPdf,
   regenerateExamPdf,
   getExamPdfDownloadUrl,
-  getAnswerSheetTemplateUrl,
   getExamBundleZipUrl,
   getExamOperationsSummary,
   type ExamOperationsSummary,
@@ -766,14 +765,6 @@ export function ExamDetailsPage({ examId }: { examId: string }) {
                 <DisabledReason>no sets</DisabledReason>
               </Button>
             )}
-            {exam.mode === 'OFFLINE' || exam.mode === 'WRITTEN' || exam.mode === 'HYBRID' ? (
-              <Button type="button" variant="outline" size="sm" asChild>
-                <a href={getAnswerSheetTemplateUrl(examId)} target="_blank" rel="noopener noreferrer">
-                  <FileText className="h-4 w-4" />
-                  <span className="ml-1">Answer template</span>
-                </a>
-              </Button>
-            ) : null}
             {exam.pdfUrl ? (
               <>
                 <Button type="button" size="sm" variant="secondary" onClick={openMasterPreview}>

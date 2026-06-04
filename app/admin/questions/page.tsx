@@ -1186,8 +1186,8 @@ export default function QuestionsPage() {
                                     {p.questions?.length || 0} questions
                                   </span>
                                 </div>
-                                <h3 className="text-base font-black text-slate-800 group-hover:text-indigo-600 transition-colors">
-                                  {p.title || 'Untitled Passage'}
+                                <h3 className="text-base font-black text-slate-800 group-hover:text-indigo-600 transition-colors line-clamp-2">
+                                  {stripHtml(p.content).slice(0, 120) || 'Passage'}
                                 </h3>
                                 {!isExpanded && (
                                   <p className="text-sm text-slate-500 line-clamp-2 leading-relaxed">

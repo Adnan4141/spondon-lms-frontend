@@ -114,7 +114,7 @@ export function OmrSheetConfigCard({ state, dispatch, deliveryMode }: Props) {
             </div>
           </div>
           <p className="text-[11px] text-slate-500">
-            Generate answer OMR sheets from step 6 after pulling questions from the bank. Make sure your MCQ section totals match{' '}
+            Print hall OMR sheets from step 6 after pulling questions from the bank. Make sure your MCQ section totals match{' '}
             <span className="font-semibold text-slate-700">{config.questionCount}</span> questions.
           </p>
         </CardContent>

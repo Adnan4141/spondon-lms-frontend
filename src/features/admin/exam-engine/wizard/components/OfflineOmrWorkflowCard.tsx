@@ -47,8 +47,9 @@ export function OfflineOmrWorkflowCard({ state, examId, hasMasterPdf, deliveryMo
       <CardHeader className="pb-2">
         <CardTitle className="font-serif text-base text-[#0D1B35]">Offline OMR workflow</CardTitle>
         <CardDescription>
-          Offline exams do not use automatic online grading. Pull questions from the bank, print the paper, then
-          print per-student OMR answer sheets and scan them after the exam.
+          Offline exams do not use automatic online grading. Pull questions from the bank, print the paper at the
+          centre, print per-student OMR bubble sheets for MCQ, then scan them in Results. Written/CQ answers use any
+          paper — no LMS answer template.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -67,7 +68,7 @@ export function OfflineOmrWorkflowCard({ state, examId, hasMasterPdf, deliveryMo
             Click <strong>Regenerate question paper PDF</strong> in Exam outputs to print the master paper.
           </StepRow>
           <StepRow done={false}>
-            Click <strong>Generate answer OMR sheets</strong> (one page per enrolled student; A4, no scaling).
+            Click <strong>Print hall OMR sheets (scan in Results)</strong> (one page per enrolled student; A4, no scaling).
           </StepRow>
           <StepRow done={false}>
             After the exam, upload scans from{' '}

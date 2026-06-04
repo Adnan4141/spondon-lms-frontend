@@ -603,9 +603,7 @@ function PassageGroupBlock({
       {passage ? (
         <div className="sticky top-0 z-10 rounded-2xl border border-indigo-100 bg-indigo-50/95 p-6 shadow-sm backdrop-blur">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm font-black text-indigo-700">
-              {passage.title || 'Passage'}
-            </p>
+            <p className="text-sm font-black text-indigo-700">উদ্দীপক</p>
             <Badge variant="outline" className="border-indigo-200 bg-white/80 text-[10px] font-black text-indigo-700">
               {item.questions.length} MCQ
             </Badge>
@@ -1392,9 +1390,7 @@ export function ExamTakingView({
                   <div className="space-y-5">
                     {currentQ.question.passage ? (
                       <div className="sticky top-0 z-10 rounded-2xl border border-indigo-100 bg-indigo-50/95 p-6 shadow-sm backdrop-blur">
-                        <p className="mb-3 text-sm font-black text-indigo-700">
-                          {currentQ.question.passage.title || 'Passage'}
-                        </p>
+                        <p className="mb-3 text-sm font-black text-indigo-700">উদ্দীপক</p>
                         <div className="prose prose-sm max-w-none text-slate-700" dangerouslySetInnerHTML={{ __html: currentQ.question.passage.content }} />
                       </div>
                     ) : null}

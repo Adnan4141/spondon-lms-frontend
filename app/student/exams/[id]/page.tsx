@@ -8,7 +8,7 @@ import type { StartAttemptResponse, AttemptResultResponse, ExamStudentView } fro
 import { ExamTakingView } from '@/components/student/exam-window/ExamTakingView';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Timer, AlertTriangle, CheckCircle2, Loader2, Eye, Trophy, XCircle, Building2, Download, FileText, PenLine, CalendarClock, Info } from 'lucide-react';
+import { Timer, AlertTriangle, CheckCircle2, Loader2, Eye, Trophy, XCircle, Building2, FileText, PenLine, CalendarClock, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { isOfflineDeliveryExam } from '@/lib/exam-workflow';
 
@@ -312,43 +312,41 @@ export default function StudentExamTakingPage() {
     );
   }
 
-  // Offline / hall exam — instructions + PDF (no browser attempt)
+  // Offline / hall exam — schedule & centre info (no in-app question PDF; no browser attempt)
   if (phase === 'offline' && examMeta) {
     const lang: Lang = examMeta.language === 'en' ? 'en' : 'bn';
     const ui =
       lang === 'en'
         ? {
             title: 'Offline hall exam',
-            sub: 'Take this exam at your centre on paper. MCQ (OMR) and written parts are on the PDF.',
+            sub: 'Take this exam at your centre on paper. The question paper will be provided at the exam hall.',
+            centreNote: 'Question paper will be provided at the exam centre.',
             course: 'Course',
             branch: 'Branch',
             batch: 'Batch',
             window: 'Schedule',
             open: 'Opens',
             closes: 'Closes',
-            pdf: 'Download question paper (PDF)',
-            noPdf: 'Your teacher will upload the PDF soon. Check back later.',
             solve: 'Solution / marks sheet (PDF)',
             sets: 'Question sets prepared',
+            leaderboard: 'View leaderboard',
             back: 'Back to exams',
           }
         : {
             title: 'Offline Hall Exam',
-            sub: 'This exam is held on paper. The PDF may contain both MCQ and written (essay) sections.',
+            sub: 'এই পরীক্ষা কেন্দ্রে কাগজে দেওয়া হয়। প্রশ্নপত্র পরীক্ষার হলে দেওয়া হবে।',
+            centreNote: 'প্রশ্নপত্র পরীক্ষার কেন্দ্রে দেওয়া হবে।',
             course: 'Course',
             branch: 'Branch',
             batch: 'Batch',
             window: 'Schedule',
             open: 'Opens',
             closes: 'Closes',
-            pdf: 'Download Question Paper (PDF)',
-            noPdf: 'Your teacher will upload the PDF soon. Check back later.',
             solve: 'Solution / Marks Sheet (PDF)',
             sets: 'Question sets prepared',
+            leaderboard: 'লিডারবোর্ড দেখুন',
             back: 'Back to Exams',
           };
-
-    const pdfHref = examMeta.pdfUrl ? getExamPdfDownloadUrl(examMeta.pdfUrl) : null;
     let showSolve = false;
     if (examMeta.solveSheetVisibility === 'IMMEDIATELY') showSolve = true;
     else if (examMeta.solveSheetVisibility === 'SCHEDULED' && examMeta.solveSheetScheduledAt) {
@@ -422,23 +420,26 @@ export default function StudentExamTakingPage() {
               {ui.sets}: {examMeta._count.sets}
             </p>
           )}
+          <p className="text-sm font-bold text-amber-900 bg-amber-100/80 rounded-2xl px-4 py-3 mb-4">
+            {ui.centreNote}
+          </p>
           <div className="flex flex-col sm:flex-row gap-3">
-            {pdfHref ? (
-              <Button className="h-12 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white font-black uppercase tracking-widest text-[10px]" asChild>
-                <a href={pdfHref} target="_blank" rel="noopener noreferrer">
-                  <Download className="h-4 w-4 mr-2" />
-                  {ui.pdf}
-                </a>
-              </Button>
-            ) : (
-              <p className="text-sm font-bold text-amber-800 bg-amber-100/80 rounded-2xl px-4 py-3">{ui.noPdf}</p>
-            )}
             {solveHref ? (
               <Button variant="outline" className="h-12 rounded-2xl font-black uppercase tracking-widest text-[10px] border-slate-200" asChild>
                 <a href={solveHref} target="_blank" rel="noopener noreferrer">
                   <FileText className="h-4 w-4 mr-2" />
                   {ui.solve}
                 </a>
+              </Button>
+            ) : null}
+            {examMeta.showLeaderboard ? (
+              <Button
+                variant="outline"
+                className="h-12 rounded-2xl font-black uppercase tracking-widest text-[10px] border-indigo-200 text-indigo-800"
+                onClick={() => router.push(`/student/leaderboard/${examId}`)}
+              >
+                <Trophy className="h-4 w-4 mr-2" />
+                {ui.leaderboard}
               </Button>
             ) : null}
           </div>
@@ -728,9 +729,7 @@ export default function StudentExamTakingPage() {
                         {passage ? (
                           <div className="rounded-xl bg-white p-4">
                             <div className="mb-2 flex items-center justify-between gap-2">
-                              <p className="text-sm font-black text-indigo-700">
-                                {passage.title || 'Passage'}
-                              </p>
+                              <p className="text-sm font-black text-indigo-700">উদ্দীপক</p>
                               <Badge variant="outline" className="text-[10px] font-black">
                                 {item.questions.length} MCQ
                               </Badge>

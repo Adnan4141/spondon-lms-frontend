@@ -13,6 +13,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Loader2, Trophy, ChevronLeft, AlertCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+const pageShell = 'mx-auto w-full max-w-full px-4 sm:px-6 lg:px-8 py-8';
 
 export default function StudentExamLeaderboardPage() {
   const params = useParams();
@@ -101,7 +104,7 @@ export default function StudentExamLeaderboardPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center">
+      <div className={cn(pageShell, 'flex min-h-[50vh] items-center justify-center')}>
         <Loader2 className="h-10 w-10 animate-spin text-indigo-600" />
       </div>
     );
@@ -109,13 +112,15 @@ export default function StudentExamLeaderboardPage() {
 
   if (err) {
     return (
-      <div className="mx-auto max-w-lg space-y-6 py-12">
-        <Button variant="outline" className="rounded-xl" onClick={() => router.push('/student/exams')}>
-          <ChevronLeft className="mr-2 h-4 w-4" /> Back to Exam
-        </Button>
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-8 text-center">
-          <AlertCircle className="mx-auto mb-3 h-10 w-10 text-rose-400" />
-          <p className="font-bold text-rose-700">{err}</p>
+      <div className={cn(pageShell, 'space-y-6')}>
+        <div className="mx-auto max-w-lg w-full space-y-6">
+          <Button variant="outline" className="rounded-xl" onClick={() => router.push('/student/exams')}>
+            <ChevronLeft className="mr-2 h-4 w-4" /> Back to Exam
+          </Button>
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-8 text-center">
+            <AlertCircle className="mx-auto mb-3 h-10 w-10 text-rose-400" />
+            <p className="font-bold text-rose-700">{err}</p>
+          </div>
         </div>
       </div>
     );
@@ -123,27 +128,29 @@ export default function StudentExamLeaderboardPage() {
 
   if (!showLb) {
     return (
-      <div className="mx-auto max-w-lg space-y-6 py-12">
-        <Button variant="outline" className="rounded-xl" onClick={() => router.push(`/student/exams/${examId}`)}>
-          <ChevronLeft className="mr-2 h-4 w-4" /> Back
-        </Button>
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center">
-          <Trophy className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-          <p className="font-bold text-slate-600">Leaderboard is not enabled for this exam</p>
+      <div className={cn(pageShell, 'space-y-6')}>
+        <div className="mx-auto max-w-lg w-full space-y-6">
+          <Button variant="outline" className="rounded-xl" onClick={() => router.push(`/student/exams/${examId}`)}>
+            <ChevronLeft className="mr-2 h-4 w-4" /> Back
+          </Button>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center">
+            <Trophy className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+            <p className="font-bold text-slate-600">Leaderboard is not enabled for this exam</p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8 py-8">
+    <div className={cn(pageShell, 'space-y-8')}>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <Button variant="ghost" className="rounded-xl" onClick={() => router.push(`/student/exams/${examId}`)}>
           <ChevronLeft className="mr-2 h-4 w-4" /> Back
         </Button>
         {linkedNames.length > 0 ? (
           <Select value={scope} onValueChange={setScope}>
-            <SelectTrigger className="h-10 w-[220px] rounded-xl">
+            <SelectTrigger className="h-10 w-full max-w-[220px] rounded-xl sm:w-[220px]">
               <SelectValue placeholder="Division" />
             </SelectTrigger>
             <SelectContent>
@@ -175,8 +182,8 @@ export default function StudentExamLeaderboardPage() {
         </div>
       ) : null}
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <table className="w-full min-w-[320px] text-sm">
           <thead className="bg-slate-50 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-4 py-3">#</th>
