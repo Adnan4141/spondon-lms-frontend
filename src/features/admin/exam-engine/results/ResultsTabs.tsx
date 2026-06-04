@@ -22,7 +22,14 @@ const tabs: Array<{ key: ResultsTabKey; label: string; icon: React.ElementType }
 
 export function ResultsTabs({ activeTab, onTabChange, availability, children }: ResultsTabsProps) {
   return (
-    <Tabs value={activeTab} onValueChange={(value) => onTabChange(value as ResultsTabKey)} className="space-y-5">
+    <Tabs
+      value={activeTab}
+      onValueChange={(value) => {
+        const next = value as ResultsTabKey;
+        if (availability[next]) onTabChange(next);
+      }}
+      className="w-full max-w-full min-w-0 space-y-5"
+    >
       <div className="overflow-x-auto print:hidden">
         <TabsList className="h-auto w-full min-w-max justify-start gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
           {tabs.map((tab) => {
@@ -32,10 +39,12 @@ export function ResultsTabs({ activeTab, onTabChange, availability, children }: 
               <TabsTrigger
                 key={tab.key}
                 value={tab.key}
+                disabled={!enabled}
                 className={cn(
                   'gap-2 rounded-md px-3 py-2 text-sm data-[state=active]:bg-slate-950 data-[state=active]:text-white',
-                  !enabled && 'text-slate-400',
+                  !enabled && 'cursor-not-allowed text-slate-400 opacity-60',
                 )}
+                title={enabled ? tab.label : `${tab.label} is not available for this exam or role`}
               >
                 <Icon className="h-4 w-4" />
                 {tab.label}

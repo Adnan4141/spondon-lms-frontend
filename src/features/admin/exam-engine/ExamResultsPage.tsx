@@ -1,9 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
-import { ChevronLeft, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
 import {
   finalizeWrittenEvaluation,
   getExamAnalytics,
@@ -26,7 +24,10 @@ import { getBranches } from '@/lib/api/branches';
 import { getActorUserIdFromStorage } from '@/lib/actor-user';
 import type { Exam } from '@/types/exam';
 import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
-import { ExamEngineSubnav } from './components/ExamEngineSubnav';
+import { useExamWorkspaceOptional } from './layout/ExamWorkspaceShell';
+import { ExamWorkspacePageHeader } from './layout/ExamWorkspacePageHeader';
+import { cn } from '@/lib/utils';
+import { examWorkspacePageClass } from './layout/examWorkspaceUi';
 import { AnalyticsTab } from './results/AnalyticsTab';
 import { MeritListTab } from './results/MeritListTab';
 import { OfflineResultsTab } from './results/OfflineResultsTab';
@@ -67,6 +68,7 @@ type ExamResultsPageProps = {
 };
 
 export function ExamResultsPage({ examId, teacherEvaluatorMode = false }: ExamResultsPageProps) {
+  const workspace = useExamWorkspaceOptional();
   const { can, isTeacherEvaluator, branchScope, isOrgWide } = useExamResultsPermissions();
   const evaluatorMode = teacherEvaluatorMode || isTeacherEvaluator;
   const [exam, setExam] = useState<Exam | null>(null);
@@ -358,37 +360,27 @@ export function ExamResultsPage({ examId, teacherEvaluatorMode = false }: ExamRe
     );
   }
 
-  return (
-    <div className="mx-auto max-w-7xl space-y-6 print:max-w-none">
-      {!evaluatorMode ? (
-        <div className="flex flex-col gap-3 print:hidden sm:flex-row sm:items-center sm:justify-between">
-          <Button variant="ghost" size="sm" asChild className="w-fit gap-1 text-slate-600">
-            <Link href="/admin/exam">
-              <ChevronLeft className="h-4 w-4" /> All exams
-            </Link>
-          </Button>
-          <ExamEngineSubnav examId={examId} />
-        </div>
-      ) : (
-        <div className="print:hidden">
-          <Button variant="ghost" size="sm" asChild className="w-fit gap-1 text-slate-600">
-            <Link href="/teacher/exams">
-              <ChevronLeft className="h-4 w-4" /> My exams
-            </Link>
-          </Button>
-        </div>
-      )}
+  const pageTitle = evaluatorMode ? 'Script evaluation' : 'Results';
+  const pageDescription = evaluatorMode
+    ? 'Review student submissions and enter marks for written questions.'
+    : 'Aggregated performance, result entry, OMR review, evaluation, and merit publishing.';
 
-      <div>
-        <h1 className="font-serif text-2xl font-normal tracking-tight text-[#0D1B35] md:text-3xl">
-          {evaluatorMode ? 'Script evaluation' : 'Results'}{exam ? ` — ${exam.title}` : ''}
-        </h1>
-        <p className="mt-1 text-sm text-slate-600">
-          {evaluatorMode
-            ? 'Review student submissions and enter marks for written questions.'
-            : 'Aggregated performance, result entry, OMR review, evaluation, and merit publishing.'}
-        </p>
-      </div>
+  if (workspace && (workspace.loadingExam || (!workspace.exam && !workspace.loadingExam))) {
+    if (workspace.loadingExam) {
+      return (
+        <div className="flex justify-center py-16 text-slate-500">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      );
+    }
+    if (!workspace.exam) {
+      return <p className="py-12 text-center text-sm text-slate-600">Exam not found.</p>;
+    }
+  }
+
+  return (
+    <div className={cn(examWorkspacePageClass, 'print:max-w-none')}>
+      <ExamWorkspacePageHeader title={pageTitle} description={pageDescription} />
 
       <ResultsTabs activeTab={activeTab} onTabChange={changeTab} availability={tabAvailability}>
         <TabsContent value="analytics" className="mt-0">

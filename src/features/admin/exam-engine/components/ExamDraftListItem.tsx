@@ -23,17 +23,17 @@ export function ExamDraftListItem({ exam, onDelete }: ExamDraftListItemProps) {
           {exam.status}
         </Badge>
         <Button asChild size="sm" variant="outline" className="h-8 text-xs">
-          <Link href={`/admin/exam/${exam.id}/details`} className="gap-1">
+          <Link href={`/admin/exam/${exam.id}`} className="gap-1">
             <LayoutList className="h-3.5 w-3.5" /> Details
           </Link>
         </Button>
         <Button asChild size="sm" variant="outline" className="h-8 text-xs">
-          <Link href={`/admin/exam/${exam.id}`} className="gap-1">
+          <Link href={`/admin/exam/${exam.id}/setup`} className="gap-1">
             <Pencil className="h-3.5 w-3.5" /> Edit
           </Link>
         </Button>
         <Button asChild size="sm" variant="outline" className="h-8 text-xs">
-          <Link href={`/admin/exam/${exam.id}/pdf`} className="gap-1">
+          <Link href={`/admin/exam/${exam.id}/papers`} className="gap-1">
             PDF
           </Link>
         </Button>

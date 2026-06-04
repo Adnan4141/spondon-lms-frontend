@@ -14,7 +14,7 @@ export default function AdminExamResultsRoutePage() {
   if (!examId) return null;
 
   return (
-    <Suspense fallback={<p className="text-center text-sm text-slate-500">Loading…</p>}>
+    <Suspense fallback={<p className="text-center text-sm text-slate-500">Loading results…</p>}>
       <ExamResultsPage examId={examId} teacherEvaluatorMode={teacherEvaluatorMode} />
     </Suspense>
   );

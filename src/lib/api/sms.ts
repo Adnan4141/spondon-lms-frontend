@@ -211,6 +211,12 @@ export const updateSmsTemplate = (key: string, data: Partial<SmsTemplate>) => ap
   method: 'PUT',
   body: JSON.stringify(data),
 });
+export const deleteSmsTemplate = (
+  key: string,
+  params?: { scope?: 'ORG' | 'BRANCH'; branchId?: string | null },
+) => apiRequest<ApiResponse<{ id: string; key: string }>>(`/sms/templates/${encodeURIComponent(key)}${qs(params)}`, {
+  method: 'DELETE',
+});
 
 export const getSmsBalance = (params?: Record<string, unknown>) => apiRequest<ApiResponse<SmsBalance[]>>(`/sms/balance${qs(params)}`);
 export const getSmsWalletLedger = (params?: Record<string, unknown>) => apiRequest<ApiResponse<SmsWalletLedger[]>>(`/sms/balance/ledger${qs(params)}`);

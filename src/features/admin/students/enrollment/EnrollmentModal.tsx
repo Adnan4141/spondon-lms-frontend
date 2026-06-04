@@ -140,9 +140,20 @@ export function EnrollmentModal({
   }, [branches, student.branchId]);
 
   useEffect(() => {
+    setSelCourses((prev) => {
+      const next: Record<string, SelCourseState> = {};
+      Object.entries(prev).forEach(([courseId, meta]) => {
+        next[courseId] = { ...meta, batch: '' };
+      });
+      return next;
+    });
+  }, [branchId]);
+
+  useEffect(() => {
     if (!programId || !branchId) { setCourseBatches({}); return; }
+    setCourseBatches({});
     setLoadingBatches(true);
-    getBatches({ branchId: branchId || undefined, limit: 200 })
+    getBatches({ programId, branchId: branchId || undefined, status: 'ACTIVE', limit: 200, all: true })
       .then(res => {
         if (res.success && res.data) {
           const map: Record<string, { id: string; name: string; status: string }[]> = {};
@@ -559,11 +570,9 @@ export function EnrollmentModal({
                                       value={sel.batch || ''}
                                       onChange={v => setCF(c.id, 'batch', v)}
                                       placeholder="Select batch"
-                                      options={(courseBatches[c.id] ?? []).map(b => ({
+                                      options={activeBatches.map(b => ({
                                         value: b.id,
-                                        label: b.status === 'ACTIVE'
-                                          ? b.name
-                                          : `${b.name} (${b.status.charAt(0) + b.status.slice(1).toLowerCase()})`,
+                                        label: b.name,
                                       }))}
                                     />
                                     {(validation.errors[`batch.${c.id}`] || !sel.batch) && (

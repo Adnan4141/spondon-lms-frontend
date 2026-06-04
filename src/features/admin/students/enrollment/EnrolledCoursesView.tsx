@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { AlertTriangle, ArrowLeft, Plus, XCircle } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ArrowRightLeft, Plus, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { getBatches } from '@/lib/api/batches';
-import { cancelFullEnrollment, getEnrollments } from '@/lib/api/enrollments';
-import type { BranchOption, Course, Enrollment, Program, Student } from '../types';
+import type { Batch } from '@/lib/api/batches';
+import { cancelFullEnrollment, changeEnrollmentBatch, getEnrollments } from '@/lib/api/enrollments';
+import type { BranchOption, Course, EnrolledCourse, Enrollment, Program, Student } from '../types';
 import { avatarHue, currentMonth, fmt, fmtMonth, nextMonth, toLocalEnrollment } from '../utils';
 import { StudentAdminBadge as AppBadge } from '../components/StudentAdminBadge';
 import { StudentAdminField as Field } from '../components/StudentAdminField';
@@ -30,24 +32,29 @@ export function EnrolledCoursesView({
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [loadingEnrollments, setLoadingEnrollments] = useState(true);
   const [manageModal, setManageModal] = useState<{ enrollment: Enrollment; initialCancelCourseId?: string } | null>(null);
+  const [batchModal, setBatchModal] = useState<{ enrollment: Enrollment; enrollmentCourse: EnrolledCourse; course: Course } | null>(null);
   const [cancelModal, setCancelModal] = useState<Enrollment | null>(null);
   const [resetModal, setResetModal] = useState<Enrollment | null>(null);
   const [batchesMap, setBatchesMap] = useState<Map<string, string>>(new Map());
   const { user } = useAdminSession();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
 
+  const loadBatchMap = async () => {
+    const map = new Map<string, string>();
+    try {
+      const res = await getBatches({ limit: 500, all: true });
+      if (res.success && res.data) {
+        res.data.forEach(b => map.set(b.id, b.name));
+      }
+      setBatchesMap(map);
+    } catch {
+      setBatchesMap(new Map());
+    }
+  };
+
   // Load all batches and build a lookup map
   useEffect(() => {
-    const map = new Map<string, string>();
-    // Load first batch of batches (this is a simple approach; for larger datasets, paginate)
-    getBatches({ limit: 500 })
-      .then(res => {
-        if (res.success && res.data) {
-          res.data.forEach(b => map.set(b.id, b.name));
-        }
-        setBatchesMap(map);
-      })
-      .catch(() => setBatchesMap(new Map()));
+    void loadBatchMap();
   }, []);
 
   useEffect(() => {
@@ -229,6 +236,7 @@ export function EnrolledCoursesView({
                   {enrollment.courses.map((ec) => {
                     const course = allCourses.find(c => c.id === ec.courseId);
                     if (!course) return null;
+                    const canChangeBatch = ec.status === 'ACTIVE' && course.type === 'OFFLINE' && Boolean(enrollment.branchId);
                     return (
                       <tr key={ec.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                         <td className="px-3.5 py-3">
@@ -248,10 +256,21 @@ export function EnrolledCoursesView({
                           {branches.find(b => b.id === enrollment.branchId)?.name ?? enrollment.branchId}
                         </td>
                         <td className="px-3.5 py-3">
-                          {ec.batchId
-                            ? <AppBadge label={batchesMap.get(ec.batchId) ?? ec.batchId} color="slate" />
-                            : <span className="text-xs text-slate-400">—</span>
-                          }
+                          <div className="flex items-center gap-2">
+                            {ec.batchId
+                              ? <AppBadge label={batchesMap.get(ec.batchId) ?? ec.batchId} color="slate" />
+                              : <span className="text-xs text-slate-400">—</span>
+                            }
+                            {canChangeBatch && (
+                              <button
+                                onClick={() => setBatchModal({ enrollment, enrollmentCourse: ec, course })}
+                                className="rounded-md border border-indigo-200 bg-indigo-50 p-1 text-indigo-600 transition-colors hover:bg-indigo-100"
+                                title="Change batch"
+                              >
+                                <ArrowRightLeft className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </td>
                         <td className="px-3.5 py-3">
                           <AppBadge label={course.type.toLowerCase()} color={course.type === 'OFFLINE' ? 'amber' : 'blue'} />
@@ -263,6 +282,15 @@ export function EnrolledCoursesView({
                           <AppBadge label={ec.status || 'Active'} color={ec.status === 'ACTIVE' ? 'green' : 'red'} />
                         </td>
                         <td className="px-3.5 py-3">
+                          <div className="flex flex-wrap gap-2">
+                          {canChangeBatch && (
+                            <button
+                              onClick={() => setBatchModal({ enrollment, enrollmentCourse: ec, course })}
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-indigo-200 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 text-xs font-semibold transition-colors cursor-pointer"
+                            >
+                              <ArrowRightLeft className="h-3.5 w-3.5" /> Change Batch
+                            </button>
+                          )}
                           {canManageEnrollment && ec.status === 'ACTIVE' && (
                             <button
                               onClick={() => setManageModal({ enrollment, initialCancelCourseId: ec.courseId })}
@@ -271,6 +299,7 @@ export function EnrolledCoursesView({
                               <XCircle className="h-3.5 w-3.5" /> Cancel
                             </button>
                           )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -330,6 +359,24 @@ export function EnrolledCoursesView({
           }}
         />
       )}
+      {batchModal && (
+        <ChangeBatchModal
+          enrollment={batchModal.enrollment}
+          enrollmentCourse={batchModal.enrollmentCourse}
+          course={batchModal.course}
+          currentBatchName={
+            batchModal.enrollmentCourse.batchId
+              ? batchesMap.get(batchModal.enrollmentCourse.batchId) ?? batchModal.enrollmentCourse.batchId
+              : null
+          }
+          onClose={() => setBatchModal(null)}
+          onDone={async () => {
+            showToast('Batch changed successfully', 'success');
+            setBatchModal(null);
+            await Promise.all([reloadEnrollments(), loadBatchMap()]);
+          }}
+        />
+      )}
       {cancelModal && (
         <FullEnrollmentCancelModal
           enrollment={cancelModal}
@@ -355,6 +402,157 @@ export function EnrolledCoursesView({
         />
       )}
     </div>
+  );
+}
+
+function ChangeBatchModal({
+  enrollment,
+  enrollmentCourse,
+  course,
+  currentBatchName,
+  onClose,
+  onDone,
+}: {
+  enrollment: Enrollment;
+  enrollmentCourse: EnrolledCourse;
+  course: Course;
+  currentBatchName: string | null;
+  onClose: () => void;
+  onDone: () => Promise<void>;
+}) {
+  const [batches, setBatches] = useState<Batch[]>([]);
+  const [selectedBatchId, setSelectedBatchId] = useState(enrollmentCourse.batchId ?? '');
+  const [reason, setReason] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    setError('');
+
+    getBatches({
+      courseId: course.id,
+      branchId: enrollment.branchId,
+      status: 'ACTIVE',
+      limit: 100,
+    })
+      .then((res) => {
+        if (!alive) return;
+        if (res.success && res.data) {
+          const activeBatches = res.data.filter((batch) => batch.status === 'ACTIVE');
+          setBatches(activeBatches);
+          setSelectedBatchId((current) => {
+            if (
+              current
+              && current !== enrollmentCourse.batchId
+              && !activeBatches.some((batch) => batch.id === current)
+            ) {
+              return enrollmentCourse.batchId ?? '';
+            }
+            return current;
+          });
+        } else {
+          setBatches([]);
+          setError((res as { message?: string }).message ?? 'Failed to load batches');
+        }
+      })
+      .catch((err) => {
+        if (!alive) return;
+        setBatches([]);
+        setError(err instanceof Error ? err.message : 'Failed to load batches');
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [course.id, enrollment.branchId, enrollmentCourse.batchId]);
+
+  const batchOptions = batches.map((batch) => ({
+    value: batch.id,
+    label: batch.id === enrollmentCourse.batchId ? `${batch.name} (Current)` : batch.name,
+    disabled: batch.id === enrollmentCourse.batchId,
+  }));
+
+  const saveDisabled = saving || loading || !selectedBatchId || selectedBatchId === enrollmentCourse.batchId;
+
+  const handleSubmit = async () => {
+    if (saveDisabled) return;
+    setSaving(true);
+    setError('');
+    try {
+      const res = await changeEnrollmentBatch(
+        enrollment.id,
+        course.id,
+        selectedBatchId,
+        reason.trim() || undefined,
+      );
+      if (!res.success) {
+        setError((res as { message?: string }).message ?? 'Failed to change batch');
+        return;
+      }
+      await onDone();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to change batch');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <AppModal
+      open
+      onClose={saving ? () => undefined : onClose}
+      title="Change Course Batch"
+      subtitle={course.name}
+      maxWidth="max-w-xl"
+    >
+      <div className="space-y-5">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Current batch</p>
+          <p className="mt-1 text-sm font-semibold text-slate-800">{currentBatchName ?? 'No batch assigned'}</p>
+        </div>
+
+        <Field label="New batch" required>
+          <AppSelect
+            value={selectedBatchId}
+            onChange={setSelectedBatchId}
+            options={batchOptions}
+            placeholder={loading ? 'Loading batches...' : 'Select active batch'}
+            disabled={loading || saving || batchOptions.length === 0}
+          />
+          {!loading && batchOptions.length === 0 && (
+            <p className="mt-2 text-xs font-semibold text-amber-700">
+              No active batch available for this course in this branch.
+            </p>
+          )}
+        </Field>
+
+        <Field label="Reason">
+          <Textarea
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            rows={3}
+            placeholder="Optional note for audit log"
+            disabled={saving}
+            className="text-sm"
+          />
+        </Field>
+
+        {error && <p className="text-sm font-semibold text-rose-600">{error}</p>}
+
+        <div className="flex justify-end gap-2.5">
+          <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={saveDisabled} className="bg-indigo-600 text-white hover:bg-indigo-700">
+            {saving ? 'Updating...' : 'Update Batch'}
+          </Button>
+        </div>
+      </div>
+    </AppModal>
   );
 }
 

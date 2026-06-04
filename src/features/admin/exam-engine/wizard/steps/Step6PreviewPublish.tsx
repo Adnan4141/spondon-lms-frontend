@@ -180,12 +180,12 @@ export function Step6PreviewPublish({
           <CardContent className="space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <Button asChild variant="outline" size="sm" className="gap-2">
-                <Link href={`/admin/exam/${examId}/details`}>
+                <Link href={`/admin/exam/${examId}`}>
                   <LayoutList className="h-4 w-4" /> Details
                 </Link>
               </Button>
               <Button asChild variant="outline" size="sm" className="gap-2">
-                <Link href={`/admin/exam/${examId}/pdf`}>
+                <Link href={`/admin/exam/${examId}/papers`}>
                   <ExternalLink className="h-4 w-4" /> PDF hub
                 </Link>
               </Button>

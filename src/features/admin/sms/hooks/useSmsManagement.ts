@@ -16,6 +16,7 @@ import {
   type SmsTemplate,
   type SmsWalletLedger,
   createSmsTemplate,
+  deleteSmsTemplate,
   getProviderBalance,
   deleteBranchSystemSettings,
   getSmsBalance,
@@ -56,6 +57,7 @@ import {
   smsLengthInfo,
   systemTypes,
 } from '../sms-shared';
+import { confirmAction } from '@/features/admin/shared/confirm-action';
 
 export type DirectSmsState = {
   to: string;
@@ -924,6 +926,16 @@ export function useSmsTemplateActions({
     branchId: isBranchAdmin ? actorBranchId : '',
   });
 
+  const resetTemplateForm = useCallback(() => {
+    setTemplateForm({
+      key: '',
+      body: '',
+      isMasking: true,
+      scope: (isBranchAdmin ? 'BRANCH' : 'ORG') as 'ORG' | 'BRANCH',
+      branchId: isBranchAdmin ? actorBranchId : '',
+    });
+  }, [actorBranchId, isBranchAdmin]);
+
   useEffect(() => {
     if (!isBranchAdmin || !actorBranchId) return;
     setTemplateForm((prev) => ({ ...prev, scope: 'BRANCH', branchId: actorBranchId }));
@@ -947,20 +959,45 @@ export function useSmsTemplateActions({
       };
       const res = existing ? await updateSmsTemplate(existing.key, payload) : await createSmsTemplate(payload);
       toast({ title: 'Template saved', description: res.message || 'SMS template is ready.', variant: 'success' });
-      setTemplateForm({
-        key: '',
-        body: '',
-        isMasking: true,
-        scope: (isBranchAdmin ? 'BRANCH' : 'ORG') as 'ORG' | 'BRANCH',
-        branchId: isBranchAdmin ? actorBranchId : '',
-      });
+      resetTemplateForm();
       refresh();
     } catch (error: unknown) {
       toast({ title: 'Template failed', description: errorMessage(error), variant: 'destructive' });
     } finally {
       setSubmitting(false);
     }
-  }, [actorBranchId, isBranchAdmin, refresh, setSubmitting, templateForm, templates, toast]);
+  }, [actorBranchId, isBranchAdmin, refresh, resetTemplateForm, setSubmitting, templateForm, templates, toast]);
+
+  const handleDeleteTemplate = useCallback(async (template: SmsTemplate) => {
+    const ok = await confirmAction({
+      title: 'Delete SMS template?',
+      description: `This will permanently delete "${template.key}"${template.scope === 'BRANCH' ? ' for this branch' : ''}. Existing SMS logs will remain unchanged.`,
+      confirmLabel: 'Delete template',
+      variant: 'danger',
+    });
+    if (!ok) return;
+
+    setSubmitting(true);
+    try {
+      await deleteSmsTemplate(template.key, {
+        scope: template.scope,
+        branchId: template.branchId ?? null,
+      });
+      if (
+        templateForm.key === template.key
+        && templateForm.scope === template.scope
+        && (templateForm.branchId || null) === (template.branchId || null)
+      ) {
+        resetTemplateForm();
+      }
+      toast({ title: 'Template deleted', description: `${template.key} was removed.`, variant: 'success' });
+      await refresh();
+    } catch (error: unknown) {
+      toast({ title: 'Delete failed', description: errorMessage(error), variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
+  }, [refresh, resetTemplateForm, setSubmitting, templateForm.branchId, templateForm.key, templateForm.scope, toast]);
 
   return {
     state: {
@@ -971,6 +1008,7 @@ export function useSmsTemplateActions({
     actions: {
       setTemplateForm,
       handleSaveTemplate,
+      handleDeleteTemplate,
     },
   };
 }

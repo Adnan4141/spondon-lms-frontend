@@ -396,7 +396,7 @@ export function ExamHub() {
                     <tr key={exam.id} className="hover:bg-slate-50/70">
                       <td className="px-4 py-3">
                         <Link
-                          href={`/admin/exam/${exam.id}/details`}
+                          href={`/admin/exam/${exam.id}`}
                           className="block max-w-[320px] truncate font-bold text-slate-900 hover:text-[#0D1B35] hover:underline"
                         >
                           {exam.title}
@@ -443,7 +443,7 @@ export function ExamHub() {
                       <td className="px-4 py-3">
                         <div className="flex justify-end gap-2">
                           <Button asChild size="sm" className="h-8 bg-[#0D1B35] px-3 text-xs text-[#E2C98A] hover:bg-[#1E2F55]">
-                            <Link href={`/admin/exam/${exam.id}/details`}>
+                            <Link href={`/admin/exam/${exam.id}`}>
                               <Eye className="mr-1 h-3.5 w-3.5" /> View
                             </Link>
                           </Button>
@@ -456,7 +456,7 @@ export function ExamHub() {
                             <DropdownMenuContent align="end" className="w-64">
                               <DropdownMenuLabel className="text-xs text-slate-500">Exam actions</DropdownMenuLabel>
                               <DropdownMenuItem asChild>
-                                <Link href={`/admin/exam/${exam.id}/details`}>
+                                <Link href={`/admin/exam/${exam.id}`}>
                                   <Eye className="h-4 w-4" /> View
                                 </Link>
                               </DropdownMenuItem>
@@ -466,7 +466,7 @@ export function ExamHub() {
                                     <Pencil className="h-4 w-4" /> Edit <DisabledHint>Closed exam</DisabledHint>
                                   </>
                                 ) : (
-                                  <Link href={`/admin/exam/${exam.id}`}>
+                                  <Link href={`/admin/exam/${exam.id}/setup`}>
                                     <Pencil className="h-4 w-4" /> Edit
                                   </Link>
                                 )}
@@ -477,7 +477,7 @@ export function ExamHub() {
                                     <Download className="h-4 w-4" /> PDF / Paper <DisabledHint>Generate sets first</DisabledHint>
                                   </>
                                 ) : (
-                                  <Link href={`/admin/exam/${exam.id}/pdf`}>
+                                  <Link href={`/admin/exam/${exam.id}/papers`}>
                                     <Download className="h-4 w-4" /> PDF / Paper
                                   </Link>
                                 )}

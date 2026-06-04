@@ -18,14 +18,17 @@ import { getActorUserIdFromStorage } from '@/lib/actor-user';
 import {
   discardOmrScan,
   finalizeOmrBatch,
+  getOmrRoster,
   getOmrScans,
   getOmrScanDownloadUrl,
   reassignOmrScan,
   uploadOmrScanBatch,
+  type OmrRosterStudent,
   type OmrScan,
   type OmrScanBatch,
   type OmrScanStatus,
 } from '@/lib/api/exam-results';
+import { Input } from '@/components/ui/input';
 
 type BranchOption = { id: string; name: string };
 
@@ -42,6 +45,13 @@ type Props = {
 
 const ACCEPTED_STATUSES: OmrScanStatus[] = ['PROCESSED', 'REVIEW_NEEDED'];
 const REJECTED_STATUSES: OmrScanStatus[] = ['REJECTED'];
+
+const IDENTITY_WARNING_LABELS: Record<string, string> = {
+  SET_MISMATCH: 'Set mismatch',
+  BRANCH_MISMATCH: 'Branch mismatch',
+  SET_LABEL_MISSING_DEFAULTED_FIRST: 'Set not detected — used first set key',
+  SET_LABEL_UNMAPPED: 'Unknown set — used first set key',
+};
 
 const REJECTION_LABELS: Record<string, string> = {
   NO_QR_NO_ROLL: 'No QR / unreadable roll',
@@ -79,14 +89,22 @@ export function OmrScanReviewPanel({
   const [finalizingBatchId, setFinalizingBatchId] = useState<string | null>(null);
   const [actionBusyScanId, setActionBusyScanId] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalScans, setTotalScans] = useState(0);
+  const pageSize = 50;
+  const [reassignTarget, setReassignTarget] = useState<OmrScan | null>(null);
+  const [rosterQuery, setRosterQuery] = useState('');
+  const [rosterRows, setRosterRows] = useState<OmrRosterStudent[]>([]);
+  const [rosterLoading, setRosterLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await getOmrScans(examId, { pageSize: 200 });
+      const r = await getOmrScans(examId, { page, pageSize });
       if (r.success && r.data) {
         setScans(r.data.scans);
         setBatches(r.data.batches);
+        setTotalScans(r.data.total);
       }
     } catch (err) {
       toast({
@@ -97,11 +115,25 @@ export function OmrScanReviewPanel({
     } finally {
       setLoading(false);
     }
-  }, [examId, toast]);
+  }, [examId, page, pageSize, toast]);
 
   useEffect(() => {
     void load();
   }, [load, refreshTick]);
+
+  useEffect(() => {
+    if (!reassignTarget) return;
+    const q = rosterQuery.trim();
+    const timer = window.setTimeout(() => {
+      setRosterLoading(true);
+      void getOmrRoster(examId, { q: q || undefined, limit: 40 })
+        .then((r) => {
+          if (r.success && r.data) setRosterRows(r.data.students);
+        })
+        .finally(() => setRosterLoading(false));
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [reassignTarget, rosterQuery, examId]);
 
   // Auto-poll while any scan is still pending/processing so progress shows live.
   useEffect(() => {
@@ -148,7 +180,9 @@ export function OmrScanReviewPanel({
       }
       toast({
         title: `Queued ${r.data.totalScans} OMR scan${r.data.totalScans === 1 ? '' : 's'}`,
-        description: 'Auto-grading runs in the background — results appear here as they complete.',
+        description: r.data.duplicateFiles?.length
+          ? `Skipped duplicate file(s): ${r.data.duplicateFiles.join(', ')}`
+          : 'Auto-grading runs in the background — results appear here as they complete.',
       });
       setRefreshTick((t) => t + 1);
     } finally {
@@ -157,20 +191,22 @@ export function OmrScanReviewPanel({
     }
   };
 
-  const reassign = async (scan: OmrScan) => {
-    const studentId = window.prompt(
-      'Enter the student user ID to assign this scan to.\n(Tip: copy it from the student profile page.)',
-      scan.studentUserId ?? '',
-    );
-    if (!studentId) return;
-    setActionBusyScanId(scan.id);
+  const openReassign = (scan: OmrScan) => {
+    setReassignTarget(scan);
+    setRosterQuery(scan.student?.fullName ?? scan.student?.registrationNumber ?? '');
+  };
+
+  const confirmReassign = async (studentUserId: string) => {
+    if (!reassignTarget) return;
+    setActionBusyScanId(reassignTarget.id);
     try {
-      const r = await reassignOmrScan(examId, scan.id, studentId.trim());
+      const r = await reassignOmrScan(examId, reassignTarget.id, studentUserId);
       if (!r.success) {
         toast({ title: r.message ?? 'Reassign failed', variant: 'destructive' });
         return;
       }
       toast({ title: 'Scan reassigned', description: 'Marks were recomputed against the answer key.' });
+      setReassignTarget(null);
       setRefreshTick((t) => t + 1);
     } finally {
       setActionBusyScanId(null);
@@ -225,9 +261,12 @@ export function OmrScanReviewPanel({
         });
         return;
       }
+      const dupNote = r.data.duplicateScans?.length
+        ? ` ${r.data.duplicateScans.length} duplicate scan(s) per student were skipped.`
+        : '';
       toast({
         title: 'Result batch created',
-        description: `${r.data.totalRecords} rows ready for branch / central approval.`,
+        description: `${r.data.totalRecords} rows ready for branch / central approval.${dupNote}`,
       });
       onFinalized?.(r.data.resultBatchId);
       setRefreshTick((t) => t + 1);
@@ -237,7 +276,7 @@ export function OmrScanReviewPanel({
   };
 
   return (
-    <Card className="border-slate-200 shadow-sm">
+    <Card className="w-full max-w-full min-w-0 border-slate-200 shadow-sm">
       <CardHeader className="flex flex-row items-start justify-between gap-3">
         <div>
           <CardTitle className="font-serif text-lg text-[#0D1B35]">OMR scans</CardTitle>
@@ -393,7 +432,7 @@ export function OmrScanReviewPanel({
           loading={loading}
           rows={accepted}
           actionBusyScanId={actionBusyScanId}
-          onReassign={(s) => void reassign(s)}
+          onReassign={(s) => openReassign(s)}
           onDiscard={(s) => void discard(s)}
         />
 
@@ -405,9 +444,90 @@ export function OmrScanReviewPanel({
           loading={loading}
           rows={rejected}
           actionBusyScanId={actionBusyScanId}
-          onReassign={(s) => void reassign(s)}
+          onReassign={(s) => openReassign(s)}
           onDiscard={(s) => void discard(s)}
         />
+
+        {totalScans > pageSize ? (
+          <div className="flex items-center justify-between gap-2 text-sm text-slate-600">
+            <span>
+              Page {page} · {totalScans} scans total
+            </span>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={page <= 1 || loading}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={page * pageSize >= totalScans || loading}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
+        {reassignTarget ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="max-h-[80vh] w-full max-w-lg overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl">
+              <div className="border-b border-slate-100 px-4 py-3">
+                <p className="font-bold text-slate-900">Assign scan to student</p>
+                <p className="text-xs text-slate-500 truncate">
+                  {reassignTarget.fileName ?? reassignTarget.id}
+                </p>
+              </div>
+              <div className="space-y-3 p-4">
+                <Input
+                  placeholder="Search name or registration…"
+                  value={rosterQuery}
+                  onChange={(e) => setRosterQuery(e.target.value)}
+                />
+                <div className="max-h-64 overflow-y-auto rounded border border-slate-200">
+                  {rosterLoading ? (
+                    <p className="p-4 text-center text-sm text-slate-500">
+                      <Loader2 className="mx-auto h-5 w-5 animate-spin" />
+                    </p>
+                  ) : rosterRows.length === 0 ? (
+                    <p className="p-4 text-center text-sm text-slate-500">No enrolled students match.</p>
+                  ) : (
+                    <ul className="divide-y divide-slate-100">
+                      {rosterRows.map((s) => (
+                        <li key={s.id}>
+                          <button
+                            type="button"
+                            className="w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
+                            disabled={actionBusyScanId === reassignTarget.id}
+                            onClick={() => void confirmReassign(s.id)}
+                          >
+                            <span className="font-semibold text-slate-900">{s.fullName ?? '—'}</span>
+                            <span className="ml-2 text-xs text-slate-500">
+                              {s.registrationNumber ?? s.id}
+                              {s.branchCode ? ` · ${s.branchCode}` : ''}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 border-t border-slate-100 px-4 py-3">
+                <Button type="button" variant="outline" size="sm" onClick={() => setReassignTarget(null)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );
@@ -471,7 +591,10 @@ function ScanTable({
             <TableRow>
               <TableHead>Sheet</TableHead>
               <TableHead>Student</TableHead>
-              <TableHead>Detected roll</TableHead>
+              <TableHead>Reg (grid)</TableHead>
+              <TableHead>Set</TableHead>
+              <TableHead>Branch</TableHead>
+              <TableHead>Roll</TableHead>
               <TableHead>Reason</TableHead>
               <TableHead className="text-right">Marks</TableHead>
               <TableHead className="text-right">Confidence</TableHead>
@@ -482,13 +605,13 @@ function ScanTable({
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} className="py-6 text-center text-sm text-slate-500">
+                <TableCell colSpan={11} className="py-6 text-center text-sm text-slate-500">
                   <Loader2 className="mx-auto h-5 w-5 animate-spin" />
                 </TableCell>
               </TableRow>
             ) : rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="py-6 text-center text-sm text-slate-500">
+                <TableCell colSpan={11} className="py-6 text-center text-sm text-slate-500">
                   Nothing here yet.
                 </TableCell>
               </TableRow>
@@ -520,13 +643,30 @@ function ScanTable({
                         <span className="text-xs italic text-slate-400">Unmatched</span>
                       )}
                     </TableCell>
+                    <TableCell className="text-xs text-slate-600">
+                      {scan.registrationFromGrid ?? '—'}
+                    </TableCell>
+                    <TableCell className="text-xs text-slate-600">
+                      {scan.detectedSetLabel
+                        ? `${scan.detectedSetLabel}${scan.expectedSetLabel && scan.detectedSetLabel !== scan.expectedSetLabel ? ` / exp ${scan.expectedSetLabel}` : ''}`
+                        : scan.expectedSetLabel ?? '—'}
+                    </TableCell>
+                    <TableCell className="text-xs text-slate-600">{scan.detectedBranchCode ?? '—'}</TableCell>
                     <TableCell className="text-xs text-slate-600">{scan.detectedRoll ?? '—'}</TableCell>
                     <TableCell className="text-xs text-slate-600">
-                      {scan.rejectionReason ? (
-                        <Badge variant="outline" className="border-rose-300 text-[10px] text-rose-700">
-                          {REJECTION_LABELS[scan.rejectionReason] ?? scan.rejectionReason}
-                        </Badge>
-                      ) : '—'}
+                      <div className="flex flex-col gap-1">
+                        {scan.rejectionReason ? (
+                          <Badge variant="outline" className="border-rose-300 text-[10px] text-rose-700 w-fit">
+                            {REJECTION_LABELS[scan.rejectionReason] ?? scan.rejectionReason}
+                          </Badge>
+                        ) : null}
+                        {(scan.identityWarnings ?? []).map((w) => (
+                          <Badge key={w} variant="outline" className="border-amber-300 text-[10px] text-amber-800 w-fit">
+                            {IDENTITY_WARNING_LABELS[w] ?? w}
+                          </Badge>
+                        ))}
+                        {!scan.rejectionReason && !(scan.identityWarnings?.length) ? '—' : null}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right text-sm font-bold">
                       {scan.marks != null ? scan.marks.toFixed(2) : '—'}

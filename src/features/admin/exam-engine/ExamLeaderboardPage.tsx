@@ -1,9 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
-import { ChevronLeft, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
@@ -13,10 +11,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { getExamById, getExamLeaderboard, type ExamLeaderboardPayload } from '@/lib/api/exams';
-import type { Exam } from '@/types/exam';
-import { ExamEngineSubnav } from './components/ExamEngineSubnav';
-
+import { getExamLeaderboard, type ExamLeaderboardPayload } from '@/lib/api/exams';
+import { useExamWorkspace } from './layout/ExamWorkspaceShell';
+import { ExamWorkspacePageHeader } from './layout/ExamWorkspacePageHeader';
+import { examWorkspacePageClass } from './layout/examWorkspaceUi';
 function formatTime(iso: string | null | undefined) {
   if (!iso) return '—';
   try {
@@ -28,26 +26,23 @@ function formatTime(iso: string | null | undefined) {
 }
 
 export function ExamLeaderboardPage({ examId }: { examId: string }) {
-  const [exam, setExam] = useState<Exam | null>(null);
+  const { exam, loadingExam } = useExamWorkspace();
   const [payload, setPayload] = useState<ExamLeaderboardPayload | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loadingLb, setLoadingLb] = useState(true);
 
   const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [ex, lb] = await Promise.all([getExamById(examId), getExamLeaderboard(examId)]);
-      if (ex.success && ex.data) setExam(ex.data);
-      if (lb.success && lb.data) setPayload(lb.data);
-    } finally {
-      setLoading(false);
-    }
+    setLoadingLb(true);
+    const lb = await getExamLeaderboard(examId);
+    if (lb.success && lb.data) setPayload(lb.data);
+    setLoadingLb(false);
   }, [examId]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (!loadingExam && exam) void load();
+    if (!loadingExam && !exam) setLoadingLb(false);
+  }, [loadingExam, exam, load]);
 
-  if (loading) {
+  if (loadingExam || loadingLb) {
     return (
       <div className="flex justify-center py-16 text-slate-500">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -58,25 +53,16 @@ export function ExamLeaderboardPage({ examId }: { examId: string }) {
   const rows = payload?.rows ?? [];
   const showPercentileCol = rows.some((r) => r.percentile != null);
 
-  return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Button variant="ghost" size="sm" asChild className="w-fit gap-1 text-slate-600">
-          <Link href="/admin/exam">
-            <ChevronLeft className="h-4 w-4" /> All exams
-          </Link>
-        </Button>
-        <ExamEngineSubnav examId={examId} />
-      </div>
+  if (!exam) {
+    return <p className="py-12 text-center text-sm text-slate-600">Exam not found.</p>;
+  }
 
-      <div>
-        <h1 className="font-serif text-2xl font-normal tracking-tight text-[#0D1B35] md:text-3xl">
-          Leaderboard{exam ? ` — ${exam.title}` : ''}
-        </h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Submitted attempts only · {payload?.count ?? 0} row{payload?.count === 1 ? '' : 's'}
-        </p>
-      </div>
+  return (
+    <div className={examWorkspacePageClass}>
+      <ExamWorkspacePageHeader
+        title="Leaderboard"
+        description={`Submitted attempts only · ${payload?.count ?? 0} row${payload?.count === 1 ? '' : 's'}`}
+      />
 
       <Card className="border-slate-200 shadow-sm">
         <CardHeader>
@@ -85,7 +71,7 @@ export function ExamLeaderboardPage({ examId }: { examId: string }) {
             {exam?.showPercentile ? 'Includes approximate percentile.' : 'Percentiles hidden for this exam.'}
           </CardDescription>
         </CardHeader>
-        <CardContent className="overflow-x-auto p-0 sm:p-6">
+        <CardContent className="w-full max-w-full overflow-x-auto p-0 sm:p-6">
           {rows.length === 0 ? (
             <p className="p-6 text-center text-sm text-slate-500">No submitted attempts yet.</p>
           ) : (

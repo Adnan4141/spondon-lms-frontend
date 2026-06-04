@@ -330,6 +330,28 @@ export async function getExamOperationsSummary(examId: string): Promise<ApiRespo
   return apiRequest<ApiResponse<ExamOperationsSummary>>(`/exams/${examId}/operations-summary`);
 }
 
+export type ExamAuditTrailRow = {
+  id: string;
+  actorUserId: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  oldValue?: unknown;
+  newValue?: unknown;
+  ip?: string | null;
+  createdAt: string;
+  actor?: {
+    id: string;
+    fullName: string;
+    role: string;
+    branchId?: string | null;
+  };
+};
+
+export async function getExamAuditTrail(examId: string): Promise<ApiResponse<ExamAuditTrailRow[]>> {
+  return apiRequest<ApiResponse<ExamAuditTrailRow[]>>(`/exams/${examId}/audit`);
+}
+
 export interface ExamAnalytics {
   totalAttempts: number;
   totalMarks: number;

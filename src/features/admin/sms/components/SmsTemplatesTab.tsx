@@ -1,6 +1,6 @@
 'use client';
 
-import { FileText, Save, X } from 'lucide-react';
+import { FileText, Save, Trash2, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,8 +9,6 @@ import { Switch } from '@/components/ui/switch';
 import type { SmsTemplate } from '@/lib/api/sms';
 import type { SmsTemplateActionsHook } from '../hooks/useSmsManagement';
 import { EmptyState, Panel, SmsComposer, smsLengthInfo } from '../sms-shared';
-
-const EMPTY_FORM = { key: '', body: '', isMasking: true };
 
 export function SmsTemplatesTab({
   templates,
@@ -21,19 +19,28 @@ export function SmsTemplatesTab({
   templateState: SmsTemplateActionsHook['state'];
   templateActions: SmsTemplateActionsHook['actions'];
 }) {
-  const { templateForm, submitting } = templateState;
-  const { setTemplateForm, handleSaveTemplate } = templateActions;
+  const { templateForm, submitting, isBranchAdmin } = templateState;
+  const { setTemplateForm, handleSaveTemplate, handleDeleteTemplate } = templateActions;
 
-  const isEditing = templates.some((t) => t.key === templateForm.key);
+  const isEditing = templates.some(
+    (t) => t.key === templateForm.key && t.scope === templateForm.scope && (t.branchId || '') === (templateForm.branchId || ''),
+  );
   const info = smsLengthInfo(templateForm.body);
   const hasContent = templateForm.key.trim() || templateForm.body.trim();
 
   function handleSelectTemplate(template: SmsTemplate) {
-    setTemplateForm({ key: template.key, body: template.body, isMasking: template.isMasking });
+    setTemplateForm((prev) => ({
+      ...prev,
+      key: template.key,
+      body: template.body,
+      isMasking: template.isMasking,
+      scope: template.scope,
+      branchId: template.branchId || '',
+    }));
   }
 
   function handleClear() {
-    setTemplateForm(EMPTY_FORM);
+    setTemplateForm((prev) => ({ ...prev, key: '', body: '', isMasking: true }));
   }
 
   return (
@@ -130,40 +137,65 @@ export function SmsTemplatesTab({
       >
         <div className="space-y-2">
           {templates.map((template) => {
-            const isActive = templateForm.key === template.key;
+            const isActive =
+              templateForm.key === template.key
+              && templateForm.scope === template.scope
+              && (templateForm.branchId || '') === (template.branchId || '');
+            const deleteDisabled = submitting || (isBranchAdmin && template.scope === 'ORG');
             return (
-              <button
+              <div
                 key={template.id}
-                type="button"
-                onClick={() => handleSelectTemplate(template)}
-                className={`group w-full rounded-md border px-3 py-2.5 text-left transition-colors ${
+                className={`group flex w-full items-start gap-2 rounded-md border px-3 py-2.5 text-left transition-colors ${
                   isActive
                     ? 'border-blue-300 bg-blue-50 ring-1 ring-blue-300'
                     : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                 }`}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <FileText className={`h-3.5 w-3.5 flex-shrink-0 ${isActive ? 'text-blue-500' : 'text-slate-400'}`} />
-                    <p className={`truncate font-semibold ${isActive ? 'text-blue-900' : 'text-slate-900'}`}>
-                      {template.key}
-                    </p>
+                <button
+                  type="button"
+                  onClick={() => handleSelectTemplate(template)}
+                  className="min-w-0 flex-1 text-left"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <FileText className={`h-3.5 w-3.5 flex-shrink-0 ${isActive ? 'text-blue-500' : 'text-slate-400'}`} />
+                      <p className={`truncate font-semibold ${isActive ? 'text-blue-900' : 'text-slate-900'}`}>
+                        {template.key}
+                      </p>
+                    </div>
+                    <div className="flex flex-shrink-0 gap-1">
+                      <Badge
+                        variant="outline"
+                        className={
+                          template.isMasking
+                            ? 'border-blue-200 bg-blue-50 text-blue-700'
+                            : 'border-slate-200 text-slate-600'
+                        }
+                      >
+                        {template.isMasking ? 'Masking' : 'Non-masking'}
+                      </Badge>
+                      <Badge variant="outline" className="border-slate-200 text-slate-500">
+                        {template.scope}
+                      </Badge>
+                    </div>
                   </div>
-                  <div className="flex flex-shrink-0 gap-1">
-                    <Badge
-                      variant="outline"
-                      className={
-                        template.isMasking
-                          ? 'border-blue-200 bg-blue-50 text-blue-700'
-                          : 'border-slate-200 text-slate-600'
-                      }
-                    >
-                      {template.isMasking ? 'Masking' : 'Non-masking'}
-                    </Badge>
-                  </div>
-                </div>
-                <p className="mt-1.5 line-clamp-2 text-xs text-slate-500">{template.body}</p>
-              </button>
+                  <p className="mt-1.5 line-clamp-2 text-xs text-slate-500">{template.body}</p>
+                </button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  disabled={deleteDisabled}
+                  title={isBranchAdmin && template.scope === 'ORG' ? 'Org templates cannot be deleted by branch admins' : 'Delete template'}
+                  className="h-8 w-8 shrink-0 border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void handleDeleteTemplate(template);
+                  }}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             );
           })}
           {templates.length === 0 && (

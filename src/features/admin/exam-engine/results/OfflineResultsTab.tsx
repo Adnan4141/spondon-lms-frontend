@@ -280,11 +280,16 @@ export function OfflineResultsTab({
                             variant="outline"
                             disabled={busy}
                             className="gap-1 border-rose-200 text-rose-700"
-                            onClick={() =>
+                            onClick={() => {
+                              const note = window.prompt('Enter the rejection reason for this result batch.');
+                              if (!note?.trim()) {
+                                toast({ title: 'Rejection reason required', variant: 'destructive' });
+                                return;
+                              }
                               void runBatchAction(batch, 'Batch rejected', () =>
-                                rejectResultBatch(examId, batch.id),
-                              )
-                            }
+                                rejectResultBatch(examId, batch.id, note.trim()),
+                              );
+                            }}
                           >
                             <XCircle className="h-3 w-3" />
                             Reject

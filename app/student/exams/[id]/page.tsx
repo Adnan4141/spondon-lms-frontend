@@ -4,13 +4,14 @@ import { useCallback, useEffect, useState, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { ApiError } from '@/lib/api';
 import { startExamAttempt, getAttemptResult, getExamStudentView, getExamPdfDownloadUrl } from '@/lib/api/exams';
-import type { StartAttemptResponse, AttemptResultResponse, ExamStudentView } from '@/types/exam';
+import type { StartAttemptResponse, AttemptResultResponse, ExamStudentView, StudentExamResultStatus } from '@/types/exam';
 import { ExamTakingView } from '@/components/student/exam-window/ExamTakingView';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Timer, AlertTriangle, CheckCircle2, Loader2, Eye, Trophy, XCircle, Building2, FileText, PenLine, CalendarClock, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { isOfflineDeliveryExam } from '@/lib/exam-workflow';
+import { centreQuestionPaperCopy } from '@/features/student/exam-state';
 
 import {
   detectQuestionLang,
@@ -80,6 +81,47 @@ function getProvisionalMcqScore(result: AttemptResultResponse | null): { obtaine
     obtained += Number(question.studentAnswer?.obtainedMarks || 0);
   });
   return total > 0 ? { obtained: Math.max(0, obtained), total } : null;
+}
+
+function offlineResultStatusCopy(status?: StudentExamResultStatus | null): {
+  label: string;
+  message: string;
+  className: string;
+} | null {
+  switch (status) {
+    case 'NOT_SUBMITTED':
+      return {
+        label: 'Result not published',
+        message: 'Result has not been published yet. Please check back after the exam authority processes the scripts.',
+        className: 'border-slate-200 bg-white text-slate-700',
+      };
+    case 'PENDING_BRANCH_APPROVAL':
+      return {
+        label: 'Branch approval pending',
+        message: 'Your result entry is waiting for branch approval.',
+        className: 'border-amber-200 bg-amber-100/80 text-amber-950',
+      };
+    case 'PENDING_CENTRAL_APPROVAL':
+      return {
+        label: 'Central approval pending',
+        message: 'Branch approval is complete. Central approval is pending.',
+        className: 'border-blue-200 bg-blue-50 text-blue-900',
+      };
+    case 'PUBLISHED':
+      return {
+        label: 'Result published',
+        message: 'Your result has been published.',
+        className: 'border-emerald-200 bg-emerald-50 text-emerald-900',
+      };
+    case 'LEGACY_RESULT':
+      return {
+        label: 'Result available',
+        message: 'Your result is available from the previous offline result system.',
+        className: 'border-emerald-200 bg-emerald-50 text-emerald-900',
+      };
+    default:
+      return null;
+  }
 }
 
 export default function StudentExamTakingPage() {
@@ -312,15 +354,15 @@ export default function StudentExamTakingPage() {
     );
   }
 
-  // Offline / hall exam — schedule & centre info (no in-app question PDF; no browser attempt)
+  // Offline exam — schedule & centre info (no in-app question PDF; no browser attempt)
   if (phase === 'offline' && examMeta) {
     const lang: Lang = examMeta.language === 'en' ? 'en' : 'bn';
     const ui =
       lang === 'en'
         ? {
-            title: 'Offline hall exam',
-            sub: 'Take this exam at your centre on paper. The question paper will be provided at the exam hall.',
-            centreNote: 'Question paper will be provided at the exam centre.',
+            title: 'Offline exam',
+            sub: 'Take this exam at your centre on paper. The question paper will be provided at the exam centre.',
+            centreNote: centreQuestionPaperCopy(),
             course: 'Course',
             branch: 'Branch',
             batch: 'Batch',
@@ -333,8 +375,8 @@ export default function StudentExamTakingPage() {
             back: 'Back to exams',
           }
         : {
-            title: 'Offline Hall Exam',
-            sub: 'এই পরীক্ষা কেন্দ্রে কাগজে দেওয়া হয়। প্রশ্নপত্র পরীক্ষার হলে দেওয়া হবে।',
+            title: 'Offline Exam',
+            sub: 'এই পরীক্ষা কেন্দ্রে কাগজে দেওয়া হয়। প্রশ্নপত্র পরীক্ষার কেন্দ্রে দেওয়া হবে।',
             centreNote: 'প্রশ্নপত্র পরীক্ষার কেন্দ্রে দেওয়া হবে।',
             course: 'Course',
             branch: 'Branch',
@@ -354,10 +396,11 @@ export default function StudentExamTakingPage() {
     }
     const solveHref =
       examMeta.solveSheetUrl && showSolve ? getExamPdfDownloadUrl(examMeta.solveSheetUrl) : null;
+    const resultStatus = offlineResultStatusCopy(examMeta.resultStatus);
 
     return (
-      <div className="min-h-[60vh] max-w-2xl mx-auto space-y-8 py-6">
-        <div className="rounded-3xl border border-amber-200 bg-amber-50/50 p-8 shadow-sm">
+      <div className={cn('mx-auto min-h-[60vh] w-full max-w-full space-y-8 px-4 py-8 sm:px-6')}>
+        <div className="mx-auto max-w-2xl rounded-3xl border border-amber-200 bg-amber-50/50 p-8 shadow-sm">
           <div className="flex items-center gap-3 mb-4">
             <div className="h-12 w-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center">
               <Building2 className="h-6 w-6" />
@@ -423,6 +466,12 @@ export default function StudentExamTakingPage() {
           <p className="text-sm font-bold text-amber-900 bg-amber-100/80 rounded-2xl px-4 py-3 mb-4">
             {ui.centreNote}
           </p>
+          {resultStatus ? (
+            <div className={cn('mb-4 rounded-2xl border px-4 py-3', resultStatus.className)}>
+              <p className="text-[10px] font-black uppercase tracking-widest">{resultStatus.label}</p>
+              <p className="mt-1 text-sm font-bold leading-relaxed">{resultStatus.message}</p>
+            </div>
+          ) : null}
           <div className="flex flex-col sm:flex-row gap-3">
             {solveHref ? (
               <Button variant="outline" className="h-12 rounded-2xl font-black uppercase tracking-widest text-[10px] border-slate-200" asChild>
@@ -444,9 +493,11 @@ export default function StudentExamTakingPage() {
             ) : null}
           </div>
         </div>
-        <Button variant="outline" className="h-12 rounded-2xl font-bold" onClick={() => router.push('/student/exams')}>
-          {ui.back}
-        </Button>
+        <div className="mx-auto max-w-2xl">
+          <Button variant="outline" className="h-12 rounded-2xl font-bold" onClick={() => router.push('/student/exams')}>
+            {ui.back}
+          </Button>
+        </div>
       </div>
     );
   }
@@ -598,7 +649,8 @@ export default function StudentExamTakingPage() {
     };
 
     return (
-      <div className="min-h-screen bg-slate-50 py-12 px-4">
+      <div className="min-h-screen bg-slate-50">
+        <div className={cn('mx-auto w-full max-w-full px-4 py-8 sm:px-6')}>
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-10">
             <div className="inline-flex items-center justify-center h-20 w-20 rounded-full bg-emerald-100 mb-4">
@@ -760,6 +812,7 @@ export default function StudentExamTakingPage() {
               </Button>
             </div>
           )}
+        </div>
         </div>
       </div>
     );

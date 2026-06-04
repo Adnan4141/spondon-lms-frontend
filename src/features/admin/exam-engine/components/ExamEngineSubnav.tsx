@@ -4,22 +4,24 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
-type TabKey = 'details' | 'wizard' | 'leaderboard' | 'results';
+type TabKey = 'overview' | 'setup' | 'papers' | 'results' | 'leaderboard';
 
 const tabs: { key: TabKey; label: string; href: (examId: string) => string }[] = [
-  { key: 'details', label: 'Details', href: (id) => `/admin/exam/${id}/details` },
-  { key: 'wizard', label: 'Edit', href: (id) => `/admin/exam/${id}` },
-  { key: 'leaderboard', label: 'Leaderboard', href: (id) => `/admin/exam/${id}/leaderboard` },
+  { key: 'overview', label: 'Overview', href: (id) => `/admin/exam/${id}` },
+  { key: 'setup', label: 'Setup', href: (id) => `/admin/exam/${id}/setup` },
+  { key: 'papers', label: 'Papers', href: (id) => `/admin/exam/${id}/papers` },
   { key: 'results', label: 'Results', href: (id) => `/admin/exam/${id}/results` },
+  { key: 'leaderboard', label: 'Leaderboard', href: (id) => `/admin/exam/${id}/leaderboard` },
 ];
 
 function activeTab(pathname: string, examId: string): TabKey {
-  if (pathname.includes('/details')) return 'details';
+  if (pathname.includes('/setup')) return 'setup';
+  if (pathname.includes('/papers') || pathname.includes('/pdf')) return 'papers';
   if (pathname.includes('/leaderboard')) return 'leaderboard';
   if (pathname.includes('/results')) return 'results';
   const base = `/admin/exam/${examId}`;
-  if (pathname === base || pathname === `${base}/`) return 'wizard';
-  return 'wizard';
+  if (pathname === base || pathname === `${base}/` || pathname.includes('/details')) return 'overview';
+  return 'overview';
 }
 
 export function ExamEngineSubnav({ examId }: { examId: string }) {

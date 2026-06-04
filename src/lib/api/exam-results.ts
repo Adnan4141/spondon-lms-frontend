@@ -33,6 +33,12 @@ export interface OmrScan {
   reviewedBy?: string | null;
   reviewedAt?: string | null;
   resultBatchId?: string | null;
+  contentHash?: string | null;
+  detectedSetLabel?: string | null;
+  expectedSetLabel?: string | null;
+  detectedBranchCode?: string | null;
+  registrationFromGrid?: string | null;
+  identityWarnings?: string[] | null;
   createdAt: string;
   updatedAt: string;
   student?: {
@@ -67,6 +73,27 @@ export interface OmrScanListResponse {
  * Paginated OMR scans for the review UI. Returns both scans and the recent
  * batch list so the UI can render batch progress without a second request.
  */
+export interface OmrRosterStudent {
+  id: string;
+  fullName: string | null;
+  registrationNumber: string | null;
+  branchCode: string | null;
+  branchName: string | null;
+}
+
+export async function getOmrRoster(
+  examId: string,
+  params: { q?: string; limit?: number } = {},
+): Promise<{ success: boolean; data: { students: OmrRosterStudent[] } }> {
+  const search = new URLSearchParams();
+  if (params.q) search.set('q', params.q);
+  if (params.limit) search.set('limit', String(params.limit));
+  const q = search.toString();
+  return apiRequest<{ success: boolean; data: { students: OmrRosterStudent[] } }>(
+    `/exams/${examId}/omr-scans/roster${q ? `?${q}` : ''}`,
+  );
+}
+
 export async function getOmrScans(
   examId: string,
   params: { status?: OmrScanStatus; batchId?: string; page?: number; pageSize?: number } = {},
@@ -91,7 +118,11 @@ export async function uploadOmrScanBatch(
   examId: string,
   files: File[],
   options: { branchId?: string; uploadedBy?: string } = {},
-): Promise<{ success: boolean; data: { batchId: string; totalScans: number; scanIds: string[] }; message?: string }> {
+): Promise<{
+  success: boolean;
+  data: { batchId: string; totalScans: number; scanIds: string[]; duplicateFiles?: string[] };
+  message?: string;
+}> {
   const formData = new FormData();
   for (const f of files) formData.append('files', f);
   if (options.branchId) formData.append('branchId', options.branchId);
@@ -144,7 +175,15 @@ export async function finalizeOmrBatch(
   examId: string,
   batchId: string,
   options: { branchId?: string; uploadedBy?: string } = {},
-): Promise<{ success: boolean; data: { resultBatchId: string; totalRecords: number }; message?: string }> {
+): Promise<{
+  success: boolean;
+  data: {
+    resultBatchId: string;
+    totalRecords: number;
+    duplicateScans?: Array<{ scanId: string; studentUserId: string; keptScanId: string }>;
+  };
+  message?: string;
+}> {
   return apiRequest<{ success: boolean; data: { resultBatchId: string; totalRecords: number }; message?: string }>(
     `/exams/${examId}/omr-scans/batch/${batchId}/finalize`,
     {

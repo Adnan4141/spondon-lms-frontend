@@ -18,12 +18,16 @@ import {
   FileText,
   Timer,
   Building2,
-  Download,
   PenLine,
   CalendarClock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { isOfflineDeliveryExam } from '@/lib/exam-workflow';
+import {
+  centreQuestionPaperCopy,
+  offlineInstructionsCta,
+  offlineResultStatusLabel,
+} from '@/features/student/exam-state';
 
 function getTypeBadgeClass(type: string) {
   switch (type) {
@@ -87,18 +91,7 @@ function writtenPrimaryAction(exam: Exam) {
 }
 
 function resultStatusLabel(exam: Exam): string | null {
-  switch (exam.resultStatus) {
-    case 'PUBLISHED':
-      return 'Result published';
-    case 'PENDING_CENTRAL_APPROVAL':
-      return 'Result pending central approval';
-    case 'PENDING_BRANCH_APPROVAL':
-      return 'Result pending branch approval';
-    case 'LEGACY_RESULT':
-      return 'Legacy result available';
-    default:
-      return null;
-  }
+  return offlineResultStatusLabel(exam.resultStatus);
 }
 
 export default function StudentExamsPage() {
@@ -128,7 +121,7 @@ export default function StudentExamsPage() {
     fetchExams();
   }, []);
 
-  const hallExams = exams.filter((e) => isOfflineDeliveryExam(e));
+  const offlineExams = exams.filter((e) => isOfflineDeliveryExam(e));
   const writtenExams = exams.filter((e) => !isOfflineDeliveryExam(e) && (e.mode === 'WRITTEN' || e.mode === 'HYBRID'));
   const availableWritten = writtenExams.filter((e) => e.canAttempt || e.hasInProgress);
   const completedWritten = writtenExams.filter(
@@ -156,7 +149,7 @@ export default function StudentExamsPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-100 items-center justify-center">
+      <div className={cn('mx-auto flex min-h-100 w-full max-w-full items-center justify-center px-4 py-8 sm:px-6')}>
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-12 w-12 animate-spin text-indigo-600" />
           <p className="text-slate-500 font-bold animate-pulse">Loading exams...</p>
@@ -167,7 +160,7 @@ export default function StudentExamsPage() {
 
   if (error) {
     return (
-      <div className="space-y-10">
+      <div className={cn('mx-auto w-full max-w-full space-y-10 px-4 py-8 sm:px-6')}>
         <h1 className="text-4xl font-black text-slate-900 tracking-tight">Exams</h1>
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-8 text-center">
           <AlertCircle className="h-10 w-10 text-rose-400 mx-auto mb-4" />
@@ -178,7 +171,7 @@ export default function StudentExamsPage() {
   }
 
   return (
-    <div className="space-y-10">
+    <div className={cn('mx-auto w-full max-w-full space-y-10 px-4 py-8 sm:px-6')}>
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-4xl font-black text-slate-900 tracking-tight">Exams</h1>
@@ -241,14 +234,14 @@ export default function StudentExamsPage() {
         </section>
       )}
 
-      {/* Offline / hall exams (PDF + centre instructions) */}
-      {hallExams.length > 0 && (
+      {/* Offline exams (centre instructions) */}
+      {offlineExams.length > 0 && (
         <section>
           <h2 className="text-[11px] font-black uppercase tracking-[0.25em] text-amber-700 mb-4 flex items-center gap-2">
-            <Building2 className="h-3.5 w-3.5" /> Hall Exams / Offline Exams
+            <Building2 className="h-3.5 w-3.5" /> Offline Exams
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {hallExams.map((exam) => {
+            {offlineExams.map((exam) => {
               const remaining = timeRemaining(exam.endAt);
               return (
                 <div
@@ -292,6 +285,9 @@ export default function StudentExamsPage() {
                     ) : null}
                   </div>
                   <div className="mt-4 pt-4 border-t border-amber-200/80 flex flex-col gap-2">
+                    <p className="rounded-lg bg-white/70 px-3 py-2 text-xs font-bold leading-relaxed text-amber-950">
+                      {centreQuestionPaperCopy()}
+                    </p>
                     {resultStatusLabel(exam) ? (
                       <div className="rounded-lg border border-amber-200 bg-white/80 px-3 py-2 text-[11px] font-black text-amber-900">
                         {resultStatusLabel(exam)}
@@ -304,8 +300,8 @@ export default function StudentExamsPage() {
                         router.push(`/student/exams/${exam.id}`);
                       }}
                     >
-                      <Download className="h-3.5 w-3.5 mr-2" />
-                      Instructions & PDF
+                      <Building2 className="h-3.5 w-3.5 mr-2" />
+                      {offlineInstructionsCta()}
                     </Button>
                     {exam.showLeaderboard ? (
                       <Button

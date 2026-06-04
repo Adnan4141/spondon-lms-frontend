@@ -57,7 +57,7 @@ export function ManageEnrollmentModal({
   const [selectedAddCourseIds, setSelectedAddCourseIds] = useState<string[]>([]);
   const [selectedCancelCourseIds, setSelectedCancelCourseIds] = useState<string[]>([]);
   const [selectedMeta, setSelectedMeta] = useState<Record<string, { batch: string; startMonth: string; endMonth: string }>>({});
-  const [courseBatches, setCourseBatches] = useState<Record<string, { id: string; name: string }[]>>({});
+  const [courseBatches, setCourseBatches] = useState<Record<string, { id: string; name: string; status: string }[]>>({});
   const [saving, setSaving] = useState(false);
   const [progressText, setProgressText] = useState('Applying changes...');
   const [submitError, setSubmitError] = useState('');
@@ -123,19 +123,28 @@ export function ManageEnrollmentModal({
   useEffect(() => {
     selectedAddCourseIds.forEach((cid) => {
       if (courseBatches[cid]) return;
-      getBatches({ courseId: cid, limit: 100 })
+      getBatches({ courseId: cid, branchId: enrollment.branchId, status: 'ACTIVE', limit: 100 })
         .then((res) => {
           if (!res.success || !res.data) return;
+          const batches = res.data!.map((b) => ({ id: b.id, name: b.name, status: b.status as string }));
           setCourseBatches((prev) => ({
             ...prev,
-            [cid]: res.data!.map((b) => ({ id: b.id, name: b.name })),
+            [cid]: batches,
           }));
+          setSelectedMeta((prev) => {
+            const current = prev[cid];
+            if (!current?.batch || batches.some((batch) => batch.id === current.batch)) return prev;
+            return { ...prev, [cid]: { ...current, batch: '' } };
+          });
         })
         .catch(() => {
           setCourseBatches((prev) => ({ ...prev, [cid]: [] }));
+          setSelectedMeta((prev) => (
+            prev[cid]?.batch ? { ...prev, [cid]: { ...prev[cid], batch: '' } } : prev
+          ));
         });
     });
-  }, [selectedAddCourseIds, courseBatches]);
+  }, [selectedAddCourseIds, courseBatches, enrollment.branchId]);
 
   const handleApply = async (discount: number) => {
     if (!hasChanges || !canProceed) return;
@@ -425,6 +434,7 @@ export function ManageEnrollmentModal({
               <div className="space-y-2 max-h-72 overflow-auto pr-1">
                 {availableCourses.map((c) => {
                   const checked = selectedAddCourseIds.includes(c.id);
+                  const activeBatches = (courseBatches[c.id] ?? []).filter((batch) => batch.status === 'ACTIVE');
                   const meta = selectedMeta[c.id] || {
                     batch: '',
                     startMonth: c.startMonth || effMonth,
@@ -467,6 +477,11 @@ export function ManageEnrollmentModal({
                           </div>
                           <div className="flex gap-2 mt-1">
                             <AppBadge label={c.type} color={c.type === 'OFFLINE' ? 'amber' : 'blue'} />
+                            {c.type === 'OFFLINE' && (
+                              activeBatches.length > 0
+                                ? <AppBadge label={`${activeBatches.length} Batch${activeBatches.length > 1 ? 'es' : ''}`} color="green" />
+                                : <AppBadge label="No Active Batch" color="red" />
+                            )}
                           </div>
                         </div>
                       </label>
@@ -485,9 +500,13 @@ export function ManageEnrollmentModal({
                                   [c.id]: { ...meta, batch: v },
                                 }))}
                                 placeholder="Select batch"
-                                options={(courseBatches[c.id] ?? []).map((b) => ({ value: b.id, label: b.name }))}
+                                options={activeBatches.map((b) => ({ value: b.id, label: b.name }))}
                               />
-                              {!meta.batch && <p className="text-[11px] text-rose-600 mt-1">Required for offline</p>}
+                              {!meta.batch && (
+                                <p className="text-[11px] text-rose-600 mt-1">
+                                  {activeBatches.length ? 'Required for offline' : 'No active batch for this enrollment branch'}
+                                </p>
+                              )}
                             </Field>
                           )}
                           <Field label="Start Month" required>

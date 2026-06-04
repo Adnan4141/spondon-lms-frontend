@@ -16,7 +16,6 @@ import type { Course } from '@/types/course';
 import type { Branch } from '@/lib/api/branches';
 import type { ExamStatus, UpdateExamDto } from '@/types/exam';
 import { QuestionPickerModal } from './components/QuestionPickerModal';
-import { ExamEngineSubnav } from './components/ExamEngineSubnav';
 import {
   type ExamProductType,
   type FolderRuleDraft,
@@ -411,10 +410,9 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
   };
 
   return (
-    <div className="min-h-0 flex-1 space-y-4 pb-8">
+    <div className="min-h-0 w-full max-w-full min-w-0 flex-1 space-y-4 pb-8">
       {examId ? (
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <ExamEngineSubnav examId={examId} />
+        <div className="flex justify-end">
           <Button
             type="button"
             size="sm"
