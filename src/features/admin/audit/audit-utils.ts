@@ -205,19 +205,12 @@ export function resolveEntityDisplay(row: AuditRow): {
 }
 
 export function formatJson(value: unknown): string {
-  if (value == null) return '';
-  const stripMeta = (v: unknown): unknown => {
-    if (v && typeof v === 'object' && !Array.isArray(v)) {
-      const copy = { ...(v as Record<string, unknown>) };
-      delete copy._meta;
-      return copy;
-    }
-    return v;
-  };
+  const payload = getPayloadForPanel(value);
+  if (payload == null) return '';
   try {
-    return JSON.stringify(stripMeta(value), null, 2);
+    return JSON.stringify(payload, null, 2);
   } catch {
-    return String(value);
+    return String(payload);
   }
 }
 
@@ -234,6 +227,117 @@ export function readAuditMeta(row: AuditRow): { ip?: string; userAgent?: string 
   const nv = row.newValue as { _meta?: { ip?: string; userAgent?: string } } | null | undefined;
   const ov = row.oldValue as { _meta?: { ip?: string; userAgent?: string } } | null | undefined;
   return nv?._meta ?? ov?._meta ?? {};
+}
+
+export type ParsedUserAgent = {
+  browser: string;
+  version: string;
+  os: string;
+  device: 'Desktop' | 'Mobile' | 'Tablet';
+  raw: string;
+};
+
+export function parseUserAgent(ua?: string | null): ParsedUserAgent | null {
+  if (!ua?.trim()) return null;
+  const raw = ua.trim();
+
+  let browser = 'Unknown browser';
+  let version = '';
+
+  const edge = raw.match(/Edg\/(\d+)/);
+  const opera = raw.match(/OPR\/(\d+)/);
+  const firefox = raw.match(/Firefox\/(\d+)/);
+  const chrome = raw.match(/Chrome\/(\d+)/);
+  const safari = raw.match(/Version\/(\d+)[^)]*Safari/);
+
+  if (edge) {
+    browser = 'Microsoft Edge';
+    version = edge[1];
+  } else if (opera) {
+    browser = 'Opera';
+    version = opera[1];
+  } else if (firefox) {
+    browser = 'Firefox';
+    version = firefox[1];
+  } else if (safari && /Safari/.test(raw) && !chrome) {
+    browser = 'Safari';
+    version = safari[1];
+  } else if (chrome) {
+    browser = 'Chrome';
+    version = chrome[1];
+  }
+
+  let os = 'Unknown OS';
+  if (/Windows NT 10/.test(raw)) os = 'Windows';
+  else if (/Windows NT 6\.3/.test(raw)) os = 'Windows 8.1';
+  else if (/Windows NT 6\.1/.test(raw)) os = 'Windows 7';
+  else if (/Mac OS X/.test(raw)) os = 'macOS';
+  else if (/Android (\d+)/.test(raw)) {
+    const m = raw.match(/Android (\d+)/);
+    os = m ? `Android ${m[1]}` : 'Android';
+  } else if (/iPhone|iPad|iPod/.test(raw)) os = 'iOS';
+  else if (/CrOS/.test(raw)) os = 'Chrome OS';
+  else if (/Linux/.test(raw)) os = 'Linux';
+
+  let device: ParsedUserAgent['device'] = 'Desktop';
+  if (/iPad|Tablet/i.test(raw)) device = 'Tablet';
+  else if (/Mobile|iPhone|iPod|Android.*Mobile/i.test(raw)) device = 'Mobile';
+
+  return { browser, version, os, device, raw };
+}
+
+export function formatIpDisplay(ip?: string | null): { primary: string; secondary?: string } {
+  if (!ip?.trim()) return { primary: '—' };
+  const v = ip.trim();
+  if (v === '::1') return { primary: 'Localhost', secondary: 'IPv6 loopback · ::1' };
+  if (v === '127.0.0.1') return { primary: 'Localhost', secondary: 'IPv4 loopback · 127.0.0.1' };
+  if (v.startsWith('::ffff:')) {
+    const mapped = v.slice(7);
+    return { primary: mapped, secondary: `IPv4-mapped · ${v}` };
+  }
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(v)) return { primary: v, secondary: 'IPv4 address' };
+  if (v.includes(':')) return { primary: v, secondary: 'IPv6 address' };
+  return { primary: v };
+}
+
+export type AuditConnectionInfo = {
+  ip?: string;
+  userAgent?: string;
+  mobile?: string;
+  status?: string;
+  reason?: string | null;
+};
+
+export function readConnectionInfo(row: AuditRow): AuditConnectionInfo {
+  const nv = row.newValue as Record<string, unknown> | null | undefined;
+  const ov = row.oldValue as Record<string, unknown> | null | undefined;
+  const meta = readAuditMeta(row);
+
+  const pick = (key: string) => {
+    const fromNv = nv?.[key];
+    const fromOv = ov?.[key];
+    if (typeof fromNv === 'string') return fromNv;
+    if (typeof fromOv === 'string') return fromOv;
+    return undefined;
+  };
+
+  return {
+    ip: row.ip || meta.ip || pick('ip'),
+    userAgent: meta.userAgent || pick('userAgent'),
+    mobile: pick('mobile'),
+    status: pick('status'),
+    reason: (nv?.reason ?? ov?.reason ?? null) as string | null | undefined,
+  };
+}
+
+const PANEL_EXCLUDED_KEYS = new Set(['ip', 'userAgent', 'mobile', 'status', 'reason', '_meta', '_display']);
+
+export function getPayloadForPanel(value: unknown): unknown | null {
+  if (value == null) return null;
+  if (typeof value !== 'object' || Array.isArray(value)) return value;
+  const copy = { ...(value as Record<string, unknown>) };
+  for (const key of PANEL_EXCLUDED_KEYS) delete copy[key];
+  return Object.keys(copy).length > 0 ? copy : null;
 }
 
 export function changeSummary(row: AuditRow): string | null {
@@ -256,7 +360,9 @@ export function changeSummary(row: AuditRow): string | null {
   if (nv.passwordChanged === true) return 'Password was changed';
   if (typeof nv.status === 'string') return `Status → ${nv.status}`;
   if (typeof nv.reason === 'string') return nv.reason;
-  if (typeof nv.mobile === 'string' && nv.status) return `Login ${String(nv.status).toLowerCase()}`;
+  if (typeof nv.mobile === 'string' && nv.status) {
+    return `Login ${String(nv.status).toLowerCase()} · ${nv.mobile}`;
+  }
 
   const keys = Object.keys(nv).filter((k) => !['_meta', '_display', 'ip', 'userAgent'].includes(k));
   if (keys.length === 1) return `${keys[0]} updated`;

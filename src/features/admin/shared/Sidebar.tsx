@@ -41,7 +41,6 @@ import {
   ShoppingCart,
   Truck,
   Send,
-  History,
 } from 'lucide-react';
 
 type MenuItem = {
@@ -140,7 +139,7 @@ function buildMenuSections(role: string | null): MenuSection[] {
   // ----- User Management (SUPER_ADMIN only) -----
   const userMgmtItems: MenuItem[] = [
     { title: 'User Management', href: '/admin/users', icon: ShieldCheck, color: 'text-purple-600', bg: 'bg-purple-50' },
-    { title: 'Audit History', href: '/admin/audit', icon: History, color: 'text-slate-600', bg: 'bg-slate-50' },
+    // Audit History — hidden from sidebar; open via /admin/audit directly
   ];
 
   // ----- Administrative -----

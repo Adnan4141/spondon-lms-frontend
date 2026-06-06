@@ -37,7 +37,7 @@ export default function AuditHistoryPage() {
   const activeFilterCount = countActiveFilters(filters);
 
   return (
-    <main className="space-y-2 p-2 sm:p-3">
+    <main className="w-full min-w-0 space-y-2">
       <AuditHeader
         total={total}
         page={page}

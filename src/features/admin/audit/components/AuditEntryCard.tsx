@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Globe, Monitor } from 'lucide-react';
+import { ChevronDown, ChevronRight, Globe } from 'lucide-react';
 import type { AuditRow } from '@/lib/api/audit';
 import { cn } from '@/lib/utils';
 import {
@@ -9,12 +9,15 @@ import {
   actorRingClass,
   changeSummary,
   formatAuditDateTime,
+  formatIpDisplay,
   getAuditTheme,
+  getPayloadForPanel,
   hasAuditValue,
-  readAuditMeta,
+  readConnectionInfo,
   resolveEntityDisplay,
 } from '../audit-utils';
 import { AuditActionBadge } from './AuditActionBadge';
+import { AuditConnectionPanel } from './AuditConnectionPanel';
 import { AuditJsonPanel } from './AuditJsonPanel';
 
 export function AuditEntryCard({ row }: { row: AuditRow }) {
@@ -23,9 +26,14 @@ export function AuditEntryCard({ row }: { row: AuditRow }) {
   const summary = changeSummary(row);
   const theme = getAuditTheme(row.action, row.entityType);
   const entity = resolveEntityDisplay(row);
-  const meta = readAuditMeta(row);
-  const ip = row.ip || meta.ip;
-  const showDetails = hasAuditValue(row.oldValue) || hasAuditValue(row.newValue);
+  const connection = readConnectionInfo(row);
+  const ipDisplay = formatIpDisplay(connection.ip);
+  const oldPayload = getPayloadForPanel(row.oldValue);
+  const newPayload = getPayloadForPanel(row.newValue);
+  const showDetails =
+    hasAuditValue(row.oldValue) ||
+    hasAuditValue(row.newValue) ||
+    Boolean(connection.ip || connection.userAgent || connection.mobile);
 
   return (
     <article className={cn('border-b border-slate-100 border-l-[3px] last:border-b-0', theme.accent)}>
@@ -83,13 +91,16 @@ export function AuditEntryCard({ row }: { row: AuditRow }) {
         </div>
 
         <div className="flex shrink-0 flex-col items-end gap-1 pt-0.5">
-          {ip && (
+          {connection.ip && (
             <span
-              className="hidden items-center gap-1 rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-500 sm:inline-flex"
-              title={ip}
+              className="hidden items-center gap-1 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 sm:inline-flex"
+              title={ipDisplay.secondary ?? connection.ip}
             >
               <Globe className="h-3 w-3" />
-              {ip}
+              <span className="font-bold text-slate-700">{ipDisplay.primary}</span>
+              {ipDisplay.secondary && (
+                <span className="font-mono text-[9px] text-slate-400">({connection.ip})</span>
+              )}
             </span>
           )}
           {showDetails && (
@@ -102,28 +113,18 @@ export function AuditEntryCard({ row }: { row: AuditRow }) {
 
       {expanded && showDetails && (
         <div className="space-y-2 border-t border-slate-100 bg-slate-50/50 px-3 py-2.5">
-          {(ip || meta.userAgent) && (
-            <div className="flex flex-wrap gap-3 text-[10px] font-semibold text-slate-500">
-              {ip && (
-                <span className="inline-flex items-center gap-1">
-                  <Globe className="h-3 w-3" /> IP: {ip}
-                </span>
+          <AuditConnectionPanel info={connection} />
+
+          {(oldPayload || newPayload) && (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {oldPayload && (
+                <AuditJsonPanel label="Before" value={oldPayload} variant="before" />
               )}
-              {meta.userAgent && (
-                <span className="inline-flex items-center gap-1 max-w-md truncate" title={meta.userAgent}>
-                  <Monitor className="h-3 w-3 shrink-0" /> {meta.userAgent}
-                </span>
+              {newPayload && (
+                <AuditJsonPanel label="After" value={newPayload} variant="after" />
               )}
             </div>
           )}
-          <div className="grid gap-2 sm:grid-cols-2">
-            {hasAuditValue(row.oldValue) && (
-              <AuditJsonPanel label="Before" value={row.oldValue} variant="before" />
-            )}
-            {hasAuditValue(row.newValue) && (
-              <AuditJsonPanel label="After" value={row.newValue} variant="after" />
-            )}
-          </div>
         </div>
       )}
     </article>

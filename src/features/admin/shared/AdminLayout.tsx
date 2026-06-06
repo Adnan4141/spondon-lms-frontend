@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { GlobalModal } from './GlobalModal';
 import { AdminHeader } from './AdminHeader';
@@ -9,6 +10,8 @@ import { AdminToastProvider } from './AdminToastProvider';
 import { BulkImportProgressDock } from '@/features/admin/students';
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isAuditPage = pathname === '/admin/audit';
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -49,14 +52,20 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           <AdminHeader onMenuOpen={() => setMobileOpen(true)} />
 
           <main className="relative">
-            <div className="mx-auto max-w-[1600px] px-6 py-8 lg:px-10 lg:py-12">
-              <div className="group relative">
-                <div className="absolute -inset-1 rounded-[40px] bg-gradient-to-r from-indigo-500 to-purple-600 opacity-[0.03] blur-xl transition-opacity group-hover:opacity-[0.05]" />
-                <div className="relative min-h-[600px] rounded-[36px] border border-white bg-white/70 p-8 shadow-2xl shadow-slate-200/50 backdrop-blur-md">
-                  {children}
+            {isAuditPage ? (
+              <div className="w-full min-w-0 px-3 py-4 sm:px-4 sm:py-5 lg:px-5 lg:py-6">
+                {children}
+              </div>
+            ) : (
+              <div className="mx-auto max-w-[1600px] px-6 py-8 lg:px-10 lg:py-12">
+                <div className="group relative">
+                  <div className="absolute -inset-1 rounded-[40px] bg-gradient-to-r from-indigo-500 to-purple-600 opacity-[0.03] blur-xl transition-opacity group-hover:opacity-[0.05]" />
+                  <div className="relative min-h-[600px] rounded-[36px] border border-white bg-white/70 p-8 shadow-2xl shadow-slate-200/50 backdrop-blur-md">
+                    {children}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </main>
 
           <GlobalModal />
