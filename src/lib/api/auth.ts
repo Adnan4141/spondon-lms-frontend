@@ -13,7 +13,11 @@ export interface LoginResponse {
   token: string;
 }
 
-export async function login(data: { mobile: string; password: string }): Promise<ApiResponse<LoginResponse>> {
+export async function login(data: {
+  mobile: string;
+  password: string;
+  turnstileToken?: string;
+}): Promise<ApiResponse<LoginResponse>> {
   return apiRequest<ApiResponse<LoginResponse>>('/users/login', {
     method: 'POST',
     body: JSON.stringify(data),

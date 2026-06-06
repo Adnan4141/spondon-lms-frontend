@@ -20,8 +20,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { login } from '@/lib/api/auth';
+import { isTurnstileConfigured, TurnstileField } from '@/components/auth/TurnstileField';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
+
+const TURNSTILE_REQUIRED = isTurnstileConfigured();
 
 function LoginForm() {
   const router = useRouter();
@@ -31,19 +34,39 @@ function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [verificationNeeded, setVerificationNeeded] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+  const [turnstileLoadError, setTurnstileLoadError] = useState(false);
   const [formData, setFormData] = useState({
     identifier: '', // Now primarily mobile
     password: '',
   });
 
+  const resetTurnstile = () => {
+    setTurnstileToken(null);
+    setTurnstileResetKey((k) => k + 1);
+  };
+
   const isFormValid = useMemo(() => {
     const mobile = formData.identifier.trim();
-    return /^01[3-9]\d{8}$/.test(mobile) && formData.password.length >= 6;
-  }, [formData]);
+    const baseValid = /^01[3-9]\d{8}$/.test(mobile) && formData.password.length >= 6;
+    if (!baseValid) return false;
+    if (TURNSTILE_REQUIRED) return Boolean(turnstileToken);
+    return true;
+  }, [formData, turnstileToken]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isFormValid) return;
+    if (!isFormValid) {
+      if (TURNSTILE_REQUIRED && !turnstileToken) {
+        toast({
+          title: 'যাচাই প্রয়োজন',
+          description: 'অনুগ্রহ করে নিরাপত্তা যাচাই সম্পন্ন করুন।',
+          variant: 'destructive',
+        });
+      }
+      return;
+    }
 
     setIsLoading(true);
 
@@ -52,6 +75,7 @@ function LoginForm() {
       const loginData = {
         mobile,
         password: formData.password,
+        ...(turnstileToken ? { turnstileToken } : {}),
       };
 
       const response = await login(loginData);
@@ -92,6 +116,7 @@ function LoginForm() {
           setVerificationNeeded((response as any).mobile);
           return;
         }
+        resetTurnstile();
         toast({
           title: 'ব্যর্থ হয়েছে',
           description: response.message || 'আপনার তথ্যগুলো সঠিক নয়। আবার চেষ্টা করুন।',
@@ -99,6 +124,7 @@ function LoginForm() {
         });
       }
     } catch (error: any) {
+      resetTurnstile();
       toast({
         title: 'ত্রুটি',
         description: error.message || 'একটি অপ্রত্যাশিত সমস্যা হয়েছে।',
@@ -203,6 +229,36 @@ function LoginForm() {
                 </div>
               </div>
             </div>
+
+            {TURNSTILE_REQUIRED && (
+              <div className="space-y-2">
+                <TurnstileField
+                  resetKey={turnstileResetKey}
+                  onToken={(token) => {
+                    setTurnstileLoadError(false);
+                    setTurnstileToken(token);
+                  }}
+                  onError={() => setTurnstileLoadError(true)}
+                />
+                {turnstileLoadError && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-center">
+                    <p className="text-xs font-bold text-amber-800">
+                      নিরাপত্তা যাচাই লোড হয়নি। Ad-blocker বন্ধ করে আবার চেষ্টা করুন।
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTurnstileLoadError(false);
+                        resetTurnstile();
+                      }}
+                      className="mt-1 text-xs font-black text-[#5C2D91] hover:underline"
+                    >
+                      আবার চেষ্টা করুন
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
 
             <Button 
               type="submit" 
