@@ -23,6 +23,7 @@ import {
   type ExamAuditTrailRow,
   type ExamSection,
 } from '@/lib/api/exams';
+import { actionLabel, changeSummary } from '@/features/admin/audit/audit-utils';
 import type { ExamSet } from '@/types/exam';
 import { ConfirmationModal } from '@/features/admin/shared';
 import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
@@ -455,7 +456,7 @@ export function ExamOverviewPage({ examId }: { examId: string }) {
       <Card className="scroll-mt-24 border-slate-200 shadow-sm">
         <CardHeader>
           <CardTitle className="font-serif text-lg text-[#0D1B35]">Audit timeline</CardTitle>
-          <CardDescription>Exam-control actions for approvals, batches, OMR, and written evaluation.</CardDescription>
+          <CardDescription>OMR scan and written evaluation actions for this exam.</CardDescription>
         </CardHeader>
         <CardContent>
           {auditRows.length === 0 ? (
@@ -464,19 +465,23 @@ export function ExamOverviewPage({ examId }: { examId: string }) {
             </p>
           ) : (
             <ul className="divide-y divide-slate-100 rounded-lg border border-slate-100 bg-white">
-              {auditRows.slice(0, 30).map((row) => (
-                <li key={row.id} className="flex flex-col gap-1 px-4 py-3 text-sm sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="font-semibold text-slate-900">{row.action}</p>
-                    <p className="text-xs text-slate-500">
-                      {row.actor?.fullName ?? row.actorUserId} · {row.actor?.role ?? 'Actor'} · {row.entityType}
-                    </p>
-                  </div>
-                  <time className="text-xs font-medium text-slate-400">
-                    {new Date(row.createdAt).toLocaleString()}
-                  </time>
-                </li>
-              ))}
+              {auditRows.slice(0, 30).map((row) => {
+                const summary = changeSummary(row as Parameters<typeof changeSummary>[0]);
+                return (
+                  <li key={row.id} className="flex flex-col gap-1 px-4 py-3 text-sm sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="font-semibold text-slate-900">{summary ?? actionLabel(row.action)}</p>
+                      <p className="text-xs text-slate-500">
+                        {row.actor?.fullName ?? row.actorUserId} · {row.actor?.role ?? 'Actor'}
+                        {row.ip ? ` · ${row.ip}` : ''}
+                      </p>
+                    </div>
+                    <time className="text-xs font-medium text-slate-400">
+                      {new Date(row.createdAt).toLocaleString()}
+                    </time>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </CardContent>

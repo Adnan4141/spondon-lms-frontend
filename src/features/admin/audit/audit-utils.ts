@@ -115,6 +115,19 @@ const ACTION_OVERRIDES: Record<string, AuditCategory> = {
   COURSE_CREATED: 'course',
   COURSE_UPDATED: 'course',
   COURSE_DELETED: 'course',
+  'exam.results.omr.upload': 'exam',
+  'exam.results.omr.review': 'exam',
+  'exam.results.omr.finalize': 'exam',
+  'exam.results.written.evaluate': 'exam',
+  'exam.results.written.finalize': 'exam',
+};
+
+const EXAM_RESULTS_ACTION_LABELS: Record<string, string> = {
+  'exam.results.omr.upload': 'OMR scan upload',
+  'exam.results.omr.review': 'OMR scan review',
+  'exam.results.omr.finalize': 'OMR batch finalized',
+  'exam.results.written.evaluate': 'Written evaluation',
+  'exam.results.written.finalize': 'Written evaluation finalized',
 };
 
 const ROLE_RING: Record<string, string> = {
@@ -153,7 +166,8 @@ export function getAuditTheme(action: string, entityType?: string): AuditCategor
 }
 
 export function actionLabel(action: string): string {
-  return action.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  return EXAM_RESULTS_ACTION_LABELS[action]
+    ?? action.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export function formatAuditDateTime(value: string): {
@@ -393,6 +407,31 @@ export function changeSummary(row: AuditRow): string | null {
   if (/TESTIMONIAL/i.test(action)) return display?.label ? `Testimonial: ${display.label}` : 'Testimonial changed';
   if (/PARTNER/i.test(action)) return display?.label ? `Partner: ${display.label}` : 'Partner changed';
   if (/FAQ/i.test(action)) return display?.label ? `FAQ: ${display.label}` : 'FAQ changed';
+
+  if (/^exam\.results\.omr\./i.test(action)) {
+    const nv = row.newValue as Record<string, unknown> | null | undefined;
+    const detail = typeof nv?.action === 'string' ? nv.action.replace(/_/g, ' ') : null;
+    const batchId = nv?.batchId ?? nv?.resultBatchId;
+    const scanId = nv?.scanId;
+    const parts = [actionLabel(action)];
+    if (detail) parts.push(detail);
+    if (batchId) parts.push(`batch ${shortId(String(batchId))}`);
+    if (scanId) parts.push(`scan ${shortId(String(scanId))}`);
+    if (typeof nv?.marks === 'number') parts.push(`${nv.marks} marks`);
+    if (typeof nv?.totalScans === 'number') parts.push(`${nv.totalScans} sheet(s)`);
+    return parts.join(' · ');
+  }
+  if (/^exam\.results\.written\./i.test(action)) {
+    const nv = row.newValue as Record<string, unknown> | null | undefined;
+    const parts = [actionLabel(action)];
+    if (typeof nv?.action === 'string') parts.push(String(nv.action).replace(/_/g, ' '));
+    if (nv?.attemptId) parts.push(`attempt ${shortId(String(nv.attemptId))}`);
+    if (nv?.subPartKey) parts.push(`part ${String(nv.subPartKey)}`);
+    if (typeof nv?.marksAwarded === 'number') parts.push(`${nv.marksAwarded} marks`);
+    if (typeof nv?.obtainedMarks === 'number') parts.push(`total ${nv.obtainedMarks}`);
+    if (nv?.resultBatchId) parts.push(`batch ${shortId(String(nv.resultBatchId))}`);
+    return parts.join(' · ');
+  }
 
   const nv = row.newValue as Record<string, unknown> | null | undefined;
   if (!nv || typeof nv !== 'object') return null;

@@ -84,20 +84,24 @@ export async function getQuestions(
   tag?: string,
   mcqType?: string,
   passageId?: string,
-  folderIds?: string[]
-): Promise<ApiResponse<Question[]>> {
+  folderIds?: string[],
+  options?: { page?: number; limit?: number; search?: string },
+): Promise<ApiResponse<Question[]> & { pagination?: { page: number; limit: number; total: number; pages: number } }> {
   const queryParams = new URLSearchParams();
   if (folderId) queryParams.append('folderId', folderId);
   if (folderIds && folderIds.length > 0) queryParams.append('folderIds', folderIds.join(','));
   if (type) queryParams.append('type', type);
   if (difficulty) queryParams.append('difficulty', difficulty);
   if (year) queryParams.append('year', String(year));
-   if (tag) queryParams.append('tag', tag);
+  if (tag) queryParams.append('tag', tag);
   if (mcqType) queryParams.append('mcqType', mcqType);
   if (passageId) queryParams.append('passageId', passageId);
+  if (options?.page) queryParams.append('page', String(options.page));
+  if (options?.limit) queryParams.append('limit', String(options.limit));
+  if (options?.search) queryParams.append('search', options.search);
 
   const query = queryParams.toString();
-  return apiRequest<ApiResponse<Question[]>>(`/question-bank/questions${query ? `?${query}` : ''}`);
+  return apiRequest(`/question-bank/questions${query ? `?${query}` : ''}`);
 }
 
 export async function getQuestionById(id: string): Promise<ApiResponse<Question>> {

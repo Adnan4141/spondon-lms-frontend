@@ -338,4 +338,5 @@ export const RESULT_INPUT_MODE_LABELS: Record<ResultInputMode, string> = {
   BULK_MANUAL: 'Bulk manual rows',
   BULK_EXCEL: 'Excel upload',
   OMR_SCAN: 'OMR scan',
+  WRITTEN_EVAL: 'Written evaluation',
 };

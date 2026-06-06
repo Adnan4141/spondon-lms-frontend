@@ -1,5 +1,3 @@
-import ExcelJS from 'exceljs';
-
 export type ExportFormat = 'csv' | 'xlsx';
 
 export interface ExportColumn<Row> {
@@ -41,6 +39,7 @@ export async function downloadTableExport<Row>(args: {
     return;
   }
 
+  const ExcelJS = (await import('exceljs')).default;
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet(sheetName);
   worksheet.columns = columns.map((column) => ({

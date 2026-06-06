@@ -3,7 +3,7 @@ export type ExamType = 'PRACTICE' | 'SCHEDULED' | 'MODEL' | 'TALENT_HUNT' | 'UNI
 export type ExamScope = 'COURSE' | 'GLOBAL';
 export type SelectionMode = 'RANDOM' | 'MANUAL' | 'ALL_FROM_FOLDER' | 'RANDOM_COUNT' | 'MANUAL_PICK';
 export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD';
-export type ResultInputMode = 'SINGLE_MANUAL' | 'BULK_EXCEL' | 'BULK_MANUAL' | 'AUTOMATED' | 'OMR_SCAN';
+export type ResultInputMode = 'SINGLE_MANUAL' | 'BULK_EXCEL' | 'BULK_MANUAL' | 'AUTOMATED' | 'OMR_SCAN' | 'WRITTEN_EVAL';
 
 export interface ExamSubjectFolderRule {
   id: string;

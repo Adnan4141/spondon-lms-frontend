@@ -243,6 +243,9 @@ export default function QuestionsPage() {
   const [expandedQuestionIds, setExpandedQuestionIds] = useState<Set<string>>(new Set());
   const [expandedPassageIds, setExpandedPassageIds] = useState<Set<string>>(new Set());
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
+  const [questionsPage, setQuestionsPage] = useState(1);
+  const [questionsTotalPages, setQuestionsTotalPages] = useState(1);
+  const QUESTIONS_PAGE_SIZE = 50;
 
   // ─── Data Loaders ────────────────────────────────────────────────────────────
 
@@ -270,14 +273,24 @@ export default function QuestionsPage() {
         mcqType,
         undefined,
         selectedFolderIds.length > 0 ? selectedFolderIds : undefined,
+        {
+          page: questionsPage,
+          limit: QUESTIONS_PAGE_SIZE,
+          search: searchQuery.trim() || undefined,
+        },
       );
       if (res.success && res.data) setQuestions(res.data);
+      if (res.pagination) setQuestionsTotalPages(res.pagination.pages || 1);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [activeFolderId, selectedFolderIds, activeTab, difficultyFilter]);
+  }, [activeFolderId, selectedFolderIds, activeTab, difficultyFilter, questionsPage, searchQuery]);
+
+  useEffect(() => {
+    setQuestionsPage(1);
+  }, [activeFolderId, selectedFolderIds, activeTab, difficultyFilter, searchQuery]);
 
   const loadPassages = useCallback(async () => {
     try {
@@ -304,7 +317,7 @@ export default function QuestionsPage() {
     } else {
       loadQuestions();
     }
-  }, [activeFolderId, selectedFolderIds, difficultyFilter, activeTab, loadQuestions, loadPassages]);
+  }, [activeFolderId, selectedFolderIds, difficultyFilter, activeTab, questionsPage, searchQuery, loadQuestions, loadPassages]);
 
   useEffect(() => {
     setSelectedQuestionIds((prev) => prev.filter((id) => questions.some((question) => question.id === id)));
@@ -1684,6 +1697,33 @@ export default function QuestionsPage() {
                         )}
                       </TableBody>
                     </Table>
+                    {activeTab !== 'MCQ_PASSAGE' && questionsTotalPages > 1 ? (
+                      <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
+                        <p className="text-sm font-medium text-slate-500">
+                          Page {questionsPage} of {questionsTotalPages}
+                        </p>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={questionsPage <= 1 || loading}
+                            onClick={() => setQuestionsPage((p) => Math.max(1, p - 1))}
+                          >
+                            Previous
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={questionsPage >= questionsTotalPages || loading}
+                            onClick={() => setQuestionsPage((p) => p + 1)}
+                          >
+                            Next
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 )}
               </>

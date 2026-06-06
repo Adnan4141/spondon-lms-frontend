@@ -5,7 +5,7 @@ import {
   Save, RotateCcw, Image as ImageIcon, Plus, Trash2, Upload, Link2,
   Star, BookOpen, Target, Users, Eye, EyeOff, ExternalLink,
 } from 'lucide-react';
-import { RichTextEditor } from '@/components/ui/rich-text-editor';
+import { LazyRichTextEditor as RichTextEditor } from '@/components/ui/lazy-rich-text-editor';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';

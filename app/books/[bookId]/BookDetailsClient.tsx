@@ -10,8 +10,13 @@ import { Button } from '@/components/ui/button';
 import { BookHeroSection } from '@/components/books/BookHeroSection';
 import { BookTabs, type BookTabId } from '@/components/books/BookTabs';
 import { BookOverviewSection } from '@/components/books/BookOverviewSection';
-import { PublicSamplePdfDialog } from '@/components/books/PublicSamplePdfDialog';
+import dynamic from 'next/dynamic';
 import { getProtectedBookDownload, type PublicBook } from '@/lib/api/books';
+
+const PublicSamplePdfDialog = dynamic(
+  () => import('@/components/books/PublicSamplePdfDialog').then((m) => m.PublicSamplePdfDialog),
+  { ssr: false },
+);
 
 function readHasAuth() {
   if (typeof window === 'undefined') return false;

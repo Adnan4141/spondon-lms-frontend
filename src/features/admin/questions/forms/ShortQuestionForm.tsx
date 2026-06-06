@@ -19,7 +19,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { RichTextEditor } from '@/components/ui/rich-text-editor';
+import { LazyRichTextEditor as RichTextEditor } from '@/components/ui/lazy-rich-text-editor';
 import { Plus, CalendarIcon, FolderOpen, BarChart3, Tag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 

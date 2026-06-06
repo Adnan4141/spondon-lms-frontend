@@ -57,7 +57,9 @@ export async function getCommunityPosts(params?: {
   status?: string;
   isPinned?: boolean;
   search?: string;
-}): Promise<ApiResponse<CommunityPost[]>> {
+  page?: number;
+  limit?: number;
+}): Promise<ApiResponse<CommunityPost[]> & { pagination?: { page: number; limit: number; total: number; pages: number } }> {
   const q = new URLSearchParams();
   if (params?.communityId) q.append('communityId', params.communityId);
   if (params?.courseId) q.append('courseId', params.courseId);
@@ -65,8 +67,10 @@ export async function getCommunityPosts(params?: {
   if (params?.status) q.append('status', params.status);
   if (typeof params?.isPinned === 'boolean') q.append('isPinned', String(params.isPinned));
   if (params?.search) q.append('search', params.search);
+  if (params?.page) q.append('page', String(params.page));
+  if (params?.limit) q.append('limit', String(params.limit));
   const query = q.toString();
-  return apiRequest<ApiResponse<CommunityPost[]>>(`/community/posts${query ? `?${query}` : ''}`);
+  return apiRequest(`/community/posts${query ? `?${query}` : ''}`);
 }
 
 export async function createCommunityPost(data: {

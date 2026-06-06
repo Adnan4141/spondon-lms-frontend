@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import { RichTextEditor } from '@/components/ui/rich-text-editor';
+import { LazyRichTextEditor as RichTextEditor } from '@/components/ui/lazy-rich-text-editor';
 import type { CreateBookDto, UpdateBookDto } from '@/lib/api/books';
 import { PenSquare } from 'lucide-react';
 import { BookFormField } from './BookFormField';

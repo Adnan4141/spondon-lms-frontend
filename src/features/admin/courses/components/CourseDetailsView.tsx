@@ -1,6 +1,8 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import React, { useState, useEffect, useMemo } from 'react';
+import type { EmojiClickData } from 'emoji-picker-react';
 import Link from 'next/link';
 import { CourseDetails } from '@/types/course';
 import { Badge } from '@/components/ui/badge';
@@ -66,7 +68,8 @@ import { buildCourseContentTree } from '@/lib/course-outline';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
-import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
+
+const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
 
 interface CourseDetailsViewProps {
   course: CourseDetails;

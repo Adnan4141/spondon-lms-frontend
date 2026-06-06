@@ -54,6 +54,8 @@ type OfflineResultsTabProps = {
   onSubmitExcel: () => void;
   onOpenSmsWorkspace: (batch: ResultBatchSummary) => void;
   onBatchUpdated: () => void;
+  /** When true, Excel column C is CQ marks merged into existing OMR MCQ results. */
+  isCombinedOffline?: boolean;
 };
 
 export function OfflineResultsTab({
@@ -87,6 +89,7 @@ export function OfflineResultsTab({
   onSubmitExcel,
   onOpenSmsWorkspace,
   onBatchUpdated,
+  isCombinedOffline = false,
 }: OfflineResultsTabProps) {
   const toast = useAdminToast();
   const [batchBusyId, setBatchBusyId] = useState<string | null>(null);
@@ -184,7 +187,11 @@ export function OfflineResultsTab({
 
             <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
               <p className="text-sm font-bold text-slate-900">Excel import</p>
-              <p className="mt-1 text-[11px] text-slate-500">Columns: roll, name, marks, total, comments</p>
+              <p className="mt-1 text-[11px] text-slate-500">
+                {isCombinedOffline
+                  ? 'COMBINED exam: column A = roll, column C = CQ marks only (MCQ comes from OMR finalize).'
+                  : 'Columns: roll, name, marks, total, comments'}
+              </p>
               <input
                 className="mt-3 block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-900 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white"
                 type="file"

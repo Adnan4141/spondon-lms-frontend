@@ -10,7 +10,7 @@ import type { Course } from '@/types/course';
 
 interface Props {
   courses: Course[];
-  handleImageError: (e: React.SyntheticEvent<HTMLImageElement, Event>, text?: string) => void;
+  handleImageError?: (e: React.SyntheticEvent<HTMLImageElement, Event>, text?: string) => void;
   /** While true and courses empty, show skeletons instead of empty-state */
   loading?: boolean;
   badge?: string;
@@ -22,7 +22,6 @@ interface Props {
 
 export const CoursesSection: React.FC<Props> = ({
   courses,
-  handleImageError,
   loading = false,
   badge = 'Premium Learning',
   title = 'আমাদের সবচেয়ে ',
@@ -71,7 +70,7 @@ export const CoursesSection: React.FC<Props> = ({
       >
         {courses.length > 0 ? (
           courses.map((course) => (
-            <CourseCard key={course.id} course={course} handleImageError={handleImageError} />
+            <CourseCard key={course.id} course={course} />
           ))
         ) : loading ? (
           [1, 2, 3].map((i) => (

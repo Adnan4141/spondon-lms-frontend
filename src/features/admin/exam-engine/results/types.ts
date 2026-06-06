@@ -11,13 +11,20 @@ export type WrittenAttemptRow = {
   totalAwarded?: number;
 };
 
+export type CqPartMeta = {
+  label: string;
+  marks?: number;
+  prompt?: string;
+};
+
 export type WrittenAttemptQuestion = {
   questionId: string;
   marks: number;
-  question?: { prompt?: string };
+  question?: { prompt?: string; meta?: { parts?: CqPartMeta[] } | null };
   studentAnswer?: {
     id: string;
     obtainedMarks?: number | null;
+    evaluations?: Array<{ subPartKey?: string | null; marksAwarded?: number | null }>;
     writtenSubmission?: {
       pages?: { url: string }[];
       finalPdfUrl?: string | null;

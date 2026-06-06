@@ -21,8 +21,10 @@ import {
   getOmrRoster,
   getOmrScans,
   getOmrScanDownloadUrl,
+  overrideOmrAnswers,
   reassignOmrScan,
   uploadOmrScanBatch,
+  type DetectedAnswer,
   type OmrRosterStudent,
   type OmrScan,
   type OmrScanBatch,
@@ -96,6 +98,8 @@ export function OmrScanReviewPanel({
   const [rosterQuery, setRosterQuery] = useState('');
   const [rosterRows, setRosterRows] = useState<OmrRosterStudent[]>([]);
   const [rosterLoading, setRosterLoading] = useState(false);
+  const [editTarget, setEditTarget] = useState<OmrScan | null>(null);
+  const [editAnswers, setEditAnswers] = useState<DetectedAnswer[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -213,6 +217,42 @@ export function OmrScanReviewPanel({
     }
   };
 
+  const openEditAnswers = (scan: OmrScan) => {
+    const answers = Array.isArray(scan.detectedAnswers) ? [...scan.detectedAnswers] : [];
+    setEditTarget(scan);
+    setEditAnswers(answers);
+  };
+
+  const setAnswerChoice = (q: number, choice: string | null) => {
+    setEditAnswers((prev) => {
+      const idx = prev.findIndex((a) => a.q === q);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = { ...next[idx], choice };
+        return next;
+      }
+      return [...prev, { q, choice, conf: 1 }];
+    });
+  };
+
+  const saveEditedAnswers = async () => {
+    if (!editTarget) return;
+    setActionBusyScanId(editTarget.id);
+    try {
+      const payload = editAnswers.map((a) => ({ q: a.q, choice: a.choice, conf: a.conf ?? 1 }));
+      const r = await overrideOmrAnswers(examId, editTarget.id, payload);
+      if (!r.success) {
+        toast({ title: r.message ?? 'Could not save answers', variant: 'destructive' });
+        return;
+      }
+      toast({ title: 'Answers updated', description: 'Marks were recomputed from the answer key.' });
+      setEditTarget(null);
+      setRefreshTick((t) => t + 1);
+    } finally {
+      setActionBusyScanId(null);
+    }
+  };
+
   const discard = async (scan: OmrScan) => {
     if (!window.confirm('Discard this scan? It will be excluded from finalize.')) return;
     setActionBusyScanId(scan.id);
@@ -266,7 +306,7 @@ export function OmrScanReviewPanel({
         : '';
       toast({
         title: 'Result batch created',
-        description: `${r.data.totalRecords} rows ready for branch / central approval.${dupNote}`,
+        description: `${r.data.totalRecords} rows ready for branch / central approval. Open the Offline results tab to approve.${dupNote}`,
       });
       onFinalized?.(r.data.resultBatchId);
       setRefreshTick((t) => t + 1);
@@ -433,6 +473,7 @@ export function OmrScanReviewPanel({
           rows={accepted}
           actionBusyScanId={actionBusyScanId}
           onReassign={(s) => openReassign(s)}
+          onEditAnswers={(s) => openEditAnswers(s)}
           onDiscard={(s) => void discard(s)}
         />
 
@@ -445,6 +486,7 @@ export function OmrScanReviewPanel({
           rows={rejected}
           actionBusyScanId={actionBusyScanId}
           onReassign={(s) => openReassign(s)}
+          onEditAnswers={(s) => openEditAnswers(s)}
           onDiscard={(s) => void discard(s)}
         />
 
@@ -474,6 +516,17 @@ export function OmrScanReviewPanel({
               </Button>
             </div>
           </div>
+        ) : null}
+
+        {editTarget ? (
+          <AnswerOverrideModal
+            scan={editTarget}
+            answers={editAnswers}
+            busy={actionBusyScanId === editTarget.id}
+            onChoiceChange={setAnswerChoice}
+            onClose={() => setEditTarget(null)}
+            onSave={() => void saveEditedAnswers()}
+          />
         ) : null}
 
         {reassignTarget ? (
@@ -556,6 +609,92 @@ function SummaryTile({
   );
 }
 
+const OPTION_CHOICES: Record<3 | 4 | 5, string[]> = {
+  3: ['A', 'B', 'C'],
+  4: ['A', 'B', 'C', 'D'],
+  5: ['A', 'B', 'C', 'D', 'E'],
+};
+
+function AnswerOverrideModal({
+  scan,
+  answers,
+  busy,
+  onChoiceChange,
+  onClose,
+  onSave,
+}: {
+  scan: OmrScan;
+  answers: DetectedAnswer[];
+  busy: boolean;
+  onChoiceChange: (q: number, choice: string | null) => void;
+  onClose: () => void;
+  onSave: () => void;
+}) {
+  const maxQ = answers.length ? Math.max(...answers.map((a) => a.q)) : 0;
+  const optionCount: 3 | 4 | 5 = answers.some((a) => a.choice === 'E') ? 5 : 4;
+  const choices = OPTION_CHOICES[optionCount];
+  const rows = maxQ > 0
+    ? Array.from({ length: maxQ }, (_, i) => i + 1)
+    : answers.map((a) => a.q).sort((a, b) => a - b);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl">
+        <div className="border-b border-slate-100 px-4 py-3">
+          <p className="font-bold text-slate-900">Edit detected answers</p>
+          <p className="truncate text-xs text-slate-500">{scan.fileName ?? scan.id}</p>
+        </div>
+        <div className="max-h-[50vh] overflow-y-auto p-4">
+          {rows.length === 0 ? (
+            <p className="text-sm text-slate-500">No detected answers on this scan yet.</p>
+          ) : (
+            <ul className="space-y-2">
+              {rows.map((q) => {
+                const current = answers.find((a) => a.q === q)?.choice ?? null;
+                return (
+                  <li key={q} className="flex flex-wrap items-center gap-2 rounded border border-slate-100 px-3 py-2">
+                    <span className="w-10 text-xs font-bold text-slate-500">Q{q}</span>
+                    {choices.map((letter) => (
+                      <button
+                        key={letter}
+                        type="button"
+                        className={`h-7 min-w-7 rounded px-2 text-xs font-bold ${
+                          current === letter
+                            ? 'bg-violet-600 text-white'
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        }`}
+                        onClick={() => onChoiceChange(q, current === letter ? null : letter)}
+                      >
+                        {letter}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      className="ml-1 text-[10px] font-semibold text-slate-400 hover:text-slate-600"
+                      onClick={() => onChoiceChange(q, null)}
+                    >
+                      Blank
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 border-t border-slate-100 px-4 py-3">
+          <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button type="button" size="sm" onClick={onSave} disabled={busy || rows.length === 0}>
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+            Save &amp; regrade
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ScanTable({
   title,
   subtitle,
@@ -564,6 +703,7 @@ function ScanTable({
   rows,
   actionBusyScanId,
   onReassign,
+  onEditAnswers,
   onDiscard,
 }: {
   title: string;
@@ -573,6 +713,7 @@ function ScanTable({
   rows: OmrScan[];
   actionBusyScanId: string | null;
   onReassign: (s: OmrScan) => void;
+  onEditAnswers: (s: OmrScan) => void;
   onDiscard: (s: OmrScan) => void;
 }) {
   return (
@@ -685,6 +826,18 @@ function ScanTable({
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
+                        {Array.isArray(scan.detectedAnswers) && scan.detectedAnswers.length > 0 ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-7 gap-1 px-2 text-[11px]"
+                            disabled={actionBusyScanId === scan.id}
+                            onClick={() => onEditAnswers(scan)}
+                          >
+                            Edit
+                          </Button>
+                        ) : null}
                         <Button
                           type="button"
                           size="sm"

@@ -1,8 +1,10 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import React from 'react';
+import Image from 'next/image';
+import React, { useState } from 'react';
 import Link from 'next/link';
+import { resolveMediaImageUrl } from '@/lib/image-url';
 import { ArrowRight } from 'lucide-react';
 import type { PublicCatalogBook } from '@/lib/api/books';
 import { staggerContainer, fadeInUp } from '@/lib/animations/landing';
@@ -50,9 +52,10 @@ export const DigitalLibrarySection: React.FC<Props> = ({
           </motion.span>
           <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-black text-white leading-tight tracking-tighter">
             {title}{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">{titleHighlight}</span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
+              {titleHighlight}
+            </span>
           </h2>
-    
         </div>
 
         <div className="flex flex-col md:flex-row items-center justify-between mb-16 gap-6 p-8 bg-white/[0.03] backdrop-blur-3xl rounded-[40px] border border-white/[0.1] shadow-2xl">
@@ -60,7 +63,9 @@ export const DigitalLibrarySection: React.FC<Props> = ({
             <div className="h-10 sm:h-14 w-1.5 bg-emerald-500 rounded-full shadow-[0_0_20px_#10B981]" />
             <div>
               <h3 className="text-lg sm:text-xl md:text-2xl font-black text-white tracking-tight">সব বুকগুলো</h3>
-              <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em] mt-1">বিস্তারিত ও কেনাকাটা</p>
+              <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em] mt-1">
+                বিস্তারিত ও কেনাকাটা
+              </p>
             </div>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-4">
@@ -73,11 +78,10 @@ export const DigitalLibrarySection: React.FC<Props> = ({
             </div>
             <Button
               asChild
-              className="rounded-2xl bg-emerald-500 font-black uppercase text-[1২px] py-6 tracking-widest text-white hover:bg-emerald-400"
+              className="rounded-2xl bg-emerald-500 font-black uppercase text-[12px] py-6 tracking-widest text-white hover:bg-emerald-400"
             >
               <Link href="/books">{buttonText}</Link>
             </Button>
-         
           </div>
         </div>
 
@@ -100,59 +104,70 @@ export const DigitalLibrarySection: React.FC<Props> = ({
             </div>
           ) : null}
           {dynamicEbooks.map((book) => (
-            <motion.div key={book.id} variants={fadeInUp} className="group relative h-full">
-              <div className="absolute inset-0 bg-emerald-500/10 rounded-[48px] blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <Link
-                href={`/books/${book.id}`}
-                className="relative block h-full rounded-[48px] outline-none transition-all duration-500 focus-visible:ring-2 focus-visible:ring-emerald-400/90 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0F1C]"
-              >
-                <div className="relative bg-[#111827]/80 backdrop-blur-md border border-white/[0.08] rounded-[48px] p-6 flex gap-6 items-center h-full transition-all duration-500 group-hover:border-emerald-500/40 group-hover:bg-[#161F31]">
-                  <div className="w-2/5 aspect-[3/4.5] rounded-[28px] overflow-hidden shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] shrink-0 transition-all duration-700 group-hover:scale-105 group-hover:-rotate-3 border border-white/10 relative pointer-events-none">
-                    <img
-                      src={book.thumbnailUrl || 'https://placehold.co/400x600?text=Book'}
-                      alt={book.name}
-                      className="w-full h-full object-contain"
-                      onError={(e) => {
-                        e.currentTarget.src = 'https://placehold.co/400x600?text=Book';
-                      }}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                  </div>
-                  <div className="flex-1 flex flex-col h-full py-2 min-w-0">
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10B981]" />
-                        <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Online / Offline Book</span>
-                      </div>
-                      <h4 className="font-black text-white text-base sm:text-lg leading-tight group-hover:text-emerald-400 transition-colors line-clamp-2">
-                        {book.name}
-                      </h4>
-                      <p className="text-slate-400 text-[11px] leading-relaxed line-clamp-2 font-medium">
-                        {book.description || 'রম্বস পাবলিকেশনসের অনলাইন ও অফলাইন বই সংগ্রহ।'}
-                      </p>
-                    </div>
-                    <div className="mt-auto pt-6 flex items-center justify-between border-t border-white/5 gap-3">
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-emerald-400 font-black text-lg sm:text-xl md:text-2xl tracking-tighter">
-                          {Number(book.price) <= 0 ? 'FREE' : `৳${Number(book.price || 0).toLocaleString()}`}
-                        </span>
-                        <span className="text-[10px] font-bold text-slate-500 truncate">বিস্তারিত দেখুন</span>
-                      </div>
-                      <span
-                        className="h-12 w-12 shrink-0 rounded-2xl bg-white text-[#0A0F1C] flex items-center justify-center shadow-xl group-hover:bg-emerald-500 group-hover:text-white transition-all duration-300"
-                        aria-hidden
-                      >
-                        <ArrowRight className="h-6 w-6" />
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            </motion.div>
+            <BookCard key={book.id} book={book} />
           ))}
         </motion.div>
-
       </div>
     </section>
   );
 };
+
+function BookCard({ book }: { book: PublicCatalogBook }) {
+  const [imgSrc, setImgSrc] = useState(
+    resolveMediaImageUrl(book.thumbnailUrl, 'https://placehold.co/400x600?text=Book'),
+  );
+
+  return (
+    <motion.div variants={fadeInUp} className="group relative h-full">
+      <div className="absolute inset-0 bg-emerald-500/10 rounded-[48px] blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+      <Link
+        href={`/books/${book.id}`}
+        className="relative block h-full rounded-[48px] outline-none transition-all duration-500 focus-visible:ring-2 focus-visible:ring-emerald-400/90 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0F1C]"
+      >
+        <div className="relative bg-[#111827]/80 backdrop-blur-md border border-white/[0.08] rounded-[48px] p-6 flex gap-6 items-center h-full transition-all duration-500 group-hover:border-emerald-500/40 group-hover:bg-[#161F31]">
+          <div className="w-2/5 aspect-[3/4.5] rounded-[28px] overflow-hidden shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] shrink-0 transition-all duration-700 group-hover:scale-105 group-hover:-rotate-3 border border-white/10 relative pointer-events-none">
+            <Image
+              src={imgSrc}
+              alt={book.name}
+              fill
+              sizes="160px"
+              className="object-contain"
+              onError={() => setImgSrc('https://placehold.co/400x600?text=Book')}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+          </div>
+          <div className="flex-1 flex flex-col h-full py-2 min-w-0">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10B981]" />
+                <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">
+                  Online / Offline Book
+                </span>
+              </div>
+              <h4 className="font-black text-white text-base sm:text-lg leading-tight group-hover:text-emerald-400 transition-colors line-clamp-2">
+                {book.name}
+              </h4>
+              <p className="text-slate-400 text-[11px] leading-relaxed line-clamp-2 font-medium">
+                {book.description || 'রম্বস পাবলিকেশনসের অনলাইন ও অফলাইন বই সংগ্রহ।'}
+              </p>
+            </div>
+            <div className="mt-auto pt-6 flex items-center justify-between border-t border-white/5 gap-3">
+              <div className="flex flex-col min-w-0">
+                <span className="text-emerald-400 font-black text-lg sm:text-xl md:text-2xl tracking-tighter">
+                  {Number(book.price) <= 0 ? 'FREE' : `৳${Number(book.price || 0).toLocaleString()}`}
+                </span>
+                <span className="text-[10px] font-bold text-slate-500 truncate">বিস্তারিত দেখুন</span>
+              </div>
+              <span
+                className="h-12 w-12 shrink-0 rounded-2xl bg-white text-[#0A0F1C] flex items-center justify-center shadow-xl group-hover:bg-emerald-500 group-hover:text-white transition-all duration-300"
+                aria-hidden
+              >
+                <ArrowRight className="h-6 w-6" />
+              </span>
+            </div>
+          </div>
+        </div>
+      </Link>
+    </motion.div>
+  );
+}

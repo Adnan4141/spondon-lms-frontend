@@ -1,13 +1,30 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
 
-const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api").replace(/\/api$/, "");
+const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/api$/, '');
+
+const apiHost = (() => {
+  try {
+    return new URL(API_ORIGIN).hostname;
+  } catch {
+    return 'localhost';
+  }
+})();
 
 const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
   images: {
-    unoptimized: true, // allow private/dev-hosted assets (partners/logos) without remote allowlist issues
+    remotePatterns: [
+      { protocol: 'https', hostname: apiHost, pathname: '/uploads/**' },
+      { protocol: 'http', hostname: 'localhost', port: '5000', pathname: '/uploads/**' },
+      { protocol: 'https', hostname: 'spondonedu.com', pathname: '/uploads/**' },
+      { protocol: 'https', hostname: 'api.spondonedu.com', pathname: '/uploads/**' },
+      { protocol: 'https', hostname: 'placehold.co', pathname: '/**' },
+    ],
+  },
+  experimental: {
+    optimizePackageImports: ['lucide-react'],
   },
   async redirects() {
     return [
@@ -26,7 +43,7 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
-        source: "/uploads/:path*",
+        source: '/uploads/:path*',
         destination: `${API_ORIGIN}/uploads/:path*`,
       },
     ];

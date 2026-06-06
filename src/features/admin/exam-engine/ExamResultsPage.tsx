@@ -141,6 +141,11 @@ export function ExamResultsPage({ examId, teacherEvaluatorMode = false }: ExamRe
   const isOfflineResultFlow = supportsOfflineResults(exam);
   const isWrittenEvalFlow = supportsWrittenEvaluation(exam);
   const omrScanEnabled = supportsOmrScan(exam);
+  const isCombinedOffline = useMemo(() => {
+    const settings = (exam?.settings ?? {}) as Record<string, unknown>;
+    const workflow = (settings.examWorkflow ?? {}) as Record<string, unknown>;
+    return workflow.productType === 'COMBINED' && omrScanEnabled;
+  }, [exam?.settings, omrScanEnabled]);
   const selectedBranchId = branchId || exam?.branchId || '';
 
   const tabAvailability = useMemo<Record<ResultsTabKey, boolean>>(() => {
@@ -271,8 +276,20 @@ export function ExamResultsPage({ examId, teacherEvaluatorMode = false }: ExamRe
       setActiveWrittenAttempt(response.data as WrittenAttemptDetail);
       const nextMarks: Record<string, string> = {};
       for (const question of response.data.questions || []) {
-        if (question.studentAnswer?.obtainedMarks != null) {
-          nextMarks[question.studentAnswer.id] = String(question.studentAnswer.obtainedMarks);
+        const answer = question.studentAnswer;
+        if (!answer?.id) continue;
+        const parts = Array.isArray(question.question?.meta?.parts) ? question.question.meta.parts : [];
+        if (parts.length) {
+          for (const part of parts) {
+            const label = part?.label;
+            if (!label) continue;
+            const evaluation = (answer.evaluations || []).find((ev) => ev.subPartKey === label);
+            if (evaluation?.marksAwarded != null) {
+              nextMarks[`${answer.id}:${label}`] = String(evaluation.marksAwarded);
+            }
+          }
+        } else if (answer.obtainedMarks != null) {
+          nextMarks[answer.id] = String(answer.obtainedMarks);
         }
       }
       setMarksDraft(nextMarks);
@@ -283,14 +300,21 @@ export function ExamResultsPage({ examId, teacherEvaluatorMode = false }: ExamRe
     }
   };
 
-  const saveWrittenMark = async (answerId: string, attemptId: string) => {
+  const saveWrittenMark = async (answerId: string, attemptId: string, subPartKey?: string) => {
     const teacherUserId = getActorUserIdFromStorage();
     if (!teacherUserId) {
       toast({ title: 'Sign in required', variant: 'destructive' });
       return;
     }
-    const marksAwarded = Number(marksDraft[answerId] || 0);
-    const response = await saveWrittenEvaluation({ attemptId, answerId, marksAwarded, teacherUserId });
+    const draftKey = subPartKey ? `${answerId}:${subPartKey}` : answerId;
+    const marksAwarded = Number(marksDraft[draftKey] || 0);
+    const response = await saveWrittenEvaluation({
+      attemptId,
+      answerId,
+      subPartKey,
+      marksAwarded,
+      teacherUserId,
+    });
     if (!response.success) {
       toast({ title: response.message || 'Mark save failed', variant: 'destructive' });
       return;
@@ -305,7 +329,12 @@ export function ExamResultsPage({ examId, teacherEvaluatorMode = false }: ExamRe
       toast({ title: response.message || 'Finalize failed', variant: 'destructive' });
       return;
     }
-    toast({ title: 'Evaluation finalized' });
+    toast({
+      title: 'Evaluation finalized',
+      description: response.data?.resultBatchId
+        ? 'Result batch queued for branch / central approval.'
+        : undefined,
+    });
     await load();
     await openWrittenAttempt(attemptId);
   };
@@ -436,6 +465,7 @@ export function ExamResultsPage({ examId, teacherEvaluatorMode = false }: ExamRe
               onSubmitExcel={() => void submitExcelOffline()}
               onOpenSmsWorkspace={(batch) => void openResultSmsWorkspace(batch)}
               onBatchUpdated={() => void load()}
+              isCombinedOffline={isCombinedOffline}
             />
           ) : (
             <UnavailableResultsTab message="Offline result entry is not required for this exam." />
@@ -452,8 +482,8 @@ export function ExamResultsPage({ examId, teacherEvaluatorMode = false }: ExamRe
               canEvaluate={can('exam.results.written.evaluate')}
               canFinalize={can('exam.results.written.finalize')}
               onOpenAttempt={(attemptId) => void openWrittenAttempt(attemptId)}
-              onMarksDraftChange={(answerId, value) => setMarksDraft((previous) => ({ ...previous, [answerId]: value }))}
-              onSaveMark={(answerId, attemptId) => void saveWrittenMark(answerId, attemptId)}
+              onMarksDraftChange={(draftKey, value) => setMarksDraft((previous) => ({ ...previous, [draftKey]: value }))}
+              onSaveMark={(answerId, attemptId, subPartKey) => void saveWrittenMark(answerId, attemptId, subPartKey)}
               onFinalize={(attemptId) => void finalizeWritten(attemptId)}
             />
           ) : (

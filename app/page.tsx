@@ -1,14 +1,9 @@
-import { getHeroSlides, type HeroSlide } from '@/lib/api/site-content';
+import { getLandingPageData } from '@/lib/api/landing-data';
 import LandingPageClient from './page.client';
 
-export default async function LandingPage() {
-  let initialHeroSlides: HeroSlide[] = [];
-  try {
-    const res = await getHeroSlides();
-    if (res.success && res.data?.length) initialHeroSlides = res.data;
-  } catch {
-    // Keep empty and allow client fallback/static carousel data.
-  }
+export const revalidate = 300;
 
-  return <LandingPageClient initialHeroSlides={initialHeroSlides} />;
+export default async function LandingPage() {
+  const data = await getLandingPageData();
+  return <LandingPageClient {...data} />;
 }

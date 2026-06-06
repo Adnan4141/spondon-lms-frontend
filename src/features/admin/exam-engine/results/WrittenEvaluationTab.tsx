@@ -4,7 +4,7 @@ import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { getExamPdfDownloadUrl } from '@/lib/api/exams';
-import type { WrittenAttemptDetail, WrittenAttemptRow } from './types';
+import type { CqPartMeta, WrittenAttemptDetail, WrittenAttemptRow } from './types';
 
 type WrittenEvaluationTabProps = {
   attempts: WrittenAttemptRow[];
@@ -14,10 +14,24 @@ type WrittenEvaluationTabProps = {
   canEvaluate: boolean;
   canFinalize: boolean;
   onOpenAttempt: (attemptId: string) => void;
-  onMarksDraftChange: (answerId: string, value: string) => void;
-  onSaveMark: (answerId: string, attemptId: string) => void;
+  onMarksDraftChange: (draftKey: string, value: string) => void;
+  onSaveMark: (answerId: string, attemptId: string, subPartKey?: string) => void;
   onFinalize: (attemptId: string) => void;
 };
+
+function marksDraftKey(answerId: string, subPartKey?: string) {
+  return subPartKey ? `${answerId}:${subPartKey}` : answerId;
+}
+
+function readCqParts(meta: unknown): CqPartMeta[] {
+  if (!meta || typeof meta !== 'object') return [];
+  const parts = (meta as { parts?: unknown }).parts;
+  if (!Array.isArray(parts)) return [];
+  return parts.filter(
+    (part): part is CqPartMeta =>
+      Boolean(part && typeof part === 'object' && typeof (part as CqPartMeta).label === 'string'),
+  );
+}
 
 export function WrittenEvaluationTab({
   attempts,
@@ -35,7 +49,7 @@ export function WrittenEvaluationTab({
     <Card className="border-slate-200 shadow-sm">
       <CardHeader>
         <CardTitle className="font-serif text-lg text-[#0D1B35]">Written evaluation</CardTitle>
-        <CardDescription>Review uploaded handwritten pages, enter marks, then finalize the attempt score.</CardDescription>
+        <CardDescription>Review uploaded handwritten pages, enter marks per CQ part or whole question, then finalize.</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4 lg:grid-cols-[280px_1fr]">
         <div className="space-y-2">
@@ -76,6 +90,7 @@ export function WrittenEvaluationTab({
                 const answer = question.studentAnswer;
                 const pages = answer?.writtenSubmission?.pages || [];
                 const finalPdfUrl = answer?.writtenSubmission?.finalPdfUrl;
+                const parts = readCqParts(question.question?.meta);
                 return (
                   <div key={question.questionId} className="rounded-lg border border-slate-200 bg-white p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -85,22 +100,59 @@ export function WrittenEvaluationTab({
                         </p>
                         <div className="prose prose-sm mt-2 max-w-none text-slate-700" dangerouslySetInnerHTML={{ __html: question.question?.prompt ?? '' }} />
                       </div>
-                      {answer?.id && canEvaluate ? (
-                        <div className="flex items-center gap-2">
-                          <input
-                            className="h-9 w-24 rounded-md border border-slate-200 px-2 text-sm"
-                            type="number"
-                            step="0.25"
-                            placeholder="Marks"
-                            value={marksDraft[answer.id] ?? ''}
-                            onChange={(event) => onMarksDraftChange(answer.id, event.target.value)}
-                          />
-                          <Button size="sm" variant="outline" onClick={() => onSaveMark(answer.id, activeAttempt.attempt.id)}>
-                            Save
-                          </Button>
-                        </div>
-                      ) : null}
                     </div>
+
+                    {parts.length > 0 && answer?.id && canEvaluate ? (
+                      <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
+                        {parts.map((part) => {
+                          const draftKey = marksDraftKey(answer.id, part.label);
+                          return (
+                            <div key={part.label} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-slate-50 px-3 py-2">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-bold text-slate-700">
+                                  Part {part.label} · {Number(part.marks ?? 0)} marks
+                                </p>
+                                {part.prompt ? (
+                                  <p className="text-xs text-slate-500">{part.prompt}</p>
+                                ) : null}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  className="h-9 w-24 rounded-md border border-slate-200 px-2 text-sm"
+                                  type="number"
+                                  step="0.25"
+                                  placeholder="Marks"
+                                  value={marksDraft[draftKey] ?? ''}
+                                  onChange={(event) => onMarksDraftChange(draftKey, event.target.value)}
+                                />
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => onSaveMark(answer.id, activeAttempt.attempt.id, part.label)}
+                                >
+                                  Save
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : answer?.id && canEvaluate ? (
+                      <div className="mt-3 flex items-center justify-end gap-2 border-t border-slate-100 pt-3">
+                        <input
+                          className="h-9 w-24 rounded-md border border-slate-200 px-2 text-sm"
+                          type="number"
+                          step="0.25"
+                          placeholder="Marks"
+                          value={marksDraft[answer.id] ?? ''}
+                          onChange={(event) => onMarksDraftChange(answer.id, event.target.value)}
+                        />
+                        <Button size="sm" variant="outline" onClick={() => onSaveMark(answer.id, activeAttempt.attempt.id)}>
+                          Save
+                        </Button>
+                      </div>
+                    ) : null}
+
                     <div className="mt-3 flex flex-wrap gap-2">
                       {finalPdfUrl ? (
                         <a className="rounded-md bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700" href={getExamPdfDownloadUrl(finalPdfUrl)} target="_blank" rel="noopener noreferrer">

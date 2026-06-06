@@ -37,7 +37,7 @@ import {
 import type { ContentType } from '@/types/course-content';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { RichTextEditor } from '@/components/ui/rich-text-editor';
+import { LazyRichTextEditor as RichTextEditor } from '@/components/ui/lazy-rich-text-editor';
 import { uploadQuestionImage } from '@/lib/api/question-bank';
 import {
   Select,

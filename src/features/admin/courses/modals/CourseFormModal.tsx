@@ -1,6 +1,8 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { EmojiClickData } from 'emoji-picker-react';
 import {
   ChevronsUpDown,
   Eye,
@@ -47,7 +49,9 @@ import {
   type Program,
   type UpdateCourseDto,
 } from '@/types/course';
-import EmojiPicker, { type EmojiClickData } from 'emoji-picker-react';
+
+const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
+
 import { EMPTY_COURSE_FORM, type CourseForm, type CourseFormSidebarFeature } from '../courseTypes';
 import { courseToForm } from '../courseUtils';
 import { BranchMultiSelect } from '../components/BranchMultiSelect';

@@ -66,6 +66,9 @@ export default function StudentCommunityPage() {
   const [user, setUser] = useState<UserLite | null>(null);
   const [activeTab, setActiveTab] = useState<'community' | 'doubts'>('community');
   const [posts, setPosts] = useState<CommunityPost[]>([]);
+  const [postsPage, setPostsPage] = useState(1);
+  const [postsHasMore, setPostsHasMore] = useState(false);
+  const [loadingMorePosts, setLoadingMorePosts] = useState(false);
   const [threads, setThreads] = useState<DoubtThread[]>([]);
   const [communities, setCommunities] = useState<Community[]>([]);
   const [courses, setCourses] = useState<StudentCourse[]>([]);
@@ -120,21 +123,35 @@ export default function StudentCommunityPage() {
     }).catch(() => {});
   }, [user?.id]);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  const loadData = useCallback(async (opts?: { postsPageOverride?: number; appendPosts?: boolean }) => {
+    const page = opts?.postsPageOverride ?? 1;
+    const append = opts?.appendPosts ?? false;
+    if (append) setLoadingMorePosts(true);
+    else setLoading(true);
     try {
       const [postRes, doubtRes, communityRes] = await Promise.all([
-        getCommunityPosts({ status: 'PUBLISHED', search: activeTab === 'community' ? search || undefined : undefined }),
+        getCommunityPosts({
+          status: 'PUBLISHED',
+          search: activeTab === 'community' ? search || undefined : undefined,
+          page,
+          limit: 20,
+        }),
         getDoubtThreads({ courseId: courseFilter || undefined, search: activeTab === 'doubts' ? search || undefined : undefined }),
         getCommunities({ status: 'ACTIVE' }),
       ]);
-      if (postRes.success && postRes.data) setPosts(postRes.data);
+      if (postRes.success && postRes.data) {
+        setPosts((prev) => (append ? [...prev, ...postRes.data!] : postRes.data!));
+        setPostsPage(page);
+        const pagination = postRes.pagination;
+        setPostsHasMore(pagination ? page < pagination.pages : false);
+      }
       if (doubtRes.success && doubtRes.data) setThreads(doubtRes.data);
       if (communityRes.success && communityRes.data) setCommunities(communityRes.data);
     } catch (error) {
       toast({ title: 'Could not load community', description: getErrorMessage(error), variant: 'destructive' });
     } finally {
       setLoading(false);
+      setLoadingMorePosts(false);
     }
   }, [activeTab, courseFilter, search, toast]);
 
@@ -350,6 +367,18 @@ export default function StudentCommunityPage() {
                 />
               ))}
               {posts.length === 0 ? <EmptyState title="No posts yet" text="Be the first to start an open community discussion." /> : null}
+              {postsHasMore ? (
+                <div className="flex justify-center pt-2">
+                  <Button
+                    variant="outline"
+                    className="rounded-xl"
+                    disabled={loadingMorePosts}
+                    onClick={() => void loadData({ postsPageOverride: postsPage + 1, appendPosts: true })}
+                  >
+                    {loadingMorePosts ? 'Loading…' : 'Load more posts'}
+                  </Button>
+                </div>
+              ) : null}
             </div>
           ) : (
             <div className="space-y-4">
