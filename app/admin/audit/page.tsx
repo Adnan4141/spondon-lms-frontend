@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { ActorRoleGroup } from '@/lib/api/audit';
+import type { AuditActorRole } from '@/lib/api/audit';
 import { useAdminSession } from '@/features/admin/shared/admin-session';
 import { AuditAccessDenied } from '@/features/admin/audit/components/AuditAccessDenied';
 import { AuditActorTabs } from '@/features/admin/audit/components/AuditActorTabs';
@@ -18,7 +18,6 @@ export default function AuditHistoryPage() {
 
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(50);
-  const [actorRoleGroup, setActorRoleGroup] = useState<ActorRoleGroup>('admin');
   const [filters, setFilters] = useState(EMPTY_AUDIT_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -27,7 +26,6 @@ export default function AuditHistoryPage() {
     filters,
     page,
     limit,
-    actorRoleGroup,
   );
 
   if (!canAccess) {
@@ -47,10 +45,10 @@ export default function AuditHistoryPage() {
       />
 
       <AuditActorTabs
-        value={actorRoleGroup}
-        onChange={(group) => {
-          setActorRoleGroup(group);
+        value={(filters.actorRole || '') as AuditActorRole}
+        onChange={(role) => {
           setPage(1);
+          setFilters((prev) => ({ ...prev, actorRole: role }));
         }}
       />
 
@@ -69,7 +67,7 @@ export default function AuditHistoryPage() {
         }}
       />
 
-      <AuditList rows={rows} loading={loading} actorRoleGroup={actorRoleGroup} />
+      <AuditList rows={rows} loading={loading} />
 
       <AuditPagination
         page={page}

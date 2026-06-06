@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Globe, Monitor, Smartphone, Shield } from 'lucide-react';
+import { Globe, MapPin, Monitor, Smartphone, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { AuditConnectionInfo } from '../audit-utils';
 import { formatIpDisplay, parseUserAgent } from '../audit-utils';
@@ -23,10 +23,16 @@ function DetailRow({
   );
 }
 
-export function AuditConnectionPanel({ info }: { info: AuditConnectionInfo }) {
+export function AuditConnectionPanel({
+  info,
+  branchName,
+}: {
+  info: AuditConnectionInfo;
+  branchName?: string | null;
+}) {
   const ip = formatIpDisplay(info.ip);
   const ua = parseUserAgent(info.userAgent);
-  const hasContent = info.ip || info.userAgent || info.mobile || info.status || info.reason;
+  const hasContent = info.ip || info.userAgent || info.mobile || info.status || info.reason || branchName;
 
   if (!hasContent) return null;
 
@@ -47,6 +53,15 @@ export function AuditConnectionPanel({ info }: { info: AuditConnectionInfo }) {
       </div>
 
       <dl className="px-3 py-1">
+        {branchName && (
+          <DetailRow label="Branch">
+            <span className="inline-flex items-center gap-1.5">
+              <MapPin className="h-3 w-3 text-sky-500" />
+              {branchName}
+            </span>
+          </DetailRow>
+        )}
+
         {info.ip && (
           <DetailRow label="IP address">
             <div className="space-y-0.5">

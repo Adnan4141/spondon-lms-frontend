@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
-import { getSiteSettings, upsertSiteSettings } from '@/lib/api/site-content';
+import { getSiteSettingsAdmin, upsertSiteSettings } from '@/lib/api/site-content';
 import { cn } from '@/lib/utils';
 
 // ─── Default values ────────────────────────────────────────────────────────
@@ -390,7 +390,7 @@ export default function SiteSettingsPage() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await getSiteSettings();
+        const res = await getSiteSettingsAdmin();
         if (res.success && res.data && res.data.length > 0) {
           const merged = { ...DEFAULTS };
           for (const s of res.data) {

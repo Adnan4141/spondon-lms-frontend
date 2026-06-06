@@ -17,6 +17,7 @@ import { StudentAdminSelect as AppSelect } from '../components/StudentAdminSelec
 import { StudentMonthInput as MonthInput } from '../components/StudentMonthInput';
 import { ManageEnrollmentModal } from './ManageEnrollmentModal';
 import { fullResetEnrollment } from '@/lib/api/enrollments';
+import { confirmAction } from '@/features/admin/shared/confirm-action';
 import { useAdminSession } from '@/features/admin/shared/admin-session';
 
 export function EnrolledCoursesView({
@@ -38,6 +39,18 @@ export function EnrolledCoursesView({
   const [batchesMap, setBatchesMap] = useState<Map<string, string>>(new Map());
   const { user } = useAdminSession();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+
+  const openFullResetModal = async (enrollment: Enrollment) => {
+    const confirmed = await confirmAction({
+      title: 'Open full enrollment reset?',
+      description:
+        'This action permanently deletes enrollment, invoices, and payments. You will need to confirm again in the next step.',
+      confirmLabel: 'Continue to Reset',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
+    setResetModal(enrollment);
+  };
 
   const loadBatchMap = async () => {
     const map = new Map<string, string>();
@@ -188,7 +201,7 @@ export function EnrolledCoursesView({
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => setResetModal(enrollment)}
+                    onClick={() => void openFullResetModal(enrollment)}
                     className="gap-1.5 border-red-300 bg-white text-red-700 hover:bg-red-50 shrink-0"
                   >
                     <AlertTriangle className="h-3.5 w-3.5" /> Full Reset
@@ -393,6 +406,8 @@ export function EnrolledCoursesView({
         <FullEnrollmentResetModal
           enrollment={resetModal}
           programName={programs.find((p) => p.id === resetModal.programId)?.name ?? ''}
+          studentName={student.fullName}
+          branchName={branches.find((b) => b.id === resetModal.branchId)?.name ?? ''}
           onClose={() => setResetModal(null)}
           onDone={async (message) => {
             showToast(message, 'success');
@@ -559,23 +574,33 @@ function ChangeBatchModal({
 function FullEnrollmentResetModal({
   enrollment,
   programName,
+  studentName,
+  branchName,
   onClose,
   onDone,
 }: {
   enrollment: Enrollment;
   programName: string;
+  studentName: string;
+  branchName: string;
   onClose: () => void;
   onDone: (message: string) => void;
 }) {
   const [reason, setReason] = useState('');
   const [confirmation, setConfirmation] = useState('');
+  const [acknowledged, setAcknowledged] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const required = 'DELETE_ALL_ENROLLMENT_DATA';
+  const activeCourseCount = enrollment.courses.filter((course) => course.status === 'ACTIVE').length;
 
   const handleSubmit = async () => {
     if (!reason.trim()) {
       setError('Reset reason is required.');
+      return;
+    }
+    if (!acknowledged) {
+      setError('You must acknowledge that this action is irreversible.');
       return;
     }
     if (confirmation !== required) {
@@ -613,6 +638,48 @@ function FullEnrollmentResetModal({
         </p>
       </div>
 
+      <div className="mb-5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+        <p className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">Impact summary</p>
+        <dl className="grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
+          <div>
+            <dt className="text-slate-500">Student</dt>
+            <dd className="font-semibold text-slate-900">{studentName}</dd>
+          </div>
+          <div>
+            <dt className="text-slate-500">Program</dt>
+            <dd className="font-semibold text-slate-900">{programName}</dd>
+          </div>
+          <div>
+            <dt className="text-slate-500">Enrollment ID</dt>
+            <dd className="font-mono text-xs text-slate-900 break-all">{enrollment.id}</dd>
+          </div>
+          <div>
+            <dt className="text-slate-500">Branch</dt>
+            <dd className="font-semibold text-slate-900">{branchName || '—'}</dd>
+          </div>
+          <div>
+            <dt className="text-slate-500">Status</dt>
+            <dd className="font-semibold text-slate-900">{enrollment.status}</dd>
+          </div>
+          <div>
+            <dt className="text-slate-500">Active courses</dt>
+            <dd className="font-semibold text-slate-900">{activeCourseCount}</dd>
+          </div>
+        </dl>
+      </div>
+
+      <label className="mb-5 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50/60 px-4 py-3 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={acknowledged}
+          onChange={(event) => setAcknowledged(event.target.checked)}
+          className="mt-0.5 accent-red-700"
+        />
+        <span className="text-sm font-semibold text-red-900">
+          I understand this permanently deletes all enrollment data and cannot be undone.
+        </span>
+      </label>
+
       <Field label="Reason" required>
         <textarea
           value={reason}
@@ -638,7 +705,7 @@ function FullEnrollmentResetModal({
         <Button variant="outline" onClick={onClose} disabled={saving}>Keep Enrollment</Button>
         <Button
           onClick={handleSubmit}
-          disabled={saving || !reason.trim() || confirmation !== required}
+          disabled={saving || !reason.trim() || !acknowledged || confirmation !== required}
           className="bg-red-700 text-white hover:bg-red-800"
         >
           {saving ? 'Resetting...' : 'Delete All Enrollment Data'}

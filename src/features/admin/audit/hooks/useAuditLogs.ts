@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { getAuditLogs, type ActorRoleGroup, type AuditRow } from '@/lib/api/audit';
+import { getAuditLogs, type AuditRow } from '@/lib/api/audit';
 import type { AuditFiltersState } from '../audit-utils';
 
 export function useAuditLogs(
@@ -9,7 +9,6 @@ export function useAuditLogs(
   filters: AuditFiltersState,
   page: number,
   limit: number,
-  actorRoleGroup: ActorRoleGroup,
 ) {
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -22,7 +21,8 @@ export function useAuditLogs(
     () => ({
       page,
       limit,
-      actorRoleGroup,
+      actorRole: filters.actorRole.trim() || undefined,
+      branchId: filters.branchId.trim() || undefined,
       actorUserId: filters.actorUserId.trim() || undefined,
       entityType: filters.entityType.trim() || undefined,
       entityId: filters.entityId.trim() || undefined,
@@ -31,7 +31,7 @@ export function useAuditLogs(
       from: filters.from || undefined,
       to: filters.to || undefined,
     }),
-    [page, limit, actorRoleGroup, filters],
+    [page, limit, filters],
   );
 
   const load = useCallback(async () => {

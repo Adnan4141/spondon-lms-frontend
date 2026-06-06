@@ -349,7 +349,47 @@ export function changeSummary(row: AuditRow): string | null {
   if (/COURSE_DELETED/i.test(action)) return display?.label ? `Course deleted: ${display.label}` : 'Course deleted';
   if (/HERO_SLIDE/i.test(action)) return display?.label ? `Hero slide: ${display.label}` : 'Hero slide changed';
   if (/PROGRAM_CARD/i.test(action)) return display?.label ? `Program card: ${display.label}` : 'Program card changed';
-  if (/SITE_SETTINGS/i.test(action)) return 'Website settings updated';
+  if (/SITE_SETTINGS_ACCESSED/i.test(action)) return 'Site settings page opened';
+  if (/SITE_SETTINGS_UPDATED/i.test(action)) {
+    const nv = row.newValue as { changedKeyCount?: number; keys?: string[] } | null | undefined;
+    const count = nv?.changedKeyCount ?? nv?.keys?.length;
+    if (typeof count === 'number' && count > 0) {
+      return `Website settings updated (${count} key${count === 1 ? '' : 's'})`;
+    }
+    return 'Website settings updated';
+  }
+  if (/ENROLLMENT_COURSE_ADDED|ENROLLMENT_COURSE_REMOVED|ENROLLMENT_BATCH_CHANGED/i.test(action)) {
+    const payload = (row.newValue ?? row.oldValue) as {
+      courseName?: string;
+      studentName?: string;
+      branchName?: string;
+      effectiveMonth?: string;
+      status?: string;
+    } | null;
+    const parts: string[] = [];
+    if (payload?.courseName) parts.push(payload.courseName);
+    if (payload?.studentName) parts.push(payload.studentName);
+    if (payload?.branchName) parts.push(payload.branchName);
+    if (payload?.effectiveMonth) parts.push(`from ${payload.effectiveMonth}`);
+    if (payload?.status) parts.push(`→ ${payload.status}`);
+    return parts.length > 0 ? parts.join(' · ') : actionLabel(action);
+  }
+  if (/ENROLLMENT_FULL_RESET/i.test(action)) {
+    const ov = row.oldValue as { counts?: Record<string, number>; totals?: Record<string, number> } | null | undefined;
+    const counts = ov?.counts;
+    const totals = ov?.totals;
+    const parts: string[] = ['Enrollment full reset (destructive)'];
+    if (counts) {
+      const summary = [
+        counts.courses != null ? `${counts.courses} course(s)` : null,
+        counts.invoices != null ? `${counts.invoices} invoice(s)` : null,
+        counts.payments != null ? `${counts.payments} payment(s)` : null,
+      ].filter(Boolean);
+      if (summary.length > 0) parts.push(summary.join(', '));
+    }
+    if (totals?.dueTotal != null) parts.push(`due ${totals.dueTotal}`);
+    return parts.join(' · ');
+  }
   if (/TESTIMONIAL/i.test(action)) return display?.label ? `Testimonial: ${display.label}` : 'Testimonial changed';
   if (/PARTNER/i.test(action)) return display?.label ? `Partner: ${display.label}` : 'Partner changed';
   if (/FAQ/i.test(action)) return display?.label ? `FAQ: ${display.label}` : 'FAQ changed';
@@ -387,6 +427,8 @@ export function actorRingClass(role?: string | null): string {
 
 export interface AuditFiltersState {
   actorUserId: string;
+  actorRole: string;
+  branchId: string;
   entityType: string;
   entityId: string;
   action: string;
@@ -397,6 +439,8 @@ export interface AuditFiltersState {
 
 export const EMPTY_AUDIT_FILTERS: AuditFiltersState = {
   actorUserId: '',
+  actorRole: '',
+  branchId: '',
   entityType: '',
   entityId: '',
   action: '',
@@ -404,6 +448,48 @@ export const EMPTY_AUDIT_FILTERS: AuditFiltersState = {
   from: '',
   to: '',
 };
+
+export const AUDIT_ROLE_OPTIONS = [
+  { value: '', label: 'All roles' },
+  { value: 'SUPER_ADMIN', label: 'Super Admin' },
+  { value: 'BRANCH_ADMIN', label: 'Branch Admin' },
+  { value: 'STUDENT', label: 'Student' },
+  { value: 'TEACHER', label: 'Teacher' },
+  { value: 'ACCOUNTS', label: 'Accounts' },
+  { value: 'MODERATOR', label: 'Moderator' },
+];
+
+export const AUDIT_ENTITY_OPTIONS = [
+  { value: '', label: 'All entity types' },
+  { value: 'Course', label: 'Course' },
+  { value: 'ENROLLMENT', label: 'Enrollment' },
+  { value: 'Enrollment', label: 'Enrollment (legacy)' },
+  { value: 'SiteSetting', label: 'Site Setting' },
+  { value: 'AUTH', label: 'Auth' },
+  { value: 'User', label: 'User' },
+  { value: 'HeroSlide', label: 'Hero Slide' },
+  { value: 'ProgramCard', label: 'Program Card' },
+  { value: 'Testimonial', label: 'Testimonial' },
+  { value: 'Partner', label: 'Partner' },
+  { value: 'Faq', label: 'FAQ' },
+  { value: 'Exam', label: 'Exam' },
+];
+
+export const AUDIT_ACTION_OPTIONS = [
+  { value: '', label: 'All actions' },
+  { value: 'LOGIN_SUCCESS', label: 'Login Success' },
+  { value: 'LOGIN_FAILED', label: 'Login Failed' },
+  { value: 'SITE_SETTINGS_ACCESSED', label: 'Site Settings Accessed' },
+  { value: 'SITE_SETTINGS_UPDATED', label: 'Site Settings Updated' },
+  { value: 'ENROLLMENT_COURSE_ADDED', label: 'Enrollment Course Added' },
+  { value: 'ENROLLMENT_COURSE_REMOVED', label: 'Enrollment Course Removed' },
+  { value: 'ENROLLMENT_BATCH_CHANGED', label: 'Enrollment Batch Changed' },
+  { value: 'ENROLLMENT_FULL_RESET', label: 'Enrollment Full Reset' },
+  { value: 'ENROLLMENT_CANCELLED', label: 'Enrollment Cancelled' },
+  { value: 'COURSE_CREATED', label: 'Course Created' },
+  { value: 'COURSE_UPDATED', label: 'Course Updated' },
+  { value: 'COURSE_DELETED', label: 'Course Deleted' },
+];
 
 export function countActiveFilters(filters: AuditFiltersState): number {
   return Object.values(filters).filter(Boolean).length;

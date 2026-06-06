@@ -2,11 +2,21 @@ import { apiRequest } from '../api';
 
 export type ActorRoleGroup = 'admin' | 'portal' | 'all';
 
+export type AuditActorRole =
+  | 'SUPER_ADMIN'
+  | 'BRANCH_ADMIN'
+  | 'STUDENT'
+  | 'TEACHER'
+  | 'ACCOUNTS'
+  | 'MODERATOR'
+  | '';
+
 export interface AuditActor {
   id: string;
   fullName: string;
   role: string;
   branchId?: string | null;
+  branch?: { id: string; name: string } | null;
 }
 
 export interface AuditRow {
@@ -33,6 +43,8 @@ export interface AuditListParams {
   from?: string;
   to?: string;
   actorRoleGroup?: ActorRoleGroup;
+  actorRole?: string;
+  branchId?: string;
 }
 
 export interface AuditPagination {
@@ -62,6 +74,8 @@ export async function getAuditLogs(params?: AuditListParams): Promise<AuditListR
   if (params?.search) query.set('search', params.search);
   if (params?.from) query.set('from', params.from);
   if (params?.to) query.set('to', params.to);
+  if (params?.actorRole) query.set('actorRole', params.actorRole);
+  if (params?.branchId) query.set('branchId', params.branchId);
   if (params?.actorRoleGroup && params.actorRoleGroup !== 'all') {
     query.set('actorRoleGroup', params.actorRoleGroup);
   }

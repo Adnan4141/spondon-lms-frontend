@@ -1,22 +1,13 @@
 import { ClipboardList, RefreshCw } from 'lucide-react';
-import type { ActorRoleGroup } from '@/lib/api/audit';
 import type { AuditRow } from '@/lib/api/audit';
 import { AuditEntryCard } from './AuditEntryCard';
-
-const EMPTY_MESSAGES: Record<ActorRoleGroup, string> = {
-  admin: 'No Super Admin or Branch Admin actions in this period.',
-  portal: 'No Student or Teacher actions in this period.',
-  all: 'No audit records found for the selected filters.',
-};
 
 export function AuditList({
   rows,
   loading,
-  actorRoleGroup,
 }: {
   rows: AuditRow[];
   loading: boolean;
-  actorRoleGroup: ActorRoleGroup;
 }) {
   return (
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -39,7 +30,7 @@ export function AuditList({
         <div className="px-3 py-12 text-center">
           <p className="text-sm font-black text-slate-500">No records found</p>
           <p className="mt-1 text-xs font-medium text-slate-400">
-            {EMPTY_MESSAGES[actorRoleGroup]}
+            No audit records match the selected filters.
           </p>
         </div>
       ) : (

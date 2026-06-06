@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Globe } from 'lucide-react';
+import { ChevronDown, ChevronRight, Globe, MapPin } from 'lucide-react';
 import type { AuditRow } from '@/lib/api/audit';
 import { cn } from '@/lib/utils';
 import {
@@ -18,6 +18,7 @@ import {
 } from '../audit-utils';
 import { AuditActionBadge } from './AuditActionBadge';
 import { AuditConnectionPanel } from './AuditConnectionPanel';
+import { AuditExpandablePanel } from './AuditExpandablePanel';
 import { AuditJsonPanel } from './AuditJsonPanel';
 
 export function AuditEntryCard({ row }: { row: AuditRow }) {
@@ -30,6 +31,7 @@ export function AuditEntryCard({ row }: { row: AuditRow }) {
   const ipDisplay = formatIpDisplay(connection.ip);
   const oldPayload = getPayloadForPanel(row.oldValue);
   const newPayload = getPayloadForPanel(row.newValue);
+  const branchName = row.actor?.branch?.name;
   const showDetails =
     hasAuditValue(row.oldValue) ||
     hasAuditValue(row.newValue) ||
@@ -85,6 +87,12 @@ export function AuditEntryCard({ row }: { row: AuditRow }) {
                 {row.actor.role.replace(/_/g, ' ')}
               </span>
             )}
+            {branchName && (
+              <span className="inline-flex items-center gap-1 rounded bg-sky-50 px-1.5 py-0.5 text-[10px] font-bold text-sky-700">
+                <MapPin className="h-3 w-3" />
+                {branchName}
+              </span>
+            )}
           </div>
 
           {summary && <p className="text-xs font-medium text-slate-500">{summary}</p>}
@@ -111,9 +119,9 @@ export function AuditEntryCard({ row }: { row: AuditRow }) {
         </div>
       </button>
 
-      {expanded && showDetails && (
+      <AuditExpandablePanel expanded={expanded && showDetails}>
         <div className="space-y-2 border-t border-slate-100 bg-slate-50/50 px-3 py-2.5">
-          <AuditConnectionPanel info={connection} />
+          <AuditConnectionPanel info={connection} branchName={branchName} />
 
           {(oldPayload || newPayload) && (
             <div className="grid gap-2 sm:grid-cols-2">
@@ -126,7 +134,7 @@ export function AuditEntryCard({ row }: { row: AuditRow }) {
             </div>
           )}
         </div>
-      )}
+      </AuditExpandablePanel>
     </article>
   );
 }

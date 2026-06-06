@@ -210,6 +210,11 @@ export async function getSiteSettings(group?: string): Promise<ApiResponse<SiteS
   return apiRequest<ApiResponse<SiteSetting[]>>(`/site-content/settings${q}`, cacheOpt);
 }
 
+export async function getSiteSettingsAdmin(group?: string): Promise<ApiResponse<SiteSetting[]>> {
+  const q = group ? `?group=${encodeURIComponent(group)}` : '';
+  return apiRequest<ApiResponse<SiteSetting[]>>(`/site-content/settings/admin${q}`);
+}
+
 export async function upsertSiteSettings(data: Record<string, string>, labels?: Record<string, string>): Promise<ApiResponse<SiteSetting[]>> {
   const settings = Object.entries(data).map(([key, value]) => ({
     key,

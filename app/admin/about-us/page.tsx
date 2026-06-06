@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
-import { getSiteSettings, upsertSiteSettings, uploadSiteContentImage } from '@/lib/api/site-content';
+import { getSiteSettingsAdmin, upsertSiteSettings, uploadSiteContentImage } from '@/lib/api/site-content';
 import { API_ORIGIN } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -287,7 +287,7 @@ export default function AdminAboutUsPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    getSiteSettings('about').then((res) => {
+    getSiteSettingsAdmin('about').then((res) => {
       if (res.success && res.data) {
         const map: Record<string, string> = {};
         for (const item of res.data) map[item.key] = item.value;
