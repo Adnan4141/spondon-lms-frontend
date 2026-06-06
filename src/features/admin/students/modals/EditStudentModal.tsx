@@ -1,18 +1,24 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Check } from 'lucide-react';
+import { Check, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { getBranches } from '@/lib/api/branches';
 import { getInstitutes, type Institute } from '@/lib/api/institutes';
 import { getStudentProfileByUserId, upsertStudentProfile } from '@/lib/api/student-profiles';
+import { sendCredentialsSms } from '@/lib/api/students';
 import { updateUser, getUserById, uploadUserProfileImage } from '@/lib/api/users';
 import type { Student } from '../types';
 import { StudentAdminBadge } from '../components/StudentAdminBadge';
+import { StudentAdminField } from '../components/StudentAdminField';
 import { StudentAdminModal } from '../components/StudentAdminModal';
 import { StudentAdminSelect } from '../components/StudentAdminSelect';
 import { StudentFormFields, type StudentForm } from '../components/StudentFormFields';
 import { gpaInfo, validateAdminStudentForm } from '../studentValidation';
+import { cn } from '@/lib/utils';
+
+const MIN_PASSWORD_LENGTH = 6;
 
 function dateOnly(value?: string | null): string {
   return value ? value.slice(0, 10) : '';
@@ -48,6 +54,12 @@ export function EditStudentModal({
     profileImage: student.profileImage ?? null,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [sendingSms, setSendingSms] = useState(false);
+  const [smsMessage, setSmsMessage] = useState<string | null>(null);
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -109,7 +121,17 @@ export function EditStudentModal({
   };
 
   const validate = (): Record<string, string> => {
-    return validateAdminStudentForm({ ...form, branchId });
+    const e = validateAdminStudentForm({ ...form, branchId });
+    const pw = password.trim();
+    const cpw = confirmPassword.trim();
+    if (pw || cpw) {
+      if (pw.length < MIN_PASSWORD_LENGTH) {
+        e.password = `Password must be at least ${MIN_PASSWORD_LENGTH} characters`;
+      } else if (pw !== cpw) {
+        e.confirmPassword = 'Passwords do not match';
+      }
+    }
+    return e;
   };
 
   const handleSave = async () => {
@@ -124,6 +146,7 @@ export function EditStudentModal({
           email: form.email || undefined,
           branchId: branchId || null,
           status,
+          ...(password.trim() ? { password: password.trim() } : {}),
           fatherName: form.fatherName || undefined,
           motherName: form.motherName || undefined,
           fatherMobile: form.fatherMobile || undefined,
@@ -251,6 +274,103 @@ export function EditStudentModal({
             }}
             disabled={saving || loading}
           />
+
+          <div className="mb-4 grid grid-cols-2 gap-x-4">
+            <StudentAdminField
+              label="Reset password"
+              hint="Optional. Leave empty to keep the current password."
+              error={errors.password}
+            >
+              <div className="relative">
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (errors.password) setErrors((prev) => { const n = { ...prev }; delete n.password; return n; });
+                  }}
+                  placeholder="New password"
+                  className={cn('focus-visible:ring-indigo-400 pr-10')}
+                  disabled={saving || loading}
+                />
+                <button
+                  type="button"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:pointer-events-none"
+                  onClick={() => setShowPassword((v) => !v)}
+                  disabled={saving || loading}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </StudentAdminField>
+            <StudentAdminField label="Confirm password" error={errors.confirmPassword}>
+              <div className="relative">
+                <Input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    if (errors.confirmPassword) setErrors((prev) => { const n = { ...prev }; delete n.confirmPassword; return n; });
+                  }}
+                  placeholder="Re-enter password"
+                  className={cn('focus-visible:ring-indigo-400 pr-10')}
+                  disabled={saving || loading}
+                />
+                <button
+                  type="button"
+                  aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:pointer-events-none"
+                  onClick={() => setShowConfirmPassword((v) => !v)}
+                  disabled={saving || loading}
+                >
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </StudentAdminField>
+          </div>
+
+          <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-widest text-slate-500">Login credentials SMS</p>
+                <p className="mt-1 text-xs font-semibold text-slate-500">
+                  Sends mobile and stored one-time password via SMS. Reset password above first so SMS matches.
+                </p>
+                {smsMessage && (
+                  <p className={cn('mt-2 text-xs font-semibold', smsMessage.startsWith('Sent') ? 'text-emerald-700' : 'text-rose-600')}>
+                    {smsMessage}
+                  </p>
+                )}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="shrink-0 rounded-xl font-bold"
+                disabled={saving || loading || sendingSms}
+                onClick={async () => {
+                  setSendingSms(true);
+                  setSmsMessage(null);
+                  try {
+                    const res = await sendCredentialsSms(student.id);
+                    if (res.success) {
+                      setSmsMessage('Sent credentials SMS successfully.');
+                    } else {
+                      setSmsMessage((res as { message?: string }).message ?? 'Failed to send SMS.');
+                    }
+                  } catch (err) {
+                    setSmsMessage(err instanceof Error ? err.message : 'Failed to send SMS.');
+                  } finally {
+                    setSendingSms(false);
+                  }
+                }}
+              >
+                {sendingSms ? 'Sending…' : 'Send credentials SMS'}
+              </Button>
+            </div>
+          </div>
 
           <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
             <div className="grid sm:grid-cols-[220px_1fr] gap-3 items-start">

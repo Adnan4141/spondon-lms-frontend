@@ -43,6 +43,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
+import { useAdminSession } from '@/features/admin/shared/admin-session';
 import {
   Users,
   Plus,
@@ -64,8 +65,10 @@ import {
   MessageCircle,
   Activity,
   Filter,
+  KeyRound,
 } from 'lucide-react';
 
+const MIN_PASSWORD_LENGTH = 6;
 const ALL_ROLES = ['SUPER_ADMIN', 'BRANCH_ADMIN', 'ACCOUNTS', 'TEACHER', 'MODERATOR'] as const;
 
 const ROLE_LABELS: Record<string, string> = {
@@ -128,6 +131,7 @@ function UserForm({ user, branches, onSuccess, onCancel }: UserFormProps) {
   const [mobile, setMobile] = useState(user?.mobile ?? '');
   const [email, setEmail] = useState(user?.email ?? '');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState<string>(user?.role ?? 'TEACHER');
   const [branchId, setBranchId] = useState<string>(user?.branchId ?? '');
   const [status, setStatus] = useState<string>(user?.status ?? 'ACTIVE');
@@ -135,6 +139,19 @@ function UserForm({ user, branches, onSuccess, onCancel }: UserFormProps) {
   const [error, setError] = useState<string | null>(null);
 
   const roleNeedsBranch = ['BRANCH_ADMIN', 'TEACHER'].includes(role);
+
+  function validatePasswordFields(pw: string, cpw: string, required: boolean): string | null {
+    if (!pw && !cpw) {
+      return required ? 'Password is required for this role.' : null;
+    }
+    if (pw.length < MIN_PASSWORD_LENGTH) {
+      return `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+    }
+    if (pw !== cpw) {
+      return 'Passwords do not match.';
+    }
+    return null;
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -144,17 +161,27 @@ function UserForm({ user, branches, onSuccess, onCancel }: UserFormProps) {
     if (!BD_MOBILE.test(mobile)) { setError('Enter a valid BD mobile (01XXXXXXXXX).'); return; }
     if (roleNeedsBranch && !branchId) { setError('Branch is required for this role.'); return; }
 
+    const pw = password.trim();
+    const cpw = confirmPassword.trim();
+    const passwordRequired = !isEdit && role !== 'TEACHER';
+    const passwordError = validatePasswordFields(pw, cpw, passwordRequired);
+    if (passwordError) { setError(passwordError); return; }
+
     setSubmitting(true);
     try {
       if (isEdit) {
         const payload: UpdateUserPayload = { fullName, mobile, email: email || undefined, role, status, branchId: branchId || null };
-        if (password) payload.password = password;
+        if (pw) payload.password = pw;
         const res = await updateUser(user!.id, payload);
         if (!res.success) throw new Error(res.message || 'Update failed');
-        toast({ title: 'User updated', variant: 'success' });
+        toast({
+          title: pw ? 'Password updated' : 'User updated',
+          description: pw ? 'User must log in again with the new password.' : undefined,
+          variant: 'success',
+        });
       } else {
         const payload: CreateUserPayload = { fullName, mobile, email: email || undefined, role, branchId: branchId || undefined, status };
-        if (password) payload.password = password;
+        if (pw) payload.password = pw;
         const res = await createUser(payload);
         if (!res.success) throw new Error(res.message || 'Create failed');
         if (res.data && 'oneTimePassword' in res.data && res.data.oneTimePassword) {
@@ -244,9 +271,14 @@ function UserForm({ user, branches, onSuccess, onCancel }: UserFormProps) {
 
         <div>
           <Label className="text-xs font-black uppercase tracking-wider text-slate-500">
-            {isEdit ? 'New Password (leave blank to keep)' : 'Password (blank = auto-generate)'}
+            {isEdit ? 'New Password (leave blank to keep)' : 'Password (blank = auto-generate for teachers)'}
           </Label>
           <Input className={cn(inputCls, 'mt-1')} type="password" placeholder={isEdit ? 'Change password…' : 'Auto-generate OTP'} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
+        </div>
+
+        <div>
+          <Label className="text-xs font-black uppercase tracking-wider text-slate-500">Confirm Password</Label>
+          <Input className={cn(inputCls, 'mt-1')} type="password" placeholder="Re-enter password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} autoComplete="new-password" />
         </div>
       </div>
 
@@ -304,12 +336,138 @@ function UserDetailView({ user }: { user: User }) {
   );
 }
 
+// ─── Reset Password Dialog ────────────────────────────────────────────────────
+
+function generateRandomPassword(length = 8): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let result = '';
+  for (let i = 0; i < length; i += 1) {
+    result += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return result;
+}
+
+function ResetPasswordDialog({
+  user,
+  onClose,
+  onSuccess,
+}: {
+  user: User;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const { toast } = useToast();
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const inputCls =
+    'h-11 rounded-xl border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all';
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+
+    const pw = password.trim();
+    const cpw = confirmPassword.trim();
+    if (!pw) { setError('New password is required.'); return; }
+    if (pw.length < MIN_PASSWORD_LENGTH) {
+      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+      return;
+    }
+    if (pw !== cpw) { setError('Passwords do not match.'); return; }
+
+    setSubmitting(true);
+    try {
+      const res = await updateUser(user.id, { password: pw });
+      if (!res.success) throw new Error(res.message || 'Password reset failed');
+      toast({
+        title: 'Password updated',
+        description: 'User must log in again with the new password.',
+        variant: 'success',
+      });
+      onSuccess();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o && !submitting) onClose(); }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="font-black text-slate-900">Reset password</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm font-medium text-slate-500">
+          Set a new password for <strong className="text-slate-800">{user.fullName}</strong> ({user.mobile}).
+        </p>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+              {error}
+            </div>
+          )}
+          <div>
+            <Label className="text-xs font-black uppercase tracking-wider text-slate-500">New password</Label>
+            <div className="mt-1 flex gap-2">
+              <Input
+                className={inputCls}
+                type="text"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
+                required
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="shrink-0 rounded-xl font-bold"
+                disabled={submitting}
+                onClick={() => {
+                  const generated = generateRandomPassword();
+                  setPassword(generated);
+                  setConfirmPassword(generated);
+                }}
+              >
+                Generate
+              </Button>
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs font-black uppercase tracking-wider text-slate-500">Confirm password</Label>
+            <Input
+              className={cn(inputCls, 'mt-1')}
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              autoComplete="new-password"
+              required
+            />
+          </div>
+          <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
+            <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>Cancel</Button>
+            <Button type="submit" className="bg-indigo-600 text-white hover:bg-indigo-700" disabled={submitting}>
+              {submitting ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : null}
+              Update password
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 20;
 
 export default function AdminUsersPage() {
+  const { user: sessionUser } = useAdminSession();
   const { toast, toasts, removeToast } = useToast();
+  const canAccess = sessionUser?.role === 'SUPER_ADMIN';
 
   const [users, setUsers] = useState<User[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -331,6 +489,7 @@ export default function AdminUsersPage() {
   const [detailUser, setDetailUser] = useState<User | null>(null);
   const [blockTarget, setBlockTarget] = useState<User | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
+  const [resetTarget, setResetTarget] = useState<User | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
   const lastDebouncedRef = useRef<string | null>(null);
@@ -458,6 +617,16 @@ export default function AdminUsersPage() {
     { key: 'TEACHER', label: 'Teachers', count: countByRole('TEACHER') },
     { key: 'MODERATOR', label: 'Moderators', count: countByRole('MODERATOR') },
   ];
+
+  if (!canAccess) {
+    return (
+      <main className="mx-auto max-w-3xl p-6">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800">
+          User Management is restricted to Super Admin.
+        </div>
+      </main>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-5 px-1 pb-12">
@@ -708,6 +877,13 @@ export default function AdminUsersPage() {
                           <Pencil className="h-4 w-4" />
                         </button>
                         <button
+                          onClick={() => setResetTarget(u)}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
+                          title="Reset password"
+                        >
+                          <KeyRound className="h-4 w-4" />
+                        </button>
+                        <button
                           onClick={() => setBlockTarget(u)}
                           className={cn(
                             'flex h-8 w-8 items-center justify-center rounded-lg transition-colors',
@@ -788,6 +964,18 @@ export default function AdminUsersPage() {
           {detailUser && <UserDetailView user={detailUser} />}
         </DialogContent>
       </Dialog>
+
+      {/* Reset password */}
+      {resetTarget && (
+        <ResetPasswordDialog
+          user={resetTarget}
+          onClose={() => setResetTarget(null)}
+          onSuccess={async () => {
+            setResetTarget(null);
+            await refreshAll();
+          }}
+        />
+      )}
 
       {/* Block/Activate confirmation */}
       <AlertDialog open={!!blockTarget} onOpenChange={(o) => { if (!o) setBlockTarget(null); }}>

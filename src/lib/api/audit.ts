@@ -1,5 +1,7 @@
 import { apiRequest } from '../api';
 
+export type ActorRoleGroup = 'admin' | 'portal' | 'all';
+
 export interface AuditActor {
   id: string;
   fullName: string;
@@ -25,20 +27,27 @@ export interface AuditListParams {
   limit?: number;
   actorUserId?: string;
   entityType?: string;
+  entityId?: string;
   action?: string;
+  search?: string;
   from?: string;
   to?: string;
+  actorRoleGroup?: ActorRoleGroup;
+}
+
+export interface AuditPagination {
+  page: number;
+  limit: number;
+  total: number;
+  pages: number;
+  from: number;
+  to: number;
 }
 
 export interface AuditListResponse {
   success: boolean;
   data: AuditRow[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    pages: number;
-  };
+  pagination: AuditPagination;
 }
 
 export async function getAuditLogs(params?: AuditListParams): Promise<AuditListResponse> {
@@ -48,9 +57,14 @@ export async function getAuditLogs(params?: AuditListParams): Promise<AuditListR
   if (params?.limit) query.set('limit', String(params.limit));
   if (params?.actorUserId) query.set('actorUserId', params.actorUserId);
   if (params?.entityType) query.set('entityType', params.entityType);
+  if (params?.entityId) query.set('entityId', params.entityId);
   if (params?.action) query.set('action', params.action);
+  if (params?.search) query.set('search', params.search);
   if (params?.from) query.set('from', params.from);
   if (params?.to) query.set('to', params.to);
+  if (params?.actorRoleGroup && params.actorRoleGroup !== 'all') {
+    query.set('actorRoleGroup', params.actorRoleGroup);
+  }
 
   const qs = query.toString();
   return apiRequest<AuditListResponse>(`/audit${qs ? `?${qs}` : ''}`);
