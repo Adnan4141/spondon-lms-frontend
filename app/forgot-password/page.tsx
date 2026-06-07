@@ -19,7 +19,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { forgotPassword, resetPassword, resendOtp } from '@/lib/api/auth';
+import { forgotPassword, verifyForgotPasswordOtp, resetPassword, resendOtp } from '@/lib/api/auth';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 
@@ -32,6 +32,7 @@ export default function ForgotPasswordPage() {
   const [step, setStep] = useState<Step>('mobile');
   const [mobile, setMobile] = useState('');
   const [otpCode, setOtpCode] = useState('');
+  const [resetToken, setResetToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -79,11 +80,31 @@ export default function ForgotPasswordPage() {
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return;
     if (otpCode.length !== 6) {
       toast({ title: 'ভুল কোড', description: '৬ সংখ্যার কোডটি প্রবেশ করুন।', variant: 'destructive' });
       return;
     }
-    setStep('password');
+
+    setIsLoading(true);
+    try {
+      const res = await verifyForgotPasswordOtp({ mobile: mobile.trim(), code: otpCode });
+      if (res.success && res.data?.resetToken) {
+        setResetToken(res.data.resetToken);
+        setStep('password');
+        toast({ title: 'যাচাই সম্পন্ন!', description: 'এখন নতুন পাসওয়ার্ড সেট করুন।', variant: 'success' });
+      } else {
+        toast({
+          title: 'ব্যর্থ হয়েছে',
+          description: res.message || 'কোডটি সঠিক নয় অথবা মেয়াদ শেষ হয়েছে।',
+          variant: 'destructive',
+        });
+      }
+    } catch {
+      toast({ title: 'ত্রুটি', description: 'যাচাই করা সম্ভব হয়নি।', variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleResetPassword = async (e: React.FormEvent) => {
@@ -98,15 +119,21 @@ export default function ForgotPasswordPage() {
       return;
     }
 
+    if (!resetToken) {
+      toast({ title: 'সেশন শেষ', description: 'আবার যাচাই কোড দিন।', variant: 'destructive' });
+      setStep('otp');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const res = await resetPassword({ mobile: mobile.trim(), code: otpCode, newPassword });
+      const res = await resetPassword({ resetToken, newPassword });
       if (res.success) {
         toast({ title: 'পাসওয়ার্ড পরিবর্তন হয়েছে!', description: 'এখন নতুন পাসওয়ার্ড দিয়ে লগ ইন করুন।', variant: 'success' });
         setTimeout(() => router.push('/login'), 1800);
       } else {
-        // OTP may have expired during password step — go back to OTP
-        toast({ title: 'ব্যর্থ হয়েছে', description: res.message || 'কোডটি সঠিক নয় অথবা মেয়াদ শেষ হয়েছে।', variant: 'destructive' });
+        toast({ title: 'ব্যর্থ হয়েছে', description: res.message || 'সেশনের মেয়াদ শেষ হয়েছে। আবার যাচাই করুন।', variant: 'destructive' });
+        setResetToken('');
         setOtpCode('');
         setStep('otp');
       }
@@ -123,6 +150,8 @@ export default function ForgotPasswordPage() {
     try {
       const res = await resendOtp({ mobile: mobile.trim(), purpose: 'FORGOT_PASSWORD' });
       if (res.success) {
+        setResetToken('');
+        setOtpCode('');
         toast({ title: 'কোড পুনরায় পাঠানো হয়েছে', variant: 'success' });
         startResendCooldown();
       } else {
@@ -257,7 +286,7 @@ export default function ForgotPasswordPage() {
                 <header className="space-y-4">
                   <button
                     type="button"
-                    onClick={() => setStep('mobile')}
+                    onClick={() => { setResetToken(''); setOtpCode(''); setStep('mobile'); }}
                     className="inline-flex items-center text-sm font-black text-slate-400 hover:text-[#5C2D91] transition-colors group uppercase tracking-widest"
                   >
                     <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform" />
@@ -298,13 +327,13 @@ export default function ForgotPasswordPage() {
 
                   <Button
                     type="submit"
-                    disabled={otpCode.length !== 6}
+                    disabled={isLoading || otpCode.length !== 6}
                     className={cn(
                       'w-full h-16 rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-3',
-                      otpCode.length === 6 ? 'bg-[#5C2D91] hover:bg-[#4A2475] text-white shadow-indigo-100' : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none',
+                      otpCode.length === 6 && !isLoading ? 'bg-[#5C2D91] hover:bg-[#4A2475] text-white shadow-indigo-100' : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none',
                     )}
                   >
-                    পরবর্তী ধাপ
+                    {isLoading ? <div className="h-5 w-5 border-[3px] border-white/30 border-t-white rounded-full animate-spin" /> : 'যাচাই করুন'}
                   </Button>
                 </form>
 
@@ -332,7 +361,7 @@ export default function ForgotPasswordPage() {
                 <header className="space-y-4">
                   <button
                     type="button"
-                    onClick={() => setStep('otp')}
+                    onClick={() => { setResetToken(''); setStep('otp'); }}
                     className="inline-flex items-center text-sm font-black text-slate-400 hover:text-[#5C2D91] transition-colors group uppercase tracking-widest"
                   >
                     <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform" />

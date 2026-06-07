@@ -55,9 +55,18 @@ export async function forgotPassword(data: {
   });
 }
 
-export async function resetPassword(data: {
+export async function verifyForgotPasswordOtp(data: {
   mobile: string;
   code: string;
+}): Promise<ApiResponse<{ resetToken: string }>> {
+  return apiRequest('/auth/verify-forgot-password-otp', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function resetPassword(data: {
+  resetToken: string;
   newPassword: string;
 }): Promise<ApiResponse<null>> {
   return apiRequest('/auth/reset-password', {
