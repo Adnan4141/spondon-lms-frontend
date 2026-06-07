@@ -73,6 +73,7 @@ import { QuestionForm } from '@/features/admin/questions';
 import { CqForm } from '@/features/admin/questions';
 import { ShortQuestionForm } from '@/features/admin/questions';
 import { FolderTree } from '@/features/admin/questions';
+import { QuestionFolderActionModal } from '@/features/admin/questions';
 import { BulkQuestionImportModal } from '@/features/admin/questions/components/BulkQuestionImportModal';
 import { BULK_QUESTION_IMPORT_COMPLETE_EVENT } from '@/features/admin/students';
 import { ConfirmationModal } from '@/features/admin/shared';
@@ -120,109 +121,30 @@ function stripHtml(html: string) {
   return html ? html.replace(/<[^>]+>/g, '') : '';
 }
 
-function buildFolderPathLabel(folder: QuestionFolder, folders: QuestionFolder[]) {
-  const byId = new Map(folders.map((item) => [item.id, item]));
-  const segments: string[] = [];
-  let current: QuestionFolder | undefined = folder;
-  const visited = new Set<string>();
+function buildQuestionFolderActionContext(
+  questionIds: string[],
+  questions: Question[],
+  activeFolderId?: string,
+) {
+  const selected = questions.filter((question) => questionIds.includes(question.id));
+  const sourceFolderIds = [
+    ...new Set(
+      selected.length > 0
+        ? selected.map((question) => question.folderId)
+        : activeFolderId
+          ? [activeFolderId]
+          : [],
+    ),
+  ];
+  const questionPreviews = selected
+    .slice(0, 3)
+    .map((question) => {
+      const text = stripHtml(question.prompt).trim();
+      return text.length > 96 ? `${text.slice(0, 96)}…` : text;
+    })
+    .filter(Boolean);
 
-  while (current && !visited.has(current.id)) {
-    visited.add(current.id);
-    segments.unshift(current.name);
-    current = current.parentFolderId ? byId.get(current.parentFolderId) : undefined;
-  }
-
-  return segments.join(' / ');
-}
-
-function QuestionFolderActionModalContent({
-  folders,
-  itemCount,
-  action,
-  onSubmit,
-}: {
-  folders: QuestionFolder[];
-  itemCount: number;
-  action: 'move' | 'copy';
-  onSubmit: (targetFolderId: string) => Promise<void>;
-}) {
-  const { closeModal } = useModalStore();
-  const [targetFolderId, setTargetFolderId] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-
-  const folderOptions = React.useMemo(
-    () =>
-      folders
-        .map((folder) => ({
-          id: folder.id,
-          label: buildFolderPathLabel(folder, folders),
-        }))
-        .sort((left, right) => left.label.localeCompare(right.label)),
-    [folders],
-  );
-
-  const handleSubmit = async () => {
-    if (!targetFolderId || submitting) return;
-    setSubmitting(true);
-    try {
-      await onSubmit(targetFolderId);
-      closeModal();
-    } finally {
-      setSubmitting(false);
-    }
-  };
-  const actionLabel = action === 'move' ? 'Move' : 'Copy';
-  const actionVerb = action === 'move' ? 'moved' : 'copied';
-  const submittingLabel = action === 'move' ? 'Moving...' : 'Copying...';
-
-  return (
-    <div className="space-y-5">
-      <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
-          {actionLabel} Selection
-        </p>
-        <p className="mt-2 text-sm font-semibold text-slate-700">
-          {itemCount} question{itemCount > 1 ? 's' : ''} will be {actionVerb} to a new folder.
-        </p>
-      </div>
-
-      <div className="space-y-2">
-        <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Destination Folder</p>
-        <Select value={targetFolderId || undefined} onValueChange={setTargetFolderId}>
-          <SelectTrigger className="h-11 rounded-2xl border-slate-200 bg-white text-sm font-medium">
-            <SelectValue placeholder="Choose a destination folder" />
-          </SelectTrigger>
-          <SelectContent className="max-h-80 rounded-2xl">
-            {folderOptions.map((folder) => (
-              <SelectItem key={folder.id} value={folder.id}>
-                {folder.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="flex items-center justify-end gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          className="rounded-xl"
-          onClick={closeModal}
-          disabled={submitting}
-        >
-          Cancel
-        </Button>
-        <Button
-          type="button"
-          className="rounded-xl bg-slate-900 text-white hover:bg-indigo-600"
-          onClick={handleSubmit}
-          disabled={!targetFolderId || submitting}
-        >
-          {submitting ? submittingLabel : `${actionLabel} ${itemCount} Question${itemCount > 1 ? 's' : ''}`}
-        </Button>
-      </div>
-    </div>
-  );
+  return { sourceFolderIds, questionPreviews };
 }
 
 export default function QuestionsPage() {
@@ -608,14 +530,15 @@ export default function QuestionsPage() {
       title: questionIds.length === 1 ? 'Move Question' : 'Move Questions',
       description:
         questionIds.length === 1
-          ? 'Move this question to another folder.'
-          : `Move ${questionIds.length} selected questions to another folder.`,
-      className: 'sm:max-w-lg',
+          ? 'Relocate this question to a different folder. It will be removed from the current location.'
+          : `Relocate ${questionIds.length} selected questions to a different folder.`,
+      className: 'sm:max-w-xl',
       content: (
-        <QuestionFolderActionModalContent
+        <QuestionFolderActionModal
           folders={folders}
           itemCount={questionIds.length}
           action="move"
+          context={buildQuestionFolderActionContext(questionIds, questions, activeFolderId)}
           onSubmit={async (targetFolderId) => {
             try {
               if (questionIds.length === 1) {
@@ -653,14 +576,15 @@ export default function QuestionsPage() {
       title: questionIds.length === 1 ? 'Copy Question' : 'Copy Questions',
       description:
         questionIds.length === 1
-          ? 'Copy this question to another folder.'
-          : `Copy ${questionIds.length} selected questions to another folder.`,
-      className: 'sm:max-w-lg',
+          ? 'Create a duplicate in another folder. The original question stays in place.'
+          : `Create duplicates of ${questionIds.length} selected questions in another folder.`,
+      className: 'sm:max-w-xl',
       content: (
-        <QuestionFolderActionModalContent
+        <QuestionFolderActionModal
           folders={folders}
           itemCount={questionIds.length}
           action="copy"
+          context={buildQuestionFolderActionContext(questionIds, questions, activeFolderId)}
           onSubmit={async (targetFolderId) => {
             try {
               if (questionIds.length === 1) {

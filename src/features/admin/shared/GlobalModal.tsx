@@ -28,8 +28,9 @@ export function GlobalModal() {
     <Dialog open={isOpen} onOpenChange={(open) => !open && closeModal()}>
       <DialogContent
         className={cn(
-          'flex max-h-[92vh] w-[calc(100vw-1rem)] flex-col gap-0 overflow-hidden rounded-3xl border border-slate-200 bg-white p-0 text-slate-900 shadow-2xl sm:rounded-[32px]',
-          className
+          'flex max-h-[92vh] w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white text-slate-900 shadow-2xl sm:rounded-[32px]',
+          className,
+          'gap-0 p-0'
         )}
         showCloseButton={true}
         onPointerDownOutside={allowInteractionFromPortaledDropdown}
