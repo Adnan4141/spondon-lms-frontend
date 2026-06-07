@@ -48,6 +48,7 @@ import { AdminDatePicker, AdminMonthPicker } from '@/features/admin/shared/form/
 import { downloadTableExport, type ExportFormat } from '@/lib/export';
 import { cn } from '@/lib/utils';
 import { useAdminSession } from '@/features/admin/shared/admin-session';
+import { getSourceBranchOptions } from '../accounting/branchSourceUtils';
 import {
   BarChart3,
   TrendingUp,
@@ -1273,6 +1274,7 @@ function DueCollectionTab({ branches }: { branches: Branch[] }) {
 
 function LedgerSummaryTab({ branches }: { branches: Branch[] }) {
   const { toast } = useToast();
+  const sourceBranches = getSourceBranchOptions(branches);
   const [branchId, setBranchId] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
@@ -1323,12 +1325,12 @@ function LedgerSummaryTab({ branches }: { branches: Branch[] }) {
     <div className="space-y-5">
       <div className="flex flex-wrap gap-3 items-end rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Branch</p>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Source Branch</p>
           <Select value={branchId || 'all'} onValueChange={(v) => setBranchId(v === 'all' ? '' : v)}>
-            <SelectTrigger className="h-9 w-56 rounded-xl text-sm"><SelectValue placeholder="All Branches" /></SelectTrigger>
+            <SelectTrigger className="h-9 w-56 rounded-xl text-sm"><SelectValue placeholder="All HO entries" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Branches</SelectItem>
-              {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+              <SelectItem value="all">All HO entries</SelectItem>
+              {sourceBranches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
@@ -1388,7 +1390,7 @@ function LedgerSummaryTab({ branches }: { branches: Branch[] }) {
               </TableHeader>
               <TableBody>
                 {rows.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="py-12 text-center text-slate-400 text-sm font-bold">No ledger entries found. Load to view data.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="py-12 text-center text-slate-400 text-sm font-bold">No HO ledger entries found. Load to view data or filter by related source branch.</TableCell></TableRow>
                 ) : rows.map((row, i) => (
                   <TableRow key={i} className="hover:bg-slate-50/60">
                     <TableCell className="font-mono text-xs text-slate-500">{row.accountCode}</TableCell>

@@ -15,6 +15,7 @@ import {
 import { AdminDatePicker } from '@/features/admin/shared/form/AdminField';
 import { ListOrdered, Plus, RefreshCw } from 'lucide-react';
 import { ExportButtons } from '../ExportButtons';
+import { getSourceBranchOptions } from '../branchSourceUtils';
 import { FLOW_TYPES, SOURCE_TYPES } from '../constants';
 
 type Props = {
@@ -66,12 +67,14 @@ export function LedgerTabFilters(props: Props) {
     onNewEntry,
   } = props;
 
+  const sourceBranches = getSourceBranchOptions(branches);
+
   const sourceReference =
     sourceType === 'BRANCH'
       ? {
-          label: 'Branch Source',
-          placeholder: 'All branch sources',
-          options: branches.map((branch) => ({ value: branch.id, label: branch.name })),
+          label: 'Related Branch',
+          placeholder: 'All related branches',
+          options: sourceBranches.map((branch) => ({ value: branch.id, label: branch.name })),
         }
       : sourceType === 'STOCK_SOURCE'
         ? {

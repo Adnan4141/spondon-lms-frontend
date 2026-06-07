@@ -71,7 +71,11 @@ export function SummaryTab() {
             <SummaryAccountBalancesTable rows={summary.recentAccountBalances} />
           </div>
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <SummaryBreakdownPanel title="Source Summary" rows={summary.bySource || []} />
+            <SummaryBreakdownPanel
+              title="Branch & Source Summary"
+              rows={summary.bySource || []}
+              highlightBranchLinked
+            />
             <SummaryBreakdownPanel title="Purpose Summary" rows={summary.byPurpose || []} />
           </div>
         </>

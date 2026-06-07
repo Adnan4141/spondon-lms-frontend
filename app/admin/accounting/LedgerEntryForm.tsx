@@ -17,10 +17,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { AdminDatePicker } from '@/features/admin/shared/form/AdminField';
 import { cn } from '@/lib/utils';
-import { RefreshCw } from 'lucide-react';
+import { Building2, RefreshCw } from 'lucide-react';
+import { getSourceBranchOptions } from './branchSourceUtils';
 import { FLOW_TYPES, SOURCE_TYPES } from './constants';
 import { validateLedgerEntryForm } from './ledgerEntryValidation';
 import type { LedgerReferenceData, SourceTypeValue } from './types';
@@ -60,9 +62,6 @@ export function LedgerEntryForm({
   const [flowType, setFlowType] = useState<FlowType>((initialEntry?.flowType as FlowType) || 'CREDIT');
   const [amount, setAmount] = useState(initialEntry?.amount != null ? String(initialEntry.amount) : '');
   const [accountId, setAccountId] = useState(initialEntry?.accountId || '');
-  const [branchId, setBranchId] = useState(
-    initialEntry?.branchId || (initialSourceType === 'BRANCH' ? initialEntry?.sourceId || '' : ''),
-  );
   const [toAccountId, setToAccountId] = useState(initialEntry?.toAccountId || '');
   const [sourceType, setSourceType] = useState<SourceTypeValue>(initialSourceType);
   const [sourceId, setSourceId] = useState(
@@ -77,6 +76,7 @@ export function LedgerEntryForm({
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  const sourceBranches = useMemo(() => getSourceBranchOptions(branches), [branches]);
   const moneyAccounts = useMemo(
     () => accounts.filter((account) => account.isActive && isMoneyAccount(account)),
     [accounts],
@@ -85,7 +85,7 @@ export function LedgerEntryForm({
 
   const sourceOptions =
     sourceType === 'BRANCH'
-      ? branches.map((branch) => ({ value: branch.id, label: branch.name }))
+      ? sourceBranches.map((branch) => ({ value: branch.id, label: branch.name }))
       : sourceType === 'STOCK_SOURCE'
         ? stockSources.map((source) => ({ value: source.id, label: source.name }))
         : sourceType === 'DISTRIBUTION_CHANNEL'
@@ -128,7 +128,6 @@ export function LedgerEntryForm({
         flowType,
         amount: Number(numericAmount.toFixed(2)),
         accountId,
-        branchId: branchId || undefined,
         toAccountId: flowType === 'TRANSFER' ? toAccountId : undefined,
         sourceType: sourceType === 'NONE' ? undefined : sourceType,
         sourceId:
@@ -166,12 +165,23 @@ export function LedgerEntryForm({
       ) : null}
 
       <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-sm text-slate-600">
-        Entries can be recorded for head office or a selected branch. Balance always follows credit minus debit.
-        {sourceType === 'BRANCH' ? (
-          <span className="mt-1 block text-xs text-slate-500">
-            When source is Branch, the branch reference below sets the entry branch.
-          </span>
-        ) : null}
+        <div className="flex flex-wrap items-center gap-3">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Entry Location</p>
+            <Badge className="mt-1 rounded-full border border-sky-200 bg-sky-100 px-3 py-1 text-xs font-black uppercase text-sky-700">
+              <Building2 className="mr-1 inline h-3 w-3" />
+              Head Office
+            </Badge>
+          </div>
+          <p className="flex-1 text-xs text-slate-500">
+            All money is recorded on Head Office Cash, Bank, or bKash accounts. Balance follows credit minus debit.
+            {sourceType === 'BRANCH' ? (
+              <span className="mt-1 block font-semibold text-sky-700">
+                Related Branch tags which branch this HO transaction is linked to.
+              </span>
+            ) : null}
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-2 xl:grid-cols-4">
@@ -286,16 +296,15 @@ export function LedgerEntryForm({
           </div>
         ) : null}
         <div>
-          <Label className="text-xs font-black uppercase tracking-wider text-slate-500">Source</Label>
+          <Label className="text-xs font-black uppercase tracking-wider text-slate-500">Counterparty Source</Label>
           <Select
             value={sourceType}
             disabled={submitting}
             onValueChange={(v) => {
               const nextType = v as SourceTypeValue;
               setSourceType(nextType);
-              setSourceId(nextType === 'BRANCH' ? branchId : '');
+              setSourceId('');
               setManualSourceLabel('');
-              if (nextType !== 'BRANCH') setBranchId('');
               clearFieldError('sourceId');
             }}
           >
@@ -325,15 +334,13 @@ export function LedgerEntryForm({
         ) : sourceType !== 'NONE' ? (
           <div>
             <Label className="text-xs font-black uppercase tracking-wider text-slate-500">
-              {sourceType === 'BRANCH' ? 'Branch Source *' : 'Source Reference *'}
+              {sourceType === 'BRANCH' ? 'Related Branch *' : 'Source Reference *'}
             </Label>
             <Select
               value={sourceId || 'none'}
               disabled={submitting}
               onValueChange={(v) => {
-                const next = v === 'none' ? '' : v;
-                setSourceId(next);
-                if (sourceType === 'BRANCH') setBranchId(next);
+                setSourceId(v === 'none' ? '' : v);
                 clearFieldError('sourceId');
               }}
             >

@@ -59,7 +59,9 @@ export default function AdminAccountingPage() {
         </div>
         <div>
           <h1 className="text-2xl font-black text-slate-900">Accounting</h1>
-          <p className="text-sm font-medium text-slate-500">Head office money tracking for cash, bank, and bKash accounts</p>
+          <p className="text-sm font-medium text-slate-500">
+            Head office Cash, Bank, and bKash — branch source tags the related counterparty only
+          </p>
         </div>
       </div>
 

@@ -161,8 +161,21 @@ export interface AccountingSummary {
     totalCredit: number;
     balance: number;
   }>;
-  bySource?: Array<{ label: string; totalCredit: number; totalDebit: number; balance: number }>;
+  bySource?: Array<{
+    label: string;
+    sourceType?: string | null;
+    totalCredit: number;
+    totalDebit: number;
+    balance: number;
+    isBranchLinked?: boolean;
+  }>;
   byPurpose?: Array<{ label: string; totalCredit: number; totalDebit: number; balance: number }>;
+  branchLinked?: {
+    totalCredit: number;
+    totalDebit: number;
+    balance: number;
+    entryCount: number;
+  };
   totalAccounts: number;
 }
 

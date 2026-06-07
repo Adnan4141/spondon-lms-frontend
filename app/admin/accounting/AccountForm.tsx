@@ -83,7 +83,7 @@ export function AccountForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       {error ? <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</div> : null}
       <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 text-sm text-slate-600">
-        Head office accounting supports only Cash, Bank, and bKash accounts. All balances follow credit minus debit.
+        Head office accounting supports only Cash, Bank, and bKash accounts. Related branch on an entry tags the counterparty, not where the money is booked. Balance follows credit minus debit.
       </div>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div>

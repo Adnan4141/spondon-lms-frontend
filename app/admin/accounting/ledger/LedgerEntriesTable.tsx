@@ -12,7 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import { Pencil, RefreshCw, Trash2 } from 'lucide-react';
+import { Building2, Pencil, RefreshCw, Trash2 } from 'lucide-react';
 import { fmtCur, fmtDate, entryFlowLabel } from '../utils';
 
 type Props = {
@@ -52,8 +52,12 @@ export function LedgerEntriesTable({ loading, entries, onEdit, onDelete, deletin
                   : !canDeleteManualEntries
                     ? 'Only Super Admin or Accounts can delete manual daily entries'
                     : 'Delete manual daily entry';
+                const isBranchLinked = entry.sourceType === 'BRANCH';
                 return (
-                <TableRow key={entry.id} className="hover:bg-slate-50/60">
+                <TableRow
+                  key={entry.id}
+                  className={cn('hover:bg-slate-50/60', isBranchLinked && 'bg-sky-50/40')}
+                >
                   <TableCell className="font-mono text-xs text-slate-500 whitespace-nowrap">{fmtDate(entry.entryDate)}</TableCell>
                   <TableCell>
                     <div>
@@ -85,8 +89,19 @@ export function LedgerEntriesTable({ loading, entries, onEdit, onDelete, deletin
                   </TableCell>
                   <TableCell>
                     <div className="max-w-45">
-                      <p className="truncate text-xs font-bold text-slate-700">{entry.sourceLabel || entry.sourceId || '—'}</p>
-                      <p className="text-[10px] uppercase tracking-wider text-slate-400">{entry.sourceType || 'None'}</p>
+                      <div className="flex items-center gap-1.5">
+                        {isBranchLinked ? <Building2 className="h-3.5 w-3.5 shrink-0 text-sky-600" /> : null}
+                        <p className={cn('truncate text-xs font-bold', isBranchLinked ? 'text-sky-800' : 'text-slate-700')}>
+                          {entry.sourceLabel || entry.sourceId || '—'}
+                        </p>
+                      </div>
+                      {isBranchLinked ? (
+                        <Badge className="mt-1 rounded-full border border-sky-200 bg-sky-100 px-2 text-[10px] font-black uppercase text-sky-700">
+                          Related Branch
+                        </Badge>
+                      ) : (
+                        <p className="text-[10px] uppercase tracking-wider text-slate-400">{entry.sourceType || 'None'}</p>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell className="max-w-50 truncate text-sm text-slate-700">{entry.purpose || entry.description || '—'}</TableCell>
