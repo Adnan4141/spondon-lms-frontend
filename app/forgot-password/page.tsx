@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -20,8 +20,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { forgotPassword, verifyForgotPasswordOtp, resetPassword, resendOtp } from '@/lib/api/auth';
+import { isTurnstileConfigured, TurnstileField } from '@/components/auth/TurnstileField';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
+
+const TURNSTILE_REQUIRED = isTurnstileConfigured();
 
 type Step = 'mobile' | 'otp' | 'password';
 
@@ -32,7 +35,10 @@ export default function ForgotPasswordPage() {
   const [step, setStep] = useState<Step>('mobile');
   const [mobile, setMobile] = useState('');
   const [otpCode, setOtpCode] = useState('');
+  const [otpVerified, setOtpVerified] = useState(false);
   const [resetToken, setResetToken] = useState('');
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -42,6 +48,16 @@ export default function ForgotPasswordPage() {
 
   const inputStyles = 'h-14 pl-12 rounded-2xl border-slate-200 bg-slate-50/50 text-base font-bold focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all border-2';
   const labelStyles = 'text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1 mb-2 block';
+
+  const resetTurnstile = () => {
+    setTurnstileToken(null);
+    setTurnstileResetKey((k) => k + 1);
+  };
+
+  const canSubmitWithTurnstile = useMemo(() => {
+    if (!TURNSTILE_REQUIRED) return true;
+    return Boolean(turnstileToken);
+  }, [turnstileToken]);
 
   function startResendCooldown() {
     setResendCooldown(60);
@@ -60,18 +76,30 @@ export default function ForgotPasswordPage() {
       toast({ title: 'ভুল নম্বর', description: 'সঠিক মোবাইল নম্বর প্রদান করুন।', variant: 'destructive' });
       return;
     }
+    if (!canSubmitWithTurnstile) {
+      toast({ title: 'যাচাই প্রয়োজন', description: 'অনুগ্রহ করে নিরাপত্তা যাচাই সম্পন্ন করুন।', variant: 'destructive' });
+      return;
+    }
 
     setIsLoading(true);
     try {
-      const res = await forgotPassword({ mobile: mobile.trim() });
+      const res = await forgotPassword({
+        mobile: mobile.trim(),
+        ...(turnstileToken ? { turnstileToken } : {}),
+      });
       if (res.success) {
+        setOtpVerified(false);
+        setResetToken('');
         setStep('otp');
         startResendCooldown();
+        resetTurnstile();
         toast({ title: 'কোড পাঠানো হয়েছে', description: 'আপনার মোবাইলে একটি যাচাই কোড পাঠানো হয়েছে।', variant: 'success' });
       } else {
+        resetTurnstile();
         toast({ title: 'ব্যর্থ হয়েছে', description: res.message, variant: 'destructive' });
       }
     } catch {
+      resetTurnstile();
       toast({ title: 'ত্রুটি', description: 'কোড পাঠানো সম্ভব হয়নি।', variant: 'destructive' });
     } finally {
       setIsLoading(false);
@@ -85,15 +113,26 @@ export default function ForgotPasswordPage() {
       toast({ title: 'ভুল কোড', description: '৬ সংখ্যার কোডটি প্রবেশ করুন।', variant: 'destructive' });
       return;
     }
+    if (!canSubmitWithTurnstile) {
+      toast({ title: 'যাচাই প্রয়োজন', description: 'অনুগ্রহ করে নিরাপত্তা যাচাই সম্পন্ন করুন।', variant: 'destructive' });
+      return;
+    }
 
     setIsLoading(true);
     try {
-      const res = await verifyForgotPasswordOtp({ mobile: mobile.trim(), code: otpCode });
-      if (res.success && res.data?.resetToken) {
-        setResetToken(res.data.resetToken);
+      const res = await verifyForgotPasswordOtp({
+        mobile: mobile.trim(),
+        code: otpCode,
+        ...(turnstileToken ? { turnstileToken } : {}),
+      });
+      if (res.success && res.data?.verified) {
+        setOtpVerified(true);
+        if (res.data.resetToken) setResetToken(res.data.resetToken);
         setStep('password');
+        resetTurnstile();
         toast({ title: 'যাচাই সম্পন্ন!', description: 'এখন নতুন পাসওয়ার্ড সেট করুন।', variant: 'success' });
       } else {
+        resetTurnstile();
         toast({
           title: 'ব্যর্থ হয়েছে',
           description: res.message || 'কোডটি সঠিক নয় অথবা মেয়াদ শেষ হয়েছে।',
@@ -101,6 +140,7 @@ export default function ForgotPasswordPage() {
         });
       }
     } catch {
+      resetTurnstile();
       toast({ title: 'ত্রুটি', description: 'যাচাই করা সম্ভব হয়নি।', variant: 'destructive' });
     } finally {
       setIsLoading(false);
@@ -119,7 +159,7 @@ export default function ForgotPasswordPage() {
       return;
     }
 
-    if (!resetToken) {
+    if (!otpVerified) {
       toast({ title: 'সেশন শেষ', description: 'আবার যাচাই কোড দিন।', variant: 'destructive' });
       setStep('otp');
       return;
@@ -127,12 +167,16 @@ export default function ForgotPasswordPage() {
 
     setIsLoading(true);
     try {
-      const res = await resetPassword({ resetToken, newPassword });
+      const res = await resetPassword({
+        newPassword,
+        ...(resetToken ? { resetToken } : {}),
+      });
       if (res.success) {
         toast({ title: 'পাসওয়ার্ড পরিবর্তন হয়েছে!', description: 'এখন নতুন পাসওয়ার্ড দিয়ে লগ ইন করুন।', variant: 'success' });
         setTimeout(() => router.push('/login'), 1800);
       } else {
         toast({ title: 'ব্যর্থ হয়েছে', description: res.message || 'সেশনের মেয়াদ শেষ হয়েছে। আবার যাচাই করুন।', variant: 'destructive' });
+        setOtpVerified(false);
         setResetToken('');
         setOtpCode('');
         setStep('otp');
@@ -146,18 +190,30 @@ export default function ForgotPasswordPage() {
 
   const handleResendOtp = async () => {
     if (resendCooldown > 0 || isLoading) return;
+    if (!canSubmitWithTurnstile) {
+      toast({ title: 'যাচাই প্রয়োজন', description: 'অনুগ্রহ করে নিরাপত্তা যাচাই সম্পন্ন করুন।', variant: 'destructive' });
+      return;
+    }
     setIsLoading(true);
     try {
-      const res = await resendOtp({ mobile: mobile.trim(), purpose: 'FORGOT_PASSWORD' });
+      const res = await resendOtp({
+        mobile: mobile.trim(),
+        purpose: 'FORGOT_PASSWORD',
+        ...(turnstileToken ? { turnstileToken } : {}),
+      });
       if (res.success) {
+        setOtpVerified(false);
         setResetToken('');
         setOtpCode('');
+        resetTurnstile();
         toast({ title: 'কোড পুনরায় পাঠানো হয়েছে', variant: 'success' });
         startResendCooldown();
       } else {
+        resetTurnstile();
         toast({ title: 'ব্যর্থ', description: res.message, variant: 'destructive' });
       }
     } catch {
+      resetTurnstile();
       toast({ title: 'কোড পাঠানো সম্ভব হয়নি', variant: 'destructive' });
     } finally {
       setIsLoading(false);
@@ -266,12 +322,17 @@ export default function ForgotPasswordPage() {
                     </div>
                   </div>
 
+                  <TurnstileField
+                    resetKey={turnstileResetKey}
+                    onToken={setTurnstileToken}
+                  />
+
                   <Button
                     type="submit"
-                    disabled={isLoading || !/^01[3-9]\d{8}$/.test(mobile)}
+                    disabled={isLoading || !/^01[3-9]\d{8}$/.test(mobile) || !canSubmitWithTurnstile}
                     className={cn(
                       'w-full h-16 rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-3',
-                      /^01[3-9]\d{8}$/.test(mobile) ? 'bg-[#5C2D91] hover:bg-[#4A2475] text-white shadow-indigo-100' : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none',
+                      /^01[3-9]\d{8}$/.test(mobile) && canSubmitWithTurnstile ? 'bg-[#5C2D91] hover:bg-[#4A2475] text-white shadow-indigo-100' : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none',
                     )}
                   >
                     {isLoading ? <div className="h-5 w-5 border-[3px] border-white/30 border-t-white rounded-full animate-spin" /> : <>কোড পাঠান <ShieldCheck className="h-5 w-5" /></>}
@@ -286,7 +347,7 @@ export default function ForgotPasswordPage() {
                 <header className="space-y-4">
                   <button
                     type="button"
-                    onClick={() => { setResetToken(''); setOtpCode(''); setStep('mobile'); }}
+                    onClick={() => { setOtpVerified(false); setResetToken(''); setOtpCode(''); resetTurnstile(); setStep('mobile'); }}
                     className="inline-flex items-center text-sm font-black text-slate-400 hover:text-[#5C2D91] transition-colors group uppercase tracking-widest"
                   >
                     <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform" />
@@ -325,12 +386,17 @@ export default function ForgotPasswordPage() {
                     <p className="text-xs text-slate-400 font-semibold ml-1">কোডটি ১০ মিনিটের মধ্যে ব্যবহার করুন।</p>
                   </div>
 
+                  <TurnstileField
+                    resetKey={turnstileResetKey}
+                    onToken={setTurnstileToken}
+                  />
+
                   <Button
                     type="submit"
-                    disabled={isLoading || otpCode.length !== 6}
+                    disabled={isLoading || otpCode.length !== 6 || !canSubmitWithTurnstile}
                     className={cn(
                       'w-full h-16 rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-3',
-                      otpCode.length === 6 && !isLoading ? 'bg-[#5C2D91] hover:bg-[#4A2475] text-white shadow-indigo-100' : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none',
+                      otpCode.length === 6 && !isLoading && canSubmitWithTurnstile ? 'bg-[#5C2D91] hover:bg-[#4A2475] text-white shadow-indigo-100' : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none',
                     )}
                   >
                     {isLoading ? <div className="h-5 w-5 border-[3px] border-white/30 border-t-white rounded-full animate-spin" /> : 'যাচাই করুন'}
@@ -361,7 +427,7 @@ export default function ForgotPasswordPage() {
                 <header className="space-y-4">
                   <button
                     type="button"
-                    onClick={() => { setResetToken(''); setStep('otp'); }}
+                    onClick={() => { setOtpVerified(false); setResetToken(''); resetTurnstile(); setStep('otp'); }}
                     className="inline-flex items-center text-sm font-black text-slate-400 hover:text-[#5C2D91] transition-colors group uppercase tracking-widest"
                   >
                     <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform" />

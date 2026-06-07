@@ -23,8 +23,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { register, verifyMobile, resendOtp } from '@/lib/api/auth';
+import { isTurnstileConfigured, TurnstileField } from '@/components/auth/TurnstileField';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
+
+const TURNSTILE_REQUIRED = isTurnstileConfigured();
 
 type Step = 'form' | 'otp';
 
@@ -55,6 +58,8 @@ function RegisterForm() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [otpCode, setOtpCode] = useState('');
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -64,14 +69,27 @@ function RegisterForm() {
     confirmPassword: '',
   });
 
+  const resetTurnstile = () => {
+    setTurnstileToken(null);
+    setTurnstileResetKey((k) => k + 1);
+  };
+
   const isFormValid = useMemo(() => {
-    return (
+    const baseValid =
       formData.fullName.trim().length >= 3 &&
       /^01[3-9]\d{8}$/.test(formData.mobile) &&
       formData.password.length >= 6 &&
-      formData.password === formData.confirmPassword
-    );
-  }, [formData]);
+      formData.password === formData.confirmPassword;
+    if (!baseValid) return false;
+    if (TURNSTILE_REQUIRED) return Boolean(turnstileToken);
+    return true;
+  }, [formData, turnstileToken]);
+
+  const canSubmitOtp = useMemo(() => {
+    if (otpCode.length !== 6) return false;
+    if (TURNSTILE_REQUIRED) return Boolean(turnstileToken);
+    return true;
+  }, [otpCode, turnstileToken]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,21 +112,25 @@ function RegisterForm() {
         mobile: formData.mobile.trim(),
         gender: formData.gender,
         password: formData.password,
+        ...(turnstileToken ? { turnstileToken } : {}),
       });
 
       if (response.success) {
         setRegisteredMobile(formData.mobile.trim());
         setStep('otp');
         startResendCooldown();
+        resetTurnstile();
         toast({
           title: 'একাউন্ট তৈরি হয়েছে!',
           description: 'আপনার মোবাইলে একটি ৬-সংখ্যার কোড পাঠানো হয়েছে।',
           variant: 'success',
         });
       } else {
+        resetTurnstile();
         toast({ title: 'ব্যর্থ হয়েছে', description: response.message || 'রেজিস্ট্রেশন সম্পন্ন করা সম্ভব হয়নি।', variant: 'destructive' });
       }
     } catch (error: any) {
+      resetTurnstile();
       toast({ title: 'ত্রুটি', description: error?.message || 'একটি অপ্রত্যাশিত সমস্যা হয়েছে।', variant: 'destructive' });
     } finally {
       setIsLoading(false);
@@ -122,17 +144,27 @@ function RegisterForm() {
       toast({ title: 'ভুল কোড', description: '৬ সংখ্যার কোডটি প্রবেশ করুন।', variant: 'destructive' });
       return;
     }
+    if (!canSubmitOtp) {
+      toast({ title: 'যাচাই প্রয়োজন', description: 'অনুগ্রহ করে নিরাপত্তা যাচাই সম্পন্ন করুন।', variant: 'destructive' });
+      return;
+    }
 
     setIsLoading(true);
     try {
-      const res = await verifyMobile({ mobile: registeredMobile, code: otpCode });
+      const res = await verifyMobile({
+        mobile: registeredMobile,
+        code: otpCode,
+        ...(turnstileToken ? { turnstileToken } : {}),
+      });
       if (res.success) {
         toast({ title: 'যাচাই সম্পন্ন!', description: 'মোবাইল নম্বর যাচাই হয়েছে। এখন লগ ইন করুন।', variant: 'success' });
         setTimeout(() => router.push('/login'), 1800);
       } else {
+        resetTurnstile();
         toast({ title: 'ব্যর্থ হয়েছে', description: res.message || 'কোডটি সঠিক নয় অথবা মেয়াদ শেষ হয়েছে।', variant: 'destructive' });
       }
     } catch (error: any) {
+      resetTurnstile();
       toast({ title: 'ত্রুটি', description: error?.message || 'যাচাই করা সম্ভব হয়নি।', variant: 'destructive' });
     } finally {
       setIsLoading(false);
@@ -141,16 +173,27 @@ function RegisterForm() {
 
   const handleResendOtp = async () => {
     if (resendCooldown > 0 || isLoading) return;
+    if (TURNSTILE_REQUIRED && !turnstileToken) {
+      toast({ title: 'যাচাই প্রয়োজন', description: 'অনুগ্রহ করে নিরাপত্তা যাচাই সম্পন্ন করুন।', variant: 'destructive' });
+      return;
+    }
     setIsLoading(true);
     try {
-      const res = await resendOtp({ mobile: registeredMobile, purpose: 'REGISTRATION' });
+      const res = await resendOtp({
+        mobile: registeredMobile,
+        purpose: 'REGISTRATION',
+        ...(turnstileToken ? { turnstileToken } : {}),
+      });
       if (res.success) {
+        resetTurnstile();
         toast({ title: 'কোড পুনরায় পাঠানো হয়েছে', variant: 'success' });
         startResendCooldown();
       } else {
+        resetTurnstile();
         toast({ title: 'ব্যর্থ', description: res.message, variant: 'destructive' });
       }
     } catch {
+      resetTurnstile();
       toast({ title: 'কোড পাঠানো সম্ভব হয়নি', variant: 'destructive' });
     } finally {
       setIsLoading(false);
@@ -319,6 +362,11 @@ function RegisterForm() {
                     </div>
                   </div>
 
+                  <TurnstileField
+                    resetKey={turnstileResetKey}
+                    onToken={setTurnstileToken}
+                  />
+
                   <Button
                     type="submit"
                     disabled={isLoading || !isFormValid}
@@ -382,12 +430,17 @@ function RegisterForm() {
                     <p className="text-xs text-slate-400 font-semibold ml-1">কোডটি ১০ মিনিটের মধ্যে ব্যবহার করুন।</p>
                   </div>
 
+                  <TurnstileField
+                    resetKey={turnstileResetKey}
+                    onToken={setTurnstileToken}
+                  />
+
                   <Button
                     type="submit"
-                    disabled={isLoading || otpCode.length !== 6}
+                    disabled={isLoading || !canSubmitOtp}
                     className={cn(
                       'w-full h-16 rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-3',
-                      otpCode.length === 6 ? 'bg-[#5C2D91] hover:bg-[#4A2475] text-white shadow-indigo-100' : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none',
+                      canSubmitOtp && !isLoading ? 'bg-[#5C2D91] hover:bg-[#4A2475] text-white shadow-indigo-100' : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none',
                     )}
                   >
                     {isLoading ? <div className="h-5 w-5 border-[3px] border-white/30 border-t-white rounded-full animate-spin" /> : <>যাচাই করুন <CheckCircle2 className="h-5 w-5" /></>}

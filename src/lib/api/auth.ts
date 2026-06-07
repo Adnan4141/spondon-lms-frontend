@@ -29,6 +29,7 @@ export async function register(data: {
   mobile: string;
   gender?: string;
   password: string;
+  turnstileToken?: string;
 }): Promise<ApiResponse<{ userId: string; mobile: string; otpQueued?: boolean; otpFailureReason?: string }>> {
   return apiRequest('/auth/register', {
     method: 'POST',
@@ -39,6 +40,7 @@ export async function register(data: {
 export async function verifyMobile(data: {
   mobile: string;
   code: string;
+  turnstileToken?: string;
 }): Promise<ApiResponse<{ registrationNumber: string }>> {
   return apiRequest('/auth/verify-mobile', {
     method: 'POST',
@@ -48,6 +50,7 @@ export async function verifyMobile(data: {
 
 export async function forgotPassword(data: {
   mobile: string;
+  turnstileToken?: string;
 }): Promise<ApiResponse<null>> {
   return apiRequest('/auth/forgot-password', {
     method: 'POST',
@@ -58,7 +61,8 @@ export async function forgotPassword(data: {
 export async function verifyForgotPasswordOtp(data: {
   mobile: string;
   code: string;
-}): Promise<ApiResponse<{ resetToken: string }>> {
+  turnstileToken?: string;
+}): Promise<ApiResponse<{ verified: boolean; resetToken?: string }>> {
   return apiRequest('/auth/verify-forgot-password-otp', {
     method: 'POST',
     body: JSON.stringify(data),
@@ -66,8 +70,8 @@ export async function verifyForgotPasswordOtp(data: {
 }
 
 export async function resetPassword(data: {
-  resetToken: string;
   newPassword: string;
+  resetToken?: string;
 }): Promise<ApiResponse<null>> {
   return apiRequest('/auth/reset-password', {
     method: 'POST',
@@ -78,6 +82,7 @@ export async function resetPassword(data: {
 export async function resendOtp(data: {
   mobile: string;
   purpose: 'REGISTRATION' | 'FORGOT_PASSWORD';
+  turnstileToken?: string;
 }): Promise<ApiResponse<null>> {
   return apiRequest('/auth/resend-otp', {
     method: 'POST',
