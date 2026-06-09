@@ -4,7 +4,7 @@ import type { BookStockMovement } from '@/lib/api/books';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, Loader2, PackageSearch } from 'lucide-react';
 import { StockMovementCard } from './StockMovementCard';
-import { canModifyStockMovement } from './stockMovementPermissions';
+import { canDeleteStockMovement, canModifyStockMovement } from './stockMovementPermissions';
 
 export function StockMovementList({
   movements,
@@ -73,7 +73,7 @@ export function StockMovementList({
       {movements.map((movement) => {
         const canModify = canModifyStockMovement(movement, correctedOriginalIds);
         const canCorrect = canModify && canCorrectMovements;
-        const canDelete = canModify && canDeleteMovements;
+        const canDelete = canDeleteStockMovement(movement) && canDeleteMovements;
         return (
           <StockMovementCard
             key={movement.id}

@@ -64,6 +64,7 @@ export function StockHistoryTab({
   const toast = useAdminToast();
   const { user } = useAdminSession();
   const canWriteMovements = user?.role === 'SUPER_ADMIN' || user?.role === 'ACCOUNTS';
+  const canDeleteMovements = user?.role === 'SUPER_ADMIN';
   const lockedBranchId = user?.role === 'BRANCH_ADMIN' ? user.branchId || undefined : undefined;
   const bookId = sharedFilters.bookId;
   const fromDate = sharedFilters.fromDate;
@@ -182,8 +183,8 @@ export function StockHistoryTab({
   };
 
   const openDeleteDialog = (movement: BookStockMovement) => {
-    if (!canWriteMovements) {
-      toast({ title: 'Read-only access', description: 'Branch admin can review stock movements but cannot delete them.', variant: 'default' });
+    if (!canDeleteMovements) {
+      toast({ title: 'Access denied', description: 'Only Super Admin can delete stock movements.', variant: 'default' });
       return;
     }
     setDeletingMovement(movement);
@@ -199,7 +200,7 @@ export function StockHistoryTab({
     try {
       setDeleting(true);
       await deleteBookStockMovement(deletingMovement.id, reason);
-      toast({ title: 'Movement deleted', description: 'Stock balances were reversed and audit history was recorded.', variant: 'success' });
+      toast({ title: 'Movement deleted', description: 'Stock was reversed and the record was moved to Deleted History.', variant: 'success' });
       setDeletingMovement(null);
       await loadData(1, false);
     } catch (deleteError) {
@@ -325,7 +326,7 @@ export function StockHistoryTab({
         onCorrect={openCorrectDialog}
         onDelete={openDeleteDialog}
         canCorrectMovements={canWriteMovements}
-        canDeleteMovements={canWriteMovements}
+        canDeleteMovements={canDeleteMovements}
       />
 
       <StockMovementDeleteDialog

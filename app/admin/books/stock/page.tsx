@@ -5,14 +5,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { useBooksData } from '@/features/admin/books/hooks/useBooksData';
 import { StockHistoryTab } from '@/features/admin/books/components/StockHistoryTab';
+import { DeletedStockHistoryTab } from '@/features/admin/books/components/DeletedStockHistoryTab';
 import { DistributionTab } from '@/features/admin/books/components/DistributionTab';
 import { defaultStockPageFilters, type StockPageSharedFilters } from '@/features/admin/books/components/stock-page-filters';
+import { useAdminSession } from '@/features/admin/shared/admin-session';
 import { BooksRouteHeader } from '../_components/BooksRouteHeader';
 import { BooksWorkspaceLoading } from '../_components/BooksWorkspaceLoading';
-import { ArrowRightLeft, Boxes, RefreshCw } from 'lucide-react';
+import { ArrowRightLeft, Boxes, RefreshCw, Trash2 } from 'lucide-react';
 
 export default function BooksStockPage() {
   const data = useBooksData();
+  const { user } = useAdminSession();
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const [sharedFilters, setSharedFilters] = useState<StockPageSharedFilters>(() => defaultStockPageFilters());
 
   if (data.loading) {
@@ -63,6 +67,12 @@ export default function BooksStockPage() {
             onSharedFiltersChange={setSharedFilters}
           />
         </TabsContent>
+
+        {isSuperAdmin ? (
+          <TabsContent value="deleted" className="mt-0 outline-none">
+            <DeletedStockHistoryTab books={data.books} sharedFilters={sharedFilters} />
+          </TabsContent>
+        ) : null}
       </Tabs>
     </div>
   );

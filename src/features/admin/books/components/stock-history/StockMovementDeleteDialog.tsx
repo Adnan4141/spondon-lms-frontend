@@ -48,9 +48,11 @@ export function StockMovementDeleteDialog({
           <AlertDialogDescription asChild>
             <div className="space-y-3 text-sm text-muted-foreground">
               <p>
-                This will reverse inventory impact, remove the ledger entry
-                {movement?.referenceType === 'BookDistribution' ? ', and delete the linked distribution record' : ''}.
-                The action is recorded in audit history.
+                This will directly delete the ledger entry, reverse inventory, and store a permanent snapshot in Deleted History.
+                {movement?.referenceType === 'BookDistribution' ? ' The linked distribution record will also be removed.' : ''}
+                {Number(movement?.correctionCount || 0) > 0
+                  ? ' Linked correction entries for this movement will be deleted as well.'
+                  : ''}
               </p>
               {movement ? (
                 <div className="rounded-xl border border-border bg-muted/40 p-3 text-foreground">

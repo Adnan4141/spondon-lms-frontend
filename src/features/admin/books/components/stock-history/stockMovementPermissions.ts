@@ -9,3 +9,9 @@ export function canModifyStockMovement(movement: BookStockMovement, correctedOri
   if (Number(movement.correctionCount || 0) > 0) return false;
   return true;
 }
+
+export function canDeleteStockMovement(movement: BookStockMovement) {
+  if (!movement) return false;
+  if (movement.referenceType && LOCKED_REFERENCE_TYPES.has(movement.referenceType)) return false;
+  return true;
+}

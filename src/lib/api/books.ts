@@ -921,6 +921,45 @@ export async function deleteBookStockMovement(id: string, reason: string): Promi
   });
 }
 
+export type BookStockMovementDeletion = {
+  id: string;
+  originalMovementId: string;
+  bookId: string;
+  book?: { id: string; name: string; sku: string };
+  movementSnapshot: BookStockMovement;
+  linkedSnapshots?: BookStockMovement[] | null;
+  deleteReason: string;
+  deletedDistributionId?: string | null;
+  deletedAt: string;
+  deletedBy?: { id: string; fullName: string; mobile: string; role: string } | null;
+};
+
+export async function getBookStockMovementDeletions(params?: {
+  bookId?: string;
+  search?: string;
+  from?: string;
+  to?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{
+  success: boolean;
+  data: BookStockMovementDeletion[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}> {
+  const q = new URLSearchParams();
+  if (params?.bookId) q.append('bookId', params.bookId);
+  if (params?.search) q.append('search', params.search);
+  if (params?.from) q.append('from', params.from);
+  if (params?.to) q.append('to', params.to);
+  if (params?.page) q.append('page', String(params.page));
+  if (params?.limit) q.append('limit', String(params.limit));
+  const qs = q.toString();
+  return apiRequest(`/books/stock/deletions${qs ? `?${qs}` : ''}`);
+}
+
 export async function getBookStockSummary(params?: { bookId?: string; branchId?: string }): Promise<{
   success: boolean;
   data: StockSummaryBook[];
