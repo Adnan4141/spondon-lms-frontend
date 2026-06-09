@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { deletesEntireCorrectionBundle } from './stockMovementPermissions';
 
 export function StockMovementDeleteDialog({
   movement,
@@ -50,8 +51,10 @@ export function StockMovementDeleteDialog({
               <p>
                 This will directly delete the ledger entry, reverse inventory, and store a permanent snapshot in Deleted History.
                 {movement?.referenceType === 'BookDistribution' ? ' The linked distribution record will also be removed.' : ''}
-                {Number(movement?.correctionCount || 0) > 0
-                  ? ' Linked correction entries for this movement will be deleted as well.'
+                {movement && deletesEntireCorrectionBundle(movement)
+                  ? movement.referenceType === 'StockMovementCorrection'
+                    ? ' The entire correction bundle (original movement and all linked correction entries) will be deleted together.'
+                    : ' All linked correction entries for this movement will be deleted as well.'
                   : ''}
               </p>
               {movement ? (
