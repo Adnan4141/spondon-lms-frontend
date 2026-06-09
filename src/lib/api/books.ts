@@ -749,6 +749,8 @@ export interface BookStockMovement {
   remarks?: string | null;
   referenceType?: string | null;
   referenceId?: string | null;
+  correctionRound?: number | null;
+  correctionRole?: 'REVERSAL' | 'REPLACEMENT' | null;
   createdByUserId?: string | null;
   createdAt: string;
   book?: { id: string; name: string; sku: string };

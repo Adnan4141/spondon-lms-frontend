@@ -42,6 +42,13 @@ export function StockMovementFormDialog({
   onFormChange: (form: StockMovementFormState) => void;
   onSubmit: () => void;
 }) {
+  const priorCorrectionCount = editingMovement
+    ? Number(editingMovement.correctionCount || 0) > 0
+      ? Number(editingMovement.correctionCount)
+      : Number(editingMovement.correctionRound || 0)
+    : 0;
+  const nextCorrectionRound = priorCorrectionCount + 1;
+
   const sourceTypes = allowedSourceTypes(form.movementType);
   const destinationTypes = allowedDestinationTypes(form.movementType);
   const availableSourceOptions = sourceOptions[form.sourceType] || [];
@@ -76,7 +83,9 @@ export function StockMovementFormDialog({
               This will not overwrite history.
             </div>
             <p className="mt-1 text-amber-800/80 dark:text-amber-200/80">
-              The system will reverse the original movement and create this corrected replacement once.
+              {priorCorrectionCount > 0
+                ? `This movement has been corrected ${priorCorrectionCount} time${priorCorrectionCount === 1 ? '' : 's'} before. The system will reverse the current effective entry and create correction #${nextCorrectionRound}.`
+                : 'The system will reverse the current effective entry and create the first corrected replacement.'}
             </p>
           </div>
         ) : null}

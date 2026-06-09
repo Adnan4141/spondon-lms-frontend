@@ -34,6 +34,7 @@ import {
   type StockMovementFormState,
 } from './stock-history/stockMovementRules';
 import type { StockPageSharedFilters } from './stock-page-filters';
+import { findLatestReplacementForAnchor } from './stock-history/stockMovementPermissions';
 
 function parseLocationFilter(value: string) {
   if (value.startsWith('branch:')) return { branchId: value.replace('branch:', '') };
@@ -219,9 +220,12 @@ export function StockHistoryTab({
       toast({ title: 'Read-only access', description: 'Branch admin can review stock movements but cannot record or correct them.', variant: 'default' });
       return;
     }
-    if (movement.referenceType === 'StockMovementCorrection' || Number(movement.correctionCount || 0) > 0) return;
+    const latestReplacement = Number(movement.correctionCount || 0) > 0
+      ? findLatestReplacementForAnchor(movements, movement.id)
+      : null;
+    const formSource = latestReplacement ?? movement;
     setEditingMovement(movement);
-    setForm(movementToForm(movement));
+    setForm(movementToForm(formSource));
     setDialogOpen(true);
   };
 

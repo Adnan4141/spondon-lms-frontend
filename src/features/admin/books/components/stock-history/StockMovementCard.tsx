@@ -2,8 +2,9 @@
 
 import type { BookStockMovement, BookStockMovementType } from '@/lib/api/books';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, CheckCircle2, FileText, Pencil, ShieldCheck, Trash2 } from 'lucide-react';
+import { ArrowRight, CheckCircle2, FileText, Pencil, RotateCcw, ShieldCheck, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { isCorrectionReversalMovement, isCorrectionReplacementMovement } from './stockMovementPermissions';
 
 const movementColors: Record<BookStockMovementType, string> = {
   RECEIVE: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
@@ -43,14 +44,25 @@ export function StockMovementCard({
   onCorrect: (movement: BookStockMovement) => void;
   onDelete: (movement: BookStockMovement) => void;
 }) {
-  const isCorrection = movement.referenceType === 'StockMovementCorrection';
+  const isCorrectionReplacement = isCorrectionReplacementMovement(movement);
+  const isCorrectionReversal = isCorrectionReversalMovement(movement);
   const isDeletionReversal = movement.referenceType === 'StockMovementDeletion';
-  const isCorrectedOriginal = !isCorrection && !isDeletionReversal && Number(movement.correctionCount || 0) > 0;
+  const correctionCount = Number(movement.correctionCount || 0);
+  const isCorrectedOriginal = !isCorrectionReplacement && !isCorrectionReversal && !isDeletionReversal && correctionCount > 0;
+  const correctionRound = movement.correctionRound ?? correctionCount;
+  const correctButtonLabel = isCorrectedOriginal
+    ? 'Correct again'
+    : isCorrectionReplacement
+      ? 'Revise correction'
+      : isCorrectionReversal
+        ? 'Reversal'
+        : 'Correct';
 
   return (
     <article className={cn(
       'rounded-2xl border border-border bg-card p-5 shadow-sm transition-colors',
-      isCorrection && 'border-blue-500/30 bg-blue-500/5',
+      isCorrectionReplacement && 'border-blue-500/30 bg-blue-500/5',
+      isCorrectionReversal && 'border-slate-500/20 bg-slate-500/5',
       isCorrectedOriginal && 'border-amber-500/30 bg-amber-500/5',
     )}>
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -59,10 +71,16 @@ export function StockMovementCard({
             <span className={cn('rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.18em]', movementColors[movement.movementType])}>
               {movement.movementType}
             </span>
-            {isCorrection ? (
+            {isCorrectionReplacement ? (
               <span className="inline-flex items-center gap-1 rounded-full border border-blue-500/25 bg-blue-500/10 px-3 py-1 text-xs font-bold text-blue-700 dark:text-blue-300">
                 <ShieldCheck className="h-3.5 w-3.5" />
-                Correction
+                Correction #{correctionRound || 1}
+              </span>
+            ) : null}
+            {isCorrectionReversal ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-slate-500/25 bg-slate-500/10 px-3 py-1 text-xs font-bold text-slate-700 dark:text-slate-300">
+                <RotateCcw className="h-3.5 w-3.5" />
+                Reversal #{correctionRound || 1}
               </span>
             ) : null}
             {isDeletionReversal ? (
@@ -74,7 +92,7 @@ export function StockMovementCard({
             {isCorrectedOriginal ? (
               <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-700 dark:text-amber-300">
                 <CheckCircle2 className="h-3.5 w-3.5" />
-                Corrected
+                Corrected {correctionCount}x
               </span>
             ) : null}
           </div>
@@ -119,7 +137,7 @@ export function StockMovementCard({
               disabled={!canCorrect}
             >
               <Pencil className="mr-2 h-3.5 w-3.5" />
-              {isCorrectedOriginal ? 'Corrected' : isCorrection ? 'Correction' : 'Correct'}
+              {correctButtonLabel}
             </Button>
             <Button
               type="button"

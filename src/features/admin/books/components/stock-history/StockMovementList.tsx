@@ -4,7 +4,7 @@ import type { BookStockMovement } from '@/lib/api/books';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, Loader2, PackageSearch } from 'lucide-react';
 import { StockMovementCard } from './StockMovementCard';
-import { canDeleteStockMovement, canModifyStockMovement } from './stockMovementPermissions';
+import { buildLatestReplacementByAnchor, canDeleteStockMovement, canModifyStockMovement } from './stockMovementPermissions';
 
 export function StockMovementList({
   movements,
@@ -31,11 +31,7 @@ export function StockMovementList({
   canCorrectMovements: boolean;
   canDeleteMovements: boolean;
 }) {
-  const correctedOriginalIds = new Set(
-    movements
-      .filter((movement) => movement.referenceType === 'StockMovementCorrection' && movement.referenceId)
-      .map((movement) => movement.referenceId as string),
-  );
+  const latestReplacementByAnchor = buildLatestReplacementByAnchor(movements);
 
   if (loading) {
     return (
@@ -71,7 +67,7 @@ export function StockMovementList({
   return (
     <section className="space-y-3">
       {movements.map((movement) => {
-        const canModify = canModifyStockMovement(movement, correctedOriginalIds);
+        const canModify = canModifyStockMovement(movement, latestReplacementByAnchor);
         const canCorrect = canModify && canCorrectMovements;
         const canDelete = canDeleteStockMovement(movement) && canDeleteMovements;
         return (
