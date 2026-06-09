@@ -12,6 +12,8 @@ import {
 } from '@/lib/api/books';
 import type { Branch } from '@/lib/api/branches';
 import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
+import { useAdminSession } from '@/features/admin/shared/admin-session';
+import { endOfDay, type StockPageSharedFilters } from './stock-page-filters';
 import { Button } from '@/components/ui/button';
 import { DatePicker } from '@/components/ui/date-picker';
 import { DialogFooter } from '@/components/ui/dialog';
@@ -72,14 +74,30 @@ function formatRange(min?: DistributionDateRange, max?: DistributionDateRange) {
   return start === end ? start : `${start} - ${end}`;
 }
 
-export function DistributionTab({ books, branches, channels }: { books: Book[]; branches: Branch[]; channels: DistributionChannel[] }) {
+export function DistributionTab({
+  books,
+  branches,
+  channels,
+  sharedFilters,
+  onSharedFiltersChange,
+}: {
+  books: Book[];
+  branches: Branch[];
+  channels: DistributionChannel[];
+  sharedFilters: StockPageSharedFilters;
+  onSharedFiltersChange: (filters: StockPageSharedFilters) => void;
+}) {
   const toast = useAdminToast();
-  const [currentUser, setCurrentUser] = useState<{ role?: string; branchId?: string | null } | null>(null);
-  const [bookId, setBookId] = useState('all');
-  const [destinationType, setDestinationType] = useState<'all' | 'branch' | 'channel'>('all');
-  const [destinationId, setDestinationId] = useState('all');
-  const [fromDate, setFromDate] = useState<Date>();
-  const [toDate, setToDate] = useState<Date>();
+  const { user } = useAdminSession();
+  const bookId = sharedFilters.bookId;
+  const fromDate = sharedFilters.fromDate;
+  const toDate = sharedFilters.toDate;
+  const [destinationType, setDestinationType] = useState<'all' | 'branch' | 'channel'>(
+    sharedFilters.branchId === 'all' ? 'all' : 'branch',
+  );
+  const [destinationId, setDestinationId] = useState(
+    sharedFilters.branchId === 'all' ? 'all' : sharedFilters.branchId,
+  );
   const [rows, setRows] = useState<BookDistribution[]>([]);
   const [summary, setSummary] = useState<DistributionSummary>({ byBook: [], byBranch: [], byChannel: [] });
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -89,19 +107,29 @@ export function DistributionTab({ books, branches, channels }: { books: Book[]; 
   const resetForm = () => {
     setForm({ bookId: '', destinationType: 'branch', destinationId: '', quantity: 1, note: '', distributedAt: startOfToday() });
   };
-  const isBranchAdmin = currentUser?.role === 'BRANCH_ADMIN';
-  const visibleBranches = isBranchAdmin && currentUser?.branchId
-    ? branches.filter((branch) => branch.id === currentUser.branchId)
+  const isBranchAdmin = user?.role === 'BRANCH_ADMIN';
+  const visibleBranches = isBranchAdmin && user?.branchId
+    ? branches.filter((branch) => branch.id === user.branchId)
     : branches;
 
   useEffect(() => {
-    try {
-      const raw = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
-      setCurrentUser(raw ? JSON.parse(raw) as { role?: string; branchId?: string | null } : null);
-    } catch {
-      setCurrentUser(null);
+    if (isBranchAdmin && user?.branchId) {
+      setDestinationType('branch');
+      setDestinationId(user.branchId);
+      return;
     }
-  }, []);
+    if (sharedFilters.branchId === 'all') {
+      setDestinationType('all');
+      setDestinationId('all');
+      return;
+    }
+    setDestinationType('branch');
+    setDestinationId(sharedFilters.branchId);
+  }, [isBranchAdmin, sharedFilters.branchId, user?.branchId]);
+
+  const patchSharedFilters = (patch: Partial<StockPageSharedFilters>) => {
+    onSharedFiltersChange({ ...sharedFilters, ...patch });
+  };
 
   const closeDialog = () => {
     setDialogOpen(false);
@@ -113,26 +141,26 @@ export function DistributionTab({ books, branches, channels }: { books: Book[]; 
       getDistributions({
         bookId: bookId === 'all' ? undefined : bookId,
         toBranchId: isBranchAdmin
-          ? currentUser?.branchId || undefined
+          ? user?.branchId || undefined
           : destinationType === 'branch' && destinationId !== 'all' ? destinationId : undefined,
         channelId: isBranchAdmin ? undefined : destinationType === 'channel' && destinationId !== 'all' ? destinationId : undefined,
         from: fromDate ? fromDate.toISOString() : undefined,
-        to: toDate ? toDate.toISOString() : undefined,
+        to: toDate ? endOfDay(toDate).toISOString() : undefined,
         limit: 50,
       }),
       getDistributionSummary({
         bookId: bookId === 'all' ? undefined : bookId,
         branchId: isBranchAdmin
-          ? currentUser?.branchId || undefined
+          ? user?.branchId || undefined
           : destinationType === 'branch' && destinationId !== 'all' ? destinationId : undefined,
         channelId: isBranchAdmin ? undefined : destinationType === 'channel' && destinationId !== 'all' ? destinationId : undefined,
         from: fromDate ? fromDate.toISOString() : undefined,
-        to: toDate ? toDate.toISOString() : undefined,
+        to: toDate ? endOfDay(toDate).toISOString() : undefined,
       }),
     ]);
     if (listRes.success) setRows(listRes.data || []);
     if (summaryRes.success) setSummary(summaryRes.data);
-  }, [bookId, currentUser?.branchId, destinationId, destinationType, fromDate, isBranchAdmin, toDate]);
+  }, [bookId, destinationId, destinationType, fromDate, isBranchAdmin, toDate, user?.branchId]);
 
   useEffect(() => {
     void loadData();
@@ -185,16 +213,26 @@ export function DistributionTab({ books, branches, channels }: { books: Book[]; 
 
       <section className="rounded-[28px] border border-border bg-card p-5 shadow-sm">
         <div className="flex flex-wrap items-center gap-3">
-          <Select value={bookId} onValueChange={setBookId}>
+          <Select value={bookId} onValueChange={(value) => patchSharedFilters({ bookId: value })}>
             <SelectTrigger className="w-[240px]"><SelectValue placeholder="Book" /></SelectTrigger>
             <SelectContent><SelectItem value="all">All Books</SelectItem>{books.map((book) => <SelectItem key={book.id} value={book.id}>{book.name}</SelectItem>)}</SelectContent>
           </Select>
-          <Select value={destinationType} onValueChange={(value) => { setDestinationType(value as 'all' | 'branch' | 'channel'); setDestinationId('all'); }}>
+          <Select value={destinationType} onValueChange={(value) => {
+            const nextType = value as 'all' | 'branch' | 'channel';
+            setDestinationType(nextType);
+            setDestinationId('all');
+            if (nextType !== 'branch') patchSharedFilters({ branchId: 'all' });
+          }}>
             <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
             <SelectContent><SelectItem value="all">All Destinations</SelectItem><SelectItem value="branch">Branch</SelectItem><SelectItem value="channel">Channel</SelectItem></SelectContent>
           </Select>
           {destinationType !== 'all' ? (
-            <Select value={destinationId} onValueChange={setDestinationId}>
+            <Select value={destinationId} onValueChange={(value) => {
+              setDestinationId(value);
+              if (destinationType === 'branch') {
+                patchSharedFilters({ branchId: value === 'all' ? 'all' : value });
+              }
+            }}>
               <SelectTrigger className="w-[220px]"><SelectValue placeholder="Destination" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
@@ -202,8 +240,8 @@ export function DistributionTab({ books, branches, channels }: { books: Book[]; 
               </SelectContent>
             </Select>
           ) : null}
-          <DatePicker date={fromDate} setDate={setFromDate} placeholder="From date" className="w-[180px]" />
-          <DatePicker date={toDate} setDate={setToDate} placeholder="To date" className="w-[180px]" />
+          <DatePicker date={fromDate} setDate={(date) => patchSharedFilters({ fromDate: date })} placeholder="From date" className="w-[180px]" />
+          <DatePicker date={toDate} setDate={(date) => patchSharedFilters({ toDate: date })} placeholder="To date" className="w-[180px]" />
           {!isBranchAdmin ? (
             <Button className="ml-auto rounded-2xl" onClick={() => setDialogOpen(true)}>New Distribution</Button>
           ) : null}

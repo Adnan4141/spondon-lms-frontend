@@ -2,7 +2,7 @@
 
 import type { BookStockMovement, BookStockMovementType } from '@/lib/api/books';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, CheckCircle2, FileText, Pencil, ShieldCheck } from 'lucide-react';
+import { ArrowRight, CheckCircle2, FileText, Pencil, ShieldCheck, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const movementColors: Record<BookStockMovementType, string> = {
@@ -33,14 +33,19 @@ function formatBalance(movement: BookStockMovement) {
 export function StockMovementCard({
   movement,
   canCorrect,
+  canDelete,
   onCorrect,
+  onDelete,
 }: {
   movement: BookStockMovement;
   canCorrect: boolean;
+  canDelete: boolean;
   onCorrect: (movement: BookStockMovement) => void;
+  onDelete: (movement: BookStockMovement) => void;
 }) {
   const isCorrection = movement.referenceType === 'StockMovementCorrection';
-  const isCorrectedOriginal = !isCorrection && Number(movement.correctionCount || 0) > 0;
+  const isDeletionReversal = movement.referenceType === 'StockMovementDeletion';
+  const isCorrectedOriginal = !isCorrection && !isDeletionReversal && Number(movement.correctionCount || 0) > 0;
 
   return (
     <article className={cn(
@@ -58,6 +63,12 @@ export function StockMovementCard({
               <span className="inline-flex items-center gap-1 rounded-full border border-blue-500/25 bg-blue-500/10 px-3 py-1 text-xs font-bold text-blue-700 dark:text-blue-300">
                 <ShieldCheck className="h-3.5 w-3.5" />
                 Correction
+              </span>
+            ) : null}
+            {isDeletionReversal ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-rose-500/25 bg-rose-500/10 px-3 py-1 text-xs font-bold text-rose-700 dark:text-rose-300">
+                <Trash2 className="h-3.5 w-3.5" />
+                Deletion Reversal
               </span>
             ) : null}
             {isCorrectedOriginal ? (
@@ -98,17 +109,30 @@ export function StockMovementCard({
           <p className="text-sm font-semibold text-foreground">Entry: {formatDateTime(movement.movementDate)}</p>
           <p className="text-xs text-muted-foreground">Recorded: {formatDateTime(movement.createdAt)}</p>
           <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">By {movement.createdByUserId || 'System'}</p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="mt-3 rounded-xl"
-            onClick={() => onCorrect(movement)}
-            disabled={!canCorrect}
-          >
-            <Pencil className="mr-2 h-3.5 w-3.5" />
-            {isCorrectedOriginal ? 'Corrected' : isCorrection ? 'Correction' : 'Correct'}
-          </Button>
+          <div className="mt-3 flex flex-wrap justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="rounded-xl"
+              onClick={() => onCorrect(movement)}
+              disabled={!canCorrect}
+            >
+              <Pencil className="mr-2 h-3.5 w-3.5" />
+              {isCorrectedOriginal ? 'Corrected' : isCorrection ? 'Correction' : 'Correct'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="rounded-xl border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={() => onDelete(movement)}
+              disabled={!canDelete}
+            >
+              <Trash2 className="mr-2 h-3.5 w-3.5" />
+              Delete
+            </Button>
+          </div>
         </div>
       </div>
     </article>

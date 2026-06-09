@@ -914,6 +914,13 @@ export async function correctBookStockMovement(id: string, data: {
   return apiRequest<ApiResponse<BookStockMovement>>(`/books/stock/movements/${encodeURIComponent(id)}/correct`, { method: 'POST', body: JSON.stringify(data) });
 }
 
+export async function deleteBookStockMovement(id: string, reason: string): Promise<ApiResponse<void>> {
+  return apiRequest<ApiResponse<void>>(`/books/stock/movements/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    body: JSON.stringify({ reason }),
+  });
+}
+
 export async function getBookStockSummary(params?: { bookId?: string; branchId?: string }): Promise<{
   success: boolean;
   data: StockSummaryBook[];

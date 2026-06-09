@@ -13,15 +13,75 @@ export interface LoginResponse {
   token: string;
 }
 
+export type LoginApiResponse = ApiResponse<LoginResponse> & {
+  requiresOtp?: boolean;
+  pendingLoginId?: string;
+  maskedMobile?: string;
+};
+
 export async function login(data: {
   mobile: string;
   password: string;
+  deviceId?: string;
   turnstileToken?: string;
-}): Promise<ApiResponse<LoginResponse>> {
-  return apiRequest<ApiResponse<LoginResponse>>('/users/login', {
+}): Promise<LoginApiResponse> {
+  return apiRequest<LoginApiResponse>('/users/login', {
     method: 'POST',
     body: JSON.stringify(data),
   });
+}
+
+export async function verifyLoginOtp(data: {
+  pendingLoginId: string;
+  code: string;
+  deviceId: string;
+  turnstileToken?: string;
+}): Promise<ApiResponse<LoginResponse>> {
+  return apiRequest<ApiResponse<LoginResponse>>('/auth/verify-login-otp', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function resendLoginOtp(data: {
+  pendingLoginId: string;
+  deviceId: string;
+  turnstileToken?: string;
+}): Promise<ApiResponse<null> & { maskedMobile?: string }> {
+  return apiRequest<ApiResponse<null> & { maskedMobile?: string }>('/auth/resend-login-otp', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export type TrustedDevice = {
+  id: string;
+  userId: string;
+  label: string;
+  trustedAt: string;
+  lastUsedAt: string;
+  expiresAt: string;
+  revokedAt: string | null;
+  isActive: boolean;
+};
+
+export async function getTrustedDevices(userId?: string): Promise<
+  ApiResponse<{
+    user: { id: string; fullName: string; mobile: string; role: string; branchId?: string | null } | null;
+    devices: TrustedDevice[];
+  }>
+> {
+  const query = userId ? `?userId=${encodeURIComponent(userId)}` : '';
+  return apiRequest(`/auth/trusted-devices${query}`);
+}
+
+export async function revokeTrustedDevice(deviceId: string): Promise<ApiResponse<null>> {
+  return apiRequest(`/auth/trusted-devices/${deviceId}`, { method: 'DELETE' });
+}
+
+export async function revokeAllTrustedDevices(userId?: string): Promise<ApiResponse<null>> {
+  const query = userId ? `?userId=${encodeURIComponent(userId)}` : '';
+  return apiRequest(`/auth/trusted-devices${query}`, { method: 'DELETE' });
 }
 
 export async function register(data: {

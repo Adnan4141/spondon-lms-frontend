@@ -4,6 +4,7 @@ import type { BookStockMovement } from '@/lib/api/books';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, Loader2, PackageSearch } from 'lucide-react';
 import { StockMovementCard } from './StockMovementCard';
+import { canModifyStockMovement } from './stockMovementPermissions';
 
 export function StockMovementList({
   movements,
@@ -14,7 +15,9 @@ export function StockMovementList({
   onLoadMore,
   onRetry,
   onCorrect,
+  onDelete,
   canCorrectMovements,
+  canDeleteMovements,
 }: {
   movements: BookStockMovement[];
   loading: boolean;
@@ -24,7 +27,9 @@ export function StockMovementList({
   onLoadMore: () => void;
   onRetry: () => void;
   onCorrect: (movement: BookStockMovement) => void;
+  onDelete: (movement: BookStockMovement) => void;
   canCorrectMovements: boolean;
+  canDeleteMovements: boolean;
 }) {
   const correctedOriginalIds = new Set(
     movements
@@ -66,16 +71,17 @@ export function StockMovementList({
   return (
     <section className="space-y-3">
       {movements.map((movement) => {
-        const canCorrect = movement.referenceType !== 'StockMovementCorrection'
-          && !correctedOriginalIds.has(movement.id)
-          && Number(movement.correctionCount || 0) === 0
-          && canCorrectMovements;
+        const canModify = canModifyStockMovement(movement, correctedOriginalIds);
+        const canCorrect = canModify && canCorrectMovements;
+        const canDelete = canModify && canDeleteMovements;
         return (
           <StockMovementCard
             key={movement.id}
             movement={movement}
             canCorrect={canCorrect}
+            canDelete={canDelete}
             onCorrect={onCorrect}
+            onDelete={onDelete}
           />
         );
       })}

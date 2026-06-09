@@ -106,6 +106,11 @@ const CATEGORY_THEMES: Record<AuditCategory, AuditCategoryTheme> = {
 
 const ACTION_OVERRIDES: Record<string, AuditCategory> = {
   LOGIN_SUCCESS: 'auth',
+  LOGIN_OTP_REQUIRED: 'auth',
+  DEVICE_TRUSTED: 'auth',
+  DEVICE_REVOKED: 'auth',
+  DEVICE_REVOKED_BY_ADMIN: 'auth',
+  ALL_DEVICES_REVOKED: 'auth',
   LOGIN_FAILED: 'auth',
   PASSWORD_RESET: 'password',
   PASSWORD_CHANGE_SELF: 'password',
@@ -434,7 +439,39 @@ export function changeSummary(row: AuditRow): string | null {
   }
 
   const nv = row.newValue as Record<string, unknown> | null | undefined;
+  const ov = row.oldValue as Record<string, unknown> | null | undefined;
   if (!nv || typeof nv !== 'object') return null;
+
+  const branchLabel = (payload: Record<string, unknown>) => {
+    if (typeof payload.branchName === 'string' && payload.branchName.trim()) {
+      return typeof payload.branchId === 'string' && payload.branchId
+        ? `${payload.branchName} (${shortId(payload.branchId)})`
+        : payload.branchName;
+    }
+    if (typeof payload.toBranchName === 'string' && payload.toBranchName.trim()) {
+      return typeof payload.toBranchId === 'string' && payload.toBranchId
+        ? `${payload.toBranchName} (${shortId(payload.toBranchId)})`
+        : payload.toBranchName;
+    }
+    return null;
+  };
+
+  if (/SMS_BALANCE/i.test(action)) {
+    const branch = branchLabel(nv) || (ov ? branchLabel(ov) : null);
+    const count = nv.count ?? ov?.count;
+    const parts = [actionLabel(action)];
+    if (branch) parts.push(branch);
+    if (count != null) parts.push(`count ${count}`);
+    return parts.join(' · ');
+  }
+
+  const payloadBranch = branchLabel(nv);
+  if (payloadBranch && Object.keys(nv).filter((k) => !['_meta', '_display', 'branchName', 'toBranchName', 'fromBranchName', 'collectedByBranchName'].includes(k)).length <= 3) {
+    const extras = Object.entries(nv)
+      .filter(([k]) => !['branchId', 'branchName', 'toBranchId', 'toBranchName', 'fromBranchId', 'fromBranchName', '_meta', '_display'].includes(k))
+      .map(([k, v]) => `${k}: ${String(v)}`);
+    return [payloadBranch, ...extras].join(' · ');
+  }
 
   if (nv.passwordChanged === true) return 'Password was changed';
   if (typeof nv.status === 'string') return `Status → ${nv.status}`;
@@ -518,6 +555,11 @@ export const AUDIT_ACTION_OPTIONS = [
   { value: '', label: 'All actions' },
   { value: 'LOGIN_SUCCESS', label: 'Login Success' },
   { value: 'LOGIN_FAILED', label: 'Login Failed' },
+  { value: 'LOGIN_OTP_REQUIRED', label: 'Login OTP Required' },
+  { value: 'DEVICE_TRUSTED', label: 'Device Trusted' },
+  { value: 'DEVICE_REVOKED', label: 'Device Revoked' },
+  { value: 'DEVICE_REVOKED_BY_ADMIN', label: 'Device Revoked By Admin' },
+  { value: 'ALL_DEVICES_REVOKED', label: 'All Devices Revoked' },
   { value: 'SITE_SETTINGS_ACCESSED', label: 'Site Settings Accessed' },
   { value: 'SITE_SETTINGS_UPDATED', label: 'Site Settings Updated' },
   { value: 'ENROLLMENT_COURSE_ADDED', label: 'Enrollment Course Added' },

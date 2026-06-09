@@ -19,24 +19,31 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { login } from '@/lib/api/auth';
+import { login, resendLoginOtp, verifyLoginOtp, type LoginResponse } from '@/lib/api/auth';
+import { getDeviceId } from '@/lib/device-id';
 import { isTurnstileConfigured, TurnstileField } from '@/components/auth/TurnstileField';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 
 const TURNSTILE_REQUIRED = isTurnstileConfigured();
+type LoginStep = 'credentials' | 'otp';
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirect') || '';
   const { toast, toasts, removeToast } = useToast();
+  const [step, setStep] = useState<LoginStep>('credentials');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [verificationNeeded, setVerificationNeeded] = useState<string | null>(null);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const [turnstileLoadError, setTurnstileLoadError] = useState(false);
+  const [pendingLoginId, setPendingLoginId] = useState('');
+  const [maskedMobile, setMaskedMobile] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpMessage, setOtpMessage] = useState('');
   const [formData, setFormData] = useState({
     identifier: '', // Now primarily mobile
     password: '',
@@ -54,6 +61,40 @@ function LoginForm() {
     if (TURNSTILE_REQUIRED) return Boolean(turnstileToken);
     return true;
   }, [formData, turnstileToken]);
+
+  const canSubmitWithTurnstile = !TURNSTILE_REQUIRED || Boolean(turnstileToken);
+
+  const finishLogin = (data: LoginResponse) => {
+    toast({
+      title: 'স্বাগতম!',
+      description: `${data.user.fullName} হিসেবে আপনি সফলভাবে লগ ইন করেছেন।`,
+      variant: 'success',
+    });
+
+    localStorage.setItem('auth_token', data.token);
+    localStorage.setItem('user', JSON.stringify(data.user));
+    document.cookie = `auth_token=${data.token}; path=/; max-age=${24 * 60 * 60}`;
+    document.cookie = `user_role=${data.user?.role || ''}; path=/; max-age=${24 * 60 * 60}`;
+
+    setTimeout(() => {
+      const user = data.user;
+
+      if (user?.role === 'STUDENT' && !(user as { isMobileVerified?: boolean }).isMobileVerified) {
+        router.push(`/register?mobile=${encodeURIComponent(user.mobile)}&step=otp`);
+        return;
+      }
+
+      let target = '/student';
+      if (user?.role === 'SUPER_ADMIN' || user?.role === 'ACCOUNTS' || user?.role === 'MODERATOR') {
+        target = '/admin';
+      } else if (user?.role === 'BRANCH_ADMIN') {
+        target = '/admin/branch';
+      } else if (user?.role === 'TEACHER') {
+        target = '/teacher';
+      }
+      router.push(redirectTo && redirectTo.startsWith('/') ? redirectTo : target);
+    }, 1500);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,45 +116,27 @@ function LoginForm() {
       const loginData = {
         mobile,
         password: formData.password,
+        deviceId: getDeviceId(),
         ...(turnstileToken ? { turnstileToken } : {}),
       };
 
       const response = await login(loginData);
 
+      if (response.success && response.requiresOtp && response.pendingLoginId) {
+        setPendingLoginId(response.pendingLoginId);
+        setMaskedMobile(response.maskedMobile || mobile);
+        setOtpMessage(response.message || 'আপনার মোবাইলে পাঠানো OTP দিন।');
+        setOtpCode('');
+        setStep('otp');
+        resetTurnstile();
+        return;
+      }
+
       if (response.success && response.data) {
-        toast({
-          title: 'স্বাগতম!',
-          description: `${response.data.user.fullName} হিসেবে আপনি সফলভাবে লগ ইন করেছেন।`,
-          variant: 'success',
-        });
-        
-        localStorage.setItem('auth_token', response.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
-        document.cookie = `auth_token=${response.data.token}; path=/; max-age=${24 * 60 * 60}`;
-        document.cookie = `user_role=${(response.data as any).user?.role || ''}; path=/; max-age=${24 * 60 * 60}`;
-
-        setTimeout(() => {
-          const user = (response.data as any)?.user;
-
-          // Safety net: STUDENT with unverified mobile goes to OTP step
-          if (user?.role === 'STUDENT' && !user?.isMobileVerified) {
-            router.push(`/register?mobile=${encodeURIComponent(user.mobile)}&step=otp`);
-            return;
-          }
-
-          let target = '/student';
-          if (user?.role === 'SUPER_ADMIN' || user?.role === 'ACCOUNTS' || user?.role === 'MODERATOR') {
-            target = '/admin';
-          } else if (user?.role === 'BRANCH_ADMIN') {
-            target = '/admin/branch';
-          } else if (user?.role === 'TEACHER') {
-            target = '/teacher';
-          }
-          router.push(redirectTo && redirectTo.startsWith('/') ? redirectTo : target);
-        }, 1500);
+        finishLogin(response.data);
       } else {
-        if ((response as any).requiresVerification) {
-          setVerificationNeeded((response as any).mobile);
+        if ((response as { requiresVerification?: boolean; mobile?: string }).requiresVerification) {
+          setVerificationNeeded((response as { mobile?: string }).mobile || mobile);
           return;
         }
         resetTurnstile();
@@ -128,6 +151,92 @@ function LoginForm() {
       toast({
         title: 'ত্রুটি',
         description: error.message || 'একটি অপ্রত্যাশিত সমস্যা হয়েছে।',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (otpCode.length !== 6 || !pendingLoginId) {
+      toast({
+        title: 'যাচাই প্রয়োজন',
+        description: '৬ অঙ্কের OTP কোড দিন।',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (!canSubmitWithTurnstile) {
+      toast({
+        title: 'যাচাই প্রয়োজন',
+        description: 'অনুগ্রহ করে নিরাপত্তা যাচাই সম্পন্ন করুন।',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await verifyLoginOtp({
+        pendingLoginId,
+        code: otpCode,
+        deviceId: getDeviceId(),
+        ...(turnstileToken ? { turnstileToken } : {}),
+      });
+
+      if (response.success && response.data) {
+        finishLogin(response.data);
+      } else {
+        resetTurnstile();
+        toast({
+          title: 'ব্যর্থ হয়েছে',
+          description: response.message || 'OTP যাচাই করা যায়নি।',
+          variant: 'destructive',
+        });
+      }
+    } catch (error: unknown) {
+      resetTurnstile();
+      toast({
+        title: 'ত্রুটি',
+        description: error instanceof Error ? error.message : 'একটি অপ্রত্যাশিত সমস্যা হয়েছে।',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (!pendingLoginId || !canSubmitWithTurnstile) return;
+    setIsLoading(true);
+    try {
+      const response = await resendLoginOtp({
+        pendingLoginId,
+        deviceId: getDeviceId(),
+        ...(turnstileToken ? { turnstileToken } : {}),
+      });
+      if (response.success) {
+        setOtpCode('');
+        setMaskedMobile(response.maskedMobile || maskedMobile);
+        toast({
+          title: 'OTP পাঠানো হয়েছে',
+          description: 'নতুন যাচাই কোড আপনার মোবাইলে পাঠানো হয়েছে।',
+          variant: 'success',
+        });
+        resetTurnstile();
+      } else {
+        toast({
+          title: 'ব্যর্থ হয়েছে',
+          description: response.message || 'OTP পাঠানো যায়নি।',
+          variant: 'destructive',
+        });
+      }
+    } catch (error: unknown) {
+      toast({
+        title: 'ত্রুটি',
+        description: error instanceof Error ? error.message : 'OTP পাঠানো যায়নি।',
         variant: 'destructive',
       });
     } finally {
@@ -187,10 +296,86 @@ function LoginForm() {
               <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform" />
               হোম পেজে ফিরে যান
             </Link>
-            <h1 className="text-4xl font-black text-slate-900 tracking-tighter">লগ ইন করুন</h1>
-            <p className="text-slate-500 font-bold text-lg">আপনার একাউন্টে প্রবেশ করতে নিচের তথ্যগুলো দিন।</p>
+            <h1 className="text-4xl font-black text-slate-900 tracking-tighter">
+              {step === 'otp' ? 'ডিভাইস যাচাই' : 'লগ ইন করুন'}
+            </h1>
+            <p className="text-slate-500 font-bold text-lg">
+              {step === 'otp'
+                ? otpMessage || 'নিরাপত্তার জন্য আপনার মোবাইলে পাঠানো ৬ অঙ্কের কোড দিন।'
+                : 'আপনার একাউন্টে প্রবেশ করতে নিচের তথ্যগুলো দিন।'}
+            </p>
           </header>
 
+          {step === 'otp' ? (
+            <form onSubmit={handleVerifyOtp} className="space-y-8">
+              <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-bold text-sky-800">
+                OTP পাঠানো হয়েছে: {maskedMobile || formData.identifier}
+              </div>
+
+              <div className="space-y-2">
+                <label className={labelStyles}>যাচাই কোড (OTP)</label>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="৬ অঙ্কের কোড"
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  className="h-14 rounded-2xl border-slate-200 bg-slate-50/50 text-center text-2xl font-black tracking-[0.4em] border-2"
+                />
+              </div>
+
+              {TURNSTILE_REQUIRED && (
+                <TurnstileField
+                  resetKey={turnstileResetKey}
+                  onToken={(token) => {
+                    setTurnstileLoadError(false);
+                    setTurnstileToken(token);
+                  }}
+                  onError={() => setTurnstileLoadError(true)}
+                />
+              )}
+
+              <Button
+                type="submit"
+                disabled={isLoading || otpCode.length !== 6 || !canSubmitWithTurnstile}
+                className={cn(
+                  'w-full h-16 rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl transition-all active:scale-[0.98]',
+                  otpCode.length === 6 && !isLoading && canSubmitWithTurnstile
+                    ? 'bg-[#5C2D91] hover:bg-[#4A2475] text-white shadow-indigo-100'
+                    : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none',
+                )}
+              >
+                {isLoading ? (
+                  <div className="h-5 w-5 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>যাচাই করুন <ShieldCheck className="h-5 w-5 ml-2" /></>
+                )}
+              </Button>
+
+              <div className="flex items-center justify-between text-sm font-bold">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep('credentials');
+                    setOtpCode('');
+                    setPendingLoginId('');
+                    resetTurnstile();
+                  }}
+                  className="text-slate-500 hover:text-[#5C2D91]"
+                >
+                  ← পাসওয়ার্ড ধাপে ফিরুন
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  disabled={isLoading || !canSubmitWithTurnstile}
+                  className="text-[#5C2D91] hover:underline disabled:opacity-50"
+                >
+                  OTP আবার পাঠান
+                </button>
+              </div>
+            </form>
+          ) : (
           <form onSubmit={handleSubmit} className="space-y-8">
             <div className="space-y-6">
               <div className="space-y-2">
@@ -275,6 +460,7 @@ function LoginForm() {
               )}
             </Button>
           </form>
+          )}
 
           {verificationNeeded ? (
             <motion.div

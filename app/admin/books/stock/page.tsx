@@ -1,16 +1,19 @@
 'use client';
 
+import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { useBooksData } from '@/features/admin/books/hooks/useBooksData';
 import { StockHistoryTab } from '@/features/admin/books/components/StockHistoryTab';
 import { DistributionTab } from '@/features/admin/books/components/DistributionTab';
+import { defaultStockPageFilters, type StockPageSharedFilters } from '@/features/admin/books/components/stock-page-filters';
 import { BooksRouteHeader } from '../_components/BooksRouteHeader';
 import { BooksWorkspaceLoading } from '../_components/BooksWorkspaceLoading';
 import { ArrowRightLeft, Boxes, RefreshCw } from 'lucide-react';
 
 export default function BooksStockPage() {
   const data = useBooksData();
+  const [sharedFilters, setSharedFilters] = useState<StockPageSharedFilters>(() => defaultStockPageFilters());
 
   if (data.loading) {
     return <BooksWorkspaceLoading />;
@@ -46,6 +49,8 @@ export default function BooksStockPage() {
             branches={data.branches}
             sources={data.sources}
             channels={data.channels}
+            sharedFilters={sharedFilters}
+            onSharedFiltersChange={setSharedFilters}
           />
         </TabsContent>
 
@@ -54,6 +59,8 @@ export default function BooksStockPage() {
             books={data.books}
             branches={data.branches}
             channels={data.channels}
+            sharedFilters={sharedFilters}
+            onSharedFiltersChange={setSharedFilters}
           />
         </TabsContent>
       </Tabs>

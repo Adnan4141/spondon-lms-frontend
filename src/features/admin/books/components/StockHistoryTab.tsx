@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   createBookStockMovement,
   correctBookStockMovement,
+  deleteBookStockMovement,
   getBookStockMovements,
   getBookStockSummary,
   type Book,
@@ -19,6 +20,7 @@ import { useAdminSession } from '@/features/admin/shared/admin-session';
 import { ArrowRight, CalendarClock, Factory, PackageCheck } from 'lucide-react';
 import { StatsCard } from './StatsCard';
 import { StockHistoryFilters } from './stock-history/StockHistoryFilters';
+import { StockMovementDeleteDialog } from './stock-history/StockMovementDeleteDialog';
 import { StockMovementFormDialog } from './stock-history/StockMovementFormDialog';
 import { StockMovementList } from './stock-history/StockMovementList';
 import {
@@ -31,6 +33,7 @@ import {
   type StockLocationOptions,
   type StockMovementFormState,
 } from './stock-history/stockMovementRules';
+import type { StockPageSharedFilters } from './stock-page-filters';
 
 function parseLocationFilter(value: string) {
   if (value.startsWith('branch:')) return { branchId: value.replace('branch:', '') };
@@ -48,22 +51,28 @@ export function StockHistoryTab({
   branches,
   sources,
   channels,
+  sharedFilters,
+  onSharedFiltersChange,
 }: {
   books: Book[];
   branches: Branch[];
   sources: StockSource[];
   channels: DistributionChannel[];
+  sharedFilters: StockPageSharedFilters;
+  onSharedFiltersChange: (filters: StockPageSharedFilters) => void;
 }) {
   const toast = useAdminToast();
   const { user } = useAdminSession();
   const canWriteMovements = user?.role === 'SUPER_ADMIN' || user?.role === 'ACCOUNTS';
   const lockedBranchId = user?.role === 'BRANCH_ADMIN' ? user.branchId || undefined : undefined;
-  const [bookId, setBookId] = useState('all');
+  const bookId = sharedFilters.bookId;
+  const fromDate = sharedFilters.fromDate;
+  const toDate = sharedFilters.toDate;
   const [movementType, setMovementType] = useState<BookStockMovementType | 'ALL'>('ALL');
-  const [locationFilter, setLocationFilter] = useState('all');
+  const [locationFilter, setLocationFilter] = useState(
+    lockedBranchId ? `branch:${lockedBranchId}` : sharedFilters.branchId === 'all' ? 'all' : `branch:${sharedFilters.branchId}`,
+  );
   const [search, setSearch] = useState('');
-  const [fromDate, setFromDate] = useState<Date>();
-  const [toDate, setToDate] = useState<Date>();
   const [movements, setMovements] = useState<BookStockMovement[]>([]);
   const [totals, setTotals] = useState({ centralQty: 0, branchQty: 0, distributedQty: 0, channelDistributedQty: 0, soldQty: 0 });
   const [page, setPage] = useState(1);
@@ -73,7 +82,9 @@ export function StockHistoryTab({
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingMovement, setEditingMovement] = useState<BookStockMovement | null>(null);
+  const [deletingMovement, setDeletingMovement] = useState<BookStockMovement | null>(null);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState<StockMovementFormState>(() => defaultStockMovementForm());
 
   const visibleBranches = useMemo(
@@ -92,10 +103,21 @@ export function StockHistoryTab({
   }), [channels, sources, visibleBranches]);
 
   useEffect(() => {
-    if (lockedBranchId && locationFilter !== `branch:${lockedBranchId}`) {
-      setLocationFilter(`branch:${lockedBranchId}`);
+    if (lockedBranchId) {
+      if (locationFilter !== `branch:${lockedBranchId}`) {
+        setLocationFilter(`branch:${lockedBranchId}`);
+      }
+      return;
     }
-  }, [locationFilter, lockedBranchId]);
+    const nextLocation = sharedFilters.branchId === 'all' ? 'all' : `branch:${sharedFilters.branchId}`;
+    if (locationFilter !== nextLocation) {
+      setLocationFilter(nextLocation);
+    }
+  }, [locationFilter, lockedBranchId, sharedFilters.branchId]);
+
+  const patchSharedFilters = (patch: Partial<StockPageSharedFilters>) => {
+    onSharedFiltersChange({ ...sharedFilters, ...patch });
+  };
 
   const loadData = useCallback(async (targetPage = 1, append = false) => {
     if (append) setLoadingMore(true);
@@ -157,6 +179,38 @@ export function StockHistoryTab({
     }
     resetForm();
     setDialogOpen(true);
+  };
+
+  const openDeleteDialog = (movement: BookStockMovement) => {
+    if (!canWriteMovements) {
+      toast({ title: 'Read-only access', description: 'Branch admin can review stock movements but cannot delete them.', variant: 'default' });
+      return;
+    }
+    setDeletingMovement(movement);
+  };
+
+  const closeDeleteDialog = () => {
+    if (deleting) return;
+    setDeletingMovement(null);
+  };
+
+  const handleDelete = async (reason: string) => {
+    if (!deletingMovement) return;
+    try {
+      setDeleting(true);
+      await deleteBookStockMovement(deletingMovement.id, reason);
+      toast({ title: 'Movement deleted', description: 'Stock balances were reversed and audit history was recorded.', variant: 'success' });
+      setDeletingMovement(null);
+      await loadData(1, false);
+    } catch (deleteError) {
+      toast({
+        title: 'Delete failed',
+        description: deleteError instanceof Error ? deleteError.message : 'Something went wrong',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const openCorrectDialog = (movement: BookStockMovement) => {
@@ -242,12 +296,19 @@ export function StockHistoryTab({
         search={search}
         fromDate={fromDate}
         toDate={toDate}
-        onBookChange={setBookId}
+        onBookChange={(value) => patchSharedFilters({ bookId: value })}
         onMovementTypeChange={setMovementType}
-        onLocationFilterChange={setLocationFilter}
+        onLocationFilterChange={(value) => {
+          setLocationFilter(value);
+          if (!lockedBranchId) {
+            patchSharedFilters({
+              branchId: value.startsWith('branch:') ? value.replace('branch:', '') : 'all',
+            });
+          }
+        }}
         onSearchChange={setSearch}
-        onFromDateChange={setFromDate}
-        onToDateChange={setToDate}
+        onFromDateChange={(date) => patchSharedFilters({ fromDate: date })}
+        onToDateChange={(date) => patchSharedFilters({ toDate: date })}
         onCreate={openCreateDialog}
         canCreate={canWriteMovements}
         lockedBranchId={lockedBranchId}
@@ -262,7 +323,17 @@ export function StockHistoryTab({
         onLoadMore={() => void loadData(page + 1, true)}
         onRetry={() => void loadData(1, false)}
         onCorrect={openCorrectDialog}
+        onDelete={openDeleteDialog}
         canCorrectMovements={canWriteMovements}
+        canDeleteMovements={canWriteMovements}
+      />
+
+      <StockMovementDeleteDialog
+        movement={deletingMovement}
+        open={!!deletingMovement}
+        saving={deleting}
+        onClose={closeDeleteDialog}
+        onConfirm={handleDelete}
       />
 
       <StockMovementFormDialog

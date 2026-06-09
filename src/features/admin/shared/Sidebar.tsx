@@ -142,6 +142,10 @@ function buildMenuSections(role: string | null): MenuSection[] {
     // Audit History — hidden from sidebar; open via /admin/audit directly
   ];
 
+  const securityItems: MenuItem[] = [
+    { title: 'Trusted Devices', href: '/admin/security', icon: ShieldCheck, color: 'text-amber-600', bg: 'bg-amber-50' },
+  ];
+
   // ----- Administrative -----
   const allAdminItems: MenuItem[] = [
     { title: 'Monthly billing', href: '/admin/monthly-billing', icon: CalendarRange, color: 'text-violet-600', bg: 'bg-violet-50' },
@@ -183,7 +187,9 @@ function buildMenuSections(role: string | null): MenuSection[] {
   if (bookItems.length > 0) sections.push({ label: 'Books', items: bookItems });
   if (managementItems.length > 0) sections.push({ label: 'Management', items: managementItems });
   if (role === 'SUPER_ADMIN') {
-    sections.push({ label: 'System', items: userMgmtItems });
+    sections.push({ label: 'System', items: [...userMgmtItems, ...securityItems] });
+  } else if (isBranchAdmin) {
+    sections.push({ label: 'Security', items: securityItems });
   }
   if (financeItems.length > 0) sections.push({ label: 'Finance', items: financeItems });
   if (adminItems.length > 0) sections.push({ label: 'Administrative', items: adminItems });
