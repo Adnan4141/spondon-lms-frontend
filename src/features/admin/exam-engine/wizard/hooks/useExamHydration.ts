@@ -69,10 +69,13 @@ export function buildWizardPatchFromExam(exam: Exam): Partial<ExamWizardState> {
 
   const productType: ExamProductType | '' = storedProductType || legacyMigration?.productType || '';
 
-  // deliveryMode is persisted in examWorkflow for routing, but not kept in wizard
-  // state. Load raw resultInputModes from the
-  // saved exam and let the SET_COURSE action (fired after courses list loads)
-  // sanitize them against the live course.type.
+  const savedDeliveryMode =
+    workflow?.deliveryMode === 'OFFLINE' || workflow?.deliveryMode === 'ONLINE'
+      ? (workflow.deliveryMode as 'ONLINE' | 'OFFLINE')
+      : wizard?.deliveryMode === 'OFFLINE' || wizard?.deliveryMode === 'ONLINE'
+        ? (wizard.deliveryMode as 'ONLINE' | 'OFFLINE')
+        : legacyMigration?.deliveryMode
+          ?? (exam.mode === 'OFFLINE' ? 'OFFLINE' : 'ONLINE');
   const rawResultModes: ResultInputMode[] = Array.isArray(exam.resultInputModes) && exam.resultInputModes.length
     ? exam.resultInputModes
     : readResultInputModes(
@@ -108,7 +111,8 @@ export function buildWizardPatchFromExam(exam: Exam): Partial<ExamWizardState> {
     branchId: exam.branchId ?? EXAM_WIZARD_ALL_BRANCHES,
     language: exam.language ?? 'bn',
     durationMinutes: String(exam.durationMinutes ?? 60),
-    // deliveryMode intentionally omitted from state — derived from course.type via selector
+    allowedAttempts: String(exam.allowedAttempts ?? 1),
+    deliveryMode: savedDeliveryMode,
     autoSubmitOnDisconnect: Boolean(exam.autoSubmitOnDisconnect),
     disconnectGraceSeconds: String(exam.disconnectGraceSeconds ?? 10),
     showSolve:
@@ -165,8 +169,6 @@ export function useExamHydration({ examId, dispatch, setActiveSectionId, setServ
         ]);
         if (cancelled || !ex.success || !ex.data) return;
 
-        // buildWizardPatchFromExam already sets courseId from ex.data.courseId.
-        // deliveryMode is not in state — SET_COURSE fires in ExamWizard once courses load.
         const basePatch = buildWizardPatchFromExam(ex.data);
 
         setServerExam({ status: ex.data.status, pdfUrl: ex.data.pdfUrl ?? null });

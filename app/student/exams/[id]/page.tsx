@@ -680,7 +680,20 @@ export default function StudentExamTakingPage() {
                     Auto submitted
                   </Badge>
                 ) : null}
-                {pendingWrittenEvaluation ? (
+                {result.resultHidden ? (
+                  <>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500 mb-2">
+                      Result not published yet
+                    </p>
+                    <h2 className="text-3xl font-black text-slate-900">
+                      Your exam has been submitted
+                    </h2>
+                    <p className="mt-3 text-sm font-medium text-slate-500">
+                      {result.resultHiddenMessage
+                        ?? 'Your submission was recorded. Results will be published when the exam authority releases them.'}
+                    </p>
+                  </>
+                ) : pendingWrittenEvaluation ? (
                   <>
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500 mb-2">
                       Teacher evaluation pending

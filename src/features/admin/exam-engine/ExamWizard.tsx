@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { ConfirmationModal } from '@/features/admin/shared';
 import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
 import { useModalStore } from '@/store/modalStore';
+import { ApiError } from '@/lib/api';
 import { getCourses } from '@/lib/api/courses';
 import { getBranches } from '@/lib/api/branches';
 import { deleteExam, getExamById, updateExam } from '@/lib/api/exams';
@@ -20,7 +21,7 @@ import {
   type ExamProductType,
   type FolderRuleDraft,
   WIZARD_STEPS,
-  getEffectiveDeliveryMode,
+  defaultDeliveryModeForCourse,
 } from './types';
 import { examWizardReducer, buildSectionFromType } from './wizard/examWizardReducer';
 import {
@@ -62,11 +63,6 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
   const [serverExam, setServerExam] = useState<{ status: ExamStatus; pdfUrl?: string | null } | null>(null);
 
   const urlInitializedRef = useRef(false);
-
-  const effectiveDeliveryMode = useMemo(
-    () => getEffectiveDeliveryMode(state.courseId, courses),
-    [state.courseId, courses],
-  );
 
   const folderTreeCourseIds = useMemo(
     () => (state.courseId ? [state.courseId] : []),
@@ -144,7 +140,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
       }
     },
   });
-  const { persistExam } = useExamPersistence({ examId, state, serverExam, effectiveDeliveryMode });
+  const { persistExam } = useExamPersistence({ examId, state, serverExam });
 
   const refreshServerExam = useCallback(async () => {
     if (!examId) return;
@@ -156,13 +152,27 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
 
   const handlePublish = useCallback(async () => {
     if (!examId) return;
-    const up = await updateExam(examId, { status: 'PUBLISHED' } as UpdateExamDto);
-    if (!up.success) {
-      toast({ title: 'Publish failed', description: up.message, variant: 'destructive' });
-      return;
+    try {
+      const up = await updateExam(examId, { status: 'PUBLISHED' } as UpdateExamDto);
+      if (!up.success) {
+        toast({ title: 'Publish failed', description: up.message, variant: 'destructive' });
+        return;
+      }
+      toast({ title: 'Exam published' });
+      await refreshServerExam();
+    } catch (error) {
+      if (error instanceof ApiError) {
+        const body = error.body as { errors?: string[] } | undefined;
+        const blockers = Array.isArray(body?.errors) ? body.errors : null;
+        toast({
+          title: 'Publish failed',
+          description: blockers?.length ? blockers.join(' ') : error.message,
+          variant: 'destructive',
+        });
+        return;
+      }
+      toast({ title: 'Publish failed', description: 'Could not publish this exam.', variant: 'destructive' });
     }
-    toast({ title: 'Exam published' });
-    await refreshServerExam();
   }, [examId, refreshServerExam, toast]);
 
   useEffect(() => {
@@ -227,36 +237,14 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
 
   const handleCourseSelect = useCallback(
     (course: Course) => {
-      const deliveryMode = (course.type as 'ONLINE' | 'OFFLINE') ?? 'ONLINE';
-      dispatch({ type: 'SET_COURSE', courseId: course.id, deliveryMode });
+      const defaultDeliveryMode = defaultDeliveryModeForCourse(course.id, [course]);
+      dispatch({ type: 'SET_COURSE', courseId: course.id, defaultDeliveryMode });
     },
     [dispatch],
   );
 
-  // After courses list loads and we have a courseId (e.g. on edit), fire
-  // SET_COURSE once to sanitize saved resultInputModes against the live course.
-  const coursesSyncedRef = useRef(false);
-  useEffect(() => {
-    if (coursesSyncedRef.current) return;
-    if (!state.courseId || courses.length === 0) return;
-    const course = courses.find((c) => c.id === state.courseId);
-    if (!course) return;
-    coursesSyncedRef.current = true;
-    const deliveryMode = (course.type as 'ONLINE' | 'OFFLINE') ?? 'ONLINE';
-    dispatch({ type: 'SET_COURSE', courseId: course.id, deliveryMode });
-  }, [courses, state.courseId, dispatch]);
-
-  // Reset the sync flag when the courseId changes so the next course also gets synced.
-  const prevCourseIdRef = useRef(state.courseId);
-  useEffect(() => {
-    if (prevCourseIdRef.current !== state.courseId) {
-      prevCourseIdRef.current = state.courseId;
-      coursesSyncedRef.current = false;
-    }
-  }, [state.courseId]);
-
   const applyProductType = (id: ExamProductType) => {
-    dispatch({ type: 'APPLY_PRODUCT_TYPE', productType: id, deliveryMode: effectiveDeliveryMode });
+    dispatch({ type: 'APPLY_PRODUCT_TYPE', productType: id });
   };
 
   /**
@@ -295,7 +283,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
   );
 
   const goNext = () => {
-    const v = validateStep(state, step, effectiveDeliveryMode);
+    const v = validateStep(state, step, state.deliveryMode);
     if (!v.ok) {
       if (step === 1 && v.step1Fields) setStep1FieldErrors(v.step1Fields);
       toast({
@@ -381,7 +369,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
   const validateBeforeFinalize = async (): Promise<boolean> => {
     for (const item of visibleSteps) {
       if (item.stepNumber >= 6) continue;
-      const validation = validateStep(state, item.stepNumber, effectiveDeliveryMode);
+      const validation = validateStep(state, item.stepNumber, state.deliveryMode);
       if (validation.ok) continue;
       if (item.stepNumber === 1 && validation.step1Fields) setStep1FieldErrors(validation.step1Fields);
       toast({
@@ -392,7 +380,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
       goToStep(item.stepNumber);
       return false;
     }
-    const preflight = await preflightExamWithBackend(state, {}, effectiveDeliveryMode);
+    const preflight = await preflightExamWithBackend(state, {}, state.deliveryMode);
     if (!preflight.ok) {
       const first = preflight.errors[0];
       toast({
@@ -430,7 +418,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
           {visibleSteps.map(({ label, stepNumber: n }, i) => {
             const active = n === normalizeStepNumber(step);
             const done = i < currentVisibleStepIndex;
-            const valid = validateStep(state, n, effectiveDeliveryMode).ok;
+            const valid = validateStep(state, n, state.deliveryMode).ok;
             return (
               <button
                 key={label}
@@ -478,7 +466,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
           appliedPresetId={presetsApi.appliedPresetId}
           recommendedPresetId={presetsApi.recommendedPresetId}
           presetBusy={presetsApi.presetBusy}
-          deliveryMode={effectiveDeliveryMode}
+          deliveryMode={state.deliveryMode}
           fieldErrors={step1FieldErrors}
           onSelectProductType={applyProductType}
           clearFieldError={(k) => setStep1FieldErrors((prev) => ({ ...prev, [k]: false }))}
@@ -493,7 +481,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
           state={state}
           dispatch={dispatch}
           onAddSection={handleAddSection}
-          deliveryMode={effectiveDeliveryMode}
+          deliveryMode={state.deliveryMode}
           folderTrees={folderTrees}
         />
       ) : null}
@@ -517,7 +505,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
 
       {!isLoadingExam && step === 4 ? <Step4SetsPdf state={state} dispatch={dispatch} /> : null}
       {!isLoadingExam && step === 5 ? (
-        <Step5ResultVisibility state={state} dispatch={dispatch} deliveryMode={effectiveDeliveryMode} />
+        <Step5ResultVisibility state={state} dispatch={dispatch} deliveryMode={state.deliveryMode} />
       ) : null}
       {!isLoadingExam && step === 6 ? (
         <Step6PreviewPublish
@@ -536,7 +524,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
           presetBusy={presetsApi.presetBusy}
           onSavePreset={(name, isDefault) => void presetsApi.savePreset(name, isDefault)}
           onUpdatePreset={(presetId, isDefault) => void presetsApi.updatePreset(presetId, isDefault)}
-          deliveryMode={effectiveDeliveryMode}
+          deliveryMode={state.deliveryMode}
         />
       ) : null}
 

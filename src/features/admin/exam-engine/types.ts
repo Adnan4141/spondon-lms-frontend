@@ -11,9 +11,9 @@ import type { Course } from '@/types/course';
  * Spec exam types (4). Replaces the previous 7-way `UiExamCategory` which
  * conflated type, mode, and result-entry method.
  *
- * Orthogonal axes are now: { productType, courseId, omrConfig?, resultInputModes[], smsNotification }.
- * Delivery mode is derived from the selected course's type in the wizard, then persisted
- * into settings.examWorkflow so runtime routing never has to guess from Exam.mode.
+ * Orthogonal axes are now: { productType, deliveryMode, courseId, omrConfig?, resultInputModes[], smsNotification }.
+ * Delivery mode is independent of course type — admins may run online exams on offline courses
+ * (and vice versa). Persisted into settings.examWorkflow so runtime routing never has to guess.
  */
 export type ExamProductType = 'MCQ' | 'WRITTEN' | 'COMBINED' | 'MULTI';
 
@@ -80,11 +80,10 @@ export interface WizardSubject {
 export interface ExamWizardState {
   step: number;
 
-  /**
-   * Exam product type axis.
-   * Delivery mode is not stored in wizard state — derive it via {@link getEffectiveDeliveryMode}.
-   */
+  /** Exam product type axis (MCQ, WRITTEN, COMBINED, MULTI). */
   productType: ExamProductType | '';
+  /** How students take the exam — independent of the linked course's type. */
+  deliveryMode: 'ONLINE' | 'OFFLINE';
   omrConfig: OmrConfig | null;
   resultInputModes: ResultInputMode[];
   /**
@@ -102,11 +101,13 @@ export interface ExamWizardState {
   defaultNegativeMarks: number;
 
   title: string;
-  /** Single required course. Delivery mode is computed from this course's type. */
+  /** Single required course (enrollment scope). */
   courseId: string;
   branchId: string;
   language: string;
   durationMinutes: string;
+  /** Max completed attempts per student (online exams). */
+  allowedAttempts: string;
   autoSubmitOnDisconnect: boolean;
   disconnectGraceSeconds: string;
   /** @deprecated retained for input by `BasicExamInfoForm` only; canonical sources are `startAt` and `solveScheduledAt`. */
@@ -129,15 +130,15 @@ export interface ExamWizardState {
 }
 
 /**
- * Pure selector — never stored in state.
- * Returns the delivery mode of the selected course, defaulting to ONLINE
- * when the course list has not yet loaded or no course is selected.
+ * Suggested default delivery mode when a course is first selected.
+ * Does not override an admin's explicit delivery-mode choice.
  */
-export function getEffectiveDeliveryMode(
+export function defaultDeliveryModeForCourse(
   courseId: string,
   courses: Pick<Course, 'id' | 'type'>[],
 ): 'ONLINE' | 'OFFLINE' {
-  return courses.find((c) => c.id === courseId)?.type ?? 'ONLINE';
+  const courseType = courses.find((c) => c.id === courseId)?.type;
+  return courseType === 'OFFLINE' ? 'OFFLINE' : 'ONLINE';
 }
 
 export const WIZARD_STEPS = [
@@ -241,7 +242,7 @@ export function defaultOmrConfig(): OmrConfig {
 /**
  * When OMR scan is selected for an offline exam, ensure `omrConfig` exists so
  * preflight and persistence can set `omrQuestionCount` / `omrOptionCount`.
- * `deliveryMode` is passed explicitly since it is no longer stored in state.
+ * Uses `state.deliveryMode` to decide whether OMR defaults apply.
  */
 export function resolveOmrConfigForState(
   state: Pick<ExamWizardState, 'resultInputModes' | 'omrConfig' | 'productType'>,

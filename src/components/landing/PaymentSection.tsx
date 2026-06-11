@@ -1,12 +1,15 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 
+const PAYMENT_LOGO = '/images/collaborator/bikash-logo.png';
+const PAYMENT_PLACEHOLDER =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='140'%3E%3Crect width='300' height='140' fill='%235C2D91'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-size='14' font-family='sans-serif'%3EPayment%3C/text%3E%3C/svg%3E";
+
 interface Props {
-  handleImageError: (e: React.SyntheticEvent<HTMLImageElement, Event>, text?: string) => void;
   badge?: string;
   title?: string;
   subtitle?: string;
@@ -14,12 +17,14 @@ interface Props {
 }
 
 export const PaymentSection: React.FC<Props> = ({
-  handleImageError,
   badge = 'Secure Checkout',
   title = 'পেমেন্ট পার্টনার',
   subtitle = 'Trusted payment gateways ensuring safe and secure transactions',
   footerText = 'Powered by bKash',
-}) => (
+}) => {
+  const [imgSrc, setImgSrc] = useState(PAYMENT_LOGO);
+
+  return (
   <section className="relative overflow-hidden bg-linear-to-br from-sky-50 via-white to-indigo-50 py-14 sm:py-16 md:py-20 lg:py-24">
     <div className="absolute -left-32 top-0 h-72 w-72 rounded-full bg-sky-200/35 blur-3xl sm:h-96 sm:w-96" />
     <div className="absolute -bottom-24 -right-28 h-72 w-72 rounded-full bg-indigo-200/35 blur-3xl sm:h-96 sm:w-96" />
@@ -51,13 +56,13 @@ export const PaymentSection: React.FC<Props> = ({
             <div className="absolute inset-x-8 top-1/2 h-24 -translate-y-1/2 rounded-full bg-blue-100/60 blur-3xl opacity-70 transition-opacity duration-500 group-hover:opacity-100" />
 
             <Image
-              src="/images/collaborator/bikash-logo.png"
+              src={imgSrc}
               alt="bKash Payment Partner"
               width={2000}
               height={918}
               className="relative h-auto w-full max-w-[200px] object-contain drop-shadow-xl transition duration-500 group-hover:scale-[1.03] 
               sm:max-w-[250px] md:max-w-[300px]"
-              onError={(e) => handleImageError(e, 'Payment Gateway')}
+              onError={() => setImgSrc(PAYMENT_PLACEHOLDER)}
             />
           </div>
         </motion.div>
@@ -72,4 +77,5 @@ export const PaymentSection: React.FC<Props> = ({
       </div>
     </div>
   </section>
-);
+  );
+};

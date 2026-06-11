@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useLayoutEffect, useMemo, useState } from 'react';
 
 /** Shape of `user` JSON from login / localStorage (may gain fields after profile updates). */
 export type StoredAuthUser = {
@@ -44,6 +44,17 @@ export function initialsFromFullName(name: string): string {
   return t.slice(0, 2).toUpperCase();
 }
 
+function readRoleFromCookie(): string | undefined {
+  if (typeof document === 'undefined') return undefined;
+  const match = document.cookie.match(/(?:^|;\s*)user_role=([^;]*)/);
+  if (!match?.[1]) return undefined;
+  try {
+    return decodeURIComponent(match[1]).trim() || undefined;
+  } catch {
+    return match[1].trim() || undefined;
+  }
+}
+
 export function parseStoredAuthUser(): StoredAuthUser | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -66,6 +77,15 @@ export function parseStoredAuthUser(): StoredAuthUser | null {
   }
 }
 
+function syncAdminSessionUser(): StoredAuthUser | null {
+  const parsed = parseStoredAuthUser();
+  if (parsed) return parsed;
+
+  const role = readRoleFromCookie();
+  if (!role) return null;
+  return { fullName: 'Admin', role };
+}
+
 export function clearAuthStorage(): void {
   localStorage.removeItem('auth_token');
   localStorage.removeItem('user');
@@ -80,9 +100,9 @@ export function clearAuthStorage(): void {
 export function useAdminSession() {
   const [user, setUser] = useState<StoredAuthUser | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const sync = () => {
-      setUser(parseStoredAuthUser());
+      setUser(syncAdminSessionUser());
     };
     sync();
     const onStorage = (e: StorageEvent) => {

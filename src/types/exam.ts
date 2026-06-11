@@ -422,6 +422,9 @@ export interface AttemptResultResponse {
   };
   questions: ExamQuestion[];
   showSolutions: boolean;
+  /** When true, marks and solutions are withheld until the admin releases results. */
+  resultHidden?: boolean;
+  resultHiddenMessage?: string;
 }
 
 export interface ApiResponse<T> {

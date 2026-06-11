@@ -192,6 +192,58 @@ export async function getSystemStats(): Promise<SystemStatsResponse> {
   return apiRequest<SystemStatsResponse>('/reports/stats');
 }
 
+// ─── Dashboard Summary (aggregated) ───────────────────────────────────────────
+
+export interface DashboardSummaryParams {
+  from?: string;
+  to?: string;
+  bookFrom?: string;
+  bookTo?: string;
+  branchId?: string;
+}
+
+export interface DashboardSummaryData {
+  stats: SystemStatsData;
+  revenue: {
+    buckets: RevenueSummaryData[];
+    totalAmount: number;
+    totalTransactions: number;
+  };
+  due: {
+    totals: { totalPayable: number; totalPaid: number; totalDue: number };
+    data: DueSummaryRow[];
+    topBranches: DueSummaryRow[];
+  };
+  enrollments: {
+    data: EnrollmentReportData[];
+    activeCount: number;
+    topCourses: EnrollmentReportData[];
+  };
+  bookSales: {
+    data: BookSalesRow[];
+    totals: { totalRevenue: number; totalQtySold: number };
+    topBooks: BookSalesRow[];
+  };
+}
+
+export interface DashboardSummaryResponse {
+  success: boolean;
+  data: DashboardSummaryData;
+}
+
+export async function getDashboardSummary(
+  params?: DashboardSummaryParams,
+): Promise<DashboardSummaryResponse> {
+  const q = new URLSearchParams();
+  if (params?.from) q.append('from', params.from);
+  if (params?.to) q.append('to', params.to);
+  if (params?.bookFrom) q.append('bookFrom', params.bookFrom);
+  if (params?.bookTo) q.append('bookTo', params.bookTo);
+  if (params?.branchId) q.append('branchId', params.branchId);
+  const qs = q.toString();
+  return apiRequest<DashboardSummaryResponse>(`/reports/dashboard-summary${qs ? `?${qs}` : ''}`);
+}
+
 // ─── Book Sales Report ────────────────────────────────────────────────────────
 
 export interface BookSalesParams {

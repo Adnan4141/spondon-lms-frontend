@@ -81,8 +81,10 @@ export function Step1CategoryInfo({
 
       <DeliveryModeCard
         courseId={state.courseId}
+        courses={courses}
         deliveryMode={deliveryMode}
         productType={state.productType}
+        dispatch={dispatch}
       />
 
       <OmrSheetConfigCard state={state} dispatch={dispatch} deliveryMode={deliveryMode} />

@@ -38,7 +38,14 @@ export const DigitalLibrarySection: React.FC<Props> = ({
           transition={{ duration: 18, repeat: Infinity, delay: 1 }}
           className="absolute bottom-[-15%] left-[-10%] w-[70%] h-[70%] bg-indigo-500 rounded-full blur-[150px]"
         />
-        <div className="absolute inset-0 opacity-[0.05] bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]" />
+        <div
+          className="absolute inset-0 opacity-[0.04]"
+          style={{
+            backgroundImage:
+              'repeating-linear-gradient(45deg, #fff 0, #fff 1px, transparent 0, transparent 50%)',
+            backgroundSize: '10px 10px',
+          }}
+        />
       </div>
 
       <div className="mx-auto max-w-7xl px-6 lg:px-12 relative z-10">

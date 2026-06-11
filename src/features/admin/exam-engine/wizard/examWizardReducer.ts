@@ -19,10 +19,11 @@ export type WizardFormAction =
   | { type: 'MERGE'; patch: Partial<ExamWizardState> }
   | { type: 'SET_STEP'; step: number }
   | { type: 'HYDRATE'; state: ExamWizardState }
-  | { type: 'SET_COURSE'; courseId: string; deliveryMode: 'ONLINE' | 'OFFLINE' }
-  | { type: 'APPLY_PRODUCT_TYPE'; productType: ExamProductType; deliveryMode: 'ONLINE' | 'OFFLINE' }
-  | { type: 'SET_RESULT_INPUT_MODES'; modes: ExamWizardState['resultInputModes']; deliveryMode: 'ONLINE' | 'OFFLINE'; userEdited?: boolean }
-  | { type: 'APPLY_SUGGESTED_RESULT_MODES'; deliveryMode: 'ONLINE' | 'OFFLINE' }
+  | { type: 'SET_COURSE'; courseId: string; /** Suggested default when no course was selected yet. */ defaultDeliveryMode?: 'ONLINE' | 'OFFLINE' }
+  | { type: 'SET_DELIVERY_MODE'; deliveryMode: 'ONLINE' | 'OFFLINE' }
+  | { type: 'APPLY_PRODUCT_TYPE'; productType: ExamProductType }
+  | { type: 'SET_RESULT_INPUT_MODES'; modes: ExamWizardState['resultInputModes']; userEdited?: boolean }
+  | { type: 'APPLY_SUGGESTED_RESULT_MODES' }
   | { type: 'ADD_SECTION'; section: WizardSection }
   | { type: 'REMOVE_SECTION'; localId: string }
   | { type: 'UPDATE_SECTION'; localId: string; patch: Partial<WizardSection> }
@@ -51,6 +52,30 @@ export type WizardFormAction =
   | { type: 'UPDATE_SUBJECT'; localId: string; patch: Partial<WizardSubject> }
   | { type: 'REMOVE_SUBJECT'; localId: string };
 
+function applyDeliveryModeChange(
+  state: ExamWizardState,
+  deliveryMode: 'ONLINE' | 'OFFLINE',
+  patch: Partial<ExamWizardState> = {},
+): ExamWizardState {
+  const stripped = sanitizeResultInputModes(state.productType, deliveryMode, state.resultInputModes);
+  const suggestion = suggestedResultModes(state.productType, deliveryMode);
+  const nextModes = state.resultInputModesUserEdited
+    ? (stripped.length > 0 ? stripped : (suggestion ?? stripped))
+    : (suggestion ?? stripped);
+  const offlineReset =
+    deliveryMode === 'OFFLINE'
+      ? { autoSubmitOnDisconnect: false as const, disconnectGraceSeconds: '10' }
+      : {};
+  const next = {
+    ...state,
+    ...patch,
+    deliveryMode,
+    resultInputModes: nextModes,
+    ...offlineReset,
+  };
+  return { ...next, omrConfig: resolveOmrConfigForState(next, deliveryMode) };
+}
+
 export function examWizardReducer(state: ExamWizardState, action: WizardFormAction): ExamWizardState {
   switch (action.type) {
     case 'MERGE':
@@ -62,33 +87,21 @@ export function examWizardReducer(state: ExamWizardState, action: WizardFormActi
     case 'HYDRATE':
       return { ...action.state };
     case 'SET_COURSE': {
-      const stripped = sanitizeResultInputModes(
-        state.productType,
-        action.deliveryMode,
-        state.resultInputModes,
-      );
-      const suggestion = suggestedResultModes(state.productType, action.deliveryMode);
-      const nextModes = state.resultInputModesUserEdited
-        ? (stripped.length > 0 ? stripped : (suggestion ?? stripped))
-        : (suggestion ?? stripped);
-      const offlineReset =
-        action.deliveryMode === 'OFFLINE'
-          ? { autoSubmitOnDisconnect: false as const, disconnectGraceSeconds: '10' }
-          : {};
-      const next = {
-        ...state,
-        courseId: action.courseId,
-        resultInputModes: nextModes,
-        ...offlineReset,
-      };
-      return { ...next, omrConfig: resolveOmrConfigForState(next, action.deliveryMode) };
+      const isFirstSelection = !state.courseId;
+      if (isFirstSelection && action.defaultDeliveryMode) {
+        return applyDeliveryModeChange(state, action.defaultDeliveryMode, { courseId: action.courseId });
+      }
+      return { ...state, courseId: action.courseId };
     }
+    case 'SET_DELIVERY_MODE':
+      if (action.deliveryMode === state.deliveryMode) return state;
+      return applyDeliveryModeChange(state, action.deliveryMode);
     case 'APPLY_PRODUCT_TYPE': {
       const sections = defaultSectionsFor(action.productType, state.defaultNegativeMarks);
       // Auto-fill result modes only when the admin hasn't manually touched the field.
       const suggestion = state.resultInputModesUserEdited
         ? state.resultInputModes
-        : (suggestedResultModes(action.productType, action.deliveryMode) ?? state.resultInputModes);
+        : (suggestedResultModes(action.productType, state.deliveryMode) ?? state.resultInputModes);
       const next = {
         ...state,
         productType: action.productType,
@@ -96,7 +109,7 @@ export function examWizardReducer(state: ExamWizardState, action: WizardFormActi
         subjects: action.productType === 'MULTI' ? state.subjects : [],
         resultInputModes: suggestion,
       };
-      return { ...next, omrConfig: resolveOmrConfigForState(next, action.deliveryMode) };
+      return { ...next, omrConfig: resolveOmrConfigForState(next, state.deliveryMode) };
     }
     case 'SET_RESULT_INPUT_MODES': {
       // Default: any explicit change counts as a user edit so we stop
@@ -104,25 +117,25 @@ export function examWizardReducer(state: ExamWizardState, action: WizardFormActi
       const userEdited = action.userEdited ?? true;
       const sanitized = sanitizeResultInputModes(
         state.productType,
-        action.deliveryMode,
+        state.deliveryMode,
         action.modes,
       );
       const fallback =
-        suggestedResultModes(state.productType, action.deliveryMode)
+        suggestedResultModes(state.productType, state.deliveryMode)
         ?? (['AUTOMATED'] as ExamWizardState['resultInputModes']);
       const nextModes = sanitized.length > 0 ? sanitized : fallback;
       const next = { ...state, resultInputModes: nextModes, resultInputModesUserEdited: userEdited };
-      return { ...next, omrConfig: resolveOmrConfigForState(next, action.deliveryMode) };
+      return { ...next, omrConfig: resolveOmrConfigForState(next, state.deliveryMode) };
     }
     case 'APPLY_SUGGESTED_RESULT_MODES': {
-      const suggestion = suggestedResultModes(state.productType, action.deliveryMode);
+      const suggestion = suggestedResultModes(state.productType, state.deliveryMode);
       if (!suggestion || suggestion.length === 0) return state;
       if (resultInputModesEqual(state.resultInputModes, suggestion)) return state;
       // Applying the suggestion explicitly still counts as the user opting in
       // — but it's a controlled opt-in so we leave `userEdited` false. That
       // way switching Type/Course again still flows fresh suggestions.
       const next = { ...state, resultInputModes: suggestion, resultInputModesUserEdited: false };
-      return { ...next, omrConfig: resolveOmrConfigForState(next, action.deliveryMode) };
+      return { ...next, omrConfig: resolveOmrConfigForState(next, state.deliveryMode) };
     }
     case 'ADD_SECTION':
       return { ...state, sections: [...state.sections, action.section] };

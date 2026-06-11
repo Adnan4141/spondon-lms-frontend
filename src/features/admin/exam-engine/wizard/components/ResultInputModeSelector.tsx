@@ -48,8 +48,8 @@ function disabledReason(
   deliveryMode: 'ONLINE' | 'OFFLINE',
 ): string | null {
   if (!isResultInputModeAllowed(mode, state.productType, deliveryMode)) {
-    if (mode === 'AUTOMATED') return 'Online course only.';
-    if (mode === 'OMR_SCAN' && deliveryMode !== 'OFFLINE') return 'Offline course only.';
+    if (mode === 'AUTOMATED') return 'Online delivery only.';
+    if (mode === 'OMR_SCAN' && deliveryMode !== 'OFFLINE') return 'Offline delivery only.';
     if (mode === 'OMR_SCAN') return 'Not supported for Written exams.';
   }
   return null;
@@ -70,11 +70,11 @@ export function ResultInputModeSelector({ state, dispatch, deliveryMode }: Props
     const next = state.resultInputModes.includes(mode)
       ? state.resultInputModes.filter((m) => m !== mode)
       : [...state.resultInputModes, mode];
-    dispatch({ type: 'SET_RESULT_INPUT_MODES', modes: next, deliveryMode });
+    dispatch({ type: 'SET_RESULT_INPUT_MODES', modes: next });
   };
 
   const applySuggestion = () => {
-    dispatch({ type: 'APPLY_SUGGESTED_RESULT_MODES', deliveryMode });
+    dispatch({ type: 'APPLY_SUGGESTED_RESULT_MODES' });
   };
 
   const productTypeLabel = state.productType ? PRODUCT_TYPE_LABEL[state.productType] : 'this exam';
@@ -95,7 +95,7 @@ export function ResultInputModeSelector({ state, dispatch, deliveryMode }: Props
               <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[#0D1B35]" />
               <div className="min-w-0">
                 <p className="text-xs font-bold text-[#0D1B35]">
-                  Recommended for {productTypeLabel} + {deliveryMode === 'ONLINE' ? 'Online' : 'Offline'} course
+                  Recommended for {productTypeLabel} + {deliveryMode === 'ONLINE' ? 'Online' : 'Offline'} delivery
                 </p>
                 <p className="text-[11px] text-slate-600">{suggestionLabels}</p>
               </div>

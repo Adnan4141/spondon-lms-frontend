@@ -354,6 +354,7 @@ export async function getExamAuditTrail(examId: string): Promise<ApiResponse<Exa
 
 export interface ExamAnalytics {
   totalAttempts: number;
+  dataSource?: 'online' | 'offline' | 'none';
   totalMarks: number;
   average: number;
   highest: number;
@@ -613,6 +614,59 @@ export async function getExamMeritListOffline(examId: string): Promise<ApiRespon
 
 export async function getExamMeritListAll(examId: string): Promise<ApiResponse<ExamMeritListPayload>> {
   return apiRequest<ApiResponse<ExamMeritListPayload>>(`/exams/${examId}/merit-list/all`);
+}
+
+export type MeritSnapshotSummary = {
+  id: string;
+  meritType: string;
+  status: string;
+  version: number;
+  lockedAt?: string | null;
+  publishedAt?: string | null;
+  reopenedAt?: string | null;
+  reopenReason?: string | null;
+  generatedAt: string;
+  updatedAt: string;
+};
+
+export async function listMeritSnapshots(examId: string): Promise<ApiResponse<MeritSnapshotSummary[]>> {
+  return apiRequest<ApiResponse<MeritSnapshotSummary[]>>(`/exams/${examId}/merit/snapshots`);
+}
+
+export async function previewMeritSnapshot(
+  examId: string,
+  meritType: 'ONLINE' | 'OFFLINE' | 'ALL' = 'ALL',
+): Promise<ApiResponse<{ examId: string; meritType: string; rows: Record<string, unknown>[]; count: number }>> {
+  return apiRequest(`/exams/${examId}/merit/preview?meritType=${meritType}`);
+}
+
+export async function createMeritSnapshot(
+  examId: string,
+  meritType: 'ONLINE' | 'OFFLINE' | 'ALL' = 'ALL',
+): Promise<ApiResponse<MeritSnapshotSummary>> {
+  return apiRequest(`/exams/${examId}/merit/snapshots`, {
+    method: 'POST',
+    body: JSON.stringify({ meritType }),
+  });
+}
+
+export async function lockMeritSnapshot(examId: string, snapshotId: string): Promise<ApiResponse<MeritSnapshotSummary>> {
+  return apiRequest(`/exams/${examId}/merit/${snapshotId}/lock`, { method: 'POST' });
+}
+
+export async function publishMeritSnapshot(examId: string, snapshotId: string): Promise<ApiResponse<MeritSnapshotSummary>> {
+  return apiRequest(`/exams/${examId}/merit/${snapshotId}/publish`, { method: 'POST' });
+}
+
+export async function reopenMeritSnapshot(
+  examId: string,
+  snapshotId: string,
+  reason: string,
+): Promise<ApiResponse<MeritSnapshotSummary>> {
+  return apiRequest(`/exams/${examId}/merit/${snapshotId}/reopen`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
 }
 
 // ─── Exam Subjects & Folder Rules ───────────────────────────────────────────

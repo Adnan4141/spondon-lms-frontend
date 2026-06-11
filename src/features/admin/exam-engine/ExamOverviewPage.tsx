@@ -10,12 +10,14 @@ import {
   MessageSquare,
   ScanLine,
   Trash2,
+  Ban,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
   deleteExam,
+  updateExam,
   getExamSections,
   getExamOperationsSummary,
   getExamAuditTrail,
@@ -86,6 +88,46 @@ export function ExamOverviewPage({ examId }: { examId: string }) {
     () => sets.reduce((a, st) => a + (st.questions?.length ?? 0), 0),
     [sets],
   );
+
+  const openCloseExam = () => {
+    if (!exam) return;
+    const title = exam.title;
+    openModal({
+      title: 'Close exam',
+      description: 'Students will no longer be able to start new attempts. Existing results are kept.',
+      className: 'sm:max-w-lg',
+      content: (
+        <ConfirmationModal
+          title="Close this exam?"
+          description={`“${title}” will be marked CLOSED. You can still enter results and view analytics.`}
+          confirmLabel="Close exam"
+          variant="danger"
+          onConfirm={async () => {
+            try {
+              const response = await updateExam(examId, { status: 'CLOSED' });
+              if (!response.success) {
+                toast({
+                  title: 'Close failed',
+                  description: response.message ?? 'Could not close this exam.',
+                  variant: 'destructive',
+                });
+                return;
+              }
+              toast({ title: 'Exam closed' });
+              await refreshExam();
+              await loadExtras();
+            } catch (error) {
+              toast({
+                title: 'Close failed',
+                description: error instanceof Error ? error.message : 'Could not close this exam.',
+                variant: 'destructive',
+              });
+            }
+          }}
+        />
+      ),
+    });
+  };
 
   const openDeleteExam = () => {
     if (!exam) return;
@@ -167,6 +209,14 @@ export function ExamOverviewPage({ examId }: { examId: string }) {
       <ExamWorkspacePageHeader
         title="Overview"
         description={`${exam.branch?.name ?? (exam.branchId == null ? 'All branches' : 'Branch')} · ${exam.durationMinutes ?? '—'} min`}
+        actions={
+          exam.status === 'PUBLISHED' ? (
+            <Button type="button" size="sm" variant="outline" onClick={openCloseExam}>
+              <Ban className="mr-1 h-3.5 w-3.5" />
+              Close exam
+            </Button>
+          ) : null
+        }
       />
 
       {operations?.omr.enabled && operations.omr.reviewNeeded > 0 ? (

@@ -146,6 +146,12 @@ export function ExamResultsPage({ examId, teacherEvaluatorMode = false }: ExamRe
     const workflow = (settings.examWorkflow ?? {}) as Record<string, unknown>;
     return workflow.productType === 'COMBINED' && omrScanEnabled;
   }, [exam?.settings, omrScanEnabled]);
+  const hasOmrFinalizedBatch = useMemo(
+    () => resultBatches.some(
+      (batch) => batch.inputMode === 'OMR_SCAN' && batch.approvalStatus === 'APPROVED_BY_CENTRAL',
+    ),
+    [resultBatches],
+  );
   const selectedBranchId = branchId || exam?.branchId || '';
 
   const tabAvailability = useMemo<Record<ResultsTabKey, boolean>>(() => {
@@ -466,6 +472,7 @@ export function ExamResultsPage({ examId, teacherEvaluatorMode = false }: ExamRe
               onOpenSmsWorkspace={(batch) => void openResultSmsWorkspace(batch)}
               onBatchUpdated={() => void load()}
               isCombinedOffline={isCombinedOffline}
+              hasOmrFinalizedBatch={hasOmrFinalizedBatch}
             />
           ) : (
             <UnavailableResultsTab message="Offline result entry is not required for this exam." />
@@ -492,7 +499,14 @@ export function ExamResultsPage({ examId, teacherEvaluatorMode = false }: ExamRe
         </TabsContent>
 
         <TabsContent value="merit" className="mt-0">
-          <MeritListTab meritRows={meritRows} canExport={can('exam.results.merit.export')} />
+          <MeritListTab
+            examId={examId}
+            meritRows={meritRows}
+            canExport={can('exam.results.merit.export')}
+            canPublishMerit={can('exam.results.merit.publish')}
+            canReopenMerit={can('exam.results.merit.reopen')}
+            onMeritPublished={() => void load()}
+          />
         </TabsContent>
       </ResultsTabs>
 

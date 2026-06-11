@@ -12,9 +12,33 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import type { MeritRow } from './types';
+import { MeritPublishPanel } from './MeritPublishPanel';
 
-export function MeritListTab({ meritRows, canExport = true }: { meritRows: MeritRow[]; canExport?: boolean }) {
+type Props = {
+  examId: string;
+  meritRows: MeritRow[];
+  canExport?: boolean;
+  canPublishMerit?: boolean;
+  canReopenMerit?: boolean;
+  onMeritPublished?: () => void;
+};
+
+export function MeritListTab({
+  examId,
+  meritRows,
+  canExport = true,
+  canPublishMerit = false,
+  canReopenMerit = false,
+  onMeritPublished,
+}: Props) {
   return (
+    <div className="space-y-4">
+      <MeritPublishPanel
+        examId={examId}
+        canPublish={canPublishMerit}
+        canReopen={canReopenMerit}
+        onPublished={() => onMeritPublished?.()}
+      />
     <Card id="merit-print" className="border-slate-200 shadow-sm scroll-mt-24">
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
         <div>
@@ -61,5 +85,6 @@ export function MeritListTab({ meritRows, canExport = true }: { meritRows: Merit
         )}
       </CardContent>
     </Card>
+    </div>
   );
 }

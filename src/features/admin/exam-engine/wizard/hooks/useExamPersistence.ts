@@ -27,8 +27,6 @@ interface Options {
   examId?: string;
   state: ExamWizardState;
   serverExam: { status: ExamStatus; pdfUrl?: string | null } | null;
-  /** Effective delivery mode derived from the selected course — not stored in state. */
-  effectiveDeliveryMode: 'ONLINE' | 'OFFLINE';
 }
 
 /**
@@ -37,7 +35,7 @@ interface Options {
  * resultInputModes, solve sheet, schedule, smsNotification flag) to the
  * Exam DTO + nested settings JSON.
  */
-export function useExamPersistence({ examId, state, serverExam, effectiveDeliveryMode }: Options) {
+export function useExamPersistence({ examId, state, serverExam }: Options) {
   const toast = useAdminToast();
 
   const persistExam = useCallback(
@@ -57,15 +55,16 @@ export function useExamPersistence({ examId, state, serverExam, effectiveDeliver
       const isOmrBook =
         state.resultInputModes.includes('OMR_SCAN')
         && state.omrConfig != null
-        && effectiveDeliveryMode === 'OFFLINE';
+        && state.deliveryMode === 'OFFLINE';
       const dto: CreateExamDto = {
         courseId: state.courseId,
         branchId: branchResolved,
         title: state.title.trim(),
         type: mapProductTypeToExamType(productType),
-        mode: mapToExamMode(productType, effectiveDeliveryMode),
-        examEngine: mapProductTypeToEngine(productType, isOmrBook && effectiveDeliveryMode === 'OFFLINE'),
+        mode: mapToExamMode(productType, state.deliveryMode),
+        examEngine: mapProductTypeToEngine(productType, isOmrBook && state.deliveryMode === 'OFFLINE'),
         durationMinutes: Number(state.durationMinutes) || 60,
+        allowedAttempts: Math.max(1, Math.min(10, Number(state.allowedAttempts) || 1)),
         language: state.language,
         status: examId ? (serverExam?.status ?? 'DRAFT') : 'DRAFT',
         showLeaderboard: state.showLeaderboard,
@@ -87,7 +86,7 @@ export function useExamPersistence({ examId, state, serverExam, effectiveDeliver
         settings: {
           examWizard: {
             productType,
-            deliveryMode: effectiveDeliveryMode,
+            deliveryMode: state.deliveryMode,
             shuffle: state.shuffle,
             setNaming: state.setNaming,
             resultInputModes: state.resultInputModes,
@@ -99,12 +98,12 @@ export function useExamPersistence({ examId, state, serverExam, effectiveDeliver
           },
           examWorkflow: {
             productType,
-            deliveryMode: effectiveDeliveryMode,
+            deliveryMode: state.deliveryMode,
             resultInputModes: state.resultInputModes,
-            evaluationMode: effectiveDeliveryMode === 'OFFLINE' ? 'AGGREGATE' : 'SCRIPT_UPLOAD',
+            evaluationMode: state.deliveryMode === 'OFFLINE' ? 'AGGREGATE' : 'SCRIPT_UPLOAD',
             officialResultPipeline: 'RESULT_BATCH',
-            submissionOwner: isWritten && effectiveDeliveryMode === 'ONLINE' ? 'STUDENT' : 'ADMIN',
-            writtenSubmission: isWritten && effectiveDeliveryMode === 'ONLINE' ? 'CAMERA_OR_PDF' : undefined,
+            submissionOwner: isWritten && state.deliveryMode === 'ONLINE' ? 'STUDENT' : 'ADMIN',
+            writtenSubmission: isWritten && state.deliveryMode === 'ONLINE' ? 'CAMERA_OR_PDF' : undefined,
             enableQrAnswerSheet: isWritten,
             enablePdfCombine: isWritten,
             sms: { enabled: state.smsNotification },
@@ -143,11 +142,13 @@ export function useExamPersistence({ examId, state, serverExam, effectiveDeliver
           variant: 'default',
         });
         return id;
-      } catch {
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'An unexpected error occurred while saving.';
+        toast({ title: 'Save failed', description: message, variant: 'destructive' });
         return null;
       }
     },
-    [examId, serverExam, state, toast, effectiveDeliveryMode],
+    [examId, serverExam, state, toast],
   );
 
   return { persistExam };
@@ -250,7 +251,14 @@ async function persistSections(
       negativeMarks: s.neg,
       folderRules,
     });
-    if (!created.success || !created.data) continue;
+    if (!created.success || !created.data) {
+      toast({
+        title: 'Section save failed',
+        description: created.message ?? `Could not save section "${s.label || s.type}".`,
+        variant: 'destructive',
+      });
+      return false;
+    }
     if (finalize && s.folderRules.length) {
       const union = [...new Set(s.folderRules.map((r) => r.folderId))];
       const mergedEx = [...new Set(s.folderRules.flatMap((r) => r.excludedQuestionIds))];

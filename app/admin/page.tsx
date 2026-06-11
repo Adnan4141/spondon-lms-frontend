@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
@@ -25,18 +25,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  getBookSalesReport,
-  getDueSummary,
-  getEnrollmentReport,
-  getRevenueSummary,
-  getSystemStats,
-  type BookSalesRow,
-  type DueSummaryRow,
-  type EnrollmentReportData,
-  type RevenueSummaryData,
-  type SystemStatsData,
-} from '@/lib/api/reports';
+import { useDashboardSummary } from '@/lib/query/hooks/useDashboardSummary';
 import { cn } from '@/lib/utils';
 
 const AdminDashboardCharts = dynamic(
@@ -138,78 +127,43 @@ function StatCard({
   );
 }
 
+const dashboardParams = {
+  from: monthStart(-5),
+  to: today(),
+  bookFrom: monthStart(0),
+  bookTo: today(),
+};
+
 export default function AdminHomePage() {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [stats, setStats] = useState<SystemStatsData | null>(null);
-  const [revenue, setRevenue] = useState<RevenueSummaryData[]>([]);
-  const [revenueTotal, setRevenueTotal] = useState(0);
-  const [transactionCount, setTransactionCount] = useState(0);
-  const [dueRows, setDueRows] = useState<DueSummaryRow[]>([]);
-  const [dueTotals, setDueTotals] = useState({ totalPayable: 0, totalPaid: 0, totalDue: 0 });
-  const [enrollments, setEnrollments] = useState<EnrollmentReportData[]>([]);
-  const [bookSales, setBookSales] = useState<BookSalesRow[]>([]);
+  const { data: dashboard, isLoading, isFetching, error, refetch } = useDashboardSummary(dashboardParams);
 
-  const loadDashboard = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [statsRes, revenueRes, dueRes, enrollmentRes, bookRes] = await Promise.all([
-        getSystemStats(),
-        getRevenueSummary({ period: 'monthly', from: monthStart(-5), to: today() }),
-        getDueSummary(),
-        getEnrollmentReport(),
-        getBookSalesReport({ from: monthStart(0), to: today() }),
-      ]);
+  const loading = isLoading || (isFetching && !dashboard);
 
-      if (statsRes.success) setStats(statsRes.data);
-      if (revenueRes.success) {
-        setRevenue(revenueRes.data ?? []);
-        setRevenueTotal(Number(revenueRes.totals?.totalAmount ?? 0));
-        setTransactionCount(Number(revenueRes.totals?.totalTransactions ?? 0));
-      }
-      if (dueRes.success) {
-        setDueRows(dueRes.data ?? []);
-        setDueTotals(dueRes.totals ?? { totalPayable: 0, totalPaid: 0, totalDue: 0 });
-      }
-      if (enrollmentRes.success) setEnrollments(enrollmentRes.data ?? []);
-      if (bookRes.success) setBookSales(bookRes.data ?? []);
-    } catch (err) {
-      setError((err as Error).message || 'Failed to load dashboard data');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const stats = dashboard?.stats ?? null;
+  const revenue = dashboard?.revenue.buckets ?? [];
+  const revenueTotal = dashboard?.revenue.totalAmount ?? 0;
+  const transactionCount = dashboard?.revenue.totalTransactions ?? 0;
+  const dueTotals = dashboard?.due.totals ?? { totalPayable: 0, totalPaid: 0, totalDue: 0 };
+  const topCourses = dashboard?.enrollments.topCourses ?? [];
+  const topDueBranches = dashboard?.due.topBranches ?? [];
+  const topBooks = dashboard?.bookSales.topBooks ?? [];
+  const activeEnrollments = dashboard?.enrollments.activeCount ?? 0;
+  const bookRevenue = dashboard?.bookSales.totals.totalRevenue ?? 0;
 
-  useEffect(() => {
-    void loadDashboard();
-  }, []);
-
-  const topCourses = useMemo(
-    () => [...enrollments].sort((a, b) => b.enrollmentCount - a.enrollmentCount).slice(0, 6),
-    [enrollments],
+  const collectionData = useMemo(
+    () =>
+      [
+        { name: 'Collected', value: dueTotals.totalPaid },
+        { name: 'Due', value: dueTotals.totalDue },
+      ].filter((row) => row.value > 0),
+    [dueTotals.totalDue, dueTotals.totalPaid],
   );
 
-  const topDueBranches = useMemo(
-    () => [...dueRows].sort((a, b) => b.totalDue - a.totalDue).slice(0, 5),
-    [dueRows],
-  );
-
-  const topBooks = useMemo(
-    () => [...bookSales].sort((a, b) => b.totalRevenue - a.totalRevenue).slice(0, 5),
-    [bookSales],
-  );
-
-  const collectionData = [
-    { name: 'Collected', value: dueTotals.totalPaid },
-    { name: 'Due', value: dueTotals.totalDue },
-  ].filter((row) => row.value > 0);
-
-  const activeEnrollments = enrollments.reduce((sum, row) => sum + row.enrollmentCount, 0);
-  const bookRevenue = bookSales.reduce((sum, row) => sum + row.totalRevenue, 0);
   const collectionRate = dueTotals.totalPayable > 0
     ? Math.round((dueTotals.totalPaid / dueTotals.totalPayable) * 100)
     : 0;
+
+  const errorMessage = error instanceof Error ? error.message : error ? 'Failed to load dashboard data' : null;
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
@@ -223,7 +177,7 @@ export default function AdminHomePage() {
         <Button
           type="button"
           variant="outline"
-          onClick={loadDashboard}
+          onClick={() => void refetch()}
           disabled={loading}
           className="w-full gap-2 sm:w-auto"
         >
@@ -232,10 +186,10 @@ export default function AdminHomePage() {
         </Button>
       </div>
 
-      {error ? (
+      {errorMessage ? (
         <div className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>{error}</span>
+          <span>{errorMessage}</span>
         </div>
       ) : null}
 
@@ -250,7 +204,7 @@ export default function AdminHomePage() {
         />
         <StatCard
           label="Revenue"
-          value={loading && revenue.length === 0 ? '...' : money(revenueTotal)}
+          value={loading && !dashboard ? '...' : money(revenueTotal)}
           icon={TrendingUp}
           color="text-emerald-600"
           bg="bg-emerald-50"
@@ -258,7 +212,7 @@ export default function AdminHomePage() {
         />
         <StatCard
           label="Outstanding Due"
-          value={money(dueTotals.totalDue)}
+          value={loading && !dashboard ? '...' : money(dueTotals.totalDue)}
           icon={CreditCard}
           color="text-rose-600"
           bg="bg-rose-50"
@@ -266,7 +220,7 @@ export default function AdminHomePage() {
         />
         <StatCard
           label="Courses & Content"
-          value={`${count(stats?.courses ?? 0)} / ${count(stats?.contents ?? 0)}`}
+          value={loading && !stats ? '...' : `${count(stats?.courses ?? 0)} / ${count(stats?.contents ?? 0)}`}
           icon={BookOpen}
           color="text-amber-600"
           bg="bg-amber-50"
@@ -300,7 +254,7 @@ export default function AdminHomePage() {
               </div>
             )) : (
               <div className="rounded-lg bg-slate-50 p-5 text-center text-sm font-semibold text-slate-400">
-                No book sales this month
+                {loading ? 'Loading book sales…' : 'No book sales this month'}
               </div>
             )}
           </CardContent>

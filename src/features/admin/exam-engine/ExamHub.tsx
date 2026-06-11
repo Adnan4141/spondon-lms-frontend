@@ -15,6 +15,7 @@ import {
   Search,
   Trash2,
   Trophy,
+  Ban,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -31,7 +32,7 @@ import { ConfirmationModal } from '@/features/admin/shared';
 import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
 import { useModalStore } from '@/store/modalStore';
 import { cn } from '@/lib/utils';
-import { deleteExam, duplicateExam, getExams } from '@/lib/api/exams';
+import { deleteExam, duplicateExam, getExams, updateExam } from '@/lib/api/exams';
 import type { Exam, ExamMode, ExamStatus } from '@/types/exam';
 import type { ExamProductType } from './types';
 
@@ -505,6 +506,49 @@ export function ExamHub() {
                                 )}
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
+                              {exam.status === 'PUBLISHED' ? (
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    openModal({
+                                      title: 'Close exam',
+                                      className: 'sm:max-w-lg',
+                                      content: (
+                                        <ConfirmationModal
+                                          title="Close this exam?"
+                                          description={`“${exam.title}” will be marked CLOSED. Students cannot start new attempts.`}
+                                          confirmLabel="Close exam"
+                                          variant="danger"
+                                          onConfirm={async () => {
+                                            try {
+                                              const response = await updateExam(exam.id, { status: 'CLOSED' });
+                                              if (!response.success) {
+                                                toast({
+                                                  title: 'Close failed',
+                                                  description: response.message,
+                                                  variant: 'destructive',
+                                                });
+                                                return;
+                                              }
+                                              toast({ title: 'Exam closed' });
+                                              setExams((prev) =>
+                                                prev.map((row) => (row.id === exam.id ? { ...row, status: 'CLOSED' } : row)),
+                                              );
+                                            } catch (error) {
+                                              toast({
+                                                title: 'Close failed',
+                                                description: error instanceof Error ? error.message : 'Could not close this exam.',
+                                                variant: 'destructive',
+                                              });
+                                            }
+                                          }}
+                                        />
+                                      ),
+                                    });
+                                  }}
+                                >
+                                  <Ban className="h-4 w-4" /> Close exam
+                                </DropdownMenuItem>
+                              ) : null}
                               <DropdownMenuItem disabled={duplicateDisabled} onClick={() => void handleDuplicate(exam)}>
                                 <Copy className="h-4 w-4" /> Duplicate
                                 {duplicateDisabled ? <DisabledHint>Working</DisabledHint> : null}

@@ -16,14 +16,22 @@ export function AnalyticsTab({ stats }: { stats: ExamResultsStats }) {
     return (
       <Card>
         <CardContent className="py-8 text-center text-sm text-slate-500">
-          No analytics yet. Students need to submit attempts first.
+          No analytics yet. Publish online attempts or approve offline result batches first.
         </CardContent>
       </Card>
     );
   }
 
+  const sourceLabel =
+    stats.dataSource === 'offline'
+      ? 'Based on centrally approved offline result batches.'
+      : 'Based on submitted online exam attempts.';
+
   return (
     <div className="space-y-5">
+      {stats.dataSource ? (
+        <p className="text-xs font-medium text-slate-500">{sourceLabel}</p>
+      ) : null}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">

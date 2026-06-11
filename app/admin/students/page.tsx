@@ -1,13 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Toaster } from '@/components/ui/toast';
 import { useToast } from '@/hooks/use-toast';
-import { getPrograms } from '@/lib/api/programs';
-import { getCourses } from '@/lib/api/courses';
-import { getBranches } from '@/lib/api/branches';
 import { getUsers, getStudentDatabaseStats } from '@/lib/api/users';
+import { useAdminFilters } from '@/lib/query/hooks/useAdminFilters';
 import {
   downloadStudentExportJobXlsx,
   downloadStudentExportXlsx,
@@ -19,7 +17,6 @@ import {
   AddStudentModal,
   type AddStudentSaveMeta,
   BULK_STUDENT_IMPORT_COMPLETE_EVENT,
-  BranchOption,
   BulkImportStudentsModal,
   CollectPaymentModal,
   Course,
@@ -67,9 +64,30 @@ function useDebounce<T>(value: T, delayMs: number): T {
 export default function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [loadingStudents, setLoadingStudents] = useState(true);
-  const [programs, setPrograms] = useState<Program[]>([]);
-  const [allCourses, setAllCourses] = useState<Course[]>([]);
-  const [branches, setBranches] = useState<BranchOption[]>([]);
+  const { data: adminFilters } = useAdminFilters();
+  const programs = useMemo(
+    () => (adminFilters?.programs ?? []) as Program[],
+    [adminFilters?.programs],
+  );
+  const allCourses = useMemo(
+    () =>
+      (adminFilters?.courses ?? []).map((course) => ({
+        id: course.id,
+        name: course.name,
+        programId: course.programId,
+        fee: Number(course.fee ?? 0),
+        offerPrice: course.offerPrice ?? null,
+        type: (course.type === 'OFFLINE' ? 'OFFLINE' : 'ONLINE') as 'OFFLINE' | 'ONLINE',
+        startMonth: course.startMonth ?? '',
+        endMonth: course.endMonth ?? '',
+        batches: [],
+      })) as Course[],
+    [adminFilters?.courses],
+  );
+  const branches = useMemo(
+    () => (adminFilters?.branches ?? []).map((branch) => ({ id: branch.id, name: branch.name })),
+    [adminFilters?.branches],
+  );
   const [view, setView] = useState<'list' | 'enrollments'>('list');
   const [activeStudent, setActiveStudent] = useState<Student | null>(null);
   const [search, setSearch] = useState('');
@@ -207,30 +225,6 @@ export default function StudentsPage() {
   useEffect(() => {
     void Promise.resolve().then(loadStudents);
   }, [loadStudents]);
-
-  useEffect(() => {
-    void Promise.all([
-      getPrograms(),
-      getBranches({ all: true }),
-      getCourses({ all: true }),
-    ]).then(([programRes, branchRes, courseRes]) => {
-      if (programRes.success && programRes.data) setPrograms(programRes.data as Program[]);
-      if (branchRes.success && branchRes.data) setBranches(branchRes.data.map(b => ({ id: b.id, name: b.name })));
-      if (courseRes.success && courseRes.data) {
-        setAllCourses(courseRes.data.map(c => ({
-          id: c.id,
-          name: c.name,
-          programId: c.programId,
-          fee: Number(c.fee ?? 0),
-          offerPrice: c.offerPrice ?? null,
-          type: (c.type === 'OFFLINE' ? 'OFFLINE' : 'ONLINE') as 'OFFLINE' | 'ONLINE',
-          startMonth: c.startMonth ?? '',
-          endMonth: c.endMonth ?? '',
-          batches: [],
-        })));
-      }
-    });
-  }, []);
 
   // When program changes, reset course + batch. Courses are listed from allCourses.
   const handleSearchChange = useCallback((v: string) => {

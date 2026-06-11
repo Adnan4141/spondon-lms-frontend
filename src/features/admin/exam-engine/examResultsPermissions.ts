@@ -16,6 +16,8 @@ export const EXAM_RESULTS_CAPABILITIES = [
   'exam.results.written.finalize',
   'exam.results.sms.send',
   'exam.results.merit.export',
+  'exam.results.merit.publish',
+  'exam.results.merit.reopen',
 ] as const;
 
 export type ExamResultsCapability = (typeof EXAM_RESULTS_CAPABILITIES)[number];
@@ -33,14 +35,15 @@ const ROLE_CAPABILITIES: Record<string, ExamResultsCapability[]> = {
     'exam.results.omr.finalize',
     'exam.results.sms.send',
     'exam.results.merit.export',
+    'exam.results.merit.publish',
   ],
   TEACHER: [
     'exam.results.view',
     'exam.results.written.evaluate',
     'exam.results.written.finalize',
   ],
-  ACCOUNTS: ['exam.results.view', 'exam.results.merit.export'],
-  MODERATOR: ['exam.results.view', 'exam.results.merit.export'],
+  ACCOUNTS: ['exam.results.view', 'exam.results.merit.export', 'exam.results.merit.publish'],
+  MODERATOR: ['exam.results.view', 'exam.results.merit.export', 'exam.results.merit.publish'],
 };
 
 export function canExamResults(

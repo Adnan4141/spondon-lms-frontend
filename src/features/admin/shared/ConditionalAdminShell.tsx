@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { AdminLayout } from './AdminLayout';
 import { ExamResultsTeacherLayout } from '@/features/admin/exam-engine/ExamResultsTeacherLayout';
 import { useAdminSession } from './admin-session';
+import { AdminQueryProvider } from '@/components/providers/AdminQueryProvider';
 
 const TEACHER_RESULTS_PATH = /^\/admin\/exam\/[^/]+\/results\/?$/;
 
@@ -13,9 +14,11 @@ export function ConditionalAdminShell({ children }: { children: React.ReactNode 
   const teacherOnResults =
     user?.role === 'TEACHER' && (pathname ? TEACHER_RESULTS_PATH.test(pathname) : false);
 
-  if (teacherOnResults) {
-    return <ExamResultsTeacherLayout>{children}</ExamResultsTeacherLayout>;
-  }
+  const shell = teacherOnResults ? (
+    <ExamResultsTeacherLayout>{children}</ExamResultsTeacherLayout>
+  ) : (
+    <AdminLayout>{children}</AdminLayout>
+  );
 
-  return <AdminLayout>{children}</AdminLayout>;
+  return <AdminQueryProvider>{shell}</AdminQueryProvider>;
 }

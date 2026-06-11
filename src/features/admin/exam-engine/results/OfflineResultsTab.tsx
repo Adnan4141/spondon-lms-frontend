@@ -56,6 +56,8 @@ type OfflineResultsTabProps = {
   onBatchUpdated: () => void;
   /** When true, Excel column C is CQ marks merged into existing OMR MCQ results. */
   isCombinedOffline?: boolean;
+  /** Combined exams need a finalized OMR batch before CQ Excel upload. */
+  hasOmrFinalizedBatch?: boolean;
 };
 
 export function OfflineResultsTab({
@@ -90,7 +92,21 @@ export function OfflineResultsTab({
   onOpenSmsWorkspace,
   onBatchUpdated,
   isCombinedOffline = false,
+  hasOmrFinalizedBatch = false,
 }: OfflineResultsTabProps) {
+  const combinedExcelBlocked = isCombinedOffline && !hasOmrFinalizedBatch;
+
+  const downloadCombinedTemplate = () => {
+    const header = 'roll_no,name,cq_marks,comments\n';
+    const sample = 'REG-001,Student Name,18,Optional note\nREG-002,Another Student,22,\n';
+    const blob = new Blob([header + sample], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `combined-cq-template-${examId}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
   const toast = useAdminToast();
   const [batchBusyId, setBatchBusyId] = useState<string | null>(null);
   const missingBranch = !selectedBranchId && !examBranchId;
@@ -192,13 +208,31 @@ export function OfflineResultsTab({
                   ? 'COMBINED exam: column A = roll, column C = CQ marks only (MCQ comes from OMR finalize).'
                   : 'Columns: roll, name, marks, total, comments'}
               </p>
+              {isCombinedOffline ? (
+                <div className="mt-2 space-y-2">
+                  {combinedExcelBlocked ? (
+                    <p className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] font-medium text-amber-900">
+                      Finalize and centrally approve the OMR MCQ batch in the OMR tab before uploading CQ marks.
+                    </p>
+                  ) : null}
+                  <Button type="button" size="sm" variant="outline" onClick={downloadCombinedTemplate}>
+                    Download CQ template (CSV)
+                  </Button>
+                </div>
+              ) : null}
               <input
                 className="mt-3 block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-900 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white"
                 type="file"
-                accept=".xlsx,.xls"
+                accept=".xlsx,.xls,.csv"
                 onChange={(event) => onExcelFileChange(event.target.files?.[0] ?? null)}
               />
-              <Button className="mt-3" type="button" size="sm" disabled={offlineBusy || !excelFile || missingBranch} onClick={onSubmitExcel}>
+              <Button
+                className="mt-3"
+                type="button"
+                size="sm"
+                disabled={offlineBusy || !excelFile || missingBranch || combinedExcelBlocked}
+                onClick={onSubmitExcel}
+              >
                 Upload Excel
               </Button>
             </div>

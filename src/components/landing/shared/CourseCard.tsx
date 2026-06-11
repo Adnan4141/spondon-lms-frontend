@@ -10,7 +10,6 @@ import { COURSE_PLACEHOLDER, resolveMediaImageUrl } from '@/lib/image-url';
 
 interface Props {
   course: Course;
-  handleImageError?: (e: React.SyntheticEvent<HTMLImageElement, Event>, text?: string) => void;
 }
 
 export const CourseCard: React.FC<Props> = ({ course }) => {

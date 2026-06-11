@@ -10,7 +10,6 @@ import type { Course } from '@/types/course';
 
 interface Props {
   courses: Course[];
-  handleImageError?: (e: React.SyntheticEvent<HTMLImageElement, Event>, text?: string) => void;
   /** While true and courses empty, show skeletons instead of empty-state */
   loading?: boolean;
   badge?: string;

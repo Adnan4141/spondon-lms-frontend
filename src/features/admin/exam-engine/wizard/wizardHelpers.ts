@@ -165,6 +165,7 @@ export function setLabelsForPreview(setNaming: ExamWizardState['setNaming'], nSe
 
 export const WIZARD_FORM_INITIAL: ExamWizardState = {
   step: 1,
+  deliveryMode: 'ONLINE',
   productType: '',
   omrConfig: null,
   resultInputModes: ['AUTOMATED'],
@@ -180,6 +181,7 @@ export const WIZARD_FORM_INITIAL: ExamWizardState = {
   branchId: EXAM_WIZARD_ALL_BRANCHES,
   language: 'bn',
   durationMinutes: '60',
+  allowedAttempts: '1',
   autoSubmitOnDisconnect: false,
   disconnectGraceSeconds: '10',
   scheduleAt: undefined,
@@ -223,8 +225,9 @@ export function deserializeWizardForm(json: string): ExamWizardState | null {
         base.courseId = '';
       }
     }
-    // Remove stale deliveryMode key from any old drafts (belt-and-suspenders)
-    delete (base as unknown as Record<string, unknown>).deliveryMode;
+    if (base.deliveryMode !== 'ONLINE' && base.deliveryMode !== 'OFFLINE') {
+      base.deliveryMode = 'ONLINE';
+    }
     if (o.scheduleAt && typeof o.scheduleAt === 'string') base.scheduleAt = new Date(o.scheduleAt);
     if (o.solveAt && typeof o.solveAt === 'string') base.solveAt = new Date(o.solveAt);
     if (o.startAt && typeof o.startAt === 'string') base.startAt = new Date(o.startAt);

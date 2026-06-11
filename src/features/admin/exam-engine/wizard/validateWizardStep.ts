@@ -48,12 +48,17 @@ export function validateStep(
       title: state.title.trim().length <= 2,
       courseId: !state.courseId,
     };
-    const passed = !step1Fields.productType && !step1Fields.title && !step1Fields.courseId;
+    const attempts = Number(state.allowedAttempts);
+    const attemptsInvalid =
+      deliveryMode === 'ONLINE'
+      && (!Number.isFinite(attempts) || attempts < 1 || attempts > 10);
+    const passed = !step1Fields.productType && !step1Fields.title && !step1Fields.courseId && !attemptsInvalid;
     if (passed) return ok();
     const parts: string[] = [];
     if (step1Fields.productType) parts.push('exam type');
     if (step1Fields.title) parts.push('title (min 3 characters)');
     if (step1Fields.courseId) parts.push('course');
+    if (attemptsInvalid) parts.push('allowed attempts (1–10)');
     const summary = `Please complete: ${parts.join(', ')}.`;
     return {
       ok: false,
@@ -116,6 +121,28 @@ export function validateStep(
     }
     for (const s of state.sections) {
       if (!s.folderRules.length) return fail(`Add at least one folder for "${s.label || s.type}".`, 3);
+      const allocated = s.folderRules.reduce((sum, r) => sum + Number(r.questionCount || 0), 0);
+      if (allocated < s.count) {
+        return fail(
+          `"${s.label || s.type}" needs ${s.count} questions but only ${allocated} allocated across folders.`,
+          3,
+        );
+      }
+    }
+    return ok();
+  }
+
+  if (step === 4) {
+    const nSets = Number(state.nSets);
+    if (!Number.isFinite(nSets) || nSets < 1 || nSets > 26) {
+      return fail('Number of sets must be between 1 and 26.', 4);
+    }
+    const validShuffle = new Set(['FULL', 'ORDER', 'OPTS', 'MIXED']);
+    if (!validShuffle.has(state.shuffle)) {
+      return fail('Pick a valid shuffle mode.', 4);
+    }
+    if (state.productType === 'WRITTEN' && (state.shuffle === 'OPTS' || state.shuffle === 'MIXED')) {
+      return fail('Written exams support order shuffle only — not option shuffling.', 4);
     }
     return ok();
   }
@@ -215,7 +242,7 @@ export function preflightExam(
   const warnings: ValidationIssue[] = [];
 
   // Run per-step validation up to (but not including) step 6.
-  for (const step of [1, 2, 3, 5] as const) {
+  for (const step of [1, 2, 3, 4, 5] as const) {
     const result = validateStep(state, step, deliveryMode);
     if (!result.ok) {
       errors.push(...result.errors);
@@ -236,13 +263,13 @@ export function preflightExam(
     if (modes.includes('AUTOMATED') && deliveryMode !== 'ONLINE') {
       errors.push({
         level: 'error',
-        message: 'Automatic grading requires an Online course.',
+        message: 'Automatic grading requires Online delivery.',
         step: 5,
       });
     }
     if (modes.includes('OMR_SCAN')) {
       if (deliveryMode !== 'OFFLINE') {
-        errors.push({ level: 'error', message: 'OMR scan requires an Offline course.', step: 5 });
+        errors.push({ level: 'error', message: 'OMR scan requires Offline delivery.', step: 5 });
       }
       if (state.productType === 'WRITTEN') {
         errors.push({ level: 'error', message: 'OMR scan is not supported for Written exams.', step: 5 });
@@ -260,19 +287,20 @@ export function preflightExam(
     }
   }
 
-  // OMR parity: MCQ section totals should match omrQuestionCount.
-  if (state.omrConfig && state.productType !== 'MULTI') {
-    const mcqTotal = state.sections
-      .filter((s) => s.type === 'MCQ')
-      .reduce((sum, s) => sum + Number(s.count || 0), 0);
+  // OMR parity: MCQ totals should match omrQuestionCount.
+  if (state.omrConfig && state.resultInputModes.includes('OMR_SCAN')) {
+    const mcqTotal =
+      state.productType === 'MULTI'
+        ? state.subjects.reduce((sum, sub) => sum + Number(sub.mcqSingleCount || 0) + Number(sub.mcqPassageCount || 0), 0)
+        : state.sections
+            .filter((s) => s.type === 'MCQ')
+            .reduce((sum, s) => sum + Number(s.count || 0), 0);
     if (mcqTotal && mcqTotal !== state.omrConfig.questionCount) {
-      const issue = {
-        level: 'error' as const,
-        message: `OMR sheet expects ${state.omrConfig.questionCount} questions, but MCQ sections total ${mcqTotal}.`,
-        step: 2,
-      };
-      if (state.resultInputModes.includes('OMR_SCAN')) errors.push(issue);
-      else warnings.push({ ...issue, level: 'warning' });
+      errors.push({
+        level: 'error',
+        message: `OMR sheet expects ${state.omrConfig.questionCount} MCQ slots, but sections/subjects total ${mcqTotal}.`,
+        step: state.productType === 'MULTI' ? 2 : 2,
+      });
     }
   }
 

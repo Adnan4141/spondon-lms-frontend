@@ -48,7 +48,6 @@ export function BasicExamInfoForm({
     clearFieldError('courseId');
     const selected = courses.find((c) => c.id === courseId);
     if (selected) {
-      dispatch({ type: 'MERGE', patch: { courseId } });
       onCourseSelect(selected);
     }
   };
@@ -140,6 +139,23 @@ export function BasicExamInfoForm({
             className="border-slate-200"
           />
         </div>
+
+        {deliveryMode === 'ONLINE' ? (
+          <div className="space-y-2">
+            <Label>Allowed attempts</Label>
+            <Input
+              type="number"
+              min={1}
+              max={10}
+              value={state.allowedAttempts}
+              onChange={(event) => dispatch({ type: 'MERGE', patch: { allowedAttempts: event.target.value } })}
+              className="border-slate-200"
+            />
+            <p className="text-[11px] text-slate-500">
+              How many times each student may complete this exam online.
+            </p>
+          </div>
+        ) : null}
 
         {deliveryMode === 'ONLINE' ? (
           <div className="md:col-span-2 rounded-lg border border-slate-100 bg-slate-50 p-3">

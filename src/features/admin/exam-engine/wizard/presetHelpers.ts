@@ -16,7 +16,6 @@ type WizardPresetConfigV1 = {
   version: 1;
   /** @deprecated v1 schema — migrated to v2 on load. */
   uiCategory: UiExamCategory | '';
-  /** @deprecated deliveryMode is now course-derived, ignored on load. */
   deliveryMode?: string;
   /** @deprecated courseIds no longer stored in presets. */
   courseIds?: string[];
@@ -39,11 +38,7 @@ type WizardPresetConfigV1 = {
 type WizardPresetConfigV2 = {
   version: 2;
   productType: ExamProductType | '';
-  /**
-   * deliveryMode is no longer stored in presets (it is course-derived).
-   * Field kept as optional for reading old saved presets — ignored on apply.
-   */
-  deliveryMode?: string;
+  deliveryMode?: 'ONLINE' | 'OFFLINE';
   omrConfig: OmrConfig | null;
   resultInputModes: ResultInputMode[];
   smsNotification: boolean;
@@ -99,7 +94,7 @@ export function buildPresetStructure(state: ExamWizardState): WizardPresetStruct
   const v2: WizardPresetConfigV2 = {
     version: 2,
     productType: state.productType,
-    // deliveryMode intentionally omitted — course-derived, not stored in presets
+    deliveryMode: state.deliveryMode,
     omrConfig: state.omrConfig,
     resultInputModes: state.resultInputModes,
     smsNotification: state.smsNotification,
@@ -144,7 +139,10 @@ export function presetPatchFromStructure(structure: WizardPresetStructure): Part
   if (wizard?.version === 2) {
     return {
       productType: wizard.productType,
-      // deliveryMode intentionally excluded — course controls it
+      deliveryMode:
+        wizard.deliveryMode === 'OFFLINE' || wizard.deliveryMode === 'ONLINE'
+          ? wizard.deliveryMode
+          : undefined,
       omrConfig: wizard.omrConfig ?? null,
       resultInputModes: Array.isArray(wizard.resultInputModes) && wizard.resultInputModes.length
         ? wizard.resultInputModes
@@ -173,7 +171,7 @@ export function presetPatchFromStructure(structure: WizardPresetStructure): Part
     const migrated = migrateLegacyUiCategory(wizard.uiCategory, undefined);
     return {
       productType: migrated.productType,
-      // deliveryMode intentionally excluded — course controls it
+      deliveryMode: migrated.deliveryMode,
       omrConfig: null,
       resultInputModes: migrated.resultInputModes,
       smsNotification: false,
