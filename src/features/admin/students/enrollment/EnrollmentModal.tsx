@@ -490,7 +490,7 @@ export function EnrollmentModal({
                 />
                 {validation.errors.programId && <p className="text-[11px] text-rose-600 mt-1 font-semibold">{validation.errors.programId}</p>}
               </Field>
-              <Field label="Branch">
+              <Field label="Service branch" hint="Fees and invoices attach to this branch. Cash you collect is recorded under your branch.">
                 <AppSelect
                   value={branchId}
                   onChange={setBranchId}

@@ -109,7 +109,7 @@ export function BulkImportStudentsModal({
           </StudentAdminField>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <StudentAdminField label="Default Branch" hint="Optional; leave empty if branch should be blank.">
+            <StudentAdminField label="Default Branch" hint="Optional; choose the student registration branch.">
               <StudentAdminSelect
                 value={branchId || '_none'}
                 onChange={(value) => setBranchId(value === '_none' ? '' : value)}
@@ -131,49 +131,28 @@ export function BulkImportStudentsModal({
           </div>
 
           {error && (
-            <div className="mt-2 mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 flex gap-2">
-              <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
-              <p className="text-sm font-semibold text-rose-700">{error}</p>
+            <div className="mt-4 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              {error}
             </div>
           )}
+
+          <div className="mt-5 flex justify-end gap-2">
+            <Button variant="outline" onClick={onClose} disabled={uploading}>Cancel</Button>
+            <Button onClick={() => void handleImport()} disabled={uploading || !file} className="gap-2 bg-slate-900 text-white hover:bg-indigo-600">
+              {uploading ? <><Loader2 className="h-4 w-4 animate-spin" /> Uploading…</> : <><Upload className="h-4 w-4" /> Start Import</>}
+            </Button>
+          </div>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-[11px] font-black uppercase tracking-wider text-slate-400 mb-3">Accepted Columns</p>
-          <div className="space-y-2">
+        <aside className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-xs font-black uppercase tracking-wider text-slate-500 mb-3">Accepted columns</p>
+          <ul className="space-y-1.5 text-[11px] text-slate-600">
             {ACCEPTED_COLUMNS.map((col) => (
-              <div key={col} className="rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
-                {col}
-              </div>
+              <li key={col} className="font-medium">{col}</li>
             ))}
-          </div>
-          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-            <p className="text-xs font-semibold text-amber-800">
-              Avoid duplicate mobile numbers. Optional registrationNumber must be exactly 7 digits.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-5 flex justify-end gap-2.5">
-        <Button variant="outline" onClick={onClose} disabled={uploading}>
-          Close
-        </Button>
-        <Button
-          onClick={() => void handleImport()}
-          disabled={uploading}
-          className="gap-2 bg-slate-900 text-white hover:bg-indigo-600 transition-all"
-        >
-          {uploading ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" /> Starting…
-            </>
-          ) : (
-            <>
-              <Upload className="h-4 w-4" /> Import Students
-            </>
-          )}
-        </Button>
+          </ul>
+        </aside>
       </div>
     </StudentAdminModal>
   );

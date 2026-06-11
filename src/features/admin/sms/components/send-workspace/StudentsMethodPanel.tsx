@@ -105,6 +105,7 @@ export function StudentsMethodPanel({ branches, actor, onResolved }: { branches:
               <SelectTrigger className="mt-1 bg-white"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="ACTIVE">Active</SelectItem>
+                <SelectItem value="BLOCKED">Inactive</SelectItem>
                 <SelectItem value="ALL">All</SelectItem>
               </SelectContent>
             </Select>

@@ -428,6 +428,7 @@ export default function StudentsPage() {
 
       {modal?.type === 'addStudent' && (
         <AddStudentModal
+          defaultBranchId={actor.branchId ?? undefined}
           onClose={() => setModal(null)}
           onSave={(s, meta?: AddStudentSaveMeta) => {
             studentsListCache.clear();
@@ -457,7 +458,7 @@ export default function StudentsPage() {
       {modal?.type === 'bulkImport' && (
         <BulkImportStudentsModal
           branches={branches}
-          defaultBranchId={branchFilter !== 'ALL' ? branchFilter : undefined}
+          defaultBranchId={branchFilter !== 'ALL' ? branchFilter : actor.branchId ?? undefined}
           onClose={() => setModal(null)}
           onQueued={(payload) => {
             useBulkImportJobsStore.getState().addJob({

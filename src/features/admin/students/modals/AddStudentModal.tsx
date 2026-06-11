@@ -30,10 +30,12 @@ const ADD_STUDENT_DEFAULT_FORM: StudentForm = {
 };
 
 export function AddStudentModal({
-  onClose, onSave,
+  onClose, onSave, defaultBranchId,
 }: {
   onClose: () => void;
   onSave: (student: Student, meta?: AddStudentSaveMeta) => void;
+  /** Prefills branch; branch admins may choose any branch. */
+  defaultBranchId?: string;
 }) {
   const [form, setForm] = useState<StudentForm>(ADD_STUDENT_DEFAULT_FORM);
   const [password, setPassword] = useState('');
@@ -46,7 +48,7 @@ export function AddStudentModal({
   const [instituteId, setInstituteId] = useState('');
   const [institutes, setInstitutes] = useState<Institute[]>([]);
   const [loadingInstitutes, setLoadingInstitutes] = useState(true);
-  const [branchId, setBranchId] = useState('');
+  const [branchId, setBranchId] = useState(defaultBranchId ?? '');
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   const [loadingBranches, setLoadingBranches] = useState(true);
   const [profileUser, setProfileUser] = useState<null | {
@@ -59,6 +61,10 @@ export function AddStudentModal({
     createdAt?: string;
     studentProfile?: { registrationNumber?: string };
   }>(null);
+
+  useEffect(() => {
+    if (defaultBranchId) setBranchId(defaultBranchId);
+  }, [defaultBranchId]);
 
   useEffect(() => {
     getInstitutes({ limit: 500 })
@@ -204,7 +210,7 @@ export function AddStudentModal({
 
       setProfileUser(null);
       setInstituteId('');
-      setBranchId('');
+      setBranchId(defaultBranchId ?? '');
       setForm(ADD_STUDENT_DEFAULT_FORM);
       setPassword('');
       setConfirmPassword('');
@@ -226,6 +232,9 @@ export function AddStudentModal({
 
   return (
     <StudentAdminModal open onClose={onClose} title="Add New Student">
+      <p className="mb-4 rounded-lg border border-sky-100 bg-sky-50 px-3 py-2 text-[11px] font-medium text-sky-900">
+        Registration branch sets the student&apos;s home branch. Fees and invoices follow the branch you choose at enrollment; payments you collect are recorded under your branch.
+      </p>
       <StudentFormFields
         form={form}
         onChange={change}
@@ -297,13 +306,13 @@ export function AddStudentModal({
                 setConfirmPassword(e.target.value);
                 if (errors.confirmPassword) setErrors((prev) => { const n = { ...prev }; delete n.confirmPassword; return n; });
               }}
-              placeholder="Repeat if setting a password"
+              placeholder="Repeat password"
               className={cn('focus-visible:ring-indigo-400 pr-10')}
               disabled={saving}
             />
             <button
               type="button"
-              aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+              aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:pointer-events-none"
               onClick={() => setShowConfirmPassword((v) => !v)}
               disabled={saving}
@@ -314,34 +323,14 @@ export function AddStudentModal({
         </StudentAdminField>
       </div>
 
-      {password.trim() ? (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-5 flex gap-2 items-start">
-          <Info className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
-          <p className="text-xs text-amber-900">
-            With a custom password, automated SMS login credentials will not include this password (the system only stores a generated one-time password for SMS). Share the password with the student directly if needed.
-          </p>
-        </div>
-      ) : null}
-
-      <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 mb-5 flex gap-2 items-center">
-        <Info className="h-4 w-4 text-emerald-600 shrink-0" />
-        <p className="text-xs text-emerald-800">
-          Registration number will be <strong>auto-generated</strong> as a 7-digit unique ID on save.
-        </p>
-      </div>
-
       {errors.submit && (
-        <p className="text-sm text-rose-600 font-semibold mb-3">{errors.submit}</p>
+        <p className="mb-3 text-[11px] font-semibold text-rose-600">{errors.submit}</p>
       )}
 
-      <div className="flex justify-end gap-2.5">
+      <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 mt-4">
         <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
-        <Button
-          onClick={handleSave}
-          disabled={saving}
-          className="gap-2 bg-slate-900 text-white hover:bg-indigo-600 transition-all"
-        >
-          <Check className="h-4 w-4" /> {saving ? 'Saving…' : 'Save Student'}
+        <Button onClick={() => void handleSave()} disabled={saving} className="gap-2 bg-slate-900 text-white hover:bg-indigo-600">
+          {saving ? 'Saving…' : <><Check className="h-4 w-4" /> Save Student</>}
         </Button>
       </div>
     </StudentAdminModal>
