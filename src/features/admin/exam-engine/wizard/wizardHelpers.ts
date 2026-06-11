@@ -235,6 +235,13 @@ export function deserializeWizardForm(json: string): ExamWizardState | null {
     if (o.solveScheduledAt && typeof o.solveScheduledAt === 'string') {
       base.solveScheduledAt = new Date(o.solveScheduledAt);
     }
+    // Legacy field migration: scheduleAt/solveAt/resultModes → canonical wizard fields.
+    if (!base.startAt && base.scheduleAt) base.startAt = base.scheduleAt;
+    if (!base.solveScheduledAt && base.solveAt) base.solveScheduledAt = base.solveAt;
+    if (Array.isArray(o.resultModes) && (!Array.isArray(base.resultInputModes) || base.resultInputModes.length === 0)) {
+      base.resultInputModes = o.resultModes as ExamWizardState['resultInputModes'];
+    }
+    base.resultModes = base.resultInputModes.map(String);
     if (!base.branchId) base.branchId = EXAM_WIZARD_ALL_BRANCHES;
     base.subjects = (base.subjects ?? []).map((sub) => ({
       ...sub,

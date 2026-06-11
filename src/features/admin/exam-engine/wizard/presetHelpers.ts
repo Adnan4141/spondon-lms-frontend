@@ -1,3 +1,7 @@
+/**
+ * Blueprint presets capture reusable exam structure (sections, subjects, OMR config).
+ * The exam wizard is the primary authoring path — presets are optional shortcuts applied in step 1.
+ */
 import type { ExamBlueprint } from '@/lib/api/exams';
 import type {
   ExamProductType,
@@ -169,11 +173,14 @@ export function presetPatchFromStructure(structure: WizardPresetStructure): Part
 
   if (wizard?.version === 1) {
     const migrated = migrateLegacyUiCategory(wizard.uiCategory, undefined);
+    const legacyResultModes = Array.isArray(wizard.resultModes) && wizard.resultModes.length
+      ? wizard.resultModes as ExamWizardState['resultInputModes']
+      : migrated.resultInputModes;
     return {
       productType: migrated.productType,
       deliveryMode: migrated.deliveryMode,
       omrConfig: null,
-      resultInputModes: migrated.resultInputModes,
+      resultInputModes: legacyResultModes,
       smsNotification: false,
       solveVisibility: wizard.showSolve ? 'IMMEDIATELY' : 'HIDDEN',
       defaultNegativeMarks: 0.25,

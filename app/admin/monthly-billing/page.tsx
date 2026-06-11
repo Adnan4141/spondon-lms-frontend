@@ -2,12 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { getCourses } from '@/lib/api/courses';
+import { useAdminFilterOptions } from '@/lib/query/hooks/useAdminFilterOptions';
 import { getEnrollments } from '@/lib/api/enrollments';
-import { getBranches } from '@/lib/api/branches';
 import { generateMonthlyInvoices } from '@/lib/api/invoices';
-import type { Branch } from '@/lib/api/branches';
-import type { Course } from '@/types/course';
 import type { Enrollment } from '@/lib/api/enrollments';
 import { Button } from '@/components/ui/button';
 import {
@@ -42,25 +39,22 @@ import { cn } from '@/lib/utils';
 
 export default function MonthlyBillingPage() {
   const { toast, toasts, removeToast } = useToast();
+  const { branches: branchOptions, courses: courseOptions, isMetaLoading } = useAdminFilterOptions();
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [branchId, setBranchId] = useState<string>('all');
   const [courseId, setCourseId] = useState<string>('all');
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [monthlyCourses, setMonthlyCourses] = useState<Course[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const pageLoading = loading || isMetaLoading;
+
+  const branches = branchOptions;
+  const monthlyCourses = courseOptions;
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const [brRes, cRes, eRes] = await Promise.all([
-        getBranches(),
-        getCourses({ status: 'ACTIVE', limit: 200 }),
-        getEnrollments({ status: 'ACTIVE', limit: 500 }),
-      ]);
-      if (brRes.success && brRes.data) setBranches(brRes.data);
-      if (cRes.success && cRes.data) setMonthlyCourses(cRes.data);
+      const eRes = await getEnrollments({ status: 'ACTIVE', limit: 500 });
       if (eRes.success && eRes.data) setEnrollments(eRes.data);
     } catch {
       toast({ title: 'Error', description: 'Failed to load billing data', variant: 'destructive' });
@@ -163,7 +157,7 @@ export default function MonthlyBillingPage() {
             </div>
             <p className="text-xs font-bold uppercase tracking-wider text-slate-400">{card.label}</p>
             <p className="mt-1 text-2xl font-black text-slate-900">
-              {loading ? '—' : card.value}
+              {pageLoading ? '—' : card.value}
             </p>
           </div>
         ))}
@@ -214,15 +208,15 @@ export default function MonthlyBillingPage() {
               variant="outline"
               className="h-11 rounded-xl"
               onClick={load}
-              disabled={loading}
+              disabled={pageLoading}
             >
-              <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
+              <RefreshCw className={cn('h-4 w-4', pageLoading && 'animate-spin')} />
             </Button>
             <Button
               type="button"
               className="h-11 rounded-xl text-white bg-slate-900 px-6 font-bold hover:bg-indigo-600"
               onClick={handleGenerate}
-              disabled={generating || loading}
+              disabled={generating || pageLoading}
             >
               {generating ? (
                 <>
@@ -253,7 +247,7 @@ export default function MonthlyBillingPage() {
           <span className="text-xs font-bold text-slate-400">{filteredPreview.length} enrollments</span>
         </div>
         <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
-          {loading ? (
+          {pageLoading ? (
             <div className="p-16 flex justify-center text-slate-400">
               <Loader2 className="h-8 w-8 animate-spin" />
             </div>

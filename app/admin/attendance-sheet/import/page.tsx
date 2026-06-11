@@ -1,11 +1,9 @@
 'use client';
 
 import React, { Suspense, useEffect, useRef, useState } from 'react';
-import { getPrograms } from '@/lib/api/programs';
-import { getCourses } from '@/lib/api/courses';
 import { getBatches, type Batch } from '@/lib/api/batches';
 import { importAttendanceFile } from '@/lib/api/attendance';
-import type { Program, Course } from '@/types/course';
+import { useAdminProgramCourseOptions } from '@/lib/query/hooks/useAdminProgramCourseOptions';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -28,11 +26,10 @@ import { Toaster } from '@/components/ui/toast';
 
 function ImportInner() {
   const { toast } = useToast();
-  const [programs, setPrograms] = useState<Program[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [batches, setBatches] = useState<Batch[]>([]);
   const [selProgram, setSelProgram] = useState('');
   const [selCourse, setSelCourse] = useState('');
+  const { programs, courses } = useAdminProgramCourseOptions(selProgram);
+  const [batches, setBatches] = useState<Batch[]>([]);
   const [selBatch, setSelBatch] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
@@ -40,12 +37,7 @@ function ImportInner() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    getPrograms().then((r) => setPrograms(r.data ?? [])).catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    if (!selProgram) { setCourses([]); setSelCourse(''); return; }
-    getCourses({ programId: selProgram }).then((r) => setCourses(r.data ?? [])).catch(() => {});
+    if (!selProgram) setSelCourse('');
   }, [selProgram]);
 
   useEffect(() => {

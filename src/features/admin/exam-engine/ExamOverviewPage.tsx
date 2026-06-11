@@ -40,6 +40,7 @@ import {
 import { useExamWorkspace } from './layout/ExamWorkspaceShell';
 import { ExamWorkspacePageHeader } from './layout/ExamWorkspacePageHeader';
 import { examWorkspacePageClass } from './layout/examWorkspaceUi';
+import { TalentHuntPanel } from './TalentHuntPanel';
 
 export function ExamOverviewPage({ examId }: { examId: string }) {
   const router = useRouter();
@@ -426,10 +427,16 @@ export function ExamOverviewPage({ examId }: { examId: string }) {
         </Card>
       ) : null}
 
+      {exam.examEngine === 'TALENT_HUNT' || exam.type === 'TALENT_HUNT' ? (
+        <TalentHuntPanel examId={examId} examTitle={exam.title} />
+      ) : null}
+
       <Card className="border-slate-200 shadow-sm">
         <CardHeader>
           <CardTitle className="font-serif text-lg text-[#0D1B35]">Summary</CardTitle>
-          <CardDescription>Blueprint (sections) vs generated question sets.</CardDescription>
+          <CardDescription>
+            Section blueprint (wizard) vs generated sets. Blueprint presets are reusable templates; the wizard is the primary setup path for each exam.
+          </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div className="rounded-lg border border-slate-100 bg-slate-50/80 p-4 text-sm">

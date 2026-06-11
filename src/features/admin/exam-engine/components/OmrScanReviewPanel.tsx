@@ -29,7 +29,7 @@ import {
   type OmrScan,
   type OmrScanBatch,
   type OmrScanStatus,
-} from '@/lib/api/exam-results';
+} from '@/lib/api/omr-scans';
 import { Input } from '@/components/ui/input';
 
 type BranchOption = { id: string; name: string };

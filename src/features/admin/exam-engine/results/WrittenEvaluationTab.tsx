@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +11,7 @@ type WrittenEvaluationTabProps = {
   attempts: WrittenAttemptRow[];
   activeAttempt: WrittenAttemptDetail | null;
   writtenBusy: boolean;
+  bulkFinalizeBusy?: boolean;
   marksDraft: Record<string, string>;
   canEvaluate: boolean;
   canFinalize: boolean;
@@ -17,6 +19,7 @@ type WrittenEvaluationTabProps = {
   onMarksDraftChange: (draftKey: string, value: string) => void;
   onSaveMark: (answerId: string, attemptId: string, subPartKey?: string) => void;
   onFinalize: (attemptId: string) => void;
+  onBulkFinalize?: () => void;
 };
 
 function marksDraftKey(answerId: string, subPartKey?: string) {
@@ -33,10 +36,15 @@ function readCqParts(meta: unknown): CqPartMeta[] {
   );
 }
 
+function isPdfUrl(url: string): boolean {
+  return /\.pdf($|\?)/i.test(url);
+}
+
 export function WrittenEvaluationTab({
   attempts,
   activeAttempt,
   writtenBusy,
+  bulkFinalizeBusy = false,
   marksDraft,
   canEvaluate,
   canFinalize,
@@ -44,12 +52,61 @@ export function WrittenEvaluationTab({
   onMarksDraftChange,
   onSaveMark,
   onFinalize,
+  onBulkFinalize,
 }: WrittenEvaluationTabProps) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  const finalizeCandidates = useMemo(
+    () => attempts.filter((attempt) => attempt.evaluationStatus !== 'PENDING' && attempt.obtainedMarks == null),
+    [attempts],
+  );
+
+  const pageOptions = useMemo(() => {
+    if (!activeAttempt) return [] as Array<{ key: string; label: string; url: string }>;
+    const options: Array<{ key: string; label: string; url: string }> = [];
+    for (const question of activeAttempt.questions || []) {
+      const answer = question.studentAnswer;
+      const finalPdfUrl = answer?.writtenSubmission?.finalPdfUrl;
+      if (finalPdfUrl) {
+        options.push({
+          key: `final-${question.questionId}`,
+          label: `Q${options.length + 1} combined PDF`,
+          url: getExamPdfDownloadUrl(finalPdfUrl),
+        });
+      }
+      for (const [index, page] of (answer?.writtenSubmission?.pages || []).entries()) {
+        options.push({
+          key: `${question.questionId}-${page.url}`,
+          label: `Q${options.length + 1} page ${index + 1}`,
+          url: getExamPdfDownloadUrl(page.url),
+        });
+      }
+    }
+    return options;
+  }, [activeAttempt]);
+
+  const activePreviewUrl = previewUrl ?? pageOptions[0]?.url ?? null;
+
   return (
     <Card className="border-slate-200 shadow-sm">
       <CardHeader>
-        <CardTitle className="font-serif text-lg text-[#0D1B35]">Written evaluation</CardTitle>
-        <CardDescription>Review uploaded handwritten pages, enter marks per CQ part or whole question, then finalize.</CardDescription>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <CardTitle className="font-serif text-lg text-[#0D1B35]">Written evaluation</CardTitle>
+            <CardDescription>Review uploaded handwritten pages, enter marks per CQ part or whole question, then finalize.</CardDescription>
+          </div>
+          {canFinalize && onBulkFinalize && finalizeCandidates.length > 1 ? (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={bulkFinalizeBusy}
+              onClick={onBulkFinalize}
+            >
+              {bulkFinalizeBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Finalize all ready ({finalizeCandidates.length})
+            </Button>
+          ) : null}
+        </div>
       </CardHeader>
       <CardContent className="grid gap-4 lg:grid-cols-[280px_1fr]">
         <div className="space-y-2">
@@ -58,7 +115,10 @@ export function WrittenEvaluationTab({
               key={attempt.id}
               type="button"
               className="w-full rounded-lg border border-slate-200 bg-white p-3 text-left hover:border-violet-200 hover:bg-violet-50/30"
-              onClick={() => onOpenAttempt(attempt.id)}
+              onClick={() => {
+                setPreviewUrl(null);
+                onOpenAttempt(attempt.id);
+              }}
             >
               <p className="text-sm font-bold text-slate-900">{attempt.student?.fullName ?? 'Student'}</p>
               <p className="text-xs text-slate-500">{attempt.evaluationStatus} · {attempt.totalAwarded ?? 0} marks</p>
@@ -86,10 +146,49 @@ export function WrittenEvaluationTab({
                   </Button>
                 ) : null}
               </div>
+
+              {pageOptions.length > 0 ? (
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                  <p className="text-xs font-black uppercase tracking-wide text-slate-400">Handwritten pages</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {pageOptions.map((page) => (
+                      <button
+                        key={page.key}
+                        type="button"
+                        className={`rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${
+                          activePreviewUrl === page.url
+                            ? 'bg-violet-600 text-white'
+                            : 'bg-violet-50 text-violet-700 hover:bg-violet-100'
+                        }`}
+                        onClick={() => setPreviewUrl(page.url)}
+                      >
+                        {page.label}
+                      </button>
+                    ))}
+                  </div>
+                  {activePreviewUrl ? (
+                    <div className="mt-3 overflow-hidden rounded-md border border-slate-200 bg-slate-100">
+                      {isPdfUrl(activePreviewUrl) ? (
+                        <iframe
+                          title="Handwritten submission preview"
+                          src={activePreviewUrl}
+                          className="h-[min(420px,55vh)] w-full bg-white"
+                        />
+                      ) : (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={activePreviewUrl}
+                          alt="Handwritten submission page"
+                          className="mx-auto max-h-[min(420px,55vh)] w-full object-contain"
+                        />
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
               {(activeAttempt.questions || []).map((question, index) => {
                 const answer = question.studentAnswer;
-                const pages = answer?.writtenSubmission?.pages || [];
-                const finalPdfUrl = answer?.writtenSubmission?.finalPdfUrl;
                 const parts = readCqParts(question.question?.meta);
                 return (
                   <div key={question.questionId} className="rounded-lg border border-slate-200 bg-white p-4">
@@ -153,21 +252,9 @@ export function WrittenEvaluationTab({
                       </div>
                     ) : null}
 
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {finalPdfUrl ? (
-                        <a className="rounded-md bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700" href={getExamPdfDownloadUrl(finalPdfUrl)} target="_blank" rel="noopener noreferrer">
-                          Combined PDF
-                        </a>
-                      ) : null}
-                      {pages.map((page, pageIndex) => (
-                        <a key={page.url} className="rounded-md bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-700" href={getExamPdfDownloadUrl(page.url)} target="_blank" rel="noopener noreferrer">
-                          Page {pageIndex + 1}
-                        </a>
-                      ))}
-                      {!pages.length && !finalPdfUrl ? (
-                        <span className="text-xs font-medium text-amber-700">No handwritten pages uploaded.</span>
-                      ) : null}
-                    </div>
+                    {!answer?.writtenSubmission?.pages?.length && !answer?.writtenSubmission?.finalPdfUrl ? (
+                      <p className="mt-3 text-xs font-medium text-amber-700">No handwritten pages uploaded.</p>
+                    ) : null}
                   </div>
                 );
               })}

@@ -53,7 +53,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { useModalStore } from '@/store/modalStore';
 import { ExamWizard } from '@/features/admin/exam-engine/ExamWizard';
-import { ExamDetailsPage } from '@/features/admin/exam-engine/ExamDetailsPage';
+import { ExamOverviewPage } from '@/features/admin/exam-engine/ExamOverviewPage';
 import { ConfirmationModal } from '@/features/admin/shared';
 import { cn } from '@/lib/utils';
 
@@ -167,7 +167,7 @@ export default function TeacherExamsPage() {
       className: 'sm:max-w-6xl w-[min(100vw-2rem,72rem)] max-h-[92vh]',
       content: (
         <div className="overflow-y-auto max-h-[80vh] p-2">
-          <ExamDetailsPage examId={examId} />
+          <ExamOverviewPage examId={examId} />
         </div>
       ),
     });

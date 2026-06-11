@@ -78,6 +78,7 @@ export function ExamResultsPage({ examId, teacherEvaluatorMode = false }: ExamRe
   const [writtenAttempts, setWrittenAttempts] = useState<WrittenAttemptRow[]>([]);
   const [activeWrittenAttempt, setActiveWrittenAttempt] = useState<WrittenAttemptDetail | null>(null);
   const [writtenBusy, setWrittenBusy] = useState(false);
+  const [bulkFinalizeBusy, setBulkFinalizeBusy] = useState(false);
   const [marksDraft, setMarksDraft] = useState<Record<string, string>>({});
   const [branches, setBranches] = useState<BranchOption[]>([]);
   const [branchId, setBranchId] = useState('');
@@ -345,6 +346,40 @@ export function ExamResultsPage({ examId, teacherEvaluatorMode = false }: ExamRe
     await openWrittenAttempt(attemptId);
   };
 
+  const bulkFinalizeWritten = async () => {
+    const candidates = writtenAttempts.filter(
+      (attempt) => attempt.evaluationStatus !== 'PENDING' && attempt.obtainedMarks == null,
+    );
+    if (!candidates.length) {
+      toast({ title: 'No submissions ready to finalize', variant: 'destructive' });
+      return;
+    }
+    setBulkFinalizeBusy(true);
+    let successCount = 0;
+    const failures: string[] = [];
+    try {
+      for (const attempt of candidates) {
+        const response = await finalizeWrittenEvaluation(examId, attempt.id);
+        if (response.success) {
+          successCount += 1;
+        } else {
+          failures.push(`${attempt.student?.fullName ?? attempt.id}: ${response.message ?? 'Failed'}`);
+        }
+      }
+      if (successCount) {
+        toast({
+          title: `Finalized ${successCount} submission${successCount === 1 ? '' : 's'}`,
+          description: failures.length ? `${failures.length} could not be finalized.` : undefined,
+        });
+        await load();
+      } else {
+        toast({ title: failures[0] ?? 'Bulk finalize failed', variant: 'destructive' });
+      }
+    } finally {
+      setBulkFinalizeBusy(false);
+    }
+  };
+
   const openResultSmsWorkspace = async (batch: ResultBatchSummary) => {
     try {
       const response = await getExamResultBatchDetail(examId, batch.id);
@@ -485,6 +520,7 @@ export function ExamResultsPage({ examId, teacherEvaluatorMode = false }: ExamRe
               attempts={writtenAttempts}
               activeAttempt={activeWrittenAttempt}
               writtenBusy={writtenBusy}
+              bulkFinalizeBusy={bulkFinalizeBusy}
               marksDraft={marksDraft}
               canEvaluate={can('exam.results.written.evaluate')}
               canFinalize={can('exam.results.written.finalize')}
@@ -492,6 +528,7 @@ export function ExamResultsPage({ examId, teacherEvaluatorMode = false }: ExamRe
               onMarksDraftChange={(draftKey, value) => setMarksDraft((previous) => ({ ...previous, [draftKey]: value }))}
               onSaveMark={(answerId, attemptId, subPartKey) => void saveWrittenMark(answerId, attemptId, subPartKey)}
               onFinalize={(attemptId) => void finalizeWritten(attemptId)}
+              onBulkFinalize={() => void bulkFinalizeWritten()}
             />
           ) : (
             <UnavailableResultsTab message="Written evaluation is not required for this exam." />

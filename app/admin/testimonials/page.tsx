@@ -67,8 +67,7 @@ import {
 import { cn } from '@/lib/utils';
 import { API_ORIGIN } from '@/lib/api';
 import { resolveAttachmentUrl } from '@/lib/attachment-url';
-import { getCourses } from '@/lib/api/courses';
-import type { Course } from '@/types/course';
+import { useAdminFilterOptions } from '@/lib/query/hooks/useAdminFilterOptions';
 
 type TestimonialTab = 'HOME' | 'COURSE';
 
@@ -284,8 +283,8 @@ export default function AdminTestimonialsPage() {
   const { toast, toasts, removeToast } = useToast();
   const { openModal, closeModal } = useModalStore();
   const [activeTab, setActiveTab] = useState<TestimonialTab>('HOME');
+  const { courses } = useAdminFilterOptions();
   const [testimonials, setTestimonials] = useState<TestimonialAdmin[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'published'>('all');
@@ -309,12 +308,6 @@ export default function AdminTestimonialsPage() {
   useEffect(() => {
     load();
   }, [load]);
-
-  useEffect(() => {
-    void getCourses({ limit: 200 }).then((res) => {
-      if (res.success && res.data) setCourses(res.data);
-    });
-  }, []);
 
   useEffect(() => {
     setOrderedTestimonials(testimonials);

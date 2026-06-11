@@ -1,11 +1,9 @@
 'use client';
 
-import React, { Suspense, useCallback, useEffect, useState } from 'react';
-import { getPrograms } from '@/lib/api/programs';
-import { getCourses } from '@/lib/api/courses';
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { getBatches, type Batch } from '@/lib/api/batches';
 import { getAttendanceSummary, type AttendanceSummaryRow } from '@/lib/api/attendance';
-import type { Program, Course } from '@/types/course';
+import { useAdminProgramCourseOptions } from '@/lib/query/hooks/useAdminProgramCourseOptions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -44,11 +42,10 @@ function pctColor(pct: number) {
 
 function SummaryInner() {
   const { toast } = useToast();
-  const [programs, setPrograms] = useState<Program[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [batches, setBatches] = useState<Batch[]>([]);
   const [selProgram, setSelProgram] = useState('');
   const [selCourse, setSelCourse] = useState('');
+  const { programs, courses } = useAdminProgramCourseOptions(selProgram);
+  const [batches, setBatches] = useState<Batch[]>([]);
   const [selBatch, setSelBatch] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -56,12 +53,9 @@ function SummaryInner() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    getPrograms().then((r) => setPrograms(r.data ?? [])).catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    if (!selProgram) { setCourses([]); setSelCourse(''); return; }
-    getCourses({ programId: selProgram }).then((r) => setCourses(r.data ?? [])).catch(() => {});
+    if (!selProgram) {
+      setSelCourse('');
+    }
   }, [selProgram]);
 
   useEffect(() => {

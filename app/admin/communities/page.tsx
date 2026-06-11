@@ -41,7 +41,7 @@ import {
   type DoubtReply,
   type DoubtThread,
 } from '@/lib/api/doubts';
-import { getCourses, type Course } from '@/lib/api/courses';
+import { useAdminFilterOptions } from '@/lib/query/hooks/useAdminFilterOptions';
 import { API_ORIGIN } from '@/lib/api';
 import { resolveAttachmentUrl } from '@/lib/attachment-url';
 import { cn } from '@/lib/utils';
@@ -57,7 +57,8 @@ export default function AdminCommunitiesPage() {
   const [communities, setCommunities] = useState<Community[]>([]);
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [doubts, setDoubts] = useState<DoubtThread[]>([]);
-  const [courses, setCourses] = useState<Array<Pick<Course, 'id' | 'name'>>>([]);
+  const { courses: courseOptions } = useAdminFilterOptions();
+  const courses = courseOptions;
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
   const [search, setSearch] = useState('');
@@ -100,14 +101,6 @@ export default function AdminCommunitiesPage() {
   useEffect(() => {
     load();
   }, [load]);
-
-  useEffect(() => {
-    getCourses({ all: true }).then((response) => {
-      if (response.success && response.data) {
-        setCourses(response.data.map((course) => ({ id: course.id, name: course.name })));
-      }
-    }).catch(() => {});
-  }, []);
 
   const filteredCommunities = useMemo(() => {
     const query = search.toLowerCase().trim();

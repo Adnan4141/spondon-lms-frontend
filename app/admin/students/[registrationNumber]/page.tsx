@@ -10,12 +10,10 @@ import { Toaster } from '@/components/ui/toast';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { getBranches } from '@/lib/api/branches';
+import { useAdminFilterOptions } from '@/lib/query/hooks/useAdminFilterOptions';
 import { getEnrollments, type Enrollment as ApiEnrollment } from '@/lib/api/enrollments';
 import { getInstituteById } from '@/lib/api/institutes';
 import { getInvoicePdfUrl, getInvoices } from '@/lib/api/invoices';
-import { getCourses } from '@/lib/api/courses';
-import { getPrograms } from '@/lib/api/programs';
 import { getStudentProfileByRegistrationNumber, getStudentProfileByUserId } from '@/lib/api/student-profiles';
 import { getUserById } from '@/lib/api/users';
 import type { Invoice } from '@/types/invoice';
@@ -64,14 +62,17 @@ export default function StudentDetailPage() {
   const showToast = (msg: string, type = 'success') =>
     toast({ title: msg, variant: type === 'error' ? 'destructive' : 'default' });
 
+  const { programs: programOptions, courses: courseOptions, branches: branchOptions } =
+    useAdminFilterOptions();
+
   // Data state
   const [student, setStudent] = useState<Student | null>(null);
   const [instituteName, setInstituteName] = useState('');
   const [apiEnrollments, setApiEnrollments] = useState<ApiEnrollment[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [programs, setPrograms] = useState<Program[]>([]);
-  const [allCourses, setAllCourses] = useState<Course[]>([]);
-  const [branches, setBranches] = useState<BranchOption[]>([]);
+  const programs = programOptions as Program[];
+  const allCourses = courseOptions as Course[];
+  const branches = branchOptions as BranchOption[];
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [fetchError, setFetchError] = useState('');
@@ -103,15 +104,11 @@ export default function StudentDetailPage() {
     const resolvedUserId = profileByRegRes.data.userId;
     setUserId(resolvedUserId);
 
-    const [userRes, profileRes, enrollRes, invoiceRes, programRes, courseRes, branchRes] =
-      await Promise.all([
+    const [userRes, profileRes, enrollRes, invoiceRes] = await Promise.all([
         getUserById(resolvedUserId),
         getStudentProfileByUserId(resolvedUserId),
         getEnrollments({ studentUserId: resolvedUserId, limit: 50 }),
         getInvoices({ studentUserId: resolvedUserId, limit: 12 }),
-        getPrograms(),
-        getCourses({ limit: 200 }),
-        getBranches(),
       ]);
 
     if (userRes.success && userRes.data) {
@@ -155,22 +152,6 @@ export default function StudentDetailPage() {
 
     if (enrollRes.success && enrollRes.data) setApiEnrollments(enrollRes.data);
     if (invoiceRes.success && invoiceRes.data) setInvoices(invoiceRes.data as unknown as Invoice[]);
-    if (programRes.success && programRes.data) setPrograms(programRes.data as Program[]);
-    if (courseRes.success && courseRes.data) {
-      setAllCourses(courseRes.data.map(c => ({
-        id: c.id,
-        name: c.name,
-        programId: (c as { programId?: string }).programId ?? '',
-        fee: Number((c as { fee?: unknown }).fee ?? 0),
-        type: (c.type === 'OFFLINE' ? 'OFFLINE' : 'ONLINE') as 'OFFLINE' | 'ONLINE',
-        startMonth: (c as { startMonth?: string | null }).startMonth ?? '',
-        endMonth: (c as { endMonth?: string | null }).endMonth ?? '',
-        batches: [],
-      })));
-    }
-    if (branchRes.success && branchRes.data) {
-      setBranches(branchRes.data.map(b => ({ id: b.id, name: b.name })));
-    }
   };
 
   useEffect(() => {

@@ -12,12 +12,15 @@ interface ApiListResponse<T> {
   data?: T;
 }
 
-interface LandingApiPayload {
+interface LandingCriticalApiPayload {
   heroSlides: HeroSlide[];
   programCards: ProgramCard[];
   siteSettings: SiteSetting[];
-  courses: Course[];
   programs: Program[];
+}
+
+interface LandingDeferredApiPayload {
+  courses: Course[];
   ebooks: PublicCatalogBook[];
   testimonials: Parameters<typeof mapTestimonials>[0];
   partners: Partner[];
@@ -43,18 +46,23 @@ const FALLBACK_TESTIMONIALS: Testimonial[] = [
   },
 ];
 
-export interface LandingPageData {
+export interface LandingCriticalData {
   heroSlides: HeroSlide[];
   programCards: ProgramCard[];
   siteSettings: Record<string, string>;
-  courses: Course[];
   programs: Program[];
+}
+
+export interface LandingDeferredData {
+  courses: Course[];
   ebooks: PublicCatalogBook[];
   testimonials: Testimonial[];
   partners: Partner[];
   teachers: PublicTeacher[];
   trustFeatures: TrustFeature[];
 }
+
+export interface LandingPageData extends LandingCriticalData, LandingDeferredData {}
 
 function settingsArrayToMap(settings: SiteSetting[] | undefined): Record<string, string> {
   const map: Record<string, string> = {};
@@ -91,18 +99,22 @@ function mapTestimonials(
   }));
 }
 
-function normalizeLandingPayload(payload: LandingApiPayload): LandingPageData {
-  const apiTestimonials =
-    payload.testimonials?.length > 0 ? mapTestimonials(payload.testimonials) : [];
-
-  const apiTrustFeatures = payload.trustFeatures?.length > 0 ? payload.trustFeatures : [];
-
+function normalizeCriticalPayload(payload: LandingCriticalApiPayload): LandingCriticalData {
   return {
     heroSlides: payload.heroSlides?.length ? payload.heroSlides : [],
     programCards: payload.programCards ?? [],
     siteSettings: settingsArrayToMap(payload.siteSettings),
-    courses: payload.courses ?? [],
     programs: payload.programs ?? [],
+  };
+}
+
+function normalizeDeferredPayload(payload: LandingDeferredApiPayload): LandingDeferredData {
+  const apiTestimonials =
+    payload.testimonials?.length > 0 ? mapTestimonials(payload.testimonials) : [];
+  const apiTrustFeatures = payload.trustFeatures?.length > 0 ? payload.trustFeatures : [];
+
+  return {
+    courses: payload.courses ?? [],
     ebooks: payload.ebooks ?? [],
     testimonials: apiTestimonials.length > 0 ? apiTestimonials : FALLBACK_TESTIMONIALS,
     partners: payload.partners ?? [],
@@ -112,39 +124,39 @@ function normalizeLandingPayload(payload: LandingApiPayload): LandingPageData {
   };
 }
 
-async function fetchLandingPageDataLegacy(): Promise<LandingPageData> {
-  const [
-    heroRes,
-    programCardRes,
-    settingsRes,
-    courseRes,
-    programRes,
-    ebookRes,
-    testimonialRes,
-    partnerRes,
-    teacherRes,
-    trustFeatureRes,
-  ] = await Promise.all([
+async function fetchLandingCriticalLegacy(): Promise<LandingCriticalData> {
+  const [heroRes, programCardRes, settingsRes, programRes] = await Promise.all([
     serverApiGet<ApiListResponse<HeroSlide[]>>('/site-content/hero-slides'),
     serverApiGet<ApiListResponse<ProgramCard[]>>('/site-content/program-cards'),
     serverApiGet<ApiListResponse<SiteSetting[]>>('/site-content/settings'),
-    serverApiGet<ApiListResponse<Course[]>>(
-      '/courses?limit=6&websiteVisible=true&featured=true&status=ACTIVE',
-    ),
     serverApiGet<ApiListResponse<Program[]>>('/programs'),
-    serverApiGet<ApiListResponse<PublicCatalogBook[]>>('/books/public-list?featured=true&limit=6'),
-    serverApiGet<ApiListResponse<Parameters<typeof mapTestimonials>[0]>>('/testimonials/public?type=HOME'),
-    serverApiGet<ApiListResponse<Partner[]>>('/partners/public'),
-    serverApiGet<ApiListResponse<PublicTeacher[]>>('/users/teachers/public?limit=16'),
-    serverApiGet<ApiListResponse<TrustFeature[]>>('/site-content/trust-features'),
   ]);
 
-  return normalizeLandingPayload({
+  return normalizeCriticalPayload({
     heroSlides: heroRes?.success && heroRes.data?.length ? heroRes.data : [],
     programCards: programCardRes?.success && programCardRes.data ? programCardRes.data : [],
     siteSettings: settingsRes?.success ? settingsRes.data ?? [] : [],
-    courses: courseRes?.success && courseRes.data ? courseRes.data : [],
     programs: programRes?.success && programRes.data ? programRes.data : [],
+  });
+}
+
+async function fetchLandingDeferredLegacy(): Promise<LandingDeferredData> {
+  const [courseRes, ebookRes, testimonialRes, partnerRes, teacherRes, trustFeatureRes] =
+    await Promise.all([
+      serverApiGet<ApiListResponse<Course[]>>(
+        '/courses?limit=6&websiteVisible=true&featured=true&status=ACTIVE',
+      ),
+      serverApiGet<ApiListResponse<PublicCatalogBook[]>>('/books/public-list?featured=true&limit=6'),
+      serverApiGet<ApiListResponse<Parameters<typeof mapTestimonials>[0]>>(
+        '/testimonials/public?type=HOME',
+      ),
+      serverApiGet<ApiListResponse<Partner[]>>('/partners/public'),
+      serverApiGet<ApiListResponse<PublicTeacher[]>>('/users/teachers/public?limit=16'),
+      serverApiGet<ApiListResponse<TrustFeature[]>>('/site-content/trust-features'),
+    ]);
+
+  return normalizeDeferredPayload({
+    courses: courseRes?.success && courseRes.data ? courseRes.data : [],
     ebooks: ebookRes?.success && ebookRes.data ? ebookRes.data : [],
     testimonials:
       testimonialRes?.success && testimonialRes.data?.length ? testimonialRes.data : [],
@@ -154,69 +166,89 @@ async function fetchLandingPageDataLegacy(): Promise<LandingPageData> {
   });
 }
 
-/** Single backend round-trip; deduped across Suspense boundaries via React cache(). */
-export const getLandingPageData = cache(async (): Promise<LandingPageData> => {
-  const aggregated = await serverApiGet<ApiListResponse<LandingApiPayload>>('/landing');
-  if (aggregated?.success && aggregated.data) {
-    return normalizeLandingPayload(aggregated.data);
+/** Above-the-fold only — does not wait for courses/teachers/etc. */
+export const getLandingCriticalData = cache(async (): Promise<LandingCriticalData> => {
+  const res = await serverApiGet<ApiListResponse<LandingCriticalApiPayload>>('/landing/critical');
+  if (res?.success && res.data) {
+    return normalizeCriticalPayload(res.data);
   }
-  return fetchLandingPageDataLegacy();
+  return fetchLandingCriticalLegacy();
 });
 
-export async function getLandingCriticalData() {
-  const data = await getLandingPageData();
-  return {
-    heroSlides: data.heroSlides,
-    programCards: data.programCards,
-    programs: data.programs,
-    siteSettings: data.siteSettings,
-  };
+/** Below-the-fold — loaded inside Suspense boundaries. */
+export const getLandingDeferredData = cache(async (): Promise<LandingDeferredData> => {
+  const res = await serverApiGet<ApiListResponse<LandingDeferredApiPayload>>('/landing/deferred');
+  if (res?.success && res.data) {
+    return normalizeDeferredPayload(res.data);
+  }
+
+  const full = await serverApiGet<
+    ApiListResponse<LandingCriticalApiPayload & LandingDeferredApiPayload>
+  >('/landing');
+  if (full?.success && full.data) {
+    return normalizeDeferredPayload(full.data);
+  }
+
+  return fetchLandingDeferredLegacy();
+});
+
+export const getLandingPageData = cache(async (): Promise<LandingPageData> => {
+  const [critical, deferred] = await Promise.all([
+    getLandingCriticalData(),
+    getLandingDeferredData(),
+  ]);
+  return { ...critical, ...deferred };
+});
+
+async function getSiteSettings() {
+  const { siteSettings } = await getLandingCriticalData();
+  return siteSettings;
 }
 
 export async function getLandingCoursesData() {
-  const data = await getLandingPageData();
-  return {
-    courses: data.courses,
-    siteSettings: data.siteSettings,
-  };
+  const [deferred, siteSettings] = await Promise.all([
+    getLandingDeferredData(),
+    getSiteSettings(),
+  ]);
+  return { courses: deferred.courses, siteSettings };
 }
 
 export async function getLandingTrustData() {
-  const data = await getLandingPageData();
+  const [deferred, siteSettings] = await Promise.all([
+    getLandingDeferredData(),
+    getSiteSettings(),
+  ]);
   return {
-    testimonials: data.testimonials,
-    trustFeatures: data.trustFeatures,
-    siteSettings: data.siteSettings,
+    testimonials: deferred.testimonials,
+    trustFeatures: deferred.trustFeatures,
+    siteSettings,
   };
 }
 
 export async function getLandingTeachersData() {
-  const data = await getLandingPageData();
-  return {
-    teachers: data.teachers,
-    siteSettings: data.siteSettings,
-  };
+  const [deferred, siteSettings] = await Promise.all([
+    getLandingDeferredData(),
+    getSiteSettings(),
+  ]);
+  return { teachers: deferred.teachers, siteSettings };
 }
 
 export async function getLandingLibraryData() {
-  const data = await getLandingPageData();
-  return {
-    ebooks: data.ebooks,
-    siteSettings: data.siteSettings,
-  };
+  const [deferred, siteSettings] = await Promise.all([
+    getLandingDeferredData(),
+    getSiteSettings(),
+  ]);
+  return { ebooks: deferred.ebooks, siteSettings };
 }
 
 export async function getLandingPartnersData() {
-  const data = await getLandingPageData();
-  return {
-    partners: data.partners,
-    siteSettings: data.siteSettings,
-  };
+  const [deferred, siteSettings] = await Promise.all([
+    getLandingDeferredData(),
+    getSiteSettings(),
+  ]);
+  return { partners: deferred.partners, siteSettings };
 }
 
 export async function getLandingFooterData() {
-  const data = await getLandingPageData();
-  return {
-    siteSettings: data.siteSettings,
-  };
+  return { siteSettings: await getSiteSettings() };
 }

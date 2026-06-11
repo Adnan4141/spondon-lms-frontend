@@ -11,6 +11,10 @@ type Props = {
   examId?: string;
   hasMasterPdf: boolean;
   deliveryMode: 'ONLINE' | 'OFFLINE';
+  /** Hall OMR sheets generated (batch PDF or persisted omrGeneratedUrl). */
+  hasOmrSheets?: boolean;
+  /** At least one OMR scan batch uploaded in Results. */
+  hasOmrUploads?: boolean;
 };
 
 function StepRow({ done, children }: { done: boolean; children: ReactNode }) {
@@ -30,7 +34,14 @@ function StepRow({ done, children }: { done: boolean; children: ReactNode }) {
  * Step 6 checklist for offline MCQ exams that use OMR scan — replaces the
  * need to hunt through docs for the bank → PDF → OMR pipeline.
  */
-export function OfflineOmrWorkflowCard({ state, examId, hasMasterPdf, deliveryMode }: Props) {
+export function OfflineOmrWorkflowCard({
+  state,
+  examId,
+  hasMasterPdf,
+  deliveryMode,
+  hasOmrSheets = false,
+  hasOmrUploads = false,
+}: Props) {
   const omrFlow =
     deliveryMode === 'OFFLINE'
     && state.resultInputModes.includes('OMR_SCAN')
@@ -67,10 +78,10 @@ export function OfflineOmrWorkflowCard({ state, examId, hasMasterPdf, deliveryMo
           <StepRow done={hasMasterPdf}>
             Click <strong>Regenerate question paper PDF</strong> in Exam outputs to print the master paper.
           </StepRow>
-          <StepRow done={false}>
+          <StepRow done={hasOmrSheets}>
             Click <strong>Print hall OMR sheets (scan in Results)</strong> (one page per enrolled student; A4, no scaling).
           </StepRow>
-          <StepRow done={false}>
+          <StepRow done={hasOmrUploads}>
             After the exam, upload scans from{' '}
             {examId ? (
               <Link href={`/admin/exam/${examId}/results`} className="font-semibold text-[#0D1B35] underline">

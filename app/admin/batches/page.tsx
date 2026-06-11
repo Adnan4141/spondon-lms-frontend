@@ -1,8 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { getCourses } from '@/lib/api/courses';
-import { getBranches } from '@/lib/api/branches';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   getBatches,
   getBatchById,
@@ -47,6 +45,7 @@ import { BatchDetailsView } from '@/features/admin/batches';
 import { BatchRoutineModal } from '@/features/admin/batches';
 import { ConfirmationModal } from '@/features/admin/shared';
 import { cn } from '@/lib/utils';
+import { useAdminFilterOptions } from '@/lib/query/hooks/useAdminFilterOptions';
 
 const statusOptions: (BatchStatusType | 'all')[] = ['all', 'ACTIVE', 'INACTIVE', 'COMPLETED', 'ARCHIVED'];
 
@@ -65,9 +64,22 @@ function getStatusBadgeClass(status: string) {
 export default function BatchesPage() {
   const { openModal } = useModalStore();
   const { toast, toasts, removeToast } = useToast();
+  const { courses: filterCourses, branches: filterBranches } = useAdminFilterOptions();
 
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [branches, setBranches] = useState<Branch[]>([]);
+  const courses = useMemo(
+    () =>
+      filterCourses.map((course) => ({
+        id: course.id,
+        name: course.name,
+        programId: course.programId,
+      })) as Course[],
+    [filterCourses],
+  );
+  const branches = useMemo(
+    () => filterBranches.map((branch) => ({ id: branch.id, name: branch.name })) as Branch[],
+    [filterBranches],
+  );
+
   const [batches, setBatches] = useState<Batch[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -97,22 +109,6 @@ export default function BatchesPage() {
     }
   }, []);
 
-  const loadCourses = useCallback(async () => {
-    try {
-      const response = await getCourses({ all: true });
-      if (response.success && response.data) setCourses(response.data);
-    } catch (err) {
-      console.error(err);
-    }
-  }, []);
-
-  const loadBranches = useCallback(async () => {
-    try {
-      const response = await getBranches();
-      if (response.success && response.data) setBranches(response.data || []);
-    } catch (err) { console.error(err); }
-  }, []);
-
   const loadBatches = useCallback(async () => {
     try {
       setLoading(true);
@@ -135,11 +131,6 @@ export default function BatchesPage() {
       setLoading(false);
     }
   }, [branchFilter, courseFilter, scopedBranchId, statusFilter]);
-
-  useEffect(() => {
-    loadCourses();
-    loadBranches();
-  }, [loadBranches, loadCourses]);
 
   useEffect(() => {
     if (!branchScopeReady) return;

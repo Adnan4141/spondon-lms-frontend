@@ -1,11 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { CheckCircle2, Download, ExternalLink, Loader2, RefreshCw, Trophy, BarChart3, LayoutList, FileScan } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { regenerateExamPdf, getExamPdfDownloadUrl, generateOmrPdfBatch, type OmrPdfBatchResponse } from '@/lib/api/exams';
+import {
+  regenerateExamPdf,
+  getExamPdfDownloadUrl,
+  generateOmrPdfBatch,
+  getExamOperationsSummary,
+  type OmrPdfBatchResponse,
+} from '@/lib/api/exams';
 import type { ExamStatus } from '@/types/exam';
 import type { ExamBlueprintPreset } from '@/lib/api/exams';
 import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
@@ -61,7 +67,27 @@ export function Step6PreviewPublish({
   const [omrSheetBusy, setOmrSheetBusy] = useState(false);
   const [omrSetLabel, setOmrSetLabel] = useState('A');
   const [latestOmrBatch, setLatestOmrBatch] = useState<OmrPdfBatchResponse | null>(null);
+  const [hasOmrSheets, setHasOmrSheets] = useState(false);
+  const [hasOmrUploads, setHasOmrUploads] = useState(false);
   const omrEnabled = state.resultInputModes.includes('OMR_SCAN');
+
+  useEffect(() => {
+    if (!examId) {
+      setHasOmrSheets(false);
+      setHasOmrUploads(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const response = await getExamOperationsSummary(examId);
+      if (cancelled || !response.success || !response.data) return;
+      setHasOmrSheets(response.data.setup.hasOmrPdf);
+      setHasOmrUploads(response.data.omr.batchTotal > 0);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [examId, latestOmrBatch]);
   const status = serverExam?.status ?? null;
   const isDraft = status === 'DRAFT';
   const isPublished = status === 'PUBLISHED';
@@ -160,6 +186,8 @@ export function Step6PreviewPublish({
         examId={examId}
         hasMasterPdf={Boolean(serverExam?.pdfUrl)}
         deliveryMode={deliveryMode}
+        hasOmrSheets={hasOmrSheets || Boolean(latestOmrBatch)}
+        hasOmrUploads={hasOmrUploads}
       />
 
       <PresetSaveActions
