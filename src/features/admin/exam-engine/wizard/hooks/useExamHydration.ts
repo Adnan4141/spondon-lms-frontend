@@ -137,7 +137,6 @@ export function buildWizardPatchFromExam(exam: Exam): Partial<ExamWizardState> {
     solveScheduledAt,
     defaultNegativeMarks:
       typeof wizard?.defaultNegativeMarks === 'number' ? (wizard.defaultNegativeMarks as number) : 0.25,
-    resultModes: rawResultModes,
   };
 }
 

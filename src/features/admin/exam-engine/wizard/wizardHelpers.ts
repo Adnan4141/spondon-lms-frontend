@@ -184,8 +184,6 @@ export const WIZARD_FORM_INITIAL: ExamWizardState = {
   allowedAttempts: '1',
   autoSubmitOnDisconnect: false,
   disconnectGraceSeconds: '10',
-  scheduleAt: undefined,
-  solveAt: undefined,
   scheduleTime: '09:00',
   solveTime: '17:00',
   sections: [],
@@ -197,15 +195,12 @@ export const WIZARD_FORM_INITIAL: ExamWizardState = {
   hideResult: false,
   showSolve: true,
   showPct: false,
-  resultModes: ['AUTOMATED'],
 };
 
 /** Strip non-serializable / normalize for JSON storage */
 export function serializeWizardForm(s: ExamWizardState): string {
   return JSON.stringify({
     ...s,
-    scheduleAt: s.scheduleAt?.toISOString() ?? null,
-    solveAt: s.solveAt?.toISOString() ?? null,
     startAt: s.startAt?.toISOString() ?? null,
     endAt: s.endAt?.toISOString() ?? null,
     solveScheduledAt: s.solveScheduledAt?.toISOString() ?? null,
@@ -228,20 +223,24 @@ export function deserializeWizardForm(json: string): ExamWizardState | null {
     if (base.deliveryMode !== 'ONLINE' && base.deliveryMode !== 'OFFLINE') {
       base.deliveryMode = 'ONLINE';
     }
-    if (o.scheduleAt && typeof o.scheduleAt === 'string') base.scheduleAt = new Date(o.scheduleAt);
-    if (o.solveAt && typeof o.solveAt === 'string') base.solveAt = new Date(o.solveAt);
     if (o.startAt && typeof o.startAt === 'string') base.startAt = new Date(o.startAt);
     if (o.endAt && typeof o.endAt === 'string') base.endAt = new Date(o.endAt);
     if (o.solveScheduledAt && typeof o.solveScheduledAt === 'string') {
       base.solveScheduledAt = new Date(o.solveScheduledAt);
     }
-    // Legacy field migration: scheduleAt/solveAt/resultModes → canonical wizard fields.
-    if (!base.startAt && base.scheduleAt) base.startAt = base.scheduleAt;
-    if (!base.solveScheduledAt && base.solveAt) base.solveScheduledAt = base.solveAt;
-    if (Array.isArray(o.resultModes) && (!Array.isArray(base.resultInputModes) || base.resultInputModes.length === 0)) {
+    // Legacy draft migration (v1 fields no longer in state).
+    if (!base.startAt && o.scheduleAt && typeof o.scheduleAt === 'string') {
+      base.startAt = new Date(o.scheduleAt);
+    }
+    if (!base.solveScheduledAt && o.solveAt && typeof o.solveAt === 'string') {
+      base.solveScheduledAt = new Date(o.solveAt);
+    }
+    if (
+      Array.isArray(o.resultModes)
+      && (!Array.isArray(base.resultInputModes) || base.resultInputModes.length === 0)
+    ) {
       base.resultInputModes = o.resultModes as ExamWizardState['resultInputModes'];
     }
-    base.resultModes = base.resultInputModes.map(String);
     if (!base.branchId) base.branchId = EXAM_WIZARD_ALL_BRANCHES;
     base.subjects = (base.subjects ?? []).map((sub) => ({
       ...sub,

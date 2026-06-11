@@ -110,10 +110,6 @@ export interface ExamWizardState {
   allowedAttempts: string;
   autoSubmitOnDisconnect: boolean;
   disconnectGraceSeconds: string;
-  /** @deprecated retained for input by `BasicExamInfoForm` only; canonical sources are `startAt` and `solveScheduledAt`. */
-  scheduleAt: Date | undefined;
-  /** @deprecated retained for input by `BasicExamInfoForm` only; use `solveScheduledAt`. */
-  solveAt: Date | undefined;
   scheduleTime: string;
   solveTime: string;
   sections: WizardSection[];
@@ -125,8 +121,6 @@ export interface ExamWizardState {
   hideResult: boolean;
   showSolve: boolean;
   showPct: boolean;
-  /** @deprecated mirror of `resultInputModes` kept while presets stabilise. */
-  resultModes: string[];
 }
 
 /**
