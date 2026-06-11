@@ -185,6 +185,59 @@ export function ExamResultsPage({ examId, teacherEvaluatorMode = false }: ExamRe
     resultBatches.length,
   ]);
 
+  const tabDisabledReasons = useMemo<Partial<Record<ResultsTabKey, string>>>(() => {
+    if (evaluatorMode) {
+      return {
+        analytics: 'Not shown in teacher evaluator mode',
+        omr: 'Not shown in teacher evaluator mode',
+        offline: 'Not shown in teacher evaluator mode',
+        evaluation: !isWrittenEvalFlow
+          ? 'This exam does not use written evaluation'
+          : !can('exam.results.written.evaluate')
+            ? 'You do not have written evaluation permission'
+            : undefined,
+        merit: 'Not shown in teacher evaluator mode',
+      };
+    }
+    const hasAnalyticsData = Boolean(
+      (analytics && analytics.totalAttempts > 0) || meritRows.length || resultBatches.length,
+    );
+    return {
+      analytics: !can('exam.results.view')
+        ? 'You do not have results view permission'
+        : !hasAnalyticsData
+          ? 'No submitted attempts or result batches yet'
+          : undefined,
+      omr: !omrScanEnabled
+        ? 'OMR scanning is not enabled for this exam'
+        : !can('exam.results.omr.review')
+          ? 'You do not have OMR review permission'
+          : undefined,
+      offline: !isOfflineResultFlow
+        ? 'Offline result entry is not enabled for this exam'
+        : !can('exam.results.offline.enter')
+          ? 'You do not have offline entry permission'
+          : undefined,
+      evaluation: !isWrittenEvalFlow
+        ? 'This exam does not use written evaluation'
+        : !can('exam.results.written.evaluate')
+          ? 'You do not have written evaluation permission'
+          : undefined,
+      merit: !can('exam.results.merit.export')
+        ? 'You do not have merit list permission'
+        : undefined,
+    };
+  }, [
+    analytics,
+    can,
+    evaluatorMode,
+    isOfflineResultFlow,
+    isWrittenEvalFlow,
+    meritRows.length,
+    omrScanEnabled,
+    resultBatches.length,
+  ]);
+
   useEffect(() => {
     if (loading) return;
     const fallback: ResultsTabKey = evaluatorMode
@@ -203,8 +256,7 @@ export function ExamResultsPage({ examId, teacherEvaluatorMode = false }: ExamRe
 
   const changeTab = (nextTab: ResultsTabKey) => {
     setActiveTab(nextTab);
-    const hash = nextTab === 'offline' ? 'results' : nextTab;
-    window.history.replaceState(null, '', `#${hash}`);
+    window.history.replaceState(null, '', `#${nextTab}`);
   };
 
   const submitSingleOffline = async () => {
@@ -452,7 +504,12 @@ export function ExamResultsPage({ examId, teacherEvaluatorMode = false }: ExamRe
     <div className={cn(examWorkspacePageClass, 'print:max-w-none')}>
       <ExamWorkspacePageHeader title={pageTitle} description={pageDescription} />
 
-      <ResultsTabs activeTab={activeTab} onTabChange={changeTab} availability={tabAvailability}>
+      <ResultsTabs
+        activeTab={activeTab}
+        onTabChange={changeTab}
+        availability={tabAvailability}
+        disabledReasons={tabDisabledReasons}
+      >
         <TabsContent value="analytics" className="mt-0">
           <AnalyticsTab stats={analytics} />
         </TabsContent>

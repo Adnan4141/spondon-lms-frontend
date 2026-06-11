@@ -9,6 +9,7 @@ type ResultsTabsProps = {
   activeTab: ResultsTabKey;
   onTabChange: (tab: ResultsTabKey) => void;
   availability: Record<ResultsTabKey, boolean>;
+  disabledReasons?: Partial<Record<ResultsTabKey, string>>;
   children: React.ReactNode;
 };
 
@@ -20,7 +21,7 @@ const tabs: Array<{ key: ResultsTabKey; label: string; icon: React.ElementType }
   { key: 'merit', label: 'Merit list', icon: Medal },
 ];
 
-export function ResultsTabs({ activeTab, onTabChange, availability, children }: ResultsTabsProps) {
+export function ResultsTabs({ activeTab, onTabChange, availability, disabledReasons, children }: ResultsTabsProps) {
   return (
     <Tabs
       value={activeTab}
@@ -44,7 +45,11 @@ export function ResultsTabs({ activeTab, onTabChange, availability, children }: 
                   'gap-2 rounded-md px-3 py-2 text-sm data-[state=active]:bg-slate-950 data-[state=active]:text-white',
                   !enabled && 'cursor-not-allowed text-slate-400 opacity-60',
                 )}
-                title={enabled ? tab.label : `${tab.label} is not available for this exam or role`}
+                title={
+                  enabled
+                    ? tab.label
+                    : disabledReasons?.[tab.key] ?? `${tab.label} is not available for this exam or role`
+                }
               >
                 <Icon className="h-4 w-4" />
                 {tab.label}
