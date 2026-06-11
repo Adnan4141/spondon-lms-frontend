@@ -13,7 +13,7 @@ import {
 } from '@/lib/api/books';
 import { openInvoicePdfInNewTab } from '@/lib/api/invoices';
 import { getBranches, type Branch } from '@/lib/api/branches';
-import { getStudents, type Student } from '@/lib/api/students';
+import { searchStudentSmsSuggestions, type StudentSmsSuggestion } from '@/lib/api/students';
 import { API_ORIGIN } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -67,11 +67,11 @@ export default function OfflineBookSalesPage() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [books, setBooks] = useState<Book[]>([]);
   const [stockRows, setStockRows] = useState<BookStock[]>([]);
-  const [students, setStudents] = useState<Student[]>([]);
+  const [students, setStudents] = useState<StudentSmsSuggestion[]>([]);
   const [branchId, setBranchId] = useState('');
   const [studentSearch, setStudentSearch] = useState('');
   const [bookSearch, setBookSearch] = useState('');
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<StudentSmsSuggestion | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [studentLoading, setStudentLoading] = useState(false);
@@ -155,7 +155,7 @@ export default function OfflineBookSalesPage() {
     const timeout = window.setTimeout(async () => {
       setStudentLoading(true);
       try {
-        const res = await getStudents({ role: 'STUDENT', search: query, limit: 8 });
+        const res = await searchStudentSmsSuggestions({ q: query, limit: 8 });
         setStudents(res.success && res.data ? res.data : []);
       } catch {
         setStudents([]);
@@ -492,7 +492,11 @@ export default function OfflineBookSalesPage() {
                 <div className="flex h-11 items-center justify-between gap-3 rounded-xl border border-sky-200 bg-sky-50 px-3">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-black text-slate-900">{selectedStudent.fullName}</p>
-                    <p className="truncate text-xs text-slate-500">{selectedStudent.mobile} · {selectedStudent.studentProfile?.registrationNumber || 'No reg no'}</p>
+                    <p className="truncate text-xs text-slate-500">
+                      {selectedStudent.mobile}
+                      {selectedStudent.registrationNumber ? ` · ${selectedStudent.registrationNumber}` : ''}
+                      {selectedStudent.branchName ? ` · ${selectedStudent.branchName}` : ''}
+                    </p>
                   </div>
                   <Button type="button" size="sm" variant="outline" className="h-8 bg-white" onClick={() => setSelectedStudent(null)}>Change</Button>
                 </div>
@@ -516,7 +520,11 @@ export default function OfflineBookSalesPage() {
                           <UserRound className="h-4 w-4 text-sky-600" />
                           <span className="min-w-0">
                             <span className="block truncate text-sm font-black text-slate-900">{student.fullName}</span>
-                            <span className="block truncate text-xs text-slate-500">{student.mobile} · {student.studentProfile?.registrationNumber || 'No reg no'}</span>
+                            <span className="block truncate text-xs text-slate-500">
+                              {student.mobile}
+                              {student.registrationNumber ? ` · ${student.registrationNumber}` : ''}
+                              {student.branchName ? ` · ${student.branchName}` : ''}
+                            </span>
                           </span>
                         </button>
                       ))}
@@ -531,7 +539,9 @@ export default function OfflineBookSalesPage() {
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-base font-black text-slate-900">Branch Stock Books</h2>
-                <p className="text-xs font-semibold text-slate-500">Only physical books with available branch stock are shown.</p>
+                <p className="text-xs font-semibold text-slate-500">
+                  Only physical books with available stock in the selected selling branch are shown. Students from any branch can be billed.
+                </p>
               </div>
               <div className="relative w-full sm:w-80">
                 <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" />
@@ -543,7 +553,7 @@ export default function OfflineBookSalesPage() {
               <div className="flex items-center justify-center py-16 text-slate-400"><Loader2 className="h-6 w-6 animate-spin" /></div>
             ) : visibleBooks.length === 0 ? (
               <div className="rounded-xl border border-dashed border-slate-200 py-12 text-center text-sm font-bold text-slate-400">
-                No branch stock books found.
+                No branch stock books found. Ask Super Admin or Accounts to distribute stock to this branch.
               </div>
             ) : (
               <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">

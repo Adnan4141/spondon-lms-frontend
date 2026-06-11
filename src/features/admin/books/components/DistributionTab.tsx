@@ -205,10 +205,12 @@ export function DistributionTab({
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className={`grid gap-4 ${isBranchAdmin ? 'md:grid-cols-2' : 'md:grid-cols-3'}`}>
         <StatsCard label="Book Summary Rows" value={summary.byBook.length} icon={ArrowRight} variant="sky" />
         <StatsCard label="Branch Destinations" value={summary.byBranch.length} icon={Building2} variant="green" />
-        <StatsCard label="Channel Destinations" value={summary.byChannel.length} icon={RadioTower} variant="purple" />
+        {!isBranchAdmin ? (
+          <StatsCard label="Channel Destinations" value={summary.byChannel.length} icon={RadioTower} variant="purple" />
+        ) : null}
       </div>
 
       <section className="rounded-[28px] border border-border bg-card p-5 shadow-sm">
@@ -217,14 +219,22 @@ export function DistributionTab({
             <SelectTrigger className="w-[240px]"><SelectValue placeholder="Book" /></SelectTrigger>
             <SelectContent><SelectItem value="all">All Books</SelectItem>{books.map((book) => <SelectItem key={book.id} value={book.id}>{book.name}</SelectItem>)}</SelectContent>
           </Select>
-          <Select value={destinationType} onValueChange={(value) => {
-            const nextType = value as 'all' | 'branch' | 'channel';
-            setDestinationType(nextType);
-            setDestinationId('all');
-            if (nextType !== 'branch') patchSharedFilters({ branchId: 'all' });
-          }}>
+          <Select
+            value={isBranchAdmin ? 'branch' : destinationType}
+            onValueChange={(value) => {
+              const nextType = value as 'all' | 'branch' | 'channel';
+              setDestinationType(nextType);
+              setDestinationId('all');
+              if (nextType !== 'branch') patchSharedFilters({ branchId: 'all' });
+            }}
+            disabled={isBranchAdmin}
+          >
             <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-            <SelectContent><SelectItem value="all">All Destinations</SelectItem><SelectItem value="branch">Branch</SelectItem><SelectItem value="channel">Channel</SelectItem></SelectContent>
+            <SelectContent>
+              {!isBranchAdmin ? <SelectItem value="all">All Destinations</SelectItem> : null}
+              <SelectItem value="branch">Branch</SelectItem>
+              {!isBranchAdmin ? <SelectItem value="channel">Channel</SelectItem> : null}
+            </SelectContent>
           </Select>
           {destinationType !== 'all' ? (
             <Select value={destinationId} onValueChange={(value) => {
@@ -270,7 +280,10 @@ export function DistributionTab({
           <Table>
             <TableHeader><TableRow><TableHead>Destination</TableHead><TableHead>Date Range</TableHead><TableHead>Trips</TableHead><TableHead className="text-right">Qty</TableHead></TableRow></TableHeader>
             <TableBody>
-              {[...summary.byBranch.map((row) => ({ key: row.toBranchId || 'none', name: row.branch?.name || 'Unassigned Branch', count: row._count, quantity: row._sum.quantity || 0, min: row._min, max: row._max })), ...summary.byChannel.map((row) => ({ key: row.channelId || 'none-channel', name: row.channel?.name || 'Unassigned Channel', count: row._count, quantity: row._sum.quantity || 0, min: row._min, max: row._max }))].map((row) => (
+              {[
+                ...summary.byBranch.map((row) => ({ key: row.toBranchId || 'none', name: row.branch?.name || 'Unassigned Branch', count: row._count, quantity: row._sum.quantity || 0, min: row._min, max: row._max })),
+                ...(isBranchAdmin ? [] : summary.byChannel.map((row) => ({ key: row.channelId || 'none-channel', name: row.channel?.name || 'Unassigned Channel', count: row._count, quantity: row._sum.quantity || 0, min: row._min, max: row._max }))),
+              ].map((row) => (
                 <TableRow key={row.key}><TableCell>{row.name}</TableCell><TableCell className="text-xs text-muted-foreground">{formatRange(row.min, row.max)}</TableCell><TableCell>{row.count}</TableCell><TableCell className="text-right font-semibold">{row.quantity}</TableCell></TableRow>
               ))}
             </TableBody>
@@ -283,7 +296,15 @@ export function DistributionTab({
         <Table>
           <TableHeader><TableRow><TableHead>Book</TableHead><TableHead>Destination</TableHead><TableHead>Type</TableHead><TableHead>Distribution Date</TableHead><TableHead>Recorded At</TableHead><TableHead className="text-right">Qty</TableHead></TableRow></TableHeader>
           <TableBody>
-            {rows.map((row) => (
+            {rows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="py-10 text-center text-sm font-semibold text-muted-foreground">
+                  {isBranchAdmin
+                    ? 'No incoming distributions yet for your branch. Super Admin or Accounts will record them here.'
+                    : 'No distributions found for the selected filters.'}
+                </TableCell>
+              </TableRow>
+            ) : rows.map((row) => (
               <TableRow key={row.id}>
                 <TableCell>{row.book?.name || row.bookId}</TableCell>
                 <TableCell>{row.toBranch?.name || row.channel?.name || 'Unknown'}</TableCell>

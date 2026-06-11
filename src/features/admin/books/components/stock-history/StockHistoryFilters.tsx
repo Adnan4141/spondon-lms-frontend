@@ -78,7 +78,8 @@ export function StockHistoryFilters({
           <SelectContent>
             {!lockedBranchId ? <SelectItem value="all">All Locations</SelectItem> : null}
             {!lockedBranchId ? <SelectItem value="central">Central Warehouse</SelectItem> : null}
-            {branches.map((branch) => <SelectItem key={branch.id} value={`branch:${branch.id}`}>Branch: {branch.name}</SelectItem>)}
+            {(lockedBranchId ? branches.filter((branch) => branch.id === lockedBranchId) : branches)
+              .map((branch) => <SelectItem key={branch.id} value={`branch:${branch.id}`}>Branch: {branch.name}</SelectItem>)}
             {!lockedBranchId ? channels.map((channel) => <SelectItem key={channel.id} value={`channel:${channel.id}`}>Channel: {channel.name}</SelectItem>) : null}
             {!lockedBranchId ? sources.map((source) => <SelectItem key={source.id} value={`source:${source.id}`}>Source: {source.name}</SelectItem>) : null}
           </SelectContent>

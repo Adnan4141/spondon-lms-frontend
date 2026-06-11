@@ -17,6 +17,7 @@ export default function BooksStockPage() {
   const data = useBooksData();
   const { user } = useAdminSession();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const isBranchAdmin = user?.role === 'BRANCH_ADMIN';
   const [sharedFilters, setSharedFilters] = useState<StockPageSharedFilters>(() => defaultStockPageFilters());
 
   if (data.loading) {
@@ -27,7 +28,11 @@ export default function BooksStockPage() {
     <div className="mx-auto max-w-[1600px] space-y-5 px-1 pb-12">
       <BooksRouteHeader
         title="Stock & Distribution"
-        subtitle="Receive, transfer, distribute, correct, and audit physical book inventory separately from catalog setup."
+        subtitle={
+          isBranchAdmin
+            ? 'Review stock movements and incoming distributions for your branch only. Recording or correcting stock requires Super Admin or Accounts.'
+            : 'Receive, transfer, distribute, correct, and audit physical book inventory separately from catalog setup.'
+        }
       >
         <Button variant="outline" className="h-10 gap-2 rounded-xl" onClick={() => void data.refreshAll()}>
           <RefreshCw className="h-4 w-4" />
