@@ -3,7 +3,17 @@
 
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FastForward, Pause, Play, RotateCcw, Rewind, Volume2, VolumeX } from 'lucide-react';
+import {
+  FastForward,
+  Maximize2,
+  Minimize2,
+  Pause,
+  Play,
+  RotateCcw,
+  Rewind,
+  Volume2,
+  VolumeX,
+} from 'lucide-react';
 import { toYoutubeNoCookieSrc } from '@/lib/youtube';
 
 // ─── Watermark drift keyframes ─────────────────────────────────────────────
@@ -66,6 +76,8 @@ export function YoutubePlayer({
   const [seeking, setSeeking] = useState(false);
   const [dragTime, setDragTime] = useState<number | null>(null);
   const [controlsVisible, setControlsVisible] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const hideControlsTimerRef = useRef<number | null>(null);
   const hoveringControlsRef = useRef(false);
@@ -99,6 +111,21 @@ export function YoutubePlayer({
       scheduleHideControls();
     }
   }, [scheduleHideControls]);
+
+  const toggleFullscreen = useCallback(async () => {
+    const el = containerRef.current;
+    if (!el) return;
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await el.requestFullscreen();
+      }
+    } catch {
+      // Fullscreen may be blocked by browser policy or unsupported embed context.
+    }
+    revealControls();
+  }, [revealControls]);
 
   const sendPlayerCommand = useCallback((func: string, args: unknown[] = []) => {
     if (!started) return;
@@ -241,6 +268,7 @@ export function YoutubePlayer({
         itself cannot be blocked at browser level — this covers our overlay div).
       */}
       <div
+        ref={containerRef}
         className="relative w-full h-full overflow-hidden bg-slate-900"
         onContextMenu={blockContextMenu}
         onContextMenuCapture={blockContextMenu}
@@ -423,6 +451,17 @@ export function YoutubePlayer({
                   aria-label="Change playback speed"
                 >
                   {playbackRate.toFixed(playbackRate % 1 === 0 ? 0 : 2)}x
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    toggleFullscreen();
+                  }}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-slate-900/70 text-slate-100 transition hover:bg-slate-800"
+                  aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                >
+                  {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
                 </button>
 
                 <div className="flex min-w-0 flex-1 items-center gap-2 text-xs font-semibold text-slate-200">

@@ -96,23 +96,22 @@ export const HeroCarousel: React.FC<Props> = ({ slides }) => {
   const scrollNext = useCallback(() => emblaApi && emblaApi.scrollNext(), [emblaApi]);
 
   return (
-    <section className="relative w-full h-[300px] sm:h-[480px] md:h-[620px] lg:h-[720px] overflow-hidden bg-slate-900">
-      <div className="overflow-hidden h-full touch-pan-y" ref={emblaRef}>
-        <div className="flex h-full">
+    <section className="relative w-full overflow-hidden bg-slate-900 sm:aspect-2/1 md:aspect-auto md:h-[620px] lg:h-[720px]">
+      <div className="overflow-hidden w-full sm:h-full touch-pan-y" ref={emblaRef}>
+        <div className="flex w-full sm:h-full">
           {displaySlides.map((slide, index) => (
-            <div key={slide.id} className="flex-[0_0_100%] min-w-0 relative h-full">
-              <div className="absolute inset-0 z-0">
-                <Image
-                  src={resolveImageUrl(slide.imageUrl)}
-                  alt={slide.title}
-                  fill
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 1920px"
-                  className="object-cover"
-                  priority={index === 0}
-                  loading={index === 0 ? undefined : 'lazy'}
-                />
-              </div>
-              <div className="absolute inset-0 z-10 bg-linear-to-t from-black/80 via-black/30 to-transparent" />
+            <div key={slide.id} className="flex-[0_0_100%] min-w-0 w-full relative shrink-0 sm:h-full">
+              <Image
+                src={resolveImageUrl(slide.imageUrl)}
+                alt={slide.title}
+                width={1920}
+                height={640}
+                sizes="100vw"
+                className="block w-full h-auto sm:absolute sm:inset-0 sm:h-full sm:w-full sm:object-cover sm:object-center"
+                priority={index === 0}
+                loading={index === 0 ? undefined : 'lazy'}
+              />
+              <div className="absolute inset-0 z-10 pointer-events-none bg-linear-to-t from-black/50 via-transparent to-transparent sm:from-black/80 sm:via-black/30" />
             </div>
           ))}
         </div>

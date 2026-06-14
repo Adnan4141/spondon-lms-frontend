@@ -11,6 +11,7 @@ import { getCourseById } from '@/lib/api/courses';
 import type { CourseDetails } from '@/types/course';
 import { isYoutubeContentUrl, parseYoutubeVideoId } from '@/lib/youtube';
 import { YoutubePlayer } from '@/components/student/course/YoutubePlayer';
+import { HostedVideoPlayer } from '@/components/student/course/HostedVideoPlayer';
 import { resolveAttachmentUrl } from '@/lib/attachment-url';
 import { API_ORIGIN } from '@/lib/api';
 import { groupContentsBySubjectChapter, uniqueSubjectsFromGroups } from '@/lib/course-outline';
@@ -355,12 +356,12 @@ export default function StudentCourseSubjectPage() {
                   className="w-full h-full min-h-[480px] border-0 bg-white"
                 />
               ) : selectedContent?.type === 'VIDEO' && rawUrl ? (
-                <video
-                  ref={videoRef}
-                  key={selectedContent.id}
+                <HostedVideoPlayer
+                  contentId={selectedContent.id}
                   src={resolvedMediaUrl}
-                  controls
-                  className="w-full h-full"
+                  studentPhone={studentPhone}
+                  studentName={studentName}
+                  videoRef={videoRef}
                   onTimeUpdate={handleVideoTimeUpdate}
                   onEnded={handleVideoEnded}
                 />
