@@ -96,22 +96,22 @@ export const HeroCarousel: React.FC<Props> = ({ slides }) => {
   const scrollNext = useCallback(() => emblaApi && emblaApi.scrollNext(), [emblaApi]);
 
   return (
-    <section className="relative w-full overflow-hidden bg-slate-900 sm:aspect-2/1 md:aspect-auto md:h-[620px] lg:h-[720px]">
-      <div className="overflow-hidden w-full sm:h-full touch-pan-y" ref={emblaRef}>
-        <div className="flex w-full sm:h-full">
+    <section className="relative w-full overflow-hidden bg-slate-900">
+      <div className="overflow-hidden w-full touch-pan-y" ref={emblaRef}>
+        <div className="flex w-full">
           {displaySlides.map((slide, index) => (
-            <div key={slide.id} className="flex-[0_0_100%] min-w-0 w-full relative shrink-0 sm:h-full">
+            <div key={slide.id} className="flex-[0_0_100%] min-w-0 w-full relative shrink-0">
               <Image
                 src={resolveImageUrl(slide.imageUrl)}
                 alt={slide.title}
                 width={1920}
                 height={640}
                 sizes="100vw"
-                className="block w-full h-auto sm:absolute sm:inset-0 sm:h-full sm:w-full sm:object-cover sm:object-center"
+                className="block w-full h-auto"
                 priority={index === 0}
                 loading={index === 0 ? undefined : 'lazy'}
               />
-              <div className="absolute inset-0 z-10 pointer-events-none bg-linear-to-t from-black/50 via-transparent to-transparent sm:from-black/80 sm:via-black/30" />
+              <div className="absolute inset-0 z-10 pointer-events-none bg-linear-to-t from-black/40 via-transparent to-transparent" />
             </div>
           ))}
         </div>
