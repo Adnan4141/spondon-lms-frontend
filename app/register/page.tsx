@@ -116,6 +116,16 @@ function RegisterForm() {
       });
 
       if (response.success) {
+        if (response.autoVerified) {
+          toast({
+            title: 'একাউন্ট তৈরি হয়েছে!',
+            description: 'মোবাইল যাচাই সম্পন্ন। এখন লগ ইন করুন।',
+            variant: 'success',
+          });
+          setTimeout(() => router.push('/login'), 1500);
+          return;
+        }
+
         setRegisteredMobile(formData.mobile.trim());
         setStep('otp');
         startResendCooldown();

@@ -84,13 +84,21 @@ export async function revokeAllTrustedDevices(userId?: string): Promise<ApiRespo
   return apiRequest(`/auth/trusted-devices${query}`, { method: 'DELETE' });
 }
 
+export type RegisterApiResponse = ApiResponse<{ registrationNumber?: string }> & {
+  userId?: string;
+  mobile?: string;
+  otpQueued?: boolean;
+  otpFailureReason?: string;
+  autoVerified?: boolean;
+};
+
 export async function register(data: {
   fullName: string;
   mobile: string;
   gender?: string;
   password: string;
   turnstileToken?: string;
-}): Promise<ApiResponse<{ userId: string; mobile: string; otpQueued?: boolean; otpFailureReason?: string }>> {
+}): Promise<RegisterApiResponse> {
   return apiRequest('/auth/register', {
     method: 'POST',
     body: JSON.stringify(data),
