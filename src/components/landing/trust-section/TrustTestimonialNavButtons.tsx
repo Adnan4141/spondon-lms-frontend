@@ -10,7 +10,7 @@ type Props = {
 
 export function TrustTestimonialNavButtons({ onPrev, onNext }: Props) {
   const btnClass =
-    'absolute top-1/2 z-10 h-10 w-10 -translate-y-1/2 rounded-full border border-slate-100 bg-white p-0 text-[#3b4a97] shadow-md hover:bg-slate-50 sm:h-12 sm:w-12 md:shadow-lg lg:h-14 lg:w-14';
+    'absolute top-1/2 z-10 h-9 w-9 -translate-y-1/2 rounded-full border border-slate-100 bg-white p-0 text-[#3b4a97] shadow-md hover:bg-slate-50 sm:h-11 sm:w-11 md:h-12 md:w-12 lg:h-14 lg:w-14';
 
   return (
     <>
@@ -19,20 +19,20 @@ export function TrustTestimonialNavButtons({ onPrev, onNext }: Props) {
         variant="secondary"
         size="icon"
         onClick={onPrev}
-        className={`${btnClass} left-1 sm:left-2 md:-left-5 lg:-left-7`}
+        className={`${btnClass} left-0 sm:left-1 md:-left-4 lg:-left-6`}
         aria-label="Previous testimonial"
       >
-        <ChevronLeft className="h-6 w-6 sm:h-7 sm:w-7" />
+        <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6" />
       </Button>
       <Button
         type="button"
         variant="secondary"
         size="icon"
         onClick={onNext}
-        className={`${btnClass} right-1 sm:right-2 md:-right-5 lg:-right-7`}
+        className={`${btnClass} right-0 sm:right-1 md:-right-4 lg:-right-6`}
         aria-label="Next testimonial"
       >
-        <ChevronRight className="h-6 w-6 sm:h-7 sm:w-7" />
+        <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
       </Button>
     </>
   );

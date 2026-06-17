@@ -12,7 +12,7 @@ export function TrustTestimonialQuoteColumn({ testimonial }: Props) {
           “
         </div>
       </div>
-      <blockquote className="mb-4 line-clamp-10 text-base font-medium italic leading-relaxed text-slate-600 sm:mb-6 sm:text-lg">
+      <blockquote className="mb-4 line-clamp-6 text-base font-medium italic leading-relaxed text-slate-600 sm:mb-5 sm:line-clamp-8 sm:text-lg md:line-clamp-10">
         &quot;{testimonial.quote}&quot;
       </blockquote>
       <div>

@@ -51,5 +51,5 @@ export function TrustTestimonialMedia({ testimonial: t }: Props) {
     );
   }
 
-  return <TrustTestimonialMediaEmpty />;
+  return <TrustTestimonialMediaEmpty name={t.name} />;
 }

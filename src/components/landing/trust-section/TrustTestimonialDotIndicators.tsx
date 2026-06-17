@@ -10,7 +10,7 @@ type Props = {
 
 export function TrustTestimonialDotIndicators({ count, activeIndex, onSelect }: Props) {
   return (
-    <div className="mt-6 flex justify-center gap-1.5 sm:mt-8 sm:gap-2 md:mt-10">
+    <div className="mt-5 flex justify-center gap-1.5 sm:mt-6 sm:gap-2 md:mt-8">
       {Array.from({ length: count }, (_, i) => (
         <button
           key={i}

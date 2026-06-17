@@ -29,14 +29,14 @@ export function TrustTestimonialCarouselPanel({
 
   return (
     <div
-      className="relative z-10 mx-auto mt-8 w-full max-w-5xl px-2 sm:mt-10 sm:px-4 md:mt-12 lg:absolute lg:mt-0 lg:-bottom-112 lg:left-0 lg:right-0 lg:px-4"
+      className="relative z-10 mx-auto w-full max-w-5xl"
       onPointerEnter={() => onCarouselHoverChange(true)}
       onPointerLeave={() => onCarouselHoverChange(false)}
     >
-      <div className="relative rounded-xl bg-white p-4 shadow-[0_20px_50px_rgba(0,0,0,0.1)] sm:rounded-2xl sm:p-6 md:p-8 lg:rounded-[2rem] lg:p-10">
+      <div className="relative rounded-xl bg-white p-4 shadow-[0_20px_50px_rgba(0,0,0,0.1)] sm:rounded-2xl sm:p-6 md:p-7 lg:rounded-[2rem] lg:p-8">
         <TrustTestimonialNavButtons onPrev={goPrev} onNext={goNext} />
 
-        <div className="grid min-h-0 items-center gap-6 px-10 sm:gap-8 sm:px-12 md:grid-cols-12 md:gap-8 md:px-10 lg:gap-10 lg:px-12">
+        <div className="grid items-center gap-5 px-2 sm:gap-6 sm:px-6 md:grid-cols-12 md:gap-8 md:px-8 lg:gap-10 lg:px-10">
           <TrustTestimonialQuoteColumn testimonial={activeTestimonial} />
           <div className="md:col-span-5">
             <TrustTestimonialMedia testimonial={activeTestimonial} />

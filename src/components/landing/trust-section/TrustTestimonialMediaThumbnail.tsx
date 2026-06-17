@@ -1,9 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import Image from 'next/image';
 import { Play } from 'lucide-react';
 import type { Testimonial } from '../types';
 import { resolveTrustMediaUrl } from './media-url';
+import { TrustTestimonialMediaEmpty } from './TrustTestimonialMediaEmpty';
 
 type Props = {
   testimonial: Testimonial;
@@ -22,7 +24,12 @@ export function TrustTestimonialMediaThumbnail({
   overlaySubtitle,
   showOverlay,
 }: Props) {
+  const [imageFailed, setImageFailed] = useState(false);
   const href = videoSrc.startsWith('http') ? videoSrc : resolveTrustMediaUrl(videoSrc) || '#';
+
+  if (imageFailed) {
+    return <TrustTestimonialMediaEmpty name={testimonial.name} />;
+  }
 
   return (
     <div className="group relative aspect-video overflow-hidden rounded-2xl bg-slate-100 shadow-inner ring-1 ring-slate-200/60">
@@ -30,8 +37,9 @@ export function TrustTestimonialMediaThumbnail({
         src={thumbSrc}
         alt={testimonial.name || 'Testimonial'}
         fill
-    
-        className="object-cover h-72 transition-transform duration-500 group-hover:scale-[1.02]"
+        sizes="(max-width: 768px) 100vw, 420px"
+        className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+        onError={() => setImageFailed(true)}
       />
       {videoSrc ? (
         <a
