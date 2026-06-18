@@ -1,6 +1,6 @@
 'use client';
 
-import { OmrScanReviewPanel } from '../components/OmrScanReviewPanel';
+import { LazyOmrScanReviewPanel as OmrScanReviewPanel } from '../components/LazyOmrScanReviewPanel';
 
 export function OmrResultsTab({
   examId,

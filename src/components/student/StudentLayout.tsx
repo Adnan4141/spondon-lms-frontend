@@ -7,6 +7,7 @@ import { Menu } from 'lucide-react';
 import { StudentSidebar } from './StudentSidebar';
 import { cn } from '@/lib/utils';
 import { getExamStudentView } from '@/lib/api/exams';
+import { getCourseById } from '@/lib/api/courses';
 
 const STUDENT_ROUTE_LABELS: Record<string, { title: string; subtitle?: string }> = {
   '/student/community': { title: 'Community', subtitle: 'Join discussions and share updates' },
@@ -64,6 +65,10 @@ export function StudentLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [examHeaderTitle, setExamHeaderTitle] = useState<{ examId: string; title: string } | null>(null);
+  const [courseHeaderTitle, setCourseHeaderTitle] = useState<{
+    courseId: string;
+    title: string;
+  } | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window === 'undefined') return false;
     const stored = window.localStorage.getItem('student-sidebar-collapsed');
@@ -109,6 +114,15 @@ export function StudentLayout({ children }: { children: React.ReactNode }) {
     return undefined;
   }, [pathname]);
 
+  const courseIdFromPath = useMemo(() => {
+    const cleanPath = (pathname || '').replace(/\/$/, '');
+    const segments = cleanPath.split('/').filter(Boolean);
+    if (segments[0] === 'student' && segments[1] === 'courses' && segments.length === 3) {
+      return segments[2];
+    }
+    return undefined;
+  }, [pathname]);
+
   useEffect(() => {
     if (!examIdFromPath) return;
 
@@ -134,11 +148,49 @@ export function StudentLayout({ children }: { children: React.ReactNode }) {
     };
   }, [examIdFromPath]);
 
-  const headerContent = useMemo(() => resolveStudentHeader(pathname), [pathname]);
+  useEffect(() => {
+    if (!courseIdFromPath) {
+      setCourseHeaderTitle(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const run = async () => {
+      try {
+        const res = await getCourseById(courseIdFromPath);
+        if (!cancelled && res.success && res.data?.name) {
+          setCourseHeaderTitle({ courseId: courseIdFromPath, title: res.data.name });
+        }
+      } catch {
+        // Keep route-based fallback title when fetch fails.
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [courseIdFromPath]);
+
+  const headerContent = useMemo(() => {
+    if (courseIdFromPath) {
+      return { title: startCase(courseIdFromPath), subtitle: 'Course home' };
+    }
+    return resolveStudentHeader(pathname);
+  }, [pathname, courseIdFromPath]);
+
   const resolvedHeaderTitle =
     examIdFromPath && examHeaderTitle?.examId === examIdFromPath
       ? examHeaderTitle.title
-      : headerContent.title;
+      : courseIdFromPath && courseHeaderTitle?.courseId === courseIdFromPath
+        ? courseHeaderTitle.title
+        : headerContent.title;
+
+  const resolvedHeaderSubtitle =
+    courseIdFromPath && courseHeaderTitle?.courseId === courseIdFromPath
+      ? 'Course home'
+      : headerContent.subtitle;
 
   return (
     <PortalQueryProvider>
@@ -172,7 +224,7 @@ export function StudentLayout({ children }: { children: React.ReactNode }) {
                   {resolvedHeaderTitle}
                 </p>
                 <p className="truncate text-xs font-semibold text-slate-500 sm:text-sm">
-                  {headerContent.subtitle}
+                  {resolvedHeaderSubtitle}
                 </p>
               </div>
             </div>

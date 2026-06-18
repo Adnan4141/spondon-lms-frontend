@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -61,6 +61,8 @@ function contentGroupKey(c: ContentItem) {
 
 export default function StudentCourseSubjectPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
+  const lessonId = searchParams.get('lesson');
   const courseId = params.courseId as string;
   const subjectSlug = params.subjectSlug as string;
 
@@ -129,7 +131,11 @@ export default function StudentCourseSubjectPage() {
       setResolvedSubject(subjectTitle);
       const filtered = items.filter((c) => normalizeSubjectLabel(c.subjectTitle) === subjectTitle);
       if (filtered.length > 0) {
-        const firstVideo = filtered.find((c) => isVideoLikeItem(c)) || filtered[0];
+        const lessonMatch = lessonId ? filtered.find((c) => c.id === lessonId) : null;
+        const firstVideo =
+          lessonMatch ??
+          filtered.find((c) => isVideoLikeItem(c)) ??
+          filtered[0];
         setSelectedContent(firstVideo);
         setExpandedTopics(new Set([contentGroupKey(firstVideo)]));
       } else {
@@ -141,7 +147,7 @@ export default function StudentCourseSubjectPage() {
     } finally {
       setLoading(false);
     }
-  }, [courseId, studentUserId, subjectSlug]);
+  }, [courseId, studentUserId, subjectSlug, lessonId]);
 
   useEffect(() => {
     fetchData();

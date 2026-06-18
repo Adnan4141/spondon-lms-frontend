@@ -5,7 +5,7 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { ApiError } from '@/lib/api';
 import { startExamAttempt, getAttemptResult, getExamStudentView, getExamPdfDownloadUrl } from '@/lib/api/exams';
 import type { StartAttemptResponse, AttemptResultResponse, ExamStudentView, StudentExamResultStatus } from '@/types/exam';
-import { ExamTakingView } from '@/components/student/exam-window/ExamTakingView';
+import { LazyExamTakingView as ExamTakingView } from '@/components/student/exam-window/LazyExamTakingView';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Timer, AlertTriangle, CheckCircle2, Loader2, Eye, Trophy, XCircle, Building2, FileText, PenLine, CalendarClock, Info } from 'lucide-react';

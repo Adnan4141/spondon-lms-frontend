@@ -1,4 +1,9 @@
 import type { NextConfig } from 'next';
+import bundleAnalyzer from '@next/bundle-analyzer';
+
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === 'true',
+});
 
 const BACKEND_ORIGIN = (
   process.env.BACKEND_URL ||
@@ -27,7 +32,17 @@ const nextConfig: NextConfig = {
     ],
   },
   experimental: {
-    optimizePackageImports: ['lucide-react', 'framer-motion', 'recharts'],
+    optimizePackageImports: [
+      'lucide-react',
+      'framer-motion',
+      'recharts',
+      'date-fns',
+      '@tiptap/react',
+      '@tiptap/starter-kit',
+      '@tiptap/core',
+      '@radix-ui/react-select',
+      '@radix-ui/react-slot',
+    ],
   },
   async redirects() {
     return [
@@ -57,4 +72,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withBundleAnalyzer(nextConfig);

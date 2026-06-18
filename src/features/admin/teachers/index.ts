@@ -1,2 +1,10 @@
 export { TeacherDetailsView } from './components/TeacherDetailsView';
 export { TeacherForm } from './components/TeacherForm';
+export { TeachersPageContent } from './TeachersPageContent';
+export { TeachersFiltersBar } from './components/TeachersFiltersBar';
+export { TeachersPageHeader } from './components/TeachersPageHeader';
+export { TeachersTable } from './components/TeachersTable';
+export { useTeachersPageData, useTeachersPageFilters } from './hooks/useTeachersPageData';
+export { useTeacherPageActions } from './hooks/useTeacherPageActions';
+export { filterTeachersByQuery, timeAgo } from './teachers-page-utils';
+export type { TeachersStatusFilter } from './teachers-page-utils';
