@@ -2,7 +2,6 @@ import type { LucideIcon } from 'lucide-react';
 import {
   UsersRound,
   Library,
-  Compass,
   CalendarDays,
   ClipboardCheck,
   Trophy,
@@ -14,10 +13,9 @@ export type StudentNavItem = {
   title: string;
   href: string;
   icon: LucideIcon;
-  /** Gradient classes for the icon tile */
-  iconGradient: string;
-  iconShadow: string;
-  /** Text color on inactive icon tile */
+  /** Subtle icon tile styling (professional) */
+  iconBg: string;
+  iconRing: string;
   iconColor: string;
 };
 
@@ -30,7 +28,8 @@ export const STUDENT_SIDEBAR_THEME = {
   shell:
     'border-r border-slate-200/80 bg-gradient-to-b from-white via-slate-50/40 to-indigo-50/20',
   navIdle: 'text-slate-600',
-  navHover: 'hover:bg-white/90 hover:shadow-sm hover:shadow-slate-200/50 hover:border-slate-200/60',
+  navHover:
+    'hover:bg-white/90 hover:shadow-sm hover:shadow-slate-200/50 hover:border-slate-200/60',
   navActive:
     'bg-white border-indigo-200/80 text-indigo-950 shadow-md shadow-indigo-100/60',
   focus:
@@ -45,9 +44,9 @@ export const STUDENT_NAV_SECTIONS: StudentNavSection[] = [
         title: 'Community',
         href: '/student/community',
         icon: UsersRound,
-        iconGradient: 'from-sky-500 to-blue-600',
-        iconShadow: 'shadow-sky-200/60',
-        iconColor: 'text-white',
+        iconBg: 'bg-sky-50',
+        iconRing: 'ring-sky-100',
+        iconColor: 'text-sky-700',
       },
     ],
   },
@@ -58,25 +57,17 @@ export const STUDENT_NAV_SECTIONS: StudentNavSection[] = [
         title: 'My Courses',
         href: '/student/courses',
         icon: Library,
-        iconGradient: 'from-indigo-500 to-violet-600',
-        iconShadow: 'shadow-indigo-200/60',
-        iconColor: 'text-white',
-      },
-      {
-        title: 'Browse Courses',
-        href: '/student/all-courses',
-        icon: Compass,
-        iconGradient: 'from-violet-500 to-purple-600',
-        iconShadow: 'shadow-violet-200/60',
-        iconColor: 'text-white',
+        iconBg: 'bg-indigo-50',
+        iconRing: 'ring-indigo-100',
+        iconColor: 'text-indigo-700',
       },
       {
         title: 'Routine',
         href: '/student/routine',
         icon: CalendarDays,
-        iconGradient: 'from-teal-500 to-emerald-600',
-        iconShadow: 'shadow-teal-200/60',
-        iconColor: 'text-white',
+        iconBg: 'bg-emerald-50',
+        iconRing: 'ring-emerald-100',
+        iconColor: 'text-emerald-700',
       },
     ],
   },
@@ -87,17 +78,17 @@ export const STUDENT_NAV_SECTIONS: StudentNavSection[] = [
         title: 'Exams',
         href: '/student/exams',
         icon: ClipboardCheck,
-        iconGradient: 'from-blue-500 to-indigo-600',
-        iconShadow: 'shadow-blue-200/60',
-        iconColor: 'text-white',
+        iconBg: 'bg-blue-50',
+        iconRing: 'ring-blue-100',
+        iconColor: 'text-blue-700',
       },
       {
         title: 'Results',
         href: '/student/results',
         icon: Trophy,
-        iconGradient: 'from-amber-500 to-orange-500',
-        iconShadow: 'shadow-amber-200/60',
-        iconColor: 'text-white',
+        iconBg: 'bg-amber-50',
+        iconRing: 'ring-amber-100',
+        iconColor: 'text-amber-800',
       },
     ],
   },
@@ -108,9 +99,9 @@ export const STUDENT_NAV_SECTIONS: StudentNavSection[] = [
         title: 'Books',
         href: '/student/books',
         icon: BookCopy,
-        iconGradient: 'from-rose-500 to-pink-600',
-        iconShadow: 'shadow-rose-200/60',
-        iconColor: 'text-white',
+        iconBg: 'bg-rose-50',
+        iconRing: 'ring-rose-100',
+        iconColor: 'text-rose-700',
       },
     ],
   },
@@ -121,9 +112,9 @@ export const STUDENT_NAV_SECTIONS: StudentNavSection[] = [
         title: 'Fees & Payments',
         href: '/student/payment',
         icon: Wallet,
-        iconGradient: 'from-slate-600 to-slate-800',
-        iconShadow: 'shadow-slate-300/50',
-        iconColor: 'text-white',
+        iconBg: 'bg-slate-100',
+        iconRing: 'ring-slate-200',
+        iconColor: 'text-slate-700',
       },
     ],
   },

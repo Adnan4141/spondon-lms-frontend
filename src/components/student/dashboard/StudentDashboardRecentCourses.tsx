@@ -39,7 +39,7 @@ export function StudentDashboardRecentCourses({ loading, courseCount, courses }:
             <BookOpen className="mx-auto mb-4 h-12 w-12 text-slate-300" />
             <p className="font-bold text-slate-600">You are not enrolled in any courses yet</p>
             <Link
-              href="/student/all-courses"
+              href="/courses"
               className="mt-4 inline-block rounded-2xl bg-indigo-600 px-6 py-3 text-sm font-bold text-white hover:bg-indigo-700"
             >
               Browse Courses

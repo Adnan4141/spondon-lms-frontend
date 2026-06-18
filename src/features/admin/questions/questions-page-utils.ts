@@ -1,6 +1,6 @@
 import type { ElementType } from 'react';
 import { AlignLeft, Database, Layers, PenLine } from 'lucide-react';
-import type { Difficulty, Question, QuestionType } from '@/types/question';
+import type { Difficulty, McqPassage, Question, QuestionFolder, QuestionType } from '@/types/question';
 
 export type ActiveTab = 'MCQ_SIMPLE' | 'MCQ_PASSAGE' | 'CQ' | 'SHORT';
 
@@ -73,4 +73,45 @@ export function buildQuestionFolderActionContext(
     .filter(Boolean);
 
   return { sourceFolderIds, questionPreviews };
+}
+
+export function filterQuestionsForTab(
+  questions: Question[],
+  activeTab: ActiveTab,
+  searchQuery: string,
+): Question[] {
+  return questions.filter((q) => {
+    if (activeTab === 'MCQ_SIMPLE') {
+      if (q.type !== 'MCQ' || q.mcqType === 'PASSAGE_CHILD') return false;
+    } else if (activeTab === 'MCQ_PASSAGE') {
+      return false;
+    } else if (activeTab === 'CQ') {
+      if (q.type !== 'CQ') return false;
+    } else if (activeTab === 'SHORT') {
+      if (q.type !== 'SHORT') return false;
+    }
+    const qry = searchQuery.toLowerCase();
+    return !qry || stripHtml(q.prompt).toLowerCase().includes(qry);
+  });
+}
+
+export function filterPassagesBySearch(passages: McqPassage[], searchQuery: string): McqPassage[] {
+  const qry = searchQuery.toLowerCase();
+  return passages.filter(
+    (p) => !qry || (p.title || '').toLowerCase().includes(qry) || stripHtml(p.content).toLowerCase().includes(qry),
+  );
+}
+
+export function filterSubfoldersBySearch(subfolders: QuestionFolder[], searchQuery: string): QuestionFolder[] {
+  return subfolders.filter(
+    (f) => !searchQuery || f.name.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
+}
+
+export function computeQuestionStats(questions: Question[]) {
+  return {
+    mcq: questions.filter((q) => q.type === 'MCQ').length,
+    cq: questions.filter((q) => q.type === 'CQ').length,
+    short: questions.filter((q) => q.type === 'SHORT').length,
+  };
 }

@@ -33,20 +33,22 @@ function NavIconTile({
   return (
     <div
       className={cn(
-        'relative flex shrink-0 items-center justify-center bg-gradient-to-br transition-all duration-300',
+        'relative flex shrink-0 items-center justify-center ring-1 transition-all duration-300',
         dim,
-        item.iconGradient,
-        isActive
-          ? cn('scale-105 shadow-lg', item.iconShadow)
-          : cn('shadow-md group-hover:scale-105 group-hover:shadow-lg', item.iconShadow)
+        item.iconBg,
+        item.iconRing,
+        isActive ? 'scale-[1.02] shadow-sm shadow-slate-200/60' : 'group-hover:scale-[1.03]'
       )}
     >
       <Icon
-        className={cn(size === 'md' ? 'h-[19px] w-[19px]' : 'h-[17px] w-[17px]', item.iconColor)}
-        strokeWidth={2.25}
+        className={cn(
+          size === 'md' ? 'h-[19px] w-[19px]' : 'h-[17px] w-[17px]',
+          item.iconColor
+        )}
+        strokeWidth={2.1}
       />
       {isActive ? (
-        <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full border-2 border-white bg-emerald-400" />
+        <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full border-2 border-white bg-indigo-500" />
       ) : null}
     </div>
   );
@@ -78,7 +80,7 @@ function NavItemLink({
       )}
     >
       {isActive && !collapsed ? (
-        <span className="absolute top-1/2 left-0 h-7 w-1 -translate-y-1/2 rounded-r-full bg-gradient-to-b from-indigo-500 to-violet-600" />
+        <span className="absolute top-1/2 left-0 h-7 w-1 -translate-y-1/2 rounded-r-full bg-linear-to-b from-indigo-500 to-violet-600" />
       ) : null}
 
       <NavIconTile item={item} isActive={isActive} size={collapsed ? 'sm' : 'md'} />
@@ -181,7 +183,7 @@ export function StudentSidebar({
         className={cn(
           'fixed inset-y-0 left-0 z-50 flex flex-col shadow-[4px_0_24px_rgba(15,23,42,0.06)] transition-all duration-300 ease-in-out',
           STUDENT_SIDEBAR_THEME.shell,
-          collapsed ? 'w-[5.5rem]' : 'w-[17.5rem]',
+          collapsed ? 'w-22' : 'w-70',
           mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
       >
@@ -199,7 +201,7 @@ export function StudentSidebar({
           >
             <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white bg-white shadow-lg shadow-indigo-100/80 ring-1 ring-indigo-100/60 transition-transform duration-300 group-hover:scale-[1.04]">
               <SpondonLogo size={42} className="h-full w-full object-contain p-1.5" />
-              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-violet-500/10" />
+              <div className="absolute inset-0 bg-linear-to-br from-indigo-500/5 to-violet-500/10" />
             </div>
             {!collapsed && (
               <div className="min-w-0 flex-1">
@@ -230,7 +232,12 @@ export function StudentSidebar({
           {STUDENT_NAV_SECTIONS.map((section, sectionIndex) => (
             <div key={section.label}>
               {sectionIndex > 0 ? (
-                <div className={cn('mb-4 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent', collapsed ? 'mx-2' : 'mx-3')} />
+                <div
+                  className={cn(
+                    'mb-4 h-px bg-linear-to-r from-transparent via-slate-200 to-transparent',
+                    collapsed ? 'mx-2' : 'mx-3'
+                  )}
+                />
               ) : null}
               {!collapsed && (
                 <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">
@@ -262,7 +269,7 @@ export function StudentSidebar({
                   onClick={onCloseMobile}
                   className="group flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white p-2.5 shadow-sm transition-all hover:border-indigo-200 hover:shadow-md hover:shadow-indigo-100/40"
                 >
-                  <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-sm font-bold text-white shadow-md shadow-indigo-200/50">
+                  <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-indigo-500 to-violet-600 text-sm font-bold text-white shadow-md shadow-indigo-200/50">
                     {initials}
                     <span className="absolute -right-0.5 -bottom-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-400" />
                   </div>
@@ -303,7 +310,7 @@ export function StudentSidebar({
                     <Link
                       href="/student/profile"
                       onClick={onCloseMobile}
-                      className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-xs font-bold text-white shadow-md"
+                      className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-indigo-500 to-violet-600 text-xs font-bold text-white shadow-md"
                     >
                       {initials}
                       <span className="absolute -right-0.5 -bottom-0.5 h-2 w-2 rounded-full border-2 border-white bg-emerald-400" />

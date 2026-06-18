@@ -10,8 +10,7 @@ import { getExamStudentView } from '@/lib/api/exams';
 
 const STUDENT_ROUTE_LABELS: Record<string, { title: string; subtitle?: string }> = {
   '/student/community': { title: 'Community', subtitle: 'Join discussions and share updates' },
-  '/student/courses': { title: 'My Courses', subtitle: 'Track your enrolled learning paths' },
-  '/student/all-courses': { title: 'Browse Courses', subtitle: 'Explore the full course catalog' },
+  '/student/courses': { title: 'My Courses', subtitle: 'Your enrolled courses and learning progress' },
   '/student/exams': { title: 'Exams', subtitle: 'Check upcoming and completed assessments' },
   '/student/books': { title: 'Books', subtitle: 'Manage your books and reading resources' },
   '/student/results': { title: 'Results', subtitle: 'Review your performance and outcomes' },

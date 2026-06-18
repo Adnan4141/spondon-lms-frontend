@@ -23,6 +23,12 @@ export const queryKeys = {
     list: (params: Record<string, unknown>) => ['admin', 'students', 'list', params] as const,
     stats: ['admin', 'students', 'stats'] as const,
   },
+  questions: {
+    all: ['admin', 'questions'] as const,
+    folders: ['admin', 'questions', 'folders'] as const,
+    list: (params: Record<string, unknown>) => ['admin', 'questions', 'list', params] as const,
+    passages: (params: Record<string, unknown>) => ['admin', 'questions', 'passages', params] as const,
+  },
 };
 
 export type BatchesListParams = NonNullable<Parameters<typeof getBatches>[0]>;
