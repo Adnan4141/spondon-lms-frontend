@@ -43,16 +43,16 @@ export function StudentChangePasswordDialog() {
     e.preventDefault();
     if (newPassword.length < 6) {
       toast({
-        title: 'নতুন পাসওয়ার্ড খুব ছোট',
-        description: 'কমপক্ষে ৬ অক্ষর দিন।',
+        title: 'Password too short',
+        description: 'Use at least 6 characters.',
         variant: 'destructive',
       });
       return;
     }
     if (newPassword !== confirmPassword) {
       toast({
-        title: 'মিলছে না',
-        description: 'নতুন পাসওয়ার্ড দুবার একই লিখুন।',
+        title: 'Passwords do not match',
+        description: 'Enter the same new password twice.',
         variant: 'destructive',
       });
       return;
@@ -61,20 +61,20 @@ export function StudentChangePasswordDialog() {
     try {
       const res = await changeMyPassword({ currentPassword, newPassword });
       if (res.success) {
-        toast({ title: 'পাসওয়ার্ড পরিবর্তন হয়েছে', variant: 'success' });
+        toast({ title: 'Password updated', variant: 'success' });
         resetForm();
         setOpen(false);
       } else {
         toast({
-          title: 'ব্যর্থ',
+          title: 'Update failed',
           description: (res as { message?: string }).message,
           variant: 'destructive',
         });
       }
     } catch (err) {
       toast({
-        title: 'ব্যর্থ',
-        description: err instanceof Error ? err.message : 'আবার চেষ্টা করুন।',
+        title: 'Update failed',
+        description: err instanceof Error ? err.message : 'Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -97,16 +97,16 @@ export function StudentChangePasswordDialog() {
           className="gap-2 rounded-2xl border-white/40 bg-white/10 font-bold text-white hover:bg-white/20 hover:text-white"
         >
           <KeyRound className="h-4 w-4" />
-          পাসওয়ার্ড পরিবর্তন
+          Change Password
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-md rounded-2xl border-slate-200 sm:rounded-2xl">
         <DialogHeader>
-          <DialogTitle className="text-lg font-black text-slate-900">পাসওয়ার্ড পরিবর্তন</DialogTitle>
+          <DialogTitle className="text-lg font-black text-slate-900">Change Password</DialogTitle>
         </DialogHeader>
         <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4 pt-2">
           <div className="space-y-2">
-            <Label className="text-xs font-bold text-slate-500">বর্তমান পাসওয়ার্ড</Label>
+            <Label className="text-xs font-bold text-slate-500">Current password</Label>
             <div className="relative">
               <Input
                 type={showCurrent ? 'text' : 'password'}
@@ -120,14 +120,14 @@ export function StudentChangePasswordDialog() {
                 type="button"
                 className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
                 onClick={() => setShowCurrent((x) => !x)}
-                aria-label={showCurrent ? 'লুকান' : 'দেখান'}
+                aria-label={showCurrent ? 'Hide password' : 'Show password'}
               >
                 {showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
           </div>
           <div className="space-y-2">
-            <Label className="text-xs font-bold text-slate-500">নতুন পাসওয়ার্ড (কমপক্ষে ৬ অক্ষর)</Label>
+            <Label className="text-xs font-bold text-slate-500">New password (min. 6 characters)</Label>
             <div className="relative">
               <Input
                 type={showNew ? 'text' : 'password'}
@@ -141,14 +141,14 @@ export function StudentChangePasswordDialog() {
                 type="button"
                 className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
                 onClick={() => setShowNew((x) => !x)}
-                aria-label={showNew ? 'লুকান' : 'দেখান'}
+                aria-label={showNew ? 'Hide password' : 'Show password'}
               >
                 {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
           </div>
           <div className="space-y-2">
-            <Label className="text-xs font-bold text-slate-500">নতুন পাসওয়ার্ড নিশ্চিত করুন</Label>
+            <Label className="text-xs font-bold text-slate-500">Confirm new password</Label>
             <div className="relative">
               <Input
                 type={showConfirm ? 'text' : 'password'}
@@ -162,7 +162,7 @@ export function StudentChangePasswordDialog() {
                 type="button"
                 className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
                 onClick={() => setShowConfirm((x) => !x)}
-                aria-label={showConfirm ? 'লুকান' : 'দেখান'}
+                aria-label={showConfirm ? 'Hide password' : 'Show password'}
               >
                 {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -176,7 +176,7 @@ export function StudentChangePasswordDialog() {
               disabled={submitting}
               onClick={() => setOpen(false)}
             >
-              বাতিল
+              Cancel
             </Button>
             <Button
               type="submit"
@@ -186,10 +186,10 @@ export function StudentChangePasswordDialog() {
               {submitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  হচ্ছে…
+                  Saving...
                 </>
               ) : (
-                'সংরক্ষণ'
+                'Save'
               )}
             </Button>
           </div>

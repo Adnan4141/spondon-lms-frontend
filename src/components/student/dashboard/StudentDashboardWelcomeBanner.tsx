@@ -9,50 +9,50 @@ type Props = {
 export function StudentDashboardWelcomeBanner({ userName }: Props) {
   return (
     <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-indigo-600 to-violet-700 p-10 text-white shadow-2xl shadow-indigo-200">
-      <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="relative z-10 flex flex-col justify-between gap-6 md:flex-row md:items-center">
         <div className="space-y-3">
-          <h1 className="text-4xl md:text-5xl font-black tracking-tight">আসসালামু আলাইকুম, {userName}! 👋</h1>
-          <p className="text-indigo-100 text-lg font-medium max-w-md">
-            কোর্স দেখুন, পরীক্ষা দিন, রুটিন মেনে চলুন।
+          <h1 className="text-4xl font-black tracking-tight md:text-5xl">Welcome back, {userName}</h1>
+          <p className="max-w-md text-lg font-medium text-indigo-100">
+            View your courses, take exams, and stay on track with your routine.
           </p>
           <div className="flex flex-wrap gap-4 pt-4">
             <Link
               href="/student/courses"
-              className="px-6 py-3 bg-white text-indigo-600 rounded-2xl font-bold text-sm hover:bg-indigo-50 transition-colors shadow-lg"
+              className="rounded-2xl bg-white px-6 py-3 text-sm font-bold text-indigo-600 shadow-lg transition-colors hover:bg-indigo-50"
             >
-              আমার কোর্স দেখুন
+              My Courses
             </Link>
             <Link
               href="/student/exams"
-              className="px-6 py-3 bg-white/15 text-white border border-white/25 rounded-2xl font-bold text-sm hover:bg-white/25 transition-colors backdrop-blur-sm"
+              className="rounded-2xl border border-white/25 bg-white/15 px-6 py-3 text-sm font-bold text-white backdrop-blur-sm transition-colors hover:bg-white/25"
             >
-              পরীক্ষা দেখুন
+              View Exams
             </Link>
             <Link
               href="/student/books#my-books"
-              className="px-6 py-3 bg-white/15 text-white border border-white/25 rounded-2xl font-bold text-sm hover:bg-white/25 transition-colors backdrop-blur-sm"
+              className="rounded-2xl border border-white/25 bg-white/15 px-6 py-3 text-sm font-bold text-white backdrop-blur-sm transition-colors hover:bg-white/25"
             >
-              আমার বই
+              My Books
             </Link>
             <Link
               href="/student/routine"
-              className="px-6 py-3 bg-indigo-500/30 text-white border border-indigo-400/30 rounded-2xl font-bold text-sm hover:bg-indigo-500/40 transition-colors backdrop-blur-sm"
+              className="rounded-2xl border border-indigo-400/30 bg-indigo-500/30 px-6 py-3 text-sm font-bold text-white backdrop-blur-sm transition-colors hover:bg-indigo-500/40"
             >
-              রুটিন দেখুন
+              View Routine
             </Link>
             <StudentChangePasswordDialog />
           </div>
         </div>
         <div className="hidden lg:block">
-          <div className="relative h-48 w-48 flex items-center justify-center">
-            <div className="absolute inset-0 bg-white/10 rounded-full animate-pulse" />
-            <div className="absolute inset-4 bg-white/10 rounded-full animate-ping" />
-            <GraduationCap className="h-24 w-24 text-white relative z-10" />
+          <div className="relative flex h-48 w-48 items-center justify-center">
+            <div className="absolute inset-0 animate-pulse rounded-full bg-white/10" />
+            <div className="absolute inset-4 animate-ping rounded-full bg-white/10" />
+            <GraduationCap className="relative z-10 h-24 w-24 text-white" />
           </div>
         </div>
       </div>
-      <div className="absolute top-0 right-0 -translate-y-12 translate-x-12 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
-      <div className="absolute bottom-0 left-0 translate-y-12 -translate-x-12 h-64 w-64 rounded-full bg-indigo-400/20 blur-3xl" />
+      <div className="absolute top-0 right-0 h-64 w-64 translate-x-12 -translate-y-12 rounded-full bg-white/10 blur-3xl" />
+      <div className="absolute bottom-0 left-0 h-64 w-64 -translate-x-12 translate-y-12 rounded-full bg-indigo-400/20 blur-3xl" />
     </div>
   );
 }

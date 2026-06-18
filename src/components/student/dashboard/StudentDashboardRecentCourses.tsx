@@ -10,66 +10,66 @@ type Props = {
 
 export function StudentDashboardRecentCourses({ loading, courseCount, courses }: Props) {
   return (
-    <div className="lg:col-span-2 space-y-6">
+    <div className="space-y-6 lg:col-span-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-2xl font-black text-slate-900 tracking-tight">সাম্প্রতিক কাজ</h2>
+        <h2 className="text-2xl font-black tracking-tight text-slate-900">Recent Activity</h2>
         <div className="flex flex-wrap items-center gap-3">
           <Link
             href="/student/exams"
-            className="text-sm font-bold text-sky-600 hover:text-sky-800 flex items-center gap-1"
+            className="flex items-center gap-1 text-sm font-bold text-sky-600 hover:text-sky-800"
           >
-            পরীক্ষা <ArrowRight className="h-4 w-4" />
+            Exams <ArrowRight className="h-4 w-4" />
           </Link>
           <Link
             href="/student/courses"
-            className="text-sm font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+            className="flex items-center gap-1 text-sm font-bold text-indigo-600 hover:text-indigo-700"
           >
-            কোর্স <ArrowRight className="h-4 w-4" />
+            Courses <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
       </div>
 
       <div className="grid gap-4">
         {loading ? (
-          <div className="p-10 rounded-3xl bg-white border border-slate-100 text-center">
-            <p className="font-bold text-slate-500">কোর্স লোড হচ্ছে…</p>
+          <div className="rounded-3xl border border-slate-100 bg-white p-10 text-center">
+            <p className="font-bold text-slate-500">Loading courses...</p>
           </div>
         ) : courseCount === 0 ? (
-          <div className="p-10 rounded-3xl bg-white border border-slate-100 text-center">
-            <BookOpen className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-            <p className="font-bold text-slate-600">কোনো কোর্সে ভর্তি হননি</p>
+          <div className="rounded-3xl border border-slate-100 bg-white p-10 text-center">
+            <BookOpen className="mx-auto mb-4 h-12 w-12 text-slate-300" />
+            <p className="font-bold text-slate-600">You are not enrolled in any courses yet</p>
             <Link
               href="/student/all-courses"
-              className="inline-block mt-4 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold text-sm hover:bg-indigo-700"
+              className="mt-4 inline-block rounded-2xl bg-indigo-600 px-6 py-3 text-sm font-bold text-white hover:bg-indigo-700"
             >
-              কোর্স দেখুন
+              Browse Courses
             </Link>
           </div>
         ) : (
           courses.map((row) => {
             const cid = row.course?.slug ?? row.course?.id ?? row.courseId;
-            const name = row.course?.name ?? 'কোর্স';
+            const name = row.course?.name ?? 'Course';
             const code = row.course?.slug;
             const rowClass =
-              'group flex items-center gap-4 p-5 rounded-3xl bg-white border border-slate-100 hover:border-indigo-100 hover:shadow-xl hover:shadow-indigo-50 transition-all duration-300';
+              'group flex items-center gap-4 rounded-3xl border border-slate-100 bg-white p-5 transition-all duration-300 hover:border-indigo-100 hover:shadow-xl hover:shadow-indigo-50';
             const inner = (
               <>
-                <div className="h-16 w-16 rounded-2xl bg-slate-100 shrink-0 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 transition-colors group-hover:bg-indigo-50 group-hover:text-indigo-600">
                   <BookOpen className="h-8 w-8" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-black text-slate-900 truncate">{name}</h4>
-                  <div className="flex items-center gap-3 mt-1 text-sm text-slate-500">
+                <div className="min-w-0 flex-1">
+                  <h4 className="truncate font-black text-slate-900">{name}</h4>
+                  <div className="mt-1 flex items-center gap-3 text-sm text-slate-500">
                     {code ? <span className="font-mono text-xs text-slate-400">{code}</span> : null}
                     {code ? <span className="h-1 w-1 rounded-full bg-slate-300" /> : null}
                     <span className="flex items-center gap-1">
-                      <Clock className="h-3.5 w-3.5" /> চলমান
+                      <Clock className="h-3.5 w-3.5" /> In progress
                     </span>
                     <span className="h-1 w-1 rounded-full bg-slate-300" />
-                    <span className="text-emerald-600 font-bold">চালিয়ে যান</span>
+                    <span className="font-bold text-emerald-600">Continue</span>
                   </div>
                 </div>
-                <div className="h-10 w-10 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 group-hover:border-indigo-600 group-hover:text-indigo-600 group-hover:bg-indigo-50 transition-all">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition-all group-hover:border-indigo-600 group-hover:bg-indigo-50 group-hover:text-indigo-600">
                   <ArrowRight className="h-5 w-5" />
                 </div>
               </>

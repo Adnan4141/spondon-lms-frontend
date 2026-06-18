@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { PortalQueryProvider } from '@/components/providers/PortalQueryProvider';
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Menu } from 'lucide-react';
 import { StudentSidebar } from './StudentSidebar';
@@ -10,15 +9,14 @@ import { cn } from '@/lib/utils';
 import { getExamStudentView } from '@/lib/api/exams';
 
 const STUDENT_ROUTE_LABELS: Record<string, { title: string; subtitle?: string }> = {
-  '/student': { title: 'Dashboard', subtitle: 'Welcome back to your student portal' },
   '/student/community': { title: 'Community', subtitle: 'Join discussions and share updates' },
   '/student/courses': { title: 'My Courses', subtitle: 'Track your enrolled learning paths' },
-  '/student/all-courses': { title: 'All Courses', subtitle: 'Explore the full course catalog' },
+  '/student/all-courses': { title: 'Browse Courses', subtitle: 'Explore the full course catalog' },
   '/student/exams': { title: 'Exams', subtitle: 'Check upcoming and completed assessments' },
   '/student/books': { title: 'Books', subtitle: 'Manage your books and reading resources' },
   '/student/results': { title: 'Results', subtitle: 'Review your performance and outcomes' },
   '/student/routine': { title: 'Routine', subtitle: 'Follow your weekly class schedule' },
-  '/student/payment': { title: 'Payments', subtitle: 'View invoices and payment history' },
+  '/student/payment': { title: 'Fees & Payments', subtitle: 'View invoices and payment history' },
   '/student/profile': { title: 'Profile', subtitle: 'Update your personal information' },
   '/student/doubts': { title: 'Q&A', subtitle: 'Ask questions and get support' },
 };
@@ -155,7 +153,7 @@ export function StudentLayout({ children }: { children: React.ReactNode }) {
       <div
         className={cn(
           'relative min-h-screen transition-all duration-500 ease-in-out',
-          sidebarCollapsed ? 'lg:pl-24' : 'lg:pl-72'
+          sidebarCollapsed ? 'lg:pl-[5.5rem]' : 'lg:pl-[17.5rem]'
         )}
       >
         <header className="sticky top-0 z-40">
@@ -179,12 +177,6 @@ export function StudentLayout({ children }: { children: React.ReactNode }) {
                 </p>
               </div>
             </div>
-            <Link
-              href="/student/profile"
-              className="hidden rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-indigo-600 shadow-sm transition-all hover:border-indigo-200 hover:bg-indigo-50 sm:inline-flex"
-            >
-              Profile
-            </Link>
           </div>
         </header>
 

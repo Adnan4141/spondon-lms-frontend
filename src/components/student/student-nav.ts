@@ -1,24 +1,24 @@
 import type { LucideIcon } from 'lucide-react';
 import {
-  LayoutDashboard,
-  MessageSquare,
-  BookOpen,
-  GraduationCap,
-  Calendar,
-  HelpCircle,
-  BookOpenCheck,
-  Award,
-  BookMarked,
-  CreditCard,
-  UserCircle,
+  UsersRound,
+  Library,
+  Compass,
+  CalendarDays,
+  ClipboardCheck,
+  Trophy,
+  BookCopy,
+  Wallet,
 } from 'lucide-react';
 
 export type StudentNavItem = {
   title: string;
   href: string;
   icon: LucideIcon;
-  color: string;
-  bg: string;
+  /** Gradient classes for the icon tile */
+  iconGradient: string;
+  iconShadow: string;
+  /** Text color on inactive icon tile */
+  iconColor: string;
 };
 
 export type StudentNavSection = {
@@ -26,23 +26,28 @@ export type StudentNavSection = {
   items: StudentNavItem[];
 };
 
+export const STUDENT_SIDEBAR_THEME = {
+  shell:
+    'border-r border-slate-200/80 bg-gradient-to-b from-white via-slate-50/40 to-indigo-50/20',
+  navIdle: 'text-slate-600',
+  navHover: 'hover:bg-white/90 hover:shadow-sm hover:shadow-slate-200/50 hover:border-slate-200/60',
+  navActive:
+    'bg-white border-indigo-200/80 text-indigo-950 shadow-md shadow-indigo-100/60',
+  focus:
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
+} as const;
+
 export const STUDENT_NAV_SECTIONS: StudentNavSection[] = [
   {
     label: 'Home',
     items: [
       {
-        title: 'Dashboard',
-        href: '/student',
-        icon: LayoutDashboard,
-        color: 'text-blue-600',
-        bg: 'bg-blue-50',
-      },
-      {
         title: 'Community',
         href: '/student/community',
-        icon: MessageSquare,
-        color: 'text-cyan-600',
-        bg: 'bg-cyan-50',
+        icon: UsersRound,
+        iconGradient: 'from-sky-500 to-blue-600',
+        iconShadow: 'shadow-sky-200/60',
+        iconColor: 'text-white',
       },
     ],
   },
@@ -52,30 +57,26 @@ export const STUDENT_NAV_SECTIONS: StudentNavSection[] = [
       {
         title: 'My Courses',
         href: '/student/courses',
-        icon: BookOpen,
-        color: 'text-indigo-600',
-        bg: 'bg-indigo-50',
+        icon: Library,
+        iconGradient: 'from-indigo-500 to-violet-600',
+        iconShadow: 'shadow-indigo-200/60',
+        iconColor: 'text-white',
       },
       {
         title: 'Browse Courses',
         href: '/student/all-courses',
-        icon: GraduationCap,
-        color: 'text-violet-600',
-        bg: 'bg-violet-50',
+        icon: Compass,
+        iconGradient: 'from-violet-500 to-purple-600',
+        iconShadow: 'shadow-violet-200/60',
+        iconColor: 'text-white',
       },
       {
         title: 'Routine',
         href: '/student/routine',
-        icon: Calendar,
-        color: 'text-teal-600',
-        bg: 'bg-teal-50',
-      },
-      {
-        title: 'Q&A',
-        href: '/student/doubts',
-        icon: HelpCircle,
-        color: 'text-amber-600',
-        bg: 'bg-amber-50',
+        icon: CalendarDays,
+        iconGradient: 'from-teal-500 to-emerald-600',
+        iconShadow: 'shadow-teal-200/60',
+        iconColor: 'text-white',
       },
     ],
   },
@@ -85,16 +86,18 @@ export const STUDENT_NAV_SECTIONS: StudentNavSection[] = [
       {
         title: 'Exams',
         href: '/student/exams',
-        icon: BookOpenCheck,
-        color: 'text-sky-600',
-        bg: 'bg-sky-50',
+        icon: ClipboardCheck,
+        iconGradient: 'from-blue-500 to-indigo-600',
+        iconShadow: 'shadow-blue-200/60',
+        iconColor: 'text-white',
       },
       {
         title: 'Results',
         href: '/student/results',
-        icon: Award,
-        color: 'text-emerald-600',
-        bg: 'bg-emerald-50',
+        icon: Trophy,
+        iconGradient: 'from-amber-500 to-orange-500',
+        iconShadow: 'shadow-amber-200/60',
+        iconColor: 'text-white',
       },
     ],
   },
@@ -104,9 +107,10 @@ export const STUDENT_NAV_SECTIONS: StudentNavSection[] = [
       {
         title: 'Books',
         href: '/student/books',
-        icon: BookMarked,
-        color: 'text-rose-600',
-        bg: 'bg-rose-50',
+        icon: BookCopy,
+        iconGradient: 'from-rose-500 to-pink-600',
+        iconShadow: 'shadow-rose-200/60',
+        iconColor: 'text-white',
       },
     ],
   },
@@ -116,16 +120,10 @@ export const STUDENT_NAV_SECTIONS: StudentNavSection[] = [
       {
         title: 'Fees & Payments',
         href: '/student/payment',
-        icon: CreditCard,
-        color: 'text-green-600',
-        bg: 'bg-green-50',
-      },
-      {
-        title: 'Profile',
-        href: '/student/profile',
-        icon: UserCircle,
-        color: 'text-slate-600',
-        bg: 'bg-slate-100',
+        icon: Wallet,
+        iconGradient: 'from-slate-600 to-slate-800',
+        iconShadow: 'shadow-slate-300/50',
+        iconColor: 'text-white',
       },
     ],
   },

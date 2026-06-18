@@ -3,7 +3,7 @@
 import { useBooksData } from '@/features/admin/books/hooks/useBooksData';
 import { BooksWorkspaceLoading } from './_components/BooksWorkspaceLoading';
 import { BooksWorkspaceTabs } from './_components/BooksWorkspaceTabs';
-import { BooksRouteHeader } from './_components/BooksRouteHeader';
+import { BooksRouteHeader } from '@/features/admin/books';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
 

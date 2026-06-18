@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { getUsers, getUserById, updateUser, deleteUser, reorderTeachers, type User } from '@/lib/api/users';
+import { getUserById, updateUser, deleteUser, reorderTeachers, type User } from '@/lib/api/users';
 import {
   DndContext,
   closestCenter,
@@ -20,7 +21,6 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { getBranches, type Branch } from '@/lib/api/branches';
 import { API_ORIGIN } from '@/lib/api';
 import { resolveAttachmentUrl } from '@/lib/attachment-url';
 import { Button } from '@/components/ui/button';
@@ -67,6 +67,8 @@ import {
   Clock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTeachersList } from '@/lib/query/hooks/useTeachersList';
+import { useAdminBranches } from '@/lib/query/hooks/useAdminBranches';
 
 function timeAgo(dateStr?: string): string {
   if (!dateStr) return '';
@@ -125,11 +127,9 @@ function SortableTeacherRow({ teacher }: { teacher: User }) {
 // ------------------------------------------------------------------
 
 export function TeachersPageContent() {
+  const queryClient = useQueryClient();
   const { openModal } = useModalStore();
   const { toast, toasts, removeToast } = useToast();
-  const [teachers, setTeachers] = useState<User[]>([]);
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'ACTIVE' | 'BLOCKED'>('all');
   const [branchFilter, setBranchFilter] = useState<string>('all');
@@ -138,6 +138,17 @@ export function TeachersPageContent() {
   const [sortMode, setSortMode] = useState(false);
   const [orderedTeachers, setOrderedTeachers] = useState<User[]>([]);
   const [savingOrder, setSavingOrder] = useState(false);
+
+  const {
+    data: teachers = [],
+    isLoading: loading,
+    isFetching,
+    refetch,
+  } = useTeachersList({ statusFilter, branchFilter });
+  const { data: branches = [] } = useAdminBranches();
+
+  const invalidateTeachers = () =>
+    queryClient.invalidateQueries({ queryKey: ['admin', 'teachers'] });
 
   useEffect(() => {
     try {
@@ -159,39 +170,6 @@ export function TeachersPageContent() {
     const bid = new URLSearchParams(window.location.search).get('branchId');
     if (bid && actorRole !== 'BRANCH_ADMIN') setBranchFilter(bid);
   }, [actorRole]);
-
-  const loadBranches = useCallback(async () => {
-    const res = await getBranches();
-    if (res.success && res.data) setBranches(res.data);
-  }, []);
-
-  const load = useCallback(async () => {
-    try {
-      setLoading(true);
-      const params: Parameters<typeof getUsers>[0] = {
-        role: 'TEACHER',
-        limit: 500,
-      };
-      if (statusFilter !== 'all') params.status = statusFilter;
-      if (branchFilter !== 'all') params.branchId = branchFilter;
-      const res = await getUsers(params);
-      if (res.success && res.data) setTeachers(res.data);
-      else setTeachers([]);
-    } catch {
-      toast({ title: 'Error', description: 'Could not load teachers', variant: 'destructive' });
-      setTeachers([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [branchFilter, statusFilter, toast]);
-
-  useEffect(() => {
-    loadBranches();
-  }, [loadBranches]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
 
   // Keep orderedTeachers in sync whenever the source list changes
   useEffect(() => {
@@ -217,7 +195,7 @@ export function TeachersPageContent() {
         <TeacherForm
           branches={branches}
           lockedBranchId={actorRole === 'BRANCH_ADMIN' ? actorBranchId : undefined}
-          onSuccess={load}
+          onSuccess={invalidateTeachers}
         />
       ),
     });
@@ -257,7 +235,7 @@ export function TeachersPageContent() {
             branches={branches}
             teacher={res.data}
             lockedBranchId={actorRole === 'BRANCH_ADMIN' ? actorBranchId : undefined}
-            onSuccess={load}
+            onSuccess={invalidateTeachers}
           />
         ),
       });
@@ -279,7 +257,7 @@ export function TeachersPageContent() {
           onConfirm={async () => {
             try {
               await updateUser(id, { status });
-              await load();
+              await invalidateTeachers();
               toast({ title: 'Success', description: `Teacher status updated to ${status}`, variant: 'success' });
             } catch (e: unknown) {
               toast({
@@ -307,7 +285,7 @@ export function TeachersPageContent() {
           onConfirm={async () => {
             try {
               await deleteUser(id);
-              await load();
+              await invalidateTeachers();
               toast({ title: 'Deleted', description: `${name} has been removed.`, variant: 'success' });
             } catch (e: unknown) {
               toast({
@@ -344,7 +322,7 @@ export function TeachersPageContent() {
       setSavingOrder(true);
       const items = orderedTeachers.map((t, i) => ({ id: t.id, displayOrder: i }));
       await reorderTeachers(items);
-      await load();
+      await invalidateTeachers();
       setSortMode(false);
       toast({ title: 'Order saved', description: 'Teacher display order updated.', variant: 'success' });
     } catch {
@@ -483,7 +461,7 @@ export function TeachersPageContent() {
              <Button 
                variant="outline" 
                className="h-14 w-14 rounded-2xl shrink-0 border-slate-100 bg-slate-50/50 hover:bg-white hover:border-indigo-200 transition-all" 
-               onClick={load}
+               onClick={() => void refetch()}
              >
                <RefreshCw className={cn('h-5 w-5 text-slate-500', loading && 'animate-spin')} />
              </Button>

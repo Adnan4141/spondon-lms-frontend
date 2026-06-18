@@ -16,28 +16,28 @@ type Props = {
 export function StudentDashboardStatsGrid({ stats }: Props) {
   const statItems = [
     {
-      label: 'কোর্স',
+      label: 'Courses',
       value: stats.myCourses,
       icon: BookOpen,
       color: 'indigo' as const,
       href: '/student/courses',
     },
     {
-      label: 'বই অর্ডার',
+      label: 'Book Orders',
       value: stats.myBooks,
       icon: BookMarked,
       color: 'violet' as const,
       href: '/student/books#my-books',
     },
     {
-      label: 'পরীক্ষা',
+      label: 'Exams',
       value: stats.myExams,
       icon: BookOpenCheck,
       color: 'sky' as const,
       href: '/student/exams',
     },
     {
-      label: 'ফলাফল',
+      label: 'Results',
       value: stats.results,
       icon: Award,
       color: 'amber' as const,
@@ -54,24 +54,24 @@ export function StudentDashboardStatsGrid({ stats }: Props) {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div
-                className={`p-3 rounded-2xl ${styles.iconWrap} group-hover:scale-110 transition-transform duration-500`}
+                className={`rounded-2xl p-3 ${styles.iconWrap} transition-transform duration-500 group-hover:scale-110`}
               >
                 <Icon className="h-6 w-6" />
               </div>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">বর্তমান</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Current</span>
             </div>
             <div className="mt-5">
               <h3 className="text-3xl font-black text-slate-900">{item.value}</h3>
-              <p className="text-sm font-bold text-slate-500 mt-1">{item.label}</p>
+              <p className="mt-1 text-sm font-bold text-slate-500">{item.label}</p>
             </div>
-            <div className="absolute bottom-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+            <div className="absolute bottom-0 right-0 p-4 opacity-5 transition-opacity group-hover:opacity-10">
               <Icon className="h-16 w-16" />
             </div>
           </CardContent>
         );
         return (
           <Link key={idx} href={item.href} className="block">
-            <Card className="group relative overflow-hidden rounded-3xl border-none bg-white p-1 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] transition-all duration-500">
+            <Card className="group relative overflow-hidden rounded-3xl border-none bg-white p-1 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-500 hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)]">
               {inner}
             </Card>
           </Link>

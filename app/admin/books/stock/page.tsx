@@ -9,7 +9,7 @@ import { DeletedStockHistoryTab } from '@/features/admin/books/components/Delete
 import { DistributionTab } from '@/features/admin/books/components/DistributionTab';
 import { defaultStockPageFilters, type StockPageSharedFilters } from '@/features/admin/books/components/stock-page-filters';
 import { useAdminSession } from '@/features/admin/shared/admin-session';
-import { BooksRouteHeader } from '../_components/BooksRouteHeader';
+import { BooksRouteHeader } from '@/features/admin/books';
 import { BooksWorkspaceLoading } from '../_components/BooksWorkspaceLoading';
 import { ArrowRightLeft, Boxes, RefreshCw, Trash2 } from 'lucide-react';
 

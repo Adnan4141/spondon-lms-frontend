@@ -27,6 +27,8 @@ export {
 } from './components/BulkImportProgressDock';
 export { BulkImportStudentsModal } from './modals/BulkImportStudentsModal';
 export { EditStudentModal } from './modals/EditStudentModal';
+export { StudentsPageContent } from './StudentsPageContent';
+export { StudentDetailPageContent } from './StudentDetailPageContent';
 
 // ─── Types & Utils ────────────────────────────────────────────────────────────
 export type * from './types';
