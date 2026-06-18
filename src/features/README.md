@@ -6,6 +6,8 @@ Use this folder for **page-level business logic**. Keep `app/**/page.tsx` as thi
 
 ### 1. Admin list page — Questions (`admin/questions/`)
 
+Reference implementation. Also see **Teachers**, **Partners**, and **Batches** (Phase 2 Wave A).
+
 ```
 features/admin/questions/
   QuestionsPageContent.tsx     # orchestrator only (~250 lines)
