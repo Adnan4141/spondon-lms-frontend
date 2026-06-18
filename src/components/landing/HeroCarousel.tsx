@@ -57,6 +57,7 @@ const STATIC_SLIDES: HeroSlide[] = [
 function resolveImageUrl(url: string): string {
   if (!url) return 'https://placehold.co/1920x1080/1e293b/ffffff?text=Slide';
   if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/images/')) return url;
+  if (url.startsWith('/uploads/')) return url;
   return `${API_ORIGIN}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 

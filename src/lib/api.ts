@@ -1,4 +1,6 @@
-// Base API configuration
+import { resolveApiBaseUrl } from './api-config';
+
+// Kept for modules that need a static server default; prefer resolveApiBaseUrl() in fetch paths.
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 export const API_ORIGIN = API_BASE_URL.replace(/\/api$/, '');
 
@@ -38,7 +40,7 @@ export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`;
+  const url = `${resolveApiBaseUrl()}${endpoint}`;
   const isFormData = options.body instanceof FormData;
 
   // Attach JWT token from localStorage if available

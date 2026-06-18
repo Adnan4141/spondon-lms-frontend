@@ -15,7 +15,7 @@ interface Props {
   title?: string;
 }
 
-function TeacherMarqueeCard({ teacher }: { teacher: PublicTeacher }) {
+function TeacherMarqueeCard({ teacher, priority = false }: { teacher: PublicTeacher; priority?: boolean }) {
   const img = teacher.profileImage ? resolveAttachmentUrl(teacher.profileImage, API_ORIGIN) : null;
   const subtitle = [teacher.designation, teacher.institute].filter(Boolean).join(' · ');
   const primaryCourse = teacher.courses?.[0]?.name;
@@ -36,6 +36,8 @@ function TeacherMarqueeCard({ teacher }: { teacher: PublicTeacher }) {
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-105"
             sizes="280px"
+            priority={priority}
+            loading={priority ? undefined : 'lazy'}
           />
         ) : (
           <div className="flex h-full items-center justify-center text-5xl font-black text-indigo-200 select-none">
@@ -111,7 +113,7 @@ export const TeachersSection: React.FC<Props> = ({
             }
           >
             {teachers.map((teacher) => (
-              <TeacherMarqueeCard key={teacher.id} teacher={teacher} />
+              <TeacherMarqueeCard key={teacher.id} teacher={teacher} priority />
             ))}
             {teachers.map((teacher) => (
               <TeacherMarqueeCard key={`${teacher.id}-marquee-dup`} teacher={teacher} />

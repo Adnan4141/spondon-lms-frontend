@@ -174,6 +174,7 @@ export const PartnerCarouselSection: React.FC<Props> = ({
                       sizes="(max-width: 768px) 192px, 240px"
                       className="object-contain transition-transform duration-500 group-hover:scale-110"
                       priority={i < 4}
+                      loading={i < 4 ? undefined : 'lazy'}
                     />
                   </div>
                 </button>

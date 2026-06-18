@@ -1,6 +1,12 @@
 import type { NextConfig } from 'next';
 
-const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/api$/, '');
+const BACKEND_ORIGIN = (
+  process.env.BACKEND_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  'http://localhost:5000/api'
+).replace(/\/api\/?$/, '');
+
+const API_ORIGIN = BACKEND_ORIGIN;
 
 const apiHost = (() => {
   try {
@@ -42,6 +48,10 @@ const nextConfig: NextConfig = {
   },
   async rewrites() {
     return [
+      {
+        source: '/api/:path*',
+        destination: `${BACKEND_ORIGIN}/api/:path*`,
+      },
       {
         source: '/uploads/:path*',
         destination: `${API_ORIGIN}/uploads/:path*`,

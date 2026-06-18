@@ -229,11 +229,15 @@
   }
 }
 
+.teachers-marquee-wrap {
+  contain: layout style;
+}
+
 .teachers-marquee-track {
   display: flex;
   width: max-content;
   animation: teachers-marquee var(--teachers-marquee-duration, 45s) linear infinite;
-  will-change: transform;
+  backface-visibility: hidden;
 }
 
 .teachers-marquee-wrap:hover .teachers-marquee-track {
@@ -246,7 +250,7 @@
   }
 }
 
-/* Landing: partners logo row — seamless loop, fluid “mercury” motion */
+/* Landing: partners logo row — seamless loop */
 @keyframes partners-marquee {
   from {
     transform: translate3d(0, 0, 0);
@@ -256,11 +260,15 @@
   }
 }
 
+.partners-marquee-wrap {
+  contain: layout style;
+}
+
 .partners-marquee-track {
   display: flex;
   width: max-content;
   animation: partners-marquee var(--partners-marquee-duration, 48s) linear infinite;
-  will-change: transform;
+  backface-visibility: hidden;
 }
 
 .partners-marquee-wrap:hover .partners-marquee-track {

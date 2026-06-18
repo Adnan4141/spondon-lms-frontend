@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
-import { getCourseById } from '@/lib/api/courses';
+import { getPublicCourseBySlugCached } from '@/lib/api/courses-server';
 import { getSiteSettings } from '@/lib/api/site-content';
 import type { CourseDetails } from '@/types/course';
 import { CourseInitialDataProvider } from '@/components/course/CourseInitialDataContext';
 import { FooterSettingsProvider } from '@/components/layout/FooterSettingsContext';
 import { API_ORIGIN } from '@/lib/api';
 import { resolveAttachmentUrl } from '@/lib/attachment-url';
+import { isCoursePubliclyVisible } from './_lib/course-page-display';
 import {
   absoluteSiteUrl,
   compactDescription,
@@ -31,8 +32,12 @@ function getCourseHeroTitle(course: CourseDetails): string {
 
 async function loadCourseForSeo(idOrSlug: string): Promise<CourseDetails | null> {
   try {
-    const res = await getCourseById(idOrSlug);
-    if (res.success && res.data) return res.data as unknown as CourseDetails;
+    const res = await getPublicCourseBySlugCached(idOrSlug);
+    if (res.success && res.data) {
+      const course = res.data as unknown as CourseDetails;
+      if (!isCoursePubliclyVisible(course)) return null;
+      return course;
+    }
   } catch {
     // Metadata falls back to noindex below.
   }
@@ -170,11 +175,14 @@ export default async function CourseDetailsLayout({
   let siteSettings: Record<string, string> = {};
   try {
     const [res, settingsRes] = await Promise.all([
-      getCourseById(idOrSlug),
+      getPublicCourseBySlugCached(idOrSlug),
       getSiteSettings(),
     ]);
     if (res.success && res.data) {
-      initialCourse = res.data as unknown as CourseDetails;
+      const course = res.data as unknown as CourseDetails;
+      if (isCoursePubliclyVisible(course)) {
+        initialCourse = course;
+      }
     }
     if (settingsRes.success && settingsRes.data) {
       for (const item of settingsRes.data as { key: string; value: string }[]) {
