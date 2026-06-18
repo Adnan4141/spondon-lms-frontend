@@ -8,7 +8,6 @@ import {
   useUsersListQuery,
   type UsersListFilters,
 } from '@/lib/query/hooks/useUsersList';
-import { queryKeys } from '@/lib/query/admin-query';
 
 export function useUsersPageFilters() {
   const [query, setQuery] = useState('');

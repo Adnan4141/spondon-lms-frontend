@@ -155,28 +155,37 @@ export default function StudentCourseHubPage() {
             <div className="sticky top-16 z-30 -mx-1 bg-[#F8FAFC]/95 px-1 pb-0 backdrop-blur-sm">
               <TabsList
                 variant="line"
-                className="h-auto w-full justify-start border-b border-slate-200 pb-0"
+                className="h-auto w-full justify-start border-b border-slate-200/80 pb-0 gap-2"
               >
-                <TabsTrigger value="learn" className="gap-1.5 px-4 pb-3">
+                <TabsTrigger
+                  value="learn"
+                  className="group gap-2 px-4 pb-3 text-sm font-semibold transition-all data-[state=active]:text-indigo-600 data-[state=active]:after:bg-indigo-600 data-[state=active]:font-bold"
+                >
                   Learn
                   {subjectRows.length > 0 ? (
-                    <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500 group-data-[state=active]:bg-indigo-50 group-data-[state=active]:text-indigo-600 transition-colors">
                       {subjectRows.length}
                     </span>
                   ) : null}
                 </TabsTrigger>
-                <TabsTrigger value="resources" className="gap-1.5 px-4 pb-3">
+                <TabsTrigger
+                  value="resources"
+                  className="group gap-2 px-4 pb-3 text-sm font-semibold transition-all data-[state=active]:text-indigo-600 data-[state=active]:after:bg-indigo-600 data-[state=active]:font-bold"
+                >
                   Resources
                   {resourcesCount > 0 ? (
-                    <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500 group-data-[state=active]:bg-indigo-50 group-data-[state=active]:text-indigo-600 transition-colors">
                       {resourcesCount}
                     </span>
                   ) : null}
                 </TabsTrigger>
-                <TabsTrigger value="teachers" className="gap-1.5 px-4 pb-3">
+                <TabsTrigger
+                  value="teachers"
+                  className="group gap-2 px-4 pb-3 text-sm font-semibold transition-all data-[state=active]:text-indigo-600 data-[state=active]:after:bg-indigo-600 data-[state=active]:font-bold"
+                >
                   Teachers
                   {teachersCount > 0 ? (
-                    <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500 group-data-[state=active]:bg-indigo-50 group-data-[state=active]:text-indigo-600 transition-colors">
                       {teachersCount}
                     </span>
                   ) : null}

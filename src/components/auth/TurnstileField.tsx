@@ -6,6 +6,10 @@ import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile';
 const SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || '';
 
 export function isTurnstileConfigured(): boolean {
+  const explicit = process.env.NEXT_PUBLIC_TURNSTILE_ENABLED?.trim();
+  if (explicit === 'false') return false;
+  if (explicit === 'true') return Boolean(SITE_KEY);
+  if (process.env.NODE_ENV === 'development') return false;
   return Boolean(SITE_KEY);
 }
 
@@ -25,7 +29,7 @@ export function TurnstileField({ resetKey, onToken, onError }: TurnstileFieldPro
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when resetKey changes
   }, [resetKey]);
 
-  if (!SITE_KEY) return null;
+  if (!isTurnstileConfigured()) return null;
 
   return (
     <div className="flex min-h-[65px] items-center justify-start">

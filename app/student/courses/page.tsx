@@ -8,7 +8,7 @@ import { useStudentMyCourses } from '@/lib/query/hooks/useStudentMyCourses';
 import type { StudentMyCourseWithProgress } from '@/lib/query/hooks/useStudentMyCourses';
 import { StudentCoursesToolbar, type CourseSortOption } from '@/components/student/courses/StudentCoursesToolbar';
 import { StudentCourseListItem } from '@/components/student/courses/StudentCourseListItem';
-import { StudentCoursesStats } from '@/components/student/courses/StudentCoursesStats';
+import { StudentCoursesWelcome } from '@/components/student/courses/StudentCoursesWelcome';
 import { StudentCoursesSkeleton } from '@/components/student/courses/StudentCoursesSkeleton';
 import { StudentCoursesEmpty } from '@/components/student/courses/StudentCoursesEmpty';
 
@@ -127,19 +127,15 @@ export default function StudentMyCoursesPage() {
       />
 
       {!search.trim() ? (
-        <StudentCoursesStats
-          total={courses.length}
-          inProgress={stats.inProgress}
-          completed={stats.completed}
-        />
+        <StudentCoursesWelcome stats={stats} total={courses.length} />
       ) : null}
 
       {filtered.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 py-12 text-center">
-          <p className="text-sm text-slate-500">No courses match &ldquo;{search}&rdquo;</p>
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/40 py-16 text-center">
+          <p className="text-sm font-semibold text-slate-400">No courses match &ldquo;{search}&rdquo;</p>
         </div>
       ) : (
-        <div className="space-y-2.5">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((course) => (
             <StudentCourseListItem
               key={course.id}
