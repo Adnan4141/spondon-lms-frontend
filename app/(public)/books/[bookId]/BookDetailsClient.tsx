@@ -4,8 +4,6 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
-import { Header } from '@/components/layout/Header';
-import { Footer } from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
 import { BookHeroSection } from '@/components/books/BookHeroSection';
 import { BookTabs, type BookTabId } from '@/components/books/BookTabs';
@@ -74,8 +72,6 @@ export function BookDetailsClient({ initialBook, bookId }: { initialBook: Public
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 selection:bg-emerald-100">
-      <Header />
-
       <main className="pb-20 pt-28 sm:pt-0">
         <div className="mx-auto max-w-7xl px-6 lg:px-12">
           <div className="mb-8 flex flex-wrap items-center gap-3 text-sm font-semibold text-slate-500">
@@ -118,7 +114,6 @@ export function BookDetailsClient({ initialBook, bookId }: { initialBook: Public
         sampleUrl={book?.demoReadUrl || null}
       />
 
-      <Footer />
     </div>
   );
 }
