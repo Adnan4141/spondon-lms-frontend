@@ -9,6 +9,7 @@ export type WrittenAttemptRow = {
   student?: { fullName?: string };
   evaluationStatus?: string;
   totalAwarded?: number;
+  obtainedMarks?: number | null;
 };
 
 export type CqPartMeta = {

@@ -10,6 +10,7 @@ export type AuditCategory =
   | 'user'
   | 'course'
   | 'cms'
+  | 'books'
   | 'default';
 
 export type AuditCategoryTheme = {
@@ -93,6 +94,14 @@ const CATEGORY_THEMES: Record<AuditCategory, AuditCategoryTheme> = {
     badge: 'bg-fuchsia-50 text-fuchsia-800 border-fuchsia-200',
     dot: 'bg-fuchsia-500',
     entity: 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-100',
+  },
+  books: {
+    category: 'books',
+    label: 'Books / Stock',
+    accent: 'border-l-amber-500',
+    badge: 'bg-amber-50 text-amber-800 border-amber-200',
+    dot: 'bg-amber-500',
+    entity: 'bg-amber-50 text-amber-700 border-amber-100',
   },
   default: {
     category: 'default',

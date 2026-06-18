@@ -17,9 +17,6 @@ const apiHost = (() => {
 })();
 
 const nextConfig: NextConfig = {
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: apiHost, pathname: '/uploads/**' },

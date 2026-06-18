@@ -39,6 +39,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
+import type { ExportFormat } from '@/lib/export';
 import { AdminDatePicker, AdminMonthPicker } from '@/features/admin/shared/form/AdminField';
 import { cn } from '@/lib/utils';
 import { useAdminSession } from '@/features/admin/shared/admin-session';

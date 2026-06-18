@@ -80,74 +80,16 @@ import { FolderTree } from '@/features/admin/questions';
 import { BULK_QUESTION_IMPORT_COMPLETE_EVENT } from '@/features/admin/students';
 import { ConfirmationModal } from '@/features/admin/shared';
 import { cn } from '@/lib/utils';
-
-type ActiveTab = 'MCQ_SIMPLE' | 'MCQ_PASSAGE' | 'CQ' | 'SHORT';
-
-type QuestionMetaPart = {
-  label: string;
-  marks: number;
-  prompt: string;
-  knowledgeLevel?: string | null;
-};
-
-type QuestionMetaShape = {
-  answer?: string;
-  parts?: QuestionMetaPart[];
-  totalMarks?: number;
-};
-
-const difficultyOptions: (Difficulty | 'all')[] = ['all', 'EASY', 'MEDIUM', 'HARD'];
-
-function getDifficultyBadgeClass(difficulty: string) {
-  if (difficulty === 'EASY') return 'bg-emerald-50 text-emerald-700 border-emerald-100';
-  if (difficulty === 'MEDIUM') return 'bg-amber-50 text-amber-700 border-amber-100';
-  if (difficulty === 'HARD') return 'bg-rose-50 text-rose-700 border-rose-100';
-  return 'bg-slate-50 text-slate-600 border-slate-200';
-}
-
-function getTypeBadgeClass(type: QuestionType) {
-  if (type === 'MCQ') return 'bg-indigo-50 text-indigo-700 border-indigo-100';
-  if (type === 'CQ') return 'bg-violet-50 text-violet-700 border-violet-100';
-  if (type === 'SHORT') return 'bg-sky-50 text-sky-700 border-sky-100';
-  return 'bg-slate-50 text-slate-600 border-slate-200';
-}
-
-const TAB_CONFIG: { id: ActiveTab; label: string; icon: React.ElementType; description: string }[] = [
-  { id: 'MCQ_SIMPLE', label: 'Simple MCQ', icon: Database, description: '1 question · 4 options · 1 answer' },
-  { id: 'MCQ_PASSAGE', label: 'Passage MCQ', icon: Layers, description: 'Stimulus + multiple MCQs' },
-  { id: 'CQ', label: 'Creative (CQ)', icon: PenLine, description: 'ক খ গ ঘ — 10 mark structure' },
-  { id: 'SHORT', label: 'Short Questions', icon: AlignLeft, description: 'Direct recall · 1–3 line answer' },
-];
-
-function stripHtml(html: string) {
-  return html ? html.replace(/<[^>]+>/g, '') : '';
-}
-
-function buildQuestionFolderActionContext(
-  questionIds: string[],
-  questions: Question[],
-  activeFolderId?: string,
-) {
-  const selected = questions.filter((question) => questionIds.includes(question.id));
-  const sourceFolderIds = [
-    ...new Set(
-      selected.length > 0
-        ? selected.map((question) => question.folderId)
-        : activeFolderId
-          ? [activeFolderId]
-          : [],
-    ),
-  ];
-  const questionPreviews = selected
-    .slice(0, 3)
-    .map((question) => {
-      const text = stripHtml(question.prompt).trim();
-      return text.length > 96 ? `${text.slice(0, 96)}…` : text;
-    })
-    .filter(Boolean);
-
-  return { sourceFolderIds, questionPreviews };
-}
+import {
+  ActiveTab,
+  QuestionMetaShape,
+  TAB_CONFIG,
+  buildQuestionFolderActionContext,
+  difficultyOptions,
+  getDifficultyBadgeClass,
+  getTypeBadgeClass,
+  stripHtml,
+} from './questions-page-utils';
 
 export function QuestionsPageContent() {
   const { openModal } = useModalStore();
@@ -1623,7 +1565,7 @@ export function QuestionsPageContent() {
                         )}
                       </TableBody>
                     </Table>
-                    {activeTab !== 'MCQ_PASSAGE' && questionsTotalPages > 1 ? (
+                    {questionsTotalPages > 1 ? (
                       <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
                         <p className="text-sm font-medium text-slate-500">
                           Page {questionsPage} of {questionsTotalPages}

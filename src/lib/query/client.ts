@@ -2,7 +2,7 @@
 
 import { QueryClient } from '@tanstack/react-query';
 
-export function createAdminQueryClient() {
+export function createQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: {
@@ -14,3 +14,6 @@ export function createAdminQueryClient() {
     },
   });
 }
+
+/** @deprecated Use createQueryClient */
+export const createAdminQueryClient = createQueryClient;

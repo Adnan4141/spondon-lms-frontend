@@ -196,7 +196,7 @@ export default function MonthlyBillingPage() {
                 <SelectItem value="all">All monthly courses</SelectItem>
                 {monthlyCourses.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
-                    {c.slug} · {c.name}
+                    {c.name}
                   </SelectItem>
                 ))}
               </SelectContent>

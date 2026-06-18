@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { PortalQueryProvider } from '@/components/providers/PortalQueryProvider';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Menu } from 'lucide-react';
@@ -143,7 +144,8 @@ export function StudentLayout({ children }: { children: React.ReactNode }) {
       : headerContent.title;
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900">
+    <PortalQueryProvider>
+      <div className="min-h-screen bg-[#F8FAFC] text-slate-900">
       <StudentSidebar
         mobileOpen={mobileOpen}
         onCloseMobile={() => setMobileOpen(false)}
@@ -192,6 +194,7 @@ export function StudentLayout({ children }: { children: React.ReactNode }) {
           </div>
         </main>
       </div>
-    </div>
+      </div>
+    </PortalQueryProvider>
   );
 }

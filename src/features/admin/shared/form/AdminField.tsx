@@ -1,7 +1,7 @@
 import * as React from 'react';
-import { Input, type InputProps } from '@/components/ui/input';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { SelectTrigger, type SelectTriggerProps } from '@/components/ui/select';
+import { SelectTrigger } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 
 export const ADMIN_FIELD_CLASS = 'h-9 rounded-xl border-slate-200 bg-white text-sm';
 
-export const AdminInput = React.forwardRef<HTMLInputElement, InputProps>(
+export const AdminInput = React.forwardRef<HTMLInputElement, React.ComponentProps<typeof Input>>(
   ({ className, ...props }, ref) => {
     return <Input ref={ref} className={cn(ADMIN_FIELD_CLASS, className)} {...props} />;
   },
@@ -20,7 +20,7 @@ AdminInput.displayName = 'AdminInput';
 
 export const AdminSelectTrigger = React.forwardRef<
   React.ElementRef<typeof SelectTrigger>,
-  SelectTriggerProps
+  React.ComponentProps<typeof SelectTrigger>
 >(({ className, ...props }, ref) => {
   return <SelectTrigger ref={ref} className={cn(ADMIN_FIELD_CLASS, className)} {...props} />;
 });

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Menu } from 'lucide-react';
+import { PortalQueryProvider } from '@/components/providers/PortalQueryProvider';
 import { TeacherSidebar } from './TeacherSidebar';
 import { Button } from '@/components/ui/button';
 
@@ -9,7 +10,8 @@ export function TeacherLayout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900">
+    <PortalQueryProvider>
+      <div className="min-h-screen bg-slate-100 text-slate-900">
       <TeacherSidebar mobileOpen={mobileOpen} onCloseMobile={() => setMobileOpen(false)} />
       <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-slate-200/80 bg-white/95 px-4 py-3 backdrop-blur-md lg:hidden">
         <Button
@@ -30,6 +32,7 @@ export function TeacherLayout({ children }: { children: React.ReactNode }) {
       <main className="min-h-[calc(100dvh-52px)] lg:min-h-screen lg:pl-72">
         <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">{children}</div>
       </main>
-    </div>
+      </div>
+    </PortalQueryProvider>
   );
 }

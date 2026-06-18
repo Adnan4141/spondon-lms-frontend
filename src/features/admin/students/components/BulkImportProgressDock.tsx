@@ -4,8 +4,9 @@ import { useEffect, useRef } from 'react';
 import { Loader2, X, Ban } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { cancelBulkImportJob, getBulkImportJobStatus } from '@/lib/api/students';
+import { cancelBulkImportJob, getBulkImportJobStatus, type BulkImportJobStatusPayload } from '@/lib/api/students';
 import { cancelQuestionImportJob, getQuestionImportJobStatus } from '@/lib/api/question-bank';
+import type { QuestionImportJobStatusPayload } from '@/types/question';
 import { useBulkImportJobsStore, type BulkImportJobUi } from '@/store/bulkImportJobsStore';
 import { cn } from '@/lib/utils';
 
@@ -143,17 +144,32 @@ export function BulkImportProgressDock() {
         try {
           const res = await getStatus(job);
           if (!res.success || !res.data) continue;
+          const finished = res.data.finished === true;
+
+          if (job.jobType === 'questions') {
+            const d = res.data as QuestionImportJobStatusPayload;
+            patchJob(job.jobId, {
+              processedRows: d.processedRows,
+              createdCount: d.createdCount,
+              passageCount: d.passageCount ?? 0,
+              errorCount: d.errorCount,
+              status: d.status,
+              finished,
+              folderId: d.folderId,
+            });
+          } else {
+            const d = res.data as BulkImportJobStatusPayload;
+            patchJob(job.jobId, {
+              processedRows: d.processedRows,
+              createdCount: d.createdCount,
+              passageCount: 0,
+              errorCount: d.errorCount,
+              status: d.status,
+              finished,
+            });
+          }
+
           const d = res.data;
-          const finished = d.finished === true;
-          patchJob(job.jobId, {
-            processedRows: d.processedRows,
-            createdCount: d.createdCount,
-            passageCount: 'passageCount' in d ? (d.passageCount ?? 0) : 0,
-            errorCount: d.errorCount,
-            status: d.status,
-            finished,
-            folderId: 'folderId' in d ? d.folderId : job.folderId,
-          });
 
           if (finished && !toastedFinished.current.has(job.jobId)) {
             toastedFinished.current.add(job.jobId);
@@ -168,10 +184,10 @@ export function BulkImportProgressDock() {
                     jobId: job.jobId,
                     jobType: job.jobType,
                     createdCount: d.createdCount,
-                    passageCount: 'passageCount' in d ? (d.passageCount ?? 0) : 0,
+                    passageCount: job.jobType === 'questions' ? (d as QuestionImportJobStatusPayload).passageCount ?? 0 : 0,
                     errorCount: d.errorCount,
                     status: d.status,
-                    folderId: 'folderId' in d ? d.folderId : job.folderId,
+                    folderId: job.jobType === 'questions' ? (d as QuestionImportJobStatusPayload).folderId : job.folderId,
                   },
                 }),
               );

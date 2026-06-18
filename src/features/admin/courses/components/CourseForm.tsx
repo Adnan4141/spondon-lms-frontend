@@ -85,174 +85,20 @@ import {
   DialogFooter as SimpleDialogFooter,
 } from '@/components/ui/dialog';
 
-/* ─── types ─────────────────────────────────────────────────────────────────── */
-const statusOptions: CourseStatus[] = ['ACTIVE', 'DISABLED', 'ARCHIVED'];
-const typeOptions: CourseType[] = ['ONLINE', 'OFFLINE'];
-const gradeOptions = ['SSC', 'HSC', 'Admission', 'Junior', 'Cadet', 'Job'] as const;
-const groupOptions = ['Science', 'Commerce', 'Arts'] as const;
+import {
+  defaultForm,
+  gradeOptions,
+  groupOptions,
+  statusOptions,
+  typeOptions,
+  buildSlug,
+  DEFAULT_BENEFITS,
+  type CourseFormProps,
+  type FormState,
+} from './course-form-types';
+import { field, FieldLabel, sectionLabel, SectionCard, SectionTitle, Toggle } from './course-form-ui';
 
-
-function buildSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
-}
-
-const DEFAULT_BENEFITS = [
-  'অভিজ্ঞ শিক্ষক মন্ডলী',
-  'মানসম্মত লেকচার শিট',
-  'নিয়মিত মডেল টেস্ট',
-  'সাপ্তাহিক সলভ ক্লাস',
-];
-
-type FormState = {
-  programId: string;
-  name: string;
-  slug: string;
-  thumbnail: string;
-  type: CourseType;
-  fee: string;
-  offerPrice: string;
-  description: string;
-  status: CourseStatus;
-  admissionStatus: AdmissionStatus;
-  featured: boolean;
-  websiteVisible: boolean;
-  enrollmentVisible: boolean;
-  settledOptionEnabled: boolean;
-  grade: string;
-  group: string;
-  startMonth: string;
-  durationMonths: string;
-  bookPrice: string;
-  benefits: string[];
-  websiteSections: CourseWebsiteSection[];
-  publicShowBenefits: boolean;
-  publicShowWebsiteSections: boolean;
-  publicShowBooks: boolean;
-  publicShowCurriculum: boolean;
-  publicCurriculumTypes: ContentType[];
-};
-
-const defaultForm: FormState = {
-  programId: '',
-  name: '',
-  slug: '',
-  thumbnail: '',
-  type: 'ONLINE',
-  fee: '0',
-  offerPrice: '',
-  description: '',
-  status: 'ACTIVE',
-  admissionStatus: 'OPEN',
-  featured: false,
-  websiteVisible: true,
-  enrollmentVisible: true,
-  settledOptionEnabled: false,
-  grade: '',
-  group: '',
-  startMonth: '',
-  durationMonths: '',
-  bookPrice: '',
-  benefits: DEFAULT_BENEFITS,
-  websiteSections: [],
-  publicShowBenefits: true,
-  publicShowWebsiteSections: true,
-  publicShowBooks: true,
-  publicShowCurriculum: true,
-  publicCurriculumTypes: [...DEFAULT_PUBLIC_CURRICULUM_TYPES],
-};
-
-interface CourseFormProps {
-  programs: Program[];
-  course?: CourseDetails | null;
-  onSuccess: () => Promise<void>;
-}
-
-/* ─── shared style tokens ────────────────────────────────────────────────────── */
-const field =
-  'h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all';
-
-const SectionCard = ({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) => (
-  <div
-    className={cn(
-      'rounded-2xl border border-slate-100 bg-white p-5 shadow-[0_1px_4px_rgba(0,0,0,0.04)]',
-      className,
-    )}
-  >
-    {children}
-  </div>
-);
-
-const SectionTitle = ({ children }: { children: ReactNode }) => (
-  <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">{children}</p>
-);
-
-const FieldLabel = ({ children, required }: { children: ReactNode; required?: boolean }) => (
-  <label className="mb-1.5 block text-xs font-semibold text-slate-600">
-    {children}
-    {required && <span className="ml-1 text-rose-400">*</span>}
-  </label>
-);
-
-const sectionLabel = 'mb-1.5 block text-xs font-semibold text-slate-600';
-
-/* ─── toggle checkbox ─────────────────────────────────────────────────────────── */
-const Toggle = ({
-  checked,
-  onChange,
-  label,
-  description,
-  accent = 'indigo',
-}: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  label: string;
-  description?: string;
-  accent?: 'indigo' | 'rose' | 'emerald';
-}) => {
-  const ring =
-    accent === 'rose'
-      ? 'bg-rose-500'
-      : accent === 'emerald'
-        ? 'bg-emerald-500'
-        : 'bg-indigo-500';
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(!checked)}
-      className="flex w-full items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-3 text-left transition-colors hover:bg-white hover:border-slate-200"
-    >
-      <div
-        className={cn(
-          'relative h-5 w-9 shrink-0 rounded-full transition-colors',
-          checked ? ring : 'bg-slate-200',
-        )}
-      >
-        <div
-          className={cn(
-            'absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform',
-            checked ? 'translate-x-4' : 'translate-x-0.5',
-          )}
-        />
-      </div>
-      <div>
-        <p className="text-xs font-semibold text-slate-700">{label}</p>
-        {description && <p className="mt-0.5 text-[10px] text-slate-400">{description}</p>}
-      </div>
-    </button>
-  );
-};
-
+/* ─── main component ─────────────────────────────────────────────────────────── */
 /* ─── main component ─────────────────────────────────────────────────────────── */
 export function CourseForm({ programs, course, onSuccess }: CourseFormProps) {
   const { closeModal } = useModalStore();
