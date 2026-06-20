@@ -97,18 +97,17 @@ export const HeroCarousel: React.FC<Props> = ({ slides }) => {
   const scrollNext = useCallback(() => emblaApi && emblaApi.scrollNext(), [emblaApi]);
 
   return (
-    <section className="relative w-full overflow-hidden bg-slate-900">
-      <div className="overflow-hidden w-full  touch-pan-y" ref={emblaRef}>
-        <div className="flex w-full ">
+    <section className="relative w-full overflow-hidden bg-slate-900 h-[200px] sm:h-[350px] md:h-[480px] lg:h-[75vh] max-h-[75vh]">
+      <div className="overflow-hidden w-full h-full touch-pan-y" ref={emblaRef}>
+        <div className="flex w-full h-full">
           {displaySlides.map((slide, index) => (
-            <div key={slide.id} className="flex-[0_0_100%] min-w-0 w-full relative shrink-0">
+            <div key={slide.id} className="flex-[0_0_100%] min-w-0 w-full h-full relative shrink-0">
               <FlexibleImage
                 src={resolveImageUrl(slide.imageUrl)}
                 alt={slide.title}
-                width={1920}
-                height={640}
+                fill
                 sizes="100vw"
-                className="block w-full h-auto"
+                className="object-cover object-center w-full h-full"
                 priority={index === 0}
                 loading={index === 0 ? undefined : 'lazy'}
               />
@@ -118,7 +117,7 @@ export const HeroCarousel: React.FC<Props> = ({ slides }) => {
         </div>
       </div>
      {/* Navigation Controls */}
-      <div className="absolute bottom-4 right-4 sm:bottom-6 sm:right-6 lg:bottom-10 lg:right-12 z-30 flex items-center gap-2 sm:gap-4">
+      <div className="absolute bottom-2 right-2 sm:bottom-6 sm:right-6 lg:bottom-10 lg:right-12 z-30 flex items-center gap-2 sm:gap-4">
         <button
           onClick={scrollPrev}
           className="w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 rounded-full border border-white/20 bg-white/5 backdrop-blur-lg text-white flex items-center justify-center hover:bg-white hover:text-slate-900 transition-all active:scale-90 cursor-pointer touch-manipulation"
@@ -136,7 +135,7 @@ export const HeroCarousel: React.FC<Props> = ({ slides }) => {
       </div>
 
       {/* Progress Indicators */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex gap-2 sm:gap-3">
+      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 sm:bottom-4 z-30 flex gap-2 sm:gap-3">
         {displaySlides.map((_, index) => (
           <button
             key={index}
