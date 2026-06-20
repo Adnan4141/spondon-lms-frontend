@@ -112,6 +112,7 @@ export function AttendanceSheetPageContent() {
     programs: filterPrograms,
     branches: filterBranches,
     coursesByProgram,
+    courses: allProgramCourses,
     isMetaLoading: loadingPrograms,
   } = useAdminFilterOptions();
 
@@ -126,19 +127,34 @@ export function AttendanceSheetPageContent() {
   const [selectedBranchId, setSelectedBranchId] = useState('');
   const [selectedBatchId, setSelectedBatchId] = useState('');
 
-  const courses = useMemo(
-    () =>
-      (selectedProgramId ? coursesByProgram(selectedProgramId) : []) as Course[],
-    [selectedProgramId, coursesByProgram],
-  );
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  const [sessionEligibility, setSessionEligibility] = useState<Record<string, Record<string, boolean>>>({});
+
+  const filterMonth = useMemo(() => {
+    if (startDate) return startDate.slice(0, 7);
+    if (endDate) return endDate.slice(0, 7);
+    return '';
+  }, [startDate, endDate]);
+
+  const courses = useMemo(() => {
+    const base = (selectedProgramId ? coursesByProgram(selectedProgramId) : []) as Course[];
+    if (!filterMonth) return base;
+    return base.filter((course) => {
+      const c = allProgramCourses.find((row) => row.id === course.id);
+      if (!c?.startMonth && !c?.endMonth) return true;
+      if (c.startMonth && c.startMonth > filterMonth) return false;
+      if (c.endMonth && c.endMonth < filterMonth) return false;
+      return true;
+    });
+  }, [selectedProgramId, coursesByProgram, allProgramCourses, filterMonth]);
 
   const loadingCourses = false;
   const loadingBranches = false;
   const [loadingBatches, setLoadingBatches] = useState(false);
 
-  // ── step 2: date range ────────────────────────────────────────────────────
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  // ── step 2: date range (state declared above for course month filter) ─────
 
   // ── step 3: sheet data ────────────────────────────────────────────────────
   const [sessions, setSessions] = useState<ClassSession[]>([]);
@@ -232,6 +248,7 @@ export function AttendanceSheetPageContent() {
 
       setSessions(sheet.sessions);
       setStudents(uniqueStudents);
+      setSessionEligibility(sheet.sessionEligibility ?? {});
 
       // build cell map from existing records
       const newCells: Record<string, AttendanceStatus> = {};
@@ -264,8 +281,14 @@ export function AttendanceSheetPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCourseId, selectedBatchId, selectedBranchId, startDate, endDate]);
 
+  function isCellEligible(sessionId: string, studentId: string): boolean {
+    if (Object.keys(sessionEligibility).length === 0) return true;
+    return sessionEligibility[studentId]?.[sessionId] === true;
+  }
+
   // ── cell update ───────────────────────────────────────────────────────────
   function cycleCell(sessionId: string, studentId: string) {
+    if (!isCellEligible(sessionId, studentId)) return;
     const k = cellKey(sessionId, studentId);
     const cur = cells[k];
     const idx = cur ? STATUS_OPTIONS.indexOf(cur) : -1;
@@ -289,7 +312,10 @@ export function AttendanceSheetPageContent() {
     if (!focusSessionId) return;
     setCells((prev) => {
       const n = { ...prev };
-      for (const st of students) n[cellKey(focusSessionId, st.id)] = 'PRESENT';
+      for (const st of students) {
+        if (!isCellEligible(focusSessionId, st.id)) continue;
+        n[cellKey(focusSessionId, st.id)] = 'PRESENT';
+      }
       return n;
     });
     setDirty(true);
@@ -828,20 +854,24 @@ export function AttendanceSheetPageContent() {
                             {sessions.map((s) => {
                               const k = cellKey(s.id, st.id);
                               const val = cells[k] ?? '';
+                              const eligible = isCellEligible(s.id, st.id);
                               return (
                                 <TableCell
                                   key={k}
                                   className={cn(
-                                    'cursor-pointer p-1 text-center transition-colors',
-                                    s.id === focusSessionId && 'bg-emerald-50/60',
+                                    'p-1 text-center transition-colors',
+                                    eligible ? 'cursor-pointer' : 'cursor-not-allowed opacity-40',
+                                    s.id === focusSessionId && eligible && 'bg-emerald-50/60',
                                   )}
-                                  onClick={() => cycleCell(s.id, st.id)}
+                                  onClick={() => eligible && cycleCell(s.id, st.id)}
                                 >
                                   <span className={cn(
                                     'inline-flex h-7 w-7 items-center justify-center rounded-md border text-xs font-bold transition-all',
-                                    statusColor(val as AttendanceStatus | ''),
+                                    eligible
+                                      ? statusColor(val as AttendanceStatus | '')
+                                      : 'bg-muted/30 text-muted-foreground/50 border-border/50',
                                   )}>
-                                    {statusLabel(val as AttendanceStatus | '')}
+                                    {eligible ? statusLabel(val as AttendanceStatus | '') : '·'}
                                   </span>
                                 </TableCell>
                               );

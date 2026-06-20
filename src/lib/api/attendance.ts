@@ -49,6 +49,8 @@ export interface AttendanceSheet {
     branch?: { id: string; name: string } | null;
   }>;
   sessions: ClassSession[];
+  /** studentUserId -> sessionId -> eligible for attendance marking */
+  sessionEligibility?: Record<string, Record<string, boolean>>;
 }
 
 export interface AttendanceSummaryRow {
