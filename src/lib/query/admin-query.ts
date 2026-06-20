@@ -21,6 +21,7 @@ export const queryKeys = {
   students: {
     all: ['admin', 'students'] as const,
     list: (params: Record<string, unknown>) => ['admin', 'students', 'list', params] as const,
+    bootstrap: (params: Record<string, unknown>) => ['admin', 'students', 'bootstrap', params] as const,
     stats: ['admin', 'students', 'stats'] as const,
   },
   questions: {

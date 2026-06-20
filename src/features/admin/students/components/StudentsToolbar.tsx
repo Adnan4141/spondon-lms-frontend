@@ -4,6 +4,7 @@ import { Download, FileUp, Link2, Plus, Search, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { BranchOption } from '../types';
+import { studentSearchHint } from '../studentSearch';
 import { StudentAdminSelect } from './StudentAdminSelect';
 
 export function StudentsToolbar({
@@ -83,6 +84,8 @@ export function StudentsToolbar({
         .map((b) => ({ value: b.id, label: b.name }))
     : [{ value: 'ALL', label: 'All branches' }, ...branches.map(b => ({ value: b.id, label: b.name }))];
 
+  const searchHint = studentSearchHint(search);
+
   return (
     <div className="px-5 py-4 border-b border-slate-100 space-y-2">
     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -100,6 +103,9 @@ export function StudentsToolbar({
             placeholder="Search name, mobile, reg no..."
             className="pl-8 w-full sm:w-72 text-sm focus-visible:ring-indigo-400"
           />
+          {searchHint ? (
+            <p className="mt-1 text-[11px] text-amber-600 font-medium">{searchHint}</p>
+          ) : null}
         </div>
         <div className="w-[min(100%,11rem)] sm:w-44">
           <StudentAdminSelect

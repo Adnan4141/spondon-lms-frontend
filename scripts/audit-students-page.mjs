@@ -16,6 +16,11 @@ const FRONTEND_ROOT = path.resolve(__dirname, '..');
 const STUDENTS_FILES = [
   'app/admin/students/page.tsx',
   'src/features/admin/students/StudentsPageContent.tsx',
+  'src/features/admin/students/hooks/useStudentsPageData.ts',
+  'src/features/admin/students/hooks/useStudentsPageActions.ts',
+  'src/features/admin/students/components/StudentsListPanel.tsx',
+  'src/features/admin/students/components/StudentsEnrollmentsPanel.tsx',
+  'src/features/admin/students/components/StudentsPageModals.tsx',
   'src/features/admin/students/components/StudentsTable.tsx',
   'src/features/admin/students/components/StudentsToolbar.tsx',
   'src/features/admin/students/components/StudentsStats.tsx',
@@ -74,8 +79,7 @@ const report = {
   studentsPageContent: importAnalysis,
   apiCallsOnMount: [
     'GET /meta/admin-filters (useAdminFilters)',
-    'GET /users?role=STUDENT&page&limit&filters (useStudentsList)',
-    'GET /users/student-stats (useStudentDatabaseStats)',
+    'GET /users/students/page-bootstrap (useStudentsPageBundle — list + stats)',
     'GET /batches?courseId=… (useBatchesForCourse, when course selected)',
   ],
   defaultPageSize: 25,

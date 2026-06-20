@@ -144,6 +144,88 @@ export async function getUsers(params?: {
   );
 }
 
+export type AdminStudentListParams = {
+  branchId?: string;
+  status?: string;
+  includeUnverified?: boolean;
+  programId?: string;
+  courseId?: string;
+  batchId?: string;
+  search?: string;
+  includeDetails?: boolean;
+  page?: number;
+  limit?: number;
+};
+
+/** Optimized admin student list (`GET /users/students`). */
+export async function getAdminStudents(params?: AdminStudentListParams): Promise<
+  ApiResponse<User[]> & {
+    pagination?: { page: number; limit: number; total: number; pages: number };
+  }
+> {
+  const queryParams = new URLSearchParams();
+  if (params?.branchId) queryParams.append('branchId', params.branchId);
+  if (params?.status) queryParams.append('status', params.status);
+  if (params?.includeUnverified !== undefined) {
+    queryParams.append('includeUnverified', String(params.includeUnverified));
+  }
+  if (params?.programId) queryParams.append('programId', params.programId);
+  if (params?.courseId) queryParams.append('courseId', params.courseId);
+  if (params?.batchId) queryParams.append('batchId', params.batchId);
+  if (params?.search) queryParams.append('search', params.search);
+  if (params?.includeDetails !== undefined) {
+    queryParams.append('includeDetails', String(params.includeDetails));
+  }
+  if (params?.page) queryParams.append('page', String(params.page));
+  if (params?.limit) queryParams.append('limit', String(params.limit));
+
+  const query = queryParams.toString();
+  return apiRequest<ApiResponse<User[]> & { pagination?: { page: number; limit: number; total: number; pages: number } }>(
+    `/users/students${query ? `?${query}` : ''}`,
+  );
+}
+
+export type StudentDatabaseStats = {
+  total: number;
+  active: number;
+  blocked: number;
+  newThisMonth: number;
+};
+
+/** Stats + list in one request for /admin/students mount. */
+export async function getStudentsPageBootstrap(params?: AdminStudentListParams): Promise<
+  ApiResponse<{
+    stats: StudentDatabaseStats;
+    students: User[];
+    pagination: { page: number; limit: number; total: number; pages: number };
+  }>
+> {
+  const queryParams = new URLSearchParams();
+  if (params?.branchId) queryParams.append('branchId', params.branchId);
+  if (params?.status) queryParams.append('status', params.status);
+  if (params?.includeUnverified !== undefined) {
+    queryParams.append('includeUnverified', String(params.includeUnverified));
+  }
+  if (params?.programId) queryParams.append('programId', params.programId);
+  if (params?.courseId) queryParams.append('courseId', params.courseId);
+  if (params?.batchId) queryParams.append('batchId', params.batchId);
+  if (params?.search) queryParams.append('search', params.search);
+  if (params?.includeDetails !== undefined) {
+    queryParams.append('includeDetails', String(params.includeDetails));
+  }
+  if (params?.page) queryParams.append('page', String(params.page));
+  if (params?.limit) queryParams.append('limit', String(params.limit));
+
+  const query = queryParams.toString();
+  return apiRequest<
+    ApiResponse<{
+      stats: StudentDatabaseStats;
+      students: User[];
+      pagination: { page: number; limit: number; total: number; pages: number };
+    }>
+  >(`/users/students/page-bootstrap${query ? `?${query}` : ''}`);
+}
+
 /** Staff role counts (non-student); honors branch/status filters. */
 export async function getStaffRoleSummary(params?: {
   branchId?: string;
@@ -159,12 +241,8 @@ export async function getStaffRoleSummary(params?: {
 }
 
 /** Global student row counts (ignores list filters; BRANCH_ADMIN is branch-scoped server-side). */
-export async function getStudentDatabaseStats(): Promise<
-  ApiResponse<{ total: number; active: number; blocked: number; newThisMonth: number }>
-> {
-  return apiRequest<ApiResponse<{ total: number; active: number; blocked: number; newThisMonth: number }>>(
-    '/users/student-stats',
-  );
+export async function getStudentDatabaseStats(): Promise<ApiResponse<StudentDatabaseStats>> {
+  return apiRequest<ApiResponse<StudentDatabaseStats>>('/users/student-stats');
 }
 
 export async function getUserById(id: string): Promise<ApiResponse<User>> {
