@@ -36,6 +36,8 @@ export interface OmrScan {
   contentHash?: string | null;
   detectedSetLabel?: string | null;
   expectedSetLabel?: string | null;
+  gradingSetLabel?: string | null;
+  gradingExamSetId?: string | null;
   detectedBranchCode?: string | null;
   registrationFromGrid?: string | null;
   identityWarnings?: string[] | null;
@@ -75,6 +77,47 @@ export interface OmrRosterStudent {
   registrationNumber: string | null;
   branchCode: string | null;
   branchName: string | null;
+}
+
+export interface OmrSetKeyInfo {
+  sheetLabel: string;
+  examSetId: string;
+  examSetName: string;
+  questionCount: number;
+}
+
+export interface OmrSetKeysResponse {
+  setNaming: 'ALPHA' | 'NUM' | 'KA';
+  totalSets: number;
+  keys: OmrSetKeyInfo[];
+  recommendation: string;
+}
+
+export interface OmrEngineStatus {
+  openCvLoaded: boolean;
+  alignmentMode: string;
+  recommendation: string;
+  tunables: {
+    fillThreshold: number;
+    minOverallConfidence: number;
+    workerConcurrency: number;
+  };
+}
+
+export async function getOmrSetKeys(
+  examId: string,
+): Promise<{ success: boolean; data: OmrSetKeysResponse }> {
+  return apiRequest<{ success: boolean; data: OmrSetKeysResponse }>(
+    `/exams/${examId}/omr-scans/set-keys`,
+  );
+}
+
+export async function getOmrEngineStatus(
+  examId: string,
+): Promise<{ success: boolean; data: OmrEngineStatus }> {
+  return apiRequest<{ success: boolean; data: OmrEngineStatus }>(
+    `/exams/${examId}/omr-scans/engine-status`,
+  );
 }
 
 export async function getOmrRoster(
@@ -172,6 +215,13 @@ export async function finalizeOmrBatch(
     resultBatchId: string;
     totalRecords: number;
     duplicateScans?: Array<{ scanId: string; studentUserId: string; keptScanId: string }>;
+    crossBatchDuplicates?: Array<{
+      scanId: string;
+      studentUserId: string;
+      reason: string;
+      conflictId?: string;
+      keptScanId?: string;
+    }>;
   };
   message?: string;
 }> {

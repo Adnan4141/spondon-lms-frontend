@@ -18,17 +18,21 @@ import { getActorUserIdFromStorage } from '@/lib/actor-user';
 import {
   discardOmrScan,
   finalizeOmrBatch,
+  getOmrEngineStatus,
   getOmrRoster,
   getOmrScans,
   getOmrScanDownloadUrl,
+  getOmrSetKeys,
   overrideOmrAnswers,
   reassignOmrScan,
   uploadOmrScanBatch,
   type DetectedAnswer,
+  type OmrEngineStatus,
   type OmrRosterStudent,
   type OmrScan,
   type OmrScanBatch,
   type OmrScanStatus,
+  type OmrSetKeysResponse,
 } from '@/lib/api/omr-scans';
 import { Input } from '@/components/ui/input';
 
@@ -53,7 +57,16 @@ const IDENTITY_WARNING_LABELS: Record<string, string> = {
   BRANCH_MISMATCH: 'Branch mismatch',
   SET_LABEL_MISSING_DEFAULTED_FIRST: 'Set not detected — used first set key',
   SET_LABEL_UNMAPPED: 'Unknown set — used first set key',
+  DUPLICATE_STUDENT_SCAN: 'Duplicate scan (same student in another batch)',
+  STUDENT_ALREADY_FINALIZED: 'Student already in results',
 };
+
+function labelIdentityWarning(code: string): string {
+  if (code.startsWith('SET_LABEL_UNMAPPED_')) {
+    return `Unknown set ${code.replace('SET_LABEL_UNMAPPED_', '')} — used first set key`;
+  }
+  return IDENTITY_WARNING_LABELS[code] ?? code;
+}
 
 const REJECTION_LABELS: Record<string, string> = {
   NO_QR_NO_ROLL: 'No QR / unreadable roll',
@@ -100,6 +113,8 @@ export function OmrScanReviewPanel({
   const [rosterLoading, setRosterLoading] = useState(false);
   const [editTarget, setEditTarget] = useState<OmrScan | null>(null);
   const [editAnswers, setEditAnswers] = useState<DetectedAnswer[]>([]);
+  const [setKeysInfo, setSetKeysInfo] = useState<OmrSetKeysResponse | null>(null);
+  const [engineStatus, setEngineStatus] = useState<OmrEngineStatus | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -124,6 +139,13 @@ export function OmrScanReviewPanel({
   useEffect(() => {
     void load();
   }, [load, refreshTick]);
+
+  useEffect(() => {
+    void Promise.all([getOmrSetKeys(examId), getOmrEngineStatus(examId)]).then(([keysRes, engineRes]) => {
+      if (keysRes.success && keysRes.data) setSetKeysInfo(keysRes.data);
+      if (engineRes.success && engineRes.data) setEngineStatus(engineRes.data);
+    });
+  }, [examId]);
 
   useEffect(() => {
     if (!reassignTarget) return;
@@ -302,11 +324,14 @@ export function OmrScanReviewPanel({
         return;
       }
       const dupNote = r.data.duplicateScans?.length
-        ? ` ${r.data.duplicateScans.length} duplicate scan(s) per student were skipped.`
+        ? ` ${r.data.duplicateScans.length} duplicate scan(s) in this batch were skipped.`
+        : '';
+      const crossNote = r.data.crossBatchDuplicates?.length
+        ? ` ${r.data.crossBatchDuplicates.length} scan(s) skipped — student already has results or a better scan elsewhere.`
         : '';
       toast({
         title: 'Result batch created',
-        description: `${r.data.totalRecords} rows ready for branch / central approval. Open the Offline results tab to approve.${dupNote}`,
+        description: `${r.data.totalRecords} rows ready for branch / central approval. Open the Offline results tab to approve.${dupNote}${crossNote}`,
       });
       onFinalized?.(r.data.resultBatchId);
       setRefreshTick((t) => t + 1);
@@ -337,6 +362,34 @@ export function OmrScanReviewPanel({
       </CardHeader>
 
       <CardContent className="space-y-5">
+        {(setKeysInfo || engineStatus) ? (
+          <div className="grid gap-3 md:grid-cols-2">
+            {setKeysInfo ? (
+              <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3 text-xs text-slate-700">
+                <p className="font-bold text-slate-900">Multi-SET answer keys</p>
+                <p className="mt-1">{setKeysInfo.recommendation}</p>
+                {setKeysInfo.keys.length > 1 ? (
+                  <ul className="mt-2 space-y-1">
+                    {setKeysInfo.keys.map((k) => (
+                      <li key={k.examSetId}>
+                        Sheet <strong>{k.sheetLabel}</strong> → set &quot;{k.examSetName}&quot; ({k.questionCount} MCQ)
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-1 text-slate-500">Single set — all scans grade against &quot;{setKeysInfo.keys[0]?.examSetName ?? '—'}&quot;.</p>
+                )}
+              </div>
+            ) : null}
+            {engineStatus ? (
+              <div className={`rounded-lg border p-3 text-xs ${engineStatus.openCvLoaded ? 'border-emerald-200 bg-emerald-50/80 text-emerald-900' : 'border-amber-200 bg-amber-50/80 text-amber-900'}`}>
+                <p className="font-bold">Scan engine: {engineStatus.alignmentMode.replace(/_/g, ' ')}</p>
+                <p className="mt-1">{engineStatus.recommendation}</p>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
         {showBranchPicker && !examBranchId ? (
           <div className="max-w-sm space-y-2 rounded-lg border border-amber-200 bg-amber-50/80 p-3">
             <label className="text-xs font-semibold text-amber-900">Branch for result batch</label>
@@ -788,9 +841,11 @@ function ScanTable({
                       {scan.registrationFromGrid ?? '—'}
                     </TableCell>
                     <TableCell className="text-xs text-slate-600">
-                      {scan.detectedSetLabel
-                        ? `${scan.detectedSetLabel}${scan.expectedSetLabel && scan.detectedSetLabel !== scan.expectedSetLabel ? ` / exp ${scan.expectedSetLabel}` : ''}`
-                        : scan.expectedSetLabel ?? '—'}
+                      {scan.gradingSetLabel
+                        ? `Key ${scan.gradingSetLabel}${scan.detectedSetLabel && scan.gradingSetLabel !== scan.detectedSetLabel ? ` (read ${scan.detectedSetLabel})` : ''}`
+                        : scan.detectedSetLabel
+                          ? `${scan.detectedSetLabel}${scan.expectedSetLabel && scan.detectedSetLabel !== scan.expectedSetLabel ? ` / exp ${scan.expectedSetLabel}` : ''}`
+                          : scan.expectedSetLabel ?? '—'}
                     </TableCell>
                     <TableCell className="text-xs text-slate-600">{scan.detectedBranchCode ?? '—'}</TableCell>
                     <TableCell className="text-xs text-slate-600">{scan.detectedRoll ?? '—'}</TableCell>
@@ -803,7 +858,7 @@ function ScanTable({
                         ) : null}
                         {(scan.identityWarnings ?? []).map((w) => (
                           <Badge key={w} variant="outline" className="border-amber-300 text-[10px] text-amber-800 w-fit">
-                            {IDENTITY_WARNING_LABELS[w] ?? w}
+                            {labelIdentityWarning(w)}
                           </Badge>
                         ))}
                         {!scan.rejectionReason && !(scan.identityWarnings?.length) ? '—' : null}

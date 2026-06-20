@@ -80,6 +80,11 @@ export function OfflineOmrWorkflowCard({
           </StepRow>
           <StepRow done={hasOmrSheets}>
             Click <strong>Print hall OMR sheets (scan in Results)</strong> (one page per enrolled student; A4, no scaling).
+            {Number(state.nSets) > 1 ? (
+              <span className="block mt-1 text-xs font-normal text-slate-600">
+                Multi-set exam: generate <strong>one print batch per SET</strong> (A, B, …) so each sheet QR matches the correct answer key.
+              </span>
+            ) : null}
           </StepRow>
           <StepRow done={hasOmrUploads}>
             After the exam, upload scans from{' '}
