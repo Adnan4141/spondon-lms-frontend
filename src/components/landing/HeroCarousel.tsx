@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
-import Image from 'next/image';
+import { FlexibleImage } from '@/components/common/FlexibleImage';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { HeroSlide } from '@/lib/api/site-content';
 import { API_ORIGIN } from '@/lib/api';
@@ -102,7 +102,7 @@ export const HeroCarousel: React.FC<Props> = ({ slides }) => {
         <div className="flex w-full">
           {displaySlides.map((slide, index) => (
             <div key={slide.id} className="flex-[0_0_100%] min-w-0 w-full relative shrink-0">
-              <Image
+              <FlexibleImage
                 src={resolveImageUrl(slide.imageUrl)}
                 alt={slide.title}
                 width={1920}

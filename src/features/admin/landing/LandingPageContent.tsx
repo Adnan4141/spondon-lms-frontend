@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import Image from 'next/image';
+import { FlexibleImage } from '@/components/common/FlexibleImage';
 import {
   DndContext,
   closestCenter,
@@ -107,7 +107,7 @@ function SortableSlideRow({ slide }: { slide: HeroSlide }) {
       </button>
       <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-xl bg-slate-100 border border-slate-200">
         {slide.imageUrl ? (
-          <Image
+          <FlexibleImage
             src={resolveImageUrl(slide.imageUrl)}
             alt={slide.title}
             fill
@@ -274,7 +274,7 @@ function ImagePicker({ value, onChange }: ImagePickerProps) {
 
       {previewSrc && (
         <div className="relative h-32 w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
-          <Image src={previewSrc} alt="Preview" fill className="object-cover" />
+          <FlexibleImage src={previewSrc} alt="Preview" fill className="object-cover" />
           <button
             type="button"
             onClick={() => { onChange(''); setUrlInput(''); }}
@@ -725,7 +725,7 @@ export function LandingPageContent() {
                   {/* Thumbnail */}
                   <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-xl bg-slate-100 border border-slate-200">
                     {slide.imageUrl ? (
-                      <Image
+                      <FlexibleImage
                         src={resolveImageUrl(slide.imageUrl)}
                         alt={slide.title}
                         fill
