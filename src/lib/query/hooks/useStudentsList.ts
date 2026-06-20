@@ -90,6 +90,7 @@ export function useStudentsList(params: StudentsListParams, options?: { enabled?
           limit: params.limit,
           total: res.data.length,
           pages: 1,
+          hasMore: false,
         },
       };
     },
@@ -97,8 +98,9 @@ export function useStudentsList(params: StudentsListParams, options?: { enabled?
   });
 }
 
-export function useStudentDatabaseStats() {
+export function useStudentDatabaseStats(options?: { enabled?: boolean }) {
   return useQuery({
+    enabled: options?.enabled ?? true,
     queryKey: queryKeys.students.stats,
     queryFn: async () => {
       const res = await getStudentDatabaseStats();

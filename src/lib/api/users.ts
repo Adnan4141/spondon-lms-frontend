@@ -160,7 +160,13 @@ export type AdminStudentListParams = {
 /** Optimized admin student list (`GET /users/students`). */
 export async function getAdminStudents(params?: AdminStudentListParams): Promise<
   ApiResponse<User[]> & {
-    pagination?: { page: number; limit: number; total: number; pages: number };
+    pagination?: {
+      page: number;
+      limit: number;
+      total: number | null;
+      pages: number;
+      hasMore?: boolean;
+    };
   }
 > {
   const queryParams = new URLSearchParams();
@@ -180,9 +186,17 @@ export async function getAdminStudents(params?: AdminStudentListParams): Promise
   if (params?.limit) queryParams.append('limit', String(params.limit));
 
   const query = queryParams.toString();
-  return apiRequest<ApiResponse<User[]> & { pagination?: { page: number; limit: number; total: number; pages: number } }>(
-    `/users/students${query ? `?${query}` : ''}`,
-  );
+  return apiRequest<
+    ApiResponse<User[]> & {
+      pagination?: {
+        page: number;
+        limit: number;
+        total: number | null;
+        pages: number;
+        hasMore?: boolean;
+      };
+    }
+  >(`/users/students${query ? `?${query}` : ''}`);
 }
 
 export type StudentDatabaseStats = {

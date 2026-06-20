@@ -1,7 +1,7 @@
 'use client';
 
 import { Fragment } from 'react';
-import { AlertTriangle, Download } from 'lucide-react';
+import { AlertTriangle, Download, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fmt, fmtMonth } from '../utils';
 import { StudentAdminBadge as AppBadge } from '../components/StudentAdminBadge';
@@ -20,6 +20,7 @@ export function CollectPaymentLeftPanel({ ctrl }: { ctrl: CollectPaymentModalCon
     advanceNotice,
     setAdvanceNotice,
     loadingInvoices,
+    generatingAdvance,
     oneTimeGroups,
     monthlyGroups,
     invoiceGroups,
@@ -128,10 +129,16 @@ export function CollectPaymentLeftPanel({ ctrl }: { ctrl: CollectPaymentModalCon
                     </button>
                   </div>
                 )}
+                {generatingAdvance && (
+                  <div className="mb-3 flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3">
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-sky-600" />
+                    <p className="text-sm font-medium text-sky-800">Generating monthly invoices…</p>
+                  </div>
+                )}
                 {loadingInvoices ? (
                   <p className="text-sm text-slate-400">Loading invoices…</p>
                 ) : (
-                  <div className="space-y-3">
+                  <div className={cn('space-y-3', generatingAdvance && 'pointer-events-none opacity-60')}>
                     {oneTimeGroups.length > 0 && (
                       <div>
                         <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">One-Time Programs</p>

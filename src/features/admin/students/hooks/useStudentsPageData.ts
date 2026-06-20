@@ -4,7 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getStudentProfileByRegistrationNumber } from '@/lib/api/student-profiles';
 import { useAdminFilters } from '@/lib/query/hooks/useAdminFilters';
-import { useStudentsPageBundle } from '@/lib/query/hooks/useStudentsList';
+import {
+  useStudentDatabaseStats,
+  useStudentsList,
+} from '@/lib/query/hooks/useStudentsList';
 import { useBatchesForCourse } from '@/lib/query/hooks/useBatchesList';
 import { queryKeys } from '@/lib/query/admin-query';
 import { useAdminSession } from '@/features/admin/shared/admin-session';
@@ -112,17 +115,15 @@ export function useStudentsPageData() {
   );
 
   const {
-    data: studentsBundle,
+    data: studentsResult,
     isLoading: loadingStudents,
     isError: studentsError,
     error: studentsQueryError,
-  } = useStudentsPageBundle(listParams, { enabled: view === 'list' });
+  } = useStudentsList(listParams, { enabled: view === 'list' });
 
-  const studentsResult = studentsBundle
-    ? { users: studentsBundle.users, pagination: studentsBundle.pagination }
-    : undefined;
-  const dbStats = studentsBundle?.stats ?? null;
-  const statsLoading = loadingStudents;
+  const { data: dbStats = null, isLoading: statsLoading } = useStudentDatabaseStats({
+    enabled: view === 'list',
+  });
 
   const batchesCourseId =
     programFilter !== 'ALL' && courseFilter !== 'ALL' ? courseFilter : null;
@@ -138,6 +139,7 @@ export function useStudentsPageData() {
     limit,
     total: 0,
     pages: 1,
+    hasMore: false,
   };
 
   const sanitizeContext = useMemo(

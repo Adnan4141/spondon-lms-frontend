@@ -1,6 +1,6 @@
 'use client';
 
-import { Download, FileUp, Link2, Plus, Search, Users } from 'lucide-react';
+import { Download, FileUp, Plus, Search, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { BranchOption } from '../types';
@@ -9,6 +9,7 @@ import { StudentAdminSelect } from './StudentAdminSelect';
 
 export function StudentsToolbar({
   count,
+  countHasMore,
   search,
   onSearchChange,
   programFilter,
@@ -28,13 +29,13 @@ export function StudentsToolbar({
   lockedBranchId,
   showClearFilters,
   onClearFilters,
-  onCopyLink,
   onDownload,
   downloadBusy,
   onAddStudent,
   onBulkImport,
 }: {
-  count: number;
+  count: number | null;
+  countHasMore?: boolean;
   search: string;
   onSearchChange: (value: string) => void;
   programFilter: string;
@@ -54,7 +55,6 @@ export function StudentsToolbar({
   lockedBranchId?: string;
   showClearFilters?: boolean;
   onClearFilters?: () => void;
-  onCopyLink?: () => void | Promise<void>;
   onDownload: () => void | Promise<void>;
   downloadBusy?: boolean;
   onAddStudent: () => void;
@@ -85,6 +85,14 @@ export function StudentsToolbar({
     : [{ value: 'ALL', label: 'All branches' }, ...branches.map(b => ({ value: b.id, label: b.name }))];
 
   const searchHint = studentSearchHint(search);
+  const countLabel =
+    count == null
+      ? countHasMore
+        ? '…+'
+        : '…'
+      : countHasMore
+        ? `${count}+`
+        : String(count);
 
   return (
     <div className="px-5 py-4 border-b border-slate-100 space-y-2">
@@ -92,7 +100,7 @@ export function StudentsToolbar({
       <div className="flex items-center gap-2.5">
         <Users className="h-5 w-5 text-slate-400" />
         <h2 className="text-base font-black text-slate-900">Students</h2>
-        <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-500 font-bold">{count}</span>
+        <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-500 font-bold">{countLabel}</span>
       </div>
       <div className="flex flex-wrap items-center gap-2 justify-end">
         <div className="relative min-w-[min(100%,18rem)] flex-1 sm:flex-initial sm:max-w-xs">
@@ -151,11 +159,6 @@ export function StudentsToolbar({
             options={[{ value: 'ALL', label: 'All status' }, { value: 'ACTIVE', label: 'Active' }, { value: 'BLOCKED', label: 'Blocked' }]}
           />
         </div>
-        {onCopyLink ? (
-          <Button variant="outline" onClick={() => void onCopyLink()} className="gap-2 shrink-0">
-            <Link2 className="h-4 w-4" /> Copy link
-          </Button>
-        ) : null}
         {showClearFilters && onClearFilters ? (
           <Button variant="outline" onClick={onClearFilters} className="shrink-0">
             Clear filters

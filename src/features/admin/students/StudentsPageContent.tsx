@@ -1,11 +1,31 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { Toaster } from '@/components/ui/toast';
-import { StudentsEnrollmentsPanel } from '@/features/admin/students/components/StudentsEnrollmentsPanel';
 import { StudentsListPanel } from '@/features/admin/students/components/StudentsListPanel';
-import { StudentsPageModals } from '@/features/admin/students/components/StudentsPageModals';
 import { useStudentsPageActions } from '@/features/admin/students/hooks/useStudentsPageActions';
 import { useStudentsPageData } from '@/features/admin/students/hooks/useStudentsPageData';
+
+const StudentsEnrollmentsPanel = dynamic(
+  () =>
+    import('@/features/admin/students/components/StudentsEnrollmentsPanel').then(
+      (m) => m.StudentsEnrollmentsPanel,
+    ),
+  {
+    loading: () => (
+      <div className="flex min-h-[40vh] items-center justify-center bg-slate-50/50 p-6 text-sm font-medium text-slate-400">
+        Loading enrollments…
+      </div>
+    ),
+  },
+);
+
+const StudentsPageModals = dynamic(
+  () =>
+    import('@/features/admin/students/components/StudentsPageModals').then(
+      (m) => m.StudentsPageModals,
+    ),
+);
 
 export function StudentsPageContent() {
   const data = useStudentsPageData();
@@ -26,10 +46,12 @@ export function StudentsPageContent() {
     );
   }
 
+  const showModals = actions.modal !== null || actions.editStudent !== null;
+
   return (
     <>
       <StudentsListPanel data={data} actions={actions} />
-      <StudentsPageModals data={data} actions={actions} />
+      {showModals ? <StudentsPageModals data={data} actions={actions} /> : null}
       <Toaster />
     </>
   );

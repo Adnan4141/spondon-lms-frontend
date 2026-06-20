@@ -49,6 +49,7 @@ export function useCollectPaymentModal({ student, onSave }: CollectPaymentModalP
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [validMonthlyMonths, setValidMonthlyMonths] = useState<string[]>([]);
   const [advanceNotice, setAdvanceNotice] = useState<string | null>(null);
+  const [generatingAdvance, setGeneratingAdvance] = useState(false);
   const advanceFiredRef = useRef(false);
   const suggestedPaymentRef = useRef('');
 
@@ -84,6 +85,7 @@ export function useCollectPaymentModal({ student, onSave }: CollectPaymentModalP
           if (!advanceFiredRef.current) {
             advanceFiredRef.current = true;
             if (hasBillableMonthlyEnrollment) {
+              setGeneratingAdvance(true);
               generateAdvanceInvoices({ studentUserId: student.id, months: 12 })
                 .then((advRes) => {
                   if (advRes && typeof advRes === 'object' && advRes.success === false) {
@@ -98,6 +100,7 @@ export function useCollectPaymentModal({ student, onSave }: CollectPaymentModalP
                   setAdvanceNotice((err as Error).message ?? 'Could not generate advance invoices.');
                 })
                 .finally(() => {
+                  setGeneratingAdvance(false);
                   void fetchInvoices(true);
                 });
             } else {
@@ -118,6 +121,7 @@ export function useCollectPaymentModal({ student, onSave }: CollectPaymentModalP
 
   useEffect(() => {
     advanceFiredRef.current = false;
+    setGeneratingAdvance(false);
     void fetchInvoices();
   }, [fetchInvoices]);
 
@@ -509,6 +513,7 @@ export function useCollectPaymentModal({ student, onSave }: CollectPaymentModalP
     waiveSubmitting,
     advanceNotice,
     setAdvanceNotice,
+    generatingAdvance,
     fetchInvoices,
     enrollments,
     reloadEnrollments: () => fetchInvoices(true),

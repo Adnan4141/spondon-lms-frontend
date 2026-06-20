@@ -16,7 +16,7 @@ import type { McqPassage, Question, QuestionFolder } from '@/types/question';
 import { useToast } from '@/hooks/use-toast';
 import { useModalStore } from '@/store/modalStore';
 import { ConfirmationModal } from '@/features/admin/shared';
-import { BULK_QUESTION_IMPORT_COMPLETE_EVENT } from '@/features/admin/students';
+import { BULK_QUESTION_IMPORT_COMPLETE_EVENT } from '@/features/admin/students/bulk-import-events';
 import {
   LazyBulkQuestionImportModal,
   LazyCqForm,

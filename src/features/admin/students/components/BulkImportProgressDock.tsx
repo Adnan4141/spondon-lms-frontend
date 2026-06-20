@@ -9,10 +9,12 @@ import { cancelQuestionImportJob, getQuestionImportJobStatus } from '@/lib/api/q
 import type { QuestionImportJobStatusPayload } from '@/types/question';
 import { useBulkImportJobsStore, type BulkImportJobUi } from '@/store/bulkImportJobsStore';
 import { cn } from '@/lib/utils';
+import {
+  BULK_QUESTION_IMPORT_COMPLETE_EVENT,
+  BULK_STUDENT_IMPORT_COMPLETE_EVENT,
+} from '@/features/admin/students/bulk-import-events';
 
 const POLL_MS = 1600;
-export const BULK_STUDENT_IMPORT_COMPLETE_EVENT = 'bulk-student-import-complete';
-export const BULK_QUESTION_IMPORT_COMPLETE_EVENT = 'bulk-question-import-complete';
 
 function getJobLabel(job: BulkImportJobUi): string {
   return job.jobType === 'questions' ? 'Question import' : 'Student import';

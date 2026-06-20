@@ -20,6 +20,7 @@ import { StudentAdminBadge } from './StudentAdminBadge';
 function StudentsTableComponent({
   students,
   totalStudents,
+  hasMore,
   branches,
   loading,
   page,
@@ -31,7 +32,8 @@ function StudentsTableComponent({
   onAction,
 }: {
   students: Student[];
-  totalStudents: number;
+  totalStudents: number | null;
+  hasMore?: boolean;
   branches: BranchOption[];
   loading: boolean;
   page: number;
@@ -43,15 +45,17 @@ function StudentsTableComponent({
   onAction: (action: string, student: Student) => void;
 }) {
   const branchById = useMemo(() => new Map(branches.map((b) => [b.id, b.name])), [branches]);
-  const start = totalStudents === 0 ? 0 : (page - 1) * pageSize + 1;
-  const end = Math.min(totalStudents, (page - 1) * pageSize + students.length);
+  const totalUnknown = totalStudents == null;
+  const start = students.length === 0 ? 0 : (page - 1) * pageSize + 1;
+  const end = (page - 1) * pageSize + students.length;
   const pages = Math.max(1, totalPages);
   const pageNumbers = useMemo(() => {
+    if (totalUnknown) return [];
     const items = new Set<number>([1, pages, page - 1, page, page + 1]);
     return Array.from(items)
       .filter((p) => p >= 1 && p <= pages)
       .sort((a, b) => a - b);
-  }, [page, pages]);
+  }, [page, pages, totalUnknown]);
 
   return (
     <>
@@ -120,7 +124,11 @@ function StudentsTableComponent({
         </table>
       </div>
       <div className="px-5 py-3.5 border-t border-slate-100 flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
-        <p className="text-xs text-slate-400">Showing {start}-{end} of {totalStudents} students</p>
+        <p className="text-xs text-slate-400">
+          {totalUnknown
+            ? `Showing ${start}-${end}${hasMore ? '+' : ''}`
+            : `Showing ${start}-${end} of ${totalStudents} students`}
+        </p>
         <div className="flex flex-wrap items-center gap-2">
           <Select value={String(pageSize)} onValueChange={(value) => onLimitChange(Number(value))}>
             <SelectTrigger className="h-8 w-[96px] rounded-lg text-xs">
@@ -145,7 +153,7 @@ function StudentsTableComponent({
           >
             <ChevronLeft className="h-3.5 w-3.5" /> Prev
           </Button>
-          {pageNumbers.map((p, idx) => {
+          {!totalUnknown && pageNumbers.map((p, idx) => {
             const prev = pageNumbers[idx - 1];
             const gap = prev && p - prev > 1;
             return (
@@ -171,7 +179,7 @@ function StudentsTableComponent({
             type="button"
             variant="outline"
             size="xs"
-            disabled={loading || page >= pages}
+            disabled={loading || (totalUnknown ? !hasMore : page >= pages)}
             onClick={() => onPageChange(page + 1)}
             className="h-8"
           >

@@ -1,5 +1,13 @@
 import type { Enrollment as ApiEnrollment } from '@/lib/api/enrollments';
 
+export type StudentsListPagination = {
+  page: number;
+  limit: number;
+  total: number | null;
+  pages: number;
+  hasMore?: boolean;
+};
+
 export interface Student {
   id: string;
   regNo: string;

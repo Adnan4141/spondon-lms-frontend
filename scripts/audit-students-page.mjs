@@ -28,7 +28,7 @@ const STUDENTS_FILES = [
   'src/features/admin/students/index.ts',
 ];
 
-const EAGER_MODAL_IMPORTS = [
+const MODAL_COMPONENTS = [
   'AddStudentModal',
   'BulkImportStudentsModal',
   'CollectPaymentModal',
@@ -47,11 +47,24 @@ function readFile(relPath) {
   return fs.existsSync(full) ? fs.readFileSync(full, 'utf8') : '';
 }
 
-function analyzeImports(content) {
-  const barrelMatch = content.match(/from '@\/features\/admin\/students'/);
-  const dynamicMatches = [...content.matchAll(/dynamic\s*\(\s*\(\)\s*=>\s*import\(/g)];
-  const eagerModals = EAGER_MODAL_IMPORTS.filter((name) =>
-    new RegExp(`\\b${name}\\b`).test(content),
+function isEagerModalImport(content, name) {
+  const staticImport = new RegExp(
+    `import\\s+(?:\\{[^}]*\\b${name}\\b[^}]*\\}|\\b${name}\\b)\\s+from`,
+  );
+  const dynamicImport = new RegExp(`import\\([^)]*${name}`);
+  return staticImport.test(content) && !dynamicImport.test(content);
+}
+
+function analyzeImports(pageContent, modalsContent, enrollmentsContent) {
+  const barrelMatch = pageContent.match(/from '@\/features\/admin\/students'/);
+  const dynamicMatches = [
+    ...pageContent.matchAll(/dynamic\s*\(\s*\(\)\s*=>\s*import\(/g),
+    ...readFile('src/features/admin/students/components/StudentsListPanel.tsx').matchAll(
+      /dynamic\s*\(\s*\(\)\s*=>\s*import\(/g,
+    ),
+  ];
+  const eagerModals = MODAL_COMPONENTS.filter((name) =>
+    isEagerModalImport(modalsContent, name) || isEagerModalImport(enrollmentsContent, name),
   );
   return {
     usesBarrelImport: Boolean(barrelMatch),
@@ -62,7 +75,9 @@ function analyzeImports(content) {
 
 const pageContent = readFile('src/features/admin/students/StudentsPageContent.tsx');
 const pageEntry = readFile('app/admin/students/page.tsx');
-const importAnalysis = analyzeImports(pageContent);
+const modalsContent = readFile('src/features/admin/students/components/StudentsPageModals.tsx');
+const enrollmentsContent = readFile('src/features/admin/students/components/StudentsEnrollmentsPanel.tsx');
+const importAnalysis = analyzeImports(pageContent, modalsContent, enrollmentsContent);
 
 const fileSizes = STUDENTS_FILES.map((rel) => ({
   path: rel,
@@ -79,7 +94,8 @@ const report = {
   studentsPageContent: importAnalysis,
   apiCallsOnMount: [
     'GET /meta/admin-filters (useAdminFilters)',
-    'GET /users/students/page-bootstrap (useStudentsPageBundle — list + stats)',
+    'GET /users/students (useStudentsList — list only)',
+    'GET /users/student-stats (useStudentDatabaseStats — separate, cached)',
     'GET /batches?courseId=… (useBatchesForCourse, when course selected)',
   ],
   defaultPageSize: 25,
@@ -94,14 +110,12 @@ if (importAnalysis.eagerModalImports.length > 0) {
 if (importAnalysis.usesBarrelImport) {
   report.recommendations.push('Replace barrel import with direct/dynamic imports for modals');
 }
-report.recommendations.push('Reduce default page size from 50 to 25');
-report.recommendations.push('Defer stats cards; render table first');
 
 const outJson = path.resolve(FRONTEND_ROOT, '../docs/performance/admin-students-frontend-audit.json');
 mkdirSync(path.dirname(outJson), { recursive: true });
 fs.writeFileSync(outJson, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
 
-console.log('\n📦 Admin Students Page — Frontend Audit (Phase 0)\n');
+console.log('\n📦 Admin Students Page — Frontend Audit (Phase 4)\n');
 console.log('Source file sizes:');
 fileSizes.forEach(({ path: p, lines }) => {
   console.log(`  ${String(lines).padStart(5)} lines  ${p}`);
@@ -109,10 +123,13 @@ fileSizes.forEach(({ path: p, lines }) => {
 console.log(`\nTotal tracked source lines: ${totalLines}`);
 console.log(`\nPage entry dynamic import: ${report.pageEntryUsesDynamic ? 'yes' : 'no'}`);
 console.log(`StudentsPageContent barrel import: ${importAnalysis.usesBarrelImport ? 'yes' : 'no'}`);
+console.log(`Dynamic import count: ${importAnalysis.dynamicImportCount}`);
 console.log(`Eager modal imports (${importAnalysis.eagerModalImports.length}): ${importAnalysis.eagerModalImports.join(', ') || 'none'}`);
 console.log(`\nAPI calls on mount: ${report.apiCallsOnMount.length}`);
 report.apiCallsOnMount.forEach((c) => console.log(`  - ${c}`));
 console.log(`\nDefault page size: ${report.defaultPageSize}`);
-console.log('\nRecommendations:');
-report.recommendations.forEach((r) => console.log(`  • ${r}`));
+if (report.recommendations.length > 0) {
+  console.log('\nRecommendations:');
+  report.recommendations.forEach((r) => console.log(`  • ${r}`));
+}
 console.log(`\n✅ JSON report: ${outJson}\n`);

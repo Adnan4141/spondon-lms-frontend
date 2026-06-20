@@ -1,10 +1,16 @@
 'use client';
 
-import { StudentsStats } from '@/features/admin/students/components/StudentsStats';
+import dynamic from 'next/dynamic';
 import { StudentsTable } from '@/features/admin/students/components/StudentsTable';
 import { StudentsToolbar } from '@/features/admin/students/components/StudentsToolbar';
 import type { StudentsPageActions } from '@/features/admin/students/hooks/useStudentsPageActions';
 import type { StudentsPageData } from '@/features/admin/students/hooks/useStudentsPageData';
+
+const StudentsStats = dynamic(
+  () =>
+    import('@/features/admin/students/components/StudentsStats').then((m) => m.StudentsStats),
+  { ssr: false },
+);
 
 type Props = {
   data: StudentsPageData;
@@ -42,7 +48,6 @@ export function StudentsListPanel({ data, actions }: Props) {
     handleBranchFilterChange,
     handleStatusFilterChange,
     openEnrollments,
-    handleCopyLink,
     handleAction,
     handleDownloadStudents,
     openAddStudent,
@@ -51,11 +56,23 @@ export function StudentsListPanel({ data, actions }: Props) {
     handleLimitChange,
   } = actions;
 
+  const toolbarCount =
+    pagination.total != null
+      ? pagination.total
+      : loadingStudents
+        ? null
+        : students.length > 0
+          ? (pagination.page - 1) * pagination.limit + students.length
+          : 0;
+
   return (
     <div className="min-h-screen space-y-6 p-6 sm:p-0 bg-slate-50/50">
+      <StudentsStats stats={dbStats} loading={statsLoading} />
+
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
         <StudentsToolbar
-          count={pagination.total}
+          count={toolbarCount}
+          countHasMore={pagination.hasMore}
           search={searchInput}
           onSearchChange={handleSearchChange}
           programFilter={programFilter}
@@ -75,7 +92,6 @@ export function StudentsListPanel({ data, actions }: Props) {
           lockedBranchId={lockedBranchId}
           showClearFilters={hasActiveFilters}
           onClearFilters={handleClearFilters}
-          onCopyLink={handleCopyLink}
           onDownload={handleDownloadStudents}
           downloadBusy={exportingStudents}
           onAddStudent={openAddStudent}
@@ -85,6 +101,7 @@ export function StudentsListPanel({ data, actions }: Props) {
         <StudentsTable
           students={students}
           totalStudents={pagination.total}
+          hasMore={pagination.hasMore}
           branches={branches}
           loading={loadingStudents}
           page={pagination.page}
@@ -96,8 +113,6 @@ export function StudentsListPanel({ data, actions }: Props) {
           onAction={handleAction}
         />
       </div>
-
-      <StudentsStats stats={dbStats} loading={statsLoading} />
     </div>
   );
 }

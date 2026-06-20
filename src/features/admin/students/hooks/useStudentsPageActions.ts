@@ -3,13 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import {
-  downloadStudentExportJobXlsx,
-  downloadStudentExportXlsx,
-  getStudentExportJobStatus,
-  queueStudentExportXlsx,
-} from '@/lib/api/students';
-import { BULK_STUDENT_IMPORT_COMPLETE_EVENT } from '@/features/admin/students/components/BulkImportProgressDock';
+import { BULK_STUDENT_IMPORT_COMPLETE_EVENT } from '@/features/admin/students/bulk-import-events';
 import {
   buildStudentDetailHref,
   studentsListHref,
@@ -120,16 +114,6 @@ export function useStudentsPageActions(data: StudentsPageData) {
     updateQuery({ view: 'list', regNo: '' }, { resetPage: false });
   }, [updateQuery]);
 
-  const handleCopyLink = useCallback(async () => {
-    try {
-      const url = `${window.location.origin}${studentsListHref(query)}`;
-      await navigator.clipboard.writeText(url);
-      toast({ title: 'Link copied', description: 'Filtered students list URL copied to clipboard.' });
-    } catch {
-      toast({ title: 'Copy failed', description: 'Could not copy link to clipboard.', variant: 'destructive' });
-    }
-  }, [query, toast]);
-
   const handleAction = useCallback(
     (action: string, student: Student) => {
       if (action === 'view') {
@@ -172,14 +156,22 @@ export function useStudentsPageActions(data: StudentsPageData) {
   const handleDownloadStudents = useCallback(async () => {
     setExportingStudents(true);
     try {
+      const {
+        downloadStudentExportJobXlsx,
+        downloadStudentExportXlsx,
+        getStudentExportJobStatus,
+        queueStudentExportXlsx,
+      } = await import('@/lib/api/students');
+
       const params = exportParams();
-      if (pagination.total > SYNC_EXPORT_ROW_LIMIT) {
+      const totalUnknown = pagination.total == null;
+      if (totalUnknown || pagination.total > SYNC_EXPORT_ROW_LIMIT) {
         const queued = await queueStudentExportXlsx(params);
         const jobId = queued.data?.jobId;
         if (!queued.success || !jobId) throw new Error(queued.message || 'Could not queue export');
         toast({
           title: 'Export queued',
-          description: `${queued.data?.totalRows ?? pagination.total} students will be prepared in the background.`,
+          description: `${queued.data?.totalRows ?? pagination.total ?? 'Filtered'} students will be prepared in the background.`,
         });
 
         for (let i = 0; i < 60; i += 1) {
@@ -250,7 +242,6 @@ export function useStudentsPageActions(data: StudentsPageData) {
     handleStatusFilterChange,
     openEnrollments,
     closeEnrollments,
-    handleCopyLink,
     handleAction,
     handleDownloadStudents,
     openAddStudent,

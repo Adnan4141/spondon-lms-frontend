@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { Sidebar } from './Sidebar';
@@ -7,7 +8,21 @@ import { GlobalModal } from './GlobalModal';
 import { AdminHeader } from './AdminHeader';
 import { cn } from '@/lib/utils';
 import { AdminToastProvider } from './AdminToastProvider';
-import { BulkImportProgressDock } from '@/features/admin/students';
+import { useBulkImportJobsStore } from '@/store/bulkImportJobsStore';
+
+const BulkImportProgressDock = dynamic(
+  () =>
+    import('@/features/admin/students/components/BulkImportProgressDock').then(
+      (m) => m.BulkImportProgressDock,
+    ),
+  { ssr: false },
+);
+
+function BulkImportDockGate() {
+  const jobs = useBulkImportJobsStore((state) => state.jobs);
+  if (jobs.length === 0) return null;
+  return <BulkImportProgressDock />;
+}
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -69,7 +84,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           </main>
 
           <GlobalModal />
-          <BulkImportProgressDock />
+          <BulkImportDockGate />
         </div>
       </div>
     </AdminToastProvider>
