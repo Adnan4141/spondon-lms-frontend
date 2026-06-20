@@ -206,7 +206,6 @@ export function StudentSidebar({
                   <span className="truncate text-[17px] font-black tracking-tight text-slate-900">
                     Spondon
                   </span>
-                  <Sparkles className="h-3.5 w-3.5 shrink-0 text-amber-400" strokeWidth={2.5} />
                 </div>
                 <span className="mt-0.5 inline-flex items-center rounded-full bg-indigo-50/80 px-2.5 py-0.5 text-[8.5px] font-bold uppercase tracking-widest text-indigo-600 border border-indigo-100">
                   Student
