@@ -98,8 +98,8 @@ export const HeroCarousel: React.FC<Props> = ({ slides }) => {
 
   return (
     <section className="relative w-full overflow-hidden bg-slate-900">
-      <div className="overflow-hidden w-full touch-pan-y" ref={emblaRef}>
-        <div className="flex w-full">
+      <div className="overflow-hidden w-full  touch-pan-y" ref={emblaRef}>
+        <div className="flex w-full ">
           {displaySlides.map((slide, index) => (
             <div key={slide.id} className="flex-[0_0_100%] min-w-0 w-full relative shrink-0">
               <FlexibleImage

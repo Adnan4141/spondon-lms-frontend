@@ -73,7 +73,7 @@ export function Header() {
         'z-50 w-full transition-all duration-500',
         scrolled 
           ? 'fixed top-0 left-0 right-0 py-0' // Fixed with compact spacing on scroll
-          : 'py-2 sm:py-4'  // Less padding on mobile
+          : 'py-2 sm:py-1'  // Less padding on mobile
       )}
     >
       {/* Background Layer - Smooth transition between glass and transparent */}
