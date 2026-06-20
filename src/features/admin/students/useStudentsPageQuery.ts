@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 export const STUDENTS_LIST_RETURN_KEY = 'admin-students-list-url';
 export const STUDENTS_PAGE_SIZES = [25, 50, 100] as const;
 
-const DEFAULT_LIMIT = 50;
+const DEFAULT_LIMIT = 25;
 
 export type StudentsPageQueryState = {
   page: number;

@@ -4,7 +4,8 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { getUsers, getStudentDatabaseStats } from '@/lib/api/users';
 import { queryKeys, type StudentsListParams } from '@/lib/query/admin-query';
 
-const DEFAULT_PAGE_SIZE = 50;
+const DEFAULT_PAGE_SIZE = 25;
+const STUDENT_STATS_STALE_MS = 2 * 60_000;
 
 function buildStudentsApiParams(params: StudentsListParams): NonNullable<Parameters<typeof getUsers>[0]> {
   const apiParams: NonNullable<Parameters<typeof getUsers>[0]> = {
@@ -72,6 +73,7 @@ export function useStudentDatabaseStats() {
       if (!res.success || !res.data) throw new Error('Could not load student stats');
       return res.data;
     },
+    staleTime: STUDENT_STATS_STALE_MS,
   });
 }
 

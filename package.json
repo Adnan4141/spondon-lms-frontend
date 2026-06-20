@@ -9,7 +9,8 @@
     "lint": "eslint",
     "lint:file-sizes": "node scripts/check-file-sizes.mjs --warn-over=400",
     "lint:file-sizes:strict": "node scripts/check-file-sizes.mjs --fail-new-over=600",
-    "analyze": "ANALYZE=true npm run build"
+    "analyze": "ANALYZE=true npm run build",
+    "perf:students-audit": "node scripts/audit-students-page.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

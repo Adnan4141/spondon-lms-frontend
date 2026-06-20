@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { Toaster } from '@/components/ui/toast';
@@ -19,24 +20,13 @@ import {
   getStudentExportJobStatus,
   queueStudentExportXlsx,
 } from '@/lib/api/students';
-import {
-  AddStudentModal,
-  type AddStudentSaveMeta,
-  BULK_STUDENT_IMPORT_COMPLETE_EVENT,
-  BulkImportStudentsModal,
-  CollectPaymentModal,
-  Course,
-  EditStudentModal,
-  EnrolledCoursesView,
-  EnrollmentModal,
-  fmt,
-  fmtMonth,
-  Program,
-  StudentsStats,
-  StudentsTable,
-  StudentsToolbar,
-  Student,
-} from '@/features/admin/students';
+import { BULK_STUDENT_IMPORT_COMPLETE_EVENT } from '@/features/admin/students/components/BulkImportProgressDock';
+import { StudentsStats } from '@/features/admin/students/components/StudentsStats';
+import { StudentsTable } from '@/features/admin/students/components/StudentsTable';
+import { StudentsToolbar } from '@/features/admin/students/components/StudentsToolbar';
+import type { AddStudentSaveMeta } from '@/features/admin/students/modals/AddStudentModal';
+import type { Course, Program, Student } from '@/features/admin/students/types';
+import { fmt, fmtMonth } from '@/features/admin/students/utils';
 import { getUsers } from '@/lib/api/users';
 import { useAdminSession } from '@/features/admin/shared/admin-session';
 import {
@@ -48,6 +38,34 @@ import {
   useStudentsPageQuery,
 } from '@/features/admin/students/useStudentsPageQuery';
 import { useBulkImportJobsStore } from '@/store/bulkImportJobsStore';
+
+const AddStudentModal = dynamic(
+  () => import('@/features/admin/students/modals/AddStudentModal').then((m) => m.AddStudentModal),
+);
+const BulkImportStudentsModal = dynamic(
+  () =>
+    import('@/features/admin/students/modals/BulkImportStudentsModal').then(
+      (m) => m.BulkImportStudentsModal,
+    ),
+);
+const EditStudentModal = dynamic(
+  () => import('@/features/admin/students/modals/EditStudentModal').then((m) => m.EditStudentModal),
+);
+const EnrollmentModal = dynamic(
+  () => import('@/features/admin/students/enrollment/EnrollmentModal').then((m) => m.EnrollmentModal),
+);
+const CollectPaymentModal = dynamic(
+  () =>
+    import('@/features/admin/students/enrollment/CollectPaymentModal').then(
+      (m) => m.CollectPaymentModal,
+    ),
+);
+const EnrolledCoursesView = dynamic(
+  () =>
+    import('@/features/admin/students/enrollment/EnrolledCoursesView').then(
+      (m) => m.EnrolledCoursesView,
+    ),
+);
 
 const SYNC_EXPORT_ROW_LIMIT = 5000;
 
@@ -467,8 +485,6 @@ export function StudentsPageContent() {
 
   return (
     <div className="min-h-screen space-y-6 p-6 sm:p-0 bg-slate-50/50">
-      <StudentsStats stats={dbStats} loading={statsLoading} />
-
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
         <StudentsToolbar
           count={pagination.total}
@@ -512,6 +528,8 @@ export function StudentsPageContent() {
           onAction={handleAction}
         />
       </div>
+
+      <StudentsStats stats={dbStats} loading={statsLoading} />
 
       {modal?.type === 'addStudent' && (
         <AddStudentModal
