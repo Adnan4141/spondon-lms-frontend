@@ -97,7 +97,7 @@ export const HeroCarousel: React.FC<Props> = ({ slides }) => {
   const scrollNext = useCallback(() => emblaApi && emblaApi.scrollNext(), [emblaApi]);
 
   return (
-    <section className="relative w-full overflow-hidden bg-slate-900 h-[200px] sm:h-[350px] md:h-[480px] lg:h-[75vh] max-h-[75vh]">
+    <section className="relative w-full overflow-hidden bg-slate-900 aspect-[9/4] md:max-h-[75vh] 2xl:max-h-[80vh]">
       <div className="overflow-hidden w-full h-full touch-pan-y" ref={emblaRef}>
         <div className="flex w-full h-full">
           {displaySlides.map((slide, index) => (
