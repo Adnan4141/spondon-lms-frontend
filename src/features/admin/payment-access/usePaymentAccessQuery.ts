@@ -56,6 +56,11 @@ function buildPaymentAccessSearchParams(state: PaymentAccessQueryState): URLSear
   return params;
 }
 
+export function paymentAccessListHref(state: PaymentAccessQueryState): string {
+  const qs = buildPaymentAccessSearchParams(state).toString();
+  return qs ? `/admin/payment-access?${qs}` : '/admin/payment-access';
+}
+
 export function usePaymentAccessQuery() {
   const searchParams = useSearchParams();
   const router = useRouter();

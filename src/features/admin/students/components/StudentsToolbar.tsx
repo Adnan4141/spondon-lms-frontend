@@ -1,6 +1,6 @@
 'use client';
 
-import { Download, FileUp, Plus, Search, Users } from 'lucide-react';
+import { Download, FileUp, Link2, Plus, Search, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { BranchOption } from '../types';
@@ -25,6 +25,9 @@ export function StudentsToolbar({
   programs,
   branches,
   lockedBranchId,
+  showClearFilters,
+  onClearFilters,
+  onCopyLink,
   onDownload,
   downloadBusy,
   onAddStudent,
@@ -48,6 +51,9 @@ export function StudentsToolbar({
   programs: { id: string; name: string }[];
   branches: BranchOption[];
   lockedBranchId?: string;
+  showClearFilters?: boolean;
+  onClearFilters?: () => void;
+  onCopyLink?: () => void | Promise<void>;
   onDownload: () => void | Promise<void>;
   downloadBusy?: boolean;
   onAddStudent: () => void;
@@ -139,6 +145,16 @@ export function StudentsToolbar({
             options={[{ value: 'ALL', label: 'All status' }, { value: 'ACTIVE', label: 'Active' }, { value: 'BLOCKED', label: 'Blocked' }]}
           />
         </div>
+        {onCopyLink ? (
+          <Button variant="outline" onClick={() => void onCopyLink()} className="gap-2 shrink-0">
+            <Link2 className="h-4 w-4" /> Copy link
+          </Button>
+        ) : null}
+        {showClearFilters && onClearFilters ? (
+          <Button variant="outline" onClick={onClearFilters} className="shrink-0">
+            Clear filters
+          </Button>
+        ) : null}
         <Button
           variant="outline"
           onClick={() => void onDownload()}

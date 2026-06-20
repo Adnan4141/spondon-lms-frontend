@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft, BookOpen, Building2, Calendar, CreditCard, Download, Droplets, Edit2,
   Eye, GraduationCap, Mail, MapPin, Phone, RefreshCw, User,
@@ -24,6 +24,7 @@ import type {
   BranchOption, Course, Enrollment, Program, Student,
 } from '@/features/admin/students';
 import { avatarHue, fmt, fmtMonth, normPdfUrl, toLocalEnrollment } from '@/features/admin/students';
+import { resolveStudentsListReturnUrl } from '@/features/admin/students/useStudentsPageQuery';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -57,7 +58,11 @@ function InfoRow({ icon: Icon, label, value }: {
 export function StudentDetailPageContent() {
   const params = useParams();
   const registrationNumber = params.registrationNumber as string;
+  const searchParams = useSearchParams();
   const router = useRouter();
+  const backToStudents = useCallback(() => {
+    router.push(resolveStudentsListReturnUrl(searchParams.get('returnTo')));
+  }, [router, searchParams]);
   const { toast } = useToast();
   const showToast = (msg: string, type = 'success') =>
     toast({ title: msg, variant: type === 'error' ? 'destructive' : 'default' });
@@ -232,7 +237,7 @@ export function StudentDetailPageContent() {
         <p className="text-slate-500 text-sm max-w-sm text-center">{fetchError}</p>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => { setFetchError(''); setLoading(true); fetchData().catch((err: unknown) => { const msg = err instanceof Error ? err.message : ''; setFetchError(msg || 'Failed to load.'); }).finally(() => setLoading(false)); }}>Retry</Button>
-          <Button variant="outline" size="sm" onClick={() => router.push('/admin/students')}>← Back to Students</Button>
+          <Button variant="outline" size="sm" onClick={backToStudents}>← Back to Students</Button>
         </div>
       </div>
     );
@@ -242,7 +247,7 @@ export function StudentDetailPageContent() {
     return (
       <div className="min-h-screen p-6 bg-slate-50/50 flex flex-col items-center justify-center gap-4">
         <p className="text-slate-500 font-semibold">Student not found — Reg: {registrationNumber}</p>
-        <Button variant="outline" size="sm" onClick={() => router.push('/admin/students')}>← Back to Students</Button>
+        <Button variant="outline" size="sm" onClick={backToStudents}>← Back to Students</Button>
       </div>
     );
   }
@@ -256,7 +261,7 @@ export function StudentDetailPageContent() {
       {/* Breadcrumb */}
       <div className="flex items-center gap-3 mb-5">
         <button
-          onClick={() => router.push('/admin/students')}
+          onClick={backToStudents}
           className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors cursor-pointer"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Students

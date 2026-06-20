@@ -31,7 +31,7 @@ function buildStudentsApiParams(params: StudentsListParams): NonNullable<Paramet
   return apiParams;
 }
 
-export function useStudentsList(params: StudentsListParams) {
+export function useStudentsList(params: StudentsListParams, options?: { enabled?: boolean }) {
   const queryParams = {
     page: params.page,
     limit: params.limit,
@@ -44,6 +44,7 @@ export function useStudentsList(params: StudentsListParams) {
   };
 
   return useQuery({
+    enabled: options?.enabled ?? true,
     queryKey: queryKeys.students.list(queryParams),
     queryFn: async () => {
       const res = await getUsers(buildStudentsApiParams(params));

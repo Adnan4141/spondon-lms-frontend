@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Lock, RefreshCw, Unlock } from 'lucide-react';
+import { Lock, RefreshCw, Unlock, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,7 +25,11 @@ import { AuditPagination } from '@/features/admin/audit/components/AuditPaginati
 import { fmt, fmtMonth } from '@/features/admin/students/utils';
 import { StudentAdminSelect as AppSelect } from '@/features/admin/students/components/StudentAdminSelect';
 import { StudentMonthInput as MonthInput } from '@/features/admin/students/components/StudentMonthInput';
-import { usePaymentAccessQuery } from '@/features/admin/payment-access/usePaymentAccessQuery';
+import { usePaymentAccessQuery, paymentAccessListHref } from '@/features/admin/payment-access/usePaymentAccessQuery';
+import {
+  buildStudentDetailHref,
+  studentsListHrefFromPaymentAccess,
+} from '@/features/admin/students/useStudentsPageQuery';
 
 const VIEW_MODES: Array<{ id: PaymentAccessViewMode; label: string; hint: string }> = [
   {
@@ -141,6 +145,17 @@ export function PaymentAccessPageContent() {
   );
 
   const effectiveDueMonth = anyDueMonth ? undefined : dueMonth || undefined;
+  const paymentAccessReturnHref = useMemo(() => paymentAccessListHref(query), [query]);
+  const matchingStudentsHref = useMemo(
+    () =>
+      studentsListHrefFromPaymentAccess({
+        branchId: branchId || undefined,
+        programId: programId || undefined,
+        courseId: courseId || undefined,
+        viewMode,
+      }),
+    [branchId, programId, courseId, viewMode],
+  );
   const totalPages = Math.max(1, Math.ceil(totalRows / limit));
   const rangeFrom = totalRows > 0 ? (page - 1) * limit + 1 : 0;
   const rangeTo = totalRows > 0 ? Math.min(page * limit, totalRows) : 0;
@@ -377,6 +392,12 @@ export function PaymentAccessPageContent() {
           <Button variant="outline" onClick={clearFilters}>
             Clear filters
           </Button>
+          <Button variant="outline" asChild>
+            <Link href={matchingStudentsHref}>
+              <Users className="mr-2 h-4 w-4" />
+              View in Students
+            </Link>
+          </Button>
           {showBlockActions && canManageAccess && (
             <>
               <Button variant="outline" disabled={busy !== null} onClick={() => void runBulk('preview-block')}>
@@ -449,7 +470,7 @@ export function PaymentAccessPageContent() {
                     <td className="px-4 py-3">
                       {regNo ? (
                         <Link
-                          href={`/admin/students/${regNo}`}
+                          href={buildStudentDetailHref(regNo, paymentAccessReturnHref)}
                           className="font-semibold text-indigo-700 hover:underline"
                         >
                           {row.student?.fullName}

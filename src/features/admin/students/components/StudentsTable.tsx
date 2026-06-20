@@ -3,7 +3,15 @@
 import { memo, useMemo } from 'react';
 import { BookOpen, ChevronLeft, ChevronRight, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { STUDENTS_PAGE_SIZES } from '@/features/admin/students/useStudentsPageQuery';
 import type { BranchOption, Student } from '../types';
 import { avatarHue } from '../utils';
 import { RowActions } from './RowActions';
@@ -18,6 +26,7 @@ function StudentsTableComponent({
   totalPages,
   pageSize,
   onPageChange,
+  onLimitChange,
   onViewEnrollments,
   onAction,
 }: {
@@ -29,6 +38,7 @@ function StudentsTableComponent({
   totalPages: number;
   pageSize: number;
   onPageChange: (page: number) => void;
+  onLimitChange: (limit: number) => void;
   onViewEnrollments: (student: Student) => void;
   onAction: (action: string, student: Student) => void;
 }) {
@@ -111,7 +121,20 @@ function StudentsTableComponent({
       </div>
       <div className="px-5 py-3.5 border-t border-slate-100 flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
         <p className="text-xs text-slate-400">Showing {start}-{end} of {totalStudents} students</p>
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={String(pageSize)} onValueChange={(value) => onLimitChange(Number(value))}>
+            <SelectTrigger className="h-8 w-[96px] rounded-lg text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {STUDENTS_PAGE_SIZES.map((size) => (
+                <SelectItem key={size} value={String(size)}>
+                  {size} / page
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="flex flex-wrap gap-1">
           <Button
             type="button"
             variant="outline"
@@ -154,6 +177,7 @@ function StudentsTableComponent({
           >
             Next <ChevronRight className="h-3.5 w-3.5" />
           </Button>
+          </div>
         </div>
       </div>
     </>

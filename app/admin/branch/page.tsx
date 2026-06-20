@@ -35,8 +35,10 @@ import {
   FileText,
   CreditCard,
   CalendarRange,
+  ShieldCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { studentsListHrefFromFilters } from '@/features/admin/students/useStudentsPageQuery';
 import {
   Area,
   AreaChart,
@@ -175,6 +177,36 @@ export default function BranchDashboardPage() {
 
   const q = (path: string) => `${path}?branchId=${encodeURIComponent(selectedBranchId)}`;
 
+  const branchDeepLinks = useMemo(() => {
+    if (!selectedBranchId) return null;
+    return {
+      students: studentsListHrefFromFilters({
+        branchFilter: selectedBranchId,
+        statusFilter: 'ACTIVE',
+      }),
+      teachers: q('/admin/teachers'),
+      enrollments: q('/admin/enrollments'),
+      invoices: q('/admin/invoices'),
+      paymentAccess: `${q('/admin/payment-access')}&viewMode=BLOCKED`,
+    };
+  }, [selectedBranchId]);
+
+  const branchShortcuts = useMemo(
+    () =>
+      branchDeepLinks
+        ? [
+            { href: branchDeepLinks.students, title: 'Students', desc: 'Active roster for this branch', icon: Users },
+            { href: branchDeepLinks.paymentAccess, title: 'Payment access', desc: 'Blocked students with dues', icon: ShieldCheck },
+            { href: branchDeepLinks.teachers, title: 'Teachers', desc: 'Staff linked to this branch', icon: Presentation },
+            { href: branchDeepLinks.enrollments, title: 'Enrollments', desc: 'Course seats', icon: GraduationCap },
+            { href: branchDeepLinks.invoices, title: 'Invoices', desc: 'Billing', icon: CreditCard },
+            { href: '/admin/monthly-billing', title: 'Monthly billing', desc: 'Generate dues (pick branch there)', icon: CalendarRange },
+            { href: '/admin', title: 'Full admin home', desc: 'All modules', icon: FileText },
+          ]
+        : [],
+    [branchDeepLinks],
+  );
+
   if (!me) {
     return (
       <div className="rounded-3xl border border-slate-200 bg-white p-12 text-center text-slate-600">
@@ -266,27 +298,43 @@ export default function BranchDashboardPage() {
         <>
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {[
-              { label: 'Active students', value: stats.students, icon: Users },
-              { label: 'Teachers', value: stats.teachers, icon: Presentation },
-              { label: 'Active enrollments', value: stats.enrollments, icon: GraduationCap },
-              { label: 'Open invoices', value: stats.openInvoices, icon: CreditCard },
-            ].map((card) => (
-              <div
-                key={card.label}
-                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-              >
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-indigo-600">
-                  <card.icon className="h-5 w-5" />
+              { label: 'Active students', value: stats.students, icon: Users, href: branchDeepLinks?.students },
+              { label: 'Teachers', value: stats.teachers, icon: Presentation, href: branchDeepLinks?.teachers },
+              { label: 'Active enrollments', value: stats.enrollments, icon: GraduationCap, href: branchDeepLinks?.enrollments },
+              { label: 'Open invoices', value: stats.openInvoices, icon: CreditCard, href: branchDeepLinks?.invoices },
+            ].map((card) => {
+              const inner = (
+                <>
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-indigo-600">
+                    <card.icon className="h-5 w-5" />
+                  </div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">{card.label}</p>
+                  <p className="mt-1 text-2xl font-black text-slate-900">
+                    {loadingStats ? '—' : card.value}
+                  </p>
+                </>
+              );
+              return card.href ? (
+                <Link
+                  key={card.label}
+                  href={card.href}
+                  className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-indigo-200 hover:shadow-md"
+                >
+                  {inner}
+                </Link>
+              ) : (
+                <div
+                  key={card.label}
+                  className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                >
+                  {inner}
                 </div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">{card.label}</p>
-                <p className="mt-1 text-2xl font-black text-slate-900">
-                  {loadingStats ? '—' : card.value}
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </section>
 
           {isBranchAdmin ? (
+            <>
             <Card className="rounded-[28px] border-slate-200 shadow-sm">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Branch revenue</CardTitle>
@@ -338,18 +386,33 @@ export default function BranchDashboardPage() {
                 </div>
               </CardContent>
             </Card>
+            <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="mb-4 text-sm font-black uppercase tracking-wider text-slate-500">Shortcuts</h2>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {branchShortcuts.map((item) => (
+                  <Link
+                    key={item.href + item.title}
+                    href={item.href}
+                    className="group flex items-center gap-4 rounded-2xl border border-slate-100 bg-slate-50/50 p-4 transition-all hover:border-indigo-200 hover:bg-white hover:shadow-md"
+                  >
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-indigo-600 shadow-sm">
+                      <item.icon className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-slate-900">{item.title}</p>
+                      <p className="text-xs text-slate-500">{item.desc}</p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-slate-300 group-hover:text-indigo-500" />
+                  </Link>
+                ))}
+              </div>
+            </section>
+            </>
           ) : (
             <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
               <h2 className="mb-4 text-sm font-black uppercase tracking-wider text-slate-500">Shortcuts</h2>
               <div className="grid gap-3 sm:grid-cols-2">
-                {[
-                  { href: q('/admin/students'), title: 'Students', desc: 'Roster for this branch', icon: Users },
-                  { href: q('/admin/teachers'), title: 'Teachers', desc: 'Staff linked to this branch', icon: Presentation },
-                  { href: q('/admin/enrollments'), title: 'Enrollments', desc: 'Course seats', icon: GraduationCap },
-                  { href: q('/admin/invoices'), title: 'Invoices', desc: 'Billing', icon: CreditCard },
-                  { href: '/admin/monthly-billing', title: 'Monthly billing', desc: 'Generate dues (pick branch there)', icon: CalendarRange },
-                  { href: '/admin', title: 'Full admin home', desc: 'All modules', icon: FileText },
-                ].map((item) => (
+                {branchShortcuts.map((item) => (
                   <Link
                     key={item.href + item.title}
                     href={item.href}

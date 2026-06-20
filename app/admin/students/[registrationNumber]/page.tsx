@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import dynamic from 'next/dynamic';
 
 const StudentDetailPageContent = dynamic(
@@ -14,5 +15,15 @@ const StudentDetailPageContent = dynamic(
 );
 
 export default function StudentDetailPage() {
-  return <StudentDetailPageContent />;
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[40vh] items-center justify-center text-sm font-medium text-slate-400">
+          Loading student…
+        </div>
+      }
+    >
+      <StudentDetailPageContent />
+    </Suspense>
+  );
 }
