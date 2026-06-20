@@ -64,7 +64,7 @@ export const ProgramsCTASection: React.FC<Props> = ({
   };
 
   return (
-    <section className="py-12 sm:py-16 md:py-24">
+    <section className="py-12 sm:py-16 md:py-20">
       <div className="mx-auto max-w-6xl px-4">
         <div className="text-center mb-12">
           <p className="text-xs sm:text-sm font-bold text-indigo-500">{label}</p>
