@@ -63,6 +63,9 @@ export interface Enrollment {
   status: string;
   source?: string;
   accessStatus?: string;
+  accessBlockedAt?: string | null;
+  accessBlockedReason?: string | null;
+  accessHoldExempt?: boolean;
   billingType: 'MONTHLY' | 'ONE_TIME';
   monthlyDiscount: number;
   billingStartMonth: string;

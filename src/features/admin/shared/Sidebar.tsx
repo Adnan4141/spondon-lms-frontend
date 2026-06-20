@@ -149,6 +149,7 @@ function buildMenuSections(role: string | null): MenuSection[] {
   // ----- Administrative -----
   const allAdminItems: MenuItem[] = [
     { title: 'Monthly billing', href: '/admin/monthly-billing', icon: CalendarRange, color: 'text-violet-600', bg: 'bg-violet-50' },
+    { title: 'Payment access', href: '/admin/payment-access', icon: ShieldCheck, color: 'text-amber-600', bg: 'bg-amber-50' },
     // { title: 'Payouts', href: '/admin/payouts', icon: CreditCard, color: 'text-green-600', bg: 'bg-green-50' }, // HIDDEN
     { title: 'Send SMS', href: '/admin/sendsms', icon: Send, color: 'text-blue-600', bg: 'bg-blue-50' },
     { title: 'SMS Console', href: '/admin/sms', icon: MessageSquare, color: 'text-emerald-500', bg: 'bg-emerald-50' },
@@ -159,14 +160,16 @@ function buildMenuSections(role: string | null): MenuSection[] {
   const financeItems: MenuItem[] = isAccounts
     ? allAdminItems.filter((item) => ['/admin/reports', '/admin/accounting'].includes(item.href))
     : isBranchAdmin
-      ? allAdminItems.filter((item) => ['/admin/reports', '/admin/sendsms', '/admin/sms'].includes(item.href))
+      ? allAdminItems.filter((item) =>
+          ['/admin/reports', '/admin/sendsms', '/admin/sms', '/admin/payment-access'].includes(item.href),
+        )
       : isModerator
         ? []
         : allAdminItems.filter((item) => ['/admin/reports', '/admin/accounting'].includes(item.href));
 
   const adminItems: MenuItem[] = isAccounts
     ? allAdminItems.filter((i) =>
-        ['/admin/monthly-billing', '/admin/payouts', '/admin/books'].includes(i.href),
+        ['/admin/monthly-billing', '/admin/payment-access', '/admin/payouts', '/admin/books'].includes(i.href),
       )
     : isBranchAdmin
     ? []

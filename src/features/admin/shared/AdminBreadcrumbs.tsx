@@ -26,6 +26,7 @@ const SEGMENT_MAP: Record<string, string> = {
   branch: 'Branch dashboard',
   teachers: 'Teachers',
   'monthly-billing': 'Monthly billing',
+  'payment-access': 'Payment access',
   inventory: 'Inventory',
   'exam-results': 'Exam Results',
   testimonials: 'Reviews',

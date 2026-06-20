@@ -7,6 +7,7 @@ import { fmt, fmtMonth } from '../utils';
 import { StudentAdminBadge as AppBadge } from '../components/StudentAdminBadge';
 import { statusBadgeColor, statusLabel } from './collect-payment-modal-utils';
 import { CollectPaymentInvoiceGroupButton } from './CollectPaymentInvoiceGroupButton';
+import { EnrollmentAccessControls } from './EnrollmentAccessControls';
 import type { CollectPaymentModalController } from './hooks/useCollectPaymentModal';
 
 export function CollectPaymentLeftPanel({ ctrl }: { ctrl: CollectPaymentModalController }) {
@@ -27,10 +28,43 @@ export function CollectPaymentLeftPanel({ ctrl }: { ctrl: CollectPaymentModalCon
     totalDueForMonth,
     pdfLoading,
     downloadInvoicePdf,
+    enrollments,
+    reloadEnrollments,
   } = ctrl;
 
   return (
         <div className="min-w-0">
+          {enrollments.length > 0 && (
+            <div className="mb-4 space-y-3">
+              {enrollments.map((enrollment) => (
+                <div
+                  key={enrollment.id}
+                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-slate-900">{enrollment.programName || 'Enrollment'}</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Status: {enrollment.status} · Access: {enrollment.accessStatus || 'NO_ACCESS'}
+                        {enrollment.accessHoldExempt ? ' · Exempt from bulk due blocks' : ''}
+                      </p>
+                      {enrollment.accessStatus === 'NO_ACCESS' && (
+                        <p className="mt-1 text-xs font-semibold text-rose-700">
+                          Portal access blocked — restore after payment or admin approval.
+                        </p>
+                      )}
+                    </div>
+                    <EnrollmentAccessControls
+                      enrollment={enrollment}
+                      compact
+                      onUpdated={reloadEnrollments}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {isSelectedMonthly && billingRangeSummaries.length > 0 && (
             <div className="mb-4 rounded-2xl border border-sky-200 bg-[linear-gradient(135deg,rgba(240,249,255,1),rgba(248,250,252,1))] p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">

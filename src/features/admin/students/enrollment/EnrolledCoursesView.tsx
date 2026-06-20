@@ -16,6 +16,7 @@ import { StudentAdminModal as AppModal } from '../components/StudentAdminModal';
 import { StudentAdminSelect as AppSelect } from '../components/StudentAdminSelect';
 import { StudentMonthInput as MonthInput } from '../components/StudentMonthInput';
 import { ManageEnrollmentModal } from './ManageEnrollmentModal';
+import { EnrollmentAccessControls } from './EnrollmentAccessControls';
 import { fullResetEnrollment } from '@/lib/api/enrollments';
 import { confirmAction } from '@/features/admin/shared/confirm-action';
 import { useAdminSession } from '@/features/admin/shared/admin-session';
@@ -187,7 +188,14 @@ export function EnrolledCoursesView({
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col items-end gap-2">
+                <EnrollmentAccessControls
+                  enrollment={enrollment}
+                  compact
+                  showToast={showToast}
+                  onUpdated={reloadEnrollments}
+                />
+                <div className="flex items-center gap-2">
                 <Button
                   size="sm"
                   variant="outline"
@@ -219,10 +227,20 @@ export function EnrolledCoursesView({
                 >
                   <Plus className="h-3.5 w-3.5" /> Manage Enrollment
                 </Button>
+                </div>
               </div>
             </div>
 
-            {enrollment.status !== 'ACTIVE' && (
+            {enrollment.accessStatus === 'NO_ACCESS' && enrollment.status !== 'CANCELLED' && (
+              <div className="px-5 py-2.5 bg-rose-50 border-b border-rose-100">
+                <p className="text-xs font-semibold text-rose-800">
+                  Portal access is blocked{enrollment.accessBlockedReason ? `: ${enrollment.accessBlockedReason}` : ''}.
+                  Invoices and billing are unchanged — use Restore Access when payment is collected or admin allows access.
+                </p>
+              </div>
+            )}
+
+            {enrollment.status !== 'ACTIVE' && enrollment.accessStatus !== 'NO_ACCESS' && (
               <div className="px-5 py-2.5 bg-amber-50 border-b border-amber-100">
                 <p className="text-xs font-semibold text-amber-800">
                   This enrollment is {enrollment.status.replace('_', ' ').toLowerCase()}; admin can still manage courses, but payment/access state follows invoice rules.

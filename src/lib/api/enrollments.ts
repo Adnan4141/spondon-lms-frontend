@@ -54,6 +54,9 @@ export interface Enrollment {
   status: EnrollmentStatusType | string;
   source?: EnrollmentSourceType | string;
   accessStatus?: EnrollmentAccessStatusType | string;
+  accessBlockedAt?: string | null;
+  accessBlockedReason?: string | null;
+  accessHoldExempt?: boolean;
   billingType?: 'ONE_TIME' | 'MONTHLY';
   billingStartMonth?: string | null;
   billingEndMonth?: string | null;
@@ -303,6 +306,92 @@ export async function unsuspendEnrollment(id: string, reason?: string): Promise<
   return apiRequest<ApiResponse<Enrollment>>(`/enrollments/${id}/unsuspend`, {
     method: 'PATCH',
     body: JSON.stringify({ reason }),
+  });
+}
+
+export type BulkAccessFilters = {
+  branchId?: string;
+  programId?: string;
+  courseId?: string;
+  batchId?: string;
+  dueMonth?: string;
+  minDueAmount?: number;
+  onlyWithAccess?: boolean;
+  onlyWithoutExempt?: boolean;
+  enrollmentIds?: string[];
+};
+
+export type DueAccessCandidate = Enrollment & {
+  totalDue?: number;
+  oldestDueMonth?: string | null;
+};
+
+export async function blockEnrollmentAccess(
+  id: string,
+  data: { reason: string; source?: 'DUE_PAYMENT' | 'ADMIN' | 'OTHER' },
+): Promise<ApiResponse<Enrollment>> {
+  return apiRequest<ApiResponse<Enrollment>>(`/enrollments/${id}/access/block`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function restoreEnrollmentAccess(
+  id: string,
+  data?: { reason?: string },
+): Promise<ApiResponse<Enrollment>> {
+  return apiRequest<ApiResponse<Enrollment>>(`/enrollments/${id}/access/restore`, {
+    method: 'POST',
+    body: JSON.stringify(data ?? {}),
+  });
+}
+
+export async function setEnrollmentAccessExempt(
+  id: string,
+  data: { exempt: boolean; reason: string },
+): Promise<ApiResponse<Enrollment>> {
+  return apiRequest<ApiResponse<Enrollment>>(`/enrollments/${id}/access/exempt`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getDueAccessCandidates(params?: BulkAccessFilters & { page?: number; limit?: number }): Promise<
+  ApiResponse<DueAccessCandidate[]> & { pagination?: { page: number; limit: number; total: number } }
+> {
+  const queryParams = new URLSearchParams();
+  if (params?.branchId) queryParams.append('branchId', params.branchId);
+  if (params?.programId) queryParams.append('programId', params.programId);
+  if (params?.courseId) queryParams.append('courseId', params.courseId);
+  if (params?.batchId) queryParams.append('batchId', params.batchId);
+  if (params?.dueMonth) queryParams.append('dueMonth', params.dueMonth);
+  if (params?.minDueAmount != null) queryParams.append('minDueAmount', String(params.minDueAmount));
+  if (params?.onlyWithAccess === false) queryParams.append('onlyWithAccess', 'false');
+  if (params?.onlyWithoutExempt === false) queryParams.append('onlyWithoutExempt', 'false');
+  if (params?.page) queryParams.append('page', String(params.page));
+  if (params?.limit) queryParams.append('limit', String(params.limit));
+  const query = queryParams.toString();
+  return apiRequest(`/enrollments/access/due-candidates${query ? `?${query}` : ''}`);
+}
+
+export async function bulkBlockEnrollmentAccess(data: BulkAccessFilters & {
+  reason: string;
+  source?: 'DUE_PAYMENT' | 'ADMIN' | 'OTHER';
+  dryRun?: boolean;
+}): Promise<ApiResponse<{ dryRun: boolean; count: number; enrollmentIds: string[]; errors?: Array<{ enrollmentId: string; message: string }> }>> {
+  return apiRequest('/enrollments/access/block-bulk', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function bulkRestoreEnrollmentAccess(data: BulkAccessFilters & {
+  reason?: string;
+  dryRun?: boolean;
+}): Promise<ApiResponse<{ dryRun: boolean; count: number; enrollmentIds: string[]; errors?: Array<{ enrollmentId: string; message: string }> }>> {
+  return apiRequest('/enrollments/access/restore-bulk', {
+    method: 'POST',
+    body: JSON.stringify(data),
   });
 }
 

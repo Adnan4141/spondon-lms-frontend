@@ -510,6 +510,8 @@ export function useCollectPaymentModal({ student, onSave }: CollectPaymentModalP
     advanceNotice,
     setAdvanceNotice,
     fetchInvoices,
+    enrollments,
+    reloadEnrollments: () => fetchInvoices(true),
     invoiceGroups,
     oneTimeGroups,
     monthlyGroups,
