@@ -22,6 +22,7 @@ import type { Program, Course } from '@/types/course';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
   Select,
   SelectContent,
@@ -149,6 +150,19 @@ export function AttendanceSheetPageContent() {
       return true;
     });
   }, [selectedProgramId, coursesByProgram, allProgramCourses, filterMonth]);
+
+  const courseOptions = useMemo(
+    () => courses.map((c) => ({ value: c.id, label: c.name })),
+    [courses],
+  );
+
+  const branchOptions = useMemo(
+    () => [
+      { value: '', label: 'All branches' },
+      ...branches.map((b) => ({ value: b.id, label: b.name })),
+    ],
+    [branches],
+  );
 
   const loadingCourses = false;
   const loadingBranches = false;
@@ -576,9 +590,9 @@ export function AttendanceSheetPageContent() {
             {/* Course */}
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Course</Label>
-              <Select
+              <SearchableSelect
                 value={selectedCourseId}
-                disabled={!selectedProgramId}
+                disabled={!selectedProgramId || loadingCourses}
                 onValueChange={(v) => {
                   setSelectedCourseId(v);
                   setSelectedBranchId('');
@@ -587,42 +601,33 @@ export function AttendanceSheetPageContent() {
                   setStudents([]);
                   setCells({});
                 }}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder={loadingCourses ? 'Loading…' : 'Select course'} />
-                </SelectTrigger>
-                <SelectContent>
-                  {courses.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder={loadingCourses ? 'Loading…' : 'Select course'}
+                searchPlaceholder="Search course…"
+                emptyMessage={selectedProgramId ? 'No course found.' : 'Select a program first.'}
+                triggerClassName="h-9 rounded-md border-input bg-background px-3 text-sm font-normal shadow-xs hover:bg-background"
+                options={courseOptions}
+              />
             </div>
 
             {/* Branch */}
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Branch (optional)</Label>
-              <Select
+              <SearchableSelect
                 value={selectedBranchId}
-                disabled={!selectedCourseId}
+                disabled={!selectedCourseId || loadingBranches}
                 onValueChange={(v) => {
-                  setSelectedBranchId(v === '__all__' ? '' : v);
+                  setSelectedBranchId(v);
                   setSelectedBatchId('');
                   setSessions([]);
                   setStudents([]);
                   setCells({});
                 }}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder={loadingBranches ? 'Loading…' : 'All branches'} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all__">All branches</SelectItem>
-                  {branches.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder={loadingBranches ? 'Loading…' : 'All branches'}
+                searchPlaceholder="Search branch…"
+                emptyMessage={selectedCourseId ? 'No branch found.' : 'Select a course first.'}
+                triggerClassName="h-9 rounded-md border-input bg-background px-3 text-sm font-normal shadow-xs hover:bg-background"
+                options={branchOptions}
+              />
             </div>
 
             {/* Batch */}

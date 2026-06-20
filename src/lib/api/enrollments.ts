@@ -309,6 +309,8 @@ export async function unsuspendEnrollment(id: string, reason?: string): Promise<
   });
 }
 
+export type PaymentAccessViewMode = 'TO_BLOCK' | 'BLOCKED' | 'ALL_DUE';
+
 export type BulkAccessFilters = {
   branchId?: string;
   programId?: string;
@@ -316,6 +318,7 @@ export type BulkAccessFilters = {
   batchId?: string;
   dueMonth?: string;
   minDueAmount?: number;
+  viewMode?: PaymentAccessViewMode;
   onlyWithAccess?: boolean;
   onlyWithoutExempt?: boolean;
   enrollmentIds?: string[];
@@ -323,6 +326,7 @@ export type BulkAccessFilters = {
 
 export type DueAccessCandidate = Enrollment & {
   totalDue?: number;
+  dueForMonth?: number;
   oldestDueMonth?: string | null;
 };
 
@@ -366,6 +370,7 @@ export async function getDueAccessCandidates(params?: BulkAccessFilters & { page
   if (params?.batchId) queryParams.append('batchId', params.batchId);
   if (params?.dueMonth) queryParams.append('dueMonth', params.dueMonth);
   if (params?.minDueAmount != null) queryParams.append('minDueAmount', String(params.minDueAmount));
+  if (params?.viewMode) queryParams.append('viewMode', params.viewMode);
   if (params?.onlyWithAccess === false) queryParams.append('onlyWithAccess', 'false');
   if (params?.onlyWithoutExempt === false) queryParams.append('onlyWithoutExempt', 'false');
   if (params?.page) queryParams.append('page', String(params.page));
