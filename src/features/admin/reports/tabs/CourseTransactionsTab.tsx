@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import type { ExportFormat } from '@/lib/export';
-import { AdminDatePicker, AdminMonthPicker } from '@/features/admin/shared/form/AdminField';
+import { AdminDatePicker } from '@/features/admin/shared/form/AdminField';
 import { cn } from '@/lib/utils';
 import {
   BarChart3,
@@ -38,17 +38,17 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
-  AlertTriangle,
+  TrendingUp,
+  Receipt,
 } from 'lucide-react';
 import { ExportButtons } from '../ExportButtons';
-import { MonthPresetButtons } from '../components/MonthPresetButtons';
+import { PaymentDatePresetButtons } from '../components/PaymentDatePresetButtons';
 import {
   fmtNum,
   fmtCur,
   exportFilename,
   exportRows,
   COURSE_TRANSACTIONS_PAGE_SIZES,
-  type CourseTransactionsPaymentStatus,
   type CourseTransactionsQueryState,
   type NamedEntity,
   type BranchOption,
@@ -58,33 +58,35 @@ import {
   useCourseTransactionsQuery,
 } from '../useCourseTransactionsQuery';
 
-const STATUS_CARDS: { key: CourseTransactionsPaymentStatus; label: string }[] = [
-  { key: 'ALL', label: 'All' },
-  { key: 'PAID', label: 'Paid' },
-  { key: 'PARTIAL', label: 'Partial' },
-  { key: 'UNPAID', label: 'Unpaid' },
-  { key: 'WAIVED', label: 'Waived' },
-];
+function buildExportColumns(showBillingDetails: boolean) {
+  const columns: Array<{
+    header: string;
+    value: (row: CourseTransactionData) => string | number | boolean | null | undefined;
+  }> = [
+    { header: 'Student', value: (row: CourseTransactionData) => row.student?.fullName ?? '' },
+    { header: 'Registration', value: (row: CourseTransactionData) => row.student?.registrationNumber ?? '' },
+    { header: 'Mobile', value: (row: CourseTransactionData) => row.student?.mobile ?? '' },
+    { header: 'Branch', value: (row: CourseTransactionData) => row.branch?.name ?? '' },
+    { header: 'Invoice', value: (row: CourseTransactionData) => row.invoiceNumber ?? row.invoiceId },
+    { header: 'Billing Month', value: (row: CourseTransactionData) => row.month ?? '' },
+  ];
 
-const EXPORT_COLUMNS = [
-  { header: 'Student', value: (row: CourseTransactionData) => row.student?.fullName ?? '' },
-  { header: 'Registration', value: (row: CourseTransactionData) => row.student?.registrationNumber ?? '' },
-  { header: 'Mobile', value: (row: CourseTransactionData) => row.student?.mobile ?? '' },
-  { header: 'Branch', value: (row: CourseTransactionData) => row.branch?.name ?? '' },
-  { header: 'Invoice', value: (row: CourseTransactionData) => row.invoiceNumber ?? row.invoiceId },
-  { header: 'Month', value: (row: CourseTransactionData) => row.month ?? '' },
-  { header: 'Gross', value: (row: CourseTransactionData) => row.gross },
-  { header: 'Discount', value: (row: CourseTransactionData) => row.discount },
-  { header: 'Waived', value: (row: CourseTransactionData) => row.waived ?? 0 },
-  { header: 'Net', value: (row: CourseTransactionData) => row.net },
-  { header: 'Paid', value: (row: CourseTransactionData) => row.paid },
-  { header: 'Due', value: (row: CourseTransactionData) => row.due },
-  { header: 'Progress', value: (row: CourseTransactionData) => row.progressLabel },
-  { header: 'Course Status', value: (row: CourseTransactionData) => row.courseStatus },
-  { header: 'Invoice Status', value: (row: CourseTransactionData) => row.status },
-  { header: 'Last Payment', value: (row: CourseTransactionData) => row.lastPaymentDate ?? '' },
-  { header: 'Due Date', value: (row: CourseTransactionData) => row.nextPaymentDueDate ?? '' },
-];
+  if (showBillingDetails) {
+    columns.push(
+      { header: 'Gross', value: (row: CourseTransactionData) => row.gross },
+      { header: 'Discount', value: (row: CourseTransactionData) => row.discount },
+      { header: 'Course Status', value: (row: CourseTransactionData) => row.courseStatus },
+    );
+  }
+
+  columns.push(
+    { header: 'Net', value: (row: CourseTransactionData) => row.net },
+    { header: 'Collected', value: (row: CourseTransactionData) => row.paid },
+    { header: 'Payment Date', value: (row: CourseTransactionData) => row.lastPaymentDate ?? '' },
+  );
+
+  return columns;
+}
 
 async function fetchAllCourseTransactionRows(query: CourseTransactionsQueryState) {
   const res = await getCourseTransactions({
@@ -98,6 +100,10 @@ async function fetchAllCourseTransactionRows(query: CourseTransactionsQueryState
   return res.data;
 }
 
+function getCollectedTotal(totals: CourseTransactionTotals) {
+  return totals.collected ?? totals.paid ?? 0;
+}
+
 export function CourseTransactionsTab({
   courses,
   branches,
@@ -106,16 +112,14 @@ export function CourseTransactionsTab({
   branches: BranchOption[];
 }) {
   const { toast } = useToast();
-  const { query, updateQuery, applyMonthPreset } = useCourseTransactionsQuery();
+  const { query, updateQuery, applyPaymentDatePreset } = useCourseTransactionsQuery();
 
   const [searchDraft, setSearchDraft] = useState(query.search);
+  const [showBillingDetails, setShowBillingDetails] = useState(false);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<CourseTransactionData[]>([]);
   const [totals, setTotals] = useState<CourseTransactionTotals | null>(null);
-  const [missingInvoice, setMissingInvoice] = useState<{ count: number; month: string } | null>(null);
   const [pagination, setPagination] = useState({ page: 1, limit: 25, total: 0, pages: 1 });
-
-  const showWaivedColumn = query.includeWaived || (totals?.waived ?? 0) > 0;
 
   useEffect(() => {
     setSearchDraft(query.search);
@@ -134,7 +138,6 @@ export function CourseTransactionsTab({
     if (!query.courseId) {
       setData([]);
       setTotals(null);
-      setMissingInvoice(null);
       setPagination({ page: 1, limit: query.limit, total: 0, pages: 1 });
       return;
     }
@@ -149,7 +152,6 @@ export function CourseTransactionsTab({
 
       setData(res.data);
       setTotals(res.totals ?? null);
-      setMissingInvoice(res.missingInvoice ?? null);
       setPagination(
         res.pagination ?? {
           page: query.page,
@@ -179,6 +181,22 @@ export function CourseTransactionsTab({
       .sort((a, b) => a - b);
   }, [pagination.page, pagination.pages]);
 
+  const tableHeaders = useMemo(
+    () => [
+      'Student',
+      'Reg #',
+      'Mobile',
+      'Branch',
+      'Invoice',
+      'Billing month',
+      ...(showBillingDetails ? ['Gross', 'Discount', 'Course status'] : []),
+      'Net',
+      'Collected',
+      'Payment date',
+    ],
+    [showBillingDetails],
+  );
+
   async function handleExport(format: ExportFormat) {
     if (!query.courseId) {
       toast({ title: 'Select a course first', variant: 'destructive' });
@@ -201,7 +219,7 @@ export function CourseTransactionsTab({
         filename: exportFilename('course-transactions'),
         sheetName: 'Course Transactions',
         rows,
-        columns: EXPORT_COLUMNS,
+        columns: buildExportColumns(showBillingDetails),
       });
     } catch (error) {
       toast({
@@ -213,32 +231,9 @@ export function CourseTransactionsTab({
     }
   }
 
-  const monthlyBillingHref = useMemo(() => {
-    if (!query.month) return '/admin/monthly-billing';
-    const params = new URLSearchParams({ month: query.month });
-    if (query.courseId) params.set('courseId', query.courseId);
-    if (query.branchId) params.set('branchId', query.branchId);
-    return `/admin/monthly-billing?${params.toString()}`;
-  }, [query.branchId, query.courseId, query.month]);
-
-  const tableHeaders = [
-    'Student',
-    'Reg #',
-    'Mobile',
-    'Branch',
-    'Invoice / Month',
-    'Gross',
-    'Discount',
-    ...(showWaivedColumn ? ['Waived'] : []),
-    'Net',
-    'Paid',
-    'Due',
-    'Progress',
-    'Course status',
-    'Invoice',
-    'Last payment',
-    'Due date',
-  ];
+  const collectedTotal = totals ? getCollectedTotal(totals) : 0;
+  const transactionCount = totals?.transactionCount ?? pagination.total;
+  const avgCollected = transactionCount > 0 ? collectedTotal / transactionCount : 0;
 
   return (
     <div className="space-y-5">
@@ -277,16 +272,7 @@ export function CourseTransactionsTab({
           </div>
         </div>
         <div>
-          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Month (YYYY-MM)</p>
-          <AdminMonthPicker
-            className="w-full lg:w-48"
-            value={query.month}
-            onChange={(value) => updateQuery({ month: value, from: '', to: '' })}
-            placeholder="Select month"
-          />
-        </div>
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">From</p>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Payment from</p>
           <AdminDatePicker
             className="w-full lg:w-44"
             value={query.from}
@@ -295,7 +281,7 @@ export function CourseTransactionsTab({
           />
         </div>
         <div>
-          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">To</p>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Payment to</p>
           <AdminDatePicker
             className="w-full lg:w-44"
             value={query.to}
@@ -303,19 +289,18 @@ export function CourseTransactionsTab({
             placeholder="To date"
           />
         </div>
-        <MonthPresetButtons
-          month={query.month}
+        <PaymentDatePresetButtons
           from={query.from}
           to={query.to}
-          onSelect={applyMonthPreset}
+          onSelect={applyPaymentDatePreset}
           className="w-full lg:w-auto"
         />
         <label className="flex h-9 items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-semibold text-slate-600">
           <Checkbox
-            checked={query.includeWaived}
-            onCheckedChange={(checked) => updateQuery({ includeWaived: checked === true })}
+            checked={showBillingDetails}
+            onCheckedChange={(checked) => setShowBillingDetails(checked === true)}
           />
-          Include waived invoices
+          Show billing details
         </label>
         <Button
           type="button"
@@ -332,62 +317,28 @@ export function CourseTransactionsTab({
           className="w-full lg:w-auto justify-end sm:justify-start"
         />
         <p className="w-full text-[11px] text-slate-500">
-          From/To applies only when Month is empty; otherwise Month controls the billing period.
+          Course payments collected between the selected dates. Billing month is shown for reference only.
         </p>
       </div>
 
-      {missingInvoice && missingInvoice.count > 0 && query.month ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm">
-          <div className="flex items-start gap-2 text-amber-900">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-            <p className="font-medium">
-              <strong>{missingInvoice.count}</strong> billable student{missingInvoice.count === 1 ? '' : 's'} for{' '}
-              <strong>{missingInvoice.month}</strong> have no invoice yet — they will not appear in this report until
-              invoices are generated.
-            </p>
-          </div>
-          <Button asChild variant="outline" size="sm" className="shrink-0 border-amber-300 bg-white font-bold">
-            <Link href={monthlyBillingHref} className="gap-1.5">
-              Fix in Monthly Billing
-              <ExternalLink className="h-3.5 w-3.5" />
-            </Link>
-          </Button>
-        </div>
-      ) : null}
-
-      <div className="flex flex-wrap gap-2">
-        {STATUS_CARDS.map((c) => (
-          <button
-            key={c.key}
-            type="button"
-            onClick={() => updateQuery({ paymentStatus: c.key })}
-            className={cn(
-              'rounded-full border px-4 py-1.5 text-xs font-bold transition-colors',
-              query.paymentStatus === c.key
-                ? 'border-indigo-600 bg-indigo-600 text-white'
-                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50',
-            )}
-          >
-            {c.label}
-          </button>
-        ))}
-      </div>
-
       {totals && pagination.total > 0 && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {[
-            { label: 'Gross', value: fmtCur(totals.gross), color: 'text-slate-800' },
-            { label: 'Discount', value: fmtCur(totals.discount), color: 'text-slate-500' },
-            ...(totals.waived ? [{ label: 'Waived', value: fmtCur(totals.waived), color: 'text-purple-600' }] : []),
-            { label: 'Net payable', value: fmtCur(totals.netPayable), color: 'text-slate-800' },
-            { label: 'Paid', value: fmtCur(totals.paid), color: 'text-emerald-600' },
-            { label: 'Due', value: fmtCur(totals.due), color: 'text-rose-600' },
-            { label: 'Collection', value: `${totals.collectionPercent}%`, color: 'text-indigo-600' },
+            { label: 'Collected', value: fmtCur(collectedTotal), color: 'text-emerald-600', icon: TrendingUp },
+            { label: 'Transactions', value: fmtNum(transactionCount), color: 'text-indigo-600', icon: Receipt },
             {
-              label: 'Paid / Part / Unpaid / Waived',
-              value: `${totals.paidCount}/${totals.partialCount}/${totals.unpaidCount}/${totals.waivedCount ?? 0}`,
+              label: 'Avg / transaction',
+              value: transactionCount > 0 ? fmtCur(avgCollected) : '—',
               color: 'text-slate-800',
+              icon: BarChart3,
             },
+            { label: 'Net payable', value: fmtCur(totals.netPayable), color: 'text-slate-800', icon: BarChart3 },
+            ...(showBillingDetails
+              ? [
+                  { label: 'Gross', value: fmtCur(totals.gross), color: 'text-slate-800', icon: BarChart3 },
+                  { label: 'Discount', value: fmtCur(totals.discount), color: 'text-slate-500', icon: BarChart3 },
+                ]
+              : []),
           ].map((kpi) => (
             <div key={kpi.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <p className={cn('text-lg font-black', kpi.color)}>{kpi.value}</p>
@@ -428,7 +379,7 @@ export function CourseTransactionsTab({
                   ) : data.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={tableHeaders.length} className="py-12 text-center text-slate-400 text-sm font-bold">
-                        No transactions found for current filters.
+                        No payments found for the selected date range.
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -454,47 +405,36 @@ export function CourseTransactionsTab({
                           </TableCell>
                           <TableCell className="text-xs text-slate-600">{row.student?.mobile ?? '—'}</TableCell>
                           <TableCell className="text-xs text-slate-500">{row.branch?.name ?? '—'}</TableCell>
-                          <TableCell className="text-xs text-slate-600">
-                            <span className="font-mono">{row.invoiceNumber ?? `${row.invoiceId.slice(0, 8)}…`}</span>
-                            {row.month ? <span className="block text-slate-400">{row.month}</span> : null}
+                          <TableCell className="text-xs font-mono text-slate-600">
+                            {row.invoiceNumber ?? `${row.invoiceId.slice(0, 8)}…`}
                           </TableCell>
-                          <TableCell className="text-right text-sm font-semibold text-slate-700">{fmtCur(row.gross)}</TableCell>
-                          <TableCell className="text-right text-sm text-slate-500">−{fmtCur(row.discount)}</TableCell>
-                          {showWaivedColumn ? (
-                            <TableCell className="text-right text-sm text-purple-600">
-                              {(row.waived ?? 0) > 0 ? fmtCur(row.waived ?? 0) : '—'}
-                            </TableCell>
+                          <TableCell className="text-xs text-slate-500">{row.month ?? '—'}</TableCell>
+                          {showBillingDetails ? (
+                            <>
+                              <TableCell className="text-right text-sm font-semibold text-slate-700">
+                                {fmtCur(row.gross)}
+                              </TableCell>
+                              <TableCell className="text-right text-sm text-slate-500">−{fmtCur(row.discount)}</TableCell>
+                              <TableCell>
+                                <Badge
+                                  className={cn(
+                                    'rounded-full text-[10px] font-black uppercase px-2',
+                                    row.courseStatus === 'PAID' && 'bg-emerald-100 text-emerald-700',
+                                    row.courseStatus === 'PARTIAL' && 'bg-amber-100 text-amber-700',
+                                    row.courseStatus === 'UNPAID' && 'bg-rose-100 text-rose-700',
+                                    row.courseStatus === 'WAIVED' && 'bg-purple-100 text-purple-700',
+                                  )}
+                                >
+                                  {row.courseStatus}
+                                </Badge>
+                              </TableCell>
+                            </>
                           ) : null}
                           <TableCell className="text-right text-sm font-bold text-slate-800">{fmtCur(row.net)}</TableCell>
                           <TableCell className="text-right text-sm font-semibold text-emerald-600">{fmtCur(row.paid)}</TableCell>
-                          <TableCell className="text-right text-sm font-bold text-rose-600">{fmtCur(row.due)}</TableCell>
-                          <TableCell className="text-xs text-slate-600">{row.progressLabel}</TableCell>
-                          <TableCell>
-                            <Badge
-                              className={cn(
-                                'rounded-full text-[10px] font-black uppercase px-2',
-                                row.courseStatus === 'PAID' && 'bg-emerald-100 text-emerald-700',
-                                row.courseStatus === 'PARTIAL' && 'bg-amber-100 text-amber-700',
-                                row.courseStatus === 'UNPAID' && 'bg-rose-100 text-rose-700',
-                                row.courseStatus === 'WAIVED' && 'bg-purple-100 text-purple-700',
-                              )}
-                            >
-                              {row.courseStatus}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="text-[10px] font-bold uppercase">
-                              {row.status}
-                            </Badge>
-                          </TableCell>
                           <TableCell className="text-xs text-slate-500 whitespace-nowrap">
                             {row.lastPaymentDate
                               ? new Date(row.lastPaymentDate).toLocaleDateString('en-GB')
-                              : '—'}
-                          </TableCell>
-                          <TableCell className="text-xs text-slate-500 whitespace-nowrap">
-                            {row.nextPaymentDueDate
-                              ? new Date(row.nextPaymentDueDate).toLocaleDateString('en-GB')
                               : '—'}
                           </TableCell>
                         </TableRow>

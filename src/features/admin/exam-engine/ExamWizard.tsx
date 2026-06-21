@@ -21,7 +21,6 @@ import {
   type ExamProductType,
   type FolderRuleDraft,
   WIZARD_STEPS,
-  defaultDeliveryModeForCourse,
 } from './types';
 import { examWizardReducer, buildSectionFromType } from './wizard/examWizardReducer';
 import {
@@ -265,8 +264,7 @@ export function ExamWizard({
 
   const handleCourseSelect = useCallback(
     (course: Course) => {
-      const defaultDeliveryMode = defaultDeliveryModeForCourse(course.id, [course]);
-      dispatch({ type: 'SET_COURSE', courseId: course.id, defaultDeliveryMode });
+      dispatch({ type: 'SET_COURSE', courseId: course.id });
     },
     [dispatch],
   );

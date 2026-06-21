@@ -77,12 +77,10 @@ export interface CourseTransactionParams {
   courseId: string;
   from?: string;
   to?: string;
-  month?: string;
   branchId?: string;
   search?: string;
-  /** ALL | PAID | PARTIAL | UNPAID | WAIVED — filters by selected course line allocation status */
+  /** ALL | PAID | PARTIAL | UNPAID | WAIVED — legacy, ignored by collection report */
   paymentStatus?: string;
-  includeWaived?: boolean;
   page?: number;
   /** Number or `'all'` to fetch every matching row (export / bulk SMS). */
   limit?: number | 'all';
@@ -126,17 +124,13 @@ export interface CourseTransactionData {
 }
 
 export interface CourseTransactionTotals {
+  collected: number;
+  transactionCount: number;
+  netPayable: number;
   gross: number;
   discount: number;
-  waived?: number;
-  netPayable: number;
-  paid: number;
-  due: number;
-  collectionPercent: number;
-  paidCount: number;
-  partialCount: number;
-  unpaidCount: number;
-  waivedCount?: number;
+  /** @deprecated use collected */
+  paid?: number;
 }
 
 export interface CourseTransactionResponse {
@@ -144,10 +138,6 @@ export interface CourseTransactionResponse {
   message?: string;
   data: CourseTransactionData[];
   totals?: CourseTransactionTotals;
-  missingInvoice?: {
-    count: number;
-    month: string;
-  };
   pagination?: {
     page: number;
     limit: number;
@@ -203,11 +193,9 @@ export async function getCourseTransactions(
   queryParams.append('courseId', params.courseId);
   if (params.from) queryParams.append('from', params.from);
   if (params.to) queryParams.append('to', params.to);
-  if (params.month) queryParams.append('month', params.month);
   if (params.branchId) queryParams.append('branchId', params.branchId);
   if (params.search?.trim()) queryParams.append('search', params.search.trim());
   if (params.paymentStatus) queryParams.append('paymentStatus', params.paymentStatus);
-  if (params.includeWaived) queryParams.append('includeWaived', 'true');
   if (params.page && params.page > 1) queryParams.append('page', String(params.page));
   if (params.limit === 'all') {
     queryParams.append('limit', 'all');

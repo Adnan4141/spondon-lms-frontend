@@ -35,23 +35,18 @@ export async function exportRows<Row>(args: {
   await downloadTableExport(args);
 }
 
-export type CourseTransactionsPaymentStatus = 'ALL' | 'PAID' | 'PARTIAL' | 'UNPAID' | 'WAIVED';
-
-export const COURSE_TRANSACTIONS_PAGE_SIZES = [25, 50, 100] as const;
-const COURSE_TRANSACTIONS_DEFAULT_LIMIT = 25;
-
 export type CourseTransactionsQueryState = {
   courseId: string;
   branchId: string;
-  month: string;
   from: string;
   to: string;
   search: string;
-  paymentStatus: CourseTransactionsPaymentStatus;
-  includeWaived: boolean;
   page: number;
   limit: number;
 };
+
+export const COURSE_TRANSACTIONS_PAGE_SIZES = [25, 50, 100] as const;
+const COURSE_TRANSACTIONS_DEFAULT_LIMIT = 25;
 
 export function getCurrentMonthRange(now = new Date()) {
   const year = now.getFullYear();
@@ -87,6 +82,34 @@ export function getNextMonthLabel(now = new Date()) {
   return d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
 }
 
+export function getLastMonthRange(now = new Date()) {
+  const d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const year = d.getFullYear();
+  const monthIndex = d.getMonth();
+  const month = `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
+  const lastDay = new Date(year, monthIndex + 1, 0).getDate();
+  return {
+    from: `${month}-01`,
+    to: `${month}-${String(lastDay).padStart(2, '0')}`,
+  };
+}
+
+export function getLastMonthLabel(now = new Date()) {
+  const d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  return d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+}
+
+export type PaymentDatePreset = 'current' | 'last';
+
+export function isPaymentDatePresetActive(
+  query: { from: string; to: string },
+  preset: PaymentDatePreset,
+  now = new Date(),
+): boolean {
+  const range = preset === 'current' ? getCurrentMonthRange(now) : getLastMonthRange(now);
+  return query.from === range.from && query.to === range.to;
+}
+
 export type MonthPreset = 'current' | 'next';
 
 export function isMonthPresetActive(
@@ -110,37 +133,36 @@ function parseCourseTransactionsLimit(raw: string | null): number {
     : COURSE_TRANSACTIONS_DEFAULT_LIMIT;
 }
 
-function parseCourseTransactionsPaymentStatus(raw: string | null): CourseTransactionsPaymentStatus {
-  const value = raw?.trim().toUpperCase();
-  if (value === 'PAID' || value === 'PARTIAL' || value === 'UNPAID' || value === 'WAIVED') return value;
-  return 'ALL';
-}
-
 export function defaultCourseTransactionsQuery(): CourseTransactionsQueryState {
+  const range = getCurrentMonthRange();
   return {
     courseId: '',
     branchId: '',
-    month: '',
-    from: '',
-    to: '',
+    from: range.from,
+    to: range.to,
     search: '',
-    paymentStatus: 'ALL',
-    includeWaived: false,
     page: 1,
     limit: COURSE_TRANSACTIONS_DEFAULT_LIMIT,
   };
 }
 
+function resolveCourseTransactionsDateRange(from: string, to: string) {
+  if (from || to) {
+    return { from: from || to, to: to || from };
+  }
+  return getCurrentMonthRange();
+}
+
 export function parseCourseTransactionsQuery(searchParams: URLSearchParams): CourseTransactionsQueryState {
+  const fromRaw = searchParams.get('from')?.trim() ?? '';
+  const toRaw = searchParams.get('to')?.trim() ?? '';
+  const dates = resolveCourseTransactionsDateRange(fromRaw, toRaw);
   return {
     courseId: searchParams.get('courseId')?.trim() ?? '',
     branchId: searchParams.get('branchId')?.trim() ?? '',
-    month: searchParams.get('month')?.trim() ?? '',
-    from: searchParams.get('from')?.trim() ?? '',
-    to: searchParams.get('to')?.trim() ?? '',
+    from: dates.from,
+    to: dates.to,
     search: searchParams.get('search')?.trim() ?? '',
-    paymentStatus: parseCourseTransactionsPaymentStatus(searchParams.get('paymentStatus')),
-    includeWaived: searchParams.get('includeWaived') === 'true',
     page: parseCourseTransactionsPage(searchParams.get('page')),
     limit: parseCourseTransactionsLimit(searchParams.get('limit')),
   };
@@ -151,12 +173,10 @@ export function buildCourseTransactionsSearchParams(state: CourseTransactionsQue
   params.set('tab', 'course-transactions');
   if (state.courseId) params.set('courseId', state.courseId);
   if (state.branchId) params.set('branchId', state.branchId);
-  if (state.month) params.set('month', state.month);
-  if (state.from) params.set('from', state.from);
-  if (state.to) params.set('to', state.to);
+  const defaultRange = getCurrentMonthRange();
+  if (state.from && state.from !== defaultRange.from) params.set('from', state.from);
+  if (state.to && state.to !== defaultRange.to) params.set('to', state.to);
   if (state.search.trim()) params.set('search', state.search.trim());
-  if (state.paymentStatus !== 'ALL') params.set('paymentStatus', state.paymentStatus);
-  if (state.includeWaived) params.set('includeWaived', 'true');
   if (state.page > 1) params.set('page', String(state.page));
   if (state.limit !== COURSE_TRANSACTIONS_DEFAULT_LIMIT) params.set('limit', String(state.limit));
   return params;

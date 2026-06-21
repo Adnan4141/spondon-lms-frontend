@@ -105,7 +105,7 @@ export function BasicExamInfoForm({
           <SearchableSelect
             options={courses.map((course) => ({
               value: course.id,
-              label: `${course.name} · ${course.type === 'ONLINE' ? 'ONLINE' : 'OFFLINE'}`,
+              label: course.name,
             }))}
             value={state.courseId}
             onValueChange={handleCourseSelect}

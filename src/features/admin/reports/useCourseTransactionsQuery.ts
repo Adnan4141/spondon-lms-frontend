@@ -6,10 +6,10 @@ import {
   courseTransactionsHref,
   defaultCourseTransactionsQuery,
   getCurrentMonthRange,
-  getNextMonthRange,
+  getLastMonthRange,
   parseCourseTransactionsQuery,
   type CourseTransactionsQueryState,
-  type MonthPreset,
+  type PaymentDatePreset,
 } from './shared';
 
 export function useCourseTransactionsQuery() {
@@ -41,23 +41,18 @@ export function useCourseTransactionsQuery() {
     [query, replaceQuery],
   );
 
-  const applyMonthPreset = useCallback(
-    (preset: MonthPreset) => {
-      const range = preset === 'current' ? getCurrentMonthRange() : getNextMonthRange();
+  const applyPaymentDatePreset = useCallback(
+    (preset: PaymentDatePreset) => {
+      const range = preset === 'current' ? getCurrentMonthRange() : getLastMonthRange();
       updateQuery({
-        month: range.month,
-        from: '',
-        to: '',
+        from: range.from,
+        to: range.to,
       });
     },
     [updateQuery],
   );
 
-  const applyCurrentMonth = useCallback(() => {
-    applyMonthPreset('current');
-  }, [applyMonthPreset]);
-
-  return { query, updateQuery, replaceQuery, applyCurrentMonth, applyMonthPreset };
+  return { query, updateQuery, replaceQuery, applyPaymentDatePreset };
 }
 
 export function buildCourseTransactionsApiParams(query: CourseTransactionsQueryState) {
@@ -70,11 +65,8 @@ export function buildCourseTransactionsApiParams(query: CourseTransactionsQueryS
     courseId: query.courseId,
     from: dateRange.from,
     to: dateRange.to,
-    month: query.month || undefined,
     branchId: query.branchId || undefined,
     search: query.search || undefined,
-    paymentStatus: query.paymentStatus === 'ALL' ? undefined : query.paymentStatus,
-    includeWaived: query.includeWaived,
     page: query.page,
     limit: query.limit,
   };

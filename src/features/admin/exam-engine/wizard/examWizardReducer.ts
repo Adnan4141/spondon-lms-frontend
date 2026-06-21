@@ -19,7 +19,7 @@ export type WizardFormAction =
   | { type: 'MERGE'; patch: Partial<ExamWizardState> }
   | { type: 'SET_STEP'; step: number }
   | { type: 'HYDRATE'; state: ExamWizardState }
-  | { type: 'SET_COURSE'; courseId: string; /** Suggested default when no course was selected yet. */ defaultDeliveryMode?: 'ONLINE' | 'OFFLINE' }
+  | { type: 'SET_COURSE'; courseId: string }
   | { type: 'SET_DELIVERY_MODE'; deliveryMode: 'ONLINE' | 'OFFLINE' }
   | { type: 'APPLY_PRODUCT_TYPE'; productType: ExamProductType }
   | { type: 'SET_RESULT_INPUT_MODES'; modes: ExamWizardState['resultInputModes']; userEdited?: boolean }
@@ -87,14 +87,7 @@ export function examWizardReducer(state: ExamWizardState, action: WizardFormActi
     case 'HYDRATE':
       return { ...action.state };
     case 'SET_COURSE': {
-      const isFirstSelection = !state.courseId;
       const courseChanged = state.courseId && state.courseId !== action.courseId;
-      if (isFirstSelection && action.defaultDeliveryMode) {
-        return applyDeliveryModeChange(state, action.defaultDeliveryMode, {
-          courseId: action.courseId,
-          ...(courseChanged ? { batchId: EXAM_WIZARD_ALL_BATCHES } : {}),
-        });
-      }
       return {
         ...state,
         courseId: action.courseId,
