@@ -1,9 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
-import { useAdminFilterOptions } from '@/lib/query/hooks/useAdminFilterOptions';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useAdminFilters } from '@/lib/query/hooks/useAdminFilters';
 import {
   generateMonthlyInvoices,
   getMissingMonthlyInvoices,
@@ -44,12 +44,29 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+function buildMonthlyBillingHref(filters: {
+  month: string;
+  branchId: string;
+  programId: string;
+  courseId: string;
+}) {
+  const params = new URLSearchParams();
+  params.set('month', filters.month);
+  if (filters.branchId !== 'all') params.set('branchId', filters.branchId);
+  if (filters.programId !== 'all') params.set('programId', filters.programId);
+  if (filters.courseId !== 'all') params.set('courseId', filters.courseId);
+  return `/admin/monthly-billing?${params.toString()}`;
+}
+
 export default function MonthlyBillingPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { toast, toasts, removeToast } = useToast();
-  const { branches: branchOptions, courses: courseOptions, isMetaLoading } = useAdminFilterOptions();
+  const { data: adminFilters, isLoading: isMetaLoading } = useAdminFilters();
+
   const [month, setMonth] = useState(() => searchParams.get('month') || new Date().toISOString().slice(0, 7));
   const [branchId, setBranchId] = useState<string>(() => searchParams.get('branchId') || 'all');
+  const [programId, setProgramId] = useState<string>(() => searchParams.get('programId') || 'all');
   const [courseId, setCourseId] = useState<string>(() => searchParams.get('courseId') || 'all');
   const [coverage, setCoverage] = useState<MissingMonthlyInvoicesResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -58,15 +75,59 @@ export default function MonthlyBillingPage() {
   const [generatingStudentId, setGeneratingStudentId] = useState<string | null>(null);
   const pageLoading = loading || isMetaLoading;
 
-  const branches = branchOptions;
-  const monthlyCourses = courseOptions;
+  const monthlyPrograms = useMemo(
+    () => (adminFilters?.programs ?? []).filter((program) => program.paymentCircle === 'MONTHLY'),
+    [adminFilters?.programs],
+  );
+
+  const monthlyProgramIds = useMemo(
+    () => new Set(monthlyPrograms.map((program) => program.id)),
+    [monthlyPrograms],
+  );
+
+  const monthlyCourses = useMemo(
+    () => (adminFilters?.courses ?? []).filter((course) => monthlyProgramIds.has(course.programId)),
+    [adminFilters?.courses, monthlyProgramIds],
+  );
+
+  const filteredCourses = useMemo(() => {
+    if (programId === 'all') return monthlyCourses;
+    return monthlyCourses.filter((course) => course.programId === programId);
+  }, [monthlyCourses, programId]);
+
+  const branches = adminFilters?.branches ?? [];
   const missingStudents = coverage?.students ?? [];
+
+  useEffect(() => {
+    router.replace(
+      buildMonthlyBillingHref({ month, branchId, programId, courseId }),
+      { scroll: false },
+    );
+  }, [month, branchId, programId, courseId, router]);
+
+  useEffect(() => {
+    if (programId !== 'all' && !monthlyProgramIds.has(programId)) {
+      setProgramId('all');
+    }
+  }, [monthlyProgramIds, programId]);
+
+  useEffect(() => {
+    if (courseId !== 'all' && !filteredCourses.some((course) => course.id === courseId)) {
+      setCourseId('all');
+    }
+  }, [courseId, filteredCourses]);
 
   const loadCoverage = useCallback(async () => {
     try {
       setLoading(true);
-      const params: { month: string; branchId?: string; courseId?: string } = { month };
+      const params: {
+        month: string;
+        branchId?: string;
+        courseId?: string;
+        programId?: string;
+      } = { month };
       if (branchId !== 'all') params.branchId = branchId;
+      if (programId !== 'all') params.programId = programId;
       if (courseId !== 'all') params.courseId = courseId;
       const res = await getMissingMonthlyInvoices(params);
       if (res.success && res.data) {
@@ -81,7 +142,7 @@ export default function MonthlyBillingPage() {
     } finally {
       setLoading(false);
     }
-  }, [branchId, courseId, month, toast]);
+  }, [branchId, courseId, month, programId, toast]);
 
   useEffect(() => {
     void loadCoverage();
@@ -100,12 +161,14 @@ export default function MonthlyBillingPage() {
         month: string;
         branchId?: string;
         courseId?: string;
+        programId?: string;
         onlyMissing?: boolean;
         studentUserId?: string;
       } = { month };
       if (onlyMissing) body.onlyMissing = true;
       if (studentUserId) body.studentUserId = studentUserId;
       if (branchId !== 'all') body.branchId = branchId;
+      if (programId !== 'all') body.programId = programId;
       if (courseId !== 'all') body.courseId = courseId;
       const res = await generateMonthlyInvoices(body);
       if (res.success && res.data) {
@@ -159,9 +222,8 @@ export default function MonthlyBillingPage() {
             </div>
             <h1 className="text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">Monthly billing hub</h1>
             <p className="text-sm font-medium leading-relaxed text-slate-600">
-              Find students who are <strong className="text-slate-800">billable</strong> for a month but have no invoice yet,
-              then generate only the missing rows or run a full batch. Eligibility uses the same rules as invoice creation
-              (course duration, billing start, cancellations).
+              Find students who are <strong className="text-slate-800">billable</strong> for a month but are missing
+              invoice line items for their courses, then generate only the missing rows or run a full batch.
             </p>
           </div>
           <Button
@@ -179,9 +241,9 @@ export default function MonthlyBillingPage() {
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: 'Monthly courses (active)', value: monthlyCourses.length, icon: Sparkles },
+          { label: 'Monthly programs', value: monthlyPrograms.length, icon: Sparkles },
           { label: 'Billable this month', value: coverage?.billableCount, icon: CreditCard },
-          { label: 'Already invoiced', value: coverage?.invoicedCount, icon: Info },
+          { label: 'Fully invoiced', value: coverage?.invoicedCount, icon: Info },
           { label: 'Missing invoices', value: coverage?.missingCount, icon: UserX, highlight: (coverage?.missingCount ?? 0) > 0 },
         ].map((card) => (
           <div
@@ -225,6 +287,28 @@ export default function MonthlyBillingPage() {
               </SelectContent>
             </Select>
           </div>
+          <div className="space-y-2 min-w-[220px]">
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Program (optional)</label>
+            <Select
+              value={programId}
+              onValueChange={(value) => {
+                setProgramId(value);
+                setCourseId('all');
+              }}
+            >
+              <SelectTrigger className="h-11 rounded-xl font-medium">
+                <SelectValue placeholder="All monthly programs" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl max-h-64">
+                <SelectItem value="all">All monthly programs</SelectItem>
+                {monthlyPrograms.map((program) => (
+                  <SelectItem key={program.id} value={program.id}>
+                    {program.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="space-y-2 min-w-[220px] flex-1 max-w-md">
             <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Course (optional)</label>
             <Select value={courseId} onValueChange={setCourseId}>
@@ -233,7 +317,7 @@ export default function MonthlyBillingPage() {
               </SelectTrigger>
               <SelectContent className="rounded-xl max-h-64">
                 <SelectItem value="all">All monthly courses</SelectItem>
-                {monthlyCourses.map((c) => (
+                {filteredCourses.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.name}
                   </SelectItem>
@@ -271,7 +355,7 @@ export default function MonthlyBillingPage() {
               type="button"
               className="h-11 rounded-xl text-white bg-slate-900 px-6 font-bold hover:bg-indigo-600"
               onClick={() => void runGenerate({})}
-              disabled={generating || generatingMissing || pageLoading}
+              disabled={generating || generatingMissing || pageLoading || (coverage?.billableCount ?? 0) === 0}
             >
               {generating ? (
                 <>
@@ -279,17 +363,14 @@ export default function MonthlyBillingPage() {
                   Generating…
                 </>
               ) : (
-                <>Generate all billable</>
+                <>Generate all billable ({coverage?.billableCount ?? 0})</>
               )}
             </Button>
           </div>
         </div>
         <p className="text-xs font-medium text-slate-500 leading-relaxed">
-          Use <strong>Generate missing only</strong> to create invoices for students listed below. Use{' '}
-          <Link href="/admin/enrollments" className="font-bold text-indigo-600 hover:underline">
-            Enrollments
-          </Link>{' '}
-          to fix billing start months or course periods.
+          Missing means a billable course line item is absent on a non-cancelled invoice for the selected month.
+          Use <strong>Generate missing only</strong> for the students listed below.
         </p>
       </section>
 
@@ -315,7 +396,7 @@ export default function MonthlyBillingPage() {
             </div>
           ) : missingStudents.length === 0 ? (
             <p className="p-10 text-center text-sm font-medium text-slate-500">
-              All billable students have an invoice for {month}.
+              All billable students have invoice line items for {month}.
             </p>
           ) : (
             <Table>

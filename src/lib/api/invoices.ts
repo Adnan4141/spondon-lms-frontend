@@ -133,6 +133,7 @@ export async function generateMonthlyInvoices(body?: {
   month?: string;
   branchId?: string;
   courseId?: string;
+  programId?: string;
   onlyMissing?: boolean;
   studentUserId?: string;
 }): Promise<ApiResponse<MonthlyGenerateResult>> {
