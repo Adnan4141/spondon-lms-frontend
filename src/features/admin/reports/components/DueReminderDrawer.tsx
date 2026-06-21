@@ -6,6 +6,7 @@ import { previewSmsDedupe, type SmsBalance, type SmsConfig, type SmsTemplate } f
 import { Badge } from '@/components/ui/badge';
 import { SmsFocusDrawerShell } from '@/features/admin/sms/components/SmsFocusDrawerShell';
 import { SmsSendWorkspace } from '@/features/admin/sms/components/SmsSendWorkspace';
+import { CANONICAL_DUE_REMINDER_MESSAGE } from '@/features/admin/sms/sms-shared';
 import {
   buildDueReminderCampaignName,
   buildDueReminderDraftKey,
@@ -80,7 +81,6 @@ export function DueReminderDrawer({
         program: row.programSummary || 'your program',
         course: row.courseSummary || 'course fees',
         due_date: row.nextDueDate ? new Date(row.nextDueDate).toLocaleDateString('en-GB') : 'the due date',
-        institute: 'Spondon LMS',
       },
     })),
     [month, rows],
@@ -137,7 +137,7 @@ export function DueReminderDrawer({
     stepped: true,
     contextLabel: 'Due Reminder',
     templateKey: 'DUE_REMINDER',
-    defaultMessage: 'Dear {name}, your {month} fee for {program} is due.',
+    defaultMessage: CANONICAL_DUE_REMINDER_MESSAGE,
     context: 'due_reminder',
     type: 'DUE_REMINDER',
     source: 'DIRECT',

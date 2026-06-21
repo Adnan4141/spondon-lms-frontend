@@ -109,7 +109,7 @@ export function SmsStudentSendSection({
     return recipients.filter((recipient) => recipient.id && selectedStudentIds.includes(recipient.id));
   }, [recipients, selectedStudentIds]);
 
-  const defaultMessage = '{name}, notice from {institute}.';
+  const defaultMessage = '{name}, please check your notice.';
   const parts = smsLengthInfoForTemplate(defaultMessage).segments || 1;
   const estimatedCost = Math.round(pickedRecipients.length * parts * rates.maskingRate * 100) / 100;
 
@@ -197,7 +197,7 @@ export function SmsStudentSendSection({
         onOpenChange={setDrawerOpen}
         recipients={pickedRecipients}
         defaultMessage={defaultMessage}
-        defaultVars={{ institute: 'Spondon LMS', maskingRate: rates.maskingRate, nonMaskingRate: rates.nonMaskingRate }}
+        defaultVars={{ maskingRate: rates.maskingRate, nonMaskingRate: rates.nonMaskingRate }}
         contextLabel="Student SMS"
         context="manual"
         branchId={isSuperAdmin ? branchId || undefined : actor?.branchId || undefined}

@@ -46,7 +46,7 @@ export function ResultSmsDrawer({ examId, branches, smsFocus, onClose, onSuccess
               locked: true,
               contextLabel: 'Result SMS',
               templateKey: 'RESULT',
-              defaultMessage: '{name}, {exam}: {grade}. Check portal. - {institute}',
+              defaultMessage: '{name}, {exam}: {grade}. Check portal.',
               context: 'exam_result',
               type: 'RESULT',
               source: 'SYSTEM',

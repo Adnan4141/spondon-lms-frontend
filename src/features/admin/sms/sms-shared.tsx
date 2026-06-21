@@ -108,6 +108,28 @@ export function smsLengthInfo(value: string) {
   return { length, segments, encoding: hasUnicode ? 'Unicode' : 'GSM' };
 }
 
+export const CANONICAL_DUE_REMINDER_MESSAGE =
+  'Dear student, please complete your due payment of {program}.';
+
+export function isSingleSegment(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  return smsLengthInfo(trimmed).segments <= 1;
+}
+
+export function singleSegmentError(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const info = smsLengthInfo(trimmed);
+  if (info.segments <= 1) return null;
+  const limit = info.encoding === 'Unicode' ? 70 : 160;
+  return `Message exceeds 1-segment limit (${info.length}/${limit} ${info.encoding} chars)`;
+}
+
+export function singleSegmentErrorForTemplate(template: string, vars?: Record<string, unknown>) {
+  return singleSegmentError(renderSmsMessage(template, vars));
+}
+
 /** Sample values for segment/cost preview when templates still contain placeholders. */
 export const SMS_PREVIEW_SAMPLE_VARS: Record<string, string> = {
   name: 'Karim Ahmed',
@@ -125,7 +147,7 @@ export const SMS_PREVIEW_SAMPLE_VARS: Record<string, string> = {
   marks: '85',
   total: '100',
   rank: '12',
-  institute: 'Spondon',
+  institute: '',
   program: 'HSC Physics',
   otp: '123456',
   invoiceNo: 'INV-1001',

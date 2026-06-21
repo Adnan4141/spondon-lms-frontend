@@ -55,6 +55,7 @@ import {
   renderSmsPreview,
   settingKey,
   smsLengthInfo,
+  singleSegmentErrorForTemplate,
   systemTypes,
 } from '../sms-shared';
 import { confirmAction } from '@/features/admin/shared/confirm-action';
@@ -662,6 +663,10 @@ export function useSmsBulkActions({
       if (!bulkBranchId)
         return toast({ title: 'Branch required', description: 'Bulk SMS always uses branch balance.', variant: 'destructive' });
       if (!bulkMessage.trim()) return toast({ title: 'Message required', description: 'Write the SMS message before sending.', variant: 'destructive' });
+      const segmentError = singleSegmentErrorForTemplate(bulkMessage);
+      if (segmentError) {
+        return toast({ title: 'Message too long', description: segmentError, variant: 'destructive' });
+      }
         if (kind === 'file') {
           if (!bulkFile) {
             return toast({ title: 'Select file', description: 'Choose a CSV or Excel file first.', variant: 'destructive' });
@@ -950,6 +955,10 @@ export function useSmsTemplateActions({
 
   const handleSaveTemplate = useCallback(async () => {
     if (!templateForm.key.trim() || !templateForm.body.trim()) return;
+    const segmentError = singleSegmentErrorForTemplate(templateForm.body);
+    if (segmentError) {
+      return toast({ title: 'Template too long', description: segmentError, variant: 'destructive' });
+    }
     setSubmitting(true);
     try {
       const scope = isBranchAdmin ? 'BRANCH' : templateForm.scope;

@@ -16,7 +16,7 @@ import {
   type SmsTemplate,
 } from '@/lib/api/sms';
 import type { SmsBulkActionsHook } from '../hooks/useSmsManagement';
-import { Panel, smsLengthInfo } from '../sms-shared';
+import { Panel, smsLengthInfo, singleSegmentErrorForTemplate } from '../sms-shared';
 import { SmsComposerPanel, type SmsComposerValue, type SmsGatewayCapability } from './SmsComposerPanel';
 import { BulkUploadMethodPanel } from './send-workspace/BulkUploadMethodPanel';
 import { DirectMethodPanel } from './send-workspace/DirectMethodPanel';
@@ -102,6 +102,8 @@ function queueDisabledReason(args: {
   if (args.wallet.scope === 'BRANCH' && !args.wallet.branchId) return 'Select a branch wallet';
   if (args.availableBalanceBdt !== undefined && args.estimatedCostBdt > args.availableBalanceBdt) return 'Insufficient balance';
   if (args.scheduledAt && new Date(args.scheduledAt).getTime() <= Date.now()) return 'Invalid schedule time';
+  const segmentError = singleSegmentErrorForTemplate(args.message);
+  if (segmentError) return segmentError;
   return '';
 }
 
@@ -172,7 +174,7 @@ export function SmsSendWorkspace({
   const [directWallet, setDirectWallet] = useState<WalletSelection>(() => defaultWallet(actor));
   const [directRecipientMode, setDirectRecipientMode] = useState<DirectRecipientMode>('student');
   const [composer, setComposer] = useState<SmsComposerValue>({
-    message: focused?.defaultMessage || '{name}, notice from {institute}.',
+    message: focused?.defaultMessage || '{name}, please check your notice.',
     smsType: 'masking',
     campaignName: '',
     templateKey: focused?.templateKey || queryTemplate,
@@ -281,7 +283,6 @@ export function SmsSendWorkspace({
 
   const sampleRecipient = pickedRecipients[0];
   const sampleVars = {
-    institute: 'Spondon LMS',
     ...(sampleRecipient?.variables || {}),
     name: sampleRecipient?.name || sampleRecipient?.variables?.name || '',
     phone: sampleRecipient?.phone || '',
@@ -342,7 +343,7 @@ export function SmsSendWorkspace({
         recipients: pickedRecipients,
         message: composer.message.trim(),
         templateKey: composer.templateKey,
-        defaultVars: { institute: 'Spondon LMS', maskingRate: rates.maskingRate, nonMaskingRate: rates.nonMaskingRate },
+        defaultVars: { maskingRate: rates.maskingRate, nonMaskingRate: rates.nonMaskingRate },
         smsType: composer.smsType,
         context: focused?.context || METHOD_META[method].context,
         type: focused?.type || METHOD_META[method].type,

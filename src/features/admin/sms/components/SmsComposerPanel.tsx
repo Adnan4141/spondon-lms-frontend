@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { getSmsTemplates, type SmsTemplate } from '@/lib/api/sms';
-import { smsLengthInfoForTemplate } from '../sms-shared';
+import { smsLengthInfoForTemplate, singleSegmentErrorForTemplate } from '../sms-shared';
 
 export type SmsComposerValue = {
   message: string;
@@ -78,6 +78,7 @@ export function SmsComposerPanel({
     [availableTemplates, value.templateKey],
   );
   const length = smsLengthInfoForTemplate(value.message);
+  const segmentError = singleSegmentErrorForTemplate(value.message);
   const hasPlaceholders = /\{[a-zA-Z0-9_]+\}/.test(value.message);
   const rate = value.smsType === 'masking' ? rates.maskingRate : rates.nonMaskingRate;
   const maskingLabel = gatewayCapability?.maskingSenderLabel || 'Spondon';
@@ -121,7 +122,7 @@ export function SmsComposerPanel({
           <MessageSquareText className="h-4 w-4 text-blue-600" />
           Compose Message
         </h2>
-        <span className="text-xs font-semibold text-slate-500">
+        <span className={`text-xs font-semibold ${segmentError ? 'text-rose-600' : 'text-slate-500'}`}>
           {length.length} chars | {Math.max(1, length.segments)} SMS | {length.encoding}
           {hasPlaceholders ? ' (preview)' : ''}
         </span>
@@ -224,6 +225,7 @@ export function SmsComposerPanel({
               </button>
             </div>
             {modeWarning ? <p className="mt-2 text-xs font-semibold text-amber-700">{modeWarning}</p> : null}
+            {segmentError ? <p className="mt-2 text-xs font-semibold text-rose-700">{segmentError}</p> : null}
           </div>
 
           {allowSchedule ? (

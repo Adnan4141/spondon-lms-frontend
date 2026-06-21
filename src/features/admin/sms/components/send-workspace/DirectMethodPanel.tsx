@@ -42,7 +42,7 @@ export function DirectMethodPanel({
       roll: student.registrationNumber || student.roll || '',
       registrationNumber: student.registrationNumber || student.roll || '',
       branch: student.branchName || student.smsVariables?.branch || '',
-      institute: student.smsVariables?.institute || 'Spondon LMS',
+      institute: student.smsVariables?.institute || '',
     };
 
     onWalletChange(nextWallet);
@@ -64,7 +64,7 @@ export function DirectMethodPanel({
     const nextWallet = isBranchAdmin
       ? { scope: 'BRANCH' as const, branchId: actor?.branchId || undefined }
       : wallet;
-    onResolved([{ phone: normalized, branchId: nextWallet.scope === 'BRANCH' ? nextWallet.branchId : undefined, variables: { phone: normalized, institute: 'Spondon LMS' } }], nextWallet, 'raw');
+    onResolved([{ phone: normalized, branchId: nextWallet.scope === 'BRANCH' ? nextWallet.branchId : undefined, variables: { phone: normalized } }], nextWallet, 'raw');
   }
 
   return (

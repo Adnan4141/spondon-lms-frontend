@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import type { SmsTemplate } from '@/lib/api/sms';
 import type { SmsTemplateActionsHook } from '../hooks/useSmsManagement';
-import { EmptyState, Panel, SmsComposer, smsLengthInfoForTemplate } from '../sms-shared';
+import { EmptyState, Panel, SmsComposer, smsLengthInfoForTemplate, singleSegmentErrorForTemplate } from '../sms-shared';
 
 export function SmsTemplatesTab({
   templates,
@@ -26,6 +26,7 @@ export function SmsTemplatesTab({
     (t) => t.key === templateForm.key && t.scope === templateForm.scope && (t.branchId || '') === (templateForm.branchId || ''),
   );
   const info = smsLengthInfoForTemplate(templateForm.body);
+  const segmentError = singleSegmentErrorForTemplate(templateForm.body);
   const hasContent = templateForm.key.trim() || templateForm.body.trim();
 
   function handleSelectTemplate(template: SmsTemplate) {
@@ -74,10 +75,15 @@ export function SmsTemplatesTab({
           <div>
             <div className="flex items-center justify-between">
               <Label>Template body</Label>
-              <span className="text-xs font-semibold text-slate-500">
+              <span className={`text-xs font-semibold ${segmentError ? 'text-rose-600' : 'text-slate-500'}`}>
                 {info.length} chars · {Math.max(0, info.segments)} segment{info.segments === 1 ? '' : 's'} · {info.encoding}
               </span>
             </div>
+            {segmentError ? (
+              <p className="mt-1 text-xs font-semibold text-rose-600">{segmentError}. Masking shows your brand — keep body short.</p>
+            ) : (
+              <p className="mt-1 text-xs text-slate-400">Max 1 segment (70 Bangla / 160 English chars). No institute name in body.</p>
+            )}
             <SmsComposer
               label=""
               rows={8}
@@ -103,7 +109,7 @@ export function SmsTemplatesTab({
             <Button
               type="button"
               onClick={() => void handleSaveTemplate()}
-              disabled={submitting || !templateForm.key.trim() || !templateForm.body.trim()}
+              disabled={submitting || !templateForm.key.trim() || !templateForm.body.trim() || !!segmentError}
               className="flex-1 gap-2"
             >
               <Save className="h-4 w-4" />

@@ -541,7 +541,6 @@ export function ExamResultsPage({ examId, teacherEvaluatorMode = false }: ExamRe
           grade: `${Number(row.marks || 0)}/${Number(row.totalMarks || 0)}`,
           rank: index + 1,
           exam: exam?.title || 'exam',
-          institute: 'Spondon LMS',
         },
       })).filter((recipient) => recipient.phone);
       setSmsFocus({
