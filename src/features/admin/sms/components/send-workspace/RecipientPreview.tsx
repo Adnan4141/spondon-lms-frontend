@@ -13,8 +13,8 @@ function recipientSubtitle(recipient: SmsRecipient, variant: 'default' | 'due') 
   if (variant === 'due') {
     const parts = [
       recipient.variables?.amount ? `৳${recipient.variables.amount}` : '',
-      recipient.variables?.course ? String(recipient.variables.course) : '',
-      recipient.variables?.due_date ? `due ${recipient.variables.due_date}` : '',
+      recipient.variables?.program ? String(recipient.variables.program) : '',
+      recipient.variables?.month ? String(recipient.variables.month) : '',
     ].filter(Boolean);
     return parts.join(' · ');
   }
@@ -45,8 +45,8 @@ export function RecipientPreview({
         recipient.phone,
         recipient.variables?.name,
         recipient.variables?.amount,
-        recipient.variables?.course,
-        recipient.variables?.due_date,
+        recipient.variables?.program,
+        recipient.variables?.month,
         recipientKey(recipient, index),
       ]
         .filter(Boolean)
@@ -78,7 +78,7 @@ export function RecipientPreview({
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search by name, mobile, course, or amount"
+                placeholder="Search by name, mobile, program, or amount"
                 className="h-9 pl-9"
               />
             </div>

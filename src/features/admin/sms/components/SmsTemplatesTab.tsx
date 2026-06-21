@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import type { SmsTemplate } from '@/lib/api/sms';
 import type { SmsTemplateActionsHook } from '../hooks/useSmsManagement';
-import { EmptyState, Panel, SmsComposer, smsLengthInfo } from '../sms-shared';
+import { EmptyState, Panel, SmsComposer, smsLengthInfoForTemplate } from '../sms-shared';
 
 export function SmsTemplatesTab({
   templates,
@@ -25,7 +25,7 @@ export function SmsTemplatesTab({
   const isEditing = templates.some(
     (t) => t.key === templateForm.key && t.scope === templateForm.scope && (t.branchId || '') === (templateForm.branchId || ''),
   );
-  const info = smsLengthInfo(templateForm.body);
+  const info = smsLengthInfoForTemplate(templateForm.body);
   const hasContent = templateForm.key.trim() || templateForm.body.trim();
 
   function handleSelectTemplate(template: SmsTemplate) {

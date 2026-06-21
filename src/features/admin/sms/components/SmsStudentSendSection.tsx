@@ -11,7 +11,7 @@ import { getBatches, type Batch } from '@/lib/api/batches';
 import { getCourses } from '@/lib/api/courses';
 import { resolveSmsRecipients, type SmsRecipient } from '@/lib/api/sms';
 import type { Branch } from '@/lib/api/branches';
-import { Panel, smsLengthInfo } from '../sms-shared';
+import { Panel, smsLengthInfoForTemplate } from '../sms-shared';
 import { SmsSendDrawer } from './SmsSendDrawer';
 
 type Actor = { role?: string | null; branchId?: string | null };
@@ -109,8 +109,8 @@ export function SmsStudentSendSection({
     return recipients.filter((recipient) => recipient.id && selectedStudentIds.includes(recipient.id));
   }, [recipients, selectedStudentIds]);
 
-  const defaultMessage = 'Dear {name}, this is a notice from {institute}.';
-  const parts = smsLengthInfo(defaultMessage).segments || 1;
+  const defaultMessage = '{name}, notice from {institute}.';
+  const parts = smsLengthInfoForTemplate(defaultMessage).segments || 1;
   const estimatedCost = Math.round(pickedRecipients.length * parts * rates.maskingRate * 100) / 100;
 
   const batchOptions = batches

@@ -26,8 +26,8 @@ function fmtCur(n: number) {
 function dueSubtitle(recipient: SmsRecipient) {
   const parts = [
     recipient.variables?.amount ? `৳${recipient.variables.amount}` : '',
-    recipient.variables?.course ? String(recipient.variables.course) : '',
-    recipient.variables?.due_date ? `due ${recipient.variables.due_date}` : '',
+    recipient.variables?.program ? String(recipient.variables.program) : '',
+    recipient.variables?.month ? String(recipient.variables.month) : '',
   ].filter(Boolean);
   return parts.join(' · ');
 }
@@ -78,7 +78,8 @@ export function DueRecipientReviewPanel({
         recipient.phone,
         recipient.variables?.name,
         recipient.variables?.amount,
-        recipient.variables?.course,
+        recipient.variables?.program,
+        recipient.variables?.month,
         key,
       ]
         .filter(Boolean)
@@ -163,7 +164,7 @@ export function DueRecipientReviewPanel({
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search name, mobile, course, amount"
+              placeholder="Search name, mobile, program, amount"
               className="h-9 pl-9"
             />
           </div>

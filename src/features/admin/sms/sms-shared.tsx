@@ -108,11 +108,43 @@ export function smsLengthInfo(value: string) {
   return { length, segments, encoding: hasUnicode ? 'Unicode' : 'GSM' };
 }
 
-export function renderSmsPreview(template: string, row?: Record<string, unknown>) {
-  return template.replace(/\{\{(\w+)\}\}/g, (_, key) => {
-    const value = row?.[key];
+/** Sample values for segment/cost preview when templates still contain placeholders. */
+export const SMS_PREVIEW_SAMPLE_VARS: Record<string, string> = {
+  name: 'Karim Ahmed',
+  phone: '8801712345678',
+  roll: 'S-1024',
+  course: 'HSC Physics',
+  batch: 'Batch A',
+  amount: '2500',
+  month: 'Jun 2026',
+  due_date: '30 Jun',
+  dueDate: '30 Jun',
+  date: '21 Jun',
+  exam: 'Model Test 1',
+  grade: '85/100',
+  marks: '85',
+  total: '100',
+  rank: '12',
+  institute: 'Spondon',
+  program: 'HSC Physics',
+  otp: '123456',
+  invoiceNo: 'INV-1001',
+  paymentDate: '21 Jun',
+};
+
+export function renderSmsMessage(template: string, vars: Record<string, unknown> = SMS_PREVIEW_SAMPLE_VARS) {
+  return template.replace(/\{\{?\s*([a-zA-Z0-9_]+)\s*\}?\}/g, (_match, key) => {
+    const value = vars[key];
     return value == null ? '' : String(value);
   });
+}
+
+export function smsLengthInfoForTemplate(template: string, vars?: Record<string, unknown>) {
+  return smsLengthInfo(renderSmsMessage(template, vars));
+}
+
+export function renderSmsPreview(template: string, row?: Record<string, unknown>) {
+  return renderSmsMessage(template, row ?? SMS_PREVIEW_SAMPLE_VARS);
 }
 
 export function settingKey(type: string, scope: 'ORG' | 'BRANCH', branchId?: string | null) {
@@ -284,7 +316,7 @@ export function SmsComposer({
   rows?: number;
   variables?: string[];
 }) {
-  const info = smsLengthInfo(value);
+  const info = smsLengthInfoForTemplate(value);
 
   return (
     <div className="space-y-2">

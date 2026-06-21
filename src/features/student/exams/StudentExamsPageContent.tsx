@@ -20,6 +20,11 @@ import {
   Building2,
   PenLine,
   CalendarClock,
+  Search,
+  SlidersHorizontal,
+  X,
+  Sparkles,
+  BookOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { isOfflineDeliveryExam } from '@/lib/exam-workflow';
@@ -125,622 +130,615 @@ export function StudentExamsPageContent() {
     authError ??
     (queryError instanceof Error ? queryError.message : queryError ? 'Failed to load exams' : null);
 
-  const offlineExams = exams.filter((e) => isOfflineDeliveryExam(e));
-  const writtenExams = exams.filter((e) => !isOfflineDeliveryExam(e) && (e.mode === 'WRITTEN' || e.mode === 'HYBRID'));
-  const availableWritten = writtenExams.filter((e) => e.canAttempt || e.hasInProgress);
-  const completedWritten = writtenExams.filter(
-    (e) => !e.canAttempt && !e.hasInProgress && (e.studentAttempts?.length ?? 0) > 0,
+  // Unified exam items mapping
+  const unifiedExams = exams.map((e) => {
+    const isOffline = isOfflineDeliveryExam(e);
+    const isWritten = !isOffline && (e.mode === 'WRITTEN' || e.mode === 'HYBRID');
+
+    const attempt = latestAttempt(e);
+    const attemptCount = e.studentAttempts?.length ?? 0;
+
+    // Calculate countdown for upcoming
+    let countdown: string | null = null;
+    if (e.startAt) {
+      const startDate = new Date(e.startAt);
+      const diff = startDate.getTime() - Date.now();
+      if (diff > 0) {
+        const totalHours = Math.floor(diff / 3600000);
+        countdown = totalHours >= 24
+          ? `${Math.floor(totalHours / 24)} days left`
+          : totalHours > 0
+            ? `${totalHours} hours left`
+            : `${Math.max(1, Math.floor((diff % 3600000) / 60000))} mins left`;
+      }
+    }
+
+    const remaining = timeRemaining(e.endAt);
+
+    // Classification
+    const start = e.startAt ? new Date(e.startAt).getTime() : null;
+    const isUpcoming = start ? start > Date.now() && attemptCount === 0 : false;
+    
+    // For online and written: completed means attempts exist and they cannot attempt further
+    // For offline: completed means result is published or legacy result, or attempts exist
+    const isCompleted = isOffline
+      ? (e.resultStatus === 'PUBLISHED' || e.resultStatus === 'LEGACY_RESULT' || attemptCount > 0)
+      : (!e.canAttempt && !e.hasInProgress && attemptCount > 0);
+
+    const isActive = !isUpcoming && !isCompleted;
+
+    return {
+      exam: e,
+      id: e.id,
+      title: e.title,
+      courseName: e.course?.name ?? 'General',
+      type: e.type,
+      mode: isOffline ? 'OFFLINE' : e.mode,
+      startAt: e.startAt,
+      endAt: e.endAt,
+      durationMinutes: e.durationMinutes,
+      allowedAttempts: e.allowedAttempts ?? 1,
+      studentAttemptsCount: attemptCount,
+      latestAttempt: attempt,
+      isActive,
+      isUpcoming,
+      isCompleted,
+      countdown,
+      remaining,
+      writtenStatus: isWritten ? writtenStatusLabel(e) : undefined,
+      writtenAction: isWritten ? writtenPrimaryAction(e) : undefined,
+      offlineResultStatus: isOffline ? resultStatusLabel(e) : null,
+      canAttempt: !!e.canAttempt,
+      hasInProgress: !!e.hasInProgress,
+      showLeaderboard: !!e.showLeaderboard,
+    };
+  });
+
+  const [activeTab, setActiveTab] = useState<'active' | 'upcoming' | 'completed' | 'all'>('active');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedMode, setSelectedMode] = useState<string>('all');
+  const [selectedType, setSelectedType] = useState<string>('all');
+  const [selectedCourse, setSelectedCourse] = useState<string>('all');
+
+  const uniqueCourses = Array.from(
+    new Set(unifiedExams.map((item) => item.courseName).filter(Boolean))
   );
-  const availableOnline = exams.filter(
-    (e) => !isOfflineDeliveryExam(e) && e.mode === 'ONLINE' && (e.canAttempt || e.hasInProgress),
-  );
-  const completedOnline = exams.filter(
-    (e) =>
-      !isOfflineDeliveryExam(e) &&
-      e.mode === 'ONLINE' &&
-      !e.canAttempt &&
-      !e.hasInProgress &&
-      (e.studentAttempts?.length ?? 0) > 0,
+  const uniqueTypes = Array.from(
+    new Set(unifiedExams.map((item) => item.type).filter(Boolean))
   );
 
-  const upcomingExams = exams.filter((e) => {
-    if (!e.startAt) return false;
-    const start = new Date(e.startAt).getTime();
-    if (start <= Date.now()) return false;
-    if ((e.studentAttempts?.length ?? 0) > 0) return false;
+  const filteredExams = unifiedExams.filter((item) => {
+    // Tab filter
+    if (activeTab === 'active' && !item.isActive) return false;
+    if (activeTab === 'upcoming' && !item.isUpcoming) return false;
+    if (activeTab === 'completed' && !item.isCompleted) return false;
+
+    // Search query
+    if (
+      searchQuery &&
+      !item.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
+      !item.courseName.toLowerCase().includes(searchQuery.toLowerCase())
+    ) {
+      return false;
+    }
+
+    // Mode filter
+    if (selectedMode !== 'all') {
+      if (selectedMode === 'WRITTEN') {
+        if (item.mode !== 'WRITTEN' && item.mode !== 'HYBRID') return false;
+      } else {
+        if (item.mode !== selectedMode) return false;
+      }
+    }
+
+    // Type filter
+    if (selectedType !== 'all' && item.type !== selectedType) {
+      return false;
+    }
+
+    // Course filter
+    if (selectedCourse !== 'all' && item.courseName !== selectedCourse) {
+      return false;
+    }
+
     return true;
-  }).sort((a, b) => new Date(a.startAt!).getTime() - new Date(b.startAt!).getTime());
+  });
 
-  if (loading) {
-    return (
-      <div className={cn('mx-auto flex min-h-100 w-full max-w-full items-center justify-center px-4 py-8 sm:px-6')}>
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-12 w-12 animate-spin text-indigo-600" />
-          <p className="text-slate-500 font-bold animate-pulse">Loading exams...</p>
-        </div>
-      </div>
-    );
-  }
+  const totalExams = exams.length;
+  const activeCount = unifiedExams.filter((item) => item.isActive).length;
+  const upcomingCount = unifiedExams.filter((item) => item.isUpcoming).length;
+  const completedCount = unifiedExams.filter((item) => item.isCompleted).length;
 
-  if (error) {
-    return (
-      <div className={cn('mx-auto w-full max-w-full space-y-10 px-4 py-8 sm:px-6')}>
-        <h1 className="text-4xl font-black text-slate-900 tracking-tight">Exams</h1>
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-8 text-center">
-          <AlertCircle className="h-10 w-10 text-rose-400 mx-auto mb-4" />
-          <p className="text-lg font-bold text-rose-600">{error}</p>
-        </div>
-      </div>
-    );
-  }
+  // Average performance
+  const examsWithScores = unifiedExams.filter((item) => {
+    const la = item.latestAttempt;
+    return la && la.obtainedMarks != null && la.totalMarks != null && la.totalMarks > 0;
+  });
+  const avgScore = examsWithScores.length > 0
+    ? Math.round(
+        (examsWithScores.reduce((acc, item) => {
+          const la = item.latestAttempt!;
+          return acc + (la.obtainedMarks! / la.totalMarks!);
+        }, 0) / examsWithScores.length) * 100
+      )
+    : null;
 
   return (
-    <div className={cn('mx-auto w-full max-w-full space-y-10 px-4 py-8 sm:px-6')}>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-4xl font-black text-slate-900 tracking-tight">Exams</h1>
-          <p className="text-slate-500 font-medium mt-1">All your exams in one place</p>
-        </div>
-        <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-2 text-sm font-black text-slate-500 shadow-sm">
-          <BookOpenCheck className="h-4 w-4 text-indigo-500" />
-          {exams.length} total exams
+    <div className={cn('mx-auto w-full max-w-full space-y-8 px-4 py-8 sm:px-6')}>
+      {/* Banner / Header */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-indigo-900 text-white p-6 md:p-8 shadow-md border border-slate-850">
+        <div className="absolute top-0 right-0 -mt-12 -mr-12 w-64 h-64 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 -mb-12 -ml-12 w-64 h-64 rounded-full bg-violet-500/10 blur-3xl pointer-events-none" />
+        
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="space-y-2 max-w-2xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/20 text-xs font-semibold text-indigo-200">
+              <Sparkles className="h-3 w-3 text-indigo-400" />
+              Student Portal
+            </div>
+            <h1 className="text-3xl md:text-4xl font-black tracking-tight">
+              My Examination Dashboard
+            </h1>
+            <p className="text-slate-300 text-xs md:text-sm font-medium leading-relaxed">
+              Access and manage all your scheduled assessments, practice tests, written submissions, and view graded results.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-4 shrink-0">
+            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 flex flex-col justify-center min-w-[130px]">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Exams</span>
+              <span className="text-2xl font-black mt-1 text-white">{totalExams}</span>
+            </div>
+            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 flex flex-col justify-center min-w-[130px]">
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 flex items-center gap-1">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                </span>
+                Active
+              </span>
+              <span className="text-2xl font-black mt-1 text-white">{activeCount}</span>
+            </div>
+            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 flex flex-col justify-center min-w-[130px]">
+              <span className="text-[10px] font-black uppercase tracking-widest text-indigo-300">Upcoming</span>
+              <span className="text-2xl font-black mt-1 text-white">{upcomingCount}</span>
+            </div>
+            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 flex flex-col justify-center min-w-[130px]">
+              <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">Avg Performance</span>
+              <span className="text-2xl font-black mt-1 text-white">
+                {avgScore != null ? `${avgScore}%` : '—'}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Upcoming scheduled exams */}
-      {upcomingExams.length > 0 && (
-        <section className="rounded-2xl border border-indigo-200 bg-indigo-50/40 p-6">
-          <h2 className="text-[11px] font-black uppercase tracking-[0.25em] text-indigo-700 mb-4 flex items-center gap-2">
-            <CalendarClock className="h-3.5 w-3.5" /> Upcoming Exams
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {upcomingExams.map((exam) => {
-              const startDate = new Date(exam.startAt!);
-              const diff = Math.max(0, startDate.getTime() - Date.now());
-              const totalHours = Math.floor(diff / 3600000);
-              const countdown = totalHours >= 24
-                ? `${Math.floor(totalHours / 24)} days left`
-                : totalHours > 0
-                  ? `${totalHours} hours left`
-                  : `${Math.max(1, Math.floor((diff % 3600000) / 60000))} minutes left`;
+      {/* Controls: Search, Filters & Tabs */}
+      <div className="space-y-6">
+        <div className="flex flex-col md:flex-row gap-4 items-stretch justify-between bg-slate-50 p-4 rounded-2xl border border-slate-200/60 shadow-inner">
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search by exam title or course..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200 bg-white text-sm font-semibold placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-2.5 items-center">
+            {/* Mode Select */}
+            <div className="relative">
+              <select
+                value={selectedMode}
+                onChange={(e) => setSelectedMode(e.target.value)}
+                className="h-11 px-3.5 pr-8 rounded-xl border border-slate-200 bg-white text-xs font-black uppercase tracking-wider text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 appearance-none cursor-pointer"
+              >
+                <option value="all">All Modes</option>
+                <option value="ONLINE">Online</option>
+                <option value="WRITTEN">Written / Hybrid</option>
+                <option value="OFFLINE">Offline</option>
+              </select>
+              <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none border-l border-slate-200 pl-1.5 text-slate-400">
+                ▼
+              </div>
+            </div>
+
+            {/* Type Select */}
+            <div className="relative">
+              <select
+                value={selectedType}
+                onChange={(e) => setSelectedType(e.target.value)}
+                className="h-11 px-3.5 pr-8 rounded-xl border border-slate-200 bg-white text-xs font-black uppercase tracking-wider text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 appearance-none cursor-pointer"
+              >
+                <option value="all">All Types</option>
+                {uniqueTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {type.replace(/_/g, ' ')}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none border-l border-slate-200 pl-1.5 text-slate-400">
+                ▼
+              </div>
+            </div>
+
+            {/* Course Select */}
+            <div className="relative">
+              <select
+                value={selectedCourse}
+                onChange={(e) => setSelectedCourse(e.target.value)}
+                className="h-11 px-3.5 pr-8 rounded-xl border border-slate-200 bg-white text-xs font-black uppercase tracking-wider text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 appearance-none cursor-pointer max-w-[200px]"
+              >
+                <option value="all">All Courses</option>
+                {uniqueCourses.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none border-l border-slate-200 pl-1.5 text-slate-400">
+                ▼
+              </div>
+            </div>
+
+            {/* Reset Filters */}
+            {(searchQuery || selectedMode !== 'all' || selectedType !== 'all' || selectedCourse !== 'all') && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedMode('all');
+                  setSelectedType('all');
+                  setSelectedCourse('all');
+                }}
+                className="h-11 px-4 rounded-xl border-dashed border-indigo-300 text-indigo-700 hover:bg-indigo-50/50 text-xs font-black uppercase tracking-wider"
+              >
+                Clear
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Tab Controls */}
+        <div className="border-b border-slate-200">
+          <div className="flex gap-6 overflow-x-auto no-scrollbar pb-px">
+            {(['active', 'upcoming', 'completed', 'all'] as const).map((tab) => {
+              const label =
+                tab === 'active'
+                  ? 'Active / Available'
+                  : tab === 'upcoming'
+                    ? 'Upcoming'
+                    : tab === 'completed'
+                      ? 'Completed & Results'
+                      : 'All Exams';
+              
+              const count =
+                tab === 'active'
+                  ? activeCount
+                  : tab === 'upcoming'
+                    ? upcomingCount
+                    : tab === 'completed'
+                      ? completedCount
+                      : totalExams;
+
+              const isSelected = activeTab === tab;
+
               return (
-                <div
-                  key={exam.id}
-                  className="group rounded-xl border border-indigo-200 bg-white p-4 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all cursor-pointer"
-                  onClick={() => router.push(`/student/exams/${exam.id}`)}
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={cn(
+                    "flex items-center gap-2 pb-4 text-sm font-black uppercase tracking-wider border-b-2 transition-all relative shrink-0",
+                    isSelected
+                      ? "border-indigo-600 text-indigo-600"
+                      : "border-transparent text-slate-400 hover:text-slate-600"
+                  )}
                 >
-                  <div className="flex items-center gap-2 mb-2 flex-wrap">
-                    <Badge variant="outline" className={cn('rounded-lg text-[9px] font-black uppercase px-2 py-0.5', getTypeBadgeClass(exam.type))}>
-                      {exam.type.replace('_', ' ')}
-                    </Badge>
-                    <Badge variant="outline" className="rounded-lg text-[9px] font-black uppercase px-2 py-0.5 bg-indigo-50 text-indigo-700 border-indigo-200">
-                      {exam.mode}
-                    </Badge>
-                  </div>
-                  <h3 className="text-base font-black text-slate-900 group-hover:text-indigo-600 transition-colors mb-1 line-clamp-1">
-                    {exam.title}
-                  </h3>
-                  <p className="text-xs font-medium text-slate-500 mb-3">{exam.course?.name}</p>
-                  <div className="flex items-center justify-between pt-3 border-t border-indigo-100">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-700">
-                      <CalendarClock className="h-3.5 w-3.5" />
-                      {startDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </div>
-                    <div className="flex items-center gap-1.5 rounded-lg bg-indigo-100 px-2.5 py-1 text-[10px] font-black text-indigo-800">
-                      <Clock className="h-3 w-3" />
-                      {countdown}
-                    </div>
-                  </div>
-                </div>
+                  {tab === 'active' && (
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                  )}
+                  {tab === 'upcoming' && <CalendarClock className="h-4 w-4" />}
+                  {tab === 'completed' && <CheckCircle2 className="h-4 w-4" />}
+                  <span>{label}</span>
+                  <span className={cn(
+                    "ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-black",
+                    isSelected ? "bg-indigo-50 text-indigo-600" : "bg-slate-100 text-slate-500"
+                  )}>
+                    {count}
+                  </span>
+                </button>
               );
             })}
           </div>
-        </section>
-      )}
+        </div>
+      </div>
 
-      {/* Offline exams (centre instructions) */}
-      {offlineExams.length > 0 && (
-        <section>
-          <h2 className="text-[11px] font-black uppercase tracking-[0.25em] text-amber-700 mb-4 flex items-center gap-2">
-            <Building2 className="h-3.5 w-3.5" /> Offline Exams
-          </h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {offlineExams.map((exam) => {
-              const remaining = timeRemaining(exam.endAt);
-              return (
-                <div
-                  key={exam.id}
-                  className="group relative overflow-hidden rounded-2xl border border-amber-200 bg-amber-50/40 p-6 shadow-sm hover:shadow-md hover:border-amber-300 transition-all cursor-pointer"
-                  onClick={() => router.push(`/student/exams/${exam.id}`)}
-                >
-                  <div className="flex items-center gap-2 mb-3 flex-wrap">
-                    <Badge variant="outline" className={cn('rounded-lg text-[9px] font-black uppercase px-2 py-0.5', getTypeBadgeClass(exam.type))}>
-                      {exam.type.replace('_', ' ')}
+      {/* Exams Grid */}
+      {filteredExams.length > 0 ? (
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {filteredExams.map((item) => {
+            const { exam } = item;
+            
+            // Badge style classes
+            const modeBadge =
+              item.mode === 'ONLINE'
+                ? { label: 'Online', bg: 'bg-cyan-50 text-cyan-800 border-cyan-205' }
+                : item.mode === 'OFFLINE'
+                  ? { label: 'Offline', bg: 'bg-orange-50 text-orange-850 border-orange-205' }
+                  : { label: item.mode, bg: 'bg-violet-50 text-violet-850 border-violet-205' };
+
+            const typeBadge = getTypeBadgeClass(item.type);
+
+            return (
+              <div
+                key={item.id}
+                onClick={() => {
+                  if (item.isCompleted) {
+                    router.push(`/student/exams/${item.id}?view=result`);
+                  } else {
+                    router.push(`/student/exams/${item.id}`);
+                  }
+                }}
+                className={cn(
+                  "group flex flex-col justify-between rounded-3xl border border-slate-200 bg-white p-6 shadow-xs transition-all duration-300 cursor-pointer",
+                  "hover:shadow-md hover:-translate-y-0.5 hover:border-indigo-305"
+                )}
+              >
+                <div>
+                  {/* Badges row */}
+                  <div className="flex flex-wrap gap-2 items-center mb-3">
+                    <Badge variant="outline" className={cn("rounded-lg text-[9px] font-black uppercase px-2 py-0.5 shadow-2xs", modeBadge.bg)}>
+                      {modeBadge.label}
                     </Badge>
-                    {exam.examEngine && exam.examEngine !== 'REGULAR' ? (
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          'rounded-lg text-[9px] font-black uppercase px-2 py-0.5',
-                          getEngineBadgeClass(exam.examEngine),
-                        )}
-                      >
+                    <Badge variant="outline" className={cn("rounded-lg text-[9px] font-black uppercase px-2 py-0.5 shadow-2xs", typeBadge)}>
+                      {item.type.replace(/_/g, ' ')}
+                    </Badge>
+                    {exam.examEngine && exam.examEngine !== 'REGULAR' && (
+                      <Badge variant="outline" className={cn("rounded-lg text-[9px] font-black uppercase px-2 py-0.5 shadow-2xs", getEngineBadgeClass(exam.examEngine))}>
                         {exam.examEngine.replace(/_/g, ' ')}
                       </Badge>
-                    ) : null}
-                    <Badge variant="outline" className="rounded-lg text-[9px] font-black uppercase px-2 py-0.5 bg-orange-50 text-orange-800 border-orange-200">
-                      OFFLINE
-                    </Badge>
+                    )}
                   </div>
-                  <h3 className="text-lg font-black text-slate-900 group-hover:text-amber-800 transition-colors mb-2">
-                    {exam.title}
+
+                  {/* Title & Course */}
+                  <h3 className="text-base font-black text-slate-800 group-hover:text-indigo-600 transition-colors duration-200 line-clamp-2 min-h-[3rem] flex items-start">
+                    {item.title}
                   </h3>
-                  <p className="text-sm font-medium text-slate-600 mb-1">{exam.course?.name}</p>
-                  <div className="flex items-center gap-4 text-xs font-medium text-slate-500 mt-3">
-                    {exam.durationMinutes ? (
-                      <span className="flex items-center gap-1">
-                        <Timer className="h-3 w-3" /> {exam.durationMinutes} min
-                      </span>
-                    ) : null}
-                    {remaining ? (
-                      <span className="flex items-center gap-1 text-amber-700">
-                        <Clock className="h-3 w-3" /> {remaining}
-                      </span>
-                    ) : null}
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400 mt-1 mb-4">
+                    <BookOpen className="h-3.5 w-3.5 text-slate-350" />
+                    <span>{item.courseName}</span>
                   </div>
-                  <div className="mt-4 pt-4 border-t border-amber-200/80 flex flex-col gap-2">
-                    <p className="rounded-lg bg-white/70 px-3 py-2 text-xs font-bold leading-relaxed text-amber-950">
-                      {centreQuestionPaperCopy()}
-                    </p>
-                    {resultStatusLabel(exam) ? (
-                      <div className="rounded-lg border border-amber-200 bg-white/80 px-3 py-2 text-[11px] font-black text-amber-900">
-                        {resultStatusLabel(exam)}
+
+                  {/* Divider */}
+                  <div className="border-t border-slate-100 my-3" />
+
+                  {/* Details depending on tab / status */}
+                  <div className="space-y-2 mt-3">
+                    {/* Time / Duration info */}
+                    <div className="flex flex-wrap items-center gap-4 text-xs font-bold text-slate-500">
+                      {item.durationMinutes ? (
+                        <div className="flex items-center gap-1.5">
+                          <Timer className="h-3.5 w-3.5 text-indigo-400" />
+                          <span>{item.durationMinutes} min</span>
+                        </div>
+                      ) : null}
+                      
+                      {item.countdown ? (
+                        <div className="flex items-center gap-1.5 text-indigo-650 bg-indigo-50/50 px-2 py-0.5 rounded-lg border border-indigo-100">
+                          <CalendarClock className="h-3.5 w-3.5" />
+                          <span>{item.countdown}</span>
+                        </div>
+                      ) : item.remaining ? (
+                        <div className="flex items-center gap-1.5 text-amber-700 bg-amber-50/50 px-2 py-0.5 rounded-lg border border-amber-100">
+                          <Clock className="h-3.5 w-3.5" />
+                          <span>{item.remaining}</span>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    {/* Status Box for Written / Offline / Completed */}
+                    {item.mode === 'OFFLINE' ? (
+                      <div className="rounded-xl bg-orange-50/40 border border-orange-100 p-3 mt-3 space-y-1.5">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-orange-850 flex items-center gap-1">
+                          <Building2 className="h-3 w-3" /> Offline Venue Exam
+                        </p>
+                        <p className="text-[11px] font-bold leading-relaxed text-slate-650">
+                          {centreQuestionPaperCopy()}
+                        </p>
+                        {item.offlineResultStatus && (
+                          <div className="inline-block rounded-lg bg-orange-100/50 border border-orange-250 px-2.5 py-1 text-[10px] font-black text-orange-950 mt-1">
+                            {item.offlineResultStatus}
+                          </div>
+                        )}
+                      </div>
+                    ) : item.mode === 'WRITTEN' || item.mode === 'HYBRID' ? (
+                      <div className="rounded-xl bg-violet-50/40 border border-violet-100 p-3 mt-3 space-y-1.5">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-violet-850 flex items-center gap-1">
+                          <PenLine className="h-3 w-3" />
+                          {item.mode === 'HYBRID' ? 'MCQ + Written Upload' : 'Written Submission'}
+                        </p>
+                        <p className="text-xs font-black text-slate-700">
+                          {item.writtenStatus}
+                        </p>
                       </div>
                     ) : null}
-                    <Button
-                      className="w-full h-10 rounded-xl font-black uppercase tracking-widest text-[10px] bg-amber-600 hover:bg-amber-700 text-white"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(`/student/exams/${exam.id}`);
-                      }}
-                    >
-                      <Building2 className="h-3.5 w-3.5 mr-2" />
-                      {offlineInstructionsCta()}
-                    </Button>
-                    {exam.showLeaderboard ? (
-                      <Button
-                        variant="outline"
-                        className="w-full h-9 rounded-xl font-black uppercase tracking-widest text-[10px] border-amber-300 text-amber-900 hover:bg-amber-100"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/student/leaderboard/${exam.id}`);
-                        }}
-                      >
-                        <Trophy className="h-3.5 w-3.5 mr-2" />
-                        Leaderboard
-                      </Button>
-                    ) : null}
+
+                    {/* Score display for Completed */}
+                    {item.isCompleted && item.latestAttempt && (
+                      <div className="rounded-xl bg-emerald-50/40 border border-emerald-100 p-3 mt-3 flex items-center justify-between">
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-wider text-emerald-850 flex items-center gap-1">
+                            <Trophy className="h-3 w-3" /> Obtained Score
+                          </p>
+                          <p className="text-xs font-black text-slate-700 mt-0.5">
+                            Attempt {item.studentAttemptsCount} / {item.allowedAttempts}
+                          </p>
+                        </div>
+                        {item.latestAttempt.obtainedMarks != null && item.latestAttempt.totalMarks != null ? (
+                          <div className="text-right">
+                            <span className="text-sm font-black text-emerald-700">
+                              {item.latestAttempt.obtainedMarks} / {item.latestAttempt.totalMarks}
+                            </span>
+                            {item.latestAttempt.totalMarks > 0 && (
+                              <p className="text-[10px] font-black text-slate-400">
+                                {Math.round((item.latestAttempt.obtainedMarks / item.latestAttempt.totalMarks) * 100)}% Score
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs font-black text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-2 py-0.5">
+                            Grading Pending
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
 
-      {/* Written exams — available */}
-      {availableWritten.length > 0 && (
-        <section>
-          <h2 className="text-[11px] font-black uppercase tracking-[0.25em] text-violet-600 mb-4 flex items-center gap-2">
-            <PenLine className="h-3.5 w-3.5" /> Written Exams - New / In Progress
-          </h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {availableWritten.map((exam) => {
-              const remaining = timeRemaining(exam.endAt);
-              return (
-                <div
-                  key={exam.id}
-                  className="group relative overflow-hidden rounded-2xl border border-violet-200 bg-violet-50/30 p-6 shadow-sm hover:shadow-md hover:border-violet-300 transition-all cursor-pointer"
-                  onClick={() => router.push(`/student/exams/${exam.id}`)}
-                >
-                  {exam.hasInProgress && (
-                    <div className="absolute top-3 right-3">
-                      <span className="flex h-3 w-3">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500" />
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2 mb-3 flex-wrap">
-                    <Badge variant="outline" className={cn('rounded-lg text-[9px] font-black uppercase px-2 py-0.5', getTypeBadgeClass(exam.type))}>
-                      {exam.type.replace('_', ' ')}
-                    </Badge>
-                    <Badge variant="outline" className="rounded-lg text-[9px] font-black uppercase px-2 py-0.5 bg-violet-50 text-violet-700 border-violet-200">
-                      {exam.mode === 'HYBRID' ? 'HYBRID' : 'WRITTEN'}
-                    </Badge>
-                  </div>
-                  <h3 className="text-lg font-black text-slate-900 group-hover:text-violet-700 transition-colors mb-2">
-                    {exam.title}
-                  </h3>
-                  <p className="text-sm font-medium text-slate-500 mb-1">{exam.course?.name}</p>
-                  <div className="mt-3 rounded-xl border border-violet-200 bg-white/80 p-3">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-violet-700">
-                      {exam.mode === 'HYBRID'
-                        ? 'MCQ + handwritten upload'
-                        : 'Camera/PDF written upload'}
-                    </p>
-                    <p className="mt-1 text-xs font-bold text-slate-600">{writtenStatusLabel(exam)}</p>
-                  </div>
-                  <div className="flex items-center gap-4 text-xs font-medium text-slate-400 mt-3">
-                    {exam.durationMinutes && (
-                      <span className="flex items-center gap-1">
-                        <Timer className="h-3 w-3" /> {exam.durationMinutes} minutes
-                      </span>
-                    )}
-                    {remaining && (
-                      <span className="flex items-center gap-1 text-amber-600">
-                        <Clock className="h-3 w-3" /> {remaining}
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-4 pt-4 border-t border-violet-200/80 flex flex-col gap-2">
-                    <Button
-                      className={cn(
-                        'w-full h-10 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all',
-                        exam.hasInProgress
-                          ? 'bg-amber-500 hover:bg-amber-600 text-white'
-                          : 'bg-violet-600 hover:bg-violet-700 text-white'
-                      )}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(`/student/exams/${exam.id}`);
-                      }}
-                    >
-                      {exam.hasInProgress ? (
-                        <><RotateCcw className="h-3.5 w-3.5 mr-2" /> {writtenPrimaryAction(exam)}</>
-                      ) : (
-                        <><PenLine className="h-3.5 w-3.5 mr-2" /> {writtenPrimaryAction(exam)}</>
-                      )}
-                    </Button>
-                    {exam.showLeaderboard ? (
-                      <Button
-                        variant="outline"
-                        className="w-full h-9 rounded-xl font-black uppercase tracking-widest text-[10px]"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/student/leaderboard/${exam.id}`);
-                        }}
-                      >
-                        <Trophy className="h-3.5 w-3.5 mr-2" />
-                        Leaderboard
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* Written — completed */}
-      {completedWritten.length > 0 && (
-        <section>
-          <h2 className="text-[11px] font-black uppercase tracking-[0.25em] text-emerald-600 mb-4 flex items-center gap-2">
-            <CheckCircle2 className="h-3.5 w-3.5" /> Completed Written Exams
-          </h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {completedWritten.map((exam) => {
-              const lastAttempt = latestAttempt(exam);
-              const totalM = lastAttempt?.totalMarks ?? 0;
-              const obtainedM = lastAttempt?.obtainedMarks ?? 0;
-              const percentage = totalM > 0 && obtainedM != null
-                ? Math.round((obtainedM / totalM) * 100)
-                : null;
-              const attemptCount = exam.studentAttempts?.length ?? 0;
-              const canRetry = attemptCount < (exam.allowedAttempts ?? 1);
-              return (
-                <div
-                  key={exam.id}
-                  className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-all cursor-pointer"
-                  onClick={() => router.push(`/student/exams/${exam.id}?view=result`)}
-                >
-                  <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="outline" className={cn('rounded-lg text-[9px] font-black uppercase px-2 py-0.5', getTypeBadgeClass(exam.type))}>
-                        {exam.type.replace('_', ' ')}
-                      </Badge>
-                      <Badge variant="outline" className="rounded-lg text-[9px] font-black uppercase px-2 py-0.5 bg-violet-50 text-violet-700 border-violet-200">
-                        {exam.mode === 'HYBRID' ? 'HYBRID' : 'WRITTEN'}
-                      </Badge>
-                    </div>
-                    {percentage != null ? (
-                      <span className={cn(
-                        'text-sm font-black',
-                        percentage >= 80 ? 'text-emerald-600' : percentage >= 50 ? 'text-amber-600' : 'text-rose-600'
-                      )}>
-                        {percentage}%
-                      </span>
-                    ) : (
-                      <span className="text-xs font-bold text-amber-600">Evaluation pending</span>
-                    )}
-                  </div>
-                  <h3 className="text-lg font-bold text-slate-800 group-hover:text-violet-600 transition-colors mb-1">
-                    {exam.title}
-                  </h3>
-                  <p className="text-sm text-slate-500">{exam.course?.name ?? ''}</p>
-                  <div className="mt-3 rounded-xl border border-violet-100 bg-violet-50/50 p-3">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-violet-700">
-                      {exam.mode === 'HYBRID'
-                        ? 'Hybrid submission'
-                        : 'Written upload submission'}
-                    </p>
-                    <p className="mt-1 text-xs font-bold text-slate-600">{writtenStatusLabel(exam)}</p>
-                  </div>
-
-                  {lastAttempt && (
-                    <div className="flex items-center gap-3 mt-3 text-xs font-medium text-slate-400">
-                      <span className="flex items-center gap-1">
-                        <Trophy className="h-3 w-3 text-amber-500" />
-                        {obtainedM}/{totalM}
-                      </span>
-                      <span className="text-slate-300">
-                        {`Attempt ${attemptCount}/${exam.allowedAttempts ?? 1}`}
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col gap-2">
+                {/* Footer Buttons */}
+                <div className="mt-5 pt-4 border-t border-slate-100 flex flex-col gap-2">
+                  {item.isUpcoming ? (
                     <Button
                       variant="outline"
-                      className="w-full h-9 rounded-xl font-bold text-xs text-slate-600 hover:bg-violet-50 hover:text-violet-600 hover:border-violet-200 transition-all"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(`/student/exams/${exam.id}?view=result`);
-                      }}
+                      className="w-full h-10 rounded-xl font-black uppercase tracking-widest text-[10px] text-slate-500 border-slate-200 pointer-events-none"
                     >
-                      <FileText className="h-3.5 w-3.5 mr-2" /> {writtenPrimaryAction(exam)}
+                      <Clock className="h-3.5 w-3.5 mr-2" />
+                      Starts in countdown
                     </Button>
-                    {canRetry && (
+                  ) : item.isCompleted ? (
+                    <>
                       <Button
-                        className="w-full h-9 rounded-xl font-black uppercase tracking-widest text-[10px] bg-violet-600 hover:bg-violet-700 text-white"
+                        variant="outline"
+                        className="w-full h-10 rounded-xl font-black uppercase tracking-widest text-[10px] text-slate-750 border-slate-200 hover:bg-slate-50 hover:text-slate-900 transition"
                         onClick={(e) => {
                           e.stopPropagation();
-                          router.push(`/student/exams/${exam.id}`);
+                          router.push(`/student/exams/${item.id}?view=result`);
                         }}
                       >
-                        <RotateCcw className="h-3.5 w-3.5 mr-2" /> Re-attempt
+                        <FileText className="h-3.5 w-3.5 mr-2" />
+                        {item.mode === 'WRITTEN' || item.mode === 'HYBRID' ? item.writtenAction : 'View Results'}
                       </Button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* Online — in-progress or available */}
-      {availableOnline.length > 0 && (
-        <section>
-          <h2 className="text-[11px] font-black uppercase tracking-[0.25em] text-indigo-600 mb-4 flex items-center gap-2">
-            <Play className="h-3.5 w-3.5" /> Online Exams - New / In Progress
-          </h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {availableOnline.map((exam) => {
-              const remaining = timeRemaining(exam.endAt);
-              return (
-                <div
-                  key={exam.id}
-                  className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all cursor-pointer"
-                  onClick={() => router.push(`/student/exams/${exam.id}`)}
-                >
-                  {exam.hasInProgress && (
-                    <div className="absolute top-3 right-3">
-                      <span className="flex h-3 w-3">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500" />
-                      </span>
-                    </div>
-                  )}
-                  
-                  <div className="flex items-center gap-2 mb-3 flex-wrap">
-                    <Badge variant="outline" className={cn("rounded-lg text-[9px] font-black uppercase px-2 py-0.5", getTypeBadgeClass(exam.type))}>
-                      {exam.type.replace('_', ' ')}
-                    </Badge>
-                    {exam.examEngine && exam.examEngine !== 'REGULAR' ? (
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          'rounded-lg text-[9px] font-black uppercase px-2 py-0.5',
-                          getEngineBadgeClass(exam.examEngine),
-                        )}
-                      >
-                        {exam.examEngine.replace(/_/g, ' ')}
-                      </Badge>
-                    ) : null}
-                    <Badge variant="outline" className="rounded-lg text-[9px] font-black uppercase px-2 py-0.5 bg-cyan-50 text-cyan-700 border-cyan-100">
-                      ONLINE
-                    </Badge>
-                  </div>
-
-                  <h3 className="text-lg font-black text-slate-900 group-hover:text-indigo-600 transition-colors mb-2">
-                    {exam.title}
-                  </h3>
-
-                  <p className="text-sm font-medium text-slate-500 mb-1">
-                    {exam.course?.name}
-                  </p>
-
-                  <div className="flex items-center gap-4 text-xs font-medium text-slate-400 mt-3">
-                    {exam.durationMinutes && (
-                      <span className="flex items-center gap-1">
-                        <Timer className="h-3 w-3" /> {exam.durationMinutes} minutes
-                      </span>
-                    )}
-                    {remaining && (
-                      <span className="flex items-center gap-1 text-amber-600">
-                        <Clock className="h-3 w-3" /> {remaining}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col gap-2">
-                    <Button
-                      className={cn(
-                        "w-full h-10 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all",
-                        exam.hasInProgress
-                          ? "bg-amber-500 hover:bg-amber-600 text-white"
-                          : "bg-indigo-600 hover:bg-indigo-700 text-white"
+                      
+                      {item.studentAttemptsCount < item.allowedAttempts && (
+                        <Button
+                          className="w-full h-10 rounded-xl font-black uppercase tracking-widest text-[10px] bg-indigo-600 hover:bg-indigo-700 text-white"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/student/exams/${item.id}`);
+                          }}
+                        >
+                          <RotateCcw className="h-3.5 w-3.5 mr-2" />
+                          Re-attempt
+                        </Button>
                       )}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(`/student/exams/${exam.id}`);
-                      }}
-                    >
-                      {exam.hasInProgress ? (
-                        <><RotateCcw className="h-3.5 w-3.5 mr-2" /> Return to exam</>
+                    </>
+                  ) : (
+                    /* Active */
+                    <>
+                      {item.mode === 'OFFLINE' ? (
+                        <Button
+                          className="w-full h-10 rounded-xl font-black uppercase tracking-widest text-[10px] bg-orange-600 hover:bg-orange-700 text-white"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/student/exams/${item.id}`);
+                          }}
+                        >
+                          <Building2 className="h-3.5 w-3.5 mr-2" />
+                          {offlineInstructionsCta()}
+                        </Button>
+                      ) : item.mode === 'WRITTEN' || item.mode === 'HYBRID' ? (
+                        <Button
+                          className={cn(
+                            "w-full h-10 rounded-xl font-black uppercase tracking-widest text-[10px] text-white",
+                            item.hasInProgress ? "bg-amber-500 hover:bg-amber-655" : "bg-violet-650 hover:bg-violet-700"
+                          )}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/student/exams/${item.id}`);
+                          }}
+                        >
+                          {item.hasInProgress ? (
+                            <><RotateCcw className="h-3.5 w-3.5 mr-2" /> {item.writtenAction}</>
+                          ) : (
+                            <><PenLine className="h-3.5 w-3.5 mr-2" /> {item.writtenAction}</>
+                          )}
+                        </Button>
                       ) : (
-                        <><Play className="h-3.5 w-3.5 mr-2" /> Start exam</>
+                        /* ONLINE */
+                        <Button
+                          className={cn(
+                            "w-full h-10 rounded-xl font-black uppercase tracking-widest text-[10px] text-white",
+                            item.hasInProgress ? "bg-amber-500 hover:bg-amber-655" : "bg-indigo-600 hover:bg-indigo-700"
+                          )}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/student/exams/${item.id}`);
+                          }}
+                        >
+                          {item.hasInProgress ? (
+                            <><RotateCcw className="h-3.5 w-3.5 mr-2" /> Return to Exam</>
+                          ) : (
+                            <><Play className="h-3.5 w-3.5 mr-2" /> Start Exam</>
+                          )}
+                        </Button>
                       )}
-                    </Button>
-                    {exam.showLeaderboard ? (
-                      <Button
-                        variant="outline"
-                        className="w-full h-9 rounded-xl font-black uppercase tracking-widest text-[10px]"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/student/leaderboard/${exam.id}`);
-                        }}
-                      >
-                        <Trophy className="h-3.5 w-3.5 mr-2" />
-                        Leaderboard
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* Online — completed */}
-      {completedOnline.length > 0 && (
-        <section>
-          <h2 className="text-[11px] font-black uppercase tracking-[0.25em] text-emerald-600 mb-4 flex items-center gap-2">
-            <CheckCircle2 className="h-3.5 w-3.5" /> Completed Online Exams
-          </h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {completedOnline.map((exam) => {
-              const lastAttempt = exam.studentAttempts?.[exam.studentAttempts.length - 1];
-              const totalM = lastAttempt?.totalMarks ?? 0;
-              const obtainedM = lastAttempt?.obtainedMarks ?? 0;
-              const percentage = totalM > 0 && obtainedM != null
-                ? Math.round((obtainedM / totalM) * 100)
-                : null;
-              const attemptCount = exam.studentAttempts?.length ?? 0;
-              const canRetry = attemptCount < (exam.allowedAttempts ?? 1);
-              return (
-                <div
-                  key={exam.id}
-                  className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-all cursor-pointer"
-                  onClick={() => router.push(`/student/exams/${exam.id}?view=result`)}
-                >
-                  <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline" className={cn("rounded-lg text-[9px] font-black uppercase px-2 py-0.5", getTypeBadgeClass(exam.type))}>
-                      {exam.type.replace('_', ' ')}
-                    </Badge>
-                    {exam.examEngine && exam.examEngine !== 'REGULAR' ? (
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          'rounded-lg text-[9px] font-black uppercase px-2 py-0.5',
-                          getEngineBadgeClass(exam.examEngine),
-                        )}
-                      >
-                        {exam.examEngine.replace(/_/g, ' ')}
-                      </Badge>
-                    ) : null}
-                    </div>
-                    {percentage != null && (
-                      <span className={cn(
-                        "text-sm font-black",
-                        percentage >= 80 ? "text-emerald-600" : percentage >= 50 ? "text-amber-600" : "text-rose-600"
-                      )}>
-                        {percentage}%
-                      </span>
-                    )}
-                  </div>
-
-                  <h3 className="text-lg font-bold text-slate-800 group-hover:text-indigo-600 transition-colors mb-1">
-                    {exam.title}
-                  </h3>
-                  <p className="text-sm text-slate-500">{exam.course?.name ?? ''}</p>
-
-                  {lastAttempt && (
-                    <div className="flex items-center gap-3 mt-3 text-xs font-medium text-slate-400">
-                      <span className="flex items-center gap-1">
-                        <Trophy className="h-3 w-3 text-amber-500" />
-                        {obtainedM}/{totalM}
-                      </span>
-                      {lastAttempt.submittedAt && (
-                        <span>{new Date(lastAttempt.submittedAt).toLocaleDateString('en-US')}</span>
-                      )}
-                      <span className="text-slate-300">
-                        {`Attempt ${attemptCount}/${exam.allowedAttempts ?? 1}`}
-                      </span>
-                    </div>
+                    </>
                   )}
 
-                  <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col gap-2">
+                  {item.showLeaderboard && (
                     <Button
                       variant="outline"
-                      className="w-full h-9 rounded-xl font-bold text-xs text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-all"
+                      className="w-full h-9 rounded-xl font-black uppercase tracking-widest text-[10px] border-slate-200 text-slate-705 hover:bg-slate-50 transition"
                       onClick={(e) => {
                         e.stopPropagation();
-                        router.push(`/student/exams/${exam.id}?view=result`);
+                        router.push(`/student/leaderboard/${item.id}`);
                       }}
                     >
-                      <FileText className="h-3.5 w-3.5 mr-2" /> View results
+                      <Trophy className="h-3.5 w-3.5 mr-2 text-amber-500" />
+                      Leaderboard
                     </Button>
-                    {canRetry && (
-                      <Button
-                        className="w-full h-9 rounded-xl font-black uppercase tracking-widest text-[10px] bg-indigo-600 hover:bg-indigo-700 text-white"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/student/exams/${exam.id}`);
-                        }}
-                      >
-                        <RotateCcw className="h-3.5 w-3.5 mr-2" /> Re-attempt
-                      </Button>
-                    )}
-                    {exam.showLeaderboard ? (
-                      <Button
-                        variant="outline"
-                        className="w-full h-9 rounded-xl font-bold text-xs text-amber-700 border-amber-200 hover:bg-amber-50"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/student/leaderboard/${exam.id}`);
-                        }}
-                      >
-                        <Trophy className="h-3.5 w-3.5 mr-2" /> Leaderboard
-                      </Button>
-                    ) : null}
-                  </div>
+                  )}
                 </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {exams.length === 0 && (
-        <div className="flex flex-col items-center justify-center p-20 rounded-3xl border border-dashed border-slate-200 bg-slate-50">
-          <BookOpenCheck className="h-16 w-16 text-slate-300 mb-4" />
-          <p className="text-lg font-bold text-slate-400">No exams available yet</p>
-          <p className="text-sm text-slate-400 mt-1">You will see exams here after enrolling in a course</p>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        /* Empty State */
+        <div className="flex flex-col items-center justify-center p-16 rounded-3xl border border-dashed border-slate-200 bg-slate-50/50 text-center">
+          <BookOpenCheck className="h-14 w-14 text-slate-300 mb-4" />
+          <h3 className="text-base font-black text-slate-700 uppercase tracking-wider">No exams found</h3>
+          <p className="text-sm text-slate-400 mt-1 max-w-sm font-semibold leading-relaxed">
+            {searchQuery || selectedMode !== 'all' || selectedType !== 'all' || selectedCourse !== 'all'
+              ? "We couldn't find any exams matching your current search or filter options. Try resetting them."
+              : "You do not have any exams in this section yet."}
+          </p>
+          {(searchQuery || selectedMode !== 'all' || selectedType !== 'all' || selectedCourse !== 'all') && (
+            <Button
+              onClick={() => {
+                setSearchQuery('');
+                setSelectedMode('all');
+                setSelectedType('all');
+                setSelectedCourse('all');
+              }}
+              className="mt-6 h-10 rounded-xl px-5 bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase tracking-widest text-[10px]"
+            >
+              Reset Filters
+            </Button>
+          )}
         </div>
       )}
     </div>

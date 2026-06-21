@@ -31,12 +31,16 @@ export function recipientKey(recipient: SmsRecipient, index?: number) {
   return recipient.id || recipient.phone || String(index ?? '');
 }
 
+export const DUE_SMS_VARIABLES = ['name', 'program', 'month', 'phone', 'institute'];
+
 export function variablesForComposer(args: {
   method: SendMethod;
   bulkVariables: string[];
   directMode?: DirectRecipientMode;
   focused?: boolean;
+  recipientVariant?: 'default' | 'due';
 }) {
+  if (args.recipientVariant === 'due') return DUE_SMS_VARIABLES;
   if (args.method === 'bulk') return args.bulkVariables;
   if (args.method === 'manual') return RAW_SMS_VARIABLES;
   if (args.method === 'direct') return args.directMode === 'raw' ? RAW_SMS_VARIABLES : STUDENT_SMS_VARIABLES;

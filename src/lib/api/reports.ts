@@ -77,9 +77,15 @@ export interface CourseTransactionParams {
   courseId: string;
   from?: string;
   to?: string;
+  month?: string;
   branchId?: string;
-  /** ALL | PAID | PARTIAL | UNPAID — filters by selected course line allocation status */
+  search?: string;
+  /** ALL | PAID | PARTIAL | UNPAID | WAIVED — filters by selected course line allocation status */
   paymentStatus?: string;
+  includeWaived?: boolean;
+  page?: number;
+  /** Number or `'all'` to fetch every matching row (export / bulk SMS). */
+  limit?: number | 'all';
 }
 
 export interface CourseTransactionData {
@@ -91,16 +97,18 @@ export interface CourseTransactionData {
   month: string | null;
   status: string;
   createdAt: string;
+  lastPaymentDate?: string | null;
   nextPaymentDueDate?: string | null;
   gracePeriodEnd?: string | null;
   gross: number;
   discount: number;
+  waived?: number;
   net: number;
   paid: number;
   due: number;
   collectionPercent: number;
   progressLabel: string;
-  courseStatus: 'PAID' | 'PARTIAL' | 'UNPAID';
+  courseStatus: 'PAID' | 'PARTIAL' | 'UNPAID' | 'WAIVED';
   student?: {
     id: string;
     fullName: string;
@@ -120,6 +128,7 @@ export interface CourseTransactionData {
 export interface CourseTransactionTotals {
   gross: number;
   discount: number;
+  waived?: number;
   netPayable: number;
   paid: number;
   due: number;
@@ -127,12 +136,20 @@ export interface CourseTransactionTotals {
   paidCount: number;
   partialCount: number;
   unpaidCount: number;
+  waivedCount?: number;
 }
 
 export interface CourseTransactionResponse {
   success: boolean;
+  message?: string;
   data: CourseTransactionData[];
   totals?: CourseTransactionTotals;
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
 }
 
 export interface SystemStatsData {
@@ -182,8 +199,17 @@ export async function getCourseTransactions(
   queryParams.append('courseId', params.courseId);
   if (params.from) queryParams.append('from', params.from);
   if (params.to) queryParams.append('to', params.to);
+  if (params.month) queryParams.append('month', params.month);
   if (params.branchId) queryParams.append('branchId', params.branchId);
+  if (params.search?.trim()) queryParams.append('search', params.search.trim());
   if (params.paymentStatus) queryParams.append('paymentStatus', params.paymentStatus);
+  if (params.includeWaived) queryParams.append('includeWaived', 'true');
+  if (params.page && params.page > 1) queryParams.append('page', String(params.page));
+  if (params.limit === 'all') {
+    queryParams.append('limit', 'all');
+  } else if (params.limit) {
+    queryParams.append('limit', String(params.limit));
+  }
 
   return apiRequest<CourseTransactionResponse>(`/reports/course-transactions?${queryParams.toString()}`);
 }
@@ -293,6 +319,9 @@ export interface DueSummaryParams {
   status?: string;
   from?: string;
   to?: string;
+  search?: string;
+  page?: number;
+  limit?: number | 'all';
 }
 
 export interface DueSummaryRow {
@@ -316,14 +345,22 @@ export interface DueSummaryStudentRow {
   totalPaid: number;
   totalDue: number;
   courseSummary?: string | null;
+  programSummary?: string | null;
   nextDueDate?: string | null;
 }
 
 export interface DueSummaryResponse {
   success: boolean;
+  message?: string;
   data: DueSummaryRow[];
   studentSummaries?: DueSummaryStudentRow[];
   totals: { totalPayable: number; totalPaid: number; totalDue: number };
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
 }
 
 export async function getDueSummary(params?: DueSummaryParams): Promise<DueSummaryResponse> {
@@ -333,6 +370,13 @@ export async function getDueSummary(params?: DueSummaryParams): Promise<DueSumma
   if (params?.status) q.append('status', params.status);
   if (params?.from) q.append('from', params.from);
   if (params?.to) q.append('to', params.to);
+  if (params?.search?.trim()) q.append('search', params.search.trim());
+  if (params?.page && params.page > 1) q.append('page', String(params.page));
+  if (params?.limit === 'all') {
+    q.append('limit', 'all');
+  } else if (params?.limit) {
+    q.append('limit', String(params.limit));
+  }
   const qs = q.toString();
   return apiRequest<DueSummaryResponse>(`/reports/due-summary${qs ? `?${qs}` : ''}`);
 }

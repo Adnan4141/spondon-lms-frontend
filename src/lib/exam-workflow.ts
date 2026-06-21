@@ -21,9 +21,12 @@ const OFFICIAL_OFFLINE_MODES = new Set<ResultInputMode>([
   'OMR_SCAN',
 ]);
 
-type WorkflowSource = Pick<Exam, 'mode' | 'settings' | 'resultInputModes'>;
+type WorkflowSource = Pick<Exam, 'mode' | 'settings' | 'resultInputModes'> & { examWorkflow?: unknown };
 
 function workflowOf(exam: WorkflowSource | null): Record<string, unknown> {
+  if (exam && 'examWorkflow' in exam && exam.examWorkflow && typeof exam.examWorkflow === 'object' && !Array.isArray(exam.examWorkflow)) {
+    return exam.examWorkflow as Record<string, unknown>;
+  }
   const settings = exam?.settings;
   if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return {};
   const workflow = (settings as Record<string, unknown>).examWorkflow;

@@ -172,7 +172,7 @@ export function SmsSendWorkspace({
   const [directWallet, setDirectWallet] = useState<WalletSelection>(() => defaultWallet(actor));
   const [directRecipientMode, setDirectRecipientMode] = useState<DirectRecipientMode>('student');
   const [composer, setComposer] = useState<SmsComposerValue>({
-    message: focused?.defaultMessage || 'Dear {name}, this is a notice from {institute}.',
+    message: focused?.defaultMessage || '{name}, notice from {institute}.',
     smsType: 'masking',
     campaignName: '',
     templateKey: focused?.templateKey || queryTemplate,
@@ -331,6 +331,7 @@ export function SmsSendWorkspace({
     bulkVariables,
     directMode: directRecipientMode,
     focused: !!focused,
+    recipientVariant: focused?.recipientVariant,
   });
 
   async function queueSms() {

@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { getSmsTemplates, type SmsTemplate } from '@/lib/api/sms';
-import { smsLengthInfo } from '../sms-shared';
+import { smsLengthInfoForTemplate } from '../sms-shared';
 
 export type SmsComposerValue = {
   message: string;
@@ -77,7 +77,8 @@ export function SmsComposerPanel({
     () => availableTemplates.find((template) => template.key === value.templateKey),
     [availableTemplates, value.templateKey],
   );
-  const length = smsLengthInfo(value.message);
+  const length = smsLengthInfoForTemplate(value.message);
+  const hasPlaceholders = /\{[a-zA-Z0-9_]+\}/.test(value.message);
   const rate = value.smsType === 'masking' ? rates.maskingRate : rates.nonMaskingRate;
   const maskingLabel = gatewayCapability?.maskingSenderLabel || 'Spondon';
   const nonMaskingLabel = gatewayCapability?.nonMaskingSenderLabel || 'Non-Masking';
@@ -122,6 +123,7 @@ export function SmsComposerPanel({
         </h2>
         <span className="text-xs font-semibold text-slate-500">
           {length.length} chars | {Math.max(1, length.segments)} SMS | {length.encoding}
+          {hasPlaceholders ? ' (preview)' : ''}
         </span>
       </div>
       <div className="space-y-4 p-4">
