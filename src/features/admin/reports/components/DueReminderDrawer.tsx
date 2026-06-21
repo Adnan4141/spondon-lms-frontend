@@ -6,6 +6,11 @@ import { previewSmsDedupe, type SmsBalance, type SmsConfig, type SmsTemplate } f
 import { Badge } from '@/components/ui/badge';
 import { SmsFocusDrawerShell } from '@/features/admin/sms/components/SmsFocusDrawerShell';
 import { SmsSendWorkspace } from '@/features/admin/sms/components/SmsSendWorkspace';
+import {
+  buildDueReminderCampaignName,
+  buildDueReminderDraftKey,
+  detectMixedBranches,
+} from '@/features/admin/sms/components/due-reminder/due-reminder-utils';
 import type { BranchOption } from '../shared';
 import { fmtCur, fmtNum } from '../shared';
 
@@ -85,6 +90,16 @@ export function DueReminderDrawer({
     [rows],
   );
 
+  const draftStorageKey = buildDueReminderDraftKey({
+    month: dedupeMonth,
+    branchId: filterBranchId || resolvedBranchId,
+  });
+  const defaultCampaignName = buildDueReminderCampaignName({
+    month: dedupeMonth,
+    branchLabel,
+  });
+  const isMixedBranch = !filterBranchId && detectMixedBranches(recipients);
+
   useEffect(() => {
     if (!open || rows.length === 0) {
       setAlreadyRemindedIds([]);
@@ -130,9 +145,11 @@ export function DueReminderDrawer({
     allowSchedule: true,
     recipientVariant: 'due' as const,
     alreadyRemindedIds,
+    draftStorageKey,
+    defaultCampaignName,
     dedupeScope: { dueMonth: dedupeMonth },
     recipients,
-  }), [alreadyRemindedIds, dedupeMonth, recipients, resolvedBranchId]);
+  }), [alreadyRemindedIds, dedupeMonth, defaultCampaignName, draftStorageKey, recipients, resolvedBranchId]);
 
   return (
     <SmsFocusDrawerShell
@@ -157,12 +174,23 @@ export function DueReminderDrawer({
           <Badge variant="outline" className="rounded-full font-semibold text-blue-700">
             {dedupeLoading ? 'Checking dedupe…' : `${fmtNum(willSendCount)} will send`}
           </Badge>
+          {isMixedBranch ? (
+            <Badge variant="outline" className="rounded-full font-semibold text-amber-700">
+              Mixed branches
+            </Badge>
+          ) : null}
         </>
       }
       infoBanner={
         <>
+          {isMixedBranch ? (
+            <>
+              <strong>Mixed branches selected.</strong> SMS will use the first student&apos;s branch wallet context.
+              {' '}
+            </>
+          ) : null}
           Students already reminded for <strong>{dedupeMonth}</strong> will be skipped automatically.
-          Follow the steps to review recipients, edit the message, and confirm before sending.
+          Message drafts are saved locally while this drawer is open.
         </>
       }
     >

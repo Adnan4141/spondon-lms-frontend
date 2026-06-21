@@ -9,6 +9,11 @@ import { Input } from '@/components/ui/input';
 import type { SmsRecipient } from '@/lib/api/sms';
 import { Panel } from '../../sms-shared';
 import { recipientKey } from '../send-workspace/utils';
+import {
+  DUE_RECIPIENT_ROW_HEIGHT,
+  recipientHasInvalidMobile,
+} from './due-reminder-utils';
+import { VirtualList } from './VirtualList';
 
 function fmtNum(n: number) {
   return new Intl.NumberFormat('en-BD').format(Math.round(n));
@@ -27,6 +32,12 @@ function dueSubtitle(recipient: SmsRecipient) {
   return parts.join(' · ');
 }
 
+type IndexedRecipient = {
+  recipient: SmsRecipient;
+  key: string;
+  sourceIndex: number;
+};
+
 export function DueRecipientReviewPanel({
   recipients,
   selectedKeys,
@@ -39,58 +50,69 @@ export function DueRecipientReviewPanel({
   onSelectionChange: (keys: string[]) => void;
 }) {
   const [query, setQuery] = useState('');
+  const [hideInvalidMobile, setHideInvalidMobile] = useState(false);
   const remindedSet = useMemo(() => new Set(alreadyRemindedIds), [alreadyRemindedIds]);
   const selectedSet = useMemo(() => new Set(selectedKeys), [selectedKeys]);
 
+  const indexedRecipients = useMemo<IndexedRecipient[]>(
+    () => recipients.map((recipient, index) => ({
+      recipient,
+      key: recipientKey(recipient, index),
+      sourceIndex: index,
+    })),
+    [recipients],
+  );
+
+  const invalidMobileCount = useMemo(
+    () => indexedRecipients.filter(({ recipient }) => recipientHasInvalidMobile(recipient)).length,
+    [indexedRecipients],
+  );
+
   const filteredRecipients = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    if (!normalized) return recipients;
-    return recipients.filter((recipient, index) => {
+    return indexedRecipients.filter(({ recipient, key }) => {
+      if (hideInvalidMobile && recipientHasInvalidMobile(recipient)) return false;
+      if (!normalized) return true;
       const haystack = [
         recipient.name,
         recipient.phone,
         recipient.variables?.name,
         recipient.variables?.amount,
         recipient.variables?.course,
-        recipientKey(recipient, index),
+        key,
       ]
         .filter(Boolean)
         .join(' ')
         .toLowerCase();
       return haystack.includes(normalized);
     });
-  }, [query, recipients]);
+  }, [hideInvalidMobile, indexedRecipients, query]);
 
   const selectedCount = selectedKeys.length;
-  const willSendCount = recipients.filter((recipient, index) => {
-    const key = recipientKey(recipient, index);
-    return selectedSet.has(key) && !remindedSet.has(recipient.id || key);
+  const willSendCount = indexedRecipients.filter(({ recipient, key }) => {
+    return selectedSet.has(key)
+      && !remindedSet.has(recipient.id || key)
+      && !recipientHasInvalidMobile(recipient);
   }).length;
-  const skippedCount = recipients.filter((recipient, index) => {
-    const key = recipientKey(recipient, index);
+  const skippedCount = indexedRecipients.filter(({ recipient, key }) => {
     return selectedSet.has(key) && remindedSet.has(recipient.id || key);
   }).length;
-  const totalDue = recipients.reduce((sum, recipient, index) => {
-    const key = recipientKey(recipient, index);
+  const invalidSelectedCount = indexedRecipients.filter(({ recipient, key }) => {
+    return selectedSet.has(key) && recipientHasInvalidMobile(recipient);
+  }).length;
+  const totalDue = indexedRecipients.reduce((sum, { recipient, key }) => {
     if (!selectedSet.has(key)) return sum;
     const amount = Number(String(recipient.variables?.amount || '0').replace(/,/g, ''));
     return sum + (Number.isFinite(amount) ? amount : 0);
   }, 0);
-  const allFilteredSelected = filteredRecipients.length > 0 && filteredRecipients.every((recipient, index) => {
-    const sourceIndex = recipients.indexOf(recipient);
-    const key = recipientKey(recipient, sourceIndex >= 0 ? sourceIndex : index);
-    return selectedSet.has(key);
-  });
+  const allFilteredSelected = filteredRecipients.length > 0 && filteredRecipients.every(({ key }) => selectedSet.has(key));
 
   function toggleKey(key: string) {
     onSelectionChange(selectedSet.has(key) ? selectedKeys.filter((item) => item !== key) : [...selectedKeys, key]);
   }
 
   function toggleAllFiltered() {
-    const filteredKeys = filteredRecipients.map((recipient, index) => {
-      const sourceIndex = recipients.indexOf(recipient);
-      return recipientKey(recipient, sourceIndex >= 0 ? sourceIndex : index);
-    });
+    const filteredKeys = filteredRecipients.map(({ key }) => key);
     if (allFilteredSelected) {
       onSelectionChange(selectedKeys.filter((key) => !filteredKeys.includes(key)));
       return;
@@ -98,15 +120,42 @@ export function DueRecipientReviewPanel({
     onSelectionChange([...new Set([...selectedKeys, ...filteredKeys])]);
   }
 
+  function deselectInvalidMobile() {
+    const invalidKeys = indexedRecipients
+      .filter(({ recipient }) => recipientHasInvalidMobile(recipient))
+      .map(({ key }) => key);
+    onSelectionChange(selectedKeys.filter((key) => !invalidKeys.includes(key)));
+  }
+
   return (
     <Panel title="Review Recipients">
       <div className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <StatCard label="Selected" value={fmtNum(selectedCount)} />
           <StatCard label="Will Send" value={fmtNum(willSendCount)} tone="emerald" />
           <StatCard label="Already Reminded" value={fmtNum(skippedCount)} tone="amber" />
+          <StatCard label="Invalid Mobile" value={fmtNum(invalidSelectedCount)} tone="rose" />
           <StatCard label="Selected Due" value={fmtCur(totalDue)} tone="rose" />
         </div>
+
+        {invalidMobileCount > 0 ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+            <p>
+              <strong>{fmtNum(invalidMobileCount)}</strong> recipient{invalidMobileCount === 1 ? ' has an' : 's have'} invalid mobile number{invalidMobileCount === 1 ? '' : 's'}.
+              They cannot receive SMS.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" size="sm" variant="outline" onClick={() => setHideInvalidMobile((prev) => !prev)}>
+                {hideInvalidMobile ? 'Show Invalid' : 'Hide Invalid'}
+              </Button>
+              {invalidSelectedCount > 0 ? (
+                <Button type="button" size="sm" variant="outline" onClick={deselectInvalidMobile}>
+                  Deselect Invalid
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="relative min-w-[220px] flex-1">
@@ -123,22 +172,20 @@ export function DueRecipientReviewPanel({
           </Button>
         </div>
 
-        <div className="max-h-[420px] overflow-auto rounded-lg border border-slate-200">
-          {filteredRecipients.length === 0 ? (
-            <p className="px-4 py-10 text-center text-sm text-slate-500">No recipients match your search.</p>
-          ) : filteredRecipients.map((recipient, index) => {
-            const sourceIndex = recipients.indexOf(recipient);
-            const key = recipientKey(recipient, sourceIndex >= 0 ? sourceIndex : index);
+        <VirtualList
+          items={filteredRecipients}
+          rowHeight={DUE_RECIPIENT_ROW_HEIGHT}
+          getKey={(item) => item.key}
+          emptyState={<p className="px-4 py-10 text-center text-sm text-slate-500">No recipients match your search.</p>}
+          renderRow={({ recipient, key }) => {
             const recipientId = recipient.id || key;
             const checked = selectedSet.has(key);
             const alreadyReminded = remindedSet.has(recipientId);
+            const invalidMobile = recipientHasInvalidMobile(recipient);
             const subtitle = dueSubtitle(recipient);
 
             return (
-              <label
-                key={`${key}-${index}`}
-                className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3 last:border-0 hover:bg-slate-50"
-              >
+              <label className="flex h-full items-start justify-between gap-3 border-b border-slate-100 px-4 py-3 hover:bg-slate-50">
                 <span className="flex min-w-0 items-start gap-3">
                   <Checkbox
                     checked={checked}
@@ -153,15 +200,26 @@ export function DueRecipientReviewPanel({
                           Already reminded
                         </Badge>
                       ) : null}
+                      {invalidMobile ? (
+                        <Badge className="rounded-full bg-rose-100 text-[10px] font-black uppercase tracking-wide text-rose-800 hover:bg-rose-100">
+                          Invalid mobile
+                        </Badge>
+                      ) : null}
                     </span>
-                    {subtitle ? <span className="mt-0.5 block text-xs text-slate-500">{subtitle}</span> : null}
+                    {subtitle ? <span className="mt-0.5 block truncate text-xs text-slate-500">{subtitle}</span> : null}
                   </span>
                 </span>
-                <span className="shrink-0 text-xs font-semibold text-slate-500">{recipient.phone}</span>
+                <span className="shrink-0 text-xs font-semibold text-slate-500">{recipient.phone || '—'}</span>
               </label>
             );
-          })}
-        </div>
+          }}
+        />
+
+        {filteredRecipients.length > 0 ? (
+          <p className="text-xs text-slate-500">
+            Showing {fmtNum(filteredRecipients.length)} of {fmtNum(recipients.length)} recipients with virtual scrolling.
+          </p>
+        ) : null}
       </div>
     </Panel>
   );

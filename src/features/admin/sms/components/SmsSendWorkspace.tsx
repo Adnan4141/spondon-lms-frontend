@@ -27,6 +27,13 @@ import type { Actor, BranchOption, DirectRecipientMode, MethodMeta, SendMethod, 
 import { recipientKey, renderTemplate, variablesForComposer } from './send-workspace/utils';
 import { DueRecipientReviewPanel } from './due-reminder/DueRecipientReviewPanel';
 import { DueReminderStepper, type DueReminderStep } from './due-reminder/DueReminderStepper';
+import { DueReminderSuccessPanel } from './due-reminder/DueReminderSuccessPanel';
+import {
+  clearDueReminderDraft,
+  loadDueReminderDraft,
+  recipientHasInvalidMobile,
+  saveDueReminderDraft,
+} from './due-reminder/due-reminder-utils';
 
 const METHOD_META: Record<SendMethod, MethodMeta> = {
   students: { label: 'Students', icon: UserRoundCheck, context: 'manual_students', type: 'NOTICE', source: 'DIRECT' },
@@ -143,6 +150,8 @@ export function SmsSendWorkspace({
     stepped?: boolean;
     recipientVariant?: 'default' | 'due';
     alreadyRemindedIds?: string[];
+    draftStorageKey?: string;
+    defaultCampaignName?: string;
     metadata?: Record<string, unknown>;
     dedupeScope?: { examId?: string; resultBatchId?: string; dueMonth?: string };
   };
@@ -170,6 +179,7 @@ export function SmsSendWorkspace({
   });
   const [activeStep, setActiveStep] = useState<DueReminderStep>('review');
   const [confirmChecked, setConfirmChecked] = useState(false);
+  const [sendResult, setSendResult] = useState<{ queuedCount: number; estimatedCost: number; scheduledAt?: string } | null>(null);
   const isSteppedDue = Boolean(focused?.locked && focused?.stepped);
   const remindedSet = useMemo(() => new Set(focused?.alreadyRemindedIds || []), [focused?.alreadyRemindedIds]);
 
@@ -208,8 +218,38 @@ export function SmsSendWorkspace({
     }
     setActiveStep('review');
     setConfirmChecked(false);
+    setSendResult(null);
     setSelectedRecipientKeys(focused.recipients.map((recipient, index) => recipientKey(recipient, index)));
   }, [focused?.stepped, recipientSignature, focused?.recipients]);
+
+  useEffect(() => {
+    if (!isSteppedDue || !focused?.defaultCampaignName) return;
+    setComposer((prev) => ({
+      ...prev,
+      campaignName: prev.campaignName || focused.defaultCampaignName || '',
+    }));
+  }, [focused?.defaultCampaignName, isSteppedDue, recipientSignature]);
+
+  useEffect(() => {
+    if (!isSteppedDue || !focused?.draftStorageKey) return;
+    const draft = loadDueReminderDraft(focused.draftStorageKey);
+    if (!draft) return;
+    setComposer((prev) => ({
+      ...prev,
+      message: draft.message || prev.message,
+      smsType: draft.smsType || prev.smsType,
+      scheduledAt: draft.scheduledAt,
+    }));
+  }, [focused?.draftStorageKey, isSteppedDue, recipientSignature]);
+
+  useEffect(() => {
+    if (!isSteppedDue || !focused?.draftStorageKey) return;
+    saveDueReminderDraft(focused.draftStorageKey, {
+      message: composer.message,
+      smsType: composer.smsType,
+      scheduledAt: composer.scheduledAt,
+    });
+  }, [composer.message, composer.scheduledAt, composer.smsType, focused?.draftStorageKey, isSteppedDue]);
 
   useEffect(() => {
     setDirectWallet(defaultWallet(actor));
@@ -228,8 +268,15 @@ export function SmsSendWorkspace({
   }, [focused?.locked, focused?.stepped, recipients, selectedRecipientKeys]);
 
   const deliverableRecipients = useMemo(
-    () => pickedRecipients.filter((recipient, index) => !remindedSet.has(recipient.id || recipientKey(recipient, index))),
+    () => pickedRecipients.filter((recipient, index) => {
+      const key = recipient.id || recipientKey(recipient, index);
+      return !remindedSet.has(key) && !recipientHasInvalidMobile(recipient);
+    }),
     [pickedRecipients, remindedSet],
+  );
+  const invalidSelectedCount = useMemo(
+    () => pickedRecipients.filter((recipient) => recipientHasInvalidMobile(recipient)).length,
+    [pickedRecipients],
   );
 
   const sampleRecipient = pickedRecipients[0];
@@ -275,7 +322,9 @@ export function SmsSendWorkspace({
   const reviewContinueDisabled = pickedRecipients.length === 0 ? 'Select at least one recipient' : '';
   const messageContinueDisabled = !composer.message.trim() ? 'Write your message' : '';
   const sendBlockedReason = isSteppedDue && deliverableRecipients.length === 0 && pickedRecipients.length > 0
-    ? 'All selected students were already reminded this month'
+    ? invalidSelectedCount === pickedRecipients.length
+      ? 'All selected students have invalid mobile numbers'
+      : 'All selected students were already reminded this month'
     : (disabledReason || confirmBlockedReason);
   const composerVariables = variablesForComposer({
     method: focused?.method || method,
@@ -308,7 +357,19 @@ export function SmsSendWorkspace({
       toast({
         title: res.message || `${res.data.queuedCount} SMS queued`,
         description: composer.scheduledAt ? `Scheduled for ${new Date(composer.scheduledAt).toLocaleString()}` : `Estimated cost ৳${Number(res.data.estimatedCost ?? estimatedCost).toFixed(2)}`,
+        variant: 'success',
       });
+      if (isSteppedDue && focused?.draftStorageKey) {
+        clearDueReminderDraft(focused.draftStorageKey);
+      }
+      if (isSteppedDue) {
+        setSendResult({
+          queuedCount: res.data.queuedCount,
+          estimatedCost: Number(res.data.estimatedCost ?? estimatedCost),
+          scheduledAt: composer.scheduledAt,
+        });
+        return;
+      }
       setSelectedRecipientKeys([]);
       if (!focused?.locked) setRecipients([]);
       onSuccess?.();
@@ -372,6 +433,17 @@ export function SmsSendWorkspace({
           </div>
         </Tabs>
       ) : isSteppedDue ? (
+        sendResult ? (
+          <DueReminderSuccessPanel
+            queuedCount={sendResult.queuedCount}
+            estimatedCost={sendResult.estimatedCost}
+            scheduledAt={sendResult.scheduledAt}
+            onDone={() => {
+              setSendResult(null);
+              onSuccess?.();
+            }}
+          />
+        ) : (
         <div className="space-y-4">
           <DueReminderStepper activeStep={activeStep} onStepClick={setActiveStep} />
           {activeStep === 'review' ? (
@@ -401,14 +473,20 @@ export function SmsSendWorkspace({
             <div className="space-y-4">
               <section className="rounded-xl border border-slate-200 bg-white p-5">
                 <h3 className="text-sm font-bold text-slate-950">Final Confirmation</h3>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                   <SummaryItem label="Selected" value={pickedRecipients.length.toLocaleString()} />
                   <SummaryItem label="Will Send" value={deliverableRecipients.length.toLocaleString()} tone="emerald" />
-                  <SummaryItem label="Already Reminded" value={(pickedRecipients.length - deliverableRecipients.length).toLocaleString()} tone="rose" />
+                  <SummaryItem label="Already Reminded" value={(pickedRecipients.length - deliverableRecipients.length - invalidSelectedCount).toLocaleString()} tone="amber" />
+                  <SummaryItem label="Invalid Mobile" value={invalidSelectedCount.toLocaleString()} tone="rose" />
                   <SummaryItem label="Est. Cost" value={`৳${estimatedCost.toFixed(2)}`} tone="emerald" />
                 </div>
-                {composer.scheduledAt ? (
+                {composer.campaignName ? (
                   <p className="mt-4 text-sm text-slate-600">
+                    Campaign: <strong>{composer.campaignName}</strong>
+                  </p>
+                ) : null}
+                {composer.scheduledAt ? (
+                  <p className="mt-2 text-sm text-slate-600">
                     Scheduled for <strong>{new Date(composer.scheduledAt).toLocaleString()}</strong>
                   </p>
                 ) : null}
@@ -426,6 +504,7 @@ export function SmsSendWorkspace({
             </div>
           ) : null}
         </div>
+        )
       ) : (
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,.9fr)]">
           <div className="space-y-4">
@@ -453,6 +532,7 @@ export function SmsSendWorkspace({
         </div>
       )}
 
+      {sendResult ? null : (
       <div className="sticky bottom-0 z-10 rounded-lg border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="grid flex-1 grid-cols-2 gap-2 text-sm sm:grid-cols-3 xl:grid-cols-7">
@@ -550,12 +630,13 @@ export function SmsSendWorkspace({
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }
 
-function SummaryItem({ label, value, tone = 'slate' }: { label: string; value: string | number; tone?: 'slate' | 'emerald' | 'rose' }) {
-  const toneClass = tone === 'emerald' ? 'text-emerald-700' : tone === 'rose' ? 'text-rose-700' : 'text-slate-950';
+function SummaryItem({ label, value, tone = 'slate' }: { label: string; value: string | number; tone?: 'slate' | 'emerald' | 'amber' | 'rose' }) {
+  const toneClass = tone === 'emerald' ? 'text-emerald-700' : tone === 'rose' ? 'text-rose-700' : tone === 'amber' ? 'text-amber-700' : 'text-slate-950';
   return (
     <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
       <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">{label}</p>
