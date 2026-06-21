@@ -57,7 +57,18 @@ import {
   Package,
   MessageSquare,
 } from 'lucide-react';
-import { SmsSendWorkspace } from '@/features/admin/sms/components/SmsSendWorkspace';
+import { DueReminderDrawer } from '../components/DueReminderDrawer';
+import { useSmsManagementData } from '@/features/admin/sms/hooks/useSmsManagement';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   BarChart,
   Bar,
@@ -82,6 +93,7 @@ import {
 export function DueCollectionTab({ branches }: { branches: BranchOption[] }) {
   const { toast } = useToast();
   const { user } = useAdminSession();
+  const smsData = useSmsManagementData(user);
   const [branchId, setBranchId] = useState('');
   const [month, setMonth] = useState('');
   const [status, setStatus] = useState('');
@@ -94,6 +106,8 @@ export function DueCollectionTab({ branches }: { branches: BranchOption[] }) {
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [smsRows, setSmsRows] = useState<DueSummaryStudentRow[]>([]);
   const [smsDrawerOpen, setSmsDrawerOpen] = useState(false);
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+  const [bulkConfirmRows, setBulkConfirmRows] = useState<DueSummaryStudentRow[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -166,8 +180,29 @@ export function DueCollectionTab({ branches }: { branches: BranchOption[] }) {
     setSmsDrawerOpen(true);
   }
 
+  function requestBulkSmsDrawer(rows: DueSummaryStudentRow[]) {
+    if (!rows.length) {
+      toast({ title: 'No unpaid students found for current filters', variant: 'destructive' });
+      return;
+    }
+    setBulkConfirmRows(rows);
+    setBulkConfirmOpen(true);
+  }
+
+  function confirmBulkSmsDrawer() {
+    openSmsDrawer(bulkConfirmRows);
+    setBulkConfirmOpen(false);
+    setBulkConfirmRows([]);
+  }
+
   const selectedRows = studentRows.filter((row) => selectedStudentIds.includes(row.studentUserId));
   const allSelected = studentRows.length > 0 && selectedStudentIds.length === studentRows.length;
+  const unpaidRows = studentRows.filter((row) => row.totalDue > 0);
+  const bulkConfirmTotalDue = bulkConfirmRows.reduce((sum, row) => sum + row.totalDue, 0);
+  const activeBranchLabel = branchId ? branches.find((branch) => branch.id === branchId)?.name : 'All Branches';
+  const sendBlockedMessage = smsData.providerBalanceValue === 'Gateway not configured'
+    ? smsData.providerBalanceError
+    : undefined;
 
   return (
     <div className="space-y-5">
@@ -215,7 +250,7 @@ export function DueCollectionTab({ branches }: { branches: BranchOption[] }) {
           type="button"
           variant="outline"
           disabled={studentRows.length === 0}
-          onClick={() => openSmsDrawer(studentRows.filter((row) => row.totalDue > 0))}
+          onClick={() => requestBulkSmsDrawer(unpaidRows)}
           className="h-9 gap-2"
         >
           <MessageSquare className="h-4 w-4" />
@@ -356,66 +391,48 @@ export function DueCollectionTab({ branches }: { branches: BranchOption[] }) {
         )}
       </div>
 
-      {smsDrawerOpen ? (
-        <div className="fixed inset-0 z-50">
-          <button
-            type="button"
-            className="absolute inset-0 bg-slate-950/45 backdrop-blur-[1px]"
-            aria-label="Close SMS workspace"
-            onClick={() => setSmsDrawerOpen(false)}
-          />
-          <div className="absolute right-0 top-0 h-full w-full max-w-6xl overflow-y-auto bg-slate-50 shadow-2xl">
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4">
-              <div>
-                <p className="text-xs font-black uppercase tracking-wider text-blue-600">Focused SMS Workspace</p>
-                <h2 className="text-lg font-bold text-slate-950">Due Reminder</h2>
+      <DueReminderDrawer
+        open={smsDrawerOpen}
+        onOpenChange={setSmsDrawerOpen}
+        rows={smsRows}
+        branches={branches}
+        actor={user}
+        month={month}
+        branchLabel={activeBranchLabel}
+        filterBranchId={branchId || undefined}
+        config={smsData.config}
+        templates={smsData.templates}
+        orgBalance={smsData.orgBalance}
+        branchBalances={smsData.branchBalances}
+        sendBlockedMessage={sendBlockedMessage}
+        onSuccess={() => {
+          setSelectedStudentIds([]);
+          void load();
+        }}
+      />
+
+      <AlertDialog open={bulkConfirmOpen} onOpenChange={setBulkConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Send due reminders to all unpaid students?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p>
+                  You are about to review SMS for <strong>{fmtNum(bulkConfirmRows.length)}</strong> student
+                  {bulkConfirmRows.length === 1 ? '' : 's'} with a combined due of <strong>{fmtCur(bulkConfirmTotalDue)}</strong>.
+                </p>
+                <p>
+                  Students already reminded for <strong>{month || new Date().toISOString().slice(0, 7)}</strong> will be skipped automatically.
+                </p>
               </div>
-              <Button type="button" variant="outline" onClick={() => setSmsDrawerOpen(false)}>Close</Button>
-            </div>
-            <div className="p-4 sm:p-6">
-              <SmsSendWorkspace
-                branches={branches}
-                actor={user}
-                rates={{ maskingRate: 0.5, nonMaskingRate: 0.35 }}
-                focused={{
-                  method: 'students',
-                  locked: true,
-                  contextLabel: 'Due Reminder',
-                  templateKey: 'DUE_REMINDER',
-                  defaultMessage: 'Dear {name}, you have a due of ৳{amount} for {course}. Please clear by {due_date}. - {institute}',
-                  context: 'due_reminder',
-                  type: 'DUE_REMINDER',
-                  source: 'DIRECT',
-                  scope: 'BRANCH',
-                  branchId: user?.role === 'BRANCH_ADMIN' ? user.branchId || undefined : smsRows[0]?.branchId || branchId || undefined,
-                  allowSchedule: true,
-                  dedupeScope: { dueMonth: month || new Date().toISOString().slice(0, 7) },
-                  recipients: smsRows.map((row) => ({
-                    id: row.studentUserId,
-                    name: row.fullName,
-                    phone: row.mobile,
-                    branchId: row.branchId,
-                    variables: {
-                      name: row.fullName,
-                      phone: row.mobile,
-                      amount: fmtNum(row.totalDue),
-                      month: month || 'current month',
-                      course: row.courseSummary || 'course fees',
-                      due_date: row.nextDueDate ? new Date(row.nextDueDate).toLocaleDateString('en-GB') : 'the due date',
-                      institute: 'Spondon LMS',
-                    },
-                  })),
-                }}
-                onSuccess={() => {
-                  setSmsDrawerOpen(false);
-                  setSelectedStudentIds([]);
-                  void load();
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      ) : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmBulkSmsDrawer}>Continue to Review</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

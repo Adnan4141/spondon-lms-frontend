@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { FileSpreadsheet, MessageSquare, Send, UserRoundCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
@@ -24,6 +25,8 @@ import { RecipientPreview, RenderedPreview } from './send-workspace/RecipientPre
 import { StudentsMethodPanel } from './send-workspace/StudentsMethodPanel';
 import type { Actor, BranchOption, DirectRecipientMode, MethodMeta, SendMethod, WalletSelection } from './send-workspace/types';
 import { recipientKey, renderTemplate, variablesForComposer } from './send-workspace/utils';
+import { DueRecipientReviewPanel } from './due-reminder/DueRecipientReviewPanel';
+import { DueReminderStepper, type DueReminderStep } from './due-reminder/DueReminderStepper';
 
 const METHOD_META: Record<SendMethod, MethodMeta> = {
   students: { label: 'Students', icon: UserRoundCheck, context: 'manual_students', type: 'NOTICE', source: 'DIRECT' },
@@ -109,6 +112,7 @@ export function SmsSendWorkspace({
   onSuccess,
   focused,
   sendBlockedMessage,
+  queueButtonLabel,
 }: {
   branches: BranchOption[];
   bulkState?: SmsBulkActionsHook['bulkState'];
@@ -122,6 +126,7 @@ export function SmsSendWorkspace({
   branchBalances?: SmsBalance[];
   onSuccess?: () => void;
   sendBlockedMessage?: string;
+  queueButtonLabel?: string;
   focused?: {
     method?: SendMethod;
     recipients: SmsRecipient[];
@@ -135,6 +140,9 @@ export function SmsSendWorkspace({
     scope?: 'ORG' | 'BRANCH';
     allowSchedule?: boolean;
     locked?: boolean;
+    stepped?: boolean;
+    recipientVariant?: 'default' | 'due';
+    alreadyRemindedIds?: string[];
     metadata?: Record<string, unknown>;
     dedupeScope?: { examId?: string; resultBatchId?: string; dueMonth?: string };
   };
@@ -160,6 +168,10 @@ export function SmsSendWorkspace({
     campaignName: '',
     templateKey: focused?.templateKey || queryTemplate,
   });
+  const [activeStep, setActiveStep] = useState<DueReminderStep>('review');
+  const [confirmChecked, setConfirmChecked] = useState(false);
+  const isSteppedDue = Boolean(focused?.locked && focused?.stepped);
+  const remindedSet = useMemo(() => new Set(focused?.alreadyRemindedIds || []), [focused?.alreadyRemindedIds]);
 
   const handleRecipientsResolved = useCallback((items: SmsRecipient[]) => {
     setRecipients(items);
@@ -184,16 +196,41 @@ export function SmsSendWorkspace({
     }));
   }, [focused]);
 
+  const recipientSignature = useMemo(
+    () => (focused?.recipients || []).map((recipient, index) => recipientKey(recipient, index)).join('|'),
+    [focused?.recipients],
+  );
+
+  useEffect(() => {
+    if (!focused?.stepped) {
+      setSelectedRecipientKeys([]);
+      return;
+    }
+    setActiveStep('review');
+    setConfirmChecked(false);
+    setSelectedRecipientKeys(focused.recipients.map((recipient, index) => recipientKey(recipient, index)));
+  }, [focused?.stepped, recipientSignature, focused?.recipients]);
+
   useEffect(() => {
     setDirectWallet(defaultWallet(actor));
   }, [actor, actor?.branchId, actor?.role]);
 
   const pickedRecipients = useMemo(() => {
+    if (focused?.locked && focused?.stepped) {
+      if (!selectedRecipientKeys.length) return [];
+      const selected = new Set(selectedRecipientKeys);
+      return recipients.filter((recipient, index) => selected.has(recipientKey(recipient, index)));
+    }
     if (focused?.locked) return recipients;
     if (!selectedRecipientKeys.length) return recipients;
     const selected = new Set(selectedRecipientKeys);
     return recipients.filter((recipient, index) => selected.has(recipientKey(recipient, index)));
-  }, [focused?.locked, recipients, selectedRecipientKeys]);
+  }, [focused?.locked, focused?.stepped, recipients, selectedRecipientKeys]);
+
+  const deliverableRecipients = useMemo(
+    () => pickedRecipients.filter((recipient, index) => !remindedSet.has(recipient.id || recipientKey(recipient, index))),
+    [pickedRecipients, remindedSet],
+  );
 
   const sampleRecipient = pickedRecipients[0];
   const sampleVars = {
@@ -205,7 +242,7 @@ export function SmsSendWorkspace({
   const preview = renderTemplate(composer.message, sampleVars);
   const length = smsLengthInfo(preview || composer.message);
   const smsEach = Math.max(1, length.segments);
-  const totalSms = pickedRecipients.length * smsEach;
+  const totalSms = (isSteppedDue ? deliverableRecipients.length : pickedRecipients.length) * smsEach;
   const rate = composer.smsType === 'masking' ? rates.maskingRate : rates.nonMaskingRate;
   const gatewayCapability = buildGatewayCapability(config, rates);
   const selectedSenderLabel = composer.smsType === 'masking'
@@ -222,7 +259,7 @@ export function SmsSendWorkspace({
   const availableBalance = balanceToNumber(wallet.scope === 'BRANCH' ? selectedBranchBalance : orgBalance?.balanceCount);
   const disabledReason = queueDisabledReason({
     providerError: sendBlockedMessage,
-    recipients: pickedRecipients.length,
+    recipients: isSteppedDue ? deliverableRecipients.length : pickedRecipients.length,
     message: composer.message,
     estimatedCostBdt: estimatedCost,
     availableBalanceBdt: availableBalance,
@@ -231,6 +268,15 @@ export function SmsSendWorkspace({
     smsType: composer.smsType,
     gatewayCapability,
   });
+  const requiresConfirmAck = isSteppedDue && deliverableRecipients.length >= 2;
+  const confirmBlockedReason = activeStep === 'confirm' && requiresConfirmAck && !confirmChecked
+    ? 'Confirm before sending due reminders'
+    : '';
+  const reviewContinueDisabled = pickedRecipients.length === 0 ? 'Select at least one recipient' : '';
+  const messageContinueDisabled = !composer.message.trim() ? 'Write your message' : '';
+  const sendBlockedReason = isSteppedDue && deliverableRecipients.length === 0 && pickedRecipients.length > 0
+    ? 'All selected students were already reminded this month'
+    : (disabledReason || confirmBlockedReason);
   const composerVariables = variablesForComposer({
     method: focused?.method || method,
     bulkVariables,
@@ -239,7 +285,7 @@ export function SmsSendWorkspace({
   });
 
   async function queueSms() {
-    if (disabledReason) return;
+    if (disabledReason || confirmBlockedReason) return;
     setSubmitting(true);
     try {
       const res = await dispatchSms({
@@ -325,16 +371,71 @@ export function SmsSendWorkspace({
             </div>
           </div>
         </Tabs>
+      ) : isSteppedDue ? (
+        <div className="space-y-4">
+          <DueReminderStepper activeStep={activeStep} onStepClick={setActiveStep} />
+          {activeStep === 'review' ? (
+            <DueRecipientReviewPanel
+              recipients={recipients}
+              selectedKeys={selectedRecipientKeys}
+              alreadyRemindedIds={focused.alreadyRemindedIds || []}
+              onSelectionChange={setSelectedRecipientKeys}
+            />
+          ) : null}
+          {activeStep === 'message' ? (
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,.85fr)]">
+              <SmsComposerPanel
+                value={composer}
+                onChange={setComposer}
+                rates={rates}
+                templates={templates}
+                allowSchedule={focused.allowSchedule !== false}
+                lockedTemplateKey={focused.templateKey}
+                variables={composerVariables}
+                gatewayCapability={gatewayCapability}
+              />
+              <RenderedPreview preview={preview} recipient={sampleRecipient} />
+            </div>
+          ) : null}
+          {activeStep === 'confirm' ? (
+            <div className="space-y-4">
+              <section className="rounded-xl border border-slate-200 bg-white p-5">
+                <h3 className="text-sm font-bold text-slate-950">Final Confirmation</h3>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <SummaryItem label="Selected" value={pickedRecipients.length.toLocaleString()} />
+                  <SummaryItem label="Will Send" value={deliverableRecipients.length.toLocaleString()} tone="emerald" />
+                  <SummaryItem label="Already Reminded" value={(pickedRecipients.length - deliverableRecipients.length).toLocaleString()} tone="rose" />
+                  <SummaryItem label="Est. Cost" value={`৳${estimatedCost.toFixed(2)}`} tone="emerald" />
+                </div>
+                {composer.scheduledAt ? (
+                  <p className="mt-4 text-sm text-slate-600">
+                    Scheduled for <strong>{new Date(composer.scheduledAt).toLocaleString()}</strong>
+                  </p>
+                ) : null}
+                {requiresConfirmAck ? (
+                  <label className="mt-5 flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                    <Checkbox checked={confirmChecked} onCheckedChange={(checked) => setConfirmChecked(checked === true)} className="mt-0.5" />
+                    <span className="text-sm text-slate-700">
+                      I confirm sending due reminders to <strong>{deliverableRecipients.length}</strong> students
+                      {estimatedCost > 0 ? <> (estimated cost <strong>৳{estimatedCost.toFixed(2)}</strong>)</> : null}.
+                    </span>
+                  </label>
+                ) : null}
+              </section>
+              <RenderedPreview preview={preview} recipient={sampleRecipient} />
+            </div>
+          ) : null}
+        </div>
       ) : (
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,.9fr)]">
           <div className="space-y-4">
-            <Panel title={focused.contextLabel}>
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <p className="text-sm font-semibold text-slate-900">Recipients are locked for this action.</p>
-                <p className="mt-1 text-sm text-slate-500">{pickedRecipients.length} resolved recipient{pickedRecipients.length === 1 ? '' : 's'} will receive this SMS.</p>
-              </div>
-            </Panel>
-            <RecipientPreview recipients={recipients} selected={[]} locked onSelectionChange={() => undefined} />
+            <RecipientPreview
+              recipients={recipients}
+              selected={[]}
+              locked
+              variant={focused.recipientVariant || 'default'}
+              onSelectionChange={() => undefined}
+            />
           </div>
           <div className="space-y-4">
             <SmsComposerPanel
@@ -358,7 +459,7 @@ export function SmsSendWorkspace({
             <SummaryItem label="Method" value={focused?.contextLabel || METHOD_META[method].label} />
             <SummaryItem label="SMS Mode" value={selectedModeLabel} />
             <SummaryItem label="Sender" value={selectedSenderLabel} />
-            <SummaryItem label="Recipients" value={pickedRecipients.length.toLocaleString()} />
+            <SummaryItem label="Recipients" value={(isSteppedDue ? deliverableRecipients.length : pickedRecipients.length).toLocaleString()} />
             <SummaryItem label="Total SMS" value={totalSms.toLocaleString()} />
             <SummaryItem label="Est. Cost" value={`৳${estimatedCost.toFixed(2)}`} tone="emerald" />
             <SummaryItem
@@ -367,17 +468,86 @@ export function SmsSendWorkspace({
               tone={availableBalance !== undefined && availableBalance - estimatedCost < 0 ? 'rose' : 'slate'}
             />
           </div>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="inline-flex">
-                <Button type="button" disabled={!!disabledReason || submitting} onClick={() => void queueSms()} className="h-11 gap-2">
-                  <Send className="h-4 w-4" />
-                  Queue SMS
+          {isSteppedDue ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {activeStep !== 'review' ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setActiveStep(activeStep === 'confirm' ? 'message' : 'review')}
+                >
+                  Back
                 </Button>
-              </span>
-            </TooltipTrigger>
-            {disabledReason ? <TooltipContent>{disabledReason}</TooltipContent> : null}
-          </Tooltip>
+              ) : null}
+              {activeStep === 'review' ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex">
+                      <Button
+                        type="button"
+                        disabled={!!reviewContinueDisabled}
+                        onClick={() => setActiveStep('message')}
+                      >
+                        Continue
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  {reviewContinueDisabled ? <TooltipContent>{reviewContinueDisabled}</TooltipContent> : null}
+                </Tooltip>
+              ) : null}
+              {activeStep === 'message' ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex">
+                      <Button
+                        type="button"
+                        disabled={!!messageContinueDisabled}
+                        onClick={() => {
+                          setConfirmChecked(false);
+                          setActiveStep('confirm');
+                        }}
+                      >
+                        Continue
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  {messageContinueDisabled ? <TooltipContent>{messageContinueDisabled}</TooltipContent> : null}
+                </Tooltip>
+              ) : null}
+              {activeStep === 'confirm' ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex">
+                      <Button
+                        type="button"
+                        disabled={!!disabledReason || !!confirmBlockedReason || (isSteppedDue && deliverableRecipients.length === 0) || submitting}
+                        onClick={() => void queueSms()}
+                        className="h-11 gap-2"
+                      >
+                        <Send className="h-4 w-4" />
+                        {queueButtonLabel || 'Queue SMS'}
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  {(sendBlockedReason || confirmBlockedReason || disabledReason) ? (
+                    <TooltipContent>{sendBlockedReason || confirmBlockedReason || disabledReason}</TooltipContent>
+                  ) : null}
+                </Tooltip>
+              ) : null}
+            </div>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex">
+                  <Button type="button" disabled={!!disabledReason || submitting} onClick={() => void queueSms()} className="h-11 gap-2">
+                    <Send className="h-4 w-4" />
+                    {queueButtonLabel || 'Queue SMS'}
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {disabledReason ? <TooltipContent>{disabledReason}</TooltipContent> : null}
+            </Tooltip>
+          )}
         </div>
       </div>
     </div>

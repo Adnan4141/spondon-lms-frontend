@@ -290,6 +290,15 @@ export const dispatchSms = (data: {
   body: JSON.stringify(data),
 });
 
+export const previewSmsDedupe = (data: {
+  type: string;
+  recipientIds: string[];
+  dedupeScope?: { examId?: string; resultBatchId?: string; dueMonth?: string };
+}) => apiRequest<ApiResponse<{ alreadySentIds: string[]; willSendIds: string[] }>>('/sms/dedupe-preview', {
+  method: 'POST',
+  body: JSON.stringify(data),
+});
+
 export const cancelQueuedSms = (id: string) => apiRequest<ApiResponse<{ id: string; status: string }>>(`/sms/queue/${encodeURIComponent(id)}/cancel`, {
   method: 'POST',
 });
