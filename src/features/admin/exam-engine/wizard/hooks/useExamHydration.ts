@@ -13,7 +13,7 @@ import {
   type WizardSubject,
 } from '../../types';
 import type { WizardFormAction } from '../examWizardReducer';
-import { EXAM_WIZARD_ALL_BRANCHES } from '../constants';
+import { EXAM_WIZARD_ALL_BATCHES, EXAM_WIZARD_ALL_BRANCHES } from '../constants';
 import type { ExamStatus, ResultInputMode } from '@/types/exam';
 import type { Exam } from '@/types/exam';
 
@@ -24,6 +24,7 @@ const VALID_RESULT_MODES = new Set<ResultInputMode>([
   'BULK_MANUAL',
   'BULK_EXCEL',
   'OMR_SCAN',
+  'WRITTEN_EVAL',
 ]);
 const VALID_SOLVE_VISIBILITIES = new Set<SolveSheetVisibility>(['IMMEDIATELY', 'HIDDEN', 'SCHEDULED']);
 
@@ -109,6 +110,9 @@ export function buildWizardPatchFromExam(exam: Exam): Partial<ExamWizardState> {
     title: exam.title,
     courseId: exam.courseId,
     branchId: exam.branchId ?? EXAM_WIZARD_ALL_BRANCHES,
+    batchId: exam.batchId ?? EXAM_WIZARD_ALL_BATCHES,
+    syllabusHtml: exam.syllabusHtml ?? '',
+    proctorStrict: Boolean((exam.settings as { proctorStrict?: boolean } | null)?.proctorStrict),
     language: exam.language ?? 'bn',
     durationMinutes: String(exam.durationMinutes ?? 60),
     allowedAttempts: String(exam.allowedAttempts ?? 1),
@@ -125,6 +129,9 @@ export function buildWizardPatchFromExam(exam: Exam): Partial<ExamWizardState> {
     shuffle: typeof wizard?.shuffle === 'string' ? wizard.shuffle : 'FULL',
     setNaming: (wizard?.setNaming as ExamWizardState['setNaming']) ?? 'ALPHA',
     productType,
+    examType: exam.type ?? 'MODEL',
+    scope: exam.scope ?? 'COURSE',
+    universityName: exam.universityName ?? '',
     omrConfig,
     resultInputModes: rawResultModes,
     // Loaded exams count as the admin's intentional configuration — suppress
@@ -144,15 +151,28 @@ interface Options {
   examId?: string;
   dispatch: React.Dispatch<WizardFormAction>;
   setActiveSectionId: (id: string | null) => void;
-  setServerExam: (value: { status: ExamStatus; pdfUrl?: string | null } | null) => void;
+  setServerExam: (value: {
+    status: ExamStatus;
+    pdfUrl?: string | null;
+    solveSheetUrl?: string | null;
+    setCount?: number;
+  } | null) => void;
   setStep1FieldErrors: (errors: Record<string, boolean>) => void;
+  teacherUserId?: string;
 }
 
 /**
  * Loads an exam by id and merges the result into wizard state. Also exposes
  * loading status so the host can render a skeleton.
  */
-export function useExamHydration({ examId, dispatch, setActiveSectionId, setServerExam, setStep1FieldErrors }: Options) {
+export function useExamHydration({
+  examId,
+  dispatch,
+  setActiveSectionId,
+  setServerExam,
+  setStep1FieldErrors,
+  teacherUserId,
+}: Options) {
   const [isLoadingExam, setIsLoadingExam] = useState(Boolean(examId));
 
   useEffect(() => {
@@ -162,7 +182,7 @@ export function useExamHydration({ examId, dispatch, setActiveSectionId, setServ
       setIsLoadingExam(true);
       try {
         const [ex, secRes, subRes] = await Promise.all([
-          getExamById(examId),
+          getExamById(examId, teacherUserId ? { teacherUserId } : undefined),
           getExamSections(examId),
           getExamSubjects(examId),
         ]);
@@ -170,7 +190,12 @@ export function useExamHydration({ examId, dispatch, setActiveSectionId, setServ
 
         const basePatch = buildWizardPatchFromExam(ex.data);
 
-        setServerExam({ status: ex.data.status, pdfUrl: ex.data.pdfUrl ?? null });
+        setServerExam({
+          status: ex.data.status,
+          pdfUrl: ex.data.pdfUrl ?? null,
+          solveSheetUrl: ex.data.solveSheetUrl ?? null,
+          setCount: ex.data.sets?.length ?? ex.data._count?.sets ?? 0,
+        });
 
         if (subRes.success && subRes.data?.length) {
           const mappedSubjects: WizardSubject[] = subRes.data.map((s: ExamSubject) => ({
@@ -252,7 +277,7 @@ export function useExamHydration({ examId, dispatch, setActiveSectionId, setServ
     return () => {
       cancelled = true;
     };
-  }, [dispatch, examId, setActiveSectionId, setServerExam, setStep1FieldErrors]);
+  }, [dispatch, examId, setActiveSectionId, setServerExam, setStep1FieldErrors, teacherUserId]);
 
   return { isLoadingExam };
 }

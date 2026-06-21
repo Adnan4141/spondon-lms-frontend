@@ -41,6 +41,7 @@ import { useExamWorkspace } from './layout/ExamWorkspaceShell';
 import { ExamWorkspacePageHeader } from './layout/ExamWorkspacePageHeader';
 import { examWorkspacePageClass } from './layout/examWorkspaceUi';
 import { TalentHuntPanel } from './TalentHuntPanel';
+import { ExamCourseLinksPanel } from './components/ExamCourseLinksPanel';
 
 export function ExamOverviewPage({ examId }: { examId: string }) {
   const router = useRouter();
@@ -425,6 +426,14 @@ export function ExamOverviewPage({ examId }: { examId: string }) {
             </WorkflowCard>
           </CardContent>
         </Card>
+      ) : null}
+
+      {exam.courseId ? (
+        <ExamCourseLinksPanel
+          examId={examId}
+          primaryCourseId={exam.courseId}
+          primaryCourseName={exam.course?.name}
+        />
       ) : null}
 
       {exam.examEngine === 'TALENT_HUNT' || exam.type === 'TALENT_HUNT' ? (

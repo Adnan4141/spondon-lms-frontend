@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import type { Dispatch } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,10 +17,11 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import { cn } from '@/lib/utils';
 import type { Course } from '@/types/course';
 import type { Branch } from '@/lib/api/branches';
+import { getBatches, type Batch } from '@/lib/api/batches';
 import type { ExamWizardState } from '../../types';
 import type { WizardFormAction } from '../examWizardReducer';
 import type { Step1FieldKey } from '../validateWizardStep';
-import { EXAM_WIZARD_ALL_BRANCHES } from '../constants';
+import { EXAM_WIZARD_ALL_BATCHES, EXAM_WIZARD_ALL_BRANCHES, resolveWizardBranchIdForApi } from '../constants';
 
 type Props = {
   state: ExamWizardState;
@@ -43,6 +45,32 @@ export function BasicExamInfoForm({
   onCourseSelect,
 }: Props) {
   const err = (key: Step1FieldKey) => Boolean(fieldErrors?.[key]);
+  const [batches, setBatches] = useState<Batch[]>([]);
+
+  useEffect(() => {
+    if (!state.courseId) {
+      setBatches([]);
+      return;
+    }
+    let cancelled = false;
+    const branchId = resolveWizardBranchIdForApi(state.branchId);
+    getBatches({
+      all: true,
+      status: 'ACTIVE',
+      courseId: state.courseId,
+      ...(branchId ? { branchId } : {}),
+    })
+      .then((res) => {
+        if (cancelled) return;
+        setBatches(res.success && res.data ? res.data : []);
+      })
+      .catch(() => {
+        if (!cancelled) setBatches([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [state.courseId, state.branchId]);
 
   const handleCourseSelect = (courseId: string) => {
     clearFieldError('courseId');
@@ -116,6 +144,31 @@ export function BasicExamInfoForm({
         </div>
 
         <div className="space-y-2">
+          <Label>Batch (optional)</Label>
+          <Select
+            value={state.batchId || EXAM_WIZARD_ALL_BATCHES}
+            onValueChange={(value) => dispatch({ type: 'MERGE', patch: { batchId: value } })}
+            disabled={!state.courseId}
+          >
+            <SelectTrigger className="border-slate-200">
+              <SelectValue placeholder={state.courseId ? 'Batch scope' : 'Select a course first'} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={EXAM_WIZARD_ALL_BATCHES}>All batches</SelectItem>
+              {batches.map((batch) => (
+                <SelectItem key={batch.id} value={batch.id}>
+                  {batch.name}
+                  {batch.branch?.name ? ` · ${batch.branch.name}` : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-[11px] text-slate-500">
+            Limit visibility to one batch, or leave as all batches for every enrolled student in scope.
+          </p>
+        </div>
+
+        <div className="space-y-2">
           <Label>Language</Label>
           <Select value={state.language} onValueChange={(value) => dispatch({ type: 'MERGE', patch: { language: value } })}>
             <SelectTrigger className="border-slate-200">
@@ -183,6 +236,23 @@ export function BasicExamInfoForm({
                 />
               </div>
             ) : null}
+          </div>
+        ) : null}
+
+        {deliveryMode === 'ONLINE' ? (
+          <div className="md:col-span-2 rounded-lg border border-slate-100 bg-slate-50 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <Label className="text-sm font-semibold text-slate-900">Strict proctoring</Label>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Auto-submit after 3 tab switches or focus losses during the attempt.
+                </p>
+              </div>
+              <Switch
+                checked={state.proctorStrict}
+                onCheckedChange={(checked) => dispatch({ type: 'MERGE', patch: { proctorStrict: checked } })}
+              />
+            </div>
           </div>
         ) : null}
 

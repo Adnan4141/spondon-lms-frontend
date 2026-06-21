@@ -1,6 +1,7 @@
 import type {
   ExamEngineType,
   ExamMode,
+  ExamScope,
   ExamType,
   ResultInputMode,
   SelectionMode,
@@ -82,6 +83,12 @@ export interface ExamWizardState {
 
   /** Exam product type axis (MCQ, WRITTEN, COMBINED, MULTI). */
   productType: ExamProductType | '';
+  /** Published exam category (practice, scheduled, talent hunt, etc.). */
+  examType: ExamType;
+  /** COURSE = branch/batch enrollment; GLOBAL = any enrolled student in linked courses. */
+  scope: ExamScope;
+  /** Shown for UNIVERSITY exams. */
+  universityName: string;
   /** How students take the exam — independent of the linked course's type. */
   deliveryMode: 'ONLINE' | 'OFFLINE';
   omrConfig: OmrConfig | null;
@@ -104,6 +111,12 @@ export interface ExamWizardState {
   /** Single required course (enrollment scope). */
   courseId: string;
   branchId: string;
+  /** Optional batch scope — all batches when sentinel value. */
+  batchId: string;
+  /** Pre-exam instructions shown to students (HTML). */
+  syllabusHtml: string;
+  /** Strict tab-switch limit during online attempts (stored in exam.settings). */
+  proctorStrict: boolean;
   language: string;
   durationMinutes: string;
   /** Max completed attempts per student (online exams). */
@@ -163,6 +176,26 @@ export function mapProductTypeToEngine(t: ExamProductType, isOmrBook: boolean): 
   if (isOmrBook) return 'OMR_BOOK';
   return PRODUCT_TYPE_TO_ENGINE[t];
 }
+
+/** Resolve persisted engine from product type + exam category. */
+export function resolveExamEngine(
+  productType: ExamProductType,
+  examType: ExamType,
+  isOmrBook: boolean,
+): ExamEngineType | undefined {
+  if (isOmrBook) return 'OMR_BOOK';
+  if (examType === 'TALENT_HUNT') return 'TALENT_HUNT';
+  if (examType === 'UNIVERSITY') return 'UNIVERSITY_SPECIAL';
+  return mapProductTypeToEngine(productType, false);
+}
+
+export const EXAM_TYPE_OPTIONS: { id: ExamType; label: string; description: string }[] = [
+  { id: 'MODEL', label: 'Model test', description: 'Standard mock / model exam.' },
+  { id: 'PRACTICE', label: 'Practice', description: 'Low-stakes practice for students.' },
+  { id: 'SCHEDULED', label: 'Scheduled', description: 'Fixed-window formal assessment.' },
+  { id: 'TALENT_HUNT', label: 'Talent hunt', description: 'Multi-stage elimination — configure stages after publish.' },
+  { id: 'UNIVERSITY', label: 'University admission', description: 'University-style paper with optional institution name.' },
+];
 
 /**
  * Map type+mode to the persisted `ExamMode` column. WRITTEN/COMBINED always
@@ -314,6 +347,10 @@ export function isResultInputModeAllowed(
   if (mode === 'OMR_SCAN') {
     if (deliveryMode !== 'OFFLINE') return false;
     if (productType === 'WRITTEN') return false;
+  }
+  if (mode === 'WRITTEN_EVAL') {
+    if (deliveryMode !== 'ONLINE') return false;
+    if (productType !== 'WRITTEN' && productType !== 'COMBINED') return false;
   }
   return true;
 }

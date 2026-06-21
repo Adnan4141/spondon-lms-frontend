@@ -409,8 +409,28 @@ export interface StartAttemptResponse {
   answeredMap: Record<string, any>;
 }
 
+export interface ExamSubjectBreakdownRow {
+  subjectId: string;
+  name: string;
+  correct: number;
+  wrong: number;
+  score: number;
+  totalPossible: number;
+  cutoff: number;
+  passed: boolean;
+}
+
 export interface AttemptResultResponse {
-  attempt: { id: string; status: string; startedAt: string; submittedAt: string | null; totalMarks: number | null; obtainedMarks: number | null };
+  attempt: {
+    id: string;
+    status: string;
+    startedAt: string;
+    submittedAt: string | null;
+    totalMarks: number | null;
+    obtainedMarks: number | null;
+    passed?: boolean | null;
+    subjectBreakdown?: ExamSubjectBreakdownRow[] | null;
+  };
   student: { id: string; fullName: string };
   exam: {
     id: string;

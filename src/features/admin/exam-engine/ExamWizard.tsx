@@ -36,6 +36,7 @@ import { useExamPersistence } from './wizard/hooks/useExamPersistence';
 import { useExamPresets } from './wizard/hooks/useExamPresets';
 import { useExamWizardDraft } from './wizard/hooks/useExamWizardDraft';
 import { preflightExamWithBackend, validateStep, type Step1FieldKey } from './wizard/validateWizardStep';
+import { fetchPreflightContext } from './wizard/fetchPreflightContext';
 import { Step1CategoryInfo } from './wizard/steps/Step1CategoryInfo';
 import { Step2Sections } from './wizard/steps/Step2Sections';
 import { Step3QuestionBank } from './wizard/steps/Step3QuestionBank';
@@ -45,7 +46,17 @@ import { Step6PreviewPublish } from './wizard/steps/Step6PreviewPublish';
 
 type PickerTarget = { sectionLocalId: string; rule: FolderRuleDraft } | null;
 
-export function ExamWizard({ examId, initialTitle }: { examId?: string; initialTitle?: string }) {
+export function ExamWizard({
+  examId,
+  initialTitle,
+  teacherUserId,
+  variant = 'admin',
+}: {
+  examId?: string;
+  initialTitle?: string;
+  teacherUserId?: string;
+  variant?: 'admin' | 'teacher';
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -60,7 +71,12 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
   const saveInFlightRef = useRef(false);
   const [picker, setPicker] = useState<PickerTarget>(null);
   const [step1FieldErrors, setStep1FieldErrors] = useState<Partial<Record<Step1FieldKey, boolean>>>({});
-  const [serverExam, setServerExam] = useState<{ status: ExamStatus; pdfUrl?: string | null } | null>(null);
+  const [serverExam, setServerExam] = useState<{
+    status: ExamStatus;
+    pdfUrl?: string | null;
+    solveSheetUrl?: string | null;
+    setCount?: number;
+  } | null>(null);
 
   const urlInitializedRef = useRef(false);
 
@@ -113,13 +129,16 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
   }, [pathname, router, searchParams]);
 
   useEffect(() => {
-    getCourses({ limit: 200 }).then((r) => {
+    getCourses({
+      limit: 200,
+      ...(teacherUserId ? { teacherUserId, status: 'ACTIVE' as const } : {}),
+    }).then((r) => {
       if (r.success && r.data) setCourses(r.data);
     });
     getBranches().then((r) => {
       if (r.success && r.data?.length) setBranches(r.data);
     });
-  }, []);
+  }, [teacherUserId]);
 
   const presetsApi = useExamPresets({ examId, state, dispatch, setActiveSectionId });
   const { isLoadingExam } = useExamHydration({
@@ -128,6 +147,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
     setActiveSectionId,
     setServerExam,
     setStep1FieldErrors,
+    teacherUserId,
   });
   const { clearDraft } = useExamWizardDraft({
     examId,
@@ -140,20 +160,28 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
       }
     },
   });
-  const { persistExam } = useExamPersistence({ examId, state, serverExam });
+  const { persistExam } = useExamPersistence({ examId, state, serverExam, teacherUserId });
 
   const refreshServerExam = useCallback(async () => {
     if (!examId) return;
-    const ex = await getExamById(examId);
+    const ex = await getExamById(examId, teacherUserId ? { teacherUserId } : undefined);
     if (ex.success && ex.data) {
-      setServerExam({ status: ex.data.status, pdfUrl: ex.data.pdfUrl ?? null });
+      setServerExam({
+        status: ex.data.status,
+        pdfUrl: ex.data.pdfUrl ?? null,
+        solveSheetUrl: ex.data.solveSheetUrl ?? null,
+        setCount: ex.data.sets?.length ?? ex.data._count?.sets ?? 0,
+      });
     }
-  }, [examId]);
+  }, [examId, teacherUserId]);
 
   const handlePublish = useCallback(async () => {
     if (!examId) return;
     try {
-      const up = await updateExam(examId, { status: 'PUBLISHED' } as UpdateExamDto);
+      const up = await updateExam(examId, {
+        status: 'PUBLISHED',
+        ...(teacherUserId ? { teacherUserId } : {}),
+      } as UpdateExamDto);
       if (!up.success) {
         toast({ title: 'Publish failed', description: up.message, variant: 'destructive' });
         return;
@@ -173,7 +201,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
       }
       toast({ title: 'Publish failed', description: 'Could not publish this exam.', variant: 'destructive' });
     }
-  }, [examId, refreshServerExam, toast]);
+  }, [examId, refreshServerExam, teacherUserId, toast]);
 
   useEffect(() => {
     if (initialTitle) dispatch({ type: 'MERGE', patch: { title: initialTitle } });
@@ -327,7 +355,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
           variant="danger"
           onConfirm={async () => {
             try {
-              const r = await deleteExam(examId);
+              const r = await deleteExam(examId, teacherUserId ? { teacherUserId } : undefined);
               if (r.success) {
                 try {
                   localStorage.removeItem(draftStorageKey(examId));
@@ -335,7 +363,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
                   /* ignore */
                 }
                 toast({ title: 'Exam deleted', description: `“${label}” was removed.` });
-                router.push('/admin/exam');
+                router.push(variant === 'teacher' ? '/teacher/exams' : '/admin/exam');
               } else {
                 toast({
                   title: 'Delete failed',
@@ -380,7 +408,11 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
       goToStep(item.stepNumber);
       return false;
     }
-    const preflight = await preflightExamWithBackend(state, {}, state.deliveryMode);
+    const preflight = await preflightExamWithBackend(
+      state,
+      await fetchPreflightContext(state),
+      state.deliveryMode,
+    );
     if (!preflight.ok) {
       const first = preflight.errors[0];
       toast({
@@ -473,6 +505,7 @@ export function ExamWizard({ examId, initialTitle }: { examId?: string; initialT
           onStartBlank={startBlankExam}
           onApplyPreset={(id) => void presetsApi.applyPreset(id)}
           onCourseSelect={handleCourseSelect}
+          wizardVariant={variant}
         />
       ) : null}
 

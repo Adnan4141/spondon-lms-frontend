@@ -2,18 +2,20 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { CheckCircle2, Download, ExternalLink, Loader2, RefreshCw, Trophy, BarChart3, LayoutList, FileScan } from 'lucide-react';
+import { CheckCircle2, Download, ExternalLink, Loader2, RefreshCw, Trophy, BarChart3, LayoutList, FileScan, BookOpenCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   regenerateExamPdf,
+  regenerateSolveSheet,
   getExamPdfDownloadUrl,
   generateOmrPdfBatch,
   getExamOperationsSummary,
   type OmrPdfBatchResponse,
 } from '@/lib/api/exams';
-import type { ExamStatus } from '@/types/exam';
+import { assessWizardPublishReadiness } from '@/lib/exam-readiness';
 import type { ExamBlueprintPreset } from '@/lib/api/exams';
+import type { ExamStatus } from '@/types/exam';
 import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
 import type { ExamWizardState } from '../../types';
 import { PaperPreview } from '../components/PaperPreview';
@@ -32,7 +34,12 @@ type Props = {
   onSaveDraft: () => void;
   onFinalize: () => void;
   examId?: string;
-  serverExam: { status: ExamStatus; pdfUrl?: string | null } | null;
+  serverExam: {
+    status: ExamStatus;
+    pdfUrl?: string | null;
+    solveSheetUrl?: string | null;
+    setCount?: number;
+  } | null;
   onPublish: () => void | Promise<void>;
   onRefreshMeta: () => void | Promise<void>;
   presets: ExamBlueprintPreset[];
@@ -64,6 +71,7 @@ export function Step6PreviewPublish({
   const toast = useAdminToast();
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [masterPdfBusy, setMasterPdfBusy] = useState(false);
+  const [solveSheetBusy, setSolveSheetBusy] = useState(false);
   const [omrSheetBusy, setOmrSheetBusy] = useState(false);
   const [omrSetLabel, setOmrSetLabel] = useState('A');
   const [latestOmrBatch, setLatestOmrBatch] = useState<OmrPdfBatchResponse | null>(null);
@@ -92,6 +100,12 @@ export function Step6PreviewPublish({
   const isDraft = status === 'DRAFT';
   const isPublished = status === 'PUBLISHED';
   const isClosed = status === 'CLOSED';
+
+  const publishReadiness = assessWizardPublishReadiness(state, {
+    setCount: serverExam?.setCount,
+    pdfUrl: serverExam?.pdfUrl,
+    solveSheetUrl: serverExam?.solveSheetUrl,
+  });
 
   const regenerateMaster = async () => {
     if (!examId) return;
@@ -126,6 +140,37 @@ export function Step6PreviewPublish({
     }
     window.open(getExamPdfDownloadUrl(url), '_blank', 'noopener,noreferrer');
   };
+
+  const regenerateSolve = async () => {
+    if (!examId) return;
+    setSolveSheetBusy(true);
+    try {
+      const r = await regenerateSolveSheet(examId);
+      if (!r.success || !r.data?.solveSheetUrl) {
+        toast({
+          title: 'Solve sheet failed',
+          description: r.message ?? 'Ensure question sets are generated first.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      toast({ title: 'Solve sheet generated' });
+      await onRefreshMeta();
+    } finally {
+      setSolveSheetBusy(false);
+    }
+  };
+
+  const downloadSolveSheet = () => {
+    const url = serverExam?.solveSheetUrl;
+    if (!url) {
+      toast({ title: 'No solve sheet', description: 'Generate a solve sheet first.', variant: 'destructive' });
+      return;
+    }
+    window.open(getExamPdfDownloadUrl(url), '_blank', 'noopener,noreferrer');
+  };
+
+  const showSolveEnabled = state.showSolve && state.solveVisibility !== 'HIDDEN';
 
   const omrMcqTotal = state.productType === 'MULTI'
     ? state.subjects.reduce((sum, subject) => sum + Number(subject.mcqSingleCount || 0) + Number(subject.mcqPassageCount || 0), 0)
@@ -181,6 +226,22 @@ export function Step6PreviewPublish({
 
       <ExamScheduleCard state={state} dispatch={dispatch} />
 
+      {state.examType === 'TALENT_HUNT' && examId ? (
+        <Card className="border-fuchsia-200 bg-fuchsia-50/40 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="font-serif text-base text-fuchsia-950">Talent hunt stages</CardTitle>
+            <CardDescription>
+              Configure elimination stages, cutoffs, and prizes on the exam overview page after publish.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild size="sm" variant="outline" className="border-fuchsia-300 text-fuchsia-900 hover:bg-fuchsia-100">
+              <Link href={`/admin/exam/${examId}`}>Open talent hunt setup</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <OfflineOmrWorkflowCard
         state={state}
         examId={examId}
@@ -233,6 +294,26 @@ export function Step6PreviewPublish({
               <Button type="button" variant="secondary" size="sm" className="gap-2" onClick={downloadMaster}>
                 <Download className="h-4 w-4" /> Download master
               </Button>
+              {showSolveEnabled ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    disabled={solveSheetBusy}
+                    onClick={() => void regenerateSolve()}
+                  >
+                    {solveSheetBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookOpenCheck className="h-4 w-4" />}
+                    {serverExam?.solveSheetUrl ? 'Regenerate solve sheet' : 'Generate solve sheet'}
+                  </Button>
+                  {serverExam?.solveSheetUrl ? (
+                    <Button type="button" variant="secondary" size="sm" className="gap-2" onClick={downloadSolveSheet}>
+                      <Download className="h-4 w-4" /> Download solve sheet
+                    </Button>
+                  ) : null}
+                </>
+              ) : null}
               {omrEnabled ? (
                 <div className="flex w-full flex-col gap-2 sm:w-auto">
                   <p className="text-xs font-medium text-slate-600">
@@ -275,14 +356,36 @@ export function Step6PreviewPublish({
                 Regenerate question paper PDF
               </Button>
               {isDraft ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  className="gap-2 bg-emerald-800 text-white hover:bg-emerald-900"
-                  onClick={() => void onPublish()}
-                >
-                  Publish exam
-                </Button>
+                <div className="flex w-full flex-col gap-2 sm:w-auto">
+                  {!publishReadiness.ok ? (
+                    <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900">
+                      <p className="font-bold">Resolve before publishing:</p>
+                      <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                        {publishReadiness.blockers.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                  {publishReadiness.warnings.length > 0 ? (
+                    <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                      <ul className="list-disc space-y-0.5 pl-4">
+                        {publishReadiness.warnings.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="gap-2 bg-emerald-800 text-white hover:bg-emerald-900"
+                    disabled={!publishReadiness.ok}
+                    onClick={() => void onPublish()}
+                  >
+                    Publish exam
+                  </Button>
+                </div>
               ) : null}
               {isPublished ? (
                 <>
@@ -336,6 +439,11 @@ export function Step6PreviewPublish({
             {omrCountMismatch ? (
               <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800">
                 OMR sheet expects {state.omrConfig?.questionCount} questions, but MCQ sections total {omrMcqTotal}. Update Step 1 or Step 2 before generating OMR sheets.
+              </div>
+            ) : null}
+            {showSolveEnabled && examId && !serverExam?.solveSheetUrl ? (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
+                Solve sheet is enabled for students but not generated yet. Pull questions from the bank, then generate the solve sheet above.
               </div>
             ) : null}
             {latestOmrBatch ? (

@@ -6,6 +6,8 @@ import type { ExamBlueprintPreset } from '@/lib/api/exams';
 import type { ExamProductType, ExamWizardState } from '../../types';
 import type { WizardFormAction } from '../examWizardReducer';
 import type { Step1FieldKey } from '../validateWizardStep';
+import { ExamClassificationCard } from '../components/ExamClassificationCard';
+import { ExamSyllabusCard } from '../components/ExamSyllabusCard';
 import { BasicExamInfoForm } from '../components/BasicExamInfoForm';
 import { DeliveryModeCard } from '../components/DeliveryModeCard';
 import { ExamMethodPicker } from '../components/ExamMethodPicker';
@@ -29,6 +31,7 @@ type Props = {
   onStartBlank: () => void;
   onApplyPreset: (presetId: string) => void;
   onCourseSelect: (course: Course) => void;
+  wizardVariant?: 'admin' | 'teacher';
 };
 
 export function Step1CategoryInfo({
@@ -47,6 +50,7 @@ export function Step1CategoryInfo({
   onStartBlank,
   onApplyPreset,
   onCourseSelect,
+  wizardVariant = 'admin',
 }: Props) {
   return (
     <div className="space-y-4">
@@ -87,7 +91,16 @@ export function Step1CategoryInfo({
         dispatch={dispatch}
       />
 
+      <ExamClassificationCard
+        state={state}
+        dispatch={dispatch}
+        restrictGlobalScope={wizardVariant === 'teacher'}
+        allowedExamTypes={wizardVariant === 'teacher' ? ['MODEL', 'PRACTICE', 'SCHEDULED'] : undefined}
+      />
+
       <OmrSheetConfigCard state={state} dispatch={dispatch} deliveryMode={deliveryMode} />
+
+      <ExamSyllabusCard state={state} dispatch={dispatch} />
 
       <WorkflowSummaryCard state={state} deliveryMode={deliveryMode} />
     </div>

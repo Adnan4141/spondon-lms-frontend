@@ -3,10 +3,19 @@ import type { ExamProductType, SectionTypeUi } from '../types';
 /** Select value for branchless exams → saved as `branchId: null` on the server */
 export const EXAM_WIZARD_ALL_BRANCHES = '__all__';
 
+/** Select value for exams visible to all batches in scope */
+export const EXAM_WIZARD_ALL_BATCHES = '__all_batches__';
+
 /** Maps wizard branch select to API payload — never send the `__all__` sentinel. */
 export function resolveWizardBranchIdForApi(branchId: string | undefined | null): string | undefined {
   if (!branchId || branchId === EXAM_WIZARD_ALL_BRANCHES) return undefined;
   return branchId;
+}
+
+/** Maps wizard batch select to API payload — never send the sentinel. */
+export function resolveWizardBatchIdForApi(batchId: string | undefined | null): string | undefined {
+  if (!batchId || batchId === EXAM_WIZARD_ALL_BATCHES) return undefined;
+  return batchId;
 }
 
 export const EXAM_PRODUCT_TYPES: { id: ExamProductType; name: string; desc: string; bestFor: string }[] = [

@@ -1,6 +1,6 @@
 import type { FolderTreeNode } from '@/lib/api/question-bank';
 import type { ExamProductType, ExamWizardState, WizardSection } from '../types';
-import { EXAM_WIZARD_ALL_BRANCHES } from './constants';
+import { EXAM_WIZARD_ALL_BATCHES, EXAM_WIZARD_ALL_BRANCHES } from './constants';
 
 export function newLocalId() {
   return `w_${Math.random().toString(36).slice(2, 11)}`;
@@ -167,6 +167,9 @@ export const WIZARD_FORM_INITIAL: ExamWizardState = {
   step: 1,
   deliveryMode: 'ONLINE',
   productType: '',
+  examType: 'MODEL',
+  scope: 'COURSE',
+  universityName: '',
   omrConfig: null,
   resultInputModes: ['AUTOMATED'],
   resultInputModesUserEdited: false,
@@ -179,6 +182,9 @@ export const WIZARD_FORM_INITIAL: ExamWizardState = {
   title: '',
   courseId: '',
   branchId: EXAM_WIZARD_ALL_BRANCHES,
+  batchId: EXAM_WIZARD_ALL_BATCHES,
+  syllabusHtml: '',
+  proctorStrict: false,
   language: 'bn',
   durationMinutes: '60',
   allowedAttempts: '1',
@@ -242,6 +248,14 @@ export function deserializeWizardForm(json: string): ExamWizardState | null {
       base.resultInputModes = o.resultModes as ExamWizardState['resultInputModes'];
     }
     if (!base.branchId) base.branchId = EXAM_WIZARD_ALL_BRANCHES;
+    if (!base.batchId) base.batchId = EXAM_WIZARD_ALL_BATCHES;
+    if (typeof base.syllabusHtml !== 'string') base.syllabusHtml = '';
+    if (typeof base.proctorStrict !== 'boolean') base.proctorStrict = false;
+    if (base.examType !== 'PRACTICE' && base.examType !== 'SCHEDULED' && base.examType !== 'MODEL' && base.examType !== 'TALENT_HUNT' && base.examType !== 'UNIVERSITY') {
+      base.examType = 'MODEL';
+    }
+    if (base.scope !== 'GLOBAL') base.scope = 'COURSE';
+    if (typeof base.universityName !== 'string') base.universityName = '';
     base.subjects = (base.subjects ?? []).map((sub) => ({
       ...sub,
       mcqSingleCount: Number(sub.mcqSingleCount ?? sub.count ?? 0),

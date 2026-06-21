@@ -33,6 +33,7 @@ import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
 import { useModalStore } from '@/store/modalStore';
 import { cn } from '@/lib/utils';
 import { deleteExam, duplicateExam, getExams, updateExam } from '@/lib/api/exams';
+import { examNeedsAction, examReadinessLabel } from '@/lib/exam-readiness';
 import type { Exam, ExamMode, ExamStatus } from '@/types/exam';
 import type { ExamProductType } from './types';
 
@@ -115,23 +116,6 @@ function setCount(exam: Exam) {
   return exam._count?.sets ?? exam.sets?.length ?? 0;
 }
 
-function hasGeneratedSets(exam: Exam) {
-  return setCount(exam) > 0;
-}
-
-function needsAction(exam: Exam) {
-  if (exam.status === 'DRAFT') return true;
-  if (!hasGeneratedSets(exam)) return true;
-  if (!exam.pdfUrl) return true;
-  return false;
-}
-
-function readinessLabel(exam: Exam) {
-  if (!hasGeneratedSets(exam)) return { label: 'Needs sets', tone: 'border-amber-200 bg-amber-50 text-amber-800' };
-  if (!exam.pdfUrl) return { label: 'PDF needed', tone: 'border-amber-200 bg-amber-50 text-amber-800' };
-  return { label: 'Ready', tone: 'border-emerald-200 bg-emerald-50 text-emerald-700' };
-}
-
 function DisabledHint({ children }: { children: string }) {
   return <span className="ml-auto text-[10px] font-semibold text-slate-400">{children}</span>;
 }
@@ -172,7 +156,7 @@ export function ExamHub() {
     const upcoming = exams.filter(isUpcoming).length;
     const online = exams.filter((x) => x.mode === 'ONLINE').length;
     const offline = exams.filter((x) => x.mode === 'OFFLINE').length;
-    const action = exams.filter(needsAction).length;
+    const action = exams.filter(examNeedsAction).length;
     return [
       { label: 'Draft', value: draft },
       { label: 'Published', value: published },
@@ -190,7 +174,7 @@ export function ExamHub() {
       if (tab === 'PUBLISHED' && exam.status !== 'PUBLISHED') return false;
       if (tab === 'UPCOMING' && !isUpcoming(exam)) return false;
       if (tab === 'OFFLINE' && exam.mode !== 'OFFLINE') return false;
-      if (tab === 'NEEDS_ACTION' && !needsAction(exam)) return false;
+      if (tab === 'NEEDS_ACTION' && !examNeedsAction(exam)) return false;
       if (statusFilter !== 'ALL' && exam.status !== statusFilter) return false;
       if (modeFilter !== 'ALL' && exam.mode !== modeFilter) return false;
       if (typeFilter !== 'ALL' && readProductType(exam) !== typeFilter) return false;
@@ -386,7 +370,7 @@ export function ExamHub() {
                 {filtered.map((exam) => {
                   const productType = readProductType(exam);
                   const sets = setCount(exam);
-                  const readiness = readinessLabel(exam);
+                  const readiness = examReadinessLabel(exam);
                   const editDisabled = exam.status === 'CLOSED';
                   const pdfDisabled = sets === 0;
                   const resultsDisabled = exam.status === 'DRAFT' && sets === 0;

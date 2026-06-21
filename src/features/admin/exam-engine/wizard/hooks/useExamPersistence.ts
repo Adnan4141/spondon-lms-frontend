@@ -9,6 +9,7 @@ import {
   generateSectionSets,
   getExamSections,
   getExamSubjects,
+  regenerateSolveSheet,
   updateExam,
   validateExamSubjects,
   validateSectionGeneration,
@@ -17,16 +18,17 @@ import type { CreateExamDto, ExamStatus, UpdateExamDto } from '@/types/exam';
 import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
 import type { ExamProductType, ExamWizardState, FolderRuleDraft } from '../../types';
 import {
-  mapProductTypeToEngine,
-  mapProductTypeToExamType,
+  resolveExamEngine,
   mapToExamMode,
 } from '../../types';
-import { EXAM_WIZARD_ALL_BRANCHES } from '../constants';
+import { buildExamSettingsFromWizardState } from '../buildExamSettings';
+import { EXAM_WIZARD_ALL_BATCHES, EXAM_WIZARD_ALL_BRANCHES, resolveWizardBatchIdForApi } from '../constants';
 
 interface Options {
   examId?: string;
   state: ExamWizardState;
   serverExam: { status: ExamStatus; pdfUrl?: string | null } | null;
+  teacherUserId?: string;
 }
 
 /**
@@ -35,7 +37,7 @@ interface Options {
  * resultInputModes, solve sheet, schedule, smsNotification flag) to the
  * Exam DTO + nested settings JSON.
  */
-export function useExamPersistence({ examId, state, serverExam }: Options) {
+export function useExamPersistence({ examId, state, serverExam, teacherUserId }: Options) {
   const toast = useAdminToast();
 
   const persistExam = useCallback(
@@ -50,19 +52,23 @@ export function useExamPersistence({ examId, state, serverExam }: Options) {
       }
       const branchResolved =
         !state.branchId || state.branchId === EXAM_WIZARD_ALL_BRANCHES ? null : state.branchId;
+      const batchResolved = resolveWizardBatchIdForApi(state.batchId) ?? null;
       const productType = state.productType as ExamProductType;
-      const isWritten = productType === 'WRITTEN' || productType === 'COMBINED';
       const isOmrBook =
         state.resultInputModes.includes('OMR_SCAN')
         && state.omrConfig != null
         && state.deliveryMode === 'OFFLINE';
       const dto: CreateExamDto = {
+        ...(teacherUserId ? { teacherUserId } : {}),
         courseId: state.courseId,
         branchId: branchResolved,
+        batchId: batchResolved ?? undefined,
         title: state.title.trim(),
-        type: mapProductTypeToExamType(productType),
+        type: state.examType,
+        scope: state.scope,
         mode: mapToExamMode(productType, state.deliveryMode),
-        examEngine: mapProductTypeToEngine(productType, isOmrBook && state.deliveryMode === 'OFFLINE'),
+        examEngine: resolveExamEngine(productType, state.examType, isOmrBook && state.deliveryMode === 'OFFLINE'),
+        universityName: state.examType === 'UNIVERSITY' ? state.universityName.trim() || null : null,
         durationMinutes: Number(state.durationMinutes) || 60,
         allowedAttempts: Math.max(1, Math.min(10, Number(state.allowedAttempts) || 1)),
         language: state.language,
@@ -83,32 +89,8 @@ export function useExamPersistence({ examId, state, serverExam }: Options) {
         omrQuestionCount: state.omrConfig?.questionCount ?? null,
         omrOptionCount: state.omrConfig?.optionCount ?? null,
         resultInputModes: state.resultInputModes,
-        settings: {
-          examWizard: {
-            productType,
-            deliveryMode: state.deliveryMode,
-            shuffle: state.shuffle,
-            setNaming: state.setNaming,
-            resultInputModes: state.resultInputModes,
-            showSolve: state.showSolve,
-            solveVisibility: state.solveVisibility,
-            smsNotification: state.smsNotification,
-            defaultNegativeMarks: state.defaultNegativeMarks,
-            omrSheetSize: state.omrConfig?.sheetSize ?? null,
-          },
-          examWorkflow: {
-            productType,
-            deliveryMode: state.deliveryMode,
-            resultInputModes: state.resultInputModes,
-            evaluationMode: state.deliveryMode === 'OFFLINE' ? 'AGGREGATE' : 'SCRIPT_UPLOAD',
-            officialResultPipeline: 'RESULT_BATCH',
-            submissionOwner: isWritten && state.deliveryMode === 'ONLINE' ? 'STUDENT' : 'ADMIN',
-            writtenSubmission: isWritten && state.deliveryMode === 'ONLINE' ? 'CAMERA_OR_PDF' : undefined,
-            enableQrAnswerSheet: isWritten,
-            enablePdfCombine: isWritten,
-            sms: { enabled: state.smsNotification },
-          },
-        },
+        syllabusHtml: state.syllabusHtml.trim() || null,
+        settings: buildExamSettingsFromWizardState(state),
       };
 
       try {
@@ -137,6 +119,22 @@ export function useExamPersistence({ examId, state, serverExam }: Options) {
           if (!ok) return null;
         }
 
+        if (finalize && state.showSolve) {
+          const setsGenerated =
+            state.resultInputModes.includes('AUTOMATED')
+            || state.resultInputModes.includes('OMR_SCAN');
+          if (setsGenerated) {
+            const solveRes = await regenerateSolveSheet(id);
+            if (!solveRes.success || !solveRes.data?.solveSheetUrl) {
+              toast({
+                title: 'Solve sheet not generated',
+                description: solveRes.message ?? 'Pull questions from the bank first, then regenerate the solve sheet.',
+                variant: 'destructive',
+              });
+            }
+          }
+        }
+
         toast({
           title: finalize ? 'Exam saved & sets generated' : 'Draft saved',
           variant: 'default',
@@ -148,7 +146,7 @@ export function useExamPersistence({ examId, state, serverExam }: Options) {
         return null;
       }
     },
-    [examId, serverExam, state, toast],
+    [examId, serverExam, state, teacherUserId, toast],
   );
 
   return { persistExam };

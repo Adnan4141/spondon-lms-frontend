@@ -982,7 +982,8 @@ export default function StudentExamTakingPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="grid gap-4 grid-cols-1 pt-4 border-t border-slate-100">
+                    <div className="space-y-4 pt-4 border-t border-slate-100">
+                      <div className="grid gap-4 grid-cols-1">
                       {/* Obtained Score */}
                       <div className="rounded-2xl border border-indigo-100 bg-indigo-50/30 p-4 text-center">
                         <p className="text-[9px] font-black uppercase tracking-[0.15em] text-indigo-500 mb-1">{baseUi.scoreLabel}</p>
@@ -1015,6 +1016,69 @@ export default function StudentExamTakingPage() {
                           </span>
                         </div>
                       </div>
+                      </div>
+
+                      {result.exam.examEngine === 'MULTI_SUBJECT'
+                        && Array.isArray(result.attempt.subjectBreakdown)
+                        && result.attempt.subjectBreakdown.length > 0 ? (
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-500">
+                              Subject breakdown
+                            </p>
+                            {result.attempt.passed != null ? (
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  'rounded-lg text-[9px] font-black uppercase px-2.5 py-1',
+                                  result.attempt.passed
+                                    ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                                    : 'border-rose-200 bg-rose-50 text-rose-800',
+                                )}
+                              >
+                                {result.attempt.passed ? 'Overall pass' : 'Overall fail'}
+                              </Badge>
+                            ) : null}
+                          </div>
+                          <div className="overflow-x-auto">
+                            <table className="w-full min-w-[320px] text-left text-sm">
+                              <thead>
+                                <tr className="border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                  <th className="pb-2 pr-3">Subject</th>
+                                  <th className="pb-2 pr-3 text-right">Score</th>
+                                  <th className="pb-2 pr-3 text-right">Cutoff</th>
+                                  <th className="pb-2 text-right">Result</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {result.attempt.subjectBreakdown.map((row) => (
+                                  <tr key={row.subjectId} className="border-b border-slate-50 last:border-0">
+                                    <td className="py-2.5 pr-3 font-bold text-slate-800">{row.name}</td>
+                                    <td className="py-2.5 pr-3 text-right font-semibold text-slate-700 tabular-nums">
+                                      {row.score}
+                                      <span className="text-slate-400 font-medium"> / {row.totalPossible}</span>
+                                    </td>
+                                    <td className="py-2.5 pr-3 text-right text-slate-500 tabular-nums">{row.cutoff}</td>
+                                    <td className="py-2.5 text-right">
+                                      <Badge
+                                        variant="outline"
+                                        className={cn(
+                                          'rounded-md text-[9px] font-black uppercase',
+                                          row.passed
+                                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                            : 'border-rose-200 bg-rose-50 text-rose-700',
+                                        )}
+                                      >
+                                        {row.passed ? 'Pass' : 'Fail'}
+                                      </Badge>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   )}
                 </div>

@@ -28,6 +28,7 @@ const ALL_MODES: ResultInputMode[] = [
   'BULK_MANUAL',
   'BULK_EXCEL',
   'OMR_SCAN',
+  'WRITTEN_EVAL',
 ];
 
 const PRODUCT_TYPE_LABEL: Record<ExamProductType, string> = {
@@ -51,6 +52,8 @@ function disabledReason(
     if (mode === 'AUTOMATED') return 'Online delivery only.';
     if (mode === 'OMR_SCAN' && deliveryMode !== 'OFFLINE') return 'Offline delivery only.';
     if (mode === 'OMR_SCAN') return 'Not supported for Written exams.';
+    if (mode === 'WRITTEN_EVAL' && deliveryMode !== 'ONLINE') return 'Online delivery only.';
+    if (mode === 'WRITTEN_EVAL') return 'Written or Combined exams only.';
   }
   return null;
 }

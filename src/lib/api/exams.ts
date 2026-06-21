@@ -93,6 +93,25 @@ export async function getExams(params?: {
   return apiRequest<ApiResponse<Exam[]>>(`/exams${query ? `?${query}` : ''}`);
 }
 
+export type ExamAudienceStats = {
+  totalLinkedStudents: number;
+  studentsWithMobile: number;
+};
+
+export async function getExamAudienceStats(params: {
+  courseId: string;
+  branchId?: string;
+  batchId?: string;
+  scope?: 'COURSE' | 'GLOBAL';
+}): Promise<ApiResponse<ExamAudienceStats>> {
+  const q = new URLSearchParams();
+  q.set('courseId', params.courseId);
+  if (params.branchId) q.set('branchId', params.branchId);
+  if (params.batchId) q.set('batchId', params.batchId);
+  if (params.scope) q.set('scope', params.scope);
+  return apiRequest<ApiResponse<ExamAudienceStats>>(`/exams/audience-stats?${q.toString()}`);
+}
+
 export async function getExamById(id: string, opts?: { teacherUserId?: string }): Promise<ApiResponse<Exam>> {
   const q = opts?.teacherUserId ? `?teacherUserId=${encodeURIComponent(opts.teacherUserId)}` : '';
   return apiRequest<ApiResponse<Exam>>(`/exams/${id}${q}`);

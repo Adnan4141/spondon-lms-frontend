@@ -178,7 +178,7 @@ export default function TeacherExamsPage() {
       title: 'Update Exam',
       description: 'Refine exam scheduling and access rules.',
       className: 'sm:max-w-6xl w-[min(100vw-2rem,72rem)] max-h-[92vh]',
-      content: <ExamWizard examId={examId} />,
+          content: <ExamWizard examId={examId} teacherUserId={userId ?? undefined} variant="teacher" />,
     });
   };
 
@@ -187,7 +187,7 @@ export default function TeacherExamsPage() {
           title: 'Create Exam',
           description: 'Online (browser) or offline (hall PDF + OMR / Excel).',
           className: 'sm:max-w-6xl w-[min(100vw-2rem,72rem)] max-h-[92vh]',
-          content: <ExamWizard />,
+          content: <ExamWizard teacherUserId={userId ?? undefined} variant="teacher" />,
         });
   };
 

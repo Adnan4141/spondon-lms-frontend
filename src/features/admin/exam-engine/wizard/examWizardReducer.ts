@@ -12,7 +12,7 @@ import {
   sanitizeResultInputModes,
   suggestedResultModes,
 } from '../types';
-import { SEC_TYPES } from './constants';
+import { EXAM_WIZARD_ALL_BATCHES, SEC_TYPES } from './constants';
 import { defaultSectionsFor, newLocalId } from './wizardHelpers';
 
 export type WizardFormAction =
@@ -88,10 +88,18 @@ export function examWizardReducer(state: ExamWizardState, action: WizardFormActi
       return { ...action.state };
     case 'SET_COURSE': {
       const isFirstSelection = !state.courseId;
+      const courseChanged = state.courseId && state.courseId !== action.courseId;
       if (isFirstSelection && action.defaultDeliveryMode) {
-        return applyDeliveryModeChange(state, action.defaultDeliveryMode, { courseId: action.courseId });
+        return applyDeliveryModeChange(state, action.defaultDeliveryMode, {
+          courseId: action.courseId,
+          ...(courseChanged ? { batchId: EXAM_WIZARD_ALL_BATCHES } : {}),
+        });
       }
-      return { ...state, courseId: action.courseId };
+      return {
+        ...state,
+        courseId: action.courseId,
+        ...(courseChanged ? { batchId: EXAM_WIZARD_ALL_BATCHES } : {}),
+      };
     }
     case 'SET_DELIVERY_MODE':
       if (action.deliveryMode === state.deliveryMode) return state;
