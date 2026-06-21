@@ -206,11 +206,11 @@ export function DueCollectionTab({ branches }: { branches: BranchOption[] }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap gap-3 items-end rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="grid grid-cols-1 gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2 md:grid-cols-3 lg:flex lg:flex-wrap lg:items-end lg:gap-3">
         <div>
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Branch</p>
           <Select value={branchId || 'all'} onValueChange={(v) => setBranchId(v === 'all' ? '' : v)}>
-            <SelectTrigger className="h-9 w-56 rounded-xl text-sm"><SelectValue placeholder="All Branches" /></SelectTrigger>
+            <SelectTrigger className="h-9 w-full lg:w-56 rounded-xl text-sm"><SelectValue placeholder="All Branches" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Branches</SelectItem>
               {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
@@ -219,20 +219,20 @@ export function DueCollectionTab({ branches }: { branches: BranchOption[] }) {
         </div>
         <div>
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Month (YYYY-MM)</p>
-          <AdminMonthPicker className="w-48" value={month} onChange={setMonth} placeholder="Select month" />
+          <AdminMonthPicker className="w-full lg:w-48" value={month} onChange={setMonth} placeholder="Select month" />
         </div>
         <div>
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">From</p>
-          <AdminDatePicker className="w-44" value={from} onChange={setFrom} placeholder="From date" />
+          <AdminDatePicker className="w-full lg:w-44" value={from} onChange={setFrom} placeholder="From date" />
         </div>
         <div>
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">To</p>
-          <AdminDatePicker className="w-44" value={to} onChange={setTo} placeholder="To date" />
+          <AdminDatePicker className="w-full lg:w-44" value={to} onChange={setTo} placeholder="To date" />
         </div>
         <div>
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Invoice Status</p>
           <Select value={status || 'all'} onValueChange={(v) => setStatus(v === 'all' ? '' : v)}>
-            <SelectTrigger className="h-9 w-44 rounded-xl text-sm"><SelectValue placeholder="All" /></SelectTrigger>
+            <SelectTrigger className="h-9 w-full lg:w-44 rounded-xl text-sm"><SelectValue placeholder="All" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All</SelectItem>
               <SelectItem value="ISSUED">Issued</SelectItem>
@@ -242,7 +242,7 @@ export function DueCollectionTab({ branches }: { branches: BranchOption[] }) {
             </SelectContent>
           </Select>
         </div>
-        <Button onClick={load} disabled={loading} className="h-9 bg-indigo-600 text-white hover:bg-indigo-700 hover:text-white gap-2">
+        <Button onClick={load} disabled={loading} className="h-9 w-full lg:w-auto bg-indigo-600 text-white hover:bg-indigo-700 hover:text-white gap-2 justify-center">
           {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Building2 className="h-4 w-4" />}
           Load
         </Button>
@@ -251,12 +251,12 @@ export function DueCollectionTab({ branches }: { branches: BranchOption[] }) {
           variant="outline"
           disabled={studentRows.length === 0}
           onClick={() => requestBulkSmsDrawer(unpaidRows)}
-          className="h-9 gap-2"
+          className="h-9 w-full lg:w-auto gap-2 justify-center"
         >
           <MessageSquare className="h-4 w-4" />
           Send to All Unpaid{month ? ` — ${month}` : ''}
         </Button>
-        <ExportButtons onExport={handleExport} disabled={loading || (studentRows.length === 0 && data.length === 0)} />
+        <ExportButtons onExport={handleExport} disabled={loading || (studentRows.length === 0 && data.length === 0)} className="w-full lg:w-auto justify-end sm:justify-start" />
       </div>
 
       {selectedRows.length > 0 ? (
@@ -273,7 +273,7 @@ export function DueCollectionTab({ branches }: { branches: BranchOption[] }) {
       ) : null}
 
       {totals && (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {[
             { label: 'Total Payable', value: fmtCur(totals.totalPayable), color: 'text-slate-900' },
             { label: 'Total Paid', value: fmtCur(totals.totalPaid), color: 'text-emerald-600' },

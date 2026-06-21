@@ -37,7 +37,7 @@ export function SmsFocusDrawerShell({
       <DialogContent
         showCloseButton={false}
         className={cn(
-          'fixed inset-y-0 right-0 left-auto top-0 z-50 flex h-full w-full max-w-6xl translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-0 border-l p-0 shadow-2xl',
+          'fixed inset-y-0 right-0 left-auto top-0 z-50 flex h-full w-full sm:max-w-4xl lg:max-w-6xl translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-0 border-l p-0 shadow-2xl',
           'data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right',
           'data-[state=closed]:zoom-out-100 data-[state=open]:zoom-in-100',
         )}

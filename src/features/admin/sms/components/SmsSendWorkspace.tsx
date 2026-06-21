@@ -535,7 +535,7 @@ export function SmsSendWorkspace({
       {sendResult ? null : (
       <div className="sticky bottom-0 z-10 rounded-lg border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="grid flex-1 grid-cols-2 gap-2 text-sm sm:grid-cols-3 xl:grid-cols-7">
+          <div className="grid flex-1 grid-cols-2 gap-1.5 text-xs sm:grid-cols-4 lg:grid-cols-7">
             <SummaryItem label="Method" value={focused?.contextLabel || METHOD_META[method].label} />
             <SummaryItem label="SMS Mode" value={selectedModeLabel} />
             <SummaryItem label="Sender" value={selectedSenderLabel} />
@@ -638,9 +638,9 @@ export function SmsSendWorkspace({
 function SummaryItem({ label, value, tone = 'slate' }: { label: string; value: string | number; tone?: 'slate' | 'emerald' | 'amber' | 'rose' }) {
   const toneClass = tone === 'emerald' ? 'text-emerald-700' : tone === 'rose' ? 'text-rose-700' : tone === 'amber' ? 'text-amber-700' : 'text-slate-950';
   return (
-    <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-      <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">{label}</p>
-      <p className={`mt-1 truncate text-sm font-bold ${toneClass}`}>{value}</p>
+    <div className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 sm:px-3 sm:py-2">
+      <p className="truncate text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-slate-500">{label}</p>
+      <p className={`mt-0.5 sm:mt-1 truncate text-xs sm:text-sm font-bold ${toneClass}`}>{value}</p>
     </div>
   );
 }

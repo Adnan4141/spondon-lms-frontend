@@ -130,7 +130,7 @@ export function DueRecipientReviewPanel({
   return (
     <Panel title="Review Recipients">
       <div className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
           <StatCard label="Selected" value={fmtNum(selectedCount)} />
           <StatCard label="Will Send" value={fmtNum(willSendCount)} tone="emerald" />
           <StatCard label="Already Reminded" value={fmtNum(skippedCount)} tone="amber" />
@@ -243,9 +243,9 @@ function StatCard({
         : 'text-slate-950';
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-      <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">{label}</p>
-      <p className={`mt-1 text-lg font-bold ${toneClass}`}>{value}</p>
+    <div className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 sm:px-3 sm:py-2">
+      <p className="truncate text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-slate-500">{label}</p>
+      <p className={`mt-0.5 sm:mt-1 truncate text-sm sm:text-base font-bold ${toneClass}`}>{value}</p>
     </div>
   );
 }
