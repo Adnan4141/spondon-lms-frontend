@@ -19,12 +19,14 @@ export function SearchableSelect({
   options,
   placeholder = 'Search...',
   disabled,
+  clearable = true,
 }: {
   value: string;
   onChange: (v: string) => void;
   options: SearchableSelectOption[];
   placeholder?: string;
   disabled?: boolean;
+  clearable?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -72,7 +74,7 @@ export function SearchableSelect({
             {selected ? selected.label : placeholder}
           </span>
           <div className="flex items-center gap-0.5 shrink-0 ml-2">
-            {value && (
+            {clearable && value && (
               <span
                 role="button"
                 onClick={handleClear}

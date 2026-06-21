@@ -81,16 +81,60 @@ export async function initInvoicePayment(invoiceId: string) {
 
 export type MonthlyGenerateResult = {
   month: string;
-  totalEnrollments: number;
+  onlyMissing?: boolean;
+  totalTargets?: number;
+  totalEnrollments?: number;
   invoicesCreated: number;
+  invoicesUpdated?: number;
   skipped: number;
   errors?: string[];
 };
+
+export type MissingMonthlyInvoiceRow = {
+  studentUserId: string;
+  fullName: string;
+  registrationNumber: string | null;
+  mobile: string;
+  branchId: string;
+  branchName: string;
+  programName: string;
+  billableCourseIds: string[];
+  billableCourseNames: string[];
+  billingStartMonth: string | null;
+  lastInvoiceMonth: string | null;
+};
+
+export type MissingMonthlyInvoicesResult = {
+  month: string;
+  total: number;
+  billableCount: number;
+  invoicedCount: number;
+  missingCount: number;
+  students: MissingMonthlyInvoiceRow[];
+};
+
+export async function getMissingMonthlyInvoices(params: {
+  month: string;
+  branchId?: string;
+  courseId?: string;
+  programId?: string;
+}): Promise<ApiResponse<MissingMonthlyInvoicesResult>> {
+  const queryParams = new URLSearchParams();
+  queryParams.set('month', params.month);
+  if (params.branchId) queryParams.append('branchId', params.branchId);
+  if (params.courseId) queryParams.append('courseId', params.courseId);
+  if (params.programId) queryParams.append('programId', params.programId);
+  return apiRequest<ApiResponse<MissingMonthlyInvoicesResult>>(
+    `/invoices/monthly/missing?${queryParams.toString()}`,
+  );
+}
 
 export async function generateMonthlyInvoices(body?: {
   month?: string;
   branchId?: string;
   courseId?: string;
+  onlyMissing?: boolean;
+  studentUserId?: string;
 }): Promise<ApiResponse<MonthlyGenerateResult>> {
   return apiRequest<ApiResponse<MonthlyGenerateResult>>('/invoices/monthly/generate', {
     method: 'POST',

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { BranchOption } from '../types';
 import { studentSearchHint } from '../studentSearch';
+import { SearchableSelect } from './SearchableSelect';
 import { StudentAdminSelect } from './StudentAdminSelect';
 
 export function StudentsToolbar({
@@ -126,11 +127,13 @@ export function StudentsToolbar({
           className="w-[min(100%,12rem)] sm:min-w-[11rem] sm:max-w-xs"
           title={!programSelected ? 'Select a program first' : 'Courses in this program'}
         >
-          <StudentAdminSelect
+          <SearchableSelect
             value={courseFilter}
-            onChange={onCourseFilterChange}
+            onChange={(value) => onCourseFilterChange(value || 'ALL')}
             options={courseOptions}
+            placeholder={programSelected ? 'All courses' : 'Select program first'}
             disabled={!programSelected}
+            clearable={courseFilter !== 'ALL'}
           />
         </div>
         <div

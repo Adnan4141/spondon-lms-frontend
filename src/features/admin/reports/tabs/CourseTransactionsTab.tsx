@@ -6,7 +6,6 @@ import {
   getCourseTransactions,
   type CourseTransactionData,
   type CourseTransactionTotals,
-  type DueSummaryStudentRow,
 } from '@/lib/api/reports';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Button } from '@/components/ui/button';
@@ -28,41 +27,27 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import type { ExportFormat } from '@/lib/export';
 import { AdminDatePicker, AdminMonthPicker } from '@/features/admin/shared/form/AdminField';
 import { cn } from '@/lib/utils';
-import { useAdminSession } from '@/features/admin/shared/admin-session';
-import { useSmsManagementData } from '@/features/admin/sms/hooks/useSmsManagement';
 import {
   BarChart3,
   RefreshCw,
-  MessageSquare,
   ExternalLink,
   Search,
   ChevronLeft,
   ChevronRight,
-  CalendarRange,
+  AlertTriangle,
 } from 'lucide-react';
-import { DueReminderDrawer } from '../components/DueReminderDrawer';
 import { ExportButtons } from '../ExportButtons';
+import { MonthPresetButtons } from '../components/MonthPresetButtons';
 import {
   fmtNum,
   fmtCur,
   exportFilename,
   exportRows,
   COURSE_TRANSACTIONS_PAGE_SIZES,
-  getCurrentMonthLabel,
   type CourseTransactionsPaymentStatus,
   type CourseTransactionsQueryState,
   type NamedEntity,
@@ -101,50 +86,6 @@ const EXPORT_COLUMNS = [
   { header: 'Due Date', value: (row: CourseTransactionData) => row.nextPaymentDueDate ?? '' },
 ];
 
-function aggregateDueReminderRows(
-  rows: CourseTransactionData[],
-  courseName: string,
-): DueSummaryStudentRow[] {
-  const byStudent = new Map<string, DueSummaryStudentRow>();
-
-  for (const row of rows) {
-    if (row.due <= 0 || !row.student) continue;
-
-    const existing = byStudent.get(row.studentUserId);
-    if (existing) {
-      existing.invoiceCount += 1;
-      existing.totalPayable += row.net;
-      existing.totalPaid += row.paid;
-      existing.totalDue += row.due;
-      if (
-        row.nextPaymentDueDate
-        && (!existing.nextDueDate || row.nextPaymentDueDate < existing.nextDueDate)
-      ) {
-        existing.nextDueDate = row.nextPaymentDueDate;
-      }
-      continue;
-    }
-
-    byStudent.set(row.studentUserId, {
-      studentUserId: row.studentUserId,
-      fullName: row.student.fullName,
-      mobile: row.student.mobile ?? '',
-      registrationNumber: row.student.registrationNumber,
-      branchId: row.branchId,
-      branchName: row.branch?.name ?? '',
-      invoiceCount: 1,
-      totalPayable: row.net,
-      totalPaid: row.paid,
-      totalDue: row.due,
-      courseSummary: courseName,
-      programSummary: null,
-      nextDueDate: row.nextPaymentDueDate ?? null,
-    });
-  }
-
-  return [...byStudent.values()];
-}
-
 async function fetchAllCourseTransactionRows(query: CourseTransactionsQueryState) {
   const res = await getCourseTransactions({
     ...buildCourseTransactionsApiParams(query),
@@ -165,30 +106,16 @@ export function CourseTransactionsTab({
   branches: BranchOption[];
 }) {
   const { toast } = useToast();
-  const { user } = useAdminSession();
-  const smsData = useSmsManagementData(user);
-  const { query, updateQuery, applyCurrentMonth } = useCourseTransactionsQuery();
+  const { query, updateQuery, applyMonthPreset } = useCourseTransactionsQuery();
 
   const [searchDraft, setSearchDraft] = useState(query.search);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<CourseTransactionData[]>([]);
   const [totals, setTotals] = useState<CourseTransactionTotals | null>(null);
+  const [missingInvoice, setMissingInvoice] = useState<{ count: number; month: string } | null>(null);
   const [pagination, setPagination] = useState({ page: 1, limit: 25, total: 0, pages: 1 });
-  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
-  const [smsRows, setSmsRows] = useState<DueSummaryStudentRow[]>([]);
-  const [smsDrawerOpen, setSmsDrawerOpen] = useState(false);
-  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
-  const [bulkConfirmRows, setBulkConfirmRows] = useState<DueSummaryStudentRow[]>([]);
-  const [bulkLoading, setBulkLoading] = useState(false);
 
-  const courseName = courses.find((c) => c.id === query.courseId)?.name ?? 'course fees';
-  const activeBranchLabel = query.branchId
-    ? branches.find((branch) => branch.id === query.branchId)?.name
-    : 'All Branches';
-  const sendBlockedMessage = smsData.providerBalanceValue === 'Gateway not configured'
-    ? smsData.providerBalanceError
-    : undefined;
-  const currentMonthLabel = getCurrentMonthLabel();
+  const showWaivedColumn = query.includeWaived || (totals?.waived ?? 0) > 0;
 
   useEffect(() => {
     setSearchDraft(query.search);
@@ -207,6 +134,7 @@ export function CourseTransactionsTab({
     if (!query.courseId) {
       setData([]);
       setTotals(null);
+      setMissingInvoice(null);
       setPagination({ page: 1, limit: query.limit, total: 0, pages: 1 });
       return;
     }
@@ -221,6 +149,7 @@ export function CourseTransactionsTab({
 
       setData(res.data);
       setTotals(res.totals ?? null);
+      setMissingInvoice(res.missingInvoice ?? null);
       setPagination(
         res.pagination ?? {
           page: query.page,
@@ -229,7 +158,6 @@ export function CourseTransactionsTab({
           pages: 1,
         },
       );
-      setSelectedStudentIds([]);
     } catch {
       toast({ title: 'Failed to load transactions', variant: 'destructive' });
     } finally {
@@ -241,19 +169,6 @@ export function CourseTransactionsTab({
     void load();
   }, [load]);
 
-  const dueReminderCandidates = useMemo(
-    () => aggregateDueReminderRows(data, courseName),
-    [courseName, data],
-  );
-  const selectedReminderRows = useMemo(
-    () => dueReminderCandidates.filter((row) => selectedStudentIds.includes(row.studentUserId)),
-    [dueReminderCandidates, selectedStudentIds],
-  );
-  const allDueSelected = dueReminderCandidates.length > 0
-    && selectedStudentIds.length === dueReminderCandidates.length;
-  const bulkConfirmTotalDue = bulkConfirmRows.reduce((sum, row) => sum + row.totalDue, 0);
-  const showWaivedColumn = query.includeWaived || (totals?.waived ?? 0) > 0;
-
   const pageStart = data.length === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1;
   const pageEnd = (pagination.page - 1) * pagination.limit + data.length;
   const pageNumbers = useMemo(() => {
@@ -263,43 +178,6 @@ export function CourseTransactionsTab({
       .filter((p) => p >= 1 && p <= pages)
       .sort((a, b) => a - b);
   }, [pagination.page, pagination.pages]);
-
-  function openSmsDrawer(rows: DueSummaryStudentRow[]) {
-    if (!rows.length) {
-      toast({ title: 'Select at least one student with due', variant: 'destructive' });
-      return;
-    }
-    setSmsRows(rows);
-    setSmsDrawerOpen(true);
-  }
-
-  async function requestBulkSmsDrawer() {
-    if (!query.courseId) return;
-    setBulkLoading(true);
-    try {
-      const allRows = await fetchAllCourseTransactionRows(query);
-      const rows = aggregateDueReminderRows(allRows, courseName);
-      if (!rows.length) {
-        toast({ title: 'No unpaid students found for current filters', variant: 'destructive' });
-        return;
-      }
-      setBulkConfirmRows(rows);
-      setBulkConfirmOpen(true);
-    } catch (error) {
-      toast({
-        title: error instanceof Error ? error.message : 'Failed to load unpaid students',
-        variant: 'destructive',
-      });
-    } finally {
-      setBulkLoading(false);
-    }
-  }
-
-  function confirmBulkSmsDrawer() {
-    openSmsDrawer(bulkConfirmRows);
-    setBulkConfirmOpen(false);
-    setBulkConfirmRows([]);
-  }
 
   async function handleExport(format: ExportFormat) {
     if (!query.courseId) {
@@ -335,8 +213,15 @@ export function CourseTransactionsTab({
     }
   }
 
+  const monthlyBillingHref = useMemo(() => {
+    if (!query.month) return '/admin/monthly-billing';
+    const params = new URLSearchParams({ month: query.month });
+    if (query.courseId) params.set('courseId', query.courseId);
+    if (query.branchId) params.set('branchId', query.branchId);
+    return `/admin/monthly-billing?${params.toString()}`;
+  }, [query.branchId, query.courseId, query.month]);
+
   const tableHeaders = [
-    ...(dueReminderCandidates.length > 0 ? [''] : []),
     'Student',
     'Reg #',
     'Mobile',
@@ -353,7 +238,6 @@ export function CourseTransactionsTab({
     'Invoice',
     'Last payment',
     'Due date',
-    ...(dueReminderCandidates.length > 0 ? ['SMS'] : []),
   ];
 
   return (
@@ -397,7 +281,7 @@ export function CourseTransactionsTab({
           <AdminMonthPicker
             className="w-full lg:w-48"
             value={query.month}
-            onChange={(value) => updateQuery({ month: value })}
+            onChange={(value) => updateQuery({ month: value, from: '', to: '' })}
             placeholder="Select month"
           />
         </div>
@@ -419,15 +303,13 @@ export function CourseTransactionsTab({
             placeholder="To date"
           />
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={applyCurrentMonth}
-          className="h-9 w-full lg:w-auto gap-2 justify-center"
-        >
-          <CalendarRange className="h-4 w-4" />
-          This Month — {currentMonthLabel}
-        </Button>
+        <MonthPresetButtons
+          month={query.month}
+          from={query.from}
+          to={query.to}
+          onSelect={applyMonthPreset}
+          className="w-full lg:w-auto"
+        />
         <label className="flex h-9 items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-semibold text-slate-600">
           <Checkbox
             checked={query.includeWaived}
@@ -444,22 +326,34 @@ export function CourseTransactionsTab({
           {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <BarChart3 className="h-4 w-4" />}
           Refresh
         </Button>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={!query.courseId || bulkLoading}
-          onClick={() => void requestBulkSmsDrawer()}
-          className="h-9 w-full lg:w-auto gap-2 justify-center"
-        >
-          {bulkLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
-          Send to All Unpaid{query.month ? ` — ${query.month}` : ''}
-        </Button>
         <ExportButtons
           onExport={handleExport}
           disabled={loading || !query.courseId || pagination.total === 0}
           className="w-full lg:w-auto justify-end sm:justify-start"
         />
+        <p className="w-full text-[11px] text-slate-500">
+          From/To applies only when Month is empty; otherwise Month controls the billing period.
+        </p>
       </div>
+
+      {missingInvoice && missingInvoice.count > 0 && query.month ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm">
+          <div className="flex items-start gap-2 text-amber-900">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <p className="font-medium">
+              <strong>{missingInvoice.count}</strong> billable student{missingInvoice.count === 1 ? '' : 's'} for{' '}
+              <strong>{missingInvoice.month}</strong> have no invoice yet — they will not appear in this report until
+              invoices are generated.
+            </p>
+          </div>
+          <Button asChild variant="outline" size="sm" className="shrink-0 border-amber-300 bg-white font-bold">
+            <Link href={monthlyBillingHref} className="gap-1.5">
+              Fix in Monthly Billing
+              <ExternalLink className="h-3.5 w-3.5" />
+            </Link>
+          </Button>
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap gap-2">
         {STATUS_CARDS.map((c) => (
@@ -478,23 +372,6 @@ export function CourseTransactionsTab({
           </button>
         ))}
       </div>
-
-      {selectedReminderRows.length > 0 ? (
-        <div className="sticky top-16 z-10 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 shadow-sm">
-          <p className="text-sm font-semibold text-blue-900">
-            {selectedReminderRows.length} students selected with dues
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={() => setSelectedStudentIds([])}>
-              Clear
-            </Button>
-            <Button type="button" size="sm" onClick={() => openSmsDrawer(selectedReminderRows)} className="gap-2">
-              <MessageSquare className="h-4 w-4" />
-              Send Due Reminder
-            </Button>
-          </div>
-        </div>
-      ) : null}
 
       {totals && pagination.total > 0 && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8">
@@ -531,25 +408,12 @@ export function CourseTransactionsTab({
               <Table>
                 <TableHeader className="bg-slate-50/80">
                   <TableRow>
-                    {tableHeaders.map((h, index) => (
+                    {tableHeaders.map((h) => (
                       <TableHead
-                        key={h || `col-${index}`}
-                        className={cn(
-                          'text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap',
-                          h === '' && 'w-10',
-                          h === 'SMS' && 'text-right',
-                        )}
+                        key={h}
+                        className="text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap"
                       >
-                        {h === '' && dueReminderCandidates.length > 0 ? (
-                          <Checkbox
-                            checked={allDueSelected}
-                            onCheckedChange={(checked) => setSelectedStudentIds(
-                              checked ? dueReminderCandidates.map((row) => row.studentUserId) : [],
-                            )}
-                          />
-                        ) : (
-                          h
-                        )}
+                        {h}
                       </TableHead>
                     ))}
                   </TableRow>
@@ -569,30 +433,12 @@ export function CourseTransactionsTab({
                     </TableRow>
                   ) : (
                     data.map((row) => {
-                      const reminderRow = dueReminderCandidates.find(
-                        (candidate) => candidate.studentUserId === row.studentUserId,
-                      );
-                      const canSelect = Boolean(reminderRow);
                       const studentHref = row.student?.registrationNumber
                         ? `/admin/students/${encodeURIComponent(row.student.registrationNumber)}`
                         : null;
 
                       return (
                         <TableRow key={row.id} className="hover:bg-slate-50/60">
-                          {dueReminderCandidates.length > 0 ? (
-                            <TableCell>
-                              {canSelect ? (
-                                <Checkbox
-                                  checked={selectedStudentIds.includes(row.studentUserId)}
-                                  onCheckedChange={(checked) => setSelectedStudentIds((prev) => (
-                                    checked
-                                      ? [...new Set([...prev, row.studentUserId])]
-                                      : prev.filter((id) => id !== row.studentUserId)
-                                  ))}
-                                />
-                              ) : null}
-                            </TableCell>
-                          ) : null}
                           <TableCell className="font-bold text-slate-900">
                             {studentHref ? (
                               <Link href={studentHref} className="inline-flex items-center gap-1 hover:text-indigo-600">
@@ -651,21 +497,6 @@ export function CourseTransactionsTab({
                               ? new Date(row.nextPaymentDueDate).toLocaleDateString('en-GB')
                               : '—'}
                           </TableCell>
-                          {dueReminderCandidates.length > 0 ? (
-                            <TableCell className="text-right">
-                              {reminderRow ? (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => openSmsDrawer([reminderRow])}
-                                  aria-label={`Send due SMS to ${row.student?.fullName ?? 'student'}`}
-                                >
-                                  <MessageSquare className="h-4 w-4" />
-                                </Button>
-                              ) : null}
-                            </TableCell>
-                          ) : null}
                         </TableRow>
                       );
                     })
@@ -743,50 +574,6 @@ export function CourseTransactionsTab({
           </>
         )}
       </div>
-
-      <DueReminderDrawer
-        open={smsDrawerOpen}
-        onOpenChange={setSmsDrawerOpen}
-        rows={smsRows}
-        branches={branches}
-        actor={user}
-        month={query.month}
-        branchLabel={activeBranchLabel}
-        filterBranchId={query.branchId || undefined}
-        config={smsData.config}
-        templates={smsData.templates}
-        orgBalance={smsData.orgBalance}
-        branchBalances={smsData.branchBalances}
-        sendBlockedMessage={sendBlockedMessage}
-        onSuccess={() => {
-          setSelectedStudentIds([]);
-          void load();
-        }}
-      />
-
-      <AlertDialog open={bulkConfirmOpen} onOpenChange={setBulkConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Send due reminders to all unpaid students?</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-2 text-sm text-muted-foreground">
-                <p>
-                  You are about to review SMS for <strong>{fmtNum(bulkConfirmRows.length)}</strong> student
-                  {bulkConfirmRows.length === 1 ? '' : 's'} with a combined due of <strong>{fmtCur(bulkConfirmTotalDue)}</strong>
-                  {' '}for <strong>{courseName}</strong>.
-                </p>
-                <p>
-                  Students already reminded for <strong>{query.month || new Date().toISOString().slice(0, 7)}</strong> will be skipped automatically.
-                </p>
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmBulkSmsDrawer}>Continue to Review</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

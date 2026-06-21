@@ -69,6 +69,35 @@ export function getCurrentMonthLabel(now = new Date()) {
   return now.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
 }
 
+export function getNextMonthRange(now = new Date()) {
+  const d = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const year = d.getFullYear();
+  const monthIndex = d.getMonth();
+  const month = `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
+  const lastDay = new Date(year, monthIndex + 1, 0).getDate();
+  return {
+    month,
+    from: `${month}-01`,
+    to: `${month}-${String(lastDay).padStart(2, '0')}`,
+  };
+}
+
+export function getNextMonthLabel(now = new Date()) {
+  const d = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  return d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+}
+
+export type MonthPreset = 'current' | 'next';
+
+export function isMonthPresetActive(
+  query: { month: string; from: string; to: string },
+  preset: MonthPreset,
+  now = new Date(),
+): boolean {
+  const range = preset === 'current' ? getCurrentMonthRange(now) : getNextMonthRange(now);
+  return query.month === range.month && !query.from && !query.to;
+}
+
 function parseCourseTransactionsPage(raw: string | null): number {
   const n = Number(raw);
   return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1;

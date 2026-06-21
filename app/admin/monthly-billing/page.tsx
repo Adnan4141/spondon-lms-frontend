@@ -2,10 +2,14 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useAdminFilterOptions } from '@/lib/query/hooks/useAdminFilterOptions';
-import { getEnrollments } from '@/lib/api/enrollments';
-import { generateMonthlyInvoices } from '@/lib/api/invoices';
-import type { Enrollment } from '@/lib/api/enrollments';
+import {
+  generateMonthlyInvoices,
+  getMissingMonthlyInvoices,
+  type MissingMonthlyInvoiceRow,
+  type MissingMonthlyInvoicesResult,
+} from '@/lib/api/invoices';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -27,75 +31,102 @@ import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { MonthPicker } from '@/components/ui/month-picker';
 import {
+  AlertTriangle,
   CalendarRange,
   ChevronRight,
   CreditCard,
+  ExternalLink,
   Info,
   Loader2,
   RefreshCw,
   Sparkles,
+  UserX,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function MonthlyBillingPage() {
+  const searchParams = useSearchParams();
   const { toast, toasts, removeToast } = useToast();
   const { branches: branchOptions, courses: courseOptions, isMetaLoading } = useAdminFilterOptions();
-  const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
-  const [branchId, setBranchId] = useState<string>('all');
-  const [courseId, setCourseId] = useState<string>('all');
-  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [month, setMonth] = useState(() => searchParams.get('month') || new Date().toISOString().slice(0, 7));
+  const [branchId, setBranchId] = useState<string>(() => searchParams.get('branchId') || 'all');
+  const [courseId, setCourseId] = useState<string>(() => searchParams.get('courseId') || 'all');
+  const [coverage, setCoverage] = useState<MissingMonthlyInvoicesResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [generatingMissing, setGeneratingMissing] = useState(false);
+  const [generatingStudentId, setGeneratingStudentId] = useState<string | null>(null);
   const pageLoading = loading || isMetaLoading;
 
   const branches = branchOptions;
   const monthlyCourses = courseOptions;
+  const missingStudents = coverage?.students ?? [];
 
-  const load = useCallback(async () => {
+  const loadCoverage = useCallback(async () => {
     try {
       setLoading(true);
-      const eRes = await getEnrollments({ status: 'ACTIVE', limit: 500 });
-      if (eRes.success && eRes.data) setEnrollments(eRes.data);
+      const params: { month: string; branchId?: string; courseId?: string } = { month };
+      if (branchId !== 'all') params.branchId = branchId;
+      if (courseId !== 'all') params.courseId = courseId;
+      const res = await getMissingMonthlyInvoices(params);
+      if (res.success && res.data) {
+        setCoverage(res.data);
+      } else {
+        setCoverage(null);
+        toast({ title: 'Error', description: res.message || 'Failed to load billing coverage', variant: 'destructive' });
+      }
     } catch {
-      toast({ title: 'Error', description: 'Failed to load billing data', variant: 'destructive' });
+      setCoverage(null);
+      toast({ title: 'Error', description: 'Failed to load billing coverage', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [branchId, courseId, month, toast]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    void loadCoverage();
+  }, [loadCoverage]);
 
-  const monthlyEnrollments = enrollments.filter((e) => e.billingType === 'MONTHLY');
-  const filteredPreview = monthlyEnrollments.filter((e) => {
-    if (branchId !== 'all' && e.branchId !== branchId) return false;
-    if (courseId !== 'all' && !e.enrollmentCourses?.some((ec) => ec.courseId === courseId)) return false;
-    if (e.billingStartMonth && e.billingStartMonth > month) return false;
-    return true;
-  });
-
-  const handleGenerate = async () => {
+  const runGenerate = async (options: { onlyMissing?: boolean; studentUserId?: string }) => {
+    const { onlyMissing, studentUserId } = options;
+    const setBusy = studentUserId
+      ? (busy: boolean) => setGeneratingStudentId(busy ? studentUserId : null)
+      : onlyMissing
+        ? setGeneratingMissing
+        : setGenerating;
     try {
-      setGenerating(true);
-      const body: { month: string; branchId?: string; courseId?: string } = { month };
+      setBusy(true);
+      const body: {
+        month: string;
+        branchId?: string;
+        courseId?: string;
+        onlyMissing?: boolean;
+        studentUserId?: string;
+      } = { month };
+      if (onlyMissing) body.onlyMissing = true;
+      if (studentUserId) body.studentUserId = studentUserId;
       if (branchId !== 'all') body.branchId = branchId;
       if (courseId !== 'all') body.courseId = courseId;
       const res = await generateMonthlyInvoices(body);
       if (res.success && res.data) {
         const d = res.data;
         toast({
-          title: 'Invoices generated',
-          description: `${d.invoicesCreated} created · ${d.skipped} skipped for ${d.month}.`,
+          title: studentUserId
+            ? 'Invoice generated'
+            : onlyMissing
+              ? 'Missing invoices generated'
+              : 'Invoices generated',
+          description: `${d.invoicesCreated} created${d.invoicesUpdated ? ` · ${d.invoicesUpdated} updated` : ''} · ${d.skipped} skipped for ${d.month}.`,
           variant: 'success',
         });
         if (d.errors?.length) {
           toast({
-            title: 'Some enrollments failed',
+            title: 'Some students failed',
             description: d.errors.slice(0, 4).join(' · '),
             variant: 'destructive',
           });
         }
+        await loadCoverage();
       } else {
         toast({ title: 'Error', description: res.message || 'Generation failed', variant: 'destructive' });
       }
@@ -106,9 +137,14 @@ export default function MonthlyBillingPage() {
         variant: 'destructive',
       });
     } finally {
-      setGenerating(false);
+      setBusy(false);
     }
   };
+
+  const studentHref = (row: MissingMonthlyInvoiceRow) =>
+    row.registrationNumber
+      ? `/admin/students/${encodeURIComponent(row.registrationNumber)}`
+      : null;
 
   return (
     <div className="space-y-8 pb-12 text-slate-900">
@@ -123,10 +159,9 @@ export default function MonthlyBillingPage() {
             </div>
             <h1 className="text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">Monthly billing hub</h1>
             <p className="text-sm font-medium leading-relaxed text-slate-600">
-              Generate recurring invoices for all <strong className="text-slate-800">active</strong> enrollments in courses
-              marked <Badge className="mx-0.5 bg-violet-600">MONTHLY</Badge>. Students are skipped until their{' '}
-              <strong className="text-slate-800">billing start month</strong>; existing invoices for the same course and month
-              are never duplicated.
+              Find students who are <strong className="text-slate-800">billable</strong> for a month but have no invoice yet,
+              then generate only the missing rows or run a full batch. Eligibility uses the same rules as invoice creation
+              (course duration, billing start, cancellations).
             </p>
           </div>
           <Button
@@ -142,22 +177,26 @@ export default function MonthlyBillingPage() {
         </div>
       </div>
 
-      <section className="grid gap-4 sm:grid-cols-3">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           { label: 'Monthly courses (active)', value: monthlyCourses.length, icon: Sparkles },
-          { label: 'Active monthly enrollments', value: monthlyEnrollments.length, icon: CreditCard },
-          { label: 'Eligible this run (preview)', value: filteredPreview.length, icon: Info },
+          { label: 'Billable this month', value: coverage?.billableCount, icon: CreditCard },
+          { label: 'Already invoiced', value: coverage?.invoicedCount, icon: Info },
+          { label: 'Missing invoices', value: coverage?.missingCount, icon: UserX, highlight: (coverage?.missingCount ?? 0) > 0 },
         ].map((card) => (
           <div
             key={card.label}
-            className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+            className={cn(
+              'rounded-2xl border bg-white p-5 shadow-sm',
+              card.highlight ? 'border-amber-200 bg-amber-50/40' : 'border-slate-200',
+            )}
           >
             <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-indigo-600">
               <card.icon className="h-5 w-5" />
             </div>
             <p className="text-xs font-bold uppercase tracking-wider text-slate-400">{card.label}</p>
-            <p className="mt-1 text-2xl font-black text-slate-900">
-              {pageLoading ? '—' : card.value}
+            <p className={cn('mt-1 text-2xl font-black', card.highlight ? 'text-amber-700' : 'text-slate-900')}>
+              {pageLoading ? '—' : card.value ?? 0}
             </p>
           </div>
         ))}
@@ -202,21 +241,37 @@ export default function MonthlyBillingPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               type="button"
               variant="outline"
               className="h-11 rounded-xl"
-              onClick={load}
+              onClick={() => void loadCoverage()}
               disabled={pageLoading}
             >
               <RefreshCw className={cn('h-4 w-4', pageLoading && 'animate-spin')} />
             </Button>
             <Button
               type="button"
+              variant="outline"
+              className="h-11 rounded-xl font-bold"
+              onClick={() => void runGenerate({ onlyMissing: true })}
+              disabled={generatingMissing || generating || pageLoading || missingStudents.length === 0}
+            >
+              {generatingMissing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating…
+                </>
+              ) : (
+                <>Generate missing only ({missingStudents.length})</>
+              )}
+            </Button>
+            <Button
+              type="button"
               className="h-11 rounded-xl text-white bg-slate-900 px-6 font-bold hover:bg-indigo-600"
-              onClick={handleGenerate}
-              disabled={generating || pageLoading}
+              onClick={() => void runGenerate({})}
+              disabled={generating || generatingMissing || pageLoading}
             >
               {generating ? (
                 <>
@@ -224,67 +279,110 @@ export default function MonthlyBillingPage() {
                   Generating…
                 </>
               ) : (
-                <>
-               
-                  Generate invoices
-                </>
+                <>Generate all billable</>
               )}
             </Button>
           </div>
         </div>
         <p className="text-xs font-medium text-slate-500 leading-relaxed">
-          Discounts from the enrollment settings are applied per student when invoices are created. Use{' '}
+          Use <strong>Generate missing only</strong> to create invoices for students listed below. Use{' '}
           <Link href="/admin/enrollments" className="font-bold text-indigo-600 hover:underline">
             Enrollments
           </Link>{' '}
-          to set or fix billing start months.
+          to fix billing start months or course periods.
         </p>
       </section>
 
       <section className="rounded-[28px] border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div className="border-b border-slate-100 px-6 py-4 flex items-center justify-between gap-4">
-          <h2 className="text-sm font-black uppercase tracking-wider text-slate-500">Preview (eligible rows)</h2>
-          <span className="text-xs font-bold text-slate-400">{filteredPreview.length} enrollments</span>
+        <div className="border-b border-slate-100 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-black uppercase tracking-wider text-slate-500">Missing invoices</h2>
+            {(coverage?.missingCount ?? 0) > 0 ? (
+              <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">
+                <AlertTriangle className="mr-1 h-3 w-3" />
+                {coverage?.missingCount} students
+              </Badge>
+            ) : null}
+          </div>
+          <span className="text-xs font-bold text-slate-400">
+            {month} · live from database
+          </span>
         </div>
-        <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
+        <div className="overflow-x-auto max-h-[480px] overflow-y-auto">
           {pageLoading ? (
             <div className="p-16 flex justify-center text-slate-400">
               <Loader2 className="h-8 w-8 animate-spin" />
             </div>
-          ) : filteredPreview.length === 0 ? (
+          ) : missingStudents.length === 0 ? (
             <p className="p-10 text-center text-sm font-medium text-slate-500">
-              No active monthly enrollments match these filters for {month}, or billing has not started yet.
+              All billable students have an invoice for {month}.
             </p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="font-bold">Student</TableHead>
-                  <TableHead className="font-bold">Program / Courses</TableHead>
+                  <TableHead className="font-bold">Reg #</TableHead>
+                  <TableHead className="font-bold">Mobile</TableHead>
                   <TableHead className="font-bold">Branch</TableHead>
+                  <TableHead className="font-bold">Program / Courses</TableHead>
                   <TableHead className="font-bold">Billing start</TableHead>
+                  <TableHead className="font-bold">Last invoice</TableHead>
+                  <TableHead className="font-bold text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredPreview.slice(0, 80).map((e) => (
-                  <TableRow key={e.id}>
-                    <TableCell className="font-medium">{e.student?.fullName ?? '—'}</TableCell>
-                    <TableCell className="text-slate-600">
-                      {e.program?.name ?? '—'} · {e.enrollmentCourses?.map((ec) => ec.course?.name).filter(Boolean).join(', ') || '—'}
-                    </TableCell>
-                    <TableCell className="text-slate-600">{e.branch?.name ?? '—'}</TableCell>
-                    <TableCell>{e.billingStartMonth || <span className="text-slate-400">Any month</span>}</TableCell>
-                  </TableRow>
-                ))}
+                {missingStudents.map((row) => {
+                  const href = studentHref(row);
+                  const isGenerating = generatingStudentId === row.studentUserId;
+                  return (
+                    <TableRow key={row.studentUserId}>
+                      <TableCell className="font-medium">
+                        {href ? (
+                          <Link href={href} className="inline-flex items-center gap-1 hover:text-indigo-600">
+                            {row.fullName}
+                            <ExternalLink className="h-3 w-3 opacity-40" />
+                          </Link>
+                        ) : (
+                          row.fullName
+                        )}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-slate-600">
+                        {row.registrationNumber ?? '—'}
+                      </TableCell>
+                      <TableCell className="text-xs text-slate-600">{row.mobile}</TableCell>
+                      <TableCell className="text-xs text-slate-600">{row.branchName}</TableCell>
+                      <TableCell className="text-xs text-slate-600">
+                        {row.programName} · {row.billableCourseNames.join(', ')}
+                      </TableCell>
+                      <TableCell className="text-xs">{row.billingStartMonth ?? '—'}</TableCell>
+                      <TableCell className="text-xs text-slate-500">{row.lastInvoiceMonth ?? '—'}</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-8 rounded-lg font-bold"
+                          disabled={isGenerating || generating || generatingMissing}
+                          onClick={() => void runGenerate({ studentUserId: row.studentUserId })}
+                        >
+                          {isGenerating ? (
+                            <>
+                              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                              Generating…
+                            </>
+                          ) : (
+                            'Generate'
+                          )}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
         </div>
-        {filteredPreview.length > 80 && (
-          <p className="px-6 py-3 text-xs font-medium text-slate-500 border-t border-slate-100">
-            Showing first 80 rows. Generation still processes all matching enrollments on the server.
-          </p>
-        )}
       </section>
     </div>
   );

@@ -49,10 +49,10 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
-  CalendarRange,
   ExternalLink,
 } from 'lucide-react';
 import { DueReminderDrawer } from '../components/DueReminderDrawer';
+import { MonthPresetButtons } from '../components/MonthPresetButtons';
 import { ExportButtons } from '../ExportButtons';
 import {
   fmtNum,
@@ -60,7 +60,6 @@ import {
   exportFilename,
   exportRows,
   DUE_COLLECTION_PAGE_SIZES,
-  getCurrentMonthLabel,
   type BranchOption,
   type DueCollectionQueryState,
 } from '../shared';
@@ -96,7 +95,7 @@ export function DueCollectionTab({ branches }: { branches: BranchOption[] }) {
   const { toast } = useToast();
   const { user } = useAdminSession();
   const smsData = useSmsManagementData(user);
-  const { query, updateQuery, applyCurrentMonth } = useDueCollectionQuery();
+  const { query, updateQuery, applyMonthPreset } = useDueCollectionQuery();
 
   const [searchDraft, setSearchDraft] = useState(query.search);
   const [loading, setLoading] = useState(false);
@@ -111,7 +110,6 @@ export function DueCollectionTab({ branches }: { branches: BranchOption[] }) {
   const [bulkConfirmRows, setBulkConfirmRows] = useState<DueSummaryStudentRow[]>([]);
   const [bulkLoading, setBulkLoading] = useState(false);
 
-  const currentMonthLabel = getCurrentMonthLabel();
   const activeBranchLabel = query.branchId
     ? branches.find((branch) => branch.id === query.branchId)?.name
     : 'All Branches';
@@ -295,7 +293,7 @@ export function DueCollectionTab({ branches }: { branches: BranchOption[] }) {
           <AdminMonthPicker
             className="w-full lg:w-48"
             value={query.month}
-            onChange={(value) => updateQuery({ month: value })}
+            onChange={(value) => updateQuery({ month: value, from: '', to: '' })}
             placeholder="Select month"
           />
         </div>
@@ -317,15 +315,13 @@ export function DueCollectionTab({ branches }: { branches: BranchOption[] }) {
             placeholder="To date"
           />
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={applyCurrentMonth}
-          className="h-9 w-full lg:w-auto gap-2 justify-center"
-        >
-          <CalendarRange className="h-4 w-4" />
-          This Month — {currentMonthLabel}
-        </Button>
+        <MonthPresetButtons
+          month={query.month}
+          from={query.from}
+          to={query.to}
+          onSelect={applyMonthPreset}
+          className="w-full lg:w-auto"
+        />
         <div>
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Invoice Status</p>
           <Select
@@ -369,6 +365,9 @@ export function DueCollectionTab({ branches }: { branches: BranchOption[] }) {
           disabled={loading || (pagination.total === 0 && data.length === 0)}
           className="w-full lg:w-auto justify-end sm:justify-start"
         />
+        <p className="w-full text-[11px] text-slate-500">
+          From/To applies only when Month is empty; otherwise Month controls the billing period.
+        </p>
       </div>
 
       {selectedRows.length > 0 ? (

@@ -6,8 +6,10 @@ import {
   courseTransactionsHref,
   defaultCourseTransactionsQuery,
   getCurrentMonthRange,
+  getNextMonthRange,
   parseCourseTransactionsQuery,
   type CourseTransactionsQueryState,
+  type MonthPreset,
 } from './shared';
 
 export function useCourseTransactionsQuery() {
@@ -39,16 +41,23 @@ export function useCourseTransactionsQuery() {
     [query, replaceQuery],
   );
 
-  const applyCurrentMonth = useCallback(() => {
-    const range = getCurrentMonthRange();
-    updateQuery({
-      month: range.month,
-      from: range.from,
-      to: range.to,
-    });
-  }, [updateQuery]);
+  const applyMonthPreset = useCallback(
+    (preset: MonthPreset) => {
+      const range = preset === 'current' ? getCurrentMonthRange() : getNextMonthRange();
+      updateQuery({
+        month: range.month,
+        from: '',
+        to: '',
+      });
+    },
+    [updateQuery],
+  );
 
-  return { query, updateQuery, replaceQuery, applyCurrentMonth };
+  const applyCurrentMonth = useCallback(() => {
+    applyMonthPreset('current');
+  }, [applyMonthPreset]);
+
+  return { query, updateQuery, replaceQuery, applyCurrentMonth, applyMonthPreset };
 }
 
 export function buildCourseTransactionsApiParams(query: CourseTransactionsQueryState) {

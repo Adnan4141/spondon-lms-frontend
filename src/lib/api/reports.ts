@@ -144,6 +144,10 @@ export interface CourseTransactionResponse {
   message?: string;
   data: CourseTransactionData[];
   totals?: CourseTransactionTotals;
+  missingInvoice?: {
+    count: number;
+    month: string;
+  };
   pagination?: {
     page: number;
     limit: number;
