@@ -634,7 +634,7 @@ export function StudentExamsPageContent() {
                       
                       {item.studentAttemptsCount < item.allowedAttempts && (
                         <Button
-                          className="w-full h-10 rounded-xl font-black uppercase tracking-widest text-[10px] bg-indigo-600 hover:bg-indigo-700 text-white"
+                          className="w-full h-10 rounded-xl font-black uppercase tracking-widest text-[10px] text-white bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 shadow-sm shadow-orange-100 transition-all duration-200 border-0"
                           onClick={(e) => {
                             e.stopPropagation();
                             router.push(`/student/exams/${item.id}`);
@@ -650,7 +650,7 @@ export function StudentExamsPageContent() {
                     <>
                       {item.mode === 'OFFLINE' ? (
                         <Button
-                          className="w-full h-10 rounded-xl font-black uppercase tracking-widest text-[10px] bg-orange-600 hover:bg-orange-700 text-white"
+                          className="w-full h-10 rounded-xl font-black uppercase tracking-widest text-[10px] text-white bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 shadow-sm shadow-orange-100 transition-all duration-200 border-0"
                           onClick={(e) => {
                             e.stopPropagation();
                             router.push(`/student/exams/${item.id}`);
@@ -662,8 +662,10 @@ export function StudentExamsPageContent() {
                       ) : item.mode === 'WRITTEN' || item.mode === 'HYBRID' ? (
                         <Button
                           className={cn(
-                            "w-full h-10 rounded-xl font-black uppercase tracking-widest text-[10px] text-white",
-                            item.hasInProgress ? "bg-amber-500 hover:bg-amber-655" : "bg-violet-650 hover:bg-violet-700"
+                            "w-full h-10 rounded-xl font-black uppercase tracking-widest text-[10px] text-white border-0 shadow-sm transition-all duration-200",
+                            item.hasInProgress 
+                              ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 shadow-amber-100" 
+                              : "bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 shadow-orange-100"
                           )}
                           onClick={(e) => {
                             e.stopPropagation();
@@ -680,8 +682,10 @@ export function StudentExamsPageContent() {
                         /* ONLINE */
                         <Button
                           className={cn(
-                            "w-full h-10 rounded-xl font-black uppercase tracking-widest text-[10px] text-white",
-                            item.hasInProgress ? "bg-amber-500 hover:bg-amber-655" : "bg-indigo-600 hover:bg-indigo-700"
+                            "w-full h-10 rounded-xl font-black uppercase tracking-widest text-[10px] text-white border-0 shadow-sm transition-all duration-200",
+                            item.hasInProgress 
+                              ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 shadow-amber-100" 
+                              : "bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 shadow-orange-100"
                           )}
                           onClick={(e) => {
                             e.stopPropagation();
