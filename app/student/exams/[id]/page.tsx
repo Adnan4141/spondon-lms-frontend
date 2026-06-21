@@ -1036,66 +1036,71 @@ export default function StudentExamTakingPage() {
                 {/* Show questions with solutions */}
                 {result.showSolutions && result.questions.length > 0 && (
                   <div className="space-y-5">
-                    <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-3xs">
-                      <h2 className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-500 flex items-center gap-2">
-                        <Eye className="h-4 w-4 text-slate-405" /> {resultUi.solutionsLabel}
-                      </h2>
-                      {hasResultMixed && (
-                        <div className="grid grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-2xs">
-                          {(['mcq', 'written'] as const).map((tab) => (
-                            <button
-                              key={tab}
-                              type="button"
-                              onClick={() => setResultTab(tab)}
-                              className={cn(
-                                'h-8 rounded-xl px-5 text-xs font-black uppercase tracking-wider transition-all',
-                                resultTab === tab ? 'bg-indigo-650 text-white shadow-xs' : 'text-slate-500 hover:bg-slate-50',
-                              )}
-                            >
-                              {tab === 'mcq' ? resultUi.mcqTabLabel : resultUi.writtenTabLabel}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* Color coded jump list */}
-                    {solutionJumpItems.length > 1 ? (
-                      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                          {resultUi.jumpToQuestionLabel}
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {solutionJumpItems.map((item) => {
-                            let btnClass = 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100';
-                            if (item.isCorrect === true) {
-                              btnClass = 'border-emerald-250 bg-emerald-50 text-emerald-700 hover:bg-emerald-100/70';
-                            } else if (item.isCorrect === false) {
-                              btnClass = 'border-rose-250 bg-rose-50 text-rose-700 hover:bg-rose-100/70';
-                            } else if (item.isWritten) {
-                              if (item.isEvaluated) {
-                                btnClass = 'border-violet-250 bg-violet-50 text-violet-750 hover:bg-violet-100/70';
-                              } else {
-                                btnClass = 'border-amber-255 bg-amber-50 text-amber-755 hover:bg-amber-100/70';
-                              }
-                            }
-                            return (
+                    {/* Sticky wrapper for Solve Sheet headers */}
+                    <div className="sticky top-[80px] lg:top-[90px] z-10 space-y-3 bg-slate-50/95 backdrop-blur-xs py-3 -my-3">
+                      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-3xs">
+                        <h2 className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-500 flex items-center gap-2">
+                          <Eye className="h-4 w-4 text-slate-405" /> {resultUi.solutionsLabel}
+                        </h2>
+                        {hasResultMixed && (
+                          <div className="grid grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-slate-50/50 p-1 shadow-inner">
+                            {(['mcq', 'written'] as const).map((tab) => (
                               <button
-                                key={item.id}
+                                key={tab}
                                 type="button"
-                                onClick={() => scrollToResultQuestion(item.id)}
+                                onClick={() => setResultTab(tab)}
                                 className={cn(
-                                  "h-8 w-10 flex items-center justify-center rounded-xl border text-xs font-black transition-all",
-                                  btnClass
+                                  'h-8 rounded-xl px-5 text-xs font-black uppercase tracking-wider transition-all duration-200',
+                                  resultTab === tab 
+                                    ? 'bg-white text-indigo-600 border border-slate-100 shadow-xs' 
+                                    : 'text-slate-500 hover:bg-slate-100/50',
                                 )}
                               >
-                                {item.label}
+                                {tab === 'mcq' ? resultUi.mcqTabLabel : resultUi.writtenTabLabel}
                               </button>
-                            );
-                          })}
-                        </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    ) : null}
+                      
+                      {/* Color coded jump list */}
+                      {solutionJumpItems.length > 1 ? (
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                            {resultUi.jumpToQuestionLabel}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {solutionJumpItems.map((item) => {
+                              let btnClass = 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100';
+                              if (item.isCorrect === true) {
+                                btnClass = 'border-emerald-250 bg-emerald-50 text-emerald-700 hover:bg-emerald-100/70';
+                              } else if (item.isCorrect === false) {
+                                btnClass = 'border-rose-250 bg-rose-50 text-rose-700 hover:bg-rose-100/70';
+                              } else if (item.isWritten) {
+                                if (item.isEvaluated) {
+                                  btnClass = 'border-violet-250 bg-violet-50 text-violet-750 hover:bg-violet-100/70';
+                                } else {
+                                  btnClass = 'border-amber-255 bg-amber-50 text-amber-755 hover:bg-amber-100/70';
+                                }
+                              }
+                              return (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  onClick={() => scrollToResultQuestion(item.id)}
+                                  className={cn(
+                                    "h-8 w-10 flex items-center justify-center rounded-xl border text-xs font-black transition-all",
+                                    btnClass
+                                  )}
+                                >
+                                  {item.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
 
                     {/* Question cards list */}
                     <div className="space-y-4">
