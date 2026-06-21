@@ -14,13 +14,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { LazyRichTextEditor as RichTextEditor } from '@/components/ui/lazy-rich-text-editor';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { ChevronDown, ChevronUp, CalendarIcon } from 'lucide-react';
+import { ChevronDown, ChevronUp, CalendarIcon, Plus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -85,6 +85,8 @@ export function CqForm({ folders, question, initialFolderId, onSuccess }: CqForm
     createEmptyPart(3),
   ]);
   const [expandedParts, setExpandedParts] = useState<Set<number>>(new Set([0]));
+  const [answerVisibleParts, setAnswerVisibleParts] = useState<Set<number>>(new Set());
+  const [showExplanation, setShowExplanation] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [yearOpen, setYearOpen] = useState(false);
@@ -105,19 +107,22 @@ export function CqForm({ folders, question, initialFolderId, onSuccess }: CqForm
       // Load parts from meta
       const meta = question.meta as any;
       if (meta?.parts && Array.isArray(meta.parts) && meta.parts.length > 0) {
-        setParts(
-          PART_LABELS.map((label, i) => {
-            const p = meta.parts[i] ?? {};
-            return {
+        const loadedParts = PART_LABELS.map((label, i) => {
+          const p = meta.parts[i] ?? {};
+          return {
             label,
             prompt: p.prompt || '',
             marks: p.marks ?? 1,
             knowledgeLevel: p.knowledgeLevel || '',
             answer: p.answer || '',
-            };
-          })
+          };
+        });
+        setParts(loadedParts);
+        setAnswerVisibleParts(
+          new Set(loadedParts.map((part, i) => (part.answer?.trim() ? i : -1)).filter((i) => i >= 0)),
         );
       }
+      if (question.explanation?.trim()) setShowExplanation(true);
       setExpandedParts(new Set([0]));
     }
   }, [question]);
@@ -424,13 +429,46 @@ export function CqForm({ folders, question, initialFolderId, onSuccess }: CqForm
 
                       {/* Part Answer */}
                       <div className="space-y-2">
-                        <label className={sectionLabel}>উত্তর / Answer (Optional)</label>
-                        <RichTextEditor
-                          value={part.answer || ''}
-                          onChange={(html) => updatePart(pIdx, 'answer', html)}
-                          onImageUpload={handleEditorImageUpload}
-                          placeholder={`Model answer for part (${part.label})...`}
-                        />
+                        {answerVisibleParts.has(pIdx) ? (
+                          <>
+                            <div className="flex items-center justify-between">
+                              <label className={sectionLabel}>উত্তর / Answer (Optional)</label>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  updatePart(pIdx, 'answer', '');
+                                  setAnswerVisibleParts((prev) => {
+                                    const next = new Set(prev);
+                                    next.delete(pIdx);
+                                    return next;
+                                  });
+                                }}
+                                className="h-6 px-2 text-[10px] font-black uppercase text-rose-500 hover:bg-rose-50"
+                              >
+                                Remove
+                              </Button>
+                            </div>
+                            <RichTextEditor
+                              value={part.answer || ''}
+                              onChange={(html) => updatePart(pIdx, 'answer', html)}
+                              onImageUpload={handleEditorImageUpload}
+                              placeholder={`Model answer for part (${part.label})...`}
+                            />
+                          </>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-10 rounded-xl border-slate-200 bg-white text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:bg-indigo-50"
+                            onClick={() =>
+                              setAnswerVisibleParts((prev) => new Set([...prev, pIdx]))
+                            }
+                          >
+                            <Plus className="mr-1.5 h-3.5 w-3.5" /> Add Answer for ({part.label})
+                          </Button>
+                        )}
                       </div>
                     </div>
                   )}
@@ -455,13 +493,40 @@ export function CqForm({ folders, question, initialFolderId, onSuccess }: CqForm
 
           {/* General Explanation */}
           <div className="space-y-2">
-            <label className={sectionLabel}>সামগ্রিক ব্যাখ্যা / Overall Explanation (Optional)</label>
-            <RichTextEditor
-              value={form.explanation}
-              onChange={(html) => setForm((prev) => ({ ...prev, explanation: html }))}
-              onImageUpload={handleEditorImageUpload}
-              placeholder="Overall explanation or marking guidelines..."
-            />
+            {!showExplanation ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 rounded-xl border-slate-200 bg-white text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:bg-indigo-50"
+                onClick={() => setShowExplanation(true)}
+              >
+                <Plus className="mr-1.5 h-3.5 w-3.5" /> Add Overall Explanation
+              </Button>
+            ) : (
+              <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="mb-2 flex items-center justify-between">
+                  <label className={sectionLabel}>সামগ্রিক ব্যাখ্যা / Overall Explanation (Optional)</label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setShowExplanation(false);
+                      setForm((prev) => ({ ...prev, explanation: '' }));
+                    }}
+                    className="h-6 px-2 text-[10px] font-black uppercase text-rose-500 hover:bg-rose-50"
+                  >
+                    <X className="mr-1 h-3 w-3" /> Remove
+                  </Button>
+                </div>
+                <RichTextEditor
+                  value={form.explanation}
+                  onChange={(html) => setForm((prev) => ({ ...prev, explanation: html }))}
+                  onImageUpload={handleEditorImageUpload}
+                  placeholder="Overall explanation or marking guidelines..."
+                />
+              </div>
+            )}
           </div>
         </div>
 

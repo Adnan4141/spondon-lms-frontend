@@ -214,6 +214,8 @@ export default function SmsManagementPage() {
               batchReport={smsData.batchReport}
               dueReport={smsData.dueReport}
               paymentReport={smsData.paymentReport}
+              paymentSourceFilter={smsData.paymentSourceFilter}
+              setPaymentSourceFilter={smsData.setPaymentSourceFilter}
               resultReport={smsData.resultReport}
               logs={smsData.logs}
               branches={smsData.branches}

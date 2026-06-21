@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { LazyRichTextEditor as RichTextEditor } from '@/components/ui/lazy-rich-text-editor';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import {
   Popover,
   PopoverContent,
@@ -125,14 +125,21 @@ export function QuestionForm({
   }, [question, initialPassageId]);
 
   useEffect(() => {
+    if (form.mcqType !== 'PASSAGE_CHILD' || !form.folderId) {
+      setPassages([]);
+      return;
+    }
+
+    let cancelled = false;
     const loadPassages = async () => {
-      if (form.folderId) {
-        const res = await getPassages(form.folderId);
-        if (res.success && res.data) setPassages(res.data);
-      }
+      const res = await getPassages(form.folderId);
+      if (!cancelled && res.success && res.data) setPassages(res.data);
     };
-    loadPassages();
-  }, [form.folderId]);
+    void loadPassages();
+    return () => {
+      cancelled = true;
+    };
+  }, [form.folderId, form.mcqType]);
 
   const handleEditorImageUpload = async (file: File): Promise<string> => {
     try {

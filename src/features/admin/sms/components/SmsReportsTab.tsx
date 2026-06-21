@@ -5,7 +5,7 @@ import { downloadTableExport, type ExportFormat } from '@/lib/export';
 import type { Branch } from '@/lib/api/branches';
 import type { SmsLog, SmsReportRow } from '@/lib/api/sms';
 import { Download } from 'lucide-react';
-import { EmptyState, Metric, Panel } from '../sms-shared';
+import { EmptyState, Metric, Panel, paymentSmsSourceLabels, paymentSmsSources } from '../sms-shared';
 
 function exportFilename(prefix: string) {
   const stamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
@@ -32,6 +32,8 @@ export function SmsReportsTab({
   batchReport,
   dueReport,
   paymentReport,
+  paymentSourceFilter,
+  setPaymentSourceFilter,
   resultReport,
   logs,
   branches,
@@ -43,6 +45,8 @@ export function SmsReportsTab({
   batchReport: SmsReportRow[];
   dueReport: SmsLog[];
   paymentReport: SmsLog[];
+  paymentSourceFilter: string;
+  setPaymentSourceFilter: (value: string) => void;
   resultReport: SmsLog[];
   logs: SmsLog[];
   branches: Branch[];
@@ -104,7 +108,9 @@ export function SmsReportsTab({
     })),
     ...paymentReport.map((row) => ({
       section: 'PAYMENT',
-      name: row.type || 'Payment',
+      name: row.paymentSource
+        ? (paymentSmsSourceLabels[row.paymentSource] || row.paymentSource)
+        : (row.type || 'Payment'),
       branch: row.scope,
       primaryValue: row.successCount,
       secondaryValue: row.failedCount,
@@ -228,11 +234,45 @@ export function SmsReportsTab({
         </Panel>
       </div>
       <Panel title="Operational Reports">
+        <div className="mb-4 flex flex-wrap items-end gap-3">
+          <label className="space-y-1">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Payment SMS source</span>
+            <select
+              value={paymentSourceFilter}
+              onChange={(event) => setPaymentSourceFilter(event.target.value)}
+              className="h-10 min-w-56 rounded-md border border-slate-200 bg-white px-3 text-sm"
+            >
+              {paymentSmsSources.map((option) => (
+                <option key={option.value || 'all'} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+        </div>
         <div className="grid gap-3 md:grid-cols-3">
           <Metric label="Due SMS" value={dueReport.reduce((sum, row) => sum + row.successCount, 0)} tone="amber" />
           <Metric label="Payment SMS" value={paymentReport.reduce((sum, row) => sum + row.successCount, 0)} tone="emerald" />
           <Metric label="Result SMS" value={resultReport.reduce((sum, row) => sum + row.successCount, 0)} tone="blue" />
         </div>
+        {paymentReport.length > 0 && (
+          <div className="mt-4 space-y-2">
+            {paymentReport.slice(0, 6).map((row) => (
+              <div key={row.id} className="flex items-center justify-between gap-3 rounded-md border border-slate-200 p-3 text-sm">
+                <div className="min-w-0">
+                  <p className="truncate font-semibold">
+                    {row.paymentSource
+                      ? (paymentSmsSourceLabels[row.paymentSource] || row.paymentSource)
+                      : 'Payment confirmation'}
+                  </p>
+                  <p className="truncate text-slate-500">{row.message}</p>
+                </div>
+                <p className="shrink-0 text-slate-500">{row.successCount} sent</p>
+              </div>
+            ))}
+          </div>
+        )}
+        {paymentSourceFilter && paymentReport.length === 0 && (
+          <EmptyState>No payment SMS found for this source yet.</EmptyState>
+        )}
       </Panel>
       <Panel title="SMS History">
         <div className="overflow-x-auto">

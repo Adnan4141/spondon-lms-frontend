@@ -1,16 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
+import type { Extensions } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import TextAlign from '@tiptap/extension-text-align';
 import Placeholder from '@/lib/tiptap-placeholder';
-import { MathExtension } from '@/lib/tiptap-math';
-import 'katex/dist/katex.min.css';
-import katex from 'katex';
 
 import {
   Bold,
@@ -34,6 +32,7 @@ import {
   Redo,
   Image as ImageIcon,
   Sigma,
+  Loader2,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -41,7 +40,6 @@ import { Button } from './button';
 import { Tooltip, TooltipContent, TooltipTrigger } from './tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
 
-/* ── LaTeX quick-insert suggestions ── */
 const LATEX_SUGGESTIONS = [
   { label: 'Fraction', latex: '\\frac{a}{b}', hint: '\\frac{a}{b}' },
   { label: 'Square root', latex: '\\sqrt{x}', hint: '\\sqrt{x}' },
@@ -68,6 +66,11 @@ const LATEX_SUGGESTIONS = [
   { label: 'Matrix 2×2', latex: '\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}', hint: 'Matrix' },
 ];
 
+type MathSupport = {
+  MathExtension: Extensions[number];
+  renderToString: (tex: string, options?: { throwOnError?: boolean }) => string;
+};
+
 type RichTextEditorProps = {
   value: string;
   onChange: (value: string) => void;
@@ -76,15 +79,58 @@ type RichTextEditorProps = {
   className?: string;
 };
 
+let mathSupportPromise: Promise<MathSupport> | null = null;
+
+function contentHasMath(html: string) {
+  return html.includes('data-math');
+}
+
+export function loadMathSupport(): Promise<MathSupport> {
+  if (!mathSupportPromise) {
+    mathSupportPromise = import('@/lib/load-katex-math').then((mod) => ({
+      renderToString: mod.katex.renderToString.bind(mod.katex),
+      MathExtension: mod.MathExtension,
+    }));
+  }
+  return mathSupportPromise;
+}
+
+function buildBaseExtensions(placeholder?: string): Extensions {
+  return [
+    StarterKit.configure({ heading: { levels: [2, 3, 4] } }),
+    Underline,
+    Link.configure({ openOnClick: true }),
+    Image.configure({
+      HTMLAttributes: {
+        class: 'rounded-md h-auto my-2',
+        style: 'max-width:100%;height:auto;',
+      },
+    }),
+    TextAlign.configure({ types: ['heading', 'paragraph'] }),
+    Placeholder.configure({
+      placeholder: placeholder || 'Start writing...',
+      showOnlyWhenEditable: true,
+    }),
+  ];
+}
+
+function EditorSkeleton({ className }: { className?: string }) {
+  return (
+    <div className={cn('min-h-[200px] animate-pulse rounded-md border border-slate-200 bg-slate-50', className)} />
+  );
+}
+
 function ToolButton({
   title,
   active,
   onClick,
+  disabled,
   children,
 }: {
   title: string;
   active?: boolean;
   onClick: () => void;
+  disabled?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -95,6 +141,7 @@ function ToolButton({
           size="icon"
           variant={active ? 'default' : 'ghost'}
           onClick={onClick}
+          disabled={disabled}
           className="h-8 w-8 rounded-md transition hover:scale-105"
         >
           {children}
@@ -105,55 +152,73 @@ function ToolButton({
   );
 }
 
-function renderLatexPreview(tex: string): string {
-  try {
-    return katex.renderToString(tex, { throwOnError: false });
-  } catch {
-    return `<span class="text-destructive text-xs">${tex}</span>`;
-  }
-}
-
-export function RichTextEditor({
+function RichTextEditorInner({
   value,
   onChange,
   onImageUpload,
   placeholder,
   className,
-}: RichTextEditorProps) {
+  mathSupport,
+  onRequestMathSupport,
+}: RichTextEditorProps & {
+  mathSupport: MathSupport | null;
+  onRequestMathSupport: () => Promise<MathSupport>;
+}) {
   const [mathInput, setMathInput] = useState('');
   const [showMath, setShowMath] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [mathLoading, setMathLoading] = useState(false);
+  const [pendingMathOpen, setPendingMathOpen] = useState(false);
+  const [activeMathSupport, setActiveMathSupport] = useState<MathSupport | null>(mathSupport);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const editor = useEditor({
-    extensions: [
-      StarterKit.configure({ heading: { levels: [2, 3, 4] } }),
-      Underline,
-      Link.configure({ openOnClick: true }),
-      Image.configure({
-        HTMLAttributes: {
-          class: 'rounded-md h-auto my-2',
-          style: 'max-width:100%;height:auto;',
-        },
-      }),
-      TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      MathExtension,
-      Placeholder.configure({
-        placeholder: placeholder || 'Start writing...',
-        showOnlyWhenEditable: true,
-      }),
-    ],
-    content: value || '',
-    onUpdate: ({ editor }) => onChange(editor.getHTML()),
-    immediatelyRender: false,
-  });
+  useEffect(() => {
+    setActiveMathSupport(mathSupport);
+  }, [mathSupport]);
+
+  const extensions = useMemo(() => {
+    const base = buildBaseExtensions(placeholder);
+    if (activeMathSupport) return [...base, activeMathSupport.MathExtension];
+    return base;
+  }, [placeholder, activeMathSupport]);
+
+  const editor = useEditor(
+    {
+      extensions,
+      content: value || '',
+      onUpdate: ({ editor: ed }) => onChange(ed.getHTML()),
+      immediatelyRender: false,
+    },
+    [extensions],
+  );
 
   useEffect(() => {
     if (editor && value !== editor.getHTML()) {
       editor.commands.setContent(value || '');
     }
   }, [value, editor]);
+
+  useEffect(() => {
+    if (pendingMathOpen && activeMathSupport && editor) {
+      setPendingMathOpen(false);
+      setShowMath(true);
+    }
+  }, [pendingMathOpen, activeMathSupport, editor]);
+
+  const renderLatexPreview = useCallback(
+    (tex: string) => {
+      if (!activeMathSupport) {
+        return `<code class="text-xs">${tex}</code>`;
+      }
+      try {
+        return activeMathSupport.renderToString(tex, { throwOnError: false });
+      } catch {
+        return `<span class="text-destructive text-xs">${tex}</span>`;
+      }
+    },
+    [activeMathSupport],
+  );
 
   const handleImageUpload = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -172,23 +237,43 @@ export function RichTextEditor({
         setIsUploading(false);
       }
     },
-    [editor, onImageUpload]
+    [editor, onImageUpload],
   );
 
   const insertMath = (latex: string) => {
-    if (!editor || !latex.trim()) return;
+    if (!editor || !latex.trim() || !activeMathSupport) return;
     (editor.commands as Record<string, (...args: unknown[]) => boolean>).insertMath(latex.trim());
     setMathInput('');
     setShowMath(false);
   };
 
+  const handleMathPopoverChange = useCallback(
+    async (open: boolean) => {
+      if (!open) {
+        setShowMath(false);
+        return;
+      }
+      if (activeMathSupport) {
+        setShowMath(true);
+        return;
+      }
+      setMathLoading(true);
+      try {
+        const support = await onRequestMathSupport();
+        setActiveMathSupport(support);
+        setPendingMathOpen(true);
+      } finally {
+        setMathLoading(false);
+      }
+    },
+    [activeMathSupport, onRequestMathSupport],
+  );
+
   if (!editor) return null;
 
   return (
     <div className={cn('rounded-md border overflow-hidden', className)}>
-      {/* ── Sticky Toolbar ── */}
       <div className="sticky top-0 z-30 flex flex-wrap items-center gap-1.5 border-b bg-muted/40 px-2 py-1.5">
-        {/* Text formatting */}
         <div className="flex gap-0.5">
           <ToolButton title="Bold (Ctrl+B)" active={editor.isActive('bold')}
             onClick={() => editor.chain().focus().toggleBold().run()}>
@@ -210,7 +295,6 @@ export function RichTextEditor({
 
         <div className="h-6 w-px bg-border" />
 
-        {/* Headings */}
         <div className="flex gap-0.5">
           <ToolButton title="Heading 2" active={editor.isActive('heading', { level: 2 })}
             onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
@@ -228,7 +312,6 @@ export function RichTextEditor({
 
         <div className="h-6 w-px bg-border" />
 
-        {/* Lists & blocks */}
         <div className="flex gap-0.5">
           <ToolButton title="Bullet list" active={editor.isActive('bulletList')}
             onClick={() => editor.chain().focus().toggleBulletList().run()}>
@@ -258,7 +341,6 @@ export function RichTextEditor({
 
         <div className="h-6 w-px bg-border" />
 
-        {/* Alignment */}
         <div className="flex gap-0.5">
           <ToolButton title="Align left" active={editor.isActive({ textAlign: 'left' })}
             onClick={() => editor.chain().focus().setTextAlign('left').run()}>
@@ -280,7 +362,6 @@ export function RichTextEditor({
 
         <div className="h-6 w-px bg-border" />
 
-        {/* History */}
         <div className="flex gap-0.5">
           <ToolButton title="Undo (Ctrl+Z)"
             onClick={() => editor.chain().focus().undo().run()}>
@@ -294,7 +375,6 @@ export function RichTextEditor({
 
         <div className="h-6 w-px bg-border" />
 
-        {/* Image upload */}
         {onImageUpload && (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -308,11 +388,17 @@ export function RichTextEditor({
           </Tooltip>
         )}
 
-        {/* LaTeX Math — Popover with suggestions */}
-        <Popover open={showMath} onOpenChange={setShowMath}>
+        <Popover open={showMath} onOpenChange={handleMathPopoverChange}>
           <PopoverTrigger asChild>
-            <Button type="button" size="icon" variant={showMath ? 'default' : 'ghost'} className="h-8 w-8" title="Insert LaTeX equation">
-              <Sigma size={16} />
+            <Button
+              type="button"
+              size="icon"
+              variant={showMath ? 'default' : 'ghost'}
+              className="h-8 w-8"
+              title="Insert LaTeX equation"
+              disabled={mathLoading}
+            >
+              {mathLoading ? <Loader2 size={16} className="animate-spin" /> : <Sigma size={16} />}
             </Button>
           </PopoverTrigger>
           <PopoverContent align="start" className="w-80 p-0">
@@ -330,17 +416,15 @@ export function RichTextEditor({
                 className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm font-mono outline-none focus:border-ring focus:ring-ring/50 focus:ring-2"
                 autoFocus
               />
-              {/* Live preview */}
               {mathInput.trim() && (
                 <div className="mt-2 rounded-md bg-muted/60 px-3 py-2 text-center">
                   <span dangerouslySetInnerHTML={{ __html: renderLatexPreview(mathInput.trim()) }} />
                 </div>
               )}
-              <Button size="sm" className="mt-2 w-full" onClick={() => insertMath(mathInput)}>
+              <Button size="sm" className="mt-2 w-full" onClick={() => insertMath(mathInput)} disabled={!activeMathSupport}>
                 Insert Equation
               </Button>
             </div>
-            {/* Quick suggestions */}
             <div className="px-3 pt-2 pb-1">
               <p className="mb-1 text-[11px] font-medium text-muted-foreground">Quick Insert — click to use</p>
             </div>
@@ -350,9 +434,10 @@ export function RichTextEditor({
                   <button
                     key={s.latex}
                     type="button"
-                    className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent"
+                    className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent disabled:opacity-50"
                     onClick={() => insertMath(s.latex)}
                     title={s.latex}
+                    disabled={!activeMathSupport}
                   >
                     <span
                       className="shrink-0 text-[13px]"
@@ -367,7 +452,6 @@ export function RichTextEditor({
         </Popover>
       </div>
 
-      {/* ── Editor content ── */}
       <div
         ref={scrollRef}
         className="max-h-96 overflow-y-auto px-4 py-3 text-[15px] leading-relaxed [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted"
@@ -375,7 +459,6 @@ export function RichTextEditor({
         <EditorContent editor={editor} />
       </div>
 
-      {/* ── Footer ── */}
       <div className="flex items-center justify-between border-t bg-muted/30 px-3 py-1">
         <span className="text-xs text-muted-foreground">{editor.getText().length} characters</span>
         {placeholder && !value && (
@@ -383,6 +466,47 @@ export function RichTextEditor({
         )}
       </div>
     </div>
+  );
+}
+
+export function RichTextEditor(props: RichTextEditorProps) {
+  const needsMathForContent = contentHasMath(props.value || '');
+  const [mathSupport, setMathSupport] = useState<MathSupport | null>(null);
+  const [mathPreloadDone, setMathPreloadDone] = useState(!needsMathForContent);
+
+  useEffect(() => {
+    if (!needsMathForContent) {
+      setMathPreloadDone(true);
+      return;
+    }
+    let cancelled = false;
+    void loadMathSupport().then((support) => {
+      if (!cancelled) {
+        setMathSupport(support);
+        setMathPreloadDone(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [needsMathForContent]);
+
+  const requestMathSupport = useCallback(async () => {
+    const support = await loadMathSupport();
+    setMathSupport(support);
+    return support;
+  }, []);
+
+  if (!mathPreloadDone) {
+    return <EditorSkeleton className={props.className} />;
+  }
+
+  return (
+    <RichTextEditorInner
+      {...props}
+      mathSupport={mathSupport}
+      onRequestMathSupport={requestMathSupport}
+    />
   );
 }
 

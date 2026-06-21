@@ -130,6 +130,8 @@ export interface SmsLog {
   sentAt?: string | null;
   scheduledAt?: string | null;
   providerRef?: string | null;
+  paymentSource?: string | null;
+  status?: string | null;
   recipients?: Array<{
     id: string;
     mobile: string;

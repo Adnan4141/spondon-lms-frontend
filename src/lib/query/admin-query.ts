@@ -29,6 +29,8 @@ export const queryKeys = {
     folders: ['admin', 'questions', 'folders'] as const,
     list: (params: Record<string, unknown>) => ['admin', 'questions', 'list', params] as const,
     passages: (params: Record<string, unknown>) => ['admin', 'questions', 'passages', params] as const,
+    statsCount: (params: Record<string, unknown>) => ['admin', 'questions', 'stats', params] as const,
+    passageCount: ['admin', 'questions', 'passage-count'] as const,
   },
   users: {
     list: (params: Record<string, unknown>) => ['admin', 'users', 'list', params] as const,

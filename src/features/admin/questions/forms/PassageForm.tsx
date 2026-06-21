@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { LazyRichTextEditor as RichTextEditor } from '@/components/ui/lazy-rich-text-editor';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { Plus, X, CheckCircle2, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -63,7 +63,7 @@ export function PassageForm({ folders, passage, initialFolderId, onSuccess }: Pa
     tags: '',
   });
   const [childQuestions, setChildQuestions] = useState<ChildQuestion[]>([createEmptyQuestion()]);
-  const [expandedQ, setExpandedQ] = useState<Set<number>>(new Set([0]));
+  const [expandedQ, setExpandedQ] = useState<Set<number>>(new Set());
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const questionsEndRef = useRef<HTMLDivElement | null>(null);

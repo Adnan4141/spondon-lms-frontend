@@ -1,11 +1,14 @@
 'use client';
 
-import { ChevronDown, ChevronUp, Edit, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Edit, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { McqPassage } from '@/types/question';
 import { cn } from '@/lib/utils';
 import { getDifficultyBadgeClass, stripHtml } from '../questions-page-utils';
+
+const PASSAGE_PAGE_SIZE = 20;
 
 type Props = {
   passages: McqPassage[];
@@ -26,6 +29,19 @@ export function PassagesTabPanel({
   onEditQuestion,
   onDeleteQuestion,
 }: Props) {
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(passages.length / PASSAGE_PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+
+  const pagedPassages = useMemo(() => {
+    const start = (safePage - 1) * PASSAGE_PAGE_SIZE;
+    return passages.slice(start, start + PASSAGE_PAGE_SIZE);
+  }, [passages, safePage]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [passages]);
+
   if (passages.length === 0) {
     return (
       <div className="p-6">
@@ -38,7 +54,7 @@ export function PassagesTabPanel({
 
   return (
     <div className="space-y-4 p-6">
-      {passages.map((p) => {
+      {pagedPassages.map((p) => {
         const isExpanded = expandedPassageIds.has(p.id);
         return (
           <div
@@ -165,6 +181,35 @@ export function PassagesTabPanel({
           </div>
         );
       })}
+      {totalPages > 1 ? (
+        <div className="flex items-center justify-between border-t border-slate-100 pt-4">
+          <p className="text-sm font-medium text-slate-500">
+            Page {safePage} of {totalPages} · {passages.length} passages
+          </p>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={safePage <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              <ChevronLeft className="mr-1 h-4 w-4" />
+              Previous
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={safePage >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Next
+              <ChevronRight className="ml-1 h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

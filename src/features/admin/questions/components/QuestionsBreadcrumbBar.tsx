@@ -14,6 +14,7 @@ type Props = {
   bulkImportDisabled: boolean;
   onCreateFolder: () => void;
   onCreateQuestion: () => void;
+  onPrefetchCreateQuestion?: () => void;
 };
 
 export function QuestionsBreadcrumbBar({
@@ -25,6 +26,7 @@ export function QuestionsBreadcrumbBar({
   bulkImportDisabled,
   onCreateFolder,
   onCreateQuestion,
+  onPrefetchCreateQuestion,
 }: Props) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-slate-200/60 bg-white px-5 py-3 shadow-sm">
@@ -38,7 +40,7 @@ export function QuestionsBreadcrumbBar({
           )}
         >
           <Home className="h-3.5 w-3.5" />
-          <span>Root</span>
+          <span>All Folders</span>
         </button>
 
         {breadcrumbs.map((crumb, idx) => (
@@ -80,6 +82,8 @@ export function QuestionsBreadcrumbBar({
         </Button>
         <Button
           onClick={onCreateQuestion}
+          onMouseEnter={onPrefetchCreateQuestion}
+          onFocus={onPrefetchCreateQuestion}
           className="h-9 rounded-xl bg-slate-900 text-sm font-bold text-white shadow-sm transition-colors hover:bg-indigo-600"
         >
           <Plus className="mr-1.5 h-4 w-4" />

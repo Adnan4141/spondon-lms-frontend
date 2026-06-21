@@ -33,7 +33,7 @@ export function QuestionsNestedFolderBrowser({
               onClick={onBackToRoot}
               className="text-[10px] font-black uppercase tracking-wider text-indigo-600 transition-colors hover:text-indigo-800"
             >
-              Back to root
+              All folders
             </button>
           ) : null}
         </div>

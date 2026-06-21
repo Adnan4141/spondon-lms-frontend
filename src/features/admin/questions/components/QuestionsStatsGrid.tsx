@@ -23,6 +23,7 @@ type Props = {
   passageCount: number;
   cqCount: number;
   shortCount: number;
+  isLoading?: boolean;
 };
 
 export function QuestionsStatsGrid({
@@ -31,6 +32,7 @@ export function QuestionsStatsGrid({
   passageCount,
   cqCount,
   shortCount,
+  isLoading = false,
 }: Props) {
   const stats: StatItem[] = [
     {
@@ -64,7 +66,9 @@ export function QuestionsStatsGrid({
           </div>
           <div className="mt-4">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
-            <p className="mt-0.5 text-2xl font-black text-slate-900">{stat.value}</p>
+            <p className="mt-0.5 text-2xl font-black text-slate-900">
+              {isLoading ? '—' : stat.value}
+            </p>
           </div>
         </div>
       ))}

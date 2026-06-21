@@ -27,6 +27,7 @@ import {
   LazyShortQuestionForm,
 } from '@/features/admin/questions/lazyQuestionForms';
 import { getFolderById } from '../questions-folder-utils';
+import { prefetchQuestionFormForTab } from '../prefetchQuestionForms';
 import { ActiveTab, buildQuestionFolderActionContext } from '../questions-page-utils';
 
 type InvalidateFns = {
@@ -143,6 +144,7 @@ export function useQuestionPageActions({
   );
 
   const handleCreateQuestion = useCallback(() => {
+    prefetchQuestionFormForTab(activeTab);
     const fid = activeFolderId;
     switch (activeTab) {
       case 'MCQ_SIMPLE':

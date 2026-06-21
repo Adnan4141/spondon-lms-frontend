@@ -174,6 +174,7 @@ export interface ExamQuestion {
     answer: any;
     isCorrect: boolean | null;
     obtainedMarks: number | null;
+    evaluations?: Array<{ subPartKey?: string | null; marksAwarded?: number | null }>;
     scanUrls?: string[] | null;
     writtenSubmission?: WrittenSubmissionMeta | null;
   } | null;

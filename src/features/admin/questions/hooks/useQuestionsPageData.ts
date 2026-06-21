@@ -1,10 +1,26 @@
 'use client';
 
+import { useCallback } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getPassages, getQuestionFolders, getQuestions } from '@/lib/api/question-bank';
 import { queryKeys } from '@/lib/query/admin-query';
-import type { Difficulty } from '@/types/question';
+import type { Difficulty, McqPassage, Question, QuestionFolder } from '@/types/question';
 import type { ActiveTab } from '@/features/admin/questions/questions-page-utils';
+
+const EMPTY_FOLDERS: QuestionFolder[] = [];
+const EMPTY_QUESTIONS: Question[] = [];
+const EMPTY_PASSAGES: McqPassage[] = [];
+
+function readPaginationPages(pagination?: { totalPages?: number; pages?: number }): number {
+  if (!pagination) return 1;
+  return pagination.totalPages ?? pagination.pages ?? 1;
+}
+
+function toQueryError(error: unknown): Error | null {
+  if (!error) return null;
+  if (error instanceof Error) return error;
+  return new Error('Failed to load data');
+}
 
 export const QUESTIONS_PAGE_SIZE = 50;
 
@@ -72,7 +88,7 @@ export function useQuestionsListQuery(filters: QuestionsListFilters, enabled: bo
       if (!res.success || !res.data) throw new Error('Failed to load questions');
       return {
         questions: res.data,
-        totalPages: res.pagination?.pages ?? 1,
+        totalPages: readPaginationPages(res.pagination),
       };
     },
   });
@@ -111,22 +127,40 @@ export function useQuestionsPageData(filters: QuestionsListFilters) {
     isPassageTab,
   );
 
-  const invalidateAll = () =>
-    queryClient.invalidateQueries({ queryKey: queryKeys.questions.all });
+  const invalidateAll = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: queryKeys.questions.all }),
+    [queryClient],
+  );
 
-  const loading = isPassageTab
-    ? passagesQuery.isLoading || passagesQuery.isFetching
-    : questionsQuery.isLoading || questionsQuery.isFetching;
+  const activeQuery = isPassageTab ? passagesQuery : questionsQuery;
+  const isInitialLoading = activeQuery.isLoading && !activeQuery.data;
+  const isFetching = activeQuery.isFetching;
+  const foldersError = toQueryError(foldersQuery.error);
+  const contentError = toQueryError(activeQuery.error);
+
+  const retryFolders = () => {
+    void foldersQuery.refetch();
+  };
+
+  const retryContent = () => {
+    if (isPassageTab) void passagesQuery.refetch();
+    else void questionsQuery.refetch();
+  };
 
   return {
-    folders: foldersQuery.data ?? [],
-    questions: questionsQuery.data?.questions ?? [],
+    folders: foldersQuery.data ?? EMPTY_FOLDERS,
+    questions: questionsQuery.data?.questions ?? EMPTY_QUESTIONS,
     questionsTotalPages: questionsQuery.data?.totalPages ?? 1,
-    passages: passagesQuery.data ?? [],
-    loading,
+    passages: passagesQuery.data ?? EMPTY_PASSAGES,
+    isInitialLoading,
+    isFetching,
+    foldersError,
+    contentError,
     invalidateAll,
     refetchFolders: () => foldersQuery.refetch(),
     refetchQuestions: () => questionsQuery.refetch(),
     refetchPassages: () => passagesQuery.refetch(),
+    retryFolders,
+    retryContent,
   };
 }

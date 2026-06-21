@@ -75,23 +75,16 @@ export function buildQuestionFolderActionContext(
   return { sourceFolderIds, questionPreviews };
 }
 
-export function filterQuestionsForTab(
-  questions: Question[],
-  activeTab: ActiveTab,
-  searchQuery: string,
-): Question[] {
+/** Client-side tab guard only — search is handled by the API. */
+export function filterQuestionsForTab(questions: Question[], activeTab: ActiveTab): Question[] {
   return questions.filter((q) => {
     if (activeTab === 'MCQ_SIMPLE') {
-      if (q.type !== 'MCQ' || q.mcqType === 'PASSAGE_CHILD') return false;
-    } else if (activeTab === 'MCQ_PASSAGE') {
-      return false;
-    } else if (activeTab === 'CQ') {
-      if (q.type !== 'CQ') return false;
-    } else if (activeTab === 'SHORT') {
-      if (q.type !== 'SHORT') return false;
+      return q.type === 'MCQ' && q.mcqType !== 'PASSAGE_CHILD';
     }
-    const qry = searchQuery.toLowerCase();
-    return !qry || stripHtml(q.prompt).toLowerCase().includes(qry);
+    if (activeTab === 'MCQ_PASSAGE') return false;
+    if (activeTab === 'CQ') return q.type === 'CQ';
+    if (activeTab === 'SHORT') return q.type === 'SHORT';
+    return true;
   });
 }
 

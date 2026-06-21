@@ -1,18 +1,23 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Difficulty } from '@/types/question';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
+import { cn } from '@/lib/utils';
 import { QuestionsBreadcrumbBar } from './components/QuestionsBreadcrumbBar';
 import { QuestionsBulkActionsBar } from './components/QuestionsBulkActionsBar';
+import { QuestionsErrorState } from './components/QuestionsErrorState';
+import { QuestionsFolderErrorBanner } from './components/QuestionsFolderErrorBanner';
 import { QuestionsFiltersBar } from './components/QuestionsFiltersBar';
 import { QuestionsNestedFolderBrowser } from './components/QuestionsNestedFolderBrowser';
 import { QuestionsSidebar } from './components/QuestionsSidebar';
 import { QuestionsStatsGrid } from './components/QuestionsStatsGrid';
 import { QuestionsSubfolderGrid } from './components/QuestionsSubfolderGrid';
 import { QuestionsTable } from './components/QuestionsTable';
+import { QuestionsTypeTabs } from './components/QuestionsTypeTabs';
 import { PassagesTabPanel } from './components/PassagesTabPanel';
+import { useQuestionBankStats } from './hooks/useQuestionBankStats';
 import { useQuestionPageActions } from './hooks/useQuestionPageActions';
 import { useQuestionsPageData } from './hooks/useQuestionsPageData';
 import {
@@ -23,16 +28,19 @@ import {
 } from './questions-folder-utils';
 import {
   ActiveTab,
-  computeQuestionStats,
   filterPassagesBySearch,
   filterQuestionsForTab,
   filterSubfoldersBySearch,
 } from './questions-page-utils';
+import { prefetchQuestionFormForTab } from './prefetchQuestionForms';
+
+const SEARCH_DEBOUNCE_MS = 400;
 
 export function QuestionsPageContent() {
   const { toasts, removeToast } = useToast();
 
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [folderSearchQuery, setFolderSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<ActiveTab>('MCQ_SIMPLE');
   const [selectedFolderIds, setSelectedFolderIds] = useState<string[]>([]);
@@ -43,6 +51,19 @@ export function QuestionsPageContent() {
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
   const [questionsPage, setQuestionsPage] = useState(1);
 
+  const debouncedSearchRef = useRef(debouncedSearch);
+  debouncedSearchRef.current = debouncedSearch;
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const next = searchInput.trim();
+      if (next !== debouncedSearchRef.current) {
+        setDebouncedSearch(next);
+      }
+    }, SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
+
   const listFilters = useMemo(
     () => ({
       activeTab,
@@ -50,9 +71,9 @@ export function QuestionsPageContent() {
       selectedFolderIds,
       difficultyFilter,
       questionsPage,
-      searchQuery,
+      searchQuery: debouncedSearch,
     }),
-    [activeTab, activeFolderId, selectedFolderIds, difficultyFilter, questionsPage, searchQuery],
+    [activeTab, activeFolderId, selectedFolderIds, difficultyFilter, questionsPage, debouncedSearch],
   );
 
   const {
@@ -60,19 +81,29 @@ export function QuestionsPageContent() {
     questions,
     questionsTotalPages,
     passages,
-    loading,
+    isInitialLoading,
+    isFetching,
+    foldersError,
+    contentError,
     invalidateAll,
     refetchFolders,
     refetchQuestions,
     refetchPassages,
+    retryFolders,
+    retryContent,
   } = useQuestionsPageData(listFilters);
+
+  const stats = useQuestionBankStats();
 
   useEffect(() => {
     setQuestionsPage(1);
-  }, [activeFolderId, selectedFolderIds, activeTab, difficultyFilter, searchQuery]);
+  }, [activeFolderId, selectedFolderIds, activeTab, difficultyFilter, debouncedSearch]);
 
   useEffect(() => {
-    setSelectedQuestionIds((prev) => prev.filter((id) => questions.some((question) => question.id === id)));
+    setSelectedQuestionIds((prev) => {
+      const next = prev.filter((id) => questions.some((question) => question.id === id));
+      return next.length === prev.length ? prev : next;
+    });
   }, [questions]);
 
   useEffect(() => {
@@ -80,6 +111,12 @@ export function QuestionsPageContent() {
       setSelectedQuestionIds([]);
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    prefetchQuestionFormForTab(activeTab);
+  }, [activeTab]);
+
+  const prefetchCreateQuestion = () => prefetchQuestionFormForTab(activeTab);
 
   const actions = useQuestionPageActions({
     folders,
@@ -98,27 +135,25 @@ export function QuestionsPageContent() {
   const breadcrumbs = getFolderBreadcrumbs(folders, activeFolderId);
   const currentSubfolders = getCurrentSubfolders(folders, activeFolderId);
   const nestedLevels = getDescendantFolderLevels(folders, activeFolderId);
-  const activeFolderName = getFolderById(folders, activeFolderId)?.name ?? 'Root';
+  const activeFolderName = getFolderById(folders, activeFolderId)?.name ?? 'All Folders';
 
   const filteredQuestions = useMemo(
-    () => filterQuestionsForTab(questions, activeTab, searchQuery),
-    [questions, activeTab, searchQuery],
+    () => filterQuestionsForTab(questions, activeTab),
+    [questions, activeTab],
   );
   const filteredPassages = useMemo(
-    () => filterPassagesBySearch(passages, searchQuery),
-    [passages, searchQuery],
+    () => filterPassagesBySearch(passages, debouncedSearch),
+    [passages, debouncedSearch],
   );
   const filteredSubfolders = useMemo(
-    () => filterSubfoldersBySearch(currentSubfolders, searchQuery),
-    [currentSubfolders, searchQuery],
+    () => filterSubfoldersBySearch(currentSubfolders, searchInput),
+    [currentSubfolders, searchInput],
   );
 
   const visibleQuestionIds = filteredQuestions.map((question) => question.id);
   const visibleSelectedQuestionIds = selectedQuestionIds.filter((id) => visibleQuestionIds.includes(id));
   const allVisibleQuestionsSelected =
     visibleQuestionIds.length > 0 && visibleSelectedQuestionIds.length === visibleQuestionIds.length;
-
-  const statsAll = useMemo(() => computeQuestionStats(questions), [questions]);
 
   const toggleExpand = (id: string) => {
     setExpandedQuestionIds((prev) => {
@@ -168,17 +203,28 @@ export function QuestionsPageContent() {
   return (
     <div className="space-y-6 text-slate-900">
       <QuestionsStatsGrid
-        totalQuestions={questions.length + passages.length}
-        simpleMcq={statsAll.mcq}
-        passageCount={passages.length}
-        cqCount={statsAll.cq}
-        shortCount={statsAll.short}
+        totalQuestions={stats.totalQuestions}
+        simpleMcq={stats.simpleMcq}
+        passageCount={stats.passageCount}
+        cqCount={stats.cqCount}
+        shortCount={stats.shortCount}
+        isLoading={stats.isLoading}
+      />
+
+      <QuestionsTypeTabs
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onTabPrefetch={prefetchQuestionFormForTab}
+        variant="mobile"
       />
 
       <div className="flex min-h-[75vh] gap-6">
         <QuestionsSidebar
           activeTab={activeTab}
           onTabChange={setActiveTab}
+          onTabPrefetch={prefetchQuestionFormForTab}
+          foldersError={foldersError}
+          onRetryFolders={retryFolders}
           folders={folders}
           folderSearchQuery={folderSearchQuery}
           onFolderSearchChange={setFolderSearchQuery}
@@ -201,28 +247,39 @@ export function QuestionsPageContent() {
             bulkImportDisabled={!activeFolderId}
             onCreateFolder={() => actions.handleCreateFolder()}
             onCreateQuestion={actions.handleCreateQuestion}
+            onPrefetchCreateQuestion={prefetchCreateQuestion}
           />
 
+          {foldersError ? (
+            <QuestionsFolderErrorBanner
+              className="flex items-start gap-3 rounded-[20px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 lg:hidden"
+              message={foldersError.message}
+              onRetry={retryFolders}
+            />
+          ) : null}
+
           <QuestionsFiltersBar
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
+            searchQuery={searchInput}
+            onSearchChange={setSearchInput}
             activeTab={activeTab}
             difficultyFilter={difficultyFilter}
             onDifficultyChange={setDifficultyFilter}
-            loading={loading}
+            loading={isFetching}
             onRefresh={actions.refreshCurrentTab}
             selectedFolderCount={selectedFolderIds.length}
             onClearFolderSelection={() => setSelectedFolderIds([])}
           />
 
-          <div className="min-h-[400px] overflow-hidden rounded-[24px] border border-slate-200/60 bg-white shadow-sm">
-            {loading ? (
+          <div className="relative min-h-[400px] overflow-hidden rounded-[24px] border border-slate-200/60 bg-white shadow-sm">
+            {contentError ? (
+              <QuestionsErrorState message={contentError.message} onRetry={retryContent} />
+            ) : isInitialLoading ? (
               <div className="flex flex-col items-center justify-center gap-4 py-24">
                 <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">Loading...</p>
               </div>
             ) : (
-              <>
+              <div className={cn(isFetching && 'pointer-events-none opacity-60 transition-opacity')}>
                 <QuestionsSubfolderGrid
                   folders={folders}
                   subfolders={filteredSubfolders}
@@ -267,7 +324,7 @@ export function QuestionsPageContent() {
                       allVisibleQuestionsSelected={allVisibleQuestionsSelected}
                       questionsPage={questionsPage}
                       questionsTotalPages={questionsTotalPages}
-                      loading={loading}
+                      loading={isFetching}
                       onToggleExpand={toggleExpand}
                       onToggleSelection={toggleQuestionSelection}
                       onToggleSelectAll={toggleSelectAllVisibleQuestions}
@@ -276,11 +333,12 @@ export function QuestionsPageContent() {
                       onDelete={actions.openDeleteQuestionsModal}
                       onEdit={actions.handleEditQuestion}
                       onCreateQuestion={actions.handleCreateQuestion}
+                      onPrefetchCreateQuestion={prefetchCreateQuestion}
                       onPageChange={setQuestionsPage}
                     />
                   </>
                 )}
-              </>
+              </div>
             )}
           </div>
         </div>

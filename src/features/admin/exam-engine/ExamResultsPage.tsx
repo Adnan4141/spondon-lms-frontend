@@ -44,6 +44,7 @@ import {
   supportsWrittenEvaluation,
 } from './results/resultFlowUtils';
 import type { BranchOption, MeritRow, ResultsTabKey, WrittenAttemptDetail, WrittenAttemptRow } from './results/types';
+import { isMarkInvalid, marksDraftKey, readCqParts } from './results/writtenEvaluationUtils';
 import { useExamResultsPermissions } from './hooks/useExamResultsPermissions';
 
 const HASH_TO_TAB: Record<string, ResultsTabKey> = {
@@ -78,8 +79,10 @@ export function ExamResultsPage({ examId, teacherEvaluatorMode = false }: ExamRe
   const [writtenAttempts, setWrittenAttempts] = useState<WrittenAttemptRow[]>([]);
   const [activeWrittenAttempt, setActiveWrittenAttempt] = useState<WrittenAttemptDetail | null>(null);
   const [writtenBusy, setWrittenBusy] = useState(false);
+  const [saveAllBusy, setSaveAllBusy] = useState(false);
   const [bulkFinalizeBusy, setBulkFinalizeBusy] = useState(false);
   const [marksDraft, setMarksDraft] = useState<Record<string, string>>({});
+  const [savedMarksBaseline, setSavedMarksBaseline] = useState<Record<string, string>>({});
   const [branches, setBranches] = useState<BranchOption[]>([]);
   const [branchId, setBranchId] = useState('');
   const [singleRoll, setSingleRoll] = useState('');
@@ -352,6 +355,7 @@ export function ExamResultsPage({ examId, teacherEvaluatorMode = false }: ExamRe
         }
       }
       setMarksDraft(nextMarks);
+      setSavedMarksBaseline(nextMarks);
     } catch (error) {
       toast({ title: error instanceof Error ? error.message : 'Could not load attempt', variant: 'destructive' });
     } finally {
@@ -359,11 +363,82 @@ export function ExamResultsPage({ examId, teacherEvaluatorMode = false }: ExamRe
     }
   };
 
-  const saveWrittenMark = async (answerId: string, attemptId: string, subPartKey?: string) => {
+  const saveAllWrittenMarks = async (attemptId: string) => {
+    if (!activeWrittenAttempt || activeWrittenAttempt.attempt.id !== attemptId) return;
     const teacherUserId = getActorUserIdFromStorage();
     if (!teacherUserId) {
       toast({ title: 'Sign in required', variant: 'destructive' });
       return;
+    }
+
+    const entries: Array<{ answerId: string; subPartKey?: string; draftKey: string; maxMarks: number }> = [];
+    for (const question of activeWrittenAttempt.questions || []) {
+      const answer = question.studentAnswer;
+      if (!answer?.id) continue;
+      const parts = readCqParts(question.question?.meta);
+      if (parts.length) {
+        for (const part of parts) {
+          const draftKey = marksDraftKey(answer.id, part.label);
+          entries.push({
+            answerId: answer.id,
+            subPartKey: part.label,
+            draftKey,
+            maxMarks: Number(part.marks ?? question.marks),
+          });
+        }
+      } else {
+        entries.push({
+          answerId: answer.id,
+          draftKey: answer.id,
+          maxMarks: Number(question.marks),
+        });
+      }
+    }
+
+    const toSave = entries.filter((entry) => marksDraft[entry.draftKey]?.trim() !== '');
+    if (!toSave.length) {
+      toast({ title: 'Enter marks before saving', variant: 'destructive' });
+      return;
+    }
+    if (toSave.some((entry) => isMarkInvalid(marksDraft[entry.draftKey] ?? '', entry.maxMarks))) {
+      toast({ title: 'Fix invalid marks before saving all', variant: 'destructive' });
+      return;
+    }
+
+    setSaveAllBusy(true);
+    let savedCount = 0;
+    try {
+      for (const entry of toSave) {
+        const response = await saveWrittenEvaluation({
+          attemptId,
+          answerId: entry.answerId,
+          subPartKey: entry.subPartKey,
+          marksAwarded: Number(marksDraft[entry.draftKey] || 0),
+          teacherUserId,
+        });
+        if (response.success) savedCount += 1;
+      }
+      if (savedCount) {
+        toast({ title: `Saved ${savedCount} mark${savedCount === 1 ? '' : 's'}` });
+        await openWrittenAttempt(attemptId);
+      } else {
+        toast({ title: 'Could not save marks', variant: 'destructive' });
+      }
+    } finally {
+      setSaveAllBusy(false);
+    }
+  };
+
+  const saveWrittenMark = async (
+    answerId: string,
+    attemptId: string,
+    subPartKey?: string,
+    options?: { silent?: boolean },
+  ) => {
+    const teacherUserId = getActorUserIdFromStorage();
+    if (!teacherUserId) {
+      toast({ title: 'Sign in required', variant: 'destructive' });
+      return false;
     }
     const draftKey = subPartKey ? `${answerId}:${subPartKey}` : answerId;
     const marksAwarded = Number(marksDraft[draftKey] || 0);
@@ -375,11 +450,17 @@ export function ExamResultsPage({ examId, teacherEvaluatorMode = false }: ExamRe
       teacherUserId,
     });
     if (!response.success) {
-      toast({ title: response.message || 'Mark save failed', variant: 'destructive' });
-      return;
+      if (!options?.silent) {
+        toast({ title: response.message || 'Mark save failed', variant: 'destructive' });
+      }
+      return false;
     }
-    toast({ title: 'Mark saved' });
+    if (!options?.silent) {
+      toast({ title: 'Mark saved' });
+    }
+    setSavedMarksBaseline((previous) => ({ ...previous, [draftKey]: marksDraft[draftKey] ?? String(marksAwarded) }));
     await openWrittenAttempt(attemptId);
+    return true;
   };
 
   const finalizeWritten = async (attemptId: string) => {
@@ -577,13 +658,16 @@ export function ExamResultsPage({ examId, teacherEvaluatorMode = false }: ExamRe
               attempts={writtenAttempts}
               activeAttempt={activeWrittenAttempt}
               writtenBusy={writtenBusy}
+              saveAllBusy={saveAllBusy}
               bulkFinalizeBusy={bulkFinalizeBusy}
               marksDraft={marksDraft}
+              savedMarksBaseline={savedMarksBaseline}
               canEvaluate={can('exam.results.written.evaluate')}
               canFinalize={can('exam.results.written.finalize')}
               onOpenAttempt={(attemptId) => void openWrittenAttempt(attemptId)}
               onMarksDraftChange={(draftKey, value) => setMarksDraft((previous) => ({ ...previous, [draftKey]: value }))}
-              onSaveMark={(answerId, attemptId, subPartKey) => void saveWrittenMark(answerId, attemptId, subPartKey)}
+              onSaveMark={(answerId, attemptId, subPartKey, options) => void saveWrittenMark(answerId, attemptId, subPartKey, options)}
+              onSaveAllMarks={(attemptId) => void saveAllWrittenMarks(attemptId)}
               onFinalize={(attemptId) => void finalizeWritten(attemptId)}
               onBulkFinalize={() => void bulkFinalizeWritten()}
             />

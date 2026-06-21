@@ -89,7 +89,7 @@ export function FolderTree({
       }));
   };
 
-  const tree = buildTree(null);
+  const tree = useMemo(() => buildTree(null), [folders]);
 
   useEffect(() => {
     if (activeFolderId) {
@@ -128,7 +128,12 @@ export function FolderTree({
       });
     };
     walk(filteredTree);
-    setExpandedSet(next);
+    setExpandedSet((prev) => {
+      if (prev.size === next.size && [...next].every((id) => prev.has(id))) {
+        return prev;
+      }
+      return next;
+    });
   }, [normalizedQuery, filteredTree]);
 
   const expandAll = () => {

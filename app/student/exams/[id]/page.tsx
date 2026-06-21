@@ -6,9 +6,10 @@ import { ApiError } from '@/lib/api';
 import { startExamAttempt, getAttemptResult, getExamStudentView, getExamPdfDownloadUrl } from '@/lib/api/exams';
 import type { StartAttemptResponse, AttemptResultResponse, ExamStudentView, StudentExamResultStatus } from '@/types/exam';
 import { LazyExamTakingView as ExamTakingView } from '@/components/student/exam-window/LazyExamTakingView';
+import { WrittenUploadLightbox } from '@/components/student/exam-window/WrittenUploadLightbox';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Timer, AlertTriangle, CheckCircle2, Loader2, Eye, Trophy, XCircle, Building2, FileText, PenLine, CalendarClock, Info } from 'lucide-react';
+import { Timer, AlertTriangle, CheckCircle2, Loader2, Eye, Trophy, XCircle, Building2, FileText, PenLine, CalendarClock, Info, Clock, ChevronRight, RefreshCw, Circle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { isOfflineDeliveryExam } from '@/lib/exam-workflow';
 import { centreQuestionPaperCopy } from '@/features/student/exam-state';
@@ -69,6 +70,10 @@ function hasPendingWrittenEvaluation(result: AttemptResultResponse | null): bool
     const type = question.question?.type;
     return type === 'CQ' || type === 'SHORT';
   });
+}
+
+function isSubmissionPdfUrl(url: string): boolean {
+  return /\.pdf($|\?)/i.test(url);
 }
 
 function getProvisionalMcqScore(result: AttemptResultResponse | null): { obtained: number; total: number } | null {
@@ -141,6 +146,8 @@ export default function StudentExamTakingPage() {
   const [countdown, setCountdown] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
   const [resultTab, setResultTab] = useState<'mcq' | 'written'>('mcq');
+  const [refreshingResult, setRefreshingResult] = useState(false);
+  const [uploadLightbox, setUploadLightbox] = useState<{ url: string; label: string } | null>(null);
   const waitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const shellLang: Lang = examMeta?.language === 'en' ? 'en' : 'bn';
@@ -508,6 +515,56 @@ export default function StudentExamTakingPage() {
     const resultUi = getExamUiStrings(resultLang);
     const pendingWrittenEvaluation = hasPendingWrittenEvaluation(result);
     const provisionalMcqScore = getProvisionalMcqScore(result);
+    const resultHeroVariant = !result
+      ? 'submitted'
+      : result.resultHidden
+        ? 'hidden'
+        : pendingWrittenEvaluation
+          ? 'pending_eval'
+          : result.attempt.obtainedMarks != null
+            ? 'published'
+            : 'submitted';
+    const heroConfig = {
+      published: {
+        Icon: CheckCircle2,
+        wrapperClass: 'bg-emerald-100',
+        iconClass: 'text-emerald-600',
+        title: resultUi.resultPublishedTitle,
+      },
+      pending_eval: {
+        Icon: Clock,
+        wrapperClass: 'bg-amber-100',
+        iconClass: 'text-amber-600',
+        title: resultUi.evaluationPendingTitle,
+      },
+      hidden: {
+        Icon: Info,
+        wrapperClass: 'bg-slate-100',
+        iconClass: 'text-slate-600',
+        title: resultUi.resultHiddenTitle,
+      },
+      submitted: {
+        Icon: CheckCircle2,
+        wrapperClass: 'bg-indigo-100',
+        iconClass: 'text-indigo-600',
+        title: resultUi.examSubmitted,
+      },
+    } as const;
+    const hero = heroConfig[resultHeroVariant];
+    const HeroIcon = hero.Icon;
+
+    const refreshResult = async () => {
+      if (!result?.attempt?.id) return;
+      setRefreshingResult(true);
+      try {
+        await openResultAttempt(result.attempt.id);
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : 'Could not refresh result');
+      } finally {
+        setRefreshingResult(false);
+      }
+    };
+
     const resultDisplayItems = buildResultDisplayItems(result?.questions ?? []);
     const resultQuestionIndexById = new Map((result?.questions ?? []).map((q, index) => [q.id, index]));
     const mcqResultItems = resultDisplayItems.filter((item) => item.questions[0]?.question?.type === 'MCQ');
@@ -516,6 +573,21 @@ export default function StudentExamTakingPage() {
     const activeResultItems = hasResultMixed
       ? (resultTab === 'mcq' ? mcqResultItems : writtenResultItems)
       : resultDisplayItems;
+    const solutionJumpItems = activeResultItems.flatMap((item) => {
+      if (item.kind === 'single') {
+        const idx = resultQuestionIndexById.get(item.questions[0].id) ?? item.firstQuestionIndex;
+        return [{ id: item.questions[0].id, label: `#${idx + 1}` }];
+      }
+      return item.questions.map((eq) => {
+        const idx = resultQuestionIndexById.get(eq.id) ?? item.firstQuestionIndex;
+        return { id: eq.id, label: `#${idx + 1}` };
+      });
+    });
+
+    const scrollToResultQuestion = (questionId: string) => {
+      document.getElementById(`result-q-${questionId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
     const renderResultQuestion = (eq: ResultQuestion, idx: number) => {
       const q = eq.question;
       if (!q) return null;
@@ -526,9 +598,10 @@ export default function StudentExamTakingPage() {
 
       return (
         <div
+          id={`result-q-${eq.id}`}
           key={eq.id}
           className={cn(
-            'rounded-2xl border bg-white p-5',
+            'scroll-mt-28 rounded-2xl border bg-white p-5',
             isCorrect === true ? 'border-emerald-200' : isCorrect === false ? 'border-rose-200' : 'border-slate-200',
           )}
         >
@@ -545,18 +618,32 @@ export default function StudentExamTakingPage() {
           {q.type === 'CQ' && q.cqBlock ? (
             <div className="mb-4 space-y-3">
               <div className="rounded-xl border border-violet-100 bg-violet-50/40 p-4">
-                <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-violet-600">Stimulus</p>
+                <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-violet-600">{resultUi.stimulusLabel}</p>
                 <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: q.cqBlock.stimulus }} />
               </div>
-              {q.cqBlock.parts.map((part) => (
+              {q.cqBlock.parts.map((part) => {
+                const partEvaluation = studentAns?.evaluations?.find(
+                  (evaluation) => evaluation.subPartKey === part.label,
+                );
+                return (
                 <div key={`${q.cqBlock?.groupId}-${part.label}`} className="grid grid-cols-[36px_1fr_auto] gap-2 rounded-xl border border-slate-100 bg-slate-50/70 p-3">
                   <span className="font-black text-violet-700">({part.label})</span>
                   <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: part.prompt }} />
-                  <Badge variant="outline" className="h-fit border-violet-200 bg-white text-violet-700">
-                    {part.marks}
-                  </Badge>
+                  <div className="flex flex-col items-end gap-1">
+                    <Badge variant="outline" className="h-fit border-violet-200 bg-white text-violet-700">
+                      {part.marks}
+                    </Badge>
+                    {partEvaluation?.marksAwarded != null ? (
+                      <span className="text-[10px] font-black text-emerald-700">
+                        {resultUi.partMarksLabel(part.label, partEvaluation.marksAwarded)}
+                      </span>
+                    ) : studentAns && (q.type === 'CQ' || q.type === 'SHORT') ? (
+                      <span className="text-[10px] font-bold text-amber-700">{resultUi.partPendingLabel}</span>
+                    ) : null}
+                  </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="prose prose-sm mb-4 max-w-none" dangerouslySetInnerHTML={{ __html: q.prompt }} />
@@ -565,49 +652,72 @@ export default function StudentExamTakingPage() {
             <div className="mt-4 rounded-xl border border-violet-100 bg-violet-50/40 p-4">
               <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-violet-600">
                 {q.type === 'SHORT'
-                  ? 'Your short answer'
-                  : 'Your written answer'}
+                  ? resultUi.yourShortAnswer
+                  : resultUi.yourWrittenAnswer}
               </p>
               <p className="whitespace-pre-wrap text-sm font-medium text-slate-800">
                 {studentAns?.answer?.text?.trim() ? studentAns.answer.text : '—'}
               </p>
-              {studentAns?.writtenSubmission?.pages?.length ? (
+              {studentAns?.writtenSubmission?.pages?.length || studentAns?.writtenSubmission?.finalPdfUrl ? (
                 <div className="mt-3 space-y-2">
                   <p className="text-[10px] font-black uppercase tracking-widest text-violet-600">
-                    Uploaded pages
+                    {resultUi.uploadedPagesLabel}
                   </p>
-                  <div className="flex flex-wrap gap-2">
-                    {studentAns.writtenSubmission.pages.map((page, pageIndex) => (
-                      <a
-                        key={`${page.url}-${pageIndex}`}
-                        href={getExamPdfDownloadUrl(page.url)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-xs font-bold text-violet-700"
+                  <div className="flex flex-wrap gap-3">
+                    {studentAns?.writtenSubmission?.pages?.map((page, pageIndex) => {
+                      const pageUrl = getExamPdfDownloadUrl(page.url);
+                      const isPdf = isSubmissionPdfUrl(pageUrl);
+                      const pageLabel = resultUi.pageLabel(pageIndex + 1);
+                      return (
+                        <button
+                          key={`${page.url}-${pageIndex}`}
+                          type="button"
+                          onClick={() => setUploadLightbox({ url: pageUrl, label: pageLabel })}
+                          className="group block overflow-hidden rounded-xl border border-violet-200 bg-white text-left transition-shadow hover:shadow-md"
+                        >
+                          {isPdf ? (
+                            <div className="flex h-28 w-24 flex-col items-center justify-center gap-1 bg-violet-50/80 px-2 text-center">
+                              <FileText className="h-6 w-6 text-violet-600" />
+                              <span className="text-[10px] font-black uppercase text-violet-700">
+                                {pageLabel}
+                              </span>
+                            </div>
+                          ) : (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={pageUrl}
+                              alt={pageLabel}
+                              className="h-28 w-24 object-cover transition-transform group-hover:scale-105"
+                            />
+                          )}
+                        </button>
+                      );
+                    })}
+                    {studentAns?.writtenSubmission?.finalPdfUrl ? (
+                      <button
+                        type="button"
+                        onClick={() => setUploadLightbox({
+                          url: getExamPdfDownloadUrl(studentAns.writtenSubmission!.finalPdfUrl!),
+                          label: resultUi.combinedPdfLabel,
+                        })}
+                        className="flex h-28 w-24 flex-col items-center justify-center gap-1 overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50 px-2 text-center transition-shadow hover:shadow-md"
                       >
-                        Page {pageIndex + 1}
-                      </a>
-                    ))}
-                    {studentAns.writtenSubmission.finalPdfUrl ? (
-                      <a
-                        href={getExamPdfDownloadUrl(studentAns.writtenSubmission.finalPdfUrl)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700"
-                      >
-                        Combined PDF
-                      </a>
+                        <FileText className="h-6 w-6 text-emerald-700" />
+                        <span className="text-[10px] font-black uppercase text-emerald-800">
+                          {resultUi.combinedPdfLabel}
+                        </span>
+                      </button>
                     ) : null}
                   </div>
                 </div>
               ) : null}
               {studentAns?.obtainedMarks != null ? (
                 <p className="mt-3 text-sm font-black text-violet-800">
-                  Marks: {studentAns.obtainedMarks}
+                  {resultUi.writtenMarksLabel}: {studentAns.obtainedMarks}
                 </p>
               ) : (
                 <p className="mt-3 text-xs font-bold text-amber-700">
-                  {'Written answers are marked by your teacher; score may appear later.'}
+                  {resultUi.evaluationPendingNote}
                 </p>
               )}
             </div>
@@ -650,13 +760,35 @@ export default function StudentExamTakingPage() {
 
     return (
       <div className="min-h-screen bg-slate-50">
+        <WrittenUploadLightbox
+          url={uploadLightbox?.url ?? null}
+          label={uploadLightbox?.label}
+          onClose={() => setUploadLightbox(null)}
+        />
         <div className={cn('mx-auto w-full max-w-full px-4 py-8 sm:px-6')}>
         <div className="max-w-3xl mx-auto">
-          <div className="text-center mb-10">
-            <div className="inline-flex items-center justify-center h-20 w-20 rounded-full bg-emerald-100 mb-4">
-              <CheckCircle2 className="h-10 w-10 text-emerald-600" />
+          <div className="sticky top-0 z-20 -mx-4 mb-8 border-b border-slate-200 bg-slate-50/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black text-slate-900">{examDisplayTitle}</p>
+                <p className="text-xs font-bold text-slate-500">{hero.title}</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-xl font-bold"
+                onClick={() => router.push('/student/exams')}
+              >
+                {resultUi.backToExamList}
+              </Button>
             </div>
-            <h1 className="text-3xl font-black text-slate-900">{resultUi.examCompleted}</h1>
+          </div>
+
+          <div className="text-center mb-10">
+            <div className={cn('inline-flex items-center justify-center h-20 w-20 rounded-full mb-4', hero.wrapperClass)}>
+              <HeroIcon className={cn('h-10 w-10', hero.iconClass)} />
+            </div>
+            <h1 className="text-3xl font-black text-slate-900">{hero.title}</h1>
             {result && (
               <p className="text-lg font-medium text-slate-500 mt-2">{examDisplayTitle}</p>
             )}
@@ -677,38 +809,68 @@ export default function StudentExamTakingPage() {
               <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm text-center">
                 {result.attempt.status === 'AUTO_SUBMITTED' ? (
                   <Badge variant="outline" className="mb-4 border-amber-200 bg-amber-50 text-[10px] font-black uppercase tracking-[0.2em] text-amber-900">
-                    Auto submitted
+                    {resultUi.autoSubmittedLabel}
                   </Badge>
                 ) : null}
                 {result.resultHidden ? (
                   <>
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500 mb-2">
-                      Result not published yet
+                      {resultUi.resultHiddenLabel}
                     </p>
                     <h2 className="text-3xl font-black text-slate-900">
-                      Your exam has been submitted
+                      {resultUi.resultHiddenTitle}
                     </h2>
                     <p className="mt-3 text-sm font-medium text-slate-500">
-                      {result.resultHiddenMessage
-                        ?? 'Your submission was recorded. Results will be published when the exam authority releases them.'}
+                      {result.resultHiddenMessage ?? resultUi.resultHiddenMessage}
                     </p>
+                    <div className="mt-6 flex justify-center">
+                      <Button
+                        variant="outline"
+                        className="h-10 rounded-2xl font-bold"
+                        disabled={refreshingResult}
+                        onClick={() => void refreshResult()}
+                      >
+                        {refreshingResult ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="mr-2 h-4 w-4" />
+                        )}
+                        {resultUi.refreshResult}
+                      </Button>
+                    </div>
                   </>
                 ) : pendingWrittenEvaluation ? (
                   <>
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500 mb-2">
-                      Teacher evaluation pending
+                      {resultUi.evaluationPendingLabel}
                     </p>
                     <h2 className="text-3xl font-black text-slate-900">
-                      Your exam has been submitted
+                      {resultUi.evaluationPendingTitle}
                     </h2>
                     <p className="mt-3 text-sm font-medium text-slate-500">
-                      {'Written answers are still being evaluated. Final score and percentage will appear after marking is complete.'}
+                      {resultUi.evaluationPendingMessage}
                     </p>
+                    <div className="mx-auto mt-6 flex max-w-md flex-wrap items-center justify-center gap-2 text-[11px] font-bold">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        {resultUi.timelineSubmitted}
+                      </span>
+                      <ChevronRight className="h-4 w-4 text-slate-300" />
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-amber-800">
+                        <Clock className="h-3.5 w-3.5" />
+                        {resultUi.timelineMarking}
+                      </span>
+                      <ChevronRight className="h-4 w-4 text-slate-300" />
+                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-slate-400">
+                        <Circle className="h-3 w-3" />
+                        {resultUi.timelineResult}
+                      </span>
+                    </div>
                     <div className="mt-6 grid gap-4 md:grid-cols-2">
                       {provisionalMcqScore ? (
                         <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-5 text-left">
                           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500 mb-2">
-                            Provisional MCQ score
+                            {resultUi.provisionalMcqScoreLabel}
                           </p>
                           <p className="text-3xl font-black text-indigo-700">
                             {provisionalMcqScore.obtained}
@@ -716,12 +878,38 @@ export default function StudentExamTakingPage() {
                           </p>
                         </div>
                       ) : null}
-                      <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5 text-left">
+                      <div className={cn(
+                        'rounded-2xl border border-slate-200 bg-slate-50/80 p-5 text-left',
+                        !provisionalMcqScore && 'md:col-span-2',
+                      )}>
                         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">
-                          Total exam marks
+                          {resultUi.totalExamMarksLabel}
                         </p>
                         <p className="text-3xl font-black text-slate-900">{result.attempt.totalMarks ?? 0}</p>
                       </div>
+                      {provisionalMcqScore ? (
+                        <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-5 text-left md:col-span-2">
+                          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-600 mb-2">
+                            {resultUi.writtenPendingLabel}
+                          </p>
+                          <p className="text-sm font-bold text-amber-900">{resultUi.evaluationPendingNote}</p>
+                        </div>
+                      ) : null}
+                    </div>
+                    <div className="mt-6 flex justify-center">
+                      <Button
+                        variant="outline"
+                        className="h-10 rounded-2xl font-bold"
+                        disabled={refreshingResult}
+                        onClick={() => void refreshResult()}
+                      >
+                        {refreshingResult ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="mr-2 h-4 w-4" />
+                        )}
+                        {resultUi.refreshResult}
+                      </Button>
                     </div>
                   </>
                 ) : (
@@ -753,7 +941,7 @@ export default function StudentExamTakingPage() {
                     onClick={() => router.push(`/student/leaderboard/${examId}`)}
                   >
                     <Trophy className="mr-2 h-4 w-4" />
-                    Leaderboard
+                    {resultUi.leaderboardLabel}
                   </Button>
                 </div>
               ) : null}
@@ -777,12 +965,29 @@ export default function StudentExamTakingPage() {
                               resultTab === tab ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:bg-white',
                             )}
                           >
-                            {tab === 'mcq' ? 'MCQ' : 'Written'}
+                            {tab === 'mcq' ? resultUi.mcqTabLabel : resultUi.writtenTabLabel}
                           </button>
                         ))}
                       </div>
                     )}
                   </div>
+                  {solutionJumpItems.length > 1 ? (
+                    <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-3">
+                      <p className="w-full text-[10px] font-black uppercase tracking-widest text-slate-400">
+                        {resultUi.jumpToQuestionLabel}
+                      </p>
+                      {solutionJumpItems.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => scrollToResultQuestion(item.id)}
+                          className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-black text-slate-700 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                   {activeResultItems.map((item) => {
                     if (item.kind === 'single') {
                       const idx = resultQuestionIndexById.get(item.questions[0].id) ?? item.firstQuestionIndex;
@@ -794,7 +999,7 @@ export default function StudentExamTakingPage() {
                         {passage ? (
                           <div className="rounded-xl bg-white p-4">
                             <div className="mb-2 flex items-center justify-between gap-2">
-                              <p className="text-sm font-black text-indigo-700">উদ্দীপক</p>
+                              <p className="text-sm font-black text-indigo-700">{resultUi.passageLabel}</p>
                               <Badge variant="outline" className="text-[10px] font-black">
                                 {item.questions.length} MCQ
                               </Badge>

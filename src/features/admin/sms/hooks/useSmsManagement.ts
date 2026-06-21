@@ -117,6 +117,7 @@ export function useSmsManagementData(actor?: SmsActor) {
   const [batchReport, setBatchReport] = useState<SmsReportRow[]>([]);
   const [dueReport, setDueReport] = useState<SmsLog[]>([]);
   const [paymentReport, setPaymentReport] = useState<SmsLog[]>([]);
+  const [paymentSourceFilter, setPaymentSourceFilter] = useState('');
   const [resultReport, setResultReport] = useState<SmsLog[]>([]);
   const [smsPricing, setSmsPricing] = useState<SmsPricing>({ pricePerSms: 0.5, minPurchase: 100 });
   const [smsTransactions, setSmsTransactions] = useState<Array<{ id: string; quantity: number; status: string; totalAmount: string | number; createdAt: string }>>([]);
@@ -161,7 +162,11 @@ export function useSmsManagementData(actor?: SmsActor) {
         getSmsReportProgram(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : undefined),
         getSmsReportBatch(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : undefined),
         getSmsReportDue({ limit: 20, ...(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : {}) }),
-        getSmsReportPayment({ limit: 20, ...(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : {}) }),
+        getSmsReportPayment({
+          limit: 20,
+          ...(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : {}),
+          ...(paymentSourceFilter ? { source: paymentSourceFilter } : {}),
+        }),
         getSmsReportResult({ limit: 20, ...(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : {}) }),
         isSuperAdmin ? getProviderBalance() : Promise.resolve({ success: false, data: null }),
         getSmsPricing(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : undefined),
@@ -217,7 +222,7 @@ export function useSmsManagementData(actor?: SmsActor) {
     } finally {
       setLoading(false);
     }
-  }, [actorBranchId, canManageSystemSettings, isBranchAdmin, isSuperAdmin, toast]);
+  }, [actorBranchId, canManageSystemSettings, isBranchAdmin, isSuperAdmin, paymentSourceFilter, toast]);
 
   useEffect(() => {
     loadData();
@@ -258,6 +263,8 @@ export function useSmsManagementData(actor?: SmsActor) {
     batchReport,
     dueReport,
     paymentReport,
+    paymentSourceFilter,
+    setPaymentSourceFilter,
     resultReport,
     smsPricing,
     smsTransactions,

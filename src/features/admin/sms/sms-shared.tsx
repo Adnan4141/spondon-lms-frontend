@@ -19,6 +19,19 @@ export const smsTypeLabels: Record<string, string> = {
   ENROLLMENT_NOTICE: 'Enrollment SMS',
 };
 
+export const paymentSmsSources = [
+  { value: '', label: 'All payment SMS' },
+  { value: 'ADMIN', label: 'Admin recorded' },
+  { value: 'GATEWAY_INVOICE', label: 'Student bKash (invoice)' },
+  { value: 'SELF_CHECKOUT', label: 'Self-checkout enrollment' },
+] as const;
+
+export const paymentSmsSourceLabels: Record<string, string> = {
+  ADMIN: 'Admin recorded',
+  GATEWAY_INVOICE: 'Student bKash',
+  SELF_CHECKOUT: 'Self-checkout',
+};
+
 export const tabItems = [
   { value: 'templates', label: 'Templates', icon: Save },
   { value: 'gateway', label: 'Settings', icon: Settings },

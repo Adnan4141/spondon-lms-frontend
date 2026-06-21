@@ -48,6 +48,7 @@ type Props = {
   onDelete: (ids: string[]) => void;
   onEdit: (id: string) => void;
   onCreateQuestion: () => void;
+  onPrefetchCreateQuestion?: () => void;
   onPageChange: (page: number) => void;
 };
 
@@ -68,6 +69,7 @@ export function QuestionsTable({
   onDelete,
   onEdit,
   onCreateQuestion,
+  onPrefetchCreateQuestion,
   onPageChange,
 }: Props) {
   return (
@@ -102,7 +104,13 @@ export function QuestionsTable({
             <TableRow>
               <TableCell colSpan={6} className="py-20 text-center text-sm font-medium text-slate-400">
                 No questions found.{' '}
-                <button type="button" onClick={onCreateQuestion} className="font-bold text-indigo-500 hover:underline">
+                <button
+                  type="button"
+                  onClick={onCreateQuestion}
+                  onMouseEnter={onPrefetchCreateQuestion}
+                  onFocus={onPrefetchCreateQuestion}
+                  className="font-bold text-indigo-500 hover:underline"
+                >
                   Create one now.
                 </button>
               </TableCell>
