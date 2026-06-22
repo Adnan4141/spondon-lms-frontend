@@ -623,7 +623,7 @@ export function DueCollectionTab({ branches }: { branches: BranchOption[] }) {
                   {bulkConfirmRows.length === 1 ? '' : 's'} with a combined due of <strong>{fmtCur(bulkConfirmTotalDue)}</strong>.
                 </p>
                 <p>
-                  Students already reminded for <strong>{query.month || new Date().toISOString().slice(0, 7)}</strong> will be skipped automatically.
+                  Each selected student will receive a due reminder SMS. You can resend reminders later if needed.
                 </p>
               </div>
             </AlertDialogDescription>

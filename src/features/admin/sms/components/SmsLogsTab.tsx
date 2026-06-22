@@ -23,6 +23,12 @@ import { Panel, smsLengthInfo } from '../sms-shared';
 
 type Actor = { role?: string | null; branchId?: string | null };
 type BranchOption = Pick<Branch, 'id' | 'name'>;
+type InitialLogFilters = {
+  from?: string;
+  to?: string;
+  type?: string;
+  branchId?: string;
+};
 
 function money(value: unknown) {
   return `৳${Number(value || 0).toFixed(2)}`;
@@ -49,9 +55,11 @@ function statusBadge(status: string) {
 export function SmsLogsTab({
   branches,
   actor,
+  initialFilters,
 }: {
   branches: BranchOption[];
   actor?: Actor;
+  initialFilters?: InitialLogFilters;
 }) {
   const { toast } = useToast();
   const isBranchAdmin = actor?.role === 'BRANCH_ADMIN';
@@ -60,10 +68,10 @@ export function SmsLogsTab({
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, pages: 1 });
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState({
-    from: '',
-    to: '',
-    type: 'ALL',
-    branchId: '',
+    from: initialFilters?.from || '',
+    to: initialFilters?.to || '',
+    type: initialFilters?.type || 'ALL',
+    branchId: initialFilters?.branchId || '',
     status: 'ALL',
     search: '',
   });
@@ -75,6 +83,17 @@ export function SmsLogsTab({
     const timer = window.setTimeout(() => setDebouncedSearch(filters.search), 400);
     return () => window.clearTimeout(timer);
   }, [filters.search]);
+
+  useEffect(() => {
+    if (!initialFilters) return;
+    setFilters((prev) => ({
+      ...prev,
+      from: initialFilters.from || prev.from,
+      to: initialFilters.to || prev.to,
+      type: initialFilters.type || prev.type,
+      branchId: initialFilters.branchId || prev.branchId,
+    }));
+  }, [initialFilters?.branchId, initialFilters?.from, initialFilters?.to, initialFilters?.type]);
 
   const query = useMemo(() => ({
     page: pagination.page,
@@ -125,7 +144,7 @@ export function SmsLogsTab({
           <Select value={filters.type} onValueChange={(type) => setFilters((prev) => ({ ...prev, type }))}>
             <SelectTrigger><SelectValue placeholder="Type" /></SelectTrigger>
             <SelectContent>
-              {['ALL', 'RESULT', 'DUE_REMINDER', 'BULK', 'DIRECT', 'OTP', 'NOTICE'].map((type) => <SelectItem key={type} value={type}>{type === 'ALL' ? 'All types' : type}</SelectItem>)}
+              {['ALL', 'RESULT', 'DUE_REMINDER', 'PAYMENT_CONFIRMATION', 'BULK', 'DIRECT', 'OTP', 'NOTICE'].map((type) => <SelectItem key={type} value={type}>{type === 'ALL' ? 'All types' : type}</SelectItem>)}
             </SelectContent>
           </Select>
           {!isBranchAdmin ? (

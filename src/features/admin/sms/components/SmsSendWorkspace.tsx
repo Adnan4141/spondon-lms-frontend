@@ -151,7 +151,6 @@ export function SmsSendWorkspace({
     locked?: boolean;
     stepped?: boolean;
     recipientVariant?: 'default' | 'due';
-    alreadyRemindedIds?: string[];
     draftStorageKey?: string;
     defaultCampaignName?: string;
     metadata?: Record<string, unknown>;
@@ -183,7 +182,6 @@ export function SmsSendWorkspace({
   const [confirmChecked, setConfirmChecked] = useState(false);
   const [sendResult, setSendResult] = useState<{ queuedCount: number; estimatedCost: number; scheduledAt?: string } | null>(null);
   const isSteppedDue = Boolean(focused?.locked && focused?.stepped);
-  const remindedSet = useMemo(() => new Set(focused?.alreadyRemindedIds || []), [focused?.alreadyRemindedIds]);
 
   const handleRecipientsResolved = useCallback((items: SmsRecipient[]) => {
     setRecipients(items);
@@ -270,11 +268,8 @@ export function SmsSendWorkspace({
   }, [focused?.locked, focused?.stepped, recipients, selectedRecipientKeys]);
 
   const deliverableRecipients = useMemo(
-    () => pickedRecipients.filter((recipient, index) => {
-      const key = recipient.id || recipientKey(recipient, index);
-      return !remindedSet.has(key) && !recipientHasInvalidMobile(recipient);
-    }),
-    [pickedRecipients, remindedSet],
+    () => pickedRecipients.filter((recipient) => !recipientHasInvalidMobile(recipient)),
+    [pickedRecipients],
   );
   const invalidSelectedCount = useMemo(
     () => pickedRecipients.filter((recipient) => recipientHasInvalidMobile(recipient)).length,
@@ -323,9 +318,7 @@ export function SmsSendWorkspace({
   const reviewContinueDisabled = pickedRecipients.length === 0 ? 'Select at least one recipient' : '';
   const messageContinueDisabled = !composer.message.trim() ? 'Write your message' : '';
   const sendBlockedReason = isSteppedDue && deliverableRecipients.length === 0 && pickedRecipients.length > 0
-    ? invalidSelectedCount === pickedRecipients.length
-      ? 'All selected students have invalid mobile numbers'
-      : 'All selected students were already reminded this month'
+    ? 'All selected students have invalid mobile numbers'
     : (disabledReason || confirmBlockedReason);
   const composerVariables = variablesForComposer({
     method: focused?.method || method,
@@ -340,7 +333,7 @@ export function SmsSendWorkspace({
     setSubmitting(true);
     try {
       const res = await dispatchSms({
-        recipients: pickedRecipients,
+        recipients: isSteppedDue ? deliverableRecipients : pickedRecipients,
         message: composer.message.trim(),
         templateKey: composer.templateKey,
         defaultVars: { maskingRate: rates.maskingRate, nonMaskingRate: rates.nonMaskingRate },
@@ -354,7 +347,7 @@ export function SmsSendWorkspace({
         campaignName: composer.campaignName || undefined,
         priority: method === 'direct' ? 3 : undefined,
         metadata: focused?.metadata,
-        dedupeScope: focused?.dedupeScope,
+        dedupeScope: focused?.type === 'DUE_REMINDER' ? undefined : focused?.dedupeScope,
       });
       toast({
         title: res.message || `${res.data.queuedCount} SMS queued`,
@@ -452,7 +445,6 @@ export function SmsSendWorkspace({
             <DueRecipientReviewPanel
               recipients={recipients}
               selectedKeys={selectedRecipientKeys}
-              alreadyRemindedIds={focused.alreadyRemindedIds || []}
               onSelectionChange={setSelectedRecipientKeys}
             />
           ) : null}
@@ -475,10 +467,9 @@ export function SmsSendWorkspace({
             <div className="space-y-4">
               <section className="rounded-xl border border-slate-200 bg-white p-5">
                 <h3 className="text-sm font-bold text-slate-950">Final Confirmation</h3>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   <SummaryItem label="Selected" value={pickedRecipients.length.toLocaleString()} />
                   <SummaryItem label="Will Send" value={deliverableRecipients.length.toLocaleString()} tone="emerald" />
-                  <SummaryItem label="Already Reminded" value={(pickedRecipients.length - deliverableRecipients.length - invalidSelectedCount).toLocaleString()} tone="amber" />
                   <SummaryItem label="Invalid Mobile" value={invalidSelectedCount.toLocaleString()} tone="rose" />
                   <SummaryItem label="Est. Cost" value={`৳${estimatedCost.toFixed(2)}`} tone="emerald" />
                 </div>

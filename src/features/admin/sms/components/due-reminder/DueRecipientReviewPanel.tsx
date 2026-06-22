@@ -41,17 +41,14 @@ type IndexedRecipient = {
 export function DueRecipientReviewPanel({
   recipients,
   selectedKeys,
-  alreadyRemindedIds,
   onSelectionChange,
 }: {
   recipients: SmsRecipient[];
   selectedKeys: string[];
-  alreadyRemindedIds: string[];
   onSelectionChange: (keys: string[]) => void;
 }) {
   const [query, setQuery] = useState('');
   const [hideInvalidMobile, setHideInvalidMobile] = useState(false);
-  const remindedSet = useMemo(() => new Set(alreadyRemindedIds), [alreadyRemindedIds]);
   const selectedSet = useMemo(() => new Set(selectedKeys), [selectedKeys]);
 
   const indexedRecipients = useMemo<IndexedRecipient[]>(
@@ -91,12 +88,7 @@ export function DueRecipientReviewPanel({
 
   const selectedCount = selectedKeys.length;
   const willSendCount = indexedRecipients.filter(({ recipient, key }) => {
-    return selectedSet.has(key)
-      && !remindedSet.has(recipient.id || key)
-      && !recipientHasInvalidMobile(recipient);
-  }).length;
-  const skippedCount = indexedRecipients.filter(({ recipient, key }) => {
-    return selectedSet.has(key) && remindedSet.has(recipient.id || key);
+    return selectedSet.has(key) && !recipientHasInvalidMobile(recipient);
   }).length;
   const invalidSelectedCount = indexedRecipients.filter(({ recipient, key }) => {
     return selectedSet.has(key) && recipientHasInvalidMobile(recipient);
@@ -131,10 +123,9 @@ export function DueRecipientReviewPanel({
   return (
     <Panel title="Review Recipients">
       <div className="space-y-4">
-        <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
           <StatCard label="Selected" value={fmtNum(selectedCount)} />
           <StatCard label="Will Send" value={fmtNum(willSendCount)} tone="emerald" />
-          <StatCard label="Already Reminded" value={fmtNum(skippedCount)} tone="amber" />
           <StatCard label="Invalid Mobile" value={fmtNum(invalidSelectedCount)} tone="rose" />
           <StatCard label="Selected Due" value={fmtCur(totalDue)} tone="rose" />
         </div>
@@ -179,9 +170,7 @@ export function DueRecipientReviewPanel({
           getKey={(item) => item.key}
           emptyState={<p className="px-4 py-10 text-center text-sm text-slate-500">No recipients match your search.</p>}
           renderRow={({ recipient, key }) => {
-            const recipientId = recipient.id || key;
             const checked = selectedSet.has(key);
-            const alreadyReminded = remindedSet.has(recipientId);
             const invalidMobile = recipientHasInvalidMobile(recipient);
             const subtitle = dueSubtitle(recipient);
 
@@ -196,11 +185,6 @@ export function DueRecipientReviewPanel({
                   <span className="min-w-0">
                     <span className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold text-slate-900">{String(recipient.name || recipient.variables?.name || 'Recipient')}</span>
-                      {alreadyReminded ? (
-                        <Badge className="rounded-full bg-amber-100 text-[10px] font-black uppercase tracking-wide text-amber-800 hover:bg-amber-100">
-                          Already reminded
-                        </Badge>
-                      ) : null}
                       {invalidMobile ? (
                         <Badge className="rounded-full bg-rose-100 text-[10px] font-black uppercase tracking-wide text-rose-800 hover:bg-rose-100">
                           Invalid mobile

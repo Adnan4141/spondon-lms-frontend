@@ -1,8 +1,8 @@
 'use client';
 
 import { RefreshCw } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SmsBalancesTab } from '@/features/admin/sms/components/SmsBalancesTab';
@@ -26,8 +26,17 @@ import { SmsLogsTab } from '@/features/admin/sms/components/SmsLogsTab';
 export default function SmsManagementPage() {
   const { user } = useAdminSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const isBranchAdmin = user?.role === 'BRANCH_ADMIN';
   const smsData = useSmsManagementData(user);
+  const [activeTab, setActiveTab] = useState(() => searchParams.get('tab') || 'logs');
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && ['templates', 'gateway', 'logs', 'reports'].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const sendTabs = new Set(['send', 'students', 'bulk', 'manual', 'direct']);
@@ -126,7 +135,7 @@ export default function SmsManagementPage() {
           </SmsWarningBanner>
         ) : null}
 
-        <Tabs defaultValue="logs" className="space-y-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
             <TabsList className="flex h-auto w-max min-w-full justify-start gap-1 rounded-lg border border-slate-200 bg-white p-1 sm:w-full sm:flex-wrap">
               {visibleTabs.map(({ value, label, icon: Icon }) => (
@@ -202,24 +211,20 @@ export default function SmsManagementPage() {
           </TabsContent>
 
           <TabsContent value="logs" className="space-y-4">
-            <SmsLogsTab branches={smsData.branches} actor={user} />
+            <SmsLogsTab
+              branches={smsData.branches}
+              actor={user}
+              initialFilters={{
+                from: searchParams.get('from') || '',
+                to: searchParams.get('to') || '',
+                type: searchParams.get('type') || 'ALL',
+                branchId: searchParams.get('branchId') || '',
+              }}
+            />
           </TabsContent>
 
           <TabsContent value="reports" className="space-y-4">
-            <SmsReportsTab
-              monthlyRows={smsData.monthlyRows}
-              typeReport={smsData.typeReport}
-              branchReport={smsData.branchReport}
-              programReport={smsData.programReport}
-              batchReport={smsData.batchReport}
-              dueReport={smsData.dueReport}
-              paymentReport={smsData.paymentReport}
-              paymentSourceFilter={smsData.paymentSourceFilter}
-              setPaymentSourceFilter={smsData.setPaymentSourceFilter}
-              resultReport={smsData.resultReport}
-              logs={smsData.logs}
-              branches={smsData.branches}
-            />
+            <SmsReportsTab branches={smsData.branches} actor={user} />
           </TabsContent>
         </Tabs>
       </div>

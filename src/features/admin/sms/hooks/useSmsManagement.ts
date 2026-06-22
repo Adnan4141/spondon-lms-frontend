@@ -11,7 +11,6 @@ import {
   type SmsLog,
   type SmsProviderBalance,
   type SmsQueueItem,
-  type SmsReportRow,
   type SmsSystemSetting,
   type SmsTemplate,
   type SmsWalletLedger,
@@ -24,14 +23,7 @@ import {
   getSmsWalletLedger,
   getSmsLogs,
   getSmsQueue,
-  getSmsReportBatch,
-  getSmsReportBranch,
-  getSmsReportDue,
-  getSmsReportPayment,
-  getSmsReportProgram,
-  getSmsReportResult,
   getSmsReportSummary,
-  getSmsReportType,
   getSmsSystemSettings,
   getSmsTemplates,
   previewBulkManual,
@@ -112,14 +104,6 @@ export function useSmsManagementData(actor?: SmsActor) {
   const [queue, setQueue] = useState<{ summary: Record<string, number>; items: SmsQueueItem[] }>({ summary: {}, items: [] });
   const [logs, setLogs] = useState<SmsLog[]>([]);
   const [summary, setSummary] = useState<Record<string, unknown> | null>(null);
-  const [typeReport, setTypeReport] = useState<SmsReportRow[]>([]);
-  const [branchReport, setBranchReport] = useState<SmsReportRow[]>([]);
-  const [programReport, setProgramReport] = useState<SmsReportRow[]>([]);
-  const [batchReport, setBatchReport] = useState<SmsReportRow[]>([]);
-  const [dueReport, setDueReport] = useState<SmsLog[]>([]);
-  const [paymentReport, setPaymentReport] = useState<SmsLog[]>([]);
-  const [paymentSourceFilter, setPaymentSourceFilter] = useState('');
-  const [resultReport, setResultReport] = useState<SmsLog[]>([]);
   const [smsPricing, setSmsPricing] = useState<SmsPricing>({ pricePerSms: 0.5, minPurchase: 100 });
   const [smsTransactions, setSmsTransactions] = useState<Array<{ id: string; quantity: number; status: string; totalAmount: string | number; createdAt: string }>>([]);
   const [walletLedger, setWalletLedger] = useState<SmsWalletLedger[]>([]);
@@ -138,13 +122,6 @@ export function useSmsManagementData(actor?: SmsActor) {
         logsRes,
         settingsRes,
         summaryRes,
-        typeRes,
-        branchUsageRes,
-        programUsageRes,
-        batchUsageRes,
-        dueRes,
-        paymentRes,
-        resultRes,
         providerRes,
         pricingRes,
         txRes,
@@ -158,17 +135,6 @@ export function useSmsManagementData(actor?: SmsActor) {
         getSmsLogs({ page: 1, limit: 20, ...(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : {}) }),
         canManageSystemSettings ? getSmsSystemSettings() : Promise.resolve({ success: false, data: { settings: [] } }),
         getSmsReportSummary(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : undefined),
-        getSmsReportType(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : undefined),
-        getSmsReportBranch(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : undefined),
-        getSmsReportProgram(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : undefined),
-        getSmsReportBatch(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : undefined),
-        getSmsReportDue({ limit: 20, ...(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : {}) }),
-        getSmsReportPayment({
-          limit: 20,
-          ...(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : {}),
-          ...(paymentSourceFilter ? { source: paymentSourceFilter } : {}),
-        }),
-        getSmsReportResult({ limit: 20, ...(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : {}) }),
         isSuperAdmin ? getProviderBalance() : Promise.resolve({ success: false, data: null }),
         getSmsPricing(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : undefined),
         getSmsTransactions({ page: 1, limit: 8, ...(isBranchAdmin && actorBranchId ? { branchId: actorBranchId } : {}) }),
@@ -196,13 +162,6 @@ export function useSmsManagementData(actor?: SmsActor) {
       if (logsRes.status === 'fulfilled' && logsRes.value.success) setLogs(logsRes.value.data || []);
       if (settingsRes.status === 'fulfilled' && settingsRes.value.success) setSettings(settingsRes.value.data?.settings || []);
       if (summaryRes.status === 'fulfilled' && summaryRes.value.success) setSummary(summaryRes.value.data);
-      if (typeRes.status === 'fulfilled' && typeRes.value.success) setTypeReport(typeRes.value.data || []);
-      if (branchUsageRes.status === 'fulfilled' && branchUsageRes.value.success) setBranchReport(branchUsageRes.value.data || []);
-      if (programUsageRes.status === 'fulfilled' && programUsageRes.value.success) setProgramReport(programUsageRes.value.data || []);
-      if (batchUsageRes.status === 'fulfilled' && batchUsageRes.value.success) setBatchReport(batchUsageRes.value.data || []);
-      if (dueRes.status === 'fulfilled' && dueRes.value.success) setDueReport(dueRes.value.data || []);
-      if (paymentRes.status === 'fulfilled' && paymentRes.value.success) setPaymentReport(paymentRes.value.data || []);
-      if (resultRes.status === 'fulfilled' && resultRes.value.success) setResultReport(resultRes.value.data || []);
       if (providerRes.status === 'fulfilled') {
         if (providerRes.value.success) {
           setProviderBalance(providerRes.value.data);
@@ -223,7 +182,7 @@ export function useSmsManagementData(actor?: SmsActor) {
     } finally {
       setLoading(false);
     }
-  }, [actorBranchId, canManageSystemSettings, isBranchAdmin, isSuperAdmin, paymentSourceFilter, toast]);
+  }, [actorBranchId, canManageSystemSettings, isBranchAdmin, isSuperAdmin, toast]);
 
   useEffect(() => {
     loadData();
@@ -241,9 +200,6 @@ export function useSmsManagementData(actor?: SmsActor) {
       : 'Unavailable'
     : formatProviderRemainingCredit(providerBalance?.balanceText, providerBalance?.balanceBdt ?? null);
   const sentSmsValue = Number(((summary?.totals as { _sum?: { successCount?: number | null } } | undefined)?._sum?.successCount) ?? 0);
-  const monthlyRows = Array.isArray(summary?.monthly)
-    ? summary.monthly as Array<{ month: string; successCount: number; failedCount: number; recipientCount: number }>
-    : [];
 
   return {
     loading,
@@ -258,18 +214,6 @@ export function useSmsManagementData(actor?: SmsActor) {
     setConfig,
     queue,
     logs,
-    typeReport,
-    branchReport,
-    programReport,
-    batchReport,
-    dueReport,
-    paymentReport,
-    paymentSourceFilter,
-    setPaymentSourceFilter,
-    resultReport,
-    smsPricing,
-    smsTransactions,
-    walletLedger,
     orgBalance,
     branchBalances,
     failedQueue,
@@ -280,7 +224,9 @@ export function useSmsManagementData(actor?: SmsActor) {
     queueError,
     smsConfigError,
     sentSmsValue,
-    monthlyRows,
+    smsPricing,
+    smsTransactions,
+    walletLedger,
   };
 }
 

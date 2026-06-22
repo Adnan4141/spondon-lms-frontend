@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type { DueSummaryStudentRow } from '@/lib/api/reports';
-import { previewSmsDedupe, type SmsBalance, type SmsConfig, type SmsTemplate } from '@/lib/api/sms';
+import { type SmsBalance, type SmsConfig, type SmsTemplate } from '@/lib/api/sms';
 import { Badge } from '@/components/ui/badge';
 import { SmsFocusDrawerShell } from '@/features/admin/sms/components/SmsFocusDrawerShell';
 import { SmsSendWorkspace } from '@/features/admin/sms/components/SmsSendWorkspace';
@@ -57,15 +57,13 @@ export function DueReminderDrawer({
   sendBlockedMessage,
   onSuccess,
 }: DueReminderDrawerProps) {
-  const dedupeMonth = dueMonthLabel(month);
+  const billingMonth = dueMonthLabel(month);
   const totalDue = rows.reduce((sum, row) => sum + row.totalDue, 0);
   const maskingRate = Number(config?.maskingRate ?? 0.5);
   const nonMaskingRate = Number(config?.nonMaskingRate ?? 0.35);
   const resolvedBranchId = actor?.role === 'BRANCH_ADMIN'
     ? actor.branchId || undefined
     : rows[0]?.branchId || filterBranchId || undefined;
-  const [alreadyRemindedIds, setAlreadyRemindedIds] = useState<string[]>([]);
-  const [dedupeLoading, setDedupeLoading] = useState(false);
 
   const recipients = useMemo(
     () => rows.map((row) => ({
@@ -86,50 +84,15 @@ export function DueReminderDrawer({
     [month, rows],
   );
 
-  const recipientIdsKey = useMemo(
-    () => rows.map((row) => row.studentUserId).join('|'),
-    [rows],
-  );
-
   const draftStorageKey = buildDueReminderDraftKey({
-    month: dedupeMonth,
+    month: billingMonth,
     branchId: filterBranchId || resolvedBranchId,
   });
   const defaultCampaignName = buildDueReminderCampaignName({
-    month: dedupeMonth,
+    month: billingMonth,
     branchLabel,
   });
   const isMixedBranch = !filterBranchId && detectMixedBranches(recipients);
-
-  useEffect(() => {
-    if (!open || rows.length === 0) {
-      setAlreadyRemindedIds([]);
-      return;
-    }
-
-    let cancelled = false;
-    setDedupeLoading(true);
-    void previewSmsDedupe({
-      type: 'DUE_REMINDER',
-      recipientIds: rows.map((row) => row.studentUserId),
-      dedupeScope: { dueMonth: dedupeMonth },
-    })
-      .then((res) => {
-        if (!cancelled && res.success) setAlreadyRemindedIds(res.data.alreadySentIds || []);
-      })
-      .catch(() => {
-        if (!cancelled) setAlreadyRemindedIds([]);
-      })
-      .finally(() => {
-        if (!cancelled) setDedupeLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [dedupeMonth, open, recipientIdsKey, rows.length]);
-
-  const willSendCount = Math.max(0, rows.length - alreadyRemindedIds.length);
 
   const focusedConfig = useMemo(() => ({
     method: 'students' as const,
@@ -145,12 +108,10 @@ export function DueReminderDrawer({
     branchId: resolvedBranchId,
     allowSchedule: true,
     recipientVariant: 'due' as const,
-    alreadyRemindedIds,
     draftStorageKey,
     defaultCampaignName,
-    dedupeScope: { dueMonth: dedupeMonth },
     recipients,
-  }), [alreadyRemindedIds, dedupeMonth, defaultCampaignName, draftStorageKey, recipients, resolvedBranchId]);
+  }), [defaultCampaignName, draftStorageKey, recipients, resolvedBranchId]);
 
   return (
     <SmsFocusDrawerShell
@@ -170,10 +131,10 @@ export function DueReminderDrawer({
             </Badge>
           ) : null}
           <Badge variant="outline" className="rounded-full font-semibold">
-            Month: {dedupeMonth}
+            Month: {billingMonth}
           </Badge>
           <Badge variant="outline" className="rounded-full font-semibold text-blue-700">
-            {dedupeLoading ? 'Checking dedupe…' : `${fmtNum(willSendCount)} will send`}
+            {fmtNum(rows.length)} selected
           </Badge>
           {isMixedBranch ? (
             <Badge variant="outline" className="rounded-full font-semibold text-amber-700">
@@ -190,7 +151,7 @@ export function DueReminderDrawer({
               {' '}
             </>
           ) : null}
-          Students already reminded for <strong>{dedupeMonth}</strong> will be skipped automatically.
+          You can send due reminders as many times as needed for the same month.
           Message drafts are saved locally while this drawer is open.
         </>
       }

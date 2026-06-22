@@ -338,6 +338,7 @@ export function SmsSystemTab({
             <p className="font-semibold">Queue due reminders for a billing month</p>
             <p className="mt-0.5">
               SMS messages will be queued for all students with outstanding dues in the selected month.
+              You can queue again later if reminders need to be resent.
               Timezone: <span className="font-semibold">BST (Asia/Dhaka)</span>.
             </p>
           </div>
