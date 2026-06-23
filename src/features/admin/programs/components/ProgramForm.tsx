@@ -26,14 +26,20 @@ interface ProgramFormProps {
 export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
   const { closeModal } = useModalStore();
   const { toast } = useToast();
-  const [form, setForm] = useState({ 
-    name: '', 
-    description: '', 
+  const [form, setForm] = useState<{
+    name: string;
+    description: string;
+    thumbnail: string;
+    admissionFeeEnabled: boolean;
+    admissionFeeAmount: string;
+    paymentCircle: BillingType;
+  }>({
+    name: '',
+    description: '',
     thumbnail: '',
-    mode: 'OFFLINE' as const,
     admissionFeeEnabled: false,
     admissionFeeAmount: '',
-    paymentCircle: 'ONE_TIME' as BillingType,
+    paymentCircle: 'ONE_TIME',
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +55,6 @@ export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
         name: program.name,
         description: program.description || '',
         thumbnail: program.thumbnail || '',
-        mode: 'OFFLINE' as const,
         admissionFeeEnabled: program.admissionFeeEnabled || false,
         admissionFeeAmount: program.admissionFeeAmount ? String(program.admissionFeeAmount) : '',
         paymentCircle: program.paymentCircle || 'ONE_TIME',
@@ -66,7 +71,6 @@ export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
         name: '', 
         description: '', 
         thumbnail: '',
-        mode: 'OFFLINE' as const,
         admissionFeeEnabled: false,
         admissionFeeAmount: '',
         paymentCircle: 'ONE_TIME',
@@ -123,7 +127,6 @@ export function ProgramForm({ program, onSuccess }: ProgramFormProps) {
     const payload: CreateProgramDto | UpdateProgramDto = {
       name: form.name.trim(),
       description: form.description.trim() || undefined,
-      mode: 'OFFLINE',
       admissionFeeEnabled: form.admissionFeeEnabled,
       admissionFeeAmount: form.admissionFeeEnabled && form.admissionFeeAmount.trim()
         ? Number(form.admissionFeeAmount)

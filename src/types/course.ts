@@ -168,7 +168,6 @@ export interface Program {
   name: string;
   description?: string;
   thumbnail?: string;
-  mode?: DeliveryMode;
   admissionFeeEnabled?: boolean;
   admissionFeeAmount?: number | null;
   paymentCircle?: BillingType;
@@ -183,7 +182,6 @@ export interface CreateProgramDto {
   name: string;
   description?: string;
   thumbnail?: string;
-  mode?: DeliveryMode;
   admissionFeeEnabled?: boolean;
   admissionFeeAmount?: number | null;
   paymentCircle?: BillingType;
@@ -193,7 +191,6 @@ export interface UpdateProgramDto {
   name?: string;
   description?: string;
   thumbnail?: string;
-  mode?: DeliveryMode;
   admissionFeeEnabled?: boolean;
   admissionFeeAmount?: number | null;
   paymentCircle?: BillingType;

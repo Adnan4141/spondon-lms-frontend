@@ -20,6 +20,7 @@ import type { Invoice } from '@/types/invoice';
 import { StudentAdminBadge as AppBadge } from '@/features/admin/students/components/StudentAdminBadge';
 import { EditStudentModal } from '@/features/admin/students/modals/EditStudentModal';
 import { ManageEnrollmentModal } from '@/features/admin/students/enrollment/ManageEnrollmentModal';
+import { ManageOneTimeEnrollmentModal } from '@/features/admin/students/enrollment/ManageOneTimeEnrollmentModal';
 import type {
   BranchOption, Course, Enrollment, Program, Student,
 } from '@/features/admin/students';
@@ -87,6 +88,7 @@ export function StudentDetailPageContent() {
   // UI state
   const [showEdit, setShowEdit] = useState(false);
   const [manageModal, setManageModal] = useState<{ enrollment: Enrollment } | null>(null);
+  const [manageOneTimeModal, setManageOneTimeModal] = useState<{ enrollment: Enrollment } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchData = async () => {
@@ -415,6 +417,11 @@ export function StudentDetailPageContent() {
             const netFee = totalFee - discount;
             const localEnrollment = enrollments[i];
 
+            const isMonthlyEnrollment = enr.billingType === 'MONTHLY';
+            const isOneTimeEnrollment = enr.billingType === 'ONE_TIME';
+            const canManageMonthly = isMonthlyEnrollment && localEnrollment;
+            const canManageOneTime = isOneTimeEnrollment && localEnrollment;
+
             return (
               <div key={enr.id} className="bg-white border border-slate-200 rounded-2xl mb-4 overflow-hidden shadow-sm">
                 {/* Header */}
@@ -432,23 +439,28 @@ export function StudentDetailPageContent() {
                       {enr.billingStartMonth && (
                         <span className="text-xs text-slate-500">From: {fmtMonth(enr.billingStartMonth)}</span>
                       )}
-                      {discount > 0 && (
+                      {isMonthlyEnrollment && discount > 0 && (
                         <span className="text-xs text-slate-500">
                           Discount: <strong className="text-rose-600">{fmt(discount)}/mo</strong>
                         </span>
                       )}
-                      <span className="text-xs text-slate-500">
-                        Net: <strong className="text-emerald-600">{fmt(netFee)}/mo</strong>
-                      </span>
+                      {isMonthlyEnrollment && (
+                        <span className="text-xs text-slate-500">
+                          Net: <strong className="text-emerald-600">{fmt(netFee)}/mo</strong>
+                        </span>
+                      )}
                     </div>
                   </div>
-                  {localEnrollment && (
+                  {(canManageMonthly || canManageOneTime) && (
                     <Button
                       size="sm"
-                      onClick={() => setManageModal({ enrollment: localEnrollment })}
+                      onClick={() => {
+                        if (canManageMonthly && localEnrollment) setManageModal({ enrollment: localEnrollment });
+                        else if (canManageOneTime && localEnrollment) setManageOneTimeModal({ enrollment: localEnrollment });
+                      }}
                       className="gap-1.5 bg-slate-900 text-white hover:bg-indigo-600 transition-all shrink-0"
                     >
-                      Manage Enrollment
+                      {canManageOneTime ? 'Manage Courses' : 'Manage Enrollment'}
                     </Button>
                   )}
                 </div>
@@ -591,6 +603,26 @@ export function StudentDetailPageContent() {
             setStudent(prev => prev ? { ...prev, ...updated } : updated);
             setShowEdit(false);
             showToast(`${updated.fullName}'s profile updated successfully`);
+          }}
+        />
+      )}
+
+      {manageOneTimeModal && (
+        <ManageOneTimeEnrollmentModal
+          enrollment={manageOneTimeModal.enrollment}
+          programs={programs}
+          studentUserId={userId}
+          onClose={() => setManageOneTimeModal(null)}
+          onDone={(summary) => {
+            const msg = summary.failed > 0
+              ? `Updated with ${summary.failed} failure(s).`
+              : summary.added > 0 && summary.removed > 0
+                ? `${summary.added} added, ${summary.removed} removed.`
+                : summary.added > 0
+                  ? `${summary.added} course(s) added!`
+                  : `${summary.removed} course(s) removed.`;
+            showToast(msg, summary.failed > 0 ? 'error' : 'success');
+            refreshEnrollments();
           }}
         />
       )}

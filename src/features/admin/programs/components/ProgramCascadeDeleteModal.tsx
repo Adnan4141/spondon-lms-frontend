@@ -27,6 +27,7 @@ interface ProgramWithCourses {
 
 interface Props {
   programId: string;
+  programPreview?: { name: string; courseCount?: number };
   onClose: () => void;
   onDeleted: (courseCount: number) => void;
 }
@@ -47,7 +48,7 @@ function statusColor(status: string) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function ProgramCascadeDeleteModal({ programId, onClose, onDeleted }: Props) {
+export function ProgramCascadeDeleteModal({ programId, programPreview, onClose, onDeleted }: Props) {
   const [program, setProgram] = useState<ProgramWithCourses | null>(null);
   const [fetching, setFetching] = useState(true);
   const [confirmText, setConfirmText] = useState('');
@@ -100,12 +101,41 @@ export function ProgramCascadeDeleteModal({ programId, onClose, onDeleted }: Pro
 
   // ── Skeleton ──────────────────────────────────────────────────────────────
 
-  if (fetching) {
+  if (fetching && !program) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-        <div className="w-full max-w-lg rounded-2xl bg-white p-8 shadow-2xl flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-          <p className="text-sm font-bold text-slate-400">Loading program data…</p>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden border border-rose-100">
+          <div className="relative bg-linear-to-r from-rose-50 to-red-50 border-b border-rose-100 px-6 py-5">
+            <div className="flex items-start gap-4">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-600">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div className="flex-1 min-w-0 pr-6">
+                <h2 className="text-base font-black text-rose-700 leading-tight">
+                  Delete Program and All Linked Courses
+                </h2>
+                <p className="mt-1 text-xs font-bold text-rose-400">
+                  {programPreview?.name
+                    ? `Loading courses for “${programPreview.name}”…`
+                    : 'Loading program data…'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="absolute right-4 top-4 h-8 w-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-rose-100 hover:text-rose-600 transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="px-6 py-10 flex flex-col items-center gap-4">
+            <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+            {programPreview?.courseCount != null && (
+              <p className="text-sm font-bold text-slate-500">
+                {programPreview.courseCount} linked course{programPreview.courseCount !== 1 ? 's' : ''} expected
+              </p>
+            )}
+          </div>
         </div>
       </div>
     );

@@ -603,12 +603,68 @@ export async function deleteSettlement(id: string): Promise<ApiResponse<void>> {
 
 export async function addCourseToEnrollment(
   enrollmentId: string,
-  body: { courseId: string; batchId?: string | null; includeBook?: boolean; startMonth?: string; endMonth?: string; effectiveMonth?: string },
+  body: {
+    courseId: string;
+    batchId?: string | null;
+    includeBook?: boolean;
+    startMonth?: string;
+    endMonth?: string;
+    effectiveMonth?: string;
+    reason?: string;
+    nextPaymentDueDate?: string;
+  },
 ): Promise<ApiResponse<EnrollmentCourse>> {
   return apiRequest<ApiResponse<EnrollmentCourse>>(`/enrollments/${enrollmentId}/courses`, {
     method: 'POST',
     body: JSON.stringify(body),
   });
+}
+
+export interface OneTimeEnrollmentPreview {
+  enrollment: {
+    id: string;
+    billingType: string;
+    oneTimeDiscount: number;
+    installmentCount: number | null;
+    status: string;
+    programId: string;
+    programName: string;
+  };
+  activeCourses: Array<{
+    id: string;
+    courseId: string;
+    name: string;
+    fee: number;
+    type: string;
+    batchId: string | null;
+  }>;
+  availableCourses: Array<{
+    id: string;
+    name: string;
+    fee: number;
+    type: string;
+    startMonth: string | null;
+    endMonth: string | null;
+  }>;
+  invoiceState: {
+    hasOpenInvoice: boolean;
+    openInvoiceId: string | null;
+    totalDue: number;
+    paidAmount: number;
+    isFullyPaid: boolean;
+  };
+  allowedActions: {
+    canAdd: boolean;
+    canRemove: boolean;
+    blockReason: string | null;
+    installmentWarning: boolean;
+  };
+}
+
+export async function getOneTimeEnrollmentPreview(
+  enrollmentId: string,
+): Promise<ApiResponse<OneTimeEnrollmentPreview>> {
+  return apiRequest<ApiResponse<OneTimeEnrollmentPreview>>(`/enrollments/${enrollmentId}/one-time/preview`);
 }
 
 export async function removeCourseFromEnrollment(

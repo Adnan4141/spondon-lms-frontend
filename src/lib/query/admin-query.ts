@@ -15,6 +15,9 @@ export const queryKeys = {
     revenue: (id: string) => ['admin', 'partners', id, 'revenue'] as const,
   },
   branches: ['admin', 'branches'] as const,
+  programs: {
+    all: ['admin', 'programs'] as const,
+  },
   batches: (params: Record<string, unknown>) => ['admin', 'batches', params] as const,
   batchesForCourse: (courseId: string) => ['admin', 'batches', 'course', courseId] as const,
   teachers: (params: Record<string, unknown>) => ['admin', 'teachers', params] as const,

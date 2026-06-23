@@ -5,7 +5,6 @@ export type { Program, ApiResponse };
 export interface CreateProgramDto {
   name: string;
   description?: string;
-  mode?: 'ONLINE' | 'OFFLINE';
   paymentCircle?: 'ONE_TIME' | 'MONTHLY';
   admissionFeeEnabled?: boolean;
   admissionFeeAmount?: number | null;
@@ -14,7 +13,6 @@ export interface CreateProgramDto {
 export interface UpdateProgramDto {
   name?: string;
   description?: string;
-  mode?: 'ONLINE' | 'OFFLINE';
   paymentCircle?: 'ONE_TIME' | 'MONTHLY';
   admissionFeeEnabled?: boolean;
   admissionFeeAmount?: number | null;

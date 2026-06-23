@@ -7,30 +7,25 @@ import { cn } from '@/lib/utils';
 import { 
   GraduationCap, 
   BookOpen, 
-  Calendar, 
   Clock, 
   Info,
-  Users,
-  ChevronRight,
   TrendingUp,
   Box,
   Plus,
   Trash2,
-  ExternalLink,
-  Link2,
-  Search,
-  LayoutGrid
+  LayoutGrid,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getProgramById } from '@/lib/api/programs';
 import { apiRequest } from '@/lib/api';
-import { updateCourse } from '@/lib/api/courses';
-import { confirmAction } from '@/features/admin/shared/confirm-action';
 import { useToast } from '@/hooks/use-toast';
+import { confirmAction } from '@/features/admin/shared/confirm-action';
 import { LinkCourseForm } from './LinkCourseForm';
+import { resolveProgramThumbnail } from '../utils';
 
 interface ProgramDetailsViewProps {
-  program: Program & { courses?: any[]; _count?: { courses: number } };
+  program: Program & { courses?: unknown[] };
 }
 
 export function ProgramDetailsView({ program: initialProgram }: ProgramDetailsViewProps) {
@@ -40,6 +35,12 @@ export function ProgramDetailsView({ program: initialProgram }: ProgramDetailsVi
   const [loading, setLoading] = useState(false);
   const [showLinkForm, setShowLinkForm] = useState(false);
 
+  useEffect(() => {
+    setProgram(initialProgram);
+    setActiveTab('info');
+    setShowLinkForm(false);
+  }, [initialProgram]);
+
   const fetchProgramData = async () => {
     try {
       setLoading(true);
@@ -47,6 +48,12 @@ export function ProgramDetailsView({ program: initialProgram }: ProgramDetailsVi
       if (res.success && res.data) setProgram(res.data);
     } catch (err) { console.error(err); } finally { setLoading(false); }
   };
+
+  useEffect(() => {
+    if (activeTab !== 'courses') return;
+    if (program.courses) return;
+    void fetchProgramData();
+  }, [activeTab, program.id, program.courses]);
 
   const handleUnlinkCourse = async (courseId: string) => {
     if (!(await confirmAction({
@@ -96,7 +103,7 @@ export function ProgramDetailsView({ program: initialProgram }: ProgramDetailsVi
             <div className="relative overflow-hidden rounded-[32px] border border-slate-200 bg-slate-50/50 p-8 shadow-sm mb-10 flex flex-col md:flex-row gap-8">
                {program.thumbnail && (
                  <div className="w-full md:w-48 h-48 rounded-2xl overflow-hidden shadow-lg border border-white shrink-0">
-                    <img src={program.thumbnail || 'https://placehold.co/800x450?text=Program'} alt={program.name} className="w-full h-full object-cover" />
+                    <img src={resolveProgramThumbnail(program.thumbnail) || 'https://placehold.co/800x450?text=Program'} alt={program.name} className="w-full h-full object-cover" />
                  </div>
                )}
                
@@ -221,7 +228,12 @@ export function ProgramDetailsView({ program: initialProgram }: ProgramDetailsVi
             )}
 
             <div className="grid gap-4">
-               {program.courses && program.courses.length > 0 ? (
+               {loading && !program.courses ? (
+                 <div className="p-20 text-center flex flex-col items-center gap-4">
+                   <Loader2 className="h-8 w-8 animate-spin text-slate-300" />
+                   <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">Loading courses…</p>
+                 </div>
+               ) : program.courses && program.courses.length > 0 ? (
                  program.courses.map((course: any) => (
                    <div key={course.id} className="group flex items-center justify-between p-6 rounded-[28px] border border-slate-100 bg-white hover:border-indigo-200 hover:shadow-xl transition-all">
                       <div className="flex items-center gap-5">

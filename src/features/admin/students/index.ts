@@ -17,6 +17,7 @@ export { DiscountAdjustmentPanel } from './enrollment/DiscountAdjustmentPanel';
 export { EnrolledCoursesView } from './enrollment/EnrolledCoursesView';
 export { EnrollmentModal } from './enrollment/EnrollmentModal';
 export { ManageEnrollmentModal } from './enrollment/ManageEnrollmentModal';
+export { ManageOneTimeEnrollmentModal } from './enrollment/ManageOneTimeEnrollmentModal';
 
 // ─── Modals ───────────────────────────────────────────────────────────────────
 export { AddStudentModal, type AddStudentSaveMeta } from './modals/AddStudentModal';

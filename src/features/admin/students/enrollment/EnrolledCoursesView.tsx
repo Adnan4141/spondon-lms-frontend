@@ -16,6 +16,7 @@ import { StudentAdminModal as AppModal } from '../components/StudentAdminModal';
 import { StudentAdminSelect as AppSelect } from '../components/StudentAdminSelect';
 import { StudentMonthInput as MonthInput } from '../components/StudentMonthInput';
 import { ManageEnrollmentModal } from './ManageEnrollmentModal';
+import { ManageOneTimeEnrollmentModal } from './ManageOneTimeEnrollmentModal';
 import { EnrollmentAccessControls } from './EnrollmentAccessControls';
 import { fullResetEnrollment } from '@/lib/api/enrollments';
 import { confirmAction } from '@/features/admin/shared/confirm-action';
@@ -34,6 +35,7 @@ export function EnrolledCoursesView({
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [loadingEnrollments, setLoadingEnrollments] = useState(true);
   const [manageModal, setManageModal] = useState<{ enrollment: Enrollment; initialCancelCourseId?: string } | null>(null);
+  const [manageOneTimeModal, setManageOneTimeModal] = useState<{ enrollment: Enrollment; initialCancelCourseId?: string } | null>(null);
   const [batchModal, setBatchModal] = useState<{ enrollment: Enrollment; enrollmentCourse: EnrolledCourse; course: Course } | null>(null);
   const [cancelModal, setCancelModal] = useState<Enrollment | null>(null);
   const [resetModal, setResetModal] = useState<Enrollment | null>(null);
@@ -158,8 +160,10 @@ export function EnrolledCoursesView({
         }, 0);
         const netFee = totalFee - (enrollment.monthlyDiscount || 0);
         const isMonthlyEnrollment = enrollment.billingType === 'MONTHLY';
+        const isOneTimeEnrollment = enrollment.billingType === 'ONE_TIME';
 
-        const canManageEnrollment = enrollment.billingType === 'MONTHLY';
+        const canManageEnrollment = isMonthlyEnrollment;
+        const canManageOneTime = isOneTimeEnrollment;
 
         return (
           <div key={enrollment.id} className="bg-white border border-slate-200 rounded-2xl mb-5 overflow-hidden shadow-sm">
@@ -217,15 +221,24 @@ export function EnrolledCoursesView({
                 )}
                 <Button
                   size="sm"
-                  disabled={!canManageEnrollment}
-                  title={canManageEnrollment ? undefined : 'Course add/remove management is available for monthly enrollments'}
-                  onClick={() => canManageEnrollment && setManageModal({ enrollment })}
+                  disabled={!canManageEnrollment && !canManageOneTime}
+                  title={
+                    canManageEnrollment
+                      ? undefined
+                      : canManageOneTime
+                        ? undefined
+                        : 'Course management is available for active monthly or one-time enrollments'
+                  }
+                  onClick={() => {
+                    if (canManageEnrollment) setManageModal({ enrollment });
+                    else if (canManageOneTime) setManageOneTimeModal({ enrollment });
+                  }}
                   className={cn(
                     'gap-1.5 bg-slate-900 text-white hover:bg-indigo-600 transition-all shrink-0',
-                    !canManageEnrollment && 'opacity-50 cursor-not-allowed',
+                    !canManageEnrollment && !canManageOneTime && 'opacity-50 cursor-not-allowed',
                   )}
                 >
-                  <Plus className="h-3.5 w-3.5" /> Manage Enrollment
+                  <Plus className="h-3.5 w-3.5" /> {canManageOneTime ? 'Manage Courses' : 'Manage Enrollment'}
                 </Button>
                 </div>
               </div>
@@ -330,6 +343,14 @@ export function EnrolledCoursesView({
                               <XCircle className="h-3.5 w-3.5" /> Cancel
                             </button>
                           )}
+                          {canManageOneTime && ec.status === 'ACTIVE' && (
+                            <button
+                              onClick={() => setManageOneTimeModal({ enrollment, initialCancelCourseId: ec.courseId })}
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-rose-200 text-rose-600 bg-rose-50 hover:bg-rose-100 text-xs font-semibold transition-colors cursor-pointer"
+                            >
+                              <XCircle className="h-3.5 w-3.5" /> Remove
+                            </button>
+                          )}
                           </div>
                         </td>
                       </tr>
@@ -368,6 +389,26 @@ export function EnrolledCoursesView({
         </div>
       )}
 
+      {manageOneTimeModal && (
+        <ManageOneTimeEnrollmentModal
+          enrollment={manageOneTimeModal.enrollment}
+          programs={programs}
+          studentUserId={student.id}
+          initialCancelCourseId={manageOneTimeModal.initialCancelCourseId}
+          onClose={() => setManageOneTimeModal(null)}
+          onDone={async (summary) => {
+            const message = summary.failed > 0
+              ? `Updated with ${summary.failed} failed operation(s).`
+              : summary.added > 0 && summary.removed > 0
+                ? `One-time enrollment updated: ${summary.added} added, ${summary.removed} removed.`
+                : summary.added > 0
+                  ? `${summary.added} course(s) added!`
+                  : `${summary.removed} course(s) removed.`;
+            showToast(message, summary.failed > 0 ? 'error' : 'success');
+            await reloadEnrollments();
+          }}
+        />
+      )}
       {manageModal && (
         <ManageEnrollmentModal
           enrollment={manageModal.enrollment}
