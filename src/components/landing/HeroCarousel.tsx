@@ -107,7 +107,7 @@ export const HeroCarousel: React.FC<Props> = ({ slides }) => {
                 alt={slide.title}
                 fill
                 sizes="100vw"
-                className="object-cover object-center w-full h-full"
+                className="object-fit w-full h-full"
                 priority={index === 0}
                 loading={index === 0 ? undefined : 'lazy'}
               />

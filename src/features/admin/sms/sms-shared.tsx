@@ -109,7 +109,7 @@ export function smsLengthInfo(value: string) {
 }
 
 export const CANONICAL_DUE_REMINDER_MESSAGE =
-  'Dear student, please complete your due payment of {program}.';
+  'Dear {{name}}, please pay your due of {{amount}} for {{program}}.';
 
 export function isSingleSegment(value: string) {
   const trimmed = value.trim();
