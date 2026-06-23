@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AlertTriangle, ChevronDown, ChevronRight, Eye, FileText, Folder, Search, Wand2 } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronRight, Eye, FileText, Folder, Search, Wand2, Trash2, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -87,10 +87,10 @@ function ownCapacityForType(folder: FolderTreeNode | undefined, type: 'MCQ' | 'C
 function availabilityText(folder: FolderTreeNode | undefined, type: 'MCQ' | 'CQ' | 'SHORT'): string {
   if (!folder) return 'Availability unknown';
   if (type === 'MCQ') {
-    return `Standalone ${folder.counts?.mcqSingle ?? 0} · Passage MCQ ${folder.counts?.mcqPassage ?? 0} · Blocks ${folder.passageCount ?? 0}`;
+    return `Single MCQ ${folder.counts?.mcqSingle ?? 0} · Passage MCQ ${folder.counts?.mcqPassage ?? 0}`;
   }
   if (type === 'CQ') return `Creative/CQ ${folder.counts?.cq ?? 0}`;
-  return `Short ${folder.counts?.short ?? 0}`;
+  return `Short Qs ${folder.counts?.short ?? 0}`;
 }
 
 /**
@@ -328,28 +328,40 @@ export function Step3QuestionBank({
   };
 
   const renderTreeControls = () => (
-    <div className="space-y-2">
+    <div className="space-y-3 mt-3">
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <Input
           value={folderSearch}
           onChange={(e) => setFolderSearch(e.target.value)}
-          placeholder="Search nested folders"
-          className="h-9 border-slate-200 pl-9 text-xs"
+          placeholder="Search nested folders..."
+          className="h-10 border-slate-200 bg-slate-50/50 pl-9 pr-4 text-xs rounded-xl transition-all duration-300 focus:bg-white focus:ring-1 focus:ring-slate-400"
         />
       </div>
-      <div className="flex flex-wrap items-center gap-1">
-        <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-[10px]" onClick={() => expandVisibleFolders(true)}>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-7 px-2.5 text-[10px] font-semibold border-slate-200 hover:bg-slate-50 rounded-lg"
+          onClick={() => expandVisibleFolders(true)}
+        >
           Expand all
         </Button>
-        <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-[10px]" onClick={() => expandVisibleFolders(false)}>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-7 px-2.5 text-[10px] font-semibold border-slate-200 hover:bg-slate-50 rounded-lg"
+          onClick={() => expandVisibleFolders(false)}
+        >
           Collapse all
         </Button>
         <Button
           type="button"
           size="sm"
           variant="outline"
-          className="h-7 px-2 text-[10px]"
+          className="h-7 px-2.5 text-[10px] font-semibold border-slate-200 hover:bg-slate-50 rounded-lg"
           disabled={visibleSelectableFolders.length === 0}
           onClick={() => selectVisibleFolders(true)}
         >
@@ -359,13 +371,13 @@ export function Step3QuestionBank({
           type="button"
           size="sm"
           variant="ghost"
-          className="h-7 px-2 text-[10px] text-slate-500"
+          className="h-7 px-2 text-[10px] font-semibold text-slate-500 hover:text-rose-600 hover:bg-rose-50/50 rounded-lg"
           disabled={visibleSelectedCount === 0}
           onClick={() => selectVisibleFolders(false)}
         >
           Clear visible
         </Button>
-        <Badge variant="outline" className="ml-auto text-[10px]">
+        <Badge variant="outline" className="ml-auto text-[10px] font-semibold border-slate-200 bg-slate-50/30 text-slate-600 px-2 h-6 flex items-center">
           {visibleSelectedCount}/{visibleSelectableFolders.length} visible
         </Badge>
       </div>
@@ -415,23 +427,23 @@ export function Step3QuestionBank({
         <div key={node.id}>
           <div
             className={cn(
-              'flex w-full min-w-0 items-center gap-1.5 rounded-md border border-transparent pr-2 text-left text-xs font-semibold text-slate-800 transition-colors',
+              'flex w-full min-w-0 items-center gap-2 rounded-lg border border-transparent pr-3 py-1 text-left text-xs font-semibold text-slate-800 transition-all duration-300',
               isSelected
-                ? 'border-slate-300 bg-[#0D1B35]/5'
+                ? 'border-indigo-100 bg-indigo-50/50 text-indigo-900 shadow-sm'
                 : isPartial
-                  ? 'border-amber-200 bg-amber-50/60'
-                  : 'hover:bg-slate-100',
+                  ? 'border-amber-100 bg-amber-50/50 text-amber-900 shadow-sm'
+                  : 'hover:bg-slate-50',
             )}
             style={{ paddingLeft: indent }}
             title={fullPath}
           >
             <button
               type="button"
-              className="flex h-7 w-5 shrink-0 items-center justify-center text-slate-400"
+              className="flex h-7 w-5 shrink-0 items-center justify-center text-slate-400 hover:text-slate-600"
               onClick={() => setExpanded((e) => ({ ...e, [node.id]: !open }))}
               title={open ? 'Collapse folder' : 'Expand folder'}
             >
-              {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+              {open ? <ChevronDown className="h-3.5 w-3.5 transition-transform" /> : <ChevronRight className="h-3.5 w-3.5 transition-transform" />}
             </button>
             <TriCheckbox
               checked={isSelected}
@@ -441,24 +453,24 @@ export function Step3QuestionBank({
             />
             <button
               type="button"
-              className="flex min-w-0 flex-1 items-center gap-1 py-1.5 text-left"
+              className="flex min-w-0 flex-1 items-center gap-1.5 py-1.5 text-left"
               onClick={() => setExpanded((e) => ({ ...e, [node.id]: !open }))}
             >
-              <Folder className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+              <Folder className="h-3.5 w-3.5 shrink-0 text-amber-500" />
               <span className="truncate">{node.name}</span>
             </button>
-            <Badge variant="secondary" className="ml-auto text-[10px]" title="Total questions in folder + descendants">
+            <Badge variant="secondary" className="ml-auto text-[9px] font-bold bg-slate-100 border border-slate-200/40 text-slate-600 px-1.5 h-5 flex items-center" title="Total questions in folder + descendants">
               {totalCount}Q
             </Badge>
             <Badge
               variant="outline"
-              className={cn('text-[10px]', typeFit === 0 ? 'text-slate-400' : 'text-slate-600')}
+              className={cn('text-[9px] font-bold px-1.5 h-5 flex items-center', typeFit === 0 ? 'border-slate-100 bg-slate-50 text-slate-400' : 'border-emerald-100 bg-emerald-50/70 text-emerald-700')}
               title={`Fits ${typeFit} ${activeType} question(s) including descendants`}
             >
               fit {typeFit}
             </Badge>
             {selectable.length > 1 ? (
-              <Badge variant="outline" className="text-[10px]">
+              <Badge variant="outline" className="text-[9px] font-bold bg-slate-50 border-slate-200 text-slate-500 px-1 h-5 flex items-center">
                 {selectedCount}/{selectable.length}
               </Badge>
             ) : null}
@@ -472,8 +484,8 @@ export function Step3QuestionBank({
       <div
         key={node.id}
         className={cn(
-          'flex w-full min-w-0 items-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-left text-xs transition-colors',
-          sel ? 'border-slate-300 bg-[#0D1B35]/5' : 'hover:bg-slate-50',
+          'flex w-full min-w-0 items-center gap-2 rounded-lg border border-transparent px-3 py-1.5 text-left text-xs transition-all duration-300',
+          sel ? 'border-indigo-100 bg-indigo-50/30 text-indigo-900 shadow-sm' : 'hover:bg-slate-50/70',
         )}
         style={{ paddingLeft: indent + 20 }}
         title={fullPath}
@@ -483,14 +495,14 @@ export function Step3QuestionBank({
           onCheckedChange={(next) => setFolderSelected(node, next)}
           aria-label={`Select ${fullPath}`}
         />
-        <FileText className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+        <FileText className="h-3.5 w-3.5 shrink-0 text-indigo-500/80" />
         <span className="flex-1 truncate text-slate-700">{node.name}</span>
-        <Badge variant="outline" className="shrink-0 text-[10px]">
+        <Badge variant="outline" className="shrink-0 text-[9px] font-bold bg-slate-50 border-slate-200 text-slate-500 px-1.5 h-5 flex items-center">
           {totalCount}Q
         </Badge>
         <Badge
           variant="outline"
-          className={cn('text-[10px]', typeFit === 0 ? 'text-slate-400' : 'text-slate-600')}
+          className={cn('text-[9px] font-bold px-1.5 h-5 flex items-center', typeFit === 0 ? 'border-slate-100 bg-slate-50 text-slate-400' : 'border-emerald-100 bg-emerald-50/70 text-emerald-700')}
           title={`Fits ${typeFit} ${activeType} question(s)`}
         >
           fit {typeFit}
@@ -515,10 +527,10 @@ export function Step3QuestionBank({
     return (
       <div key={collapsedKey} className="border-b border-slate-100 last:border-b-0">
         {groupedTrees.length > 1 ? (
-          <div className="flex items-center gap-2 bg-slate-50/80 px-2 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-600">
+          <div className="flex items-center gap-2 bg-slate-50/80 px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-600">
             <button
               type="button"
-              className="flex h-5 w-5 items-center justify-center text-slate-400"
+              className="flex h-5 w-5 items-center justify-center text-slate-400 hover:text-slate-600"
               onClick={() => setCollapsedCourses((c) => ({ ...c, [collapsedKey]: !isCollapsed }))}
               title={isCollapsed ? 'Expand course' : 'Collapse course'}
             >
@@ -533,7 +545,7 @@ export function Step3QuestionBank({
             <span className="flex-1 truncate text-slate-800">
               {entry.courseName ?? (entry.courseId ? entry.courseId : 'Question bank')}
             </span>
-            <Badge variant="outline" className="text-[10px]">
+            <Badge variant="outline" className="text-[10px] font-semibold bg-white border-slate-200">
               {selected}/{allFolders.length}
             </Badge>
           </div>
@@ -541,7 +553,7 @@ export function Step3QuestionBank({
         {!isCollapsed
           ? entry.roots.length === 0
             ? (
-                <p className="px-3 py-2 text-[11px] text-slate-400">No folders for this course yet.</p>
+                <p className="px-4 py-3 text-[11px] text-slate-400 italic">No folders for this course yet.</p>
               )
             : entry.roots.map((root) => renderFolderRow(root, 0))
           : null}
@@ -610,15 +622,22 @@ export function Step3QuestionBank({
       <div className="space-y-4">
         {sampleHeader}
         <div className="grid gap-4 lg:grid-cols-2">
-          <Card className="border-slate-200 shadow-sm">
-            <CardHeader className="py-3">
-              <CardTitle className="text-sm font-semibold text-[#0D1B35]">Question bank</CardTitle>
+          <Card className="border-slate-100 shadow-md shadow-slate-100/40 rounded-2xl overflow-hidden">
+            <CardHeader className="py-4 px-5 border-b border-slate-100 bg-slate-50/20">
+              <div className="flex items-center gap-2">
+                <Folder className="h-5 w-5 text-indigo-600" />
+                <CardTitle className="text-sm font-bold text-[#0D1B35]">Question bank folders</CardTitle>
+              </div>
               {folderFallbackAll ? (
-                <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-medium text-amber-900">
-                  No folders are linked to the selected courses, so all question-bank folders are shown.
-                </p>
+                <div className="mt-3 flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50/60 p-3 text-[11px] font-medium text-amber-950">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                  <div>
+                    No folders are linked to the selected courses, so all question-bank folders are shown.
+                  </div>
+                </div>
               ) : null}
-              <div className="flex flex-wrap gap-1">
+              <div className="mt-3 flex flex-wrap gap-1.5 items-center">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mr-1">Active Subject:</span>
                 {state.subjects.map((s) => {
                   const on = s.localId === (activeSectionId ?? activeSubject?.localId);
                   return (
@@ -626,8 +645,13 @@ export function Step3QuestionBank({
                       key={s.localId}
                       type="button"
                       size="sm"
-                      variant={on ? 'default' : 'secondary'}
-                      className={on ? 'bg-[#0D1B35] text-[#E2C98A]' : ''}
+                      variant={on ? 'default' : 'outline'}
+                      className={cn(
+                        "h-8 text-xs font-bold rounded-lg transition-all duration-300",
+                        on 
+                          ? "bg-[#0D1B35] text-[#E2C98A] shadow-sm hover:bg-[#1E2F55]" 
+                          : "border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                      )}
                       onClick={() => setActiveSectionId(s.localId)}
                     >
                       {s.name || 'Subject'}
@@ -637,17 +661,17 @@ export function Step3QuestionBank({
               </div>
               {renderTreeControls()}
             </CardHeader>
-            <CardContent className="px-2 pb-3">
+            <CardContent className="p-3">
               {!state.courseId ? (
-                <p className="p-4 text-center text-xs text-slate-500">Select at least one course in step 1 to load folders.</p>
+                <p className="p-8 text-center text-xs text-slate-400 italic">Select at least one course in step 1 to load folders.</p>
               ) : folderLoading ? (
-                <p className="p-4 text-center text-xs text-slate-500">Loading folders…</p>
+                <p className="p-8 text-center text-xs text-slate-400 italic animate-pulse">Loading folders…</p>
               ) : (
-                <div className="max-h-[min(420px,55vh)] overflow-y-auto rounded-md border border-slate-100 bg-white">
+                <div className="max-h-[min(420px,55vh)] overflow-y-auto rounded-xl border border-slate-100 bg-white p-2">
                   {filteredGroupedTrees.some((g) => g.roots.length > 0)
                     ? filteredGroupedTrees.map((entry) => renderCourseGroup(entry))
                     : (
-                        <p className="p-4 text-center text-xs text-slate-500">
+                        <p className="p-8 text-center text-xs text-slate-400 italic">
                           {folderSearch.trim() ? 'No folders match your search.' : 'No folders are available.'}
                         </p>
                       )}
@@ -656,44 +680,49 @@ export function Step3QuestionBank({
             </CardContent>
           </Card>
 
-          <div className="space-y-3">
+          <div className="space-y-4">
             {state.subjects.map((s) => {
               const allocated = s.folderRules.reduce((sum, r) => sum + Number(r.questionCount || 0), 0);
               const shortage = Math.max(0, s.count - allocated);
               const questionType = subjectQuestionType(s);
               return (
-                <Card key={s.localId} className="border-slate-200 shadow-sm">
-                  <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 py-3">
-                    <div>
-                      <CardTitle className="text-sm font-bold text-[#0D1B35]">{s.name || 'Subject'}</CardTitle>
-                      <p className="mt-1 text-[11px] text-slate-500">
-                        MCQ {(s.mcqSingleCount || 0) + (s.mcqPassageCount || 0)} · CQ {s.cqCount || 0} · SHORT{' '}
-                        {s.shortCount || 0}
-                      </p>
+                <Card key={s.localId} className="border-slate-100 shadow-md shadow-slate-100/40 rounded-2xl overflow-hidden">
+                  <CardHeader className="py-4 px-5 border-b border-slate-100 bg-slate-50/20">
+                    <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                      <div>
+                        <CardTitle className="text-sm font-bold text-[#0D1B35]">{s.name || 'Subject'}</CardTitle>
+                        <p className="mt-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                          MCQ {(s.mcqSingleCount || 0) + (s.mcqPassageCount || 0)} · CQ {s.cqCount || 0} · SHORT{' '}
+                          {s.shortCount || 0}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        <Badge variant={shortage ? 'destructive' : 'secondary'} className="text-[10px] font-semibold">
+                          Allocated {allocated}/{s.count}
+                        </Badge>
+                        <Badge variant="outline" className="text-[10px] font-semibold border-slate-200 bg-slate-50/30">
+                          {s.folderRules.length} folders
+                        </Badge>
+                      </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Badge variant={shortage ? 'destructive' : 'secondary'} className="text-[10px]">
-                        Allocated {allocated}/{s.count}
-                      </Badge>
-                      <Badge variant="outline" className="text-[10px]">
-                        {s.folderRules.length} folders
-                      </Badge>
+
+                    <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-100">
                       <Button
                         type="button"
                         size="sm"
                         variant="outline"
-                        className="h-7 gap-1 px-2 text-[10px]"
+                        className="h-8 gap-1.5 px-3 text-[11px] font-semibold border-indigo-200 bg-indigo-50/30 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 rounded-lg shadow-sm"
                         disabled={!s.folderRules.length}
                         onClick={() => autoBalanceSubject(s.localId, questionType, s.count, s.folderRules)}
                       >
-                        <Wand2 className="h-3 w-3" />
+                        <Wand2 className="h-3.5 w-3.5" />
                         Auto balance
                       </Button>
                       <Button
                         type="button"
                         size="sm"
                         variant="ghost"
-                        className="h-7 px-2 text-[10px]"
+                        className="h-8 px-2.5 text-[11px] font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg"
                         disabled={!s.folderRules.length}
                         onClick={() => previewSection(s.name || 'Subject', questionType, s.count, s.folderRules)}
                       >
@@ -703,28 +732,38 @@ export function Step3QuestionBank({
                         type="button"
                         size="sm"
                         variant="outline"
-                        className="h-7 gap-1 px-2 text-[10px]"
+                        className="h-8 gap-1.5 px-3 text-[11px] font-semibold border-slate-200 hover:bg-slate-50 hover:border-slate-300 rounded-lg shadow-sm"
                         disabled={!s.folderRules.length}
                         onClick={() => openSampleModal(s.name || 'Subject', questionType, s.folderRules)}
                       >
-                        <Eye className="h-3 w-3" />
+                        <Eye className="h-3.5 w-3.5 text-slate-500" />
                         Sample preview
                       </Button>
                     </div>
                   </CardHeader>
                   {previewMessage ? (
-                    <p className="border-b border-slate-100 bg-slate-50 px-4 py-2 text-[11px] text-slate-700">
-                      {previewMessage}
-                    </p>
+                    <div className="flex items-start gap-2 border-b border-indigo-100 bg-indigo-50/40 px-5 py-2.5 text-[11px] font-medium text-indigo-900">
+                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-indigo-600 mt-0.5" />
+                      <div>{previewMessage}</div>
+                    </div>
                   ) : null}
                   {shortage ? (
-                    <p className="border-b border-amber-100 bg-amber-50/80 px-4 py-2 text-[11px] text-amber-950">
-                      Add {shortage} more question allocation before finalizing.
-                    </p>
+                    <div className="flex items-start gap-2 border-b border-amber-100 bg-amber-50/60 px-5 py-2.5 text-[11px] font-semibold text-amber-950">
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600 mt-0.5" />
+                      <div>Add {shortage} more question allocation before finalizing.</div>
+                    </div>
                   ) : null}
-                  <CardContent className="space-y-2">
+                  <CardContent className="space-y-3 p-4">
                     {s.folderRules.length === 0 ? (
-                      <p className="text-center text-xs text-slate-500">Select folders in the tree for this subject.</p>
+                      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 py-12 px-4 text-center">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                          <Folder className="h-6 w-6" />
+                        </div>
+                        <h4 className="mt-3 text-xs font-bold text-slate-700">No folders selected</h4>
+                        <p className="mt-1 max-w-xs text-[11px] text-slate-500 leading-normal">
+                          Select folders from the tree on the left to define question rules for this subject.
+                        </p>
+                      </div>
                     ) : (
                       s.folderRules.map((r) => {
                         const leafQ = leaves.find((l) => l.id === r.folderId)?.q ?? 0;
@@ -734,97 +773,138 @@ export function Step3QuestionBank({
                         return (
                           <div
                             key={r.folderId}
-                            className="grid grid-cols-1 items-center gap-2 rounded-md border border-slate-100 bg-slate-50/80 p-2 md:grid-cols-[1fr_176px_64px_auto]"
+                            className={cn(
+                              "relative flex flex-col gap-3 rounded-xl border p-4 transition-all duration-300 md:flex-row md:items-center",
+                              overPool
+                                ? "border-rose-200 bg-rose-50/30 hover:border-rose-300"
+                                : "border-slate-100 bg-slate-50/50 hover:border-slate-200 hover:shadow-sm"
+                            )}
                           >
-                            <div className="min-w-0 text-[11px] leading-snug text-slate-800">
-                              {leaves.find((l) => l.id === r.folderId)?.path ?? r.folderName ?? r.folderId}
-                              <span className="text-slate-400">
-                                {' '}
-                                ({r.questionCount}Q{leafQ ? ` / ${leafQ} in bank` : ''})
-                              </span>
-                              <span
-                                className={cn(
-                                  'mt-0.5 block text-[10px]',
-                                  overPool ? 'font-semibold text-rose-600' : 'text-slate-500',
-                                )}
-                              >
-                                {availabilityText(folder, questionType)} · Fit {fitCapacity}
-                              </span>
-                            </div>
-                            <Select
-                              value={r.selectionMode || 'RANDOM_COUNT'}
-                              onValueChange={(v) => {
-                                const mode = v as FolderRuleDraft['selectionMode'];
-                                dispatch({
-                                  type: 'UPDATE_SUBJECT_RULE_MODE',
-                                  subjectLocalId: s.localId,
-                                  folderId: r.folderId,
-                                  selectionMode: mode,
-                                });
-                                if (mode === 'ALL_FROM_FOLDER' && leafQ > 0) {
-                                  dispatch({
-                                    type: 'UPDATE_SUBJECT_RULE_COUNT',
-                                    subjectLocalId: s.localId,
-                                    folderId: r.folderId,
-                                    count: leafQ,
-                                  });
-                                }
-                              }}
-                            >
-                              <SelectTrigger className="h-8 border-slate-200 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="ALL_FROM_FOLDER">Select all</SelectItem>
-                                <SelectItem value="RANDOM_COUNT">Random N</SelectItem>
-                                <SelectItem value="MANUAL_PICK">Manual pick</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <Input
-                              type="number"
-                              className="h-8 border-slate-200 text-center text-xs"
-                              value={r.questionCount}
-                              min={1}
-                              disabled={r.selectionMode === 'ALL_FROM_FOLDER'}
-                              onChange={(e) =>
-                                dispatch({
-                                  type: 'UPDATE_SUBJECT_RULE_COUNT',
-                                  subjectLocalId: s.localId,
-                                  folderId: r.folderId,
-                                  count: Number(e.target.value),
-                                })
-                              }
+                            <div
+                              className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl bg-indigo-600"
+                              style={{ background: overPool ? '#EF4444' : '#6366F1' }}
                             />
-                            <div className="flex gap-1">
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                className="h-8 shrink-0 px-2 text-[10px]"
-                                onClick={() =>
-                                  setPicker({
-                                    sectionLocalId: s.localId,
-                                    rule: { ...r },
-                                  })
-                                }
-                              >
-                                {subjectQuestionType(s)} picker
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                className="h-8 px-2 text-rose-600"
-                                onClick={() =>
-                                  dispatch({
-                                    type: 'REMOVE_SUBJECT_FOLDER_RULE',
-                                    subjectLocalId: s.localId,
-                                    folderId: r.folderId,
-                                  })
-                                }
-                              >
-                                ×
-                              </Button>
+
+                            <div className="min-w-0 flex-1 pl-2">
+                              <div className="flex items-center flex-wrap gap-1.5">
+                                <span className="font-bold text-xs text-slate-800 truncate" title={r.folderName}>
+                                  {leaves.find((l) => l.id === r.folderId)?.path.split('/').pop() ?? r.folderName ?? r.folderId}
+                                </span>
+                                <Badge variant="outline" className="h-5 px-1.5 text-[9px] font-semibold bg-white border-slate-200 text-slate-600">
+                                  {leafQ} in bank
+                                </Badge>
+                              </div>
+                              
+                              <p className="mt-1 text-[10px] text-slate-400 truncate">
+                                {leaves.find((l) => l.id === r.folderId)?.path ?? r.folderId}
+                              </p>
+
+                              <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px]">
+                                <span className="text-slate-500 font-medium bg-white/80 border border-slate-100 px-1.5 py-0.5 rounded">
+                                  {availabilityText(folder, questionType)}
+                                </span>
+                                <span className={cn(
+                                  "px-1.5 py-0.5 rounded font-bold border",
+                                  overPool 
+                                    ? "bg-rose-100/50 border-rose-200 text-rose-700" 
+                                    : "bg-emerald-50 border-emerald-100 text-emerald-700"
+                                )}>
+                                  Fit: {fitCapacity}
+                                </span>
+                                {overPool ? (
+                                  <span className="flex items-center gap-1 font-semibold text-rose-600">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    Exceeds capacity
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2 md:shrink-0">
+                              <div className="flex flex-col gap-1">
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 md:hidden">Pull Mode</span>
+                                <Select
+                                  value={r.selectionMode || 'RANDOM_COUNT'}
+                                  onValueChange={(v) => {
+                                    const mode = v as FolderRuleDraft['selectionMode'];
+                                    dispatch({
+                                      type: 'UPDATE_SUBJECT_RULE_MODE',
+                                      subjectLocalId: s.localId,
+                                      folderId: r.folderId,
+                                      selectionMode: mode,
+                                    });
+                                    if (mode === 'ALL_FROM_FOLDER' && leafQ > 0) {
+                                      dispatch({
+                                        type: 'UPDATE_SUBJECT_RULE_COUNT',
+                                        subjectLocalId: s.localId,
+                                        folderId: r.folderId,
+                                        count: leafQ,
+                                      });
+                                    }
+                                  }}
+                                >
+                                  <SelectTrigger className="h-8 w-32 border-slate-200 bg-white text-xs font-medium focus:ring-1 focus:ring-slate-400">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="ALL_FROM_FOLDER">Select all</SelectItem>
+                                    <SelectItem value="RANDOM_COUNT">Random N</SelectItem>
+                                    <SelectItem value="MANUAL_PICK">Manual pick</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <div className="flex flex-col gap-1 w-16">
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 md:hidden">Count</span>
+                                <Input
+                                  type="number"
+                                  className="h-8 border-slate-200 bg-white text-center text-xs font-semibold focus:ring-1 focus:ring-slate-400"
+                                  value={r.questionCount}
+                                  min={1}
+                                  disabled={r.selectionMode === 'ALL_FROM_FOLDER'}
+                                  onChange={(e) =>
+                                    dispatch({
+                                      type: 'UPDATE_SUBJECT_RULE_COUNT',
+                                      subjectLocalId: s.localId,
+                                      folderId: r.folderId,
+                                      count: Number(e.target.value),
+                                    })
+                                  }
+                                />
+                              </div>
+
+                              <div className="flex items-center gap-1.5 pt-4 md:pt-0">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 border-indigo-200 bg-indigo-50/40 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 text-[11px] font-semibold gap-1"
+                                  onClick={() =>
+                                    setPicker({
+                                      sectionLocalId: s.localId,
+                                      rule: { ...r },
+                                    })
+                                  }
+                                >
+                                  {questionType} picker
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 w-8 rounded-lg p-0 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                                  onClick={() =>
+                                    dispatch({
+                                      type: 'REMOVE_SUBJECT_FOLDER_RULE',
+                                      subjectLocalId: s.localId,
+                                      folderId: r.folderId,
+                                    })
+                                  }
+                                  title="Remove rule"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </div>
                           </div>
                         );
@@ -845,15 +925,22 @@ export function Step3QuestionBank({
     <div className="space-y-4">
       {sampleHeader}
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader className="py-3">
-            <CardTitle className="text-sm font-semibold text-[#0D1B35]">Question bank</CardTitle>
+        <Card className="border-slate-100 shadow-md shadow-slate-100/40 rounded-2xl overflow-hidden">
+          <CardHeader className="py-4 px-5 border-b border-slate-100 bg-slate-50/20">
+            <div className="flex items-center gap-2">
+              <Folder className="h-5 w-5 text-indigo-600" />
+              <CardTitle className="text-sm font-bold text-[#0D1B35]">Question bank folders</CardTitle>
+            </div>
             {folderFallbackAll ? (
-              <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-medium text-amber-900">
-                No folders are linked to the selected course, so all question-bank folders are shown.
-              </p>
+              <div className="mt-3 flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50/60 p-3 text-[11px] font-medium text-amber-950">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                <div>
+                  No folders are linked to the selected course, so all question-bank folders are shown.
+                </div>
+              </div>
             ) : null}
-            <div className="flex flex-wrap gap-1">
+            <div className="mt-3 flex flex-wrap gap-1.5 items-center">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mr-1">Active Section:</span>
               {state.sections.map((s) => {
                 const t = SEC_TYPES.find((x) => x.id === s.type);
                 const on = s.localId === (activeSectionId ?? activeSection?.localId);
@@ -862,29 +949,34 @@ export function Step3QuestionBank({
                     key={s.localId}
                     type="button"
                     size="sm"
-                    variant={on ? 'default' : 'secondary'}
-                    className={on ? 'font-bold' : ''}
-                    style={on ? { backgroundColor: t?.color, color: '#fff' } : {}}
+                    variant={on ? 'default' : 'outline'}
+                    className={cn(
+                      "h-8 text-xs font-bold rounded-lg transition-all duration-300",
+                      on 
+                        ? "shadow-sm hover:opacity-90" 
+                        : "border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    )}
+                    style={on ? { backgroundColor: t?.color || '#3B82F6', color: '#fff', borderColor: t?.color || '#3B82F6' } : {}}
                     onClick={() => setActiveSectionId(s.localId)}
                   >
-                    {t?.short}
+                    {t?.short || s.type}
                   </Button>
                 );
               })}
             </div>
             {renderTreeControls()}
           </CardHeader>
-          <CardContent className="px-2 pb-3">
+          <CardContent className="p-3">
             {!state.courseId ? (
-              <p className="p-4 text-center text-xs text-slate-500">Select a course in step 1 to load folders.</p>
+              <p className="p-8 text-center text-xs text-slate-400 italic">Select a course in step 1 to load folders.</p>
             ) : folderLoading ? (
-              <p className="p-4 text-center text-xs text-slate-500">Loading folders…</p>
+              <p className="p-8 text-center text-xs text-slate-400 italic animate-pulse">Loading folders…</p>
             ) : (
-              <div className="max-h-[min(400px,50vh)] overflow-y-auto rounded-md border border-slate-100 bg-white">
+              <div className="max-h-[min(400px,50vh)] overflow-y-auto rounded-xl border border-slate-100 bg-white p-2">
                 {filteredGroupedTrees.some((g) => g.roots.length > 0)
                   ? filteredGroupedTrees.map((entry) => renderCourseGroup(entry))
                   : (
-                      <p className="p-4 text-center text-xs text-slate-500">
+                      <p className="p-8 text-center text-xs text-slate-400 italic">
                         {folderSearch.trim() ? 'No folders match your search.' : 'No folders are available.'}
                       </p>
                     )}
@@ -892,46 +984,52 @@ export function Step3QuestionBank({
             )}
           </CardContent>
         </Card>
-        <div className="space-y-3">
+        
+        <div className="space-y-4">
           {state.sections.map((s) => {
             const t = SEC_TYPES.find((x) => x.id === s.type);
             const allocated = sectionAllocatedTotal(s);
             const match = allocated === s.count;
             return (
-              <Card key={s.localId} className="border-slate-200 shadow-sm">
-                <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 py-3">
-                  <div className="flex items-center gap-2">
-                    <div className="h-3 w-1 rounded-full" style={{ background: t?.color }} />
-                    <CardTitle className="text-sm font-bold">
-                      {t?.short} — target {s.count}Q
-                      {s.type === 'MCQ' && sectionMcqPassageGoal(s) > 0 ? (
-                        <span className="font-normal text-slate-500"> · ≤{sectionMcqPassageGoal(s)} passage block(s)</span>
-                      ) : null}
-                    </CardTitle>
+              <Card key={s.localId} className="border-slate-100 shadow-md shadow-slate-100/40 rounded-2xl overflow-hidden">
+                <CardHeader className="py-4 px-5 border-b border-slate-100 bg-slate-50/20">
+                  <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="h-3.5 w-1 rounded-full" style={{ background: t?.color || '#3B82F6' }} />
+                      <CardTitle className="text-sm font-bold text-[#0D1B35]">
+                        {t?.short || s.type} — target {s.count}Q
+                        {s.type === 'MCQ' && sectionMcqPassageGoal(s) > 0 ? (
+                          <span className="font-normal text-slate-400"> · ≤{sectionMcqPassageGoal(s)} blocks</span>
+                        ) : null}
+                      </CardTitle>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Badge variant={match ? 'secondary' : 'destructive'} className="text-[10px] font-semibold">
+                        Allocated {allocated}/{s.count}
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px] font-semibold border-slate-200 bg-slate-50/30">
+                        {s.folderRules.length} folders
+                      </Badge>
+                    </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant={match ? 'secondary' : 'destructive'} className="text-[10px]">
-                      Allocated {allocated}/{s.count}
-                    </Badge>
-                    <Badge variant="outline" className="text-[10px]">
-                      {s.folderRules.length} folders
-                    </Badge>
+
+                  <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-slate-100">
                     <Button
                       type="button"
                       size="sm"
                       variant="outline"
-                      className="h-7 gap-1 px-2 text-[10px]"
+                      className="h-8 gap-1.5 px-3 text-[11px] font-semibold border-indigo-200 bg-indigo-50/30 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 rounded-lg shadow-sm"
                       disabled={!s.folderRules.length}
                       onClick={() => autoBalanceSection(s.localId, s.type, s.count, s.folderRules)}
                     >
-                      <Wand2 className="h-3 w-3" />
+                      <Wand2 className="h-3.5 w-3.5" />
                       Auto balance
                     </Button>
                     <Button
                       type="button"
                       size="sm"
                       variant="ghost"
-                      className="h-7 px-2 text-[10px]"
+                      className="h-8 px-2.5 text-[11px] font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg"
                       disabled={!s.folderRules.length}
                       onClick={() => previewSection(s.label || s.type, s.type, s.count, s.folderRules)}
                     >
@@ -941,28 +1039,38 @@ export function Step3QuestionBank({
                       type="button"
                       size="sm"
                       variant="outline"
-                      className="h-7 gap-1 px-2 text-[10px]"
+                      className="h-8 gap-1.5 px-3 text-[11px] font-semibold border-slate-200 hover:bg-slate-50 hover:border-slate-300 rounded-lg shadow-sm"
                       disabled={!s.folderRules.length}
                       onClick={() => openSampleModal(s.label || s.type, s.type, s.folderRules)}
                     >
-                      <Eye className="h-3 w-3" />
+                      <Eye className="h-3.5 w-3.5 text-slate-500" />
                       Sample preview
                     </Button>
                   </div>
                 </CardHeader>
                 {previewMessage ? (
-                  <p className="border-b border-slate-100 bg-slate-50 px-4 py-2 text-[11px] text-slate-700">
-                    {previewMessage}
-                  </p>
+                  <div className="flex items-start gap-2 border-b border-indigo-100 bg-indigo-50/40 px-5 py-2.5 text-[11px] font-medium text-indigo-900">
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-indigo-600 mt-0.5" />
+                    <div>{previewMessage}</div>
+                  </div>
                 ) : null}
                 {!match && s.folderRules.length > 0 ? (
-                  <p className="border-b border-amber-100 bg-amber-50/80 px-4 py-2 text-[11px] text-amber-950">
-                    Totals should match the section target before generating sets (pins may need manual counts).
-                  </p>
+                  <div className="flex items-start gap-2 border-b border-amber-100 bg-amber-50/60 px-5 py-2.5 text-[11px] font-semibold text-amber-950">
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600 mt-0.5" />
+                    <div>Totals should match the section target before generating sets (pins may need manual counts).</div>
+                  </div>
                 ) : null}
-                <CardContent className="space-y-2">
+                <CardContent className="space-y-3 p-4">
                   {s.folderRules.length === 0 ? (
-                    <p className="text-center text-xs text-slate-500">Select folders in the tree (active section).</p>
+                    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 py-12 px-4 text-center">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                        <Folder className="h-6 w-6" />
+                      </div>
+                      <h4 className="mt-3 text-xs font-bold text-slate-700">No folders selected</h4>
+                      <p className="mt-1 max-w-xs text-[11px] text-slate-500 leading-normal">
+                        Select one or more folders from the Question Bank tree on the left to begin pulling questions.
+                      </p>
+                    </div>
                   ) : (
                     s.folderRules.map((r) => {
                       const leafQ = leaves.find((l) => l.id === r.folderId)?.q ?? 0;
@@ -972,82 +1080,117 @@ export function Step3QuestionBank({
                       return (
                         <div
                           key={r.folderId}
-                          className="grid grid-cols-1 items-center gap-2 rounded-md border border-slate-100 bg-slate-50/80 p-2 md:grid-cols-[1fr_176px_64px_auto]"
+                          className={cn(
+                            "relative flex flex-col gap-3 rounded-xl border p-4 transition-all duration-300 md:flex-row md:items-center",
+                            overPool
+                              ? "border-rose-200 bg-rose-50/30 hover:border-rose-300"
+                              : "border-slate-100 bg-slate-50/50 hover:border-slate-200 hover:shadow-sm"
+                          )}
                         >
-                          <div className="min-w-0 text-[11px] leading-snug text-slate-800">
-                            {leaves.find((l) => l.id === r.folderId)?.path ?? r.folderName ?? r.folderId}
-                            <span className="text-slate-400">
-                              {' '}
-                              ({r.questionCount}Q{leafQ ? ` / ${leafQ} in bank` : ''})
-                            </span>
-                            <span
-                              className={cn(
-                                'mt-0.5 block text-[10px]',
-                                overPool ? 'font-semibold text-rose-600' : 'text-slate-500',
-                              )}
-                            >
-                              {availabilityText(folder, s.type)} · Fit {fitCapacity}
-                            </span>
-                            {overPool ? (
-                              <span className="ml-1 inline-flex items-center gap-1 font-medium text-rose-600">
-                                <AlertTriangle className="h-3 w-3" />
-                                Exceeds type capacity
-                              </span>
-                            ) : null}
-                          </div>
-                          <Select
-                            value={r.selectionMode || 'RANDOM_COUNT'}
-                            onValueChange={(v) => {
-                              const mode = v as FolderRuleDraft['selectionMode'];
-                              updateRuleMode(s.localId, r.folderId, mode);
-                              if (mode === 'ALL_FROM_FOLDER' && leafQ > 0) {
-                                updateRuleCount(s.localId, r.folderId, leafQ);
-                              }
-                            }}
-                          >
-                            <SelectTrigger className="h-8 border-slate-200 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="ALL_FROM_FOLDER">Select all</SelectItem>
-                              <SelectItem value="RANDOM_COUNT">Random N</SelectItem>
-                              <SelectItem value="MANUAL_PICK">Manual pick</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Input
-                            type="number"
-                            className="h-8 border-slate-200 text-center text-xs"
-                            value={r.questionCount}
-                            min={1}
-                            disabled={r.selectionMode === 'ALL_FROM_FOLDER'}
-                            onChange={(e) => updateRuleCount(s.localId, r.folderId, Number(e.target.value))}
+                          <div
+                            className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl"
+                            style={{ background: overPool ? '#EF4444' : t?.color || '#3B82F6' }}
                           />
-                          <div className="flex gap-1">
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              className="h-8 shrink-0 px-2 text-[10px]"
-                              onClick={() =>
-                                setPicker({
-                                  sectionLocalId: s.localId,
-                                  rule: { ...r },
-                                })
-                              }
-                            >
-                              Questions
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="ghost"
-                              className="h-8 px-2 text-rose-600"
-                              onClick={() =>
-                                dispatch({ type: 'REMOVE_FOLDER_RULE', sectionLocalId: s.localId, folderId: r.folderId })
-                              }
-                            >
-                              ×
-                            </Button>
+
+                          <div className="min-w-0 flex-1 pl-2">
+                            <div className="flex items-center flex-wrap gap-1.5">
+                              <span className="font-bold text-xs text-slate-800 truncate" title={r.folderName}>
+                                {leaves.find((l) => l.id === r.folderId)?.path.split('/').pop() ?? r.folderName ?? r.folderId}
+                              </span>
+                              <Badge variant="outline" className="h-5 px-1.5 text-[9px] font-semibold bg-white border-slate-200 text-slate-600">
+                                {leafQ} in bank
+                              </Badge>
+                            </div>
+                            
+                            <p className="mt-1 text-[10px] text-slate-400 truncate">
+                              {leaves.find((l) => l.id === r.folderId)?.path ?? r.folderId}
+                            </p>
+
+                            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px]">
+                              <span className="text-slate-500 font-medium bg-white/80 border border-slate-100 px-1.5 py-0.5 rounded">
+                                {availabilityText(folder, s.type)}
+                              </span>
+                              <span className={cn(
+                                "px-1.5 py-0.5 rounded font-bold border",
+                                overPool 
+                                  ? "bg-rose-100/50 border-rose-200 text-rose-700" 
+                                  : "bg-emerald-50 border-emerald-100 text-emerald-700"
+                              )}>
+                                Fit: {fitCapacity}
+                              </span>
+                              {overPool ? (
+                                <span className="flex items-center gap-1 font-semibold text-rose-600">
+                                  <AlertTriangle className="h-3 w-3" />
+                                  Exceeds capacity
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2 md:shrink-0">
+                            <div className="flex flex-col gap-1">
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 md:hidden">Pull Mode</span>
+                              <Select
+                                value={r.selectionMode || 'RANDOM_COUNT'}
+                                onValueChange={(v) => {
+                                  const mode = v as FolderRuleDraft['selectionMode'];
+                                  updateRuleMode(s.localId, r.folderId, mode);
+                                  if (mode === 'ALL_FROM_FOLDER' && leafQ > 0) {
+                                    updateRuleCount(s.localId, r.folderId, leafQ);
+                                  }
+                                }}
+                              >
+                                <SelectTrigger className="h-8 w-32 border-slate-200 bg-white text-xs font-medium focus:ring-1 focus:ring-slate-400">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="ALL_FROM_FOLDER">Select all</SelectItem>
+                                  <SelectItem value="RANDOM_COUNT">Random N</SelectItem>
+                                  <SelectItem value="MANUAL_PICK">Manual pick</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div className="flex flex-col gap-1 w-16">
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 md:hidden">Count</span>
+                              <Input
+                                type="number"
+                                className="h-8 border-slate-200 bg-white text-center text-xs font-semibold focus:ring-1 focus:ring-slate-400"
+                                value={r.questionCount}
+                                min={1}
+                                disabled={r.selectionMode === 'ALL_FROM_FOLDER'}
+                                onChange={(e) => updateRuleCount(s.localId, r.folderId, Number(e.target.value))}
+                              />
+                            </div>
+
+                            <div className="flex items-center gap-1.5 pt-4 md:pt-0">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-8 border-indigo-200 bg-indigo-50/40 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 text-[11px] font-semibold gap-1"
+                                onClick={() =>
+                                  setPicker({
+                                    sectionLocalId: s.localId,
+                                    rule: { ...r },
+                                  })
+                                }
+                              >
+                                Questions
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 rounded-lg p-0 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                                onClick={() =>
+                                  dispatch({ type: 'REMOVE_FOLDER_RULE', sectionLocalId: s.localId, folderId: r.folderId })
+                                }
+                                title="Remove rule"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       );
@@ -1064,5 +1207,4 @@ export function Step3QuestionBank({
   );
 }
 
-// Keep the type re-export for downstream consumers (e.g. SelectedFoldersSummary).
 export type { FolderCounts, SectionTarget };
