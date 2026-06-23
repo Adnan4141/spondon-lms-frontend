@@ -7,9 +7,12 @@ export type ManageOneTimeResult = {
   removed: number;
   failed: number;
   supplementary: boolean;
+  installmentScheduleStale?: boolean;
+  invoiceId?: string | null;
+  oneTimeDiscountUpdated?: boolean;
 };
 
-export type CourseMeta = { batch: string };
+export type CourseMeta = { batch: string; includeBook?: boolean };
 
 export interface ManageOneTimeEnrollmentModalProps {
   enrollment: Enrollment;

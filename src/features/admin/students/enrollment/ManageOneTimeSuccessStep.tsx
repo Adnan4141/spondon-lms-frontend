@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import type { ManageOneTimeEnrollmentController } from './hooks/useManageOneTimeEnrollment';
 
 export function ManageOneTimeSuccessStep({ ctrl }: { ctrl: ManageOneTimeEnrollmentController }) {
-  const { result, submitError, finishSuccess } = ctrl;
+  const { result, submitError, invoicePdfUrl, finishSuccess } = ctrl;
   if (!result) return null;
 
   return (
@@ -24,6 +24,7 @@ export function ManageOneTimeSuccessStep({ ctrl }: { ctrl: ManageOneTimeEnrollme
           ['Courses Added', String(result.added)],
           ['Courses Removed', String(result.removed)],
           ['Failed Operations', String(result.failed)],
+          ...(result.oneTimeDiscountUpdated ? [['Discount Updated', 'Yes']] : []),
         ].map(([k, v]) => (
           <div key={k} className="flex justify-between py-1.5 border-b border-slate-100 last:border-0">
             <span className="text-sm text-slate-500">{k}</span>
@@ -31,12 +32,24 @@ export function ManageOneTimeSuccessStep({ ctrl }: { ctrl: ManageOneTimeEnrollme
           </div>
         ))}
       </div>
+      {result.installmentScheduleStale && (
+        <p className="text-sm text-amber-700 font-semibold mb-4">
+          Installment schedule may be outdated — review the installment plan manually.
+        </p>
+      )}
       {submitError && (
         <p className="text-sm text-amber-700 font-semibold mb-4">{submitError}</p>
       )}
-      <Button onClick={finishSuccess} className="bg-slate-900 text-white hover:bg-violet-600">
-        Done
-      </Button>
+      <div className="flex gap-2.5 justify-center">
+        {invoicePdfUrl && (
+          <Button variant="outline" onClick={() => window.open(invoicePdfUrl, '_blank')}>
+            View Invoice PDF
+          </Button>
+        )}
+        <Button onClick={finishSuccess} className="bg-slate-900 text-white hover:bg-violet-600">
+          Done
+        </Button>
+      </div>
     </div>
   );
 }

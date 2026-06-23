@@ -163,7 +163,7 @@ export function EnrolledCoursesView({
         const isOneTimeEnrollment = enrollment.billingType === 'ONE_TIME';
 
         const canManageEnrollment = isMonthlyEnrollment;
-        const canManageOneTime = isOneTimeEnrollment;
+        const canManageOneTime = isOneTimeEnrollment && enrollment.status !== 'CANCELLED';
 
         return (
           <div key={enrollment.id} className="bg-white border border-slate-200 rounded-2xl mb-5 overflow-hidden shadow-sm">

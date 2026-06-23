@@ -645,6 +645,8 @@ export interface OneTimeEnrollmentPreview {
     type: string;
     startMonth: string | null;
     endMonth: string | null;
+    hasBooks: boolean;
+    bookPrice: number;
   }>;
   invoiceState: {
     hasOpenInvoice: boolean;
@@ -665,6 +667,64 @@ export async function getOneTimeEnrollmentPreview(
   enrollmentId: string,
 ): Promise<ApiResponse<OneTimeEnrollmentPreview>> {
   return apiRequest<ApiResponse<OneTimeEnrollmentPreview>>(`/enrollments/${enrollmentId}/one-time/preview`);
+}
+
+export interface OneTimePreviewChanges {
+  addGross: number;
+  removeGross: number;
+  bookGross: number;
+  projectedDiscount: number;
+  projectedPayableDelta: number;
+  willCreateSupplementary: boolean;
+}
+
+export async function previewOneTimeEnrollmentChanges(
+  enrollmentId: string,
+  body: {
+    removeCourseIds?: string[];
+    addCourses?: Array<{ courseId: string; includeBook?: boolean }>;
+    oneTimeDiscount?: number;
+  },
+): Promise<ApiResponse<OneTimePreviewChanges>> {
+  return apiRequest<ApiResponse<OneTimePreviewChanges>>(
+    `/enrollments/${enrollmentId}/one-time/preview-changes`,
+    {
+      method: 'POST',
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export interface ApplyOneTimeChangesResult {
+  added: number;
+  removed: number;
+  supplementary: boolean;
+  installmentScheduleStale: boolean;
+  invoiceId: string | null;
+  oneTimeDiscountUpdated: boolean;
+}
+
+export async function applyOneTimeEnrollmentChanges(
+  enrollmentId: string,
+  body: {
+    removeCourseIds?: string[];
+    addCourses?: Array<{
+      courseId: string;
+      batchId?: string | null;
+      includeBook?: boolean;
+    }>;
+    reason?: string;
+    nextPaymentDueDate?: string;
+    oneTimeDiscount?: number;
+  },
+): Promise<ApiResponse<ApplyOneTimeChangesResult>> {
+  return apiRequest<ApiResponse<ApplyOneTimeChangesResult>>(
+    `/enrollments/${enrollmentId}/one-time/apply-changes`,
+    {
+      method: 'POST',
+      body: JSON.stringify(body),
+    },
+  );
 }
 
 export async function removeCourseFromEnrollment(

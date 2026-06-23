@@ -420,7 +420,7 @@ export function StudentDetailPageContent() {
             const isMonthlyEnrollment = enr.billingType === 'MONTHLY';
             const isOneTimeEnrollment = enr.billingType === 'ONE_TIME';
             const canManageMonthly = isMonthlyEnrollment && localEnrollment;
-            const canManageOneTime = isOneTimeEnrollment && localEnrollment;
+            const canManageOneTime = isOneTimeEnrollment && localEnrollment && enr.status !== 'CANCELLED';
 
             return (
               <div key={enr.id} className="bg-white border border-slate-200 rounded-2xl mb-4 overflow-hidden shadow-sm">
