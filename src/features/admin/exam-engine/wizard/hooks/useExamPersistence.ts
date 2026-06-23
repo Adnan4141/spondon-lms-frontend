@@ -120,9 +120,14 @@ export function useExamPersistence({ examId, state, serverExam, teacherUserId }:
         }
 
         if (finalize && state.showSolve) {
+          const hasBankAllocation =
+            state.productType === 'MULTI'
+              ? state.subjects.some((s) => s.folderRules.length > 0)
+              : state.sections.some((s) => s.folderRules.length > 0);
           const setsGenerated =
             state.resultInputModes.includes('AUTOMATED')
-            || state.resultInputModes.includes('OMR_SCAN');
+            || state.resultInputModes.includes('OMR_SCAN')
+            || hasBankAllocation;
           if (setsGenerated) {
             const solveRes = await regenerateSolveSheet(id);
             if (!solveRes.success || !solveRes.data?.solveSheetUrl) {

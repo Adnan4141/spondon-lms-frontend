@@ -31,7 +31,12 @@ export default async function CourseDetailsPage({ params }: PageProps) {
   const display = buildCoursePageDisplay(course);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-indigo-100">
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 selection:bg-indigo-100 relative overflow-hidden">
+      {/* Background decorative glows */}
+      <div className="absolute right-0 top-[20%] h-[600px] w-[600px] rounded-full bg-indigo-50/40 blur-[150px] pointer-events-none" />
+      <div className="absolute left-[-10%] top-[40%] h-[500px] w-[500px] rounded-full bg-purple-50/30 blur-[130px] pointer-events-none" />
+      <div className="absolute right-[10%] top-[75%] h-[500px] w-[500px] rounded-full bg-emerald-50/20 blur-[120px] pointer-events-none" />
+
       <Header />
       <CourseHero course={course} heroHeading={display.heroHeading} />
 

@@ -1,14 +1,9 @@
 import type { Exam } from '@/types/exam';
 import type { ExamWizardState } from '@/features/admin/exam-engine/types';
-import { resolveExamWorkflow } from '@/lib/exam-workflow';
 
-/** Mirrors backend `needsGeneratedQuestionSets` in exam-publish-readiness.ts */
-export function needsGeneratedQuestionSets(exam: Exam): boolean {
-  const modes = exam.resultInputModes ?? [];
-  const workflow = resolveExamWorkflow(exam);
-  if (modes.includes('AUTOMATED') || modes.includes('OMR_SCAN')) return true;
-  if (workflow.deliveryMode === 'ONLINE' && !workflow.isHallExam) return true;
-  return false;
+/** Every exam pulls questions from the bank before publish. */
+export function needsGeneratedQuestionSets(_exam: Exam): boolean {
+  return true;
 }
 
 export function hasGeneratedSets(exam: Exam): boolean {
@@ -25,12 +20,6 @@ export function examNeedsAction(exam: Exam): boolean {
 }
 
 export function examReadinessLabel(exam: Exam): { label: string; tone: string } {
-  if (!needsGeneratedQuestionSets(exam)) {
-    if (exam.status === 'DRAFT') {
-      return { label: 'Draft', tone: 'border-amber-200 bg-amber-50 text-amber-800' };
-    }
-    return { label: 'Ready', tone: 'border-emerald-200 bg-emerald-50 text-emerald-700' };
-  }
   if (!hasGeneratedSets(exam)) {
     return { label: 'Needs sets', tone: 'border-amber-200 bg-amber-50 text-amber-800' };
   }
@@ -48,12 +37,9 @@ export type WizardPublishMeta = {
 
 /** Whether the wizard config requires generated question sets before publish. */
 export function wizardNeedsGeneratedSets(
-  state: Pick<ExamWizardState, 'resultInputModes' | 'deliveryMode'>,
+  _state: Pick<ExamWizardState, 'resultInputModes' | 'deliveryMode'>,
 ): boolean {
-  const modes = state.resultInputModes ?? [];
-  if (modes.includes('AUTOMATED') || modes.includes('OMR_SCAN')) return true;
-  if (state.deliveryMode === 'ONLINE') return true;
-  return false;
+  return true;
 }
 
 /** Client-side publish checklist mirroring backend `assessPublishReadinessFromExam`. */

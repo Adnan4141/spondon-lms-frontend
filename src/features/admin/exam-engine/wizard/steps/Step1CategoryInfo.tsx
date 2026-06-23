@@ -7,7 +7,6 @@ import type { ExamProductType, ExamWizardState } from '../../types';
 import type { WizardFormAction } from '../examWizardReducer';
 import type { Step1FieldKey } from '../validateWizardStep';
 import { ExamClassificationCard } from '../components/ExamClassificationCard';
-import { ExamSyllabusCard } from '../components/ExamSyllabusCard';
 import { BasicExamInfoForm } from '../components/BasicExamInfoForm';
 import { DeliveryModeCard } from '../components/DeliveryModeCard';
 import { ExamMethodPicker } from '../components/ExamMethodPicker';
@@ -99,8 +98,6 @@ export function Step1CategoryInfo({
       />
 
       <OmrSheetConfigCard state={state} dispatch={dispatch} deliveryMode={deliveryMode} />
-
-      <ExamSyllabusCard state={state} dispatch={dispatch} />
 
       <WorkflowSummaryCard state={state} deliveryMode={deliveryMode} />
     </div>

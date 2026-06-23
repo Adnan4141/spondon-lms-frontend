@@ -274,13 +274,10 @@ export function ExamWizard({
   };
 
   /**
-   * Step 3 (Question bank) is only needed when the exam will be auto-graded
-   * online or scanned via OMR. Pure manual-entry flows (single/bulk/Excel)
-   * skip directly from Sections to Sets.
+   * Step 3 (Question bank) is required for every exam product type — all papers
+   * pull MCQ/CQ/SHORT from the bank before sets/PDF are generated.
    */
-  const needsQuestionBank =
-    state.resultInputModes.includes('AUTOMATED') || state.resultInputModes.includes('OMR_SCAN');
-  const showStep3 = needsQuestionBank;
+  const showStep3 = Boolean(state.productType);
   const visibleSteps = useMemo(
     () => WIZARD_STEPS.map((label, i) => ({ label, stepNumber: i + 1 })).filter((item) => item.stepNumber !== 3 || showStep3),
     [showStep3],
