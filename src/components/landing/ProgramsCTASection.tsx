@@ -64,11 +64,25 @@ export const ProgramsCTASection: React.FC<Props> = ({
   };
 
   return (
-    <section className="py-12 sm:py-16 md:py-20">
+    <section className="py-12 sm:py-16 md:pb-20 md:pt-15">
       <div className="mx-auto max-w-6xl px-4">
         <div className="text-center mb-12">
-          <p className="text-xs sm:text-sm font-bold text-indigo-500">{label}</p>
-          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-slate-800 leading-tight mt-2">
+          <div className="flex items-center justify-center gap-3 sm:gap-4">
+            <span
+              className="hidden sm:block h-px w-10 bg-linear-to-r from-transparent via-indigo-200 to-indigo-400"
+              aria-hidden
+            />
+            <span className="inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-linear-to-r from-indigo-50 to-violet-50 px-4 py-1.5 sm:px-5 sm:py-2 text-xs sm:text-sm font-bold text-indigo-600 shadow-sm">
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500" aria-hidden />
+              {label}
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500" aria-hidden />
+            </span>
+            <span
+              className="hidden sm:block h-px w-10 bg-linear-to-l from-transparent via-indigo-200 to-indigo-400"
+              aria-hidden
+            />
+          </div>
+          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-slate-800 leading-tight mt-3 sm:mt-4">
             {title}
           </h2>
         </div>
