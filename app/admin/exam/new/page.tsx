@@ -8,13 +8,7 @@ import { Button } from '@/components/ui/button';
 import { ExamWizard } from '@/features/admin/exam-engine/ExamWizard';
 
 function AdminExamNewPageContent() {
-  const searchParams = useSearchParams();
-  const step = parseInt(searchParams.get('step') || '1', 10) || 1;
-  const isFullWidth = step >= 2;
-
-  const containerClass = isFullWidth
-    ? 'mx-auto w-full max-w-full px-4 sm:px-6 lg:px-8'
-    : 'mx-auto w-full max-w-7xl px-4 sm:px-6';
+  const containerClass = 'mx-auto w-full max-w-full px-4 sm:px-6 lg:px-8';
 
   return (
     <div className="min-h-screen bg-[#F4F6FB]">
