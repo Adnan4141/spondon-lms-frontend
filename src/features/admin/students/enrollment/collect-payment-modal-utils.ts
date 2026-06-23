@@ -62,6 +62,45 @@ export function monthSpanCount(startMonth?: string | null, endMonth?: string | n
   return diff > 0 ? diff : null;
 }
 
+import type { CollectPaymentSaveData } from './collect-payment-modal-types';
+
+export const DIGITAL_PAYMENT_METHODS = ['BKASH', 'NAGAD', 'BANK', 'GATEWAY'] as const;
+
+export function requiresTrxId(method: string): boolean {
+  return (DIGITAL_PAYMENT_METHODS as readonly string[]).includes(method);
+}
+
+export function formatCollectPaymentSuccessMessage(
+  data: CollectPaymentSaveData,
+  formatMoney: (n: number) => string,
+  formatMonth: (m: string) => string,
+): string {
+  const base = `${formatMoney(data.amount)} collected via ${data.method}`;
+  if (data.billingType === 'MONTHLY' && data.month) {
+    return `${base} for ${formatMonth(data.month)}`;
+  }
+  if (data.programName) {
+    return `${base} for ${data.programName} (one-time)`;
+  }
+  return `${base} for one-time program`;
+}
+
+export function parseInstallmentInfo(item: {
+  title: string;
+  installmentNumber?: number | null;
+  totalInstallments?: number | null;
+}): { number: number; total: number } | null {
+  if (item.installmentNumber != null && item.totalInstallments != null && item.totalInstallments > 1) {
+    return { number: item.installmentNumber, total: item.totalInstallments };
+  }
+  const match = item.title.match(/Installment\s+(\d+)\s*\/\s*(\d+)/i);
+  if (match) {
+    const total = Number(match[2]);
+    if (total > 1) return { number: Number(match[1]), total };
+  }
+  return null;
+}
+
 export function getMonthAggStatus(invs: Invoice[]): DisplayStatus {
   if (!invs.length) return 'DUE';
   const statuses = invs.map((i) => (i.displayStatus ?? i.status) as DisplayStatus);

@@ -21,6 +21,8 @@ import { StudentAdminBadge as AppBadge } from '@/features/admin/students/compone
 import { EditStudentModal } from '@/features/admin/students/modals/EditStudentModal';
 import { ManageEnrollmentModal } from '@/features/admin/students/enrollment/ManageEnrollmentModal';
 import { ManageOneTimeEnrollmentModal } from '@/features/admin/students/enrollment/ManageOneTimeEnrollmentModal';
+import { CollectPaymentModal } from '@/features/admin/students/enrollment/CollectPaymentModal';
+import { formatCollectPaymentSuccessMessage } from '@/features/admin/students/enrollment/collect-payment-modal-utils';
 import type {
   BranchOption, Course, Enrollment, Program, Student,
 } from '@/features/admin/students';
@@ -89,6 +91,7 @@ export function StudentDetailPageContent() {
   const [showEdit, setShowEdit] = useState(false);
   const [manageModal, setManageModal] = useState<{ enrollment: Enrollment } | null>(null);
   const [manageOneTimeModal, setManageOneTimeModal] = useState<{ enrollment: Enrollment } | null>(null);
+  const [showCollectPayment, setShowCollectPayment] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchData = async () => {
@@ -304,6 +307,15 @@ export function StudentDetailPageContent() {
           </div>
         </div>
         <div className="flex gap-2 shrink-0">
+          {student.status === 'ACTIVE' && (
+            <Button
+              size="sm"
+              onClick={() => setShowCollectPayment(true)}
+              className="gap-1.5 bg-indigo-600 text-white hover:bg-indigo-700"
+            >
+              <CreditCard className="h-3.5 w-3.5" /> Collect Payment
+            </Button>
+          )}
           <Button
             size="sm"
             variant="outline"
@@ -645,6 +657,22 @@ export function StudentDetailPageContent() {
                   : `${summary.removed} course(s) cancelled.`;
             showToast(msg, summary.failed > 0 ? 'error' : 'success');
             refreshEnrollments();
+          }}
+        />
+      )}
+
+      {showCollectPayment && student && (
+        <CollectPaymentModal
+          student={student}
+          onClose={() => setShowCollectPayment(false)}
+          onSave={(paymentData) => {
+            setShowCollectPayment(false);
+            const message = formatCollectPaymentSuccessMessage(paymentData, fmt, fmtMonth);
+            const accessNote = paymentData.accessStatus
+              ? ` Access: ${paymentData.accessStatus.replace(/_/g, ' ')}.`
+              : '';
+            showToast(`${message}.${accessNote}`, 'success');
+            void fetchData();
           }}
         />
       )}

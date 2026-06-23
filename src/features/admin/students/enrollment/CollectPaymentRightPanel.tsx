@@ -20,20 +20,28 @@ export function CollectPaymentRightPanel({ ctrl }: { ctrl: CollectPaymentModalCo
     totalWaived,
     totalSettlement,
     totalAlreadyPaid,
+    enrollmentMonthlyDiscount,
     addDiscount,
     setAddDiscount,
     discountCapped,
     discountable,
     effectiveNetDue,
-    selectedCurrentDueWaiverAmount,
     admissionDue,
     effectiveCourseDue,
+    nextInstallmentDue,
     paymentAmount,
     setPaymentAmount,
     method,
     setMethod,
+    trxId,
+    setTrxId,
+    trxIdRequired,
+    trxIdValid,
     saving,
     loadingInvoices,
+    submitError,
+    collectBlockedByWaiver,
+    canCollectPayment,
     handleCollectPayment,
     lastPaidInvoiceId,
     openInvoicePdf,
@@ -48,7 +56,6 @@ export function CollectPaymentRightPanel({ ctrl }: { ctrl: CollectPaymentModalCo
   return (
         <div className="min-w-0 xl:sticky xl:top-0 xl:self-start">
           {['PAID', 'PAID_WITH_WAIVER', 'WAIVED', 'SETTLED'].includes(monthStatus) ? (
-            /* Already settled — show status instead of payment form */
             <>
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center mb-3.5 sm:p-6">
                 <div className="flex justify-center mb-3">
@@ -68,7 +75,6 @@ export function CollectPaymentRightPanel({ ctrl }: { ctrl: CollectPaymentModalCo
               <CollectPaymentCourseWaiverPanel ctrl={ctrl} />
             </>
           ) : (
-            /* Payment form */
             <>
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 mb-3.5 sm:p-4">
                 <div className="flex justify-between gap-3 mb-2">
@@ -101,10 +107,10 @@ export function CollectPaymentRightPanel({ ctrl }: { ctrl: CollectPaymentModalCo
                     <span className="shrink-0 font-semibold text-sm text-emerald-600">−{fmt(totalAlreadyPaid)}</span>
                   </div>
                 )}
-                {isSelectedMonthly && (
+                {isSelectedMonthly && enrollmentMonthlyDiscount > 0 && (
                   <div className="flex justify-between gap-3 mb-3">
                     <span className="text-sm text-slate-500">Monthly scholarship(−)</span>
-                    <span className="shrink-0 font-semibold text-sm text-slate-400">৳0</span>
+                    <span className="shrink-0 font-semibold text-sm text-rose-600">−{fmt(enrollmentMonthlyDiscount)}/mo</span>
                   </div>
                 )}
                 {isSelectedMonthly && (
@@ -131,12 +137,6 @@ export function CollectPaymentRightPanel({ ctrl }: { ctrl: CollectPaymentModalCo
                     <span className="font-bold text-sm text-slate-900">Due amount</span>
                     <span className="shrink-0 text-right text-xl font-black text-rose-700 sm:text-2xl">{fmt(effectiveNetDue)}</span>
                   </div>
-                  {selectedCurrentDueWaiverAmount > 0 && (
-                    <div className="mt-1 flex items-center justify-between gap-3 text-[11px] font-bold text-purple-700">
-                      <span>Selected course waiver</span>
-                      <span>−{fmt(selectedCurrentDueWaiverAmount)}</span>
-                    </div>
-                  )}
                 </div>
 
                 <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Payment Amount</p>
@@ -148,6 +148,13 @@ export function CollectPaymentRightPanel({ ctrl }: { ctrl: CollectPaymentModalCo
                       amount: effectiveCourseDue,
                       disabled: effectiveCourseDue <= 0 || admissionDue > 0,
                     },
+                    ...(nextInstallmentDue.amount > 0 && nextInstallmentDue.label
+                      ? [{
+                          label: `Pay ${nextInstallmentDue.label}`,
+                          amount: nextInstallmentDue.amount,
+                          disabled: nextInstallmentDue.amount <= 0,
+                        }]
+                      : []),
                     { label: 'Pay Full Due', amount: effectiveNetDue, disabled: effectiveNetDue <= 0 },
                   ].map(action => (
                     <button
@@ -206,9 +213,45 @@ export function CollectPaymentRightPanel({ ctrl }: { ctrl: CollectPaymentModalCo
                 ))}
               </div>
 
+              {trxIdRequired && (
+                <div className="mb-3.5">
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Transaction ID <span className="text-rose-600">*</span>
+                  </p>
+                  <Input
+                    value={trxId}
+                    onChange={(e) => setTrxId(e.target.value)}
+                    placeholder="Enter payment reference / trx ID"
+                    className={cn(
+                      'focus-visible:ring-indigo-400',
+                      !trxIdValid && trxId.length > 0 && 'border-rose-300',
+                    )}
+                  />
+                  {!trxIdValid && (
+                    <p className="mt-1 text-[11px] font-semibold text-rose-600">
+                      Transaction ID is required for {method} payments (min 4 characters).
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {collectBlockedByWaiver && (
+                <p className="mb-3 text-xs font-semibold text-amber-800 flex items-center gap-1">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  Confirm or cancel the course waiver before collecting payment.
+                </p>
+              )}
+
+              {submitError && (
+                <p className="mb-3 text-sm font-semibold text-rose-600 flex items-start gap-1.5">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                  {submitError}
+                </p>
+              )}
+
               <Button
                 className="w-full gap-2 bg-indigo-600 text-white hover:bg-indigo-700 transition-all mb-3"
-                disabled={(paymentAmount ? Number(paymentAmount) <= 0 : effectiveNetDue <= 0) || saving || loadingInvoices}
+                disabled={!canCollectPayment}
                 onClick={() => void handleCollectPayment()}
               >
                 <Check className="h-4 w-4" /> {saving ? 'Processing…' : `Collect ${method} Payment`}

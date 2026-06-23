@@ -5,7 +5,7 @@ import { AlertTriangle, Download, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fmt, fmtMonth } from '../utils';
 import { StudentAdminBadge as AppBadge } from '../components/StudentAdminBadge';
-import { statusBadgeColor, statusLabel } from './collect-payment-modal-utils';
+import { statusBadgeColor, statusLabel, parseInstallmentInfo } from './collect-payment-modal-utils';
 import { CollectPaymentInvoiceGroupButton } from './CollectPaymentInvoiceGroupButton';
 import { EnrollmentAccessControls } from './EnrollmentAccessControls';
 import type { CollectPaymentModalController } from './hooks/useCollectPaymentModal';
@@ -270,10 +270,17 @@ export function CollectPaymentLeftPanel({ ctrl }: { ctrl: CollectPaymentModalCon
                         const itemTotal = Number(item.payableAmount ?? item.unitPrice * item.qty);
                         const itemPaid = Number(item.paidAmount ?? 0);
                         const itemDue = Number(item.dueAmount ?? Math.max(0, itemTotal - itemPaid));
+                        const installment = parseInstallmentInfo(item);
                         return (
                           <tr key={`${inv.id}-item-${ii}`} className="bg-slate-50/60 border-b border-slate-100">
                             <td className="max-w-[280px] border-b border-slate-100 px-3 py-1.5 pl-7 align-top text-xs text-slate-500">
                               <span className="inline-block max-w-full truncate align-bottom">↳ {item.title}</span>
+                              {installment && (
+                                <AppBadge
+                                  label={`Inst ${installment.number}/${installment.total}`}
+                                  color="purple"
+                                />
+                              )}
                               {item.qty > 1 && <span className="text-slate-400 ml-1">×{item.qty}</span>}
                             </td>
                             <td className="border-b border-slate-100 px-3 py-1.5 align-top text-xs text-slate-400">—</td>

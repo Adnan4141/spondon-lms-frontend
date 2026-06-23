@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PaymentMethod } from '@/lib/api/invoices';
 import {
   createPayment,
+  createProgramPayment,
   generateAdvanceInvoices,
   getInvoicePdfUrl,
   getInvoices,
@@ -20,6 +21,8 @@ import type { CollectPaymentModalProps } from '../collect-payment-modal-types';
 import {
   getMonthAggStatus,
   monthSpanCount,
+  parseInstallmentInfo,
+  requiresTrxId,
   type InvoiceGroup,
 } from '../collect-payment-modal-utils';
 
@@ -31,14 +34,79 @@ export const PAYMENT_METHODS = [
   { id: 'GATEWAY' as PaymentMethod, label: 'Gateway', icon: '💳' },
 ];
 
+async function payOneTimeWithFallback(input: {
+  studentId: string;
+  programId: string;
+  amount: number;
+  method: PaymentMethod;
+  trxId?: string;
+  displayInvoices: Invoice[];
+}): Promise<string | null> {
+  const payResult = await createProgramPayment({
+    studentId: input.studentId,
+    programId: input.programId,
+    amount: input.amount,
+    method: input.method,
+    trxId: input.trxId,
+  });
+
+  if (payResult.success && payResult.data?.summary && payResult.data.summary.applied > 0) {
+    return payResult.data.summary.invoices?.[0]?.invoiceId ?? null;
+  }
+
+  if (payResult.success === false) {
+    const message = (payResult as { message?: string }).message;
+    if (message && !message.toLowerCase().includes('no due')) {
+      throw new Error(message);
+    }
+  }
+
+  let remaining = input.amount;
+  let invoiceId: string | null = null;
+  const payableInvoices = input.displayInvoices
+    .map((inv) => ({ invoice: inv, due: Math.max(0, inv.amount - inv.paidAmount) }))
+    .filter((row) => row.due > 0);
+
+  for (const row of payableInvoices) {
+    if (remaining <= 0) break;
+    const amount = Math.min(remaining, row.due);
+    const fallbackResult = await createPayment({
+      invoiceId: row.invoice.id,
+      method: input.method,
+      amount,
+      trxId: input.trxId,
+    });
+    if (!fallbackResult.success) {
+      throw new Error((fallbackResult as { message?: string }).message ?? 'Payment failed');
+    }
+    const paymentData = fallbackResult.data as
+      | {
+          duePaymentInvoice?: { id?: string };
+          payment?: { invoiceId?: string };
+          sourceInvoice?: { id?: string };
+        }
+      | undefined;
+    invoiceId =
+      paymentData?.duePaymentInvoice?.id ??
+      paymentData?.payment?.invoiceId ??
+      paymentData?.sourceInvoice?.id ??
+      row.invoice.id;
+    remaining = Math.max(0, remaining - amount);
+  }
+
+  return invoiceId;
+}
+
 export function useCollectPaymentModal({ student, onSave }: CollectPaymentModalProps) {
   const [selectedGroupKey, setSelectedGroupKey] = useState('');
   const [method, setMethod] = useState<PaymentMethod>('CASH');
+  const [trxId, setTrxId] = useState('');
   const [addDiscount, setAddDiscount] = useState('0');
   const [paymentAmount, setPaymentAmount] = useState('');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loadingInvoices, setLoadingInvoices] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState('');
   const [saving, setSaving] = useState(false);
   const [pdfLoading, setPdfLoading] = useState<string | null>(null);
   const [lastPaidInvoiceId, setLastPaidInvoiceId] = useState<string | null>(null);
@@ -252,6 +320,14 @@ export function useCollectPaymentModal({ student, onSave }: CollectPaymentModalP
   const isSelectedMonthly = selectedGroup?.billingType === 'MONTHLY';
   const selectedProgramNames = selectedGroup ? [selectedGroup.programName] : [];
 
+  const enrollmentMonthlyDiscount = useMemo(() => {
+    if (!isSelectedMonthly || !selectedGroup) return 0;
+    const match = enrollments.find(
+      (e) => e.billingType === 'MONTHLY' && e.programId === selectedGroup.programId,
+    );
+    return match?.monthlyDiscount ?? 0;
+  }, [enrollments, isSelectedMonthly, selectedGroup]);
+
   const billingRangeSummaries = useMemo(() => {
     return enrollments
       .filter((enrollment) => enrollment.billingType === 'MONTHLY')
@@ -337,11 +413,36 @@ export function useCollectPaymentModal({ student, onSave }: CollectPaymentModalP
     (sum, item) => sum + Math.min(item.waiverAmount, item.due),
     0,
   );
-  const effectiveNetDue = Math.max(0, netDue - selectedCurrentDueWaiverAmount);
-  const effectiveCourseDue = Math.max(0, courseDue - selectedCurrentDueWaiverAmount);
-  const payableAfterCourseWaiver = effectiveNetDue;
+
+  const effectiveNetDue = netDue;
+  const effectiveCourseDue = courseDue;
+  const payableAfterCourseWaiver = Math.max(0, netDue - selectedCurrentDueWaiverAmount);
   const waiverCreatesSettlement =
     totalAlreadyPaid > 0 || monthStatus === 'PAID' || monthStatus === 'PARTIAL';
+
+  const nextInstallmentDue = useMemo(() => {
+    if (isSelectedMonthly) return { amount: 0, label: null as string | null };
+    const courseItems = itemRows
+      .filter((item) => item.type === 'COURSE' && item.due > 0)
+      .map((item) => ({ item, inst: parseInstallmentInfo(item) }))
+      .filter((row) => row.inst);
+    if (courseItems.length === 0) return { amount: 0, label: null };
+    const minNumber = Math.min(...courseItems.map((row) => row.inst!.number));
+    const sameInstallment = courseItems.filter((row) => row.inst!.number === minNumber);
+    const amount = sameInstallment.reduce((sum, row) => sum + row.item.due, 0);
+    const total = sameInstallment[0]?.inst?.total ?? minNumber;
+    return { amount, label: `Installment ${minNumber}/${total}` };
+  }, [itemRows, isSelectedMonthly]);
+
+  const trxIdRequired = requiresTrxId(method);
+  const trxIdValid = !trxIdRequired || trxId.trim().length >= 4;
+  const collectBlockedByWaiver = waiving || waiveSubmitting;
+  const canCollectPayment =
+    !collectBlockedByWaiver &&
+    !saving &&
+    !loadingInvoices &&
+    trxIdValid &&
+    (paymentAmount ? Number(paymentAmount) > 0 : effectiveNetDue > 0);
 
   useEffect(() => {
     const nextSuggested = effectiveNetDue > 0 ? String(effectiveNetDue) : '';
@@ -399,91 +500,120 @@ export function useCollectPaymentModal({ student, onSave }: CollectPaymentModalP
     setSelectedWaiveCourseIds([]);
     setAddDiscount('0');
     setPaymentAmount('');
+    setTrxId('');
+    setSubmitError('');
     setLastPaidInvoiceId(null);
   };
 
   const handleWaive = async () => {
     if (waiveReason.trim().length < 5 || selectedWaiveCourseIds.length === 0) return;
     setWaiveSubmitting(true);
+    setSubmitError('');
     try {
-      await waiveMonthlyCourses({
+      const res = await waiveMonthlyCourses({
         studentUserId: student.id,
         month: selectedMonth,
         courseIds: selectedWaiveCourseIds,
         reason: waiveReason.trim(),
       });
+      if (!res.success) {
+        throw new Error((res as { message?: string }).message ?? 'Waiver failed');
+      }
       setWaiving(false);
       setWaiveReason('');
       setSelectedWaiveCourseIds([]);
       await fetchInvoices(true);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Waiver failed');
     } finally {
       setWaiveSubmitting(false);
     }
   };
 
   const handleCollectPayment = async () => {
+    if (!canCollectPayment) return;
+
     const amountToCollect = paymentAmount
       ? Math.min(Number(paymentAmount), effectiveNetDue)
       : effectiveNetDue;
     if (amountToCollect <= 0) return;
+
     const pdfWindow = window.open('', '_blank');
     if (pdfWindow && !pdfWindow.closed) {
       pdfWindow.document.title = 'Loading invoice';
       pdfWindow.document.body.innerHTML =
         '<div style="font-family: sans-serif; padding: 24px; color: #0f172a;">Preparing invoice PDF...</div>';
     }
+
     setSaving(true);
+    setSubmitError('');
     setLastPaidInvoiceId(null);
+
+    const accessBefore = selectedGroup
+      ? enrollments.find((e) => e.programId === selectedGroup.programId)?.accessStatus
+      : undefined;
+
     try {
       let invoiceId: string | null = null;
+      const trimmedTrxId = trxId.trim() || undefined;
+
       if (isSelectedMonthly) {
         const payResult = await processMonthPayment({
           studentUserId: student.id,
           month: selectedMonth,
           discountAmount: discount > 0 ? discount : undefined,
-          payment: { amount: amountToCollect, method },
-        });
-        invoiceId = payResult?.data?.invoice?.id ?? null;
-      } else {
-        let remaining = amountToCollect;
-        const payableInvoices = displayInvoices
-          .map((inv) => ({ invoice: inv, due: Math.max(0, inv.amount - inv.paidAmount) }))
-          .filter((row) => row.due > 0);
-        for (const row of payableInvoices) {
-          if (remaining <= 0) break;
-          const amount = Math.min(remaining, row.due);
-          const payResult = await createPayment({
-            invoiceId: row.invoice.id,
+          payment: {
+            amount: amountToCollect,
             method,
-            amount,
-          });
-          const paymentData = payResult.data as
-            | {
-                duePaymentInvoice?: { id?: string };
-                payment?: { invoiceId?: string };
-                sourceInvoice?: { id?: string };
-              }
-            | undefined;
-          invoiceId =
-            paymentData?.duePaymentInvoice?.id ??
-            paymentData?.payment?.invoiceId ??
-            paymentData?.sourceInvoice?.id ??
-            row.invoice.id;
-          remaining = Math.max(0, remaining - amount);
+            trxId: trimmedTrxId,
+          },
+        });
+        if (!payResult.success) {
+          throw new Error((payResult as { message?: string }).message ?? 'Monthly payment failed');
         }
+        invoiceId = payResult.data?.invoice?.id ?? null;
+      } else if (selectedGroup) {
+        invoiceId = await payOneTimeWithFallback({
+          studentId: student.id,
+          programId: selectedGroup.programId,
+          amount: amountToCollect,
+          method,
+          trxId: trimmedTrxId,
+          displayInvoices,
+        });
       }
+
       setPaymentAmount('');
       await fetchInvoices(true);
+
+      const enrollRes = await getEnrollments({ studentUserId: student.id, limit: 50 });
+      const updatedEnrollments =
+        enrollRes.success && enrollRes.data ? enrollRes.data.map(toLocalEnrollment) : [];
+      const programEnrollment = selectedGroup
+        ? updatedEnrollments.find((e) => e.programId === selectedGroup.programId)
+        : undefined;
+      const accessStatus = programEnrollment?.accessStatus;
+
       if (invoiceId) {
         setLastPaidInvoiceId(invoiceId);
         await openInvoicePdfInWindow(invoiceId, pdfWindow);
       } else if (pdfWindow && !pdfWindow.closed) {
         pdfWindow.close();
       }
-      onSave({ student, month: selectedMonth, method, amount: amountToCollect });
+
+      onSave({
+        student,
+        method,
+        amount: amountToCollect,
+        billingType: selectedGroup?.billingType ?? (isSelectedMonthly ? 'MONTHLY' : 'ONE_TIME'),
+        month: selectedMonth || undefined,
+        programName: selectedGroup?.programName,
+        accessStatus:
+          accessStatus && accessStatus !== accessBefore ? accessStatus : undefined,
+      });
     } catch (error) {
       if (pdfWindow && !pdfWindow.closed) pdfWindow.close();
-      throw error;
+      setSubmitError(error instanceof Error ? error.message : 'Payment failed');
     } finally {
       setSaving(false);
     }
@@ -494,6 +624,10 @@ export function useCollectPaymentModal({ student, onSave }: CollectPaymentModalP
     selectedGroupKey,
     method,
     setMethod,
+    trxId,
+    setTrxId,
+    trxIdRequired,
+    trxIdValid,
     addDiscount,
     setAddDiscount,
     paymentAmount,
@@ -501,6 +635,7 @@ export function useCollectPaymentModal({ student, onSave }: CollectPaymentModalP
     invoices,
     loadingInvoices,
     fetchError,
+    submitError,
     saving,
     pdfLoading,
     lastPaidInvoiceId,
@@ -525,6 +660,7 @@ export function useCollectPaymentModal({ student, onSave }: CollectPaymentModalP
     selectedMonth,
     isSelectedMonthly,
     selectedProgramNames,
+    enrollmentMonthlyDiscount,
     billingRangeSummaries,
     totalPayable,
     totalAlreadyPaid,
@@ -544,6 +680,9 @@ export function useCollectPaymentModal({ student, onSave }: CollectPaymentModalP
     effectiveCourseDue,
     payableAfterCourseWaiver,
     waiverCreatesSettlement,
+    nextInstallmentDue,
+    collectBlockedByWaiver,
+    canCollectPayment,
     admissionDue,
     auditTrail,
     selectInvoiceGroup,

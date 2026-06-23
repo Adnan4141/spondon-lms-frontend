@@ -4,8 +4,24 @@ import { cn } from '@/lib/utils';
 import { fmt, fmtMonth } from '../utils';
 import { StudentAdminBadge as AppBadge } from '../components/StudentAdminBadge';
 import type { InvoiceGroup } from './collect-payment-modal-utils';
-import { getMonthAggStatus, statusBadgeColor, statusLabel } from './collect-payment-modal-utils';
+import { getMonthAggStatus, parseInstallmentInfo, statusBadgeColor, statusLabel } from './collect-payment-modal-utils';
 import type { CollectPaymentModalController } from './hooks/useCollectPaymentModal';
+
+function getGroupInstallmentHint(group: InvoiceGroup): string | null {
+  if (group.billingType !== 'ONE_TIME') return null;
+  const dueItems = group.invoices
+    .flatMap((inv) => inv.items ?? [])
+    .filter((item) => item.type === 'COURSE')
+    .map((item) => ({
+      inst: parseInstallmentInfo(item),
+      due: Number(item.dueAmount ?? Math.max(0, Number(item.payableAmount ?? item.unitPrice * item.qty) - Number(item.paidAmount ?? 0))),
+    }))
+    .filter((row) => row.inst && row.due > 0);
+  if (dueItems.length === 0) return null;
+  const minNumber = Math.min(...dueItems.map((row) => row.inst!.number));
+  const total = dueItems.find((row) => row.inst!.number === minNumber)?.inst?.total ?? minNumber;
+  return `Inst ${minNumber}/${total} due`;
+}
 
 export function CollectPaymentInvoiceGroupButton({
   ctrl,
@@ -17,6 +33,7 @@ export function CollectPaymentInvoiceGroupButton({
   const { selectedGroupKey, selectInvoiceGroup } = ctrl;
   const aggStatus = getMonthAggStatus(group.invoices);
   const due = group.invoices.reduce((sum, inv) => sum + Math.max(0, inv.amount - inv.paidAmount), 0);
+  const installmentHint = getGroupInstallmentHint(group);
   const label =
     group.billingType === 'MONTHLY'
       ? `${group.programName} · ${group.month ? fmtMonth(group.month) : 'Monthly'}`
@@ -42,6 +59,11 @@ export function CollectPaymentInvoiceGroupButton({
       <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] font-black text-rose-600">
         Due {fmt(due)}
       </span>
+      {installmentHint && (
+        <span className="rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-black text-violet-700">
+          {installmentHint}
+        </span>
+      )}
       <AppBadge label={statusLabel(aggStatus)} color={statusBadgeColor[aggStatus] ?? 'red'} />
     </button>
   );

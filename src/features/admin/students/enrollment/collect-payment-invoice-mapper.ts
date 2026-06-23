@@ -40,6 +40,8 @@ type ApiInvoice = {
     waivedByUserId?: string | null;
     waivedAt?: string | null;
     allocationPriority?: number;
+    installmentNumber?: number | null;
+    totalInstallments?: number | null;
   }[];
 };
 
@@ -82,6 +84,8 @@ export function mapApiInvoicesToLocal(
       waivedByUserId: item.waivedByUserId ?? null,
       waivedAt: item.waivedAt ?? null,
       allocationPriority: item.allocationPriority,
+      installmentNumber: item.installmentNumber ?? null,
+      totalInstallments: item.totalInstallments ?? null,
     }));
     const courseMetas = (items ?? [])
       .filter((item) => item.type === 'COURSE' && item.refId)

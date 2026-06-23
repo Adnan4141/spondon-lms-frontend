@@ -118,6 +118,8 @@ export interface Invoice {
     waivedByUserId?: string | null;
     waivedAt?: string | null;
     allocationPriority?: number;
+    installmentNumber?: number | null;
+    totalInstallments?: number | null;
   }[];
 }
 

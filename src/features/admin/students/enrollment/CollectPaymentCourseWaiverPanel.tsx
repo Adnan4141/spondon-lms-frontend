@@ -81,13 +81,16 @@ export function CollectPaymentCourseWaiverPanel({ ctrl }: { ctrl: CollectPayment
               </div>
               <div className="mt-2 rounded-lg border border-purple-100 bg-white px-2.5 py-2 text-[11px] font-semibold text-slate-600 space-y-1">
                 <div className="flex justify-between gap-3">
-                  <span>Selected waiver</span>
+                  <span>Selected waiver (preview)</span>
                   <span className="shrink-0 text-purple-700">{fmt(selectedWaiverAmount)}</span>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <span>Remaining payable after waiver</span>
+                  <span>Due after confirmed waiver</span>
                   <span className="shrink-0">{fmt(payableAfterCourseWaiver)}</span>
                 </div>
+                <p className="text-[10px] font-medium text-purple-700">
+                  Due amount above does not change until you confirm the waiver.
+                </p>
                 <div className="flex justify-between gap-3">
                   <span className="shrink-0">Result</span>
                   <span className="min-w-0 text-right">

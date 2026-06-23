@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useToast } from '@/hooks/use-toast';
+import { formatCollectPaymentSuccessMessage } from '@/features/admin/students/enrollment/collect-payment-modal-utils';
 import type { AddStudentSaveMeta } from '@/features/admin/students/modals/AddStudentModal';
 import type { StudentsPageActions } from '@/features/admin/students/hooks/useStudentsPageActions';
 import type { StudentsPageData } from '@/features/admin/students/hooks/useStudentsPageData';
@@ -105,10 +106,11 @@ export function StudentsPageModals({ data, actions }: Props) {
           onClose={closeModal}
           onSave={(paymentData) => {
             closeModal();
-            showToast(
-              `${fmt(paymentData.amount)} collected via ${paymentData.method} for ${fmtMonth(paymentData.month)}`,
-              'success',
-            );
+            const message = formatCollectPaymentSuccessMessage(paymentData, fmt, fmtMonth);
+            const accessNote = paymentData.accessStatus
+              ? ` Access: ${paymentData.accessStatus.replace(/_/g, ' ')}.`
+              : '';
+            showToast(`${message}.${accessNote}`, 'success');
           }}
         />
       )}
