@@ -85,7 +85,7 @@ export interface ExamWizardState {
   productType: ExamProductType | '';
   /** Published exam category (practice, scheduled, talent hunt, etc.). */
   examType: ExamType;
-  /** COURSE = branch/batch enrollment; GLOBAL = any enrolled student in linked courses. */
+  /** Always course enrollment — students in selected course(s), optionally filtered by branch/batch. */
   scope: ExamScope;
   /** Shown for UNIVERSITY exams. */
   universityName: string;
@@ -108,8 +108,10 @@ export interface ExamWizardState {
   defaultNegativeMarks: number;
 
   title: string;
-  /** Single required course (enrollment scope). */
+  /** Primary course — DB `courseId`, branch/batch scope, and SMS audience. */
   courseId: string;
+  /** Additional audience courses (stored in `ExamCourse`; excludes `courseId`). */
+  linkedCourseIds: string[];
   branchId: string;
   /** Optional batch scope — all batches when sentinel value. */
   batchId: string;

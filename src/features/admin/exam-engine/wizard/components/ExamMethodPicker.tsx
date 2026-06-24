@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { cn } from '@/lib/utils';
 import type { ExamProductType } from '../../types';
 import { EXAM_PRODUCT_TYPES } from '../constants';
+import { wizardCardClass } from '../examWizardPageUi';
 
 type Props = {
   value: ExamProductType | '';
@@ -26,14 +27,14 @@ export function ExamMethodPicker({ value, invalid, onChange }: Props) {
   } as const;
 
   return (
-    <Card className="border-slate-200 shadow-sm">
-      <CardHeader>
+    <Card className={wizardCardClass}>
+      <CardHeader className="border-b border-slate-100 bg-slate-50/30">
         <CardTitle className="font-serif text-lg text-[#0D1B35]">Exam type</CardTitle>
         <CardDescription>
           Pick what students will answer. Mode, OMR, result-entry, and SMS are configured in the steps that follow.
         </CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-3 sm:grid-cols-2">
+      <CardContent className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-4">
         {EXAM_PRODUCT_TYPES.map((productType) => {
           const Icon = iconMap[productType.id];
           const active = value === productType.id;
@@ -43,7 +44,7 @@ export function ExamMethodPicker({ value, invalid, onChange }: Props) {
               type="button"
               onClick={() => onChange(productType.id)}
               className={cn(
-                'min-h-36 rounded-lg border bg-white p-4 text-left transition-all hover:border-[#C8A96E] hover:bg-[#FBF4E6]/60',
+                'min-h-32 rounded-xl border bg-white p-4 text-left transition-all hover:border-[#C8A96E] hover:bg-[#FBF4E6]/60',
                 active && 'border-[#0D1B35] bg-[#0D1B35]/[0.04] shadow-[0_0_0_3px_rgba(13,27,53,0.06)]',
                 invalid && !value && 'ring-2 ring-rose-200',
               )}

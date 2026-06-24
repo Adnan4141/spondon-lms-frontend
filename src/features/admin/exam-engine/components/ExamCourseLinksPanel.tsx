@@ -92,11 +92,11 @@ export function ExamCourseLinksPanel({ examId, primaryCourseId, primaryCourseNam
       <CardHeader>
         <CardTitle className="font-serif text-lg text-[#0D1B35] flex items-center gap-2">
           <Link2 className="h-5 w-5 text-indigo-600" />
-          Linked courses
+          Audience courses
         </CardTitle>
         <CardDescription>
-          Primary course: <span className="font-semibold text-slate-800">{primaryCourseName ?? primaryCourseId}</span>.
-          Add extra courses so their enrolled students also see this exam (leaderboard & enrollment scope).
+          Content course: <span className="font-semibold text-slate-800">{primaryCourseName ?? primaryCourseId}</span>.
+          Manage additional audience courses here, or edit them in the exam wizard Audience section.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -107,7 +107,7 @@ export function ExamCourseLinksPanel({ examId, primaryCourseId, primaryCourseNam
         ) : (
           <>
             {extraLinks.length === 0 ? (
-              <p className="text-sm text-slate-500">No extra courses linked yet.</p>
+              <p className="text-sm text-slate-500">No additional audience courses linked.</p>
             ) : (
               <ul className="divide-y divide-slate-100 rounded-lg border border-slate-100">
                 {extraLinks.map((row) => (
@@ -129,7 +129,7 @@ export function ExamCourseLinksPanel({ examId, primaryCourseId, primaryCourseNam
             )}
 
             <div className="space-y-2">
-              <Label>Add linked course</Label>
+              <Label>Add audience course</Label>
               <div className="flex flex-wrap gap-2">
                 <SearchableSelect
                   options={addOptions}

@@ -109,6 +109,9 @@ export function buildWizardPatchFromExam(exam: Exam): Partial<ExamWizardState> {
   return {
     title: exam.title,
     courseId: exam.courseId,
+    linkedCourseIds: (exam.examCourses ?? [])
+      .map((row) => row.courseId)
+      .filter((id) => id && id !== exam.courseId),
     branchId: exam.branchId ?? EXAM_WIZARD_ALL_BRANCHES,
     batchId: exam.batchId ?? EXAM_WIZARD_ALL_BATCHES,
     syllabusHtml: exam.syllabusHtml ?? '',
@@ -130,7 +133,7 @@ export function buildWizardPatchFromExam(exam: Exam): Partial<ExamWizardState> {
     setNaming: (wizard?.setNaming as ExamWizardState['setNaming']) ?? 'ALPHA',
     productType,
     examType: exam.type ?? 'MODEL',
-    scope: exam.scope ?? 'COURSE',
+    scope: 'COURSE',
     universityName: exam.universityName ?? '',
     omrConfig,
     resultInputModes: rawResultModes,

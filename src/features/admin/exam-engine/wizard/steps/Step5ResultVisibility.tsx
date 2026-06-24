@@ -1,6 +1,5 @@
 'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { DatePicker } from '@/components/ui/date-picker';
@@ -8,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import type { ExamWizardState, SolveSheetVisibility } from '../../types';
 import type { WizardFormAction } from '../examWizardReducer';
+import { WizardStepCard } from '../components/WizardStepCard';
 import { ResultInputModeSelector } from '../components/ResultInputModeSelector';
 import { SmsNotificationCard } from '../components/SmsNotificationCard';
 
@@ -66,52 +66,49 @@ export function Step5ResultVisibility({ state, dispatch, deliveryMode }: Props) 
     <div className="space-y-4">
       <ResultInputModeSelector state={state} dispatch={dispatch} deliveryMode={deliveryMode} />
 
-      <Card className="border-slate-200 shadow-sm">
-        <CardHeader>
-          <CardTitle className="font-serif text-lg text-[#0D1B35]">Result visibility</CardTitle>
-          <CardDescription>Control what students see after they submit.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex items-center justify-between rounded-lg border border-slate-100 p-3">
-            <div>
-              <span className="text-sm font-semibold text-slate-900">Show leaderboard</span>
-              <p className="text-[11px] text-slate-500">Public ranking after submission.</p>
-            </div>
-            <Switch
-              checked={state.showLeaderboard}
-              onCheckedChange={(v) => dispatch({ type: 'MERGE', patch: { showLeaderboard: v } })}
-            />
+      <WizardStepCard
+        title="Result visibility"
+        description="Control what students see after they submit."
+        contentClassName="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
+      >
+        <div className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/40 p-3">
+          <div>
+            <span className="text-sm font-semibold text-slate-900">Show leaderboard</span>
+            <p className="text-[11px] text-slate-500">Public ranking after submission.</p>
           </div>
-          <div className="flex items-center justify-between rounded-lg border border-slate-100 p-3">
-            <div>
-              <span className="text-sm font-semibold text-slate-900">Hide result immediately</span>
-              <p className="text-[11px] text-slate-500">Withhold the marks until manually released.</p>
-            </div>
-            <Switch
-              checked={state.hideResult}
-              onCheckedChange={(v) => dispatch({ type: 'MERGE', patch: { hideResult: v } })}
-            />
+          <Switch
+            checked={state.showLeaderboard}
+            onCheckedChange={(v) => dispatch({ type: 'MERGE', patch: { showLeaderboard: v } })}
+          />
+        </div>
+        <div className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/40 p-3">
+          <div>
+            <span className="text-sm font-semibold text-slate-900">Hide result immediately</span>
+            <p className="text-[11px] text-slate-500">Withhold the marks until manually released.</p>
           </div>
-          <div className="flex items-center justify-between rounded-lg border border-slate-100 p-3">
-            <div>
-              <span className="text-sm font-semibold text-slate-900">Show percentile</span>
-              <p className="text-[11px] text-slate-500">Compare each student against the cohort.</p>
-            </div>
-            <Switch
-              checked={state.showPct}
-              onCheckedChange={(v) => dispatch({ type: 'MERGE', patch: { showPct: v } })}
-            />
+          <Switch
+            checked={state.hideResult}
+            onCheckedChange={(v) => dispatch({ type: 'MERGE', patch: { hideResult: v } })}
+          />
+        </div>
+        <div className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/40 p-3 sm:col-span-2 xl:col-span-1">
+          <div>
+            <span className="text-sm font-semibold text-slate-900">Show percentile</span>
+            <p className="text-[11px] text-slate-500">Compare each student against the cohort.</p>
           </div>
-        </CardContent>
-      </Card>
+          <Switch
+            checked={state.showPct}
+            onCheckedChange={(v) => dispatch({ type: 'MERGE', patch: { showPct: v } })}
+          />
+        </div>
+      </WizardStepCard>
 
-      <Card className="border-slate-200 shadow-sm">
-        <CardHeader>
-          <CardTitle className="font-serif text-lg text-[#0D1B35]">Solve sheet release</CardTitle>
-          <CardDescription>When students should see the explained answer sheet.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid gap-2 sm:grid-cols-3">
+      <WizardStepCard
+        title="Solve sheet release"
+        description="When students should see the explained answer sheet."
+        accent="emerald"
+      >
+        <div className="grid gap-2 sm:grid-cols-3">
             {SOLVE_OPTIONS.map((option) => {
               const active = state.solveVisibility === option.id;
               return (
@@ -150,8 +147,7 @@ export function Step5ResultVisibility({ state, dispatch, deliveryMode }: Props) 
               </div>
             </div>
           ) : null}
-        </CardContent>
-      </Card>
+      </WizardStepCard>
 
       <SmsNotificationCard state={state} dispatch={dispatch} />
     </div>

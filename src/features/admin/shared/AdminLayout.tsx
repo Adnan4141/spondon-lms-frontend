@@ -24,9 +24,16 @@ function BulkImportDockGate() {
   return <BulkImportProgressDock />;
 }
 
+function isExamFullBleedRoute(pathname: string | null): boolean {
+  if (!pathname) return false;
+  if (pathname === '/admin/exam/new') return true;
+  return pathname.startsWith('/admin/exam/') && pathname !== '/admin/exam';
+}
+
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAuditPage = pathname === '/admin/audit';
+  const isExamFullBleed = isExamFullBleedRoute(pathname);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -71,6 +78,8 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               <div className="w-full min-w-0 px-3 py-4 sm:px-4 sm:py-5 lg:px-5 lg:py-6">
                 {children}
               </div>
+            ) : isExamFullBleed ? (
+              <div className="w-full min-w-0 max-w-full">{children}</div>
             ) : (
               <div className="mx-auto max-w-[1600px] px-6 py-8 lg:px-10 lg:py-12">
                 <div className="group relative">

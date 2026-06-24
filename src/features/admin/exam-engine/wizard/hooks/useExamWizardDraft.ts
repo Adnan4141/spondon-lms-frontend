@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getActorUserIdFromStorage } from '@/lib/actor-user';
 import type { ExamWizardState } from '../../types';
 import type { WizardFormAction } from '../examWizardReducer';
@@ -27,6 +27,16 @@ export function useExamWizardDraft({ examId, state, step, dispatch, onHydratedSt
   const userId = useMemo(() => getActorUserIdFromStorage() ?? 'anon', []);
   const storageKey = useMemo(() => draftStorageKey(examId, `${userId}:new`), [examId, userId]);
   const hydratedRef = useRef(false);
+  const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
+
+  const clearDraft = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.removeItem(storageKey);
+    } catch {
+      /* ignore */
+    }
+  }, [storageKey]);
 
   useEffect(() => {
     if (examId || hydratedRef.current) return;
@@ -38,6 +48,7 @@ export function useExamWizardDraft({ examId, state, step, dispatch, onHydratedSt
     if (!draft) return;
     const { step: savedStep, ...rest } = draft;
     dispatch({ type: 'MERGE', patch: rest });
+    setHasRestoredDraft(true);
     if (onHydratedStep) onHydratedStep(savedStep);
   }, [dispatch, examId, onHydratedStep, storageKey]);
 
@@ -55,13 +66,8 @@ export function useExamWizardDraft({ examId, state, step, dispatch, onHydratedSt
   }, [examId, state, step, storageKey]);
 
   return {
-    clearDraft: () => {
-      if (typeof window === 'undefined') return;
-      try {
-        window.localStorage.removeItem(storageKey);
-      } catch {
-        /* ignore */
-      }
-    },
+    clearDraft,
+    hasRestoredDraft,
+    dismissRestoredDraftBanner: () => setHasRestoredDraft(false),
   };
 }

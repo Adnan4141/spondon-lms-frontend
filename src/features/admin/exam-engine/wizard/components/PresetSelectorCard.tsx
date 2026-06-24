@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import type { ExamBlueprintPreset } from '@/lib/api/exams';
+import { wizardCardClass } from '../examWizardPageUi';
 
 type Props = {
   presets: ExamBlueprintPreset[];
@@ -51,8 +52,8 @@ export function PresetSelectorCard({
   onApplyPreset,
 }: Props) {
   return (
-    <Card className="border-slate-200 shadow-sm">
-      <CardHeader>
+    <Card className={wizardCardClass}>
+      <CardHeader className="border-b border-slate-100 bg-slate-50/30">
         <CardTitle className="font-serif text-base text-[#0D1B35]">Start from preset</CardTitle>
         <CardDescription>Reuse a saved setup or begin with a blank exam.</CardDescription>
       </CardHeader>

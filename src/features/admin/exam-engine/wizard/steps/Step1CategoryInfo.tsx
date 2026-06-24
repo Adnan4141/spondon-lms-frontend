@@ -6,9 +6,8 @@ import type { ExamBlueprintPreset } from '@/lib/api/exams';
 import type { ExamProductType, ExamWizardState } from '../../types';
 import type { WizardFormAction } from '../examWizardReducer';
 import type { Step1FieldKey } from '../validateWizardStep';
-import { ExamClassificationCard } from '../components/ExamClassificationCard';
+import { AudienceCard } from '../components/AudienceCard';
 import { BasicExamInfoForm } from '../components/BasicExamInfoForm';
-import { DeliveryModeCard } from '../components/DeliveryModeCard';
 import { ExamMethodPicker } from '../components/ExamMethodPicker';
 import { OmrSheetConfigCard } from '../components/OmrSheetConfigCard';
 import { PresetSelectorCard } from '../components/PresetSelectorCard';
@@ -29,7 +28,6 @@ type Props = {
   clearFieldError: (key: Step1FieldKey) => void;
   onStartBlank: () => void;
   onApplyPreset: (presetId: string) => void;
-  onCourseSelect: (course: Course) => void;
   wizardVariant?: 'admin' | 'teacher';
 };
 
@@ -48,7 +46,6 @@ export function Step1CategoryInfo({
   clearFieldError,
   onStartBlank,
   onApplyPreset,
-  onCourseSelect,
   wizardVariant = 'admin',
 }: Props) {
   return (
@@ -62,16 +59,26 @@ export function Step1CategoryInfo({
         onApplyPreset={onApplyPreset}
       />
 
-      <BasicExamInfoForm
-        state={state}
-        dispatch={dispatch}
-        courses={courses}
-        branches={branches}
-        deliveryMode={deliveryMode}
-        fieldErrors={fieldErrors}
-        clearFieldError={clearFieldError}
-        onCourseSelect={onCourseSelect}
-      />
+      <div className="grid gap-4 xl:grid-cols-2">
+        <BasicExamInfoForm
+          state={state}
+          dispatch={dispatch}
+          deliveryMode={deliveryMode}
+          courses={courses}
+          allowedExamTypes={wizardVariant === 'teacher' ? ['MODEL', 'PRACTICE', 'SCHEDULED'] : undefined}
+          fieldErrors={fieldErrors}
+          clearFieldError={clearFieldError}
+        />
+
+        <AudienceCard
+          state={state}
+          dispatch={dispatch}
+          courses={courses}
+          branches={branches}
+          fieldErrors={fieldErrors}
+          clearFieldError={clearFieldError}
+        />
+      </div>
 
       <ExamMethodPicker
         value={state.productType}
@@ -80,21 +87,6 @@ export function Step1CategoryInfo({
           clearFieldError('productType');
           onSelectProductType(productType);
         }}
-      />
-
-      <DeliveryModeCard
-        courseId={state.courseId}
-        courses={courses}
-        deliveryMode={deliveryMode}
-        productType={state.productType}
-        dispatch={dispatch}
-      />
-
-      <ExamClassificationCard
-        state={state}
-        dispatch={dispatch}
-        restrictGlobalScope={wizardVariant === 'teacher'}
-        allowedExamTypes={wizardVariant === 'teacher' ? ['MODEL', 'PRACTICE', 'SCHEDULED'] : undefined}
       />
 
       <OmrSheetConfigCard state={state} dispatch={dispatch} deliveryMode={deliveryMode} />

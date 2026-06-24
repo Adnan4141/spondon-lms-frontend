@@ -662,9 +662,7 @@ export function Step3QuestionBank({
               {renderTreeControls()}
             </CardHeader>
             <CardContent className="p-3">
-              {!state.courseId ? (
-                <p className="p-8 text-center text-xs text-slate-400 italic">Select at least one course in step 1 to load folders.</p>
-              ) : folderLoading ? (
+              {folderLoading ? (
                 <p className="p-8 text-center text-xs text-slate-400 italic animate-pulse">Loading folders…</p>
               ) : (
                 <div className="max-h-[min(420px,55vh)] overflow-y-auto rounded-xl border border-slate-100 bg-white p-2">
@@ -967,9 +965,7 @@ export function Step3QuestionBank({
             {renderTreeControls()}
           </CardHeader>
           <CardContent className="p-3">
-            {!state.courseId ? (
-              <p className="p-8 text-center text-xs text-slate-400 italic">Select a course in step 1 to load folders.</p>
-            ) : folderLoading ? (
+            {folderLoading ? (
               <p className="p-8 text-center text-xs text-slate-400 italic animate-pulse">Loading folders…</p>
             ) : (
               <div className="max-h-[min(400px,50vh)] overflow-y-auto rounded-xl border border-slate-100 bg-white p-2">

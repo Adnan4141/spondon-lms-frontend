@@ -7,9 +7,12 @@ import {
   deleteExamSubject,
   generateFromSubjects,
   generateSectionSets,
+  getExamCourseLinks,
   getExamSections,
   getExamSubjects,
+  linkExamCourse,
   regenerateSolveSheet,
+  unlinkExamCourse,
   updateExam,
   validateExamSubjects,
   validateSectionGeneration,
@@ -65,7 +68,7 @@ export function useExamPersistence({ examId, state, serverExam, teacherUserId }:
         batchId: batchResolved ?? undefined,
         title: state.title.trim(),
         type: state.examType,
-        scope: state.scope,
+        scope: 'COURSE',
         mode: mapToExamMode(productType, state.deliveryMode),
         examEngine: resolveExamEngine(productType, state.examType, isOmrBook && state.deliveryMode === 'OFFLINE'),
         universityName: state.examType === 'UNIVERSITY' ? state.universityName.trim() || null : null,
@@ -111,6 +114,9 @@ export function useExamPersistence({ examId, state, serverExam, teacherUserId }:
         }
         if (!id) return null;
 
+        const linksSynced = await syncExamCourseLinks(id, state.courseId, state.linkedCourseIds, toast);
+        if (!linksSynced) return null;
+
         if (state.productType === 'MULTI') {
           const ok = await persistMultiSubjects(id, state, finalize, toast);
           if (!ok) return null;
@@ -155,6 +161,54 @@ export function useExamPersistence({ examId, state, serverExam, teacherUserId }:
   );
 
   return { persistExam };
+}
+
+async function syncExamCourseLinks(
+  examId: string,
+  contentCourseId: string,
+  linkedCourseIds: string[],
+  toast: ReturnType<typeof useAdminToast>,
+): Promise<boolean> {
+  const desired = Array.from(new Set(linkedCourseIds.filter((id) => id && id !== contentCourseId)));
+  const existingRes = await getExamCourseLinks(examId);
+  if (!existingRes.success) {
+    toast({
+      title: 'Course links failed',
+      description: existingRes.message ?? 'Could not load linked courses.',
+      variant: 'destructive',
+    });
+    return false;
+  }
+  const existing = (existingRes.data ?? [])
+    .map((row) => row.courseId)
+    .filter((id) => id !== contentCourseId);
+
+  const toAdd = desired.filter((id) => !existing.includes(id));
+  const toRemove = existing.filter((id) => !desired.includes(id));
+
+  for (const courseId of toAdd) {
+    const res = await linkExamCourse(examId, courseId);
+    if (!res.success) {
+      toast({
+        title: 'Could not link course',
+        description: res.message ?? `Failed to link course ${courseId}.`,
+        variant: 'destructive',
+      });
+      return false;
+    }
+  }
+  for (const courseId of toRemove) {
+    const res = await unlinkExamCourse(examId, courseId);
+    if (!res.success) {
+      toast({
+        title: 'Could not unlink course',
+        description: res.message ?? `Failed to unlink course ${courseId}.`,
+        variant: 'destructive',
+      });
+      return false;
+    }
+  }
+  return true;
 }
 
 async function persistMultiSubjects(

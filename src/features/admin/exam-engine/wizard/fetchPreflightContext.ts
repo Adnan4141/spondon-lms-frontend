@@ -11,7 +11,7 @@ export async function fetchPreflightContext(state: ExamWizardState): Promise<Pre
       courseId: state.courseId,
       branchId: resolveWizardBranchIdForApi(state.branchId),
       batchId: resolveWizardBatchIdForApi(state.batchId),
-      scope: state.scope,
+      scope: 'COURSE',
     });
     if (!res.success || !res.data) return {};
     return {

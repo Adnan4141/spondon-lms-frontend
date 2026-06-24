@@ -14,12 +14,15 @@ import {
 } from '../types';
 import { EXAM_WIZARD_ALL_BATCHES, SEC_TYPES } from './constants';
 import { defaultSectionsFor, newLocalId } from './wizardHelpers';
+import { patchContentCourse, patchFromAudienceCourseIds } from './audienceHelpers';
 
 export type WizardFormAction =
   | { type: 'MERGE'; patch: Partial<ExamWizardState> }
   | { type: 'SET_STEP'; step: number }
   | { type: 'HYDRATE'; state: ExamWizardState }
   | { type: 'SET_COURSE'; courseId: string }
+  | { type: 'SET_AUDIENCE_COURSES'; courseIds: string[]; contentCourseId?: string }
+  | { type: 'SET_CONTENT_COURSE'; courseId: string }
   | { type: 'SET_DELIVERY_MODE'; deliveryMode: 'ONLINE' | 'OFFLINE' }
   | { type: 'APPLY_PRODUCT_TYPE'; productType: ExamProductType }
   | { type: 'SET_RESULT_INPUT_MODES'; modes: ExamWizardState['resultInputModes']; userEdited?: boolean }
@@ -88,11 +91,27 @@ export function examWizardReducer(state: ExamWizardState, action: WizardFormActi
       return { ...action.state };
     case 'SET_COURSE': {
       const courseChanged = state.courseId && state.courseId !== action.courseId;
+      const linkedCourseIds = state.linkedCourseIds.filter((id) => id !== action.courseId);
       return {
         ...state,
         courseId: action.courseId,
+        linkedCourseIds,
         ...(courseChanged ? { batchId: EXAM_WIZARD_ALL_BATCHES } : {}),
       };
+    }
+    case 'SET_AUDIENCE_COURSES': {
+      const audiencePatch = patchFromAudienceCourseIds(state, action.courseIds, action.contentCourseId);
+      const courseChanged = state.courseId && audiencePatch.courseId !== state.courseId;
+      return {
+        ...state,
+        ...audiencePatch,
+        ...(courseChanged ? { batchId: EXAM_WIZARD_ALL_BATCHES } : {}),
+      };
+    }
+    case 'SET_CONTENT_COURSE': {
+      const contentPatch = patchContentCourse(state, action.courseId);
+      if (!contentPatch) return state;
+      return { ...state, ...contentPatch };
     }
     case 'SET_DELIVERY_MODE':
       if (action.deliveryMode === state.deliveryMode) return state;

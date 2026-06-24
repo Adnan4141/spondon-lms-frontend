@@ -3,7 +3,6 @@
 import { useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
   SelectContent,
@@ -13,19 +12,20 @@ import {
 } from '@/components/ui/select';
 import type { ExamWizardState } from '../../types';
 import type { WizardFormAction } from '../examWizardReducer';
+import { WizardStepCard } from '../components/WizardStepCard';
 
 type Props = {
   state: ExamWizardState;
   dispatch: React.Dispatch<WizardFormAction>;
 };
 
-type ShuffleOption = { id: string; label: string; mcqOnly?: boolean };
+type ShuffleOption = { id: string; label: string; hint: string; mcqOnly?: boolean };
 
 const SHUFFLE_OPTIONS: ShuffleOption[] = [
-  { id: 'FULL', label: 'Full random' },
-  { id: 'ORDER', label: 'Same Q, shuffle order' },
-  { id: 'OPTS', label: 'Shuffle options only', mcqOnly: true },
-  { id: 'MIXED', label: 'Mixed', mcqOnly: true },
+  { id: 'FULL', label: 'Full random', hint: 'Questions and options vary per set.' },
+  { id: 'ORDER', label: 'Same Q, shuffle order', hint: 'Same pool, different sequence.' },
+  { id: 'OPTS', label: 'Shuffle options only', hint: 'MCQ answer positions change.', mcqOnly: true },
+  { id: 'MIXED', label: 'Mixed', hint: 'Blend order and option shuffles.', mcqOnly: true },
 ];
 
 export function Step4SetsPdf({ state, dispatch }: Props) {
@@ -34,36 +34,40 @@ export function Step4SetsPdf({ state, dispatch }: Props) {
     () => SHUFFLE_OPTIONS.filter((opt) => !opt.mcqOnly || !writtenOnly),
     [writtenOnly],
   );
+  const activeShuffle = visibleShuffles.find((opt) => opt.id === state.shuffle) ?? visibleShuffles[0];
+  const setCount = Number(state.nSets) || 1;
 
   return (
-    <Card className="border-slate-200 shadow-sm">
-      <CardHeader>
-        <CardTitle className="font-serif text-lg text-[#0D1B35]">Sets & shuffle</CardTitle>
-        <CardDescription>
-          {writtenOnly
-            ? 'Written exams shuffle only question order — option shuffling is not applicable.'
-            : 'Choose how many sets to generate and how to vary them.'}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-4 md:grid-cols-3">
-        <div className="space-y-2">
-          <Label>Number of sets</Label>
+    <WizardStepCard
+      title="Sets & shuffle"
+      description={
+        writtenOnly
+          ? 'Written exams shuffle only question order — option shuffling is not applicable.'
+          : 'Choose how many sets to generate and how to vary them.'
+      }
+      contentClassName="space-y-5"
+      accent="gold"
+    >
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="space-y-2 rounded-xl border border-slate-100 bg-slate-50/50 p-3">
+          <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Number of sets</Label>
           <Input
             type="number"
             min={1}
             max={26}
             value={state.nSets}
             onChange={(e) => dispatch({ type: 'MERGE', patch: { nSets: e.target.value } })}
-            className="border-slate-200"
+            className="border-slate-200 bg-white"
           />
+          <p className="text-[11px] text-slate-400">Up to 26 sets (A–Z).</p>
         </div>
-        <div className="space-y-2">
-          <Label>Shuffle</Label>
+        <div className="space-y-2 rounded-xl border border-slate-100 bg-slate-50/50 p-3">
+          <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Shuffle</Label>
           <Select
-            value={visibleShuffles.some((opt) => opt.id === state.shuffle) ? state.shuffle : visibleShuffles[0].id}
+            value={activeShuffle.id}
             onValueChange={(v) => dispatch({ type: 'MERGE', patch: { shuffle: v } })}
           >
-            <SelectTrigger className="border-slate-200">
+            <SelectTrigger className="border-slate-200 bg-white">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -74,14 +78,15 @@ export function Step4SetsPdf({ state, dispatch }: Props) {
               ))}
             </SelectContent>
           </Select>
+          <p className="text-[11px] text-slate-400">{activeShuffle.hint}</p>
         </div>
-        <div className="space-y-2">
-          <Label>Set naming</Label>
+        <div className="space-y-2 rounded-xl border border-slate-100 bg-slate-50/50 p-3">
+          <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Set naming</Label>
           <Select
             value={state.setNaming}
             onValueChange={(v) => dispatch({ type: 'MERGE', patch: { setNaming: v as ExamWizardState['setNaming'] } })}
           >
-            <SelectTrigger className="border-slate-200">
+            <SelectTrigger className="border-slate-200 bg-white">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -90,8 +95,16 @@ export function Step4SetsPdf({ state, dispatch }: Props) {
               <SelectItem value="KA">ক, খ, গ…</SelectItem>
             </SelectContent>
           </Select>
+          <p className="text-[11px] text-slate-400">Labels printed on each set.</p>
         </div>
-      </CardContent>
-    </Card>
+        <div className="flex flex-col justify-center rounded-xl border border-dashed border-slate-200 bg-white p-3">
+          <p className="text-xs font-semibold text-slate-700">Preview</p>
+          <p className="mt-1 text-2xl font-bold text-[#0D1B35]">
+            {setCount} set{setCount === 1 ? '' : 's'}
+          </p>
+          <p className="mt-0.5 text-[11px] text-slate-400">{activeShuffle.label} · PDF generated on finalize</p>
+        </div>
+      </div>
+    </WizardStepCard>
   );
 }

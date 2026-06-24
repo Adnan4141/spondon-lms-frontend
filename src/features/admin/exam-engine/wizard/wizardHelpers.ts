@@ -181,6 +181,7 @@ export const WIZARD_FORM_INITIAL: ExamWizardState = {
   defaultNegativeMarks: 0.25,
   title: '',
   courseId: '',
+  linkedCourseIds: [],
   branchId: EXAM_WIZARD_ALL_BRANCHES,
   batchId: EXAM_WIZARD_ALL_BATCHES,
   syllabusHtml: '',
@@ -254,8 +255,15 @@ export function deserializeWizardForm(json: string): ExamWizardState | null {
     if (base.examType !== 'PRACTICE' && base.examType !== 'SCHEDULED' && base.examType !== 'MODEL' && base.examType !== 'TALENT_HUNT' && base.examType !== 'UNIVERSITY') {
       base.examType = 'MODEL';
     }
-    if (base.scope !== 'GLOBAL') base.scope = 'COURSE';
+    base.scope = 'COURSE';
     if (typeof base.universityName !== 'string') base.universityName = '';
+    if (!Array.isArray(base.linkedCourseIds)) {
+      base.linkedCourseIds = [];
+    } else {
+      base.linkedCourseIds = base.linkedCourseIds.filter(
+        (id): id is string => typeof id === 'string' && id !== base.courseId,
+      );
+    }
     base.subjects = (base.subjects ?? []).map((sub) => ({
       ...sub,
       mcqSingleCount: Number(sub.mcqSingleCount ?? sub.count ?? 0),
@@ -278,4 +286,16 @@ export function deserializeWizardForm(json: string): ExamWizardState | null {
 
 export function draftStorageKey(examId?: string, scope = 'new') {
   return `exam-wizard-draft:${examId ?? scope}`;
+}
+
+/** True when the new-exam wizard has user-entered data worth resetting. */
+export function wizardHasMeaningfulData(state: ExamWizardState): boolean {
+  return Boolean(
+    state.title.trim()
+    || state.courseId
+    || state.linkedCourseIds.length
+    || state.productType
+    || state.sections.length
+    || state.subjects.length,
+  );
 }

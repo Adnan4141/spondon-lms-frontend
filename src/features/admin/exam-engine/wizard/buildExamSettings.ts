@@ -5,7 +5,7 @@ export function buildExamWizardSettings(state: ExamWizardState, productType: Exa
   return {
     productType,
     examType: state.examType,
-    scope: state.scope,
+    scope: 'COURSE' as const,
     deliveryMode: state.deliveryMode,
     shuffle: state.shuffle,
     setNaming: state.setNaming,
@@ -24,7 +24,7 @@ export function buildExamWorkflowSettings(state: ExamWizardState, productType: E
   return {
     productType,
     examType: state.examType,
-    scope: state.scope,
+    scope: 'COURSE' as const,
     deliveryMode: state.deliveryMode,
     resultInputModes: state.resultInputModes,
     evaluationMode: state.deliveryMode === 'OFFLINE' ? ('AGGREGATE' as const) : ('SCRIPT_UPLOAD' as const),
