@@ -432,7 +432,6 @@ export function ExamOverviewPage({ examId }: { examId: string }) {
         <ExamCourseLinksPanel
           examId={examId}
           primaryCourseId={exam.courseId}
-          primaryCourseName={exam.course?.name}
         />
       ) : null}
 

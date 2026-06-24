@@ -15,10 +15,9 @@ import type { Course } from '@/types/course';
 type Props = {
   examId: string;
   primaryCourseId: string;
-  primaryCourseName?: string;
 };
 
-export function ExamCourseLinksPanel({ examId, primaryCourseId, primaryCourseName }: Props) {
+export function ExamCourseLinksPanel({ examId, primaryCourseId }: Props) {
   const toast = useAdminToast();
   const [links, setLinks] = useState<ExamCourseLink[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
