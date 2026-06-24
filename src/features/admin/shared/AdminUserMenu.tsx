@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { ChevronDown, LogOut, Mail, Phone } from 'lucide-react';
+import { ChevronDown, Home, LogOut, Mail, Phone } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -75,6 +75,13 @@ export function AdminUserMenu() {
           </>
         )}
         <DropdownMenuSeparator />
+        <DropdownMenuItem
+          className="cursor-pointer gap-2"
+          onClick={() => router.push('/')}
+        >
+          <Home className="h-4 w-4" />
+          Home
+        </DropdownMenuItem>
         <DropdownMenuItem
           className="cursor-pointer gap-2 text-rose-600 focus:text-rose-600"
           onClick={handleLogout}

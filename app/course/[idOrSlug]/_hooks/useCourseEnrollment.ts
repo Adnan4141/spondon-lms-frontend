@@ -9,9 +9,20 @@ import {
   type EnrollCourseDelivery,
   type EnrollCourseQuote,
 } from '@/lib/api/student-portal';
+import { ApiError } from '@/lib/api';
 import { initSelfCheckoutPayment } from '@/lib/api/payment-gateway';
 import { getMyStudentProfile } from '@/lib/api/student-profiles';
 import type { CourseDetailBatch, CourseDetailCourseBook, CourseDetails } from '@/types/course';
+
+function hasAuthToken(): boolean {
+  return typeof window !== 'undefined' && Boolean(localStorage.getItem('auth_token'));
+}
+
+function isAuthApiError(err: unknown): boolean {
+  if (err instanceof ApiError && err.status === 401) return true;
+  const msg = err instanceof Error ? err.message : '';
+  return /authentication required|please log in|log in again|session expired/i.test(msg);
+}
 
 type ApiErrorWithResponse = Error & {
   response?: { message?: string; data?: { enrollmentId?: string } };
@@ -107,9 +118,22 @@ export function useCourseEnrollment(course: CourseDetails | null, idOrSlug: stri
     if (typeof window !== 'undefined') {
       localStorage.removeItem('user');
       localStorage.removeItem('auth_token');
+      document.cookie = 'auth_token=; path=/; max-age=0';
     }
-    window.location.href = `/login?redirect=/course/${idOrSlug}`;
+    const redirectPath = `/course/${idOrSlug}`;
+    window.location.href = `/login?redirect=${encodeURIComponent(redirectPath)}`;
   }, [idOrSlug]);
+
+  const handleCheckoutOpenChange = useCallback(
+    (open: boolean) => {
+      if (open && !hasAuthToken()) {
+        redirectToLogin();
+        return;
+      }
+      setCheckoutOpen(open);
+    },
+    [redirectToLogin],
+  );
 
   const courseBooks: CourseDetailCourseBook[] = useMemo(
     () => course?.courseBooks || [],
@@ -162,19 +186,7 @@ export function useCourseEnrollment(course: CourseDetails | null, idOrSlug: stri
   const startSelfCheckoutPayment = useCallback(
     async (deliveryPayload?: EnrollCourseDelivery) => {
       if (!course) return;
-      const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
-      if (!userStr) {
-        redirectToLogin();
-        return;
-      }
-      let user: { id?: string };
-      try {
-        user = JSON.parse(userStr);
-      } catch {
-        redirectToLogin();
-        return;
-      }
-      if (!user?.id) {
+      if (!hasAuthToken()) {
         redirectToLogin();
         return;
       }
@@ -207,12 +219,7 @@ export function useCourseEnrollment(course: CourseDetails | null, idOrSlug: stri
             description: msg,
             variant: 'success',
           });
-        } else if (
-          msg.includes('Authentication required') ||
-          msg.includes('User not found') ||
-          msg.includes('Please log in') ||
-          msg.includes('log in again')
-        ) {
+        } else if (isAuthApiError(err)) {
           redirectToLogin();
         } else {
           toast({
@@ -237,8 +244,7 @@ export function useCourseEnrollment(course: CourseDetails | null, idOrSlug: stri
 
   const handleEnrollClick = useCallback(() => {
     if (!course) return;
-    const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
-    if (!userStr) {
+    if (!hasAuthToken()) {
       redirectToLogin();
       return;
     }
@@ -314,6 +320,11 @@ export function useCourseEnrollment(course: CourseDetails | null, idOrSlug: stri
       })
       .catch((err: unknown) => {
         if (cancelled) return;
+        if (isAuthApiError(err)) {
+          setCheckoutOpen(false);
+          redirectToLogin();
+          return;
+        }
         setCheckoutQuote(null);
         setQuoteError(err instanceof Error ? err.message : 'মূল্য যাচাই করা যায়নি।');
       })
@@ -324,7 +335,7 @@ export function useCourseEnrollment(course: CourseDetails | null, idOrSlug: stri
     return () => {
       cancelled = true;
     };
-  }, [checkoutOpen, courseId, selectedPaidBookIds]);
+  }, [checkoutOpen, courseId, redirectToLogin, selectedPaidBookIds]);
 
   const submitDeliveryAndEnroll = useCallback(() => {
     if (!course) return;
@@ -376,7 +387,7 @@ export function useCourseEnrollment(course: CourseDetails | null, idOrSlug: stri
     enrolling,
     selectedPaidBookIds,
     checkoutOpen,
-    setCheckoutOpen,
+    setCheckoutOpen: handleCheckoutOpenChange,
     delivery,
     setDelivery,
     offlineBatches,

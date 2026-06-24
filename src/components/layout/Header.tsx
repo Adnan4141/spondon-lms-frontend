@@ -137,7 +137,7 @@ export function Header() {
               <Link href={getDashboardHref()}>
                 <Button className={cn(
                   "rounded-2xl px-6 h-11 font-bold transition-all duration-500 active:scale-95 shadow-sm",
-                  "bg-[#5C2D91] hover:bg-[#FF2D8C] text-white"
+                  "bg-[#5C2D91] hover:bg-indigo-600 text-white"
                 )}>
                   <LayoutDashboard className="h-4 w-4 mr-2" />
                   ড্যাশবোর্ড
@@ -158,7 +158,7 @@ export function Header() {
             <Link href="/login">
               <Button className={cn(
                 "rounded-2xl px-8 h-11 font-bold transition-all duration-500 active:scale-95 shadow-sm",
-                "bg-[#5C2D91] hover:bg-[#FF2D8C] text-white"
+                "bg-[#5C2D91] hover:bg-indigo-600 text-white"
               )}>
                 লগ ইন / সাইন আপ
               </Button>
