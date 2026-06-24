@@ -40,6 +40,7 @@ export type OmrTestPreviewBody = {
   studentUserId?: string;
   student: {
     studentPhone?: string;
+    registrationNumber?: string;
     branchCode?: string;
   };
 };

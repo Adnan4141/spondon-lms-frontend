@@ -55,6 +55,7 @@ const DEFAULT_FORM: OmrTestPreviewBody = {
   studentUserId: 'omr-test-student-1',
   student: {
     studentPhone: '01812345678',
+    registrationNumber: '1234567',
     branchCode: '07',
   },
 };
@@ -555,6 +556,15 @@ export function OmrTestPlayground() {
                   id="studentPhone"
                   value={form.student.studentPhone ?? ''}
                   onChange={(e) => updateStudent('studentPhone', e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="registrationNumber">Registration number (7 digits)</Label>
+                <Input
+                  id="registrationNumber"
+                  maxLength={7}
+                  value={form.student.registrationNumber ?? ''}
+                  onChange={(e) => updateStudent('registrationNumber', e.target.value)}
                 />
               </div>
               <div className="space-y-1.5">
