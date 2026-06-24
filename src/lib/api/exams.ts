@@ -561,10 +561,25 @@ export async function getExamCourseLinks(examId: string): Promise<ApiResponse<Ex
   return apiRequest<ApiResponse<ExamCourseLink[]>>(`/exams/${examId}/courses`);
 }
 
-export async function linkExamCourse(examId: string, courseId: string): Promise<ApiResponse<ExamCourseLink[]>> {
+export async function linkExamCourse(
+  examId: string,
+  courseId: string,
+  scope?: { branchId?: string | null; batchId?: string | null },
+): Promise<ApiResponse<ExamCourseLink[]>> {
   return apiRequest<ApiResponse<ExamCourseLink[]>>(`/exams/${examId}/courses`, {
     method: 'POST',
-    body: JSON.stringify({ courseId }),
+    body: JSON.stringify({ courseId, ...scope }),
+  });
+}
+
+export async function updateExamCourseLink(
+  examId: string,
+  courseId: string,
+  scope: { branchId?: string | null; batchId?: string | null },
+): Promise<ApiResponse<ExamCourseLink[]>> {
+  return apiRequest<ApiResponse<ExamCourseLink[]>>(`/exams/${examId}/courses/${encodeURIComponent(courseId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(scope),
   });
 }
 

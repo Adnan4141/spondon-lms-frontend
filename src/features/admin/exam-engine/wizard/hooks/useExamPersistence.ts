@@ -14,6 +14,7 @@ import {
   regenerateSolveSheet,
   unlinkExamCourse,
   updateExam,
+  updateExamCourseLink,
   validateExamSubjects,
   validateSectionGeneration,
 } from '@/lib/api/exams';
@@ -26,6 +27,10 @@ import {
 } from '../../types';
 import { buildExamSettingsFromWizardState } from '../buildExamSettings';
 import { EXAM_WIZARD_ALL_BATCHES, EXAM_WIZARD_ALL_BRANCHES, resolveWizardBatchIdForApi } from '../constants';
+import {
+  getCourseAudienceScope,
+  scopeToApiIds,
+} from '../audienceScopeHelpers';
 
 interface Options {
   examId?: string;
@@ -114,7 +119,7 @@ export function useExamPersistence({ examId, state, serverExam, teacherUserId }:
         }
         if (!id) return null;
 
-        const linksSynced = await syncExamCourseLinks(id, state.courseId, state.linkedCourseIds, toast);
+        const linksSynced = await syncExamCourseLinks(id, state, toast);
         if (!linksSynced) return null;
 
         if (state.productType === 'MULTI') {
@@ -165,10 +170,10 @@ export function useExamPersistence({ examId, state, serverExam, teacherUserId }:
 
 async function syncExamCourseLinks(
   examId: string,
-  contentCourseId: string,
-  linkedCourseIds: string[],
+  state: ExamWizardState,
   toast: ReturnType<typeof useAdminToast>,
 ): Promise<boolean> {
+  const { courseId: contentCourseId, linkedCourseIds } = state;
   const desired = Array.from(new Set(linkedCourseIds.filter((id) => id && id !== contentCourseId)));
   const existingRes = await getExamCourseLinks(examId);
   if (!existingRes.success) {
@@ -185,13 +190,27 @@ async function syncExamCourseLinks(
 
   const toAdd = desired.filter((id) => !existing.includes(id));
   const toRemove = existing.filter((id) => !desired.includes(id));
+  const toUpdate = desired.filter((id) => existing.includes(id));
 
   for (const courseId of toAdd) {
-    const res = await linkExamCourse(examId, courseId);
+    const scope = scopeToApiIds(getCourseAudienceScope(state, courseId));
+    const res = await linkExamCourse(examId, courseId, scope);
     if (!res.success) {
       toast({
         title: 'Could not link course',
         description: res.message ?? `Failed to link course ${courseId}.`,
+        variant: 'destructive',
+      });
+      return false;
+    }
+  }
+  for (const courseId of toUpdate) {
+    const scope = scopeToApiIds(getCourseAudienceScope(state, courseId));
+    const res = await updateExamCourseLink(examId, courseId, scope);
+    if (!res.success) {
+      toast({
+        title: 'Could not update course scope',
+        description: res.message ?? `Failed to update scope for course ${courseId}.`,
         variant: 'destructive',
       });
       return false;

@@ -182,6 +182,7 @@ export const WIZARD_FORM_INITIAL: ExamWizardState = {
   title: '',
   courseId: '',
   linkedCourseIds: [],
+  courseAudienceScopes: {},
   branchId: EXAM_WIZARD_ALL_BRANCHES,
   batchId: EXAM_WIZARD_ALL_BATCHES,
   syllabusHtml: '',

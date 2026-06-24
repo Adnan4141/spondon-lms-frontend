@@ -14,6 +14,7 @@ import {
 } from '../../types';
 import type { WizardFormAction } from '../examWizardReducer';
 import { EXAM_WIZARD_ALL_BATCHES, EXAM_WIZARD_ALL_BRANCHES } from '../constants';
+import { courseAudienceScopesFromExam } from '../audienceScopeHelpers';
 import type { ExamStatus, ResultInputMode } from '@/types/exam';
 import type { Exam } from '@/types/exam';
 
@@ -106,14 +107,17 @@ export function buildWizardPatchFromExam(exam: Exam): Partial<ExamWizardState> {
       : null;
   const omrConfig = omrFromDb ?? (rawResultModes.includes('OMR_SCAN') && productType !== 'WRITTEN' ? defaultOmrConfig() : null);
 
+  const courseAudienceScopes = courseAudienceScopesFromExam(exam);
+
   return {
     title: exam.title,
     courseId: exam.courseId,
     linkedCourseIds: (exam.examCourses ?? [])
       .map((row) => row.courseId)
       .filter((id) => id && id !== exam.courseId),
-    branchId: exam.branchId ?? EXAM_WIZARD_ALL_BRANCHES,
-    batchId: exam.batchId ?? EXAM_WIZARD_ALL_BATCHES,
+    courseAudienceScopes,
+    branchId: courseAudienceScopes[exam.courseId]?.branchId ?? EXAM_WIZARD_ALL_BRANCHES,
+    batchId: courseAudienceScopes[exam.courseId]?.batchId ?? EXAM_WIZARD_ALL_BATCHES,
     syllabusHtml: exam.syllabusHtml ?? '',
     proctorStrict: Boolean((exam.settings as { proctorStrict?: boolean } | null)?.proctorStrict),
     language: exam.language ?? 'bn',

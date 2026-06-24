@@ -95,8 +95,7 @@ export function ExamCourseLinksPanel({ examId, primaryCourseId, primaryCourseNam
           Audience courses
         </CardTitle>
         <CardDescription>
-          Content course: <span className="font-semibold text-slate-800">{primaryCourseName ?? primaryCourseId}</span>.
-          Manage additional audience courses here, or edit them in the exam wizard Audience section.
+          Link extra audience courses here, or manage all courses and scopes in the exam wizard Audience section.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

@@ -15,6 +15,13 @@ import {
 import { EXAM_WIZARD_ALL_BATCHES, SEC_TYPES } from './constants';
 import { defaultSectionsFor, newLocalId } from './wizardHelpers';
 import { patchContentCourse, patchFromAudienceCourseIds } from './audienceHelpers';
+import {
+  allAudienceCourseIdsFromState,
+  getCourseAudienceScope,
+  normalizeCourseAudienceScopes,
+  syncPrimaryScopeFields,
+  type CourseAudienceScope,
+} from './audienceScopeHelpers';
 
 export type WizardFormAction =
   | { type: 'MERGE'; patch: Partial<ExamWizardState> }
@@ -22,6 +29,7 @@ export type WizardFormAction =
   | { type: 'HYDRATE'; state: ExamWizardState }
   | { type: 'SET_COURSE'; courseId: string }
   | { type: 'SET_AUDIENCE_COURSES'; courseIds: string[]; contentCourseId?: string }
+  | { type: 'SET_COURSE_AUDIENCE_SCOPE'; courseId: string; patch: Partial<CourseAudienceScope> }
   | { type: 'SET_CONTENT_COURSE'; courseId: string }
   | { type: 'SET_DELIVERY_MODE'; deliveryMode: 'ONLINE' | 'OFFLINE' }
   | { type: 'APPLY_PRODUCT_TYPE'; productType: ExamProductType }
@@ -92,21 +100,51 @@ export function examWizardReducer(state: ExamWizardState, action: WizardFormActi
     case 'SET_COURSE': {
       const courseChanged = state.courseId && state.courseId !== action.courseId;
       const linkedCourseIds = state.linkedCourseIds.filter((id) => id !== action.courseId);
+      const allIds = allAudienceCourseIdsFromState({ courseId: action.courseId, linkedCourseIds });
+      const courseAudienceScopes = normalizeCourseAudienceScopes(allIds, state.courseAudienceScopes);
+      const synced = syncPrimaryScopeFields({
+        courseId: action.courseId,
+        courseAudienceScopes,
+        branchId: state.branchId,
+        batchId: state.batchId,
+      });
       return {
         ...state,
         courseId: action.courseId,
         linkedCourseIds,
-        ...(courseChanged ? { batchId: EXAM_WIZARD_ALL_BATCHES } : {}),
+        courseAudienceScopes: synced.courseAudienceScopes,
+        branchId: synced.branchId,
+        batchId: courseChanged ? EXAM_WIZARD_ALL_BATCHES : synced.batchId,
       };
     }
     case 'SET_AUDIENCE_COURSES': {
       const audiencePatch = patchFromAudienceCourseIds(state, action.courseIds, action.contentCourseId);
+      const allIds = allAudienceCourseIdsFromState(audiencePatch);
+      const courseAudienceScopes = normalizeCourseAudienceScopes(allIds, state.courseAudienceScopes);
       const courseChanged = state.courseId && audiencePatch.courseId !== state.courseId;
+      const synced = syncPrimaryScopeFields({ ...state, ...audiencePatch, courseAudienceScopes });
       return {
         ...state,
         ...audiencePatch,
-        ...(courseChanged ? { batchId: EXAM_WIZARD_ALL_BATCHES } : {}),
+        courseAudienceScopes: synced.courseAudienceScopes,
+        branchId: synced.branchId,
+        batchId: courseChanged ? EXAM_WIZARD_ALL_BATCHES : synced.batchId,
       };
+    }
+    case 'SET_COURSE_AUDIENCE_SCOPE': {
+      const courseAudienceScopes = {
+        ...state.courseAudienceScopes,
+        [action.courseId]: {
+          ...getCourseAudienceScope(state, action.courseId),
+          ...action.patch,
+        },
+      };
+      const next = { ...state, courseAudienceScopes };
+      if (action.courseId === state.courseId) {
+        const synced = syncPrimaryScopeFields(next);
+        return { ...next, branchId: synced.branchId, batchId: synced.batchId, courseAudienceScopes: synced.courseAudienceScopes };
+      }
+      return next;
     }
     case 'SET_CONTENT_COURSE': {
       const contentPatch = patchContentCourse(state, action.courseId);

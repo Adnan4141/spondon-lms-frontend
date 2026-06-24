@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Check, ChevronsUpDown, Search, Star, X } from 'lucide-react';
+import { Check, ChevronsUpDown, Search, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,6 @@ import type { Course } from '@/types/course';
 type Props = {
   courses: Course[];
   value: string[];
-  primaryCourseId: string;
   onChange: (courseIds: string[]) => void;
   invalid?: boolean;
   disabled?: boolean;
@@ -25,7 +24,6 @@ function isCourseSelectable(course: Course): boolean {
 export function CourseMultiSelect({
   courses,
   value,
-  primaryCourseId,
   onChange,
   invalid,
   disabled,
@@ -170,24 +168,13 @@ export function CourseMultiSelect({
 
       {selectedCourses.length ? (
         <div className="flex flex-wrap gap-2">
-          {selectedCourses.map((course) => {
-            const isPrimary = course.id === primaryCourseId;
-            const showPrimaryLabel = selectedCourses.length > 1 && isPrimary;
-
-            return (
+          {selectedCourses.map((course) => (
               <Badge
                 key={course.id}
-                variant={showPrimaryLabel ? 'default' : 'secondary'}
-                className={cn(
-                  'gap-1 rounded-md px-2 py-1 text-xs font-medium',
-                  showPrimaryLabel
-                    ? 'bg-[#0D1B35] text-[#E2C98A] hover:bg-[#0D1B35]/90'
-                    : 'bg-slate-100 text-slate-800',
-                )}
+                variant="secondary"
+                className="gap-1 rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-800"
               >
-                {showPrimaryLabel ? <Star className="h-3 w-3 fill-current" /> : null}
                 <span className="max-w-[200px] truncate">{course.name}</span>
-                {showPrimaryLabel ? <span className="opacity-75">Primary</span> : null}
                 <button
                   type="button"
                   className="ml-1 rounded-sm opacity-70 transition hover:opacity-100"
@@ -197,14 +184,13 @@ export function CourseMultiSelect({
                   <X className="h-3 w-3" />
                 </button>
               </Badge>
-            );
-          })}
+            ))}
         </div>
       ) : null}
 
       <p className="text-[11px] text-slate-500">
         {selectedCourses.length > 1
-          ? 'Primary course sets branch/batch scope. Students in any selected course can see this exam.'
+          ? 'Set branch and batch per course below. Students in any selected course (matching that scope) can see this exam.'
           : 'Students enrolled in the selected course can see this exam.'}
       </p>
     </div>

@@ -112,6 +112,8 @@ export interface ExamWizardState {
   courseId: string;
   /** Additional audience courses (stored in `ExamCourse`; excludes `courseId`). */
   linkedCourseIds: string[];
+  /** Per-course branch/batch scope — primary course mirrors top-level `branchId`/`batchId`. */
+  courseAudienceScopes: Record<string, { branchId: string; batchId: string }>;
   branchId: string;
   /** Optional batch scope — all batches when sentinel value. */
   batchId: string;

@@ -201,7 +201,11 @@ export interface ExamCourseLink {
   id: string;
   examId: string;
   courseId: string;
+  branchId?: string | null;
+  batchId?: string | null;
   course?: Course;
+  branch?: Branch;
+  batch?: Batch | null;
 }
 
 export interface Exam {
