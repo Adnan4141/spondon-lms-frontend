@@ -78,6 +78,8 @@ export function Step6PreviewPublish({
   const [hasOmrSheets, setHasOmrSheets] = useState(false);
   const [hasOmrUploads, setHasOmrUploads] = useState(false);
   const omrEnabled = state.resultInputModes.includes('OMR_SCAN');
+  const nSets = Math.min(26, Math.max(1, Number(state.nSets) || 1));
+  const showOmrSetPicker = omrEnabled && nSets > 1;
 
   useEffect(() => {
     if (!examId) {
@@ -224,6 +226,120 @@ export function Step6PreviewPublish({
     <div className="space-y-4">
       <PaperPreview state={state} step={step} deliveryMode={deliveryMode} />
 
+      <Card className="border-slate-200 bg-[#FBF4E6]/40 shadow-sm">
+        <CardHeader>
+          <CardTitle className="font-serif text-lg text-[#0D1B35]">Prepare & publish</CardTitle>
+          <CardDescription>
+            Save draft stores sections and folder rules. Pull questions from the bank before publishing.
+            For offline OMR exams, regenerate the question paper PDF and print hall OMR sheets in Exam outputs.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {isDraft && examId && !publishReadiness.ok ? (
+            <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900">
+              <p className="font-bold">Resolve before publishing:</p>
+              <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                {publishReadiness.blockers.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {isDraft && examId && publishReadiness.warnings.length > 0 ? (
+            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              <ul className="list-disc space-y-0.5 pl-4">
+                {publishReadiness.warnings.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {isPublished ? (
+            <p className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
+              This exam is already published. Students can access it if schedule and enrollment allow.
+            </p>
+          ) : null}
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <Button
+              type="button"
+              className="bg-gradient-to-br from-[#0D1B35] to-[#1E2F55] text-[#E2C98A] hover:opacity-95"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onFinalize();
+              }}
+              disabled={saveAction !== null}
+            >
+              {saveAction === 'finalize' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Save & pull questions from bank
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onSaveDraft();
+              }}
+              disabled={saveAction !== null}
+            >
+              {saveAction === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {examId ? 'Save changes' : 'Save draft only'}
+            </Button>
+            {isDraft && examId ? (
+              <Button
+                type="button"
+                className="gap-2 bg-emerald-800 text-white hover:bg-emerald-900"
+                disabled={!publishReadiness.ok}
+                onClick={() => void onPublish()}
+              >
+                Publish exam
+              </Button>
+            ) : null}
+            {isPublished ? (
+              <>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Published
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                  disabled={saveAction !== null}
+                  onClick={onSaveDraft}
+                >
+                  {saveAction === 'draft' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Save published changes
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  disabled={saveAction !== null}
+                  onClick={onFinalize}
+                >
+                  {saveAction === 'finalize' ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  Re-pull questions from bank
+                </Button>
+              </>
+            ) : null}
+            {isClosed ? (
+              <>
+                <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-600">
+                  Closed
+                </span>
+                <Button type="button" size="sm" className="gap-2" disabled>
+                  Publish exam
+                </Button>
+              </>
+            ) : null}
+          </div>
+        </CardContent>
+      </Card>
+
       <ExamScheduleCard state={state} dispatch={dispatch} />
 
       {state.examType === 'TALENT_HUNT' && examId ? (
@@ -320,16 +436,18 @@ export function Step6PreviewPublish({
                     Written/CQ: students may use any paper. MCQ (when OMR scan is on): print hall OMR sheets below, then scan in Results.
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
-                  <select
-                    value={omrSetLabel}
-                    onChange={(event) => setOmrSetLabel(event.target.value)}
-                    className="h-9 rounded-md border border-[#C8A96E] bg-white px-2 text-sm font-semibold text-[#7A6035]"
-                    aria-label="OMR set label"
-                  >
-                    {'ABCDEFGHIJ'.split('').map((label) => (
-                      <option key={label} value={label}>SET {label}</option>
-                    ))}
-                  </select>
+                  {showOmrSetPicker ? (
+                    <select
+                      value={omrSetLabel}
+                      onChange={(event) => setOmrSetLabel(event.target.value)}
+                      className="h-9 rounded-md border border-[#C8A96E] bg-white px-2 text-sm font-semibold text-[#7A6035]"
+                      aria-label="OMR set label"
+                    >
+                      {'ABCDEFGHIJ'.slice(0, nSets).split('').map((label) => (
+                        <option key={label} value={label}>SET {label}</option>
+                      ))}
+                    </select>
+                  ) : null}
                   <Button
                     type="button"
                     variant="outline"
@@ -355,82 +473,12 @@ export function Step6PreviewPublish({
                 {masterPdfBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                 Regenerate question paper PDF
               </Button>
-              {isDraft ? (
-                <div className="flex w-full flex-col gap-2 sm:w-auto">
-                  {!publishReadiness.ok ? (
-                    <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900">
-                      <p className="font-bold">Resolve before publishing:</p>
-                      <ul className="mt-1 list-disc space-y-0.5 pl-4">
-                        {publishReadiness.blockers.map((item) => (
-                          <li key={item}>{item}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-                  {publishReadiness.warnings.length > 0 ? (
-                    <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                      <ul className="list-disc space-y-0.5 pl-4">
-                        {publishReadiness.warnings.map((item) => (
-                          <li key={item}>{item}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="gap-2 bg-emerald-800 text-white hover:bg-emerald-900"
-                    disabled={!publishReadiness.ok}
-                    onClick={() => void onPublish()}
-                  >
-                    Publish exam
-                  </Button>
-                </div>
-              ) : null}
               {isPublished ? (
-                <>
-                  <span className="inline-flex items-center gap-1.5 self-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    Published
-                  </span>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-                    disabled={saveAction !== null}
-                    onClick={onSaveDraft}
-                  >
-                    {saveAction === 'draft' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                    Save published changes
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    disabled={saveAction !== null}
-                    onClick={onFinalize}
-                  >
-                    {saveAction === 'finalize' ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                    Re-pull questions from bank
-                  </Button>
-                  <Button asChild variant="secondary" size="sm" className="gap-2">
-                    <Link href={`/student/exams/${examId}`}>
-                      <ExternalLink className="h-4 w-4" /> View student exam
-                    </Link>
-                  </Button>
-                </>
-              ) : null}
-              {isClosed ? (
-                <>
-                  <span className="inline-flex items-center self-center rounded-full border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-600">
-                    Closed
-                  </span>
-                  <Button type="button" size="sm" className="gap-2" disabled>
-                    Publish exam
-                  </Button>
-                </>
+                <Button asChild variant="secondary" size="sm" className="gap-2">
+                  <Link href={`/student/exams/${examId}`}>
+                    <ExternalLink className="h-4 w-4" /> View student exam
+                  </Link>
+                </Button>
               ) : null}
               {!status ? (
                 <span className="self-center text-xs text-slate-500">Status: —</span>
@@ -461,11 +509,6 @@ export function Step6PreviewPublish({
                 ) : null}
               </div>
             ) : null}
-            {isPublished ? (
-              <p className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
-                This exam is already published. Students can access it if schedule and enrollment allow.
-              </p>
-            ) : null}
           </CardContent>
         </Card>
       ) : (
@@ -473,44 +516,6 @@ export function Step6PreviewPublish({
           Save this exam once to unlock details, PDF downloads, leaderboard, and results links.
         </p>
       )}
-
-      <Card className="border-slate-200 bg-[#FBF4E6]/40 shadow-sm">
-        <CardHeader>
-          <CardTitle className="font-serif text-lg text-[#0D1B35]">Preview & publish</CardTitle>
-          <CardDescription>
-            Save draft stores sections and folder rules. For offline OMR exams, pull questions from the bank below,
-            then regenerate the question paper PDF and print hall OMR sheets in Exam outputs (not student upload).
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3 sm:flex-row">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onSaveDraft();
-            }}
-            disabled={saveAction !== null}
-          >
-            {saveAction === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            {examId ? 'Save changes' : 'Save draft only'}
-          </Button>
-          <Button
-            type="button"
-            className="bg-gradient-to-br from-[#0D1B35] to-[#1E2F55] text-[#E2C98A] hover:opacity-95"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onFinalize();
-            }}
-            disabled={saveAction !== null}
-          >
-            {saveAction === 'finalize' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Save & pull questions from bank
-          </Button>
-        </CardContent>
-      </Card>
 
       <ExamPdfPreviewDialog
         open={pdfPreviewOpen}

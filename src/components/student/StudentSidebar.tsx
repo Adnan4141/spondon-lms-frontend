@@ -224,7 +224,7 @@ export function StudentSidebar({
         </div>
 
         {/* Navigation Section */}
-        <div className="relative flex-1 space-y-5 overflow-y-auto px-3.5 py-5 custom-scrollbar">
+        <div className="relative flex-1 space-y-5 overflow-y-auto px-3.5 py-5 no-scrollbar">
           {STUDENT_NAV_SECTIONS.map((section, sectionIndex) => (
             <div key={section.label}>
               {sectionIndex > 0 ? (
