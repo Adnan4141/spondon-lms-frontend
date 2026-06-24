@@ -98,12 +98,13 @@ export function useStudentsList(params: StudentsListParams, options?: { enabled?
   });
 }
 
-export function useStudentDatabaseStats(options?: { enabled?: boolean }) {
+export function useStudentDatabaseStats(options?: { enabled?: boolean; branchId?: string }) {
+  const branchId = options?.branchId;
   return useQuery({
     enabled: options?.enabled ?? true,
-    queryKey: queryKeys.students.stats,
+    queryKey: [...queryKeys.students.stats, branchId ?? 'ALL'],
     queryFn: async () => {
-      const res = await getStudentDatabaseStats();
+      const res = await getStudentDatabaseStats(branchId ? { branchId } : undefined);
       if (!res.success || !res.data) throw new Error('Could not load student stats');
       return res.data;
     },

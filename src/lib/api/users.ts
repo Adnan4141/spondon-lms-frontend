@@ -254,9 +254,16 @@ export async function getStaffRoleSummary(params?: {
   );
 }
 
-/** Global student row counts (ignores list filters; BRANCH_ADMIN is branch-scoped server-side). */
-export async function getStudentDatabaseStats(): Promise<ApiResponse<StudentDatabaseStats>> {
-  return apiRequest<ApiResponse<StudentDatabaseStats>>('/users/student-stats');
+/** Verified student row counts; optional branchId matches the students list filter. */
+export async function getStudentDatabaseStats(params?: {
+  branchId?: string;
+}): Promise<ApiResponse<StudentDatabaseStats>> {
+  const query = new URLSearchParams();
+  if (params?.branchId) query.set('branchId', params.branchId);
+  const qs = query.toString();
+  return apiRequest<ApiResponse<StudentDatabaseStats>>(
+    `/users/student-stats${qs ? `?${qs}` : ''}`,
+  );
 }
 
 export async function getUserById(id: string): Promise<ApiResponse<User>> {

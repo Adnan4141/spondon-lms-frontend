@@ -36,10 +36,10 @@ export type OmrTestPreviewBody = {
   optionCount: 3 | 4 | 5;
   setLabel?: string;
   examId?: string;
+  examCode?: string;
   studentUserId?: string;
   student: {
-    fullName?: string;
-    registrationNumber?: string;
+    studentPhone?: string;
     branchCode?: string;
   };
 };

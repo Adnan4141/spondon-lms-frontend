@@ -51,10 +51,10 @@ const DEFAULT_FORM: OmrTestPreviewBody = {
   optionCount: 4,
   setLabel: 'A',
   examId: 'omr-test-preview',
+  examCode: '123456',
   studentUserId: 'omr-test-student-1',
   student: {
-    fullName: 'Karim Ahmed',
-    registrationNumber: '1234567',
+    studentPhone: '01812345678',
     branchCode: '07',
   },
 };
@@ -550,19 +550,19 @@ export function OmrTestPlayground() {
             <h2 className="mt-6 text-sm font-bold text-slate-800">Student prefill</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="fullName">Full name (letter bubbles)</Label>
+                <Label htmlFor="studentPhone">Student phone (digit bubbles)</Label>
                 <Input
-                  id="fullName"
-                  value={form.student.fullName ?? ''}
-                  onChange={(e) => updateStudent('fullName', e.target.value)}
+                  id="studentPhone"
+                  value={form.student.studentPhone ?? ''}
+                  onChange={(e) => updateStudent('studentPhone', e.target.value)}
                 />
               </div>
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="registrationNumber">Registration number (digit bubbles)</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="examCode">Exam code (digit bubbles)</Label>
                 <Input
-                  id="registrationNumber"
-                  value={form.student.registrationNumber ?? ''}
-                  onChange={(e) => updateStudent('registrationNumber', e.target.value)}
+                  id="examCode"
+                  value={form.examCode ?? ''}
+                  onChange={(e) => setForm((p) => ({ ...p, examCode: e.target.value }))}
                 />
               </div>
               <div className="space-y-1.5">

@@ -32,6 +32,7 @@ export function StudentsToolbar({
   onClearFilters,
   onDownload,
   downloadBusy,
+  exportOwnBranchHint,
   onAddStudent,
   onBulkImport,
 }: {
@@ -58,6 +59,7 @@ export function StudentsToolbar({
   onClearFilters?: () => void;
   onDownload: () => void | Promise<void>;
   downloadBusy?: boolean;
+  exportOwnBranchHint?: string;
   onAddStudent: () => void;
   onBulkImport: () => void;
 }) {
@@ -172,6 +174,7 @@ export function StudentsToolbar({
           onClick={() => void onDownload()}
           disabled={downloadBusy}
           className="gap-2 shrink-0"
+          title={exportOwnBranchHint}
         >
           <Download className="h-4 w-4" /> {downloadBusy ? 'Downloading…' : 'Download'}
         </Button>

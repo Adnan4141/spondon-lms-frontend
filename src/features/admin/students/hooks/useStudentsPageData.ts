@@ -40,10 +40,9 @@ export function useStudentsPageData() {
     regNo,
   } = query;
 
+  // Moderators stay branch-scoped; branch admins may browse all branches (export stays own-branch).
   const lockedBranchId =
-    (user?.role === 'BRANCH_ADMIN' || user?.role === 'MODERATOR') && user.branchId
-      ? user.branchId
-      : undefined;
+    user?.role === 'MODERATOR' && user.branchId ? user.branchId : undefined;
 
   const { data: adminFilters, isLoading: filtersLoading } = useAdminFilters();
   const programs = useMemo(
@@ -123,6 +122,7 @@ export function useStudentsPageData() {
 
   const { data: dbStats = null, isLoading: statsLoading } = useStudentDatabaseStats({
     enabled: view === 'list',
+    branchId: branchFilter !== 'ALL' ? branchFilter : undefined,
   });
 
   const batchesCourseId =
@@ -239,6 +239,13 @@ export function useStudentsPageData() {
 
   const exportOwnBranchOnly = user?.role === 'BRANCH_ADMIN' || user?.role === 'MODERATOR';
   const exportScopedBranchId = exportOwnBranchOnly ? user?.branchId || '' : '';
+  const exportOwnBranchHint = exportOwnBranchOnly
+    ? `Export includes only students registered under your branch${
+        branches.find((b) => b.id === user?.branchId)?.name
+          ? ` (${branches.find((b) => b.id === user?.branchId)?.name})`
+          : ''
+      }`
+    : undefined;
   const hasActiveFilters = studentsPageHasActiveFilters(query, lockedBranchId);
 
   const clearSearchInput = useCallback(() => {
@@ -275,6 +282,7 @@ export function useStudentsPageData() {
     enrollmentsLoading,
     hasActiveFilters,
     exportScopedBranchId,
+    exportOwnBranchHint,
     invalidateStudents,
     clearSearchInput,
   };

@@ -36,6 +36,7 @@ export function StudentsListPanel({ data, actions }: Props) {
     statsLoading,
     batchesForCourse,
     hasActiveFilters,
+    exportOwnBranchHint,
   } = data;
 
   const {
@@ -94,6 +95,7 @@ export function StudentsListPanel({ data, actions }: Props) {
           onClearFilters={handleClearFilters}
           onDownload={handleDownloadStudents}
           downloadBusy={exportingStudents}
+          exportOwnBranchHint={exportOwnBranchHint}
           onAddStudent={openAddStudent}
           onBulkImport={openBulkImport}
         />
