@@ -1,4 +1,5 @@
 import { apiRequest, API_BASE_URL, API_ORIGIN } from '../api';
+import { resolveApiBaseUrl } from '../api-config';
 import type {
   Exam,
   ExamCourseLink,
@@ -285,6 +286,12 @@ export function getExamPdfDownloadUrl(pdfUrl: string): string {
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
   const path = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
   return `${API_ORIGIN}${path}`;
+}
+
+/** Authenticated solve-sheet download; regenerates PDF when the file is missing on disk. */
+export function getSolveSheetDownloadUrl(examId: string): string {
+  const base = typeof window === 'undefined' ? API_BASE_URL : resolveApiBaseUrl();
+  return `${base}/exams/${examId}/solve-sheet.pdf`;
 }
 
 // Student Exam APIs

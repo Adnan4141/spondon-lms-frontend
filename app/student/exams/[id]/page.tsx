@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { ApiError } from '@/lib/api';
-import { startExamAttempt, getAttemptResult, getExamStudentView, getExamPdfDownloadUrl } from '@/lib/api/exams';
+import { startExamAttempt, getAttemptResult, getExamStudentView, getExamPdfDownloadUrl, getSolveSheetDownloadUrl } from '@/lib/api/exams';
 import type { StartAttemptResponse, AttemptResultResponse, ExamStudentView, StudentExamResultStatus } from '@/types/exam';
 import { LazyExamTakingView as ExamTakingView } from '@/components/student/exam-window/LazyExamTakingView';
 import { WrittenUploadLightbox } from '@/components/student/exam-window/WrittenUploadLightbox';
@@ -401,8 +401,7 @@ export default function StudentExamTakingPage() {
     else if (examMeta.solveSheetVisibility === 'SCHEDULED' && examMeta.solveSheetScheduledAt) {
       showSolve = new Date() >= new Date(examMeta.solveSheetScheduledAt);
     }
-    const solveHref =
-      examMeta.solveSheetUrl && showSolve ? getExamPdfDownloadUrl(examMeta.solveSheetUrl) : null;
+    const solveHref = showSolve && examId ? getSolveSheetDownloadUrl(examId) : null;
     const resultStatus = offlineResultStatusCopy(examMeta.resultStatus);
 
     return (

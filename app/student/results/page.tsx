@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Award, Download, FileText, Loader2, TrendingUp, CheckCircle2, AlertCircle } from 'lucide-react';
 import { getStudentResults } from '@/lib/api/student-portal';
 import type { StudentResults, OnlineExamAttempt, OfficialExamResult } from '@/types/academic';
-import { getExamPdfDownloadUrl } from '@/lib/api/exams';
+import { getSolveSheetDownloadUrl } from '@/lib/api/exams';
 import { cn } from '@/lib/utils';
 
 interface OfflineResult {
@@ -20,14 +20,14 @@ interface OfflineResult {
 }
 
 function canShowSolveSheet(exam?: OnlineExamAttempt['exam']): boolean {
-  if (!exam?.solveSheetUrl) return false;
+  if (!exam) return false;
   const vis = exam.solveSheetVisibility;
-  if (vis === 'HIDDEN') return false;
+  if (vis === 'HIDDEN' || !vis) return false;
   if (vis === 'IMMEDIATELY') return true;
   if (vis === 'SCHEDULED' && exam.solveSheetScheduledAt) {
     return new Date() >= new Date(exam.solveSheetScheduledAt);
   }
-  return true;
+  return false;
 }
 
 export default function StudentResultsPage() {
@@ -347,9 +347,9 @@ export default function StudentResultsPage() {
                                 </p>
                              </div>
                              
-                             {canShowSolveSheet(attempt.exam) && (
+                             {canShowSolveSheet(attempt.exam) && attempt.examId && (
                                <a
-                                 href={getExamPdfDownloadUrl(attempt.exam!.solveSheetUrl!)}
+                                 href={getSolveSheetDownloadUrl(attempt.examId)}
                                  target="_blank"
                                  rel="noopener noreferrer"
                                  className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-xs hover:shadow-lg transition-all duration-200 border-0 shadow-sm shadow-orange-100"

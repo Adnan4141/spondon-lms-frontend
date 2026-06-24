@@ -9,6 +9,7 @@ import {
   regenerateExamPdf,
   regenerateSolveSheet,
   getExamPdfDownloadUrl,
+  getSolveSheetDownloadUrl,
   generateOmrPdfBatch,
   getExamOperationsSummary,
   type OmrPdfBatchResponse,
@@ -164,12 +165,11 @@ export function Step6PreviewPublish({
   };
 
   const downloadSolveSheet = () => {
-    const url = serverExam?.solveSheetUrl;
-    if (!url) {
-      toast({ title: 'No solve sheet', description: 'Generate a solve sheet first.', variant: 'destructive' });
+    if (!examId) {
+      toast({ title: 'No solve sheet', description: 'Save the exam first.', variant: 'destructive' });
       return;
     }
-    window.open(getExamPdfDownloadUrl(url), '_blank', 'noopener,noreferrer');
+    window.open(getSolveSheetDownloadUrl(examId), '_blank', 'noopener,noreferrer');
   };
 
   const showSolveEnabled = state.showSolve && state.solveVisibility !== 'HIDDEN';
