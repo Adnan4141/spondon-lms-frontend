@@ -35,6 +35,9 @@ export interface AdminFiltersResponse {
   data: AdminFiltersData;
 }
 
-export async function getAdminFilters(): Promise<AdminFiltersResponse> {
-  return apiRequest<AdminFiltersResponse>('/meta/admin-filters');
+export async function getAdminFilters(
+  opts?: { allBranches?: boolean },
+): Promise<AdminFiltersResponse> {
+  const qs = opts?.allBranches ? '?allBranches=true' : '';
+  return apiRequest<AdminFiltersResponse>(`/meta/admin-filters${qs}`);
 }

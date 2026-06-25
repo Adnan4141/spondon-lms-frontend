@@ -8,6 +8,7 @@ import type { getUsers } from '@/lib/api/users';
 
 export const queryKeys = {
   adminFilters: ['admin-filters'] as const,
+  adminFiltersAll: ['admin-filters', 'all-branches'] as const,
   dashboard: (params: DashboardSummaryParams) => ['dashboard-summary', params] as const,
   partners: {
     all: ['admin', 'partners'] as const,
@@ -57,8 +58,10 @@ export type StudentsListParams = {
   batchFilter: string;
 };
 
-export async function fetchAdminFilters(): Promise<AdminFiltersData> {
-  const res = await getAdminFilters();
+export async function fetchAdminFilters(
+  opts?: { allBranches?: boolean },
+): Promise<AdminFiltersData> {
+  const res = await getAdminFilters(opts);
   if (!res.success || !res.data) {
     throw new Error('Failed to load admin filters');
   }

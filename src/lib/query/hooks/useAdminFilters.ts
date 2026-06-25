@@ -8,10 +8,11 @@ import {
 
 const ADMIN_FILTERS_STALE_MS = 5 * 60_000;
 
-export function useAdminFilters() {
+export function useAdminFilters(opts?: { allBranches?: boolean }) {
+  const allBranches = opts?.allBranches ?? false;
   return useQuery({
-    queryKey: queryKeys.adminFilters,
-    queryFn: fetchAdminFilters,
+    queryKey: allBranches ? queryKeys.adminFiltersAll : queryKeys.adminFilters,
+    queryFn: () => fetchAdminFilters({ allBranches }),
     staleTime: ADMIN_FILTERS_STALE_MS,
   });
 }

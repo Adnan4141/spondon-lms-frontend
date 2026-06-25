@@ -44,7 +44,7 @@ export function useStudentsPageData() {
   const lockedBranchId =
     user?.role === 'MODERATOR' && user.branchId ? user.branchId : undefined;
 
-  const { data: adminFilters, isLoading: filtersLoading } = useAdminFilters();
+  const { data: adminFilters, isLoading: filtersLoading } = useAdminFilters({ allBranches: true });
   const programs = useMemo(
     () => (adminFilters?.programs ?? []) as Program[],
     [adminFilters?.programs],
