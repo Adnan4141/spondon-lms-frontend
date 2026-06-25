@@ -9,6 +9,7 @@ import {
   setEnrollmentAccessExempt,
 } from '@/lib/api/enrollments';
 import { confirmAction } from '@/features/admin/shared/confirm-action';
+import { promptAction } from '@/features/admin/shared/prompt-action';
 import type { Enrollment } from '../types';
 
 type Props = {
@@ -27,7 +28,14 @@ export function EnrollmentAccessControls({ enrollment, compact, onUpdated, showT
   const isTerminal = ['CANCELLED', 'COMPLETED'].includes(enrollment.status);
 
   const runBlock = async () => {
-    const reason = window.prompt('Reason for blocking access (min 3 characters):', 'Due payment');
+    const reason = await promptAction({
+      title: 'Block portal access',
+      description: 'Reason for blocking access (min 3 characters).',
+      defaultValue: 'Due payment',
+      placeholder: 'Reason',
+      confirmLabel: 'Continue',
+      minLength: 3,
+    });
     if (!reason || reason.trim().length < 3) return;
     const confirmed = await confirmAction({
       title: 'Block portal access?',
@@ -76,10 +84,16 @@ export function EnrollmentAccessControls({ enrollment, compact, onUpdated, showT
 
   const runExemptToggle = async () => {
     const next = !enrollment.accessHoldExempt;
-    const reason = window.prompt(
-      next ? 'Reason for exempting from bulk due blocks:' : 'Reason for removing exempt flag:',
-      next ? 'Admin approved continued access despite due' : 'Exempt removed',
-    );
+    const reason = await promptAction({
+      title: next ? 'Exempt from due blocks' : 'Remove exempt flag',
+      description: next
+        ? 'Reason for exempting from bulk due blocks (min 3 characters).'
+        : 'Reason for removing exempt flag (min 3 characters).',
+      defaultValue: next ? 'Admin approved continued access despite due' : 'Exempt removed',
+      placeholder: 'Reason',
+      confirmLabel: 'Save',
+      minLength: 3,
+    });
     if (!reason || reason.trim().length < 3) return;
     setBusy('exempt');
     try {

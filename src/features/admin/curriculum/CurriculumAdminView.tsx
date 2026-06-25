@@ -65,6 +65,7 @@ import {
 import { findLessonAncestorTitles } from './curriculum-breadcrumb';
 import { LessonResourceModal } from './LessonResourceModal';
 import { confirmAction } from '@/features/admin/shared/confirm-action';
+import { promptAction } from '@/features/admin/shared/prompt-action';
 import { cn } from '@/lib/utils';
 import type { CurriculumTreeNode, CurriculumVisibility, LessonResourceRow } from './curriculum-types';
 
@@ -400,7 +401,13 @@ export function CurriculumAdminView({
   };
 
   const addRootSubject = async () => {
-    const title = window.prompt('Subject title?', 'New subject');
+    const title = await promptAction({
+      title: 'Add subject',
+      description: 'Enter a title for the new subject.',
+      defaultValue: 'New subject',
+      placeholder: 'Subject title',
+      confirmLabel: 'Add subject',
+    });
     if (!title?.trim()) return;
     try {
       const res = await createCurriculumNode(courseId, {
@@ -415,7 +422,14 @@ export function CurriculumAdminView({
   };
 
   const onAddChild = async (parent: CurriculumTreeNode, type: 'CHAPTER' | 'LESSON') => {
-    const title = window.prompt(type === 'CHAPTER' ? 'Chapter title?' : 'Lesson title?', type === 'CHAPTER' ? 'New chapter' : 'New lesson');
+    const isChapter = type === 'CHAPTER';
+    const title = await promptAction({
+      title: isChapter ? 'Add chapter' : 'Add lesson',
+      description: isChapter ? 'Enter a title for the new chapter.' : 'Enter a title for the new lesson.',
+      defaultValue: isChapter ? 'New chapter' : 'New lesson',
+      placeholder: isChapter ? 'Chapter title' : 'Lesson title',
+      confirmLabel: isChapter ? 'Add chapter' : 'Add lesson',
+    });
     if (!title?.trim()) return;
     try {
       const res = await createCurriculumNode(courseId, {

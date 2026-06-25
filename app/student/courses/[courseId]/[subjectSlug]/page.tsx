@@ -31,6 +31,7 @@ interface ContentItem {
   textBody?: string;
   subjectTitle?: string | null;
   chapterTitle?: string | null;
+  chapterSortOrder?: number;
   topicTitle?: string;
   topicSortOrder?: number;
   durationMinutes?: number;

@@ -276,7 +276,12 @@ export function OmrScanReviewPanel({
   };
 
   const discard = async (scan: OmrScan) => {
-    if (!window.confirm('Discard this scan? It will be excluded from finalize.')) return;
+    if (!(await confirmAction({
+      title: 'Discard this scan?',
+      description: 'It will be excluded from finalize.',
+      confirmLabel: 'Discard',
+      variant: 'danger',
+    }))) return;
     setActionBusyScanId(scan.id);
     try {
       const r = await discardOmrScan(examId, scan.id);

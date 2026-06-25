@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { getExamPdfDownloadUrl } from '@/lib/api/exams';
+import { confirmAction } from '@/features/admin/shared/confirm-action';
 import {
   deleteAllOmrTestFiles,
   deleteOmrTestFile,
@@ -288,7 +289,12 @@ export function OmrTestPlayground() {
 
   const removeAllFiles = async () => {
     if (!files.length) return;
-    if (!window.confirm(`Delete all ${files.length} generated OMR file(s)?`)) return;
+    if (!(await confirmAction({
+      title: 'Delete all files?',
+      description: `Delete all ${files.length} generated OMR file(s)?`,
+      confirmLabel: 'Delete all',
+      variant: 'danger',
+    }))) return;
     setListBusy(true);
     setError(null);
     try {

@@ -20,6 +20,7 @@ import {
   type ResultBatchSummary,
 } from '@/lib/api/exam-result-batches';
 import { confirmAction } from '@/features/admin/shared/confirm-action';
+import { promptAction } from '@/features/admin/shared/prompt-action';
 import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
 import type { BranchOption } from './types';
 
@@ -321,8 +322,14 @@ export function OfflineResultsTab({
                             variant="outline"
                             disabled={busy}
                             className="gap-1 border-rose-200 text-rose-700"
-                            onClick={() => {
-                              const note = window.prompt('Enter the rejection reason for this result batch.');
+                            onClick={async () => {
+                              const note = await promptAction({
+                                title: 'Reject result batch',
+                                description: 'Enter the rejection reason for this result batch.',
+                                placeholder: 'Rejection reason',
+                                confirmLabel: 'Reject',
+                                multiline: true,
+                              });
                               if (!note?.trim()) {
                                 toast({ title: 'Rejection reason required', variant: 'destructive' });
                                 return;

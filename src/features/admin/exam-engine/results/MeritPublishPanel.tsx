@@ -21,6 +21,7 @@ import {
   type MeritSnapshotSummary,
 } from '@/lib/api/exams';
 import { confirmAction } from '@/features/admin/shared/confirm-action';
+import { promptAction } from '@/features/admin/shared/prompt-action';
 import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
 
 type Props = {
@@ -215,7 +216,13 @@ export function MeritPublishPanel({ examId, canPublish, canReopen, onPublished }
                             confirmLabel: 'Reopen',
                           });
                           if (!ok) return;
-                          const reason = window.prompt('Reason for reopening this merit list:');
+                          const reason = await promptAction({
+                            title: 'Reopen merit list',
+                            description: 'Reason for reopening this merit list.',
+                            placeholder: 'Reason',
+                            confirmLabel: 'Reopen',
+                            multiline: true,
+                          });
                           if (!reason?.trim()) return;
                           await runAction(snapshot.id, 'Merit reopened', () =>
                             reopenMeritSnapshot(examId, snapshot.id, reason.trim()),

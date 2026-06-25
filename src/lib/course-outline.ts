@@ -179,6 +179,8 @@ export type SubjectChapterGroup<T> = {
   subject: string;
   chapter: string;
   sortOrder: number;
+  /** Explicit chapter position when available (curriculum-backed); undefined for legacy content. */
+  chapterSortOrder?: number;
   items: T[];
 };
 
@@ -186,6 +188,7 @@ export function groupContentsBySubjectChapter<
   T extends {
     subjectTitle?: string | null;
     chapterTitle?: string | null;
+    chapterSortOrder?: number;
     topicTitle?: string;
     topicSortOrder?: number;
     sortOrder: number;
@@ -198,11 +201,24 @@ export function groupContentsBySubjectChapter<
     const chapter =
       (c.chapterTitle || '').trim() || (c.topicTitle || '').trim() || 'General';
     const key = `${subject}\n${chapter}`;
-    const so = c.topicSortOrder ?? 999;
+    const itemSo = c.topicSortOrder ?? c.sortOrder ?? 999;
     if (!map.has(key)) {
-      map.set(key, { key, subject, chapter, sortOrder: so, items: [] });
+      map.set(key, {
+        key,
+        subject,
+        chapter,
+        sortOrder: itemSo,
+        chapterSortOrder: c.chapterSortOrder,
+        items: [],
+      });
     }
-    map.get(key)!.items.push(c);
+    const g = map.get(key)!;
+    // Keep the smallest lesson order as the group's representative position.
+    g.sortOrder = Math.min(g.sortOrder, itemSo);
+    if (g.chapterSortOrder == null && c.chapterSortOrder != null) {
+      g.chapterSortOrder = c.chapterSortOrder;
+    }
+    g.items.push(c);
   }
 
   const groups = [...map.values()].map((g) => ({
@@ -213,6 +229,25 @@ export function groupContentsBySubjectChapter<
   groups.sort((a, b) => {
     const s = a.subject.localeCompare(b.subject);
     if (s !== 0) return s;
+    // 1. Explicit chapter position wins (curriculum-backed courses).
+    if (a.chapterSortOrder != null && b.chapterSortOrder != null) {
+      if (a.chapterSortOrder !== b.chapterSortOrder) {
+        return a.chapterSortOrder - b.chapterSortOrder;
+      }
+    } else if (a.chapterSortOrder != null) {
+      return -1;
+    } else if (b.chapterSortOrder != null) {
+      return 1;
+    }
+    // 2. Legacy content: order by chapter title (numeric-aware), matching the
+    //    backend `chapterTitle ASC` ordering. Lesson sortOrder is NOT reliable
+    //    for chapter ordering (it can be a flat global sequence from import).
+    const t = a.chapter.localeCompare(b.chapter, undefined, {
+      numeric: true,
+      sensitivity: 'base',
+    });
+    if (t !== 0) return t;
+    // 3. Final fallback: lesson order.
     return a.sortOrder - b.sortOrder;
   });
 

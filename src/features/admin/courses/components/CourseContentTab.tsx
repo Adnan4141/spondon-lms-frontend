@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { confirmAction } from '@/features/admin/shared/confirm-action';
+import { promptAction } from '@/features/admin/shared/prompt-action';
 import { createCourseContent, deleteCourseContent, getCourseContents, updateCourseContent } from '@/lib/api/courses';
 import type { CourseContent } from '@/types/course-content';
 import { TYPE_CONFIG } from '../courseConstants';
@@ -366,9 +367,15 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
   };
 
   const handleRenameModule = async (oldName: string) => {
-    const newName = prompt(`Rename module "${oldName}" to:`, oldName);
-    if (!newName || newName.trim() === '' || newName === oldName) return;
-    const trimmed = newName.trim();
+    const newName = await promptAction({
+      title: 'Rename module',
+      description: `Enter a new name for "${oldName}".`,
+      defaultValue: oldName,
+      placeholder: 'Module name',
+      confirmLabel: 'Rename',
+    });
+    if (!newName || newName === oldName) return;
+    const trimmed = newName;
     
     // Optimistic UI updates
     setItems((prev) => prev.map(i => i.subjectTitle === oldName ? { ...i, subjectTitle: trimmed } : i));

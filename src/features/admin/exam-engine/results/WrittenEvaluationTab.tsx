@@ -22,6 +22,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { getExamPdfDownloadUrl } from '@/lib/api/exams';
+import { confirmAction } from '@/features/admin/shared/confirm-action';
 import { cn } from '@/lib/utils';
 import type { WrittenAttemptDetail, WrittenAttemptRow } from './types';
 import { WrittenScriptViewer } from './WrittenScriptViewer';
@@ -186,9 +187,14 @@ export function WrittenEvaluationTab({
     return null;
   }, [hasInvalidMarks, hasUnsavedChanges, markingComplete]);
 
-  const openAttemptWithGuard = (attemptId: string) => {
+  const openAttemptWithGuard = async (attemptId: string) => {
     if (activeAttemptId && attemptId !== activeAttemptId && hasUnsavedChanges) {
-      const proceed = window.confirm('You have unsaved marks. Switch student without saving?');
+      const proceed = await confirmAction({
+        title: 'Unsaved marks',
+        description: 'You have unsaved marks. Switch student without saving?',
+        confirmLabel: 'Switch',
+        variant: 'warning',
+      });
       if (!proceed) return;
     }
     setPreviewUrl(null);
