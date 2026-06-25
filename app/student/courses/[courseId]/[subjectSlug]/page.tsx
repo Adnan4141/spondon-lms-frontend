@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Play, ExternalLink, FileText, MessageSquare, ArrowLeft, BookOpen, Download, AlertTriangle, Lock, ChevronRight } from 'lucide-react';
+import { Play, ExternalLink, FileText, MessageSquare, ArrowLeft, BookOpen, AlertTriangle, Lock, ChevronRight } from 'lucide-react';
 import { getCourseContentsWithProgress, updateContentProgress } from '@/lib/api/student-portal';
 import { getCourseById } from '@/lib/api/courses';
 import type { CourseDetails } from '@/types/course';
@@ -258,9 +258,9 @@ export default function StudentCourseSubjectPage() {
   const mediaFrameClass =
     selectedContent?.type === 'VIDEO' || (rawUrl && isYoutubeContentUrl(rawUrl))
       ? 'aspect-video'
-      : rawUrl
+        : rawUrl
         ? 'min-h-[480px]'
-        : 'aspect-video';  const [activeTab, setActiveTab] = useState<'overview' | 'resources' | 'discussion'>('overview');
+        : 'aspect-video';
 
   if (!studentUserId) {
     return (
@@ -464,7 +464,7 @@ export default function StudentCourseSubjectPage() {
               )}
             </div>
 
-            {/* Content Details & Tabs */}
+            {/* Content Details */}
             <CardContent className="p-6">
               <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-5">
                 <div className="min-w-0 flex-1">
@@ -488,132 +488,26 @@ export default function StudentCourseSubjectPage() {
                 )}
               </div>
 
-              {/* Tab Navigation */}
-              <div className="flex border-b border-slate-100 mt-5 mb-5 overflow-x-auto gap-2 scrollbar-none">
-                {[
-                  { id: 'overview', label: 'Overview' },
-                  { id: 'resources', label: 'Notes & Resources' },
-                  { id: 'discussion', label: 'Class Q&A Forum' },
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
-                    className={cn(
-                      'px-4.5 py-3 text-xs font-extrabold border-b-2 transition-all whitespace-nowrap',
-                      activeTab === tab.id
-                        ? 'border-indigo-650 border-indigo-600 text-indigo-700'
-                        : 'border-transparent text-slate-450 text-slate-500 hover:text-slate-800'
-                    )}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
+              {/* Lecture Overview */}
+              <div className="space-y-4 mt-5">
+                {selectedContent?.textBody ? (
+                  <p className="text-slate-655 text-slate-600 text-[13.5px] leading-relaxed whitespace-pre-wrap">
+                    {selectedContent.textBody}
+                  </p>
+                ) : (
+                  <p className="text-slate-400 text-xs italic">No additional description is provided for this lecture.</p>
+                )}
 
-              {/* Tab Panels */}
-              {activeTab === 'overview' && (
-                <div className="space-y-4">
-                  {selectedContent?.textBody ? (
-                    <p className="text-slate-655 text-slate-600 text-[13.5px] leading-relaxed whitespace-pre-wrap">
-                      {selectedContent.textBody}
+                <div className="flex items-start gap-3 rounded-xl border border-amber-100 bg-amber-50/40 p-4 text-[12.5px] font-semibold text-amber-800 mt-4">
+                  <AlertTriangle className="h-4.5 w-4.5 shrink-0 text-amber-500 mt-0.5" />
+                  <div>
+                    <p className="font-bold text-amber-900">Security & Privacy Warning</p>
+                    <p className="text-amber-700/95 mt-0.5 leading-relaxed">
+                      This content is licensed solely for your personal study account. Sharing access credentials, class links, or ripping video streams violates policies and will result in strict account suspension.
                     </p>
-                  ) : (
-                    <p className="text-slate-400 text-xs italic">No additional description is provided for this lecture.</p>
-                  )}
-
-                  <div className="flex items-start gap-3 rounded-xl border border-amber-100 bg-amber-50/40 p-4 text-[12.5px] font-semibold text-amber-800 mt-4">
-                    <AlertTriangle className="h-4.5 w-4.5 shrink-0 text-amber-500 mt-0.5" />
-                    <div>
-                      <p className="font-bold text-amber-900">Security & Privacy Warning</p>
-                      <p className="text-amber-700/95 mt-0.5 leading-relaxed">
-                        This content is licensed solely for your personal study account. Sharing access credentials, class links, or ripping video streams violates policies and will result in strict account suspension.
-                      </p>
-                    </div>
                   </div>
                 </div>
-              )}
-
-              {activeTab === 'resources' && (
-                <div className="space-y-4">
-                  <p className="text-slate-500 text-xs font-semibold">Lecture sheets and lecture notes associated with this class:</p>
-                  <div className="group flex items-center justify-between gap-4 border border-slate-200/60 rounded-xl p-3.5 bg-slate-50/50 hover:bg-slate-50 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center">
-                        <FileText className="h-5 w-5 text-indigo-600" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-extrabold text-slate-800 truncate max-w-[200px] sm:max-w-none">
-                          {selectedContent?.title || 'Lecture'}_ClassNote.pdf
-                        </p>
-                        <p className="text-[11px] font-bold text-slate-400 mt-0.5">PDF Document · 4.8 MB · 142 Downloads</p>
-                      </div>
-                    </div>
-                    {rawUrl ? (
-                      <a
-                        href={resolvedMediaUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 font-extrabold text-xs hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-colors shrink-0"
-                      >
-                        <Download className="h-3.5 w-3.5" /> Download
-                      </a>
-                    ) : (
-                      <span className="text-[10px] font-extrabold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-md shrink-0">
-                        Preview Only
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'discussion' && (
-                <div className="space-y-4">
-                  {/* Discussion comment box */}
-                  <div className="border border-slate-200/70 rounded-xl p-3.5 bg-white shadow-sm">
-                    <textarea
-                      placeholder="Have a doubt? Ask your classroom teacher here..."
-                      className="w-full text-xs font-semibold text-slate-700 placeholder-slate-400 outline-none resize-none min-h-[70px] bg-transparent"
-                    />
-                    <div className="flex justify-end border-t border-slate-100 pt-2.5 mt-2.5">
-                      <Button size="sm" className="rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-1.5">
-                        Ask Question
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Comment list */}
-                  <div className="space-y-3 pt-2">
-                    <div className="border border-slate-150 border-slate-100/80 rounded-xl p-3.5 bg-slate-50/50">
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <div className="h-6 w-6 rounded-full bg-slate-200 text-[10px] font-black text-slate-655 text-slate-600 flex items-center justify-center">
-                          AT
-                        </div>
-                        <div>
-                          <p className="text-[11.5px] font-black text-slate-800">Adnan teletalk</p>
-                          <p className="text-[9px] font-bold text-slate-400">2 hours ago</p>
-                        </div>
-                      </div>
-                      <p className="text-xs text-slate-655 text-slate-600 leading-relaxed font-semibold pl-8">
-                        How should we solve question 4 from the practice sheet? Is the domain range rule applicable there?
-                      </p>
-                      <div className="mt-3 border-t border-slate-200/50 pt-3 pl-8">
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <div className="h-5 w-5 rounded-full bg-indigo-100 text-[9px] font-bold text-indigo-700 flex items-center justify-center">
-                            S
-                          </div>
-                          <div>
-                            <p className="text-[10.5px] font-black text-slate-800">Spondon Instructor</p>
-                            <p className="text-[9px] font-bold text-slate-400">1 hour ago</p>
-                          </div>
-                        </div>
-                        <p className="text-xs text-slate-655 text-indigo-950 bg-indigo-50/40 border border-indigo-100/30 rounded-lg p-2.5 leading-relaxed font-semibold">
-                          Yes, Adnan. You must apply the domain range rule we covered at 12:40 in this lecture video. Make sure the value under the square root is non-negative.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
+              </div>
             </CardContent>
           </Card>
         </div>
