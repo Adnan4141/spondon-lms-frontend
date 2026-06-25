@@ -3,6 +3,7 @@ export { CourseHubSubjectList } from './CourseHubSubjectList';
 export { CourseHubSubjectListItem } from './CourseHubSubjectListItem';
 export { CourseHubResourcesTab } from './CourseHubResourcesTab';
 export { CourseHubTeachersTab } from './CourseHubTeachersTab';
+export { CourseHubReviewsTab } from './CourseHubReviewsTab';
 export { CourseHubStats } from './CourseHubStats';
 export { CourseHubSidebar } from './CourseHubSidebar';
 export { CourseHubSkeleton } from './CourseHubSkeleton';

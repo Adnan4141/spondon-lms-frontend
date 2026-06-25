@@ -26,9 +26,38 @@ export interface TestimonialAdmin extends Testimonial {
 
 export async function getPublicTestimonials(params?: {
   type?: 'HOME' | 'COURSE';
+  courseId?: string;
 }): Promise<{ success: boolean; data: Testimonial[] }> {
-  const q = params?.type ? `?type=${encodeURIComponent(params.type)}` : '';
-  return apiRequest(`/testimonials/public${q}`);
+  const query = new URLSearchParams();
+  if (params?.type) query.set('type', params.type);
+  if (params?.courseId) query.set('courseId', params.courseId);
+  const q = query.toString();
+  return apiRequest(`/testimonials/public${q ? `?${q}` : ''}`);
+}
+
+export interface MyCourseReview {
+  id: string;
+  rating: number | null;
+  quote: string;
+  info: string | null;
+  approved: boolean;
+  createdAt: string;
+}
+
+export interface MyCourseReviewStatus {
+  eligible: boolean;
+  reason: 'NOT_ENROLLED' | 'NOT_COMPLETED' | null;
+  enrolled: boolean;
+  progressPct: number;
+  myReview: MyCourseReview | null;
+}
+
+export async function getMyCourseReview(
+  courseId: string,
+  actorUserId: string,
+): Promise<{ success: boolean; data: MyCourseReviewStatus }> {
+  const query = new URLSearchParams({ courseId, actorUserId });
+  return apiRequest(`/testimonials/my-course-review?${query.toString()}`);
 }
 
 export async function getAllTestimonials(params?: {
@@ -47,6 +76,19 @@ export async function createTestimonial(data: Partial<TestimonialAdmin>): Promis
   return apiRequest('/testimonials', {
     method: 'POST',
     body: JSON.stringify(data),
+  });
+}
+
+export async function submitCourseReview(data: {
+  actorUserId: string;
+  courseId: string;
+  rating: number;
+  quote: string;
+  info?: string;
+}): Promise<{ success: boolean; message?: string; data: TestimonialAdmin }> {
+  return apiRequest('/testimonials', {
+    method: 'POST',
+    body: JSON.stringify({ ...data, testimonialType: 'COURSE' }),
   });
 }
 

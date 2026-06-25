@@ -537,11 +537,11 @@ export default function StudentCourseSubjectPage() {
             </div>
             <div>
               <p className="font-extrabold text-slate-800 text-[14.5px]">Provide Course Feedback</p>
-              <p className="text-xs text-slate-500 mt-0.5">Let us know how we can improve. Submit your rating on the course main hub.</p>
+              <p className="text-xs text-slate-500 mt-0.5">Finish the course, then share your rating from the Reviews tab.</p>
             </div>
           </div>
           <Button asChild variant="outline" className="rounded-xl shrink-0 font-extrabold text-slate-700 bg-white border-slate-200 hover:bg-slate-50 hover:text-slate-900 transition-colors">
-            <Link href={`/student/courses/${courseId}#course-reviews`}>View Reviews</Link>
+            <Link href={`/student/courses/${courseId}?tab=reviews`}>View Reviews</Link>
           </Button>
         </CardContent>
       </Card>

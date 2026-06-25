@@ -14,6 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
+import { confirmAction } from '@/features/admin/shared/confirm-action';
 import { getActorUserIdFromStorage } from '@/lib/actor-user';
 import {
   discardOmrScan,

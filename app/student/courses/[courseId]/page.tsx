@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { AlertCircle, BookOpen, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import {
   CourseHubHero,
   CourseHubSubjectList,
   CourseHubResourcesTab,
-  CourseHubTeachersTab,
+  CourseHubReviewsTab,
   CourseHubStats,
   CourseHubSidebar,
   CourseHubSkeleton,
@@ -19,13 +19,21 @@ import {
   countSubjectStatuses,
   pickResumeLesson,
 } from '@/components/student/course-hub';
+
+const VALID_TABS = new Set(['learn', 'resources', 'reviews']);
 import { useCourseHubData } from '@/lib/query/hooks/useCourseHubData';
 import { useCourseHubEnrollment } from '@/lib/query/hooks/useCourseHubEnrollment';
 
 export default function StudentCourseHubPage() {
   const params = useParams();
   const courseId = params.courseId as string;
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState('learn');
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && VALID_TABS.has(tab)) setActiveTab(tab);
+  }, [searchParams]);
 
   const {
     course,
@@ -180,15 +188,10 @@ export default function StudentCourseHubPage() {
                   ) : null}
                 </TabsTrigger>
                 <TabsTrigger
-                  value="teachers"
+                  value="reviews"
                   className="group gap-2 px-4 pb-3 text-sm font-semibold transition-all data-[state=active]:text-indigo-600 data-[state=active]:after:bg-indigo-600 data-[state=active]:font-bold"
                 >
-                  Teachers
-                  {teachersCount > 0 ? (
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500 group-data-[state=active]:bg-indigo-50 group-data-[state=active]:text-indigo-600 transition-colors">
-                      {teachersCount}
-                    </span>
-                  ) : null}
+                  Reviews
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -201,8 +204,8 @@ export default function StudentCourseHubPage() {
               <CourseHubResourcesTab course={course} syllabusItems={syllabusItems} />
             </TabsContent>
 
-            <TabsContent value="teachers" className="mt-3">
-              <CourseHubTeachersTab course={course} />
+            <TabsContent value="reviews" className="mt-3">
+              <CourseHubReviewsTab courseId={courseId} studentUserId={studentUserId} />
             </TabsContent>
           </Tabs>
         </div>
@@ -212,7 +215,6 @@ export default function StudentCourseHubPage() {
           resume={resume}
           teachersCount={teachersCount}
           resourcesCount={resourcesCount}
-          onTeachersClick={() => setActiveTab('teachers')}
           onResourcesClick={() => setActiveTab('resources')}
         />
       </div>
