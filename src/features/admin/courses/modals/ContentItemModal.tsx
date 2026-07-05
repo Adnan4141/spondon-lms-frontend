@@ -57,8 +57,8 @@ export function ContentItemModal({
 
   const handleSave = async () => {
     if (!form.title.trim()) { setError('Title is required'); return; }
-    if (!form.subjectTitle.trim()) { setError('Module is required'); return; }
-    if (!form.chapterTitle.trim()) { setError('Section is required'); return; }
+    if (!form.subjectTitle.trim()) { setError('Subject is required'); return; }
+    if (!form.chapterTitle.trim()) { setError('Chapter is required'); return; }
     if (attachmentMode === 'link' && form.type === 'VIDEO' && form.fileUrl.trim() && !parseYoutubeVideoId(form.fileUrl.trim())) {
       setError('Use a valid YouTube watch, youtu.be, embed, Shorts, or raw video id. Use Unlisted, not Private.');
       return;
@@ -105,7 +105,7 @@ export function ContentItemModal({
                 {mode === 'edit' ? 'Edit Lesson' : 'Add New Lesson'}
               </h2>
               <p className="mt-0.5 text-[13px] font-medium text-slate-500">
-                Configure your course material and organize it in a module and section.
+                Configure your course material and organize it under a subject and chapter.
               </p>
             </div>
           </div>
@@ -127,7 +127,7 @@ export function ContentItemModal({
             </h3>
             <div className="grid gap-5 sm:grid-cols-2 p-5 bg-white rounded-2xl border border-slate-200/60 shadow-sm">
               <div>
-                <label className={labelCls}>Module <span className="text-rose-500">*</span></label>
+                <label className={labelCls}>Subject <span className="text-rose-500">*</span></label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <BookOpen className="h-4 w-4 text-slate-400" />
@@ -135,10 +135,10 @@ export function ContentItemModal({
                   <Input list="content-subjects-dl" value={form.subjectTitle} onChange={(e) => set('subjectTitle', e.target.value)} placeholder="e.g. Mathematics" className={cn(inputTheme, "pl-10")} autoComplete="off" />
                 </div>
                 <datalist id="content-subjects-dl">{existingSubjects.map((s) => <option key={s} value={s} />)}</datalist>
-                <p className="text-[11px] text-slate-500 mt-1.5 font-medium">Main top-level grouping container.</p>
+                <p className="text-[11px] text-slate-500 mt-1.5 font-medium">Top-level grouping — matches the student subject list.</p>
               </div>
               <div>
-                <label className={labelCls}>Section <span className="text-rose-500">*</span></label>
+                <label className={labelCls}>Chapter <span className="text-rose-500">*</span></label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <Layers className="h-4 w-4 text-slate-400" />
@@ -265,7 +265,7 @@ export function ContentItemModal({
             </button>
             <div className={cn("grid gap-5 sm:grid-cols-2 overflow-hidden transition-all duration-300", showAdvanced ? "max-h-40 p-5 border-t border-slate-100" : "max-h-0 opacity-0")}>
               <div>
-                <Label className={labelCls}>Order in section</Label>
+                <Label className={labelCls}>Order in chapter</Label>
                 <Input type="number" min={0} value={form.sortOrder} onChange={(e) => set('sortOrder', e.target.value)} className={inputTheme} />
               </div>
               <div>

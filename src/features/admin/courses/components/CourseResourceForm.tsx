@@ -387,7 +387,7 @@ export function CourseResourceForm({
         </div>
 
         <div className="space-y-2">
-          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Section order</Label>
+          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Chapter order</Label>
           <Input
             type="number"
             className="h-12 rounded-2xl border-slate-200 bg-white font-bold"

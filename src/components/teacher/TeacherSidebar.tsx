@@ -158,6 +158,7 @@ export function TeacherSidebar({
   const pathname = usePathname();
   const router = useRouter();
   const { user, initials, logout } = useTeacherSession();
+  const { data: openDoubtCount = 0 } = useTeacherDoubtBadgeCount(user?.id);
 
   const handleLogout = () => {
     logout();
@@ -236,6 +237,7 @@ export function TeacherSidebar({
                     isActive={isTeacherNavItemActive(pathname, item.href)}
                     collapsed={collapsed}
                     onCloseMobile={onCloseMobile}
+                    badgeCount={item.badgeKey === 'openDoubts' ? openDoubtCount : undefined}
                   />
                 ))}
               </nav>

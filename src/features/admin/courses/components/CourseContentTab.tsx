@@ -368,10 +368,10 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
 
   const handleRenameModule = async (oldName: string) => {
     const newName = await promptAction({
-      title: 'Rename module',
+      title: 'Rename subject',
       description: `Enter a new name for "${oldName}".`,
       defaultValue: oldName,
-      placeholder: 'Module name',
+      placeholder: 'Subject name',
       confirmLabel: 'Rename',
     });
     if (!newName || newName === oldName) return;
@@ -392,18 +392,18 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
         fd.append('subjectTitle', trimmed);
         return updateCourseContent(item.id, fd);
       }));
-      toast({ description: `Module renamed to ${trimmed}` });
+      toast({ description: `Subject renamed to ${trimmed}` });
     } catch {
-      toast({ variant: 'destructive', description: "Some lessons failed to rename within the module." });
+      toast({ variant: 'destructive', description: 'Some lessons failed to rename within the subject.' });
       loadContents(); // revert on fail
     }
   };
 
   const handleDeleteModule = async (moduleName: string) => {
     if (!(await confirmAction({
-      title: 'Delete module?',
-      description: `Delete the module "${moduleName}" and all its items?`,
-      confirmLabel: 'Delete module',
+      title: 'Delete subject?',
+      description: `Delete the subject "${moduleName}" and all its items?`,
+      confirmLabel: 'Delete subject',
       variant: 'danger',
     }))) return;
     setIsDeletingModule(moduleName);
@@ -414,9 +414,9 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
 
     try {
       await Promise.all(itemsToDelete.map(item => deleteCourseContent(item.id)));
-      toast({ description: `Module deleted` });
+      toast({ description: 'Subject deleted' });
     } catch {
-      toast({ variant: 'destructive', description: "Failed to delete module." });
+      toast({ variant: 'destructive', description: 'Failed to delete subject.' });
       loadContents();
     } finally {
       setIsDeletingModule(null);
@@ -512,7 +512,7 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
       {/* ─── Stats Bar ──────────────────────────────────────────────────── */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
         {[
-          { label: 'Modules',       val: subjects.length,   icon: <BookOpen className="h-4 w-4" />,    tc: 'text-violet-700', bg: 'bg-violet-100',  gradient: 'bg-gradient-to-br from-violet-50 to-fuchsia-50/60',  border: 'border-violet-200/60' },
+          { label: 'Subjects',       val: subjects.length,   icon: <BookOpen className="h-4 w-4" />,    tc: 'text-violet-700', bg: 'bg-violet-100',  gradient: 'bg-gradient-to-br from-violet-50 to-fuchsia-50/60',  border: 'border-violet-200/60' },
           { label: 'Lessons',       val: items.length,      icon: <Layers className="h-4 w-4" />,      tc: 'text-blue-700',   bg: 'bg-blue-100',    gradient: 'bg-gradient-to-br from-blue-50 to-sky-50/60',    border: 'border-blue-200/60' },
           { label: 'Video Lessons', val: totalVideos,       icon: <PlayCircle className="h-4 w-4" />,  tc: 'text-indigo-700', bg: 'bg-indigo-100',  gradient: 'bg-gradient-to-br from-indigo-50 to-blue-50/60',  border: 'border-indigo-200/60' },
           { label: 'Documents',     val: totalDocs,         icon: <FileText className="h-4 w-4" />,    tc: 'text-emerald-700',bg: 'bg-emerald-100', gradient: 'bg-gradient-to-br from-emerald-50 to-teal-50/60', border: 'border-emerald-200/60' },
@@ -534,7 +534,7 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
 
       <div className="mb-5 flex items-center justify-between">
         <p className="text-xs font-medium text-slate-400">
-          {subjects.length > 0 ? `${subjects.length} module${subjects.length !== 1 ? 's' : ''} · ${items.length} lesson${items.length !== 1 ? 's' : ''}` : 'No content'}
+          {subjects.length > 0 ? `${subjects.length} subject${subjects.length !== 1 ? 's' : ''} · ${items.length} lesson${items.length !== 1 ? 's' : ''}` : 'No content'}
         </p>
         <Button onClick={() => { setEditItem(null); setAddCtx({}); }} className="gap-2 rounded-lg bg-slate-900 px-4 text-white shadow-sm transition-all hover:bg-slate-800 hover:shadow-md">
           <Plus className="h-4 w-4" /> Add Lesson
@@ -546,9 +546,9 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-100 to-violet-100">
             <FolderOpen className="h-8 w-8 text-indigo-500" />
           </div>
-          <h3 className="text-base font-bold text-slate-700">No modules yet</h3>
+          <h3 className="text-base font-bold text-slate-700">No subjects yet</h3>
           <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-slate-400">
-            Start building your course by adding the first lesson. Lessons are auto-grouped into modules and sections.
+            Start building your course by adding the first lesson. Lessons are grouped into subjects and chapters — the same structure students see.
           </p>
           <Button onClick={() => { setEditItem(null); setAddCtx({}); }} className="mt-5 gap-2 rounded-lg bg-indigo-600 px-5 text-white shadow-sm hover:bg-indigo-700">
             <Plus className="h-4 w-4" /> Add First Lesson
@@ -608,7 +608,7 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
                                   )}
                                 </div>
                                 <p className="text-xs text-slate-400 mt-1 font-medium select-none">
-                                   {subj.chapters.length} {subj.chapters.length === 1 ? 'section' : 'sections'} • {totalItems} {totalItems === 1 ? 'lesson' : 'lessons'}
+                                   {subj.chapters.length} {subj.chapters.length === 1 ? 'chapter' : 'chapters'} • {totalItems} {totalItems === 1 ? 'lesson' : 'lessons'}
                                 </p>
                               </div>
                             </div>
@@ -626,10 +626,10 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
                               
                               {/* Module Edit Options */}
                               <div className="flex gap-1 border-l border-slate-200 ml-1 pl-1">
-                                <button type="button" onClick={(e) => { e.stopPropagation(); handleRenameModule(subj.name); }} title="Rename Module" className="p-1.5 text-slate-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors">
+                                <button type="button" onClick={(e) => { e.stopPropagation(); handleRenameModule(subj.name); }} title="Rename Subject" className="p-1.5 text-slate-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors">
                                   <Pencil className="h-3.5 w-3.5" />
                                 </button>
-                                <button type="button" onClick={(e) => { e.stopPropagation(); handleDeleteModule(subj.name); }} title="Delete Module" className="p-1.5 text-slate-400 hover:text-red-600 rounded-md hover:bg-red-50 transition-colors">
+                                <button type="button" onClick={(e) => { e.stopPropagation(); handleDeleteModule(subj.name); }} title="Delete Subject" className="p-1.5 text-slate-400 hover:text-red-600 rounded-md hover:bg-red-50 transition-colors">
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </button>
                               </div>
@@ -700,7 +700,7 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
                                   {/* Empty section */}
                                   {chapOpen && chap.items.length === 0 && (
                                     <div className="ml-[54px] border-l border-indigo-100 px-6 py-5">
-                                      <p className="text-xs text-slate-400 font-medium">No lessons in this section</p>
+                                      <p className="text-xs text-slate-400 font-medium">No lessons in this chapter</p>
                                       <button type="button" onClick={() => { setEditItem(null); setAddCtx({ subject: subj.name, chapter: chap.name }); }} className="mt-3 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-dashed border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 hover:border-slate-400">
                                         <Plus className="h-3.5 w-3.5" /> Add First Lesson
                                       </button>

@@ -19,6 +19,7 @@ import {
   Play,
   Clock,
   Pencil,
+  Layers,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CourseResourceForm } from './CourseResourceForm';
@@ -52,10 +53,27 @@ export function CourseFormContentTab({ ctrl }: { ctrl: CourseFormController }) {
 
   if (!course) return null;
 
+  const hasCurriculum = (course.curriculumNodeCount ?? 0) > 0;
+
   return (
           <div className="space-y-5 max-w-3xl mx-auto animate-in fade-in duration-200">
+            {hasCurriculum ? (
+              <div className="flex gap-3 rounded-xl border border-indigo-200 bg-indigo-50/80 px-4 py-3.5">
+                <Layers className="h-5 w-5 shrink-0 text-indigo-600 mt-0.5" />
+                <div>
+                  <p className="text-sm font-bold text-indigo-900">Curriculum builder active</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-indigo-700/80">
+                    This course uses the curriculum tree (subjects → chapters → lessons). Manage it from{' '}
+                    <span className="font-semibold">Courses → select course → Content</span> — the same structure students see.
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            {!hasCurriculum ? (
+              <>
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-900">Chapters & Segments</h3>
+              <h3 className="text-base font-bold text-slate-900">Subjects & Lessons</h3>
               <Button
                 onClick={() => {
                   setEditingResource(null);
@@ -67,7 +85,7 @@ export function CourseFormContentTab({ ctrl }: { ctrl: CourseFormController }) {
                 size="sm"
                 className="h-9 rounded-xl bg-slate-900 text-white hover:bg-black text-xs font-bold"
               >
-                <Plus className="mr-1.5 h-3.5 w-3.5" /> New Chapter
+                <Plus className="mr-1.5 h-3.5 w-3.5" /> Add Subject
               </Button>
             </div>
 
@@ -144,7 +162,7 @@ export function CourseFormContentTab({ ctrl }: { ctrl: CourseFormController }) {
               <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 py-16 text-slate-300">
                 <FileText className="h-10 w-10 mb-3" />
                 <p className="text-sm font-semibold">No content yet</p>
-                <p className="text-xs mt-1">Click "New Chapter" to start building your course</p>
+                <p className="text-xs mt-1">Click &quot;Add Subject&quot; to start building your course</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -375,6 +393,8 @@ export function CourseFormContentTab({ ctrl }: { ctrl: CourseFormController }) {
                 })}
               </div>
             )}
+              </>
+            ) : null}
           </div>
   );
 }
