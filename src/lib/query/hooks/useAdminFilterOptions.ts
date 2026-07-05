@@ -14,6 +14,7 @@ export function useAdminFilterOptions() {
       (query.data?.programs ?? []).map((program) => ({
         id: program.id,
         name: program.name,
+        paymentCircle: program.paymentCircle,
       })),
     [query.data?.programs],
   );

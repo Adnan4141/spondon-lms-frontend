@@ -79,6 +79,7 @@ import {
   LayoutList,
 } from 'lucide-react';
 import { RecurringScheduleDialog } from '@/features/admin/routine';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -249,6 +250,11 @@ export function RoutinePageContent() {
       return true;
     });
   }, [slots, filterDay, filterStatus]);
+
+  const courseOptions = useMemo(
+    () => courses.map((c) => ({ value: c.id, label: c.name })),
+    [courses],
+  );
 
   // ── Load teachers on mount ────────────────────────────
   useEffect(() => {
@@ -740,23 +746,16 @@ export function RoutinePageContent() {
               <Label className="text-xs font-medium text-muted-foreground">
                 Course <span className="text-destructive">*</span>
               </Label>
-              <Select
-                value={selectedCourseId || '_none'}
+              <SearchableSelect
+                value={selectedCourseId}
                 onValueChange={handleCourseChange}
                 disabled={!selectedProgramId || loadingCourses}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="-- Select course --" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none">-- Select course --</SelectItem>
-                  {courses.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder={loadingCourses ? 'Loading…' : '-- Select course --'}
+                searchPlaceholder="Search course…"
+                emptyMessage={selectedProgramId ? 'No course found.' : 'Select a program first.'}
+                triggerClassName="h-9 rounded-md border-input bg-background px-3 text-sm font-normal shadow-xs hover:bg-background"
+                options={courseOptions}
+              />
             </div>
 
             {/* Branch */}

@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Filter, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
@@ -14,17 +15,29 @@ import { Panel } from '../../sms-shared';
 import { ToggleList } from './ToggleList';
 import type { Actor, BranchOption, Option } from './types';
 
+type ProgramOption = Option & { paymentCircle?: 'MONTHLY' | 'ONE_TIME' };
+type CourseOption = Option & { programId: string };
+
+function currentMonth(): string {
+  return new Date().toISOString().slice(0, 7);
+}
+
+function isProgramMonthly(programs: ProgramOption[], programId: string): boolean {
+  return programs.find((p) => p.id === programId)?.paymentCircle === 'MONTHLY';
+}
+
 export function StudentsMethodPanel({ branches, actor, onResolved }: { branches: BranchOption[]; actor?: Actor; onResolved: (recipients: SmsRecipient[]) => void }) {
   const { toast } = useToast();
   const isBranchAdmin = actor?.role === 'BRANCH_ADMIN';
-  const [programs, setPrograms] = useState<Option[]>([]);
-  const [courses, setCourses] = useState<Option[]>([]);
+  const [programs, setPrograms] = useState<ProgramOption[]>([]);
+  const [courses, setCourses] = useState<CourseOption[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [branchId, setBranchId] = useState(actor?.branchId || '');
   const [programId, setProgramId] = useState('');
   const [courseIds, setCourseIds] = useState<string[]>([]);
   const [batchIds, setBatchIds] = useState<string[]>([]);
   const [status, setStatus] = useState('ACTIVE');
+  const [month, setMonth] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -32,8 +45,20 @@ export function StudentsMethodPanel({ branches, actor, onResolved }: { branches:
       getPrograms(),
       getCourses({ all: true, status: 'ACTIVE' }),
     ]).then(([programRes, courseRes]) => {
-      if (programRes.success) setPrograms((programRes.data || []).map((program) => ({ id: program.id, name: program.name })));
-      if (courseRes.success) setCourses((courseRes.data || []).map((course) => ({ id: course.id, name: course.name, programId: course.programId })));
+      if (programRes.success) {
+        setPrograms((programRes.data || []).map((program) => ({
+          id: program.id,
+          name: program.name,
+          paymentCircle: program.paymentCircle,
+        })));
+      }
+      if (courseRes.success) {
+        setCourses((courseRes.data || []).map((course) => ({
+          id: course.id,
+          name: course.name,
+          programId: course.programId,
+        })));
+      }
     }).catch(() => undefined);
   }, []);
 
@@ -49,12 +74,34 @@ export function StudentsMethodPanel({ branches, actor, onResolved }: { branches:
     }).catch(() => undefined);
   }, [actor?.branchId, branchId, isBranchAdmin, programId, status]);
 
+  const isMonthlyContext = useMemo(() => {
+    if (programId && isProgramMonthly(programs, programId)) return true;
+    if (courseIds.length) {
+      return courseIds.some((id) => {
+        const course = courses.find((c) => c.id === id);
+        if (!course) return false;
+        return isProgramMonthly(programs, course.programId);
+      });
+    }
+    return false;
+  }, [programId, courseIds, programs, courses]);
+
+  useEffect(() => {
+    if (isMonthlyContext && !month) {
+      setMonth(currentMonth());
+    }
+  }, [isMonthlyContext, month]);
+
   const filteredCourses = courses.filter((course) => !programId || course.programId === programId);
   const batchOptions = batches
     .filter((batch) => !courseIds.length || courseIds.includes(batch.courseId))
     .map((batch) => ({ id: batch.id, name: `${batch.name}${batch.course?.name ? ` (${batch.course.name})` : ''}` }));
 
   async function resolve() {
+    if (isMonthlyContext && !month) {
+      toast({ title: 'Select active month for monthly program', variant: 'destructive' });
+      return;
+    }
     setLoading(true);
     try {
       const res = await resolveSmsRecipients({
@@ -63,6 +110,7 @@ export function StudentsMethodPanel({ branches, actor, onResolved }: { branches:
         courseIds,
         batchIds,
         status,
+        month: month || undefined,
       });
       onResolved(res.data.recipients || []);
       toast({ title: `${res.data.count || res.data.recipients.length} recipients resolved` });
@@ -76,7 +124,7 @@ export function StudentsMethodPanel({ branches, actor, onResolved }: { branches:
   return (
     <Panel title="Students">
       <div className="space-y-4">
-        <div className="grid gap-3 lg:grid-cols-5">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {!isBranchAdmin ? (
             <div>
               <Label>Branch</Label>
@@ -95,7 +143,11 @@ export function StudentsMethodPanel({ branches, actor, onResolved }: { branches:
               <SelectTrigger className="mt-1 bg-white"><SelectValue placeholder="All programs" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All programs</SelectItem>
-                {programs.map((program) => <SelectItem key={program.id} value={program.id}>{program.name}</SelectItem>)}
+                {programs.map((program) => (
+                  <SelectItem key={program.id} value={program.id}>
+                    {program.name}{program.paymentCircle === 'MONTHLY' ? ' · Monthly' : ''}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -110,13 +162,38 @@ export function StudentsMethodPanel({ branches, actor, onResolved }: { branches:
               </SelectContent>
             </Select>
           </div>
-          <div className="flex items-end">
-            <Button type="button" onClick={() => void resolve()} disabled={loading || (!branchId && isBranchAdmin && !actor?.branchId)} className="w-full gap-2">
-              {loading ? <RotateCcw className="h-4 w-4 animate-spin" /> : <Filter className="h-4 w-4" />}
-              Resolve
-            </Button>
-          </div>
         </div>
+
+        <div className={`flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-end ${isMonthlyContext ? 'border-amber-200 bg-amber-50/60' : 'border-slate-200 bg-slate-50/40'}`}>
+          <div className="min-w-0 flex-1 sm:max-w-xs">
+            <Label>{isMonthlyContext ? 'Active month' : 'Active month (optional)'}</Label>
+            <Input
+              type="month"
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+              className="mt-1 bg-white"
+            />
+            {isMonthlyContext ? (
+              <p className="mt-1.5 text-xs text-amber-800">
+                Monthly program — only students active in this month are included (cancel/re-add aware).
+              </p>
+            ) : (
+              <p className="mt-1.5 text-xs text-slate-500">
+                Leave empty to include all currently active enrollments.
+              </p>
+            )}
+          </div>
+          <Button
+            type="button"
+            onClick={() => void resolve()}
+            disabled={loading || (isBranchAdmin && !actor?.branchId)}
+            className="w-full shrink-0 gap-2 sm:w-auto"
+          >
+            {loading ? <RotateCcw className="h-4 w-4 animate-spin" /> : <Filter className="h-4 w-4" />}
+            Resolve
+          </Button>
+        </div>
+
         <div className="grid gap-3 lg:grid-cols-2">
           <ToggleList title="Courses" options={filteredCourses} selected={courseIds} onToggle={(id) => setCourseIds((prev) => prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id])} />
           <ToggleList title="Batches" options={batchOptions} selected={batchIds} onToggle={(id) => setBatchIds((prev) => prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id])} />

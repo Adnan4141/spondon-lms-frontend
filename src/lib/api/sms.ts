@@ -264,6 +264,7 @@ export const resolveSmsRecipients = (data: {
   batchIds?: string[];
   studentIds?: string[];
   status?: string;
+  month?: string;
 }) => apiRequest<ApiResponse<{ recipients: SmsRecipient[]; count: number }>>('/sms/resolve-recipients', {
   method: 'POST',
   body: JSON.stringify(data),
