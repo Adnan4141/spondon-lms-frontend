@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Filter, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { buildMonthOptions, currentMonth } from '@/features/admin/attendance/attendance-utils';
 import { getBatches, type Batch } from '@/lib/api/batches';
 import { getCourses } from '@/lib/api/courses';
 import { getPrograms } from '@/lib/api/programs';
@@ -16,11 +16,9 @@ import { ToggleList } from './ToggleList';
 import type { Actor, BranchOption, Option } from './types';
 
 type ProgramOption = Option & { paymentCircle?: 'MONTHLY' | 'ONE_TIME' };
-type CourseOption = Option & { programId: string };
+type CourseOption = Option & { programId: string; startMonth?: string | null; endMonth?: string | null };
 
-function currentMonth(): string {
-  return new Date().toISOString().slice(0, 7);
-}
+const ANY_MONTH = '__any__';
 
 function isProgramMonthly(programs: ProgramOption[], programId: string): boolean {
   return programs.find((p) => p.id === programId)?.paymentCircle === 'MONTHLY';
@@ -57,6 +55,8 @@ export function StudentsMethodPanel({ branches, actor, onResolved }: { branches:
           id: course.id,
           name: course.name,
           programId: course.programId,
+          startMonth: course.startMonth,
+          endMonth: course.endMonth,
         })));
       }
     }).catch(() => undefined);
@@ -91,6 +91,40 @@ export function StudentsMethodPanel({ branches, actor, onResolved }: { branches:
       setMonth(currentMonth());
     }
   }, [isMonthlyContext, month]);
+
+  const monthOptions = useMemo(() => {
+    const selectedCourses = courses.filter((c) => courseIds.includes(c.id));
+    if (selectedCourses.length > 0) {
+      const withBounds = selectedCourses.filter((c) => c.startMonth || c.endMonth);
+      if (withBounds.length > 0) {
+        const startMonth = withBounds.reduce(
+          (min, c) => (!min || (c.startMonth && c.startMonth < min) ? c.startMonth! : min),
+          withBounds[0].startMonth as string | undefined,
+        );
+        const endMonth = withBounds.reduce(
+          (max, c) => (!max || (c.endMonth && c.endMonth > max) ? c.endMonth! : max),
+          withBounds[0].endMonth as string | undefined,
+        );
+        return buildMonthOptions({ startMonth, endMonth });
+      }
+    }
+    if (programId) {
+      const programCourses = courses.filter((c) => c.programId === programId);
+      const withBounds = programCourses.filter((c) => c.startMonth || c.endMonth);
+      if (withBounds.length > 0) {
+        const startMonth = withBounds.reduce(
+          (min, c) => (!min || (c.startMonth && c.startMonth < min) ? c.startMonth! : min),
+          withBounds[0].startMonth as string | undefined,
+        );
+        const endMonth = withBounds.reduce(
+          (max, c) => (!max || (c.endMonth && c.endMonth > max) ? c.endMonth! : max),
+          withBounds[0].endMonth as string | undefined,
+        );
+        return buildMonthOptions({ startMonth, endMonth });
+      }
+    }
+    return buildMonthOptions();
+  }, [courses, courseIds, programId]);
 
   const filteredCourses = courses.filter((course) => !programId || course.programId === programId);
   const batchOptions = batches
@@ -167,12 +201,24 @@ export function StudentsMethodPanel({ branches, actor, onResolved }: { branches:
         <div className={`flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-end ${isMonthlyContext ? 'border-amber-200 bg-amber-50/60' : 'border-slate-200 bg-slate-50/40'}`}>
           <div className="min-w-0 flex-1 sm:max-w-xs">
             <Label>{isMonthlyContext ? 'Active month' : 'Active month (optional)'}</Label>
-            <Input
-              type="month"
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              className="mt-1 bg-white"
-            />
+            <Select
+              value={month || ANY_MONTH}
+              onValueChange={(value) => setMonth(value === ANY_MONTH ? '' : value)}
+            >
+              <SelectTrigger className="mt-1 bg-white">
+                <SelectValue placeholder="Select month" />
+              </SelectTrigger>
+              <SelectContent>
+                {!isMonthlyContext ? (
+                  <SelectItem value={ANY_MONTH}>Any month</SelectItem>
+                ) : null}
+                {monthOptions.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {isMonthlyContext ? (
               <p className="mt-1.5 text-xs text-amber-800">
                 Monthly program — only students active in this month are included (cancel/re-add aware).
