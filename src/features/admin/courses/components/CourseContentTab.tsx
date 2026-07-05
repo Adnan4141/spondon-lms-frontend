@@ -335,7 +335,7 @@ function SortableChapterRow({
 
 /* ─── main component ──────────────────────────────────────────────────────── */
 
-export function CourseContentTab({ courseId }: { courseId: string }) {
+export function CourseContentTab({ courseId, refreshToken }: { courseId: string; refreshToken?: number }) {
   const { toast } = useToast();
   const [items, setItems] = useState<CourseContent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -388,7 +388,7 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
         }
       })
       .finally(() => setLoading(false));
-  }, [loadContents]);
+  }, [loadContents, refreshToken]);
 
   const subjects = useMemo(() => groupContents(items), [items]);
   const existingSubjects = useMemo(() => subjects.map((s) => s.name).filter((s) => s !== '(No Subject)'), [subjects]);

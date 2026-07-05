@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { BookOpen, ChevronRight, GraduationCap, Layers, PlayCircle } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { BookOpen, ChevronRight, GraduationCap, FileDown, Layers, PlayCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { getCourseById, getCourseContents } from '@/lib/api/courses';
@@ -12,6 +12,7 @@ import { countCurriculumStats } from '@/features/admin/curriculum/curriculum-sta
 import type { CurriculumTreeNode } from '@/features/admin/curriculum/curriculum-types';
 import { CourseContentTab } from './CourseContentTab';
 import { groupContents } from '../courseUtils';
+import { ImportFromCourseModal } from '../modals/ImportFromCourseModal';
 
 type ContentStats = {
   subjectCount: number;
@@ -63,6 +64,30 @@ export function CourseDetailView({ course, onBack }: { course: Course; onBack: (
   const [curriculumNodeCount, setCurriculumNodeCount] = useState<number | null>(null);
   const [curriculumTree, setCurriculumTree] = useState<CurriculumTreeNode[]>([]);
   const [legacyStats, setLegacyStats] = useState<ContentStats | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [curriculumRefreshToken, setCurriculumRefreshToken] = useState(0);
+
+  const reloadContentMeta = useCallback(async () => {
+    const res = await getCourseById(course.id);
+    if (!res.success || !res.data) return;
+
+    const loaded = res.data as Course;
+    const nodeCount = typeof loaded.curriculumNodeCount === 'number' ? loaded.curriculumNodeCount : 0;
+    setCurriculumNodeCount(nodeCount);
+
+    if (nodeCount > 0) {
+      const treeRes = await getCurriculumTree(course.id);
+      if (treeRes.success && treeRes.data) {
+        setCurriculumTree(((treeRes.data as { tree?: CurriculumTreeNode[] }).tree ?? []) as CurriculumTreeNode[]);
+      }
+      setLegacyStats(null);
+    } else {
+      const contentsRes = await getCourseContents({ courseId: course.id });
+      setLegacyStats(countLegacyContentStats(contentsRes.data));
+      setCurriculumTree([]);
+    }
+    setCurriculumRefreshToken((t) => t + 1);
+  }, [course.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -186,20 +211,32 @@ export function CourseDetailView({ course, onBack }: { course: Course; onBack: (
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
-        <div className="mb-4 flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50">
-            <Layers className="h-4 w-4 text-indigo-600" />
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50">
+              <Layers className="h-4 w-4 text-indigo-600" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-slate-900">
+                {hasCurriculum ? 'Subjects & Curriculum' : 'Course Content'}
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                {hasCurriculum
+                  ? 'Manage subjects, chapters, lessons, and resources — same structure students see in their course hub.'
+                  : 'Manage subjects, chapters, and lesson materials'}
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-black text-slate-900">
-              {hasCurriculum ? 'Subjects & Curriculum' : 'Course Content'}
-            </h3>
-            <p className="text-[11px] text-slate-400">
-              {hasCurriculum
-                ? 'Manage subjects, chapters, lessons, and resources — same structure students see in their course hub.'
-                : 'Manage subjects, chapters, and lesson materials'}
-            </p>
-          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5 rounded-lg border-slate-200 text-xs font-bold"
+            onClick={() => setImportOpen(true)}
+          >
+            <FileDown className="h-3.5 w-3.5" />
+            Import from course
+          </Button>
         </div>
 
         {curriculumNodeCount === null ? (
@@ -218,12 +255,21 @@ export function CourseDetailView({ course, onBack }: { course: Course; onBack: (
               courseId={course.id}
               courseNameOverride={course.name}
               variant="embedded"
+              refreshToken={curriculumRefreshToken}
             />
           </div>
         ) : (
-          <CourseContentTab courseId={course.id} />
+          <CourseContentTab courseId={course.id} refreshToken={curriculumRefreshToken} />
         )}
       </div>
+
+      <ImportFromCourseModal
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        targetCourseId={course.id}
+        targetCourseName={course.name}
+        onSuccess={() => void reloadContentMeta()}
+      />
     </div>
   );
 }

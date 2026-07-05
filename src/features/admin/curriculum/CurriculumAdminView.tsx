@@ -270,6 +270,8 @@ export type CurriculumAdminViewProps = {
   courseNameOverride?: string;
   /** Lesson assignee list from modal draft (assigned teachers); skips course fetch for pool */
   teachersOverride?: { id: string; fullName: string }[];
+  /** Bump to reload tree after external import */
+  refreshToken?: number;
 };
 
 export function CurriculumAdminView({
@@ -277,6 +279,7 @@ export function CurriculumAdminView({
   variant = 'page',
   courseNameOverride,
   teachersOverride,
+  refreshToken,
 }: CurriculumAdminViewProps) {
   const embedded = variant === 'embedded';
   const { toast } = useToast();
@@ -347,7 +350,7 @@ export function CurriculumAdminView({
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, refreshToken]);
 
   useEffect(() => {
     if (!selected) {
