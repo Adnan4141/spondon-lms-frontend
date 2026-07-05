@@ -3,15 +3,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
+  ArrowRight,
   BookOpen,
   Check,
   ChevronDown,
   ChevronRight,
+  Copy,
   FileDown,
   GraduationCap,
   Layers,
   Loader2,
   Search,
+  Sparkles,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -20,7 +24,6 @@ import {
   DialogContent,
   DialogDescription,
   DialogFooter,
-  DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -58,27 +61,95 @@ type Props = {
   onSuccess: () => void;
 };
 
-function StatsPills({ stats }: { stats: ImportSelectionStats }) {
+const STEPS: { id: Step; label: string; hint: string }[] = [
+  { id: 1, label: 'Source', hint: 'Pick a course' },
+  { id: 2, label: 'Select', hint: 'Choose content' },
+  { id: 3, label: 'Confirm', hint: 'Review & import' },
+];
+
+function StepIndicator({ step }: { step: Step }) {
+  return (
+    <div className="mt-5 flex items-center gap-0">
+      {STEPS.map((s, idx) => {
+        const done = step > s.id;
+        const active = step === s.id;
+        return (
+          <div key={s.id} className="flex flex-1 items-center">
+            <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
+              <div
+                className={cn(
+                  'flex h-8 w-8 items-center justify-center rounded-full border-2 text-xs font-black transition-all duration-300',
+                  done
+                    ? 'border-emerald-500 bg-emerald-500 text-white shadow-md shadow-emerald-500/25'
+                    : active
+                      ? 'border-indigo-600 bg-indigo-600 text-white shadow-md shadow-indigo-500/30 ring-4 ring-indigo-100'
+                      : 'border-slate-200 bg-white text-slate-400',
+                )}
+              >
+                {done ? <Check className="h-4 w-4" strokeWidth={3} /> : s.id}
+              </div>
+              <div className="text-center">
+                <p
+                  className={cn(
+                    'text-[11px] font-black uppercase tracking-wider',
+                    active ? 'text-indigo-700' : done ? 'text-emerald-700' : 'text-slate-400',
+                  )}
+                >
+                  {s.label}
+                </p>
+                <p className="hidden text-[10px] text-slate-400 sm:block">{s.hint}</p>
+              </div>
+            </div>
+            {idx < STEPS.length - 1 ? (
+              <div
+                className={cn(
+                  'mx-1 mb-5 h-0.5 flex-1 rounded-full transition-colors duration-300',
+                  step > s.id ? 'bg-emerald-400' : 'bg-slate-200',
+                )}
+              />
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function StatsGrid({ stats }: { stats: ImportSelectionStats }) {
   const items = [
-    { label: 'Subjects', val: stats.subjects, icon: BookOpen },
-    { label: 'Chapters', val: stats.chapters, icon: Layers },
-    { label: 'Lessons', val: stats.lessons, icon: GraduationCap },
-    { label: 'Resources', val: stats.resources, icon: FileDown },
+    { label: 'Subjects', val: stats.subjects, icon: BookOpen, tone: 'from-violet-500 to-purple-600' },
+    { label: 'Chapters', val: stats.chapters, icon: Layers, tone: 'from-indigo-500 to-blue-600' },
+    { label: 'Lessons', val: stats.lessons, icon: GraduationCap, tone: 'from-sky-500 to-cyan-600' },
+    { label: 'Resources', val: stats.resources, icon: FileDown, tone: 'from-emerald-500 to-teal-600' },
   ];
   return (
-    <div className="flex flex-wrap gap-2">
-      {items.map(({ label, val, icon: Icon }) => (
-        <span
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      {items.map(({ label, val, icon: Icon, tone }) => (
+        <div
           key={label}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-600"
+          className="relative overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm"
         >
-          <Icon className="h-3 w-3 text-indigo-500" />
-          {val} {label.toLowerCase()}
-        </span>
+          <div className={cn('absolute inset-0 bg-gradient-to-br opacity-[0.06]', tone)} />
+          <div className="relative flex items-center gap-2.5">
+            <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br text-white shadow-sm', tone)}>
+              <Icon className="h-3.5 w-3.5" />
+            </div>
+            <div>
+              <p className="text-lg font-black leading-none text-slate-900">{val}</p>
+              <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">{label}</p>
+            </div>
+          </div>
+        </div>
       ))}
     </div>
   );
 }
+
+const TYPE_BADGE: Record<string, { label: string; cls: string }> = {
+  SUBJECT: { label: 'Subject', cls: 'bg-violet-100 text-violet-700 border-violet-200' },
+  CHAPTER: { label: 'Chapter', cls: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
+  LESSON: { label: 'Lesson', cls: 'bg-sky-100 text-sky-700 border-sky-200' },
+};
 
 function CurriculumTreeRow({
   node,
@@ -98,45 +169,47 @@ function CurriculumTreeRow({
   const hasChildren = (node.children?.length ?? 0) > 0;
   const isOpen = expanded.has(node.id);
   const fullySelected = isNodeFullySelected(node, selectedIds);
+  const badge = TYPE_BADGE[node.type] ?? TYPE_BADGE.LESSON;
 
-  const typeLabel =
-    node.type === 'SUBJECT' ? 'Subject' : node.type === 'CHAPTER' ? 'Chapter' : 'Lesson';
   const meta =
     node.type === 'LESSON'
-      ? `${node.resources?.length ?? node.resourceCount ?? 0} resource(s)`
+      ? `${node.resources?.length ?? node.resourceCount ?? 0} resources`
       : node.type === 'CHAPTER'
-        ? `${node.children?.length ?? 0} lesson(s)`
-        : `${node.children?.length ?? 0} chapter(s)`;
+        ? `${node.children?.length ?? 0} lessons`
+        : `${node.children?.length ?? 0} chapters`;
 
   return (
     <>
       <div
         className={cn(
-          'flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-slate-50',
-          depth > 0 && 'ml-4',
+          'group flex cursor-pointer items-center gap-2 rounded-xl border border-transparent px-2.5 py-2 transition-all hover:border-slate-100 hover:bg-slate-50/80',
+          fullySelected && 'border-indigo-100 bg-indigo-50/40',
         )}
-        style={{ paddingLeft: `${depth * 16 + 8}px` }}
+        style={{ marginLeft: `${depth * 14}px` }}
       >
         {hasChildren ? (
           <button
             type="button"
             onClick={() => onToggleExpand(node.id)}
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100"
+            className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-white hover:text-indigo-600"
           >
-            {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+            {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
           </button>
         ) : (
-          <span className="w-6 shrink-0" />
+          <span className="w-7 shrink-0" />
         )}
         <Checkbox
           checked={fullySelected}
           onCheckedChange={(v) => onToggleSelect(node, v === true)}
         />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-slate-800">{node.title}</p>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
-            {typeLabel} · {meta}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="truncate text-sm font-semibold text-slate-800">{node.title}</p>
+            <span className={cn('shrink-0 rounded-md border px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide', badge.cls)}>
+              {badge.label}
+            </span>
+          </div>
+          <p className="text-[10px] font-medium text-slate-400">{meta}</p>
         </div>
       </div>
       {hasChildren && isOpen
@@ -178,61 +251,78 @@ function LegacyTreeRow({
       {subjects.map((subject) => {
         const subjectKey = `subj:${subject.name}`;
         const subOpen = expanded.has(subjectKey);
+        const subSelected = isLegacySubjectFullySelected(subject, selectedIds);
         return (
           <div key={subjectKey}>
-            <div className="flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-slate-50">
+            <div
+              className={cn(
+                'flex cursor-pointer items-center gap-2 rounded-xl border border-transparent px-2.5 py-2 transition-all hover:bg-slate-50/80',
+                subSelected && 'border-indigo-100 bg-indigo-50/40',
+              )}
+            >
               <button
                 type="button"
                 onClick={() => onToggleExpand(subjectKey)}
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100"
+                className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-slate-400 hover:bg-white hover:text-indigo-600"
               >
-                {subOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                {subOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
               </button>
               <Checkbox
-                checked={isLegacySubjectFullySelected(subject, selectedIds)}
+                checked={subSelected}
                 onCheckedChange={(v) => onToggleSubject(subject, v === true)}
               />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-slate-800">{subject.name}</p>
-                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
-                  Subject · {subject.chapters.length} chapter(s)
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="truncate text-sm font-semibold text-slate-800">{subject.name}</p>
+                  <span className="rounded-md border border-violet-200 bg-violet-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-violet-700">
+                    Subject
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400">{subject.chapters.length} chapters</p>
               </div>
             </div>
             {subOpen
               ? subject.chapters.map((chapter) => {
                   const chapterKey = `chap:${subject.name}:::${chapter.name}`;
                   const chapOpen = expanded.has(chapterKey);
+                  const chapSelected = isLegacyChapterFullySelected(chapter, selectedIds);
                   return (
-                    <div key={chapterKey} className="ml-6">
-                      <div className="flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-slate-50">
+                    <div key={chapterKey} className="ml-5">
+                      <div
+                        className={cn(
+                          'flex cursor-pointer items-center gap-2 rounded-xl border border-transparent px-2.5 py-2 transition-all hover:bg-slate-50/80',
+                          chapSelected && 'border-indigo-100 bg-indigo-50/40',
+                        )}
+                      >
                         <button
                           type="button"
                           onClick={() => onToggleExpand(chapterKey)}
-                          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100"
+                          className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-slate-400 hover:bg-white hover:text-indigo-600"
                         >
-                          {chapOpen ? (
-                            <ChevronDown className="h-3.5 w-3.5" />
-                          ) : (
-                            <ChevronRight className="h-3.5 w-3.5" />
-                          )}
+                          {chapOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                         </button>
                         <Checkbox
-                          checked={isLegacyChapterFullySelected(chapter, selectedIds)}
+                          checked={chapSelected}
                           onCheckedChange={(v) => onToggleChapter(chapter, v === true)}
                         />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold text-slate-700">{chapter.name}</p>
-                          <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
-                            Chapter · {chapter.items.length} lesson(s)
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="truncate text-sm font-semibold text-slate-700">{chapter.name}</p>
+                            <span className="rounded-md border border-indigo-200 bg-indigo-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-indigo-700">
+                              Chapter
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-400">{chapter.items.length} lessons</p>
                         </div>
                       </div>
                       {chapOpen
                         ? chapter.items.map((item) => (
                             <div
                               key={item.id}
-                              className="ml-10 flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
+                              className={cn(
+                                'ml-10 flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 transition-colors hover:bg-slate-50',
+                                selectedIds.has(item.id) && 'bg-indigo-50/30',
+                              )}
                             >
                               <Checkbox
                                 checked={selectedIds.has(item.id)}
@@ -250,6 +340,72 @@ function LegacyTreeRow({
         );
       })}
     </>
+  );
+}
+
+function CourseSourceCard({ course, onSelect }: { course: Course; onSelect: () => void }) {
+  const hasCurriculum = (course.curriculumNodeCount ?? 0) > 0;
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className="group flex w-full cursor-pointer items-center gap-3.5 rounded-2xl border border-slate-100 bg-white p-3.5 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md hover:shadow-indigo-500/10"
+    >
+      <div
+        className={cn(
+          'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-sm transition-transform group-hover:scale-105',
+          hasCurriculum ? 'from-indigo-500 to-violet-600' : 'from-slate-500 to-slate-700',
+        )}
+      >
+        <BookOpen className="h-5 w-5" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-bold text-slate-900 group-hover:text-indigo-900">{course.name}</p>
+        <p className="mt-0.5 truncate font-mono text-[11px] text-slate-400">{course.slug}</p>
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-1.5">
+        <span
+          className={cn(
+            'rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wide',
+            hasCurriculum
+              ? 'border-indigo-200 bg-indigo-50 text-indigo-700'
+              : 'border-slate-200 bg-slate-50 text-slate-500',
+          )}
+        >
+          {hasCurriculum ? 'Curriculum' : 'Legacy'}
+        </span>
+        <ChevronRight className="h-4 w-4 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-indigo-500" />
+      </div>
+    </button>
+  );
+}
+
+function OptionCard({
+  checked,
+  onChange,
+  title,
+  description,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  title: string;
+  description: string;
+}) {
+  return (
+    <label
+      className={cn(
+        'flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition-all',
+        checked
+          ? 'border-indigo-200 bg-indigo-50/50 shadow-sm'
+          : 'border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50/50',
+      )}
+    >
+      <Checkbox checked={checked} onCheckedChange={(v) => onChange(v === true)} className="mt-0.5" />
+      <div>
+        <p className="text-sm font-bold text-slate-800">{title}</p>
+        <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500">{description}</p>
+      </div>
+    </label>
   );
 }
 
@@ -458,110 +614,138 @@ export function ImportFromCourseModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
-        <DialogHeader className="border-b border-slate-100 px-6 py-4">
-          <DialogTitle className="text-base font-bold">Import from another course</DialogTitle>
-          <DialogDescription className="text-xs">
-            Copy subjects, chapters, lessons, and resources into{' '}
-            <span className="font-semibold text-slate-700">{targetCourseName}</span>.
-          </DialogDescription>
-          <div className="mt-3 flex gap-2">
-            {([1, 2, 3] as Step[]).map((s) => (
-              <div
-                key={s}
-                className={cn(
-                  'flex flex-1 items-center gap-2 rounded-lg border px-3 py-2 text-[11px] font-bold uppercase tracking-wide',
-                  step === s
-                    ? 'border-indigo-200 bg-indigo-50 text-indigo-700'
-                    : step > s
-                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                      : 'border-slate-200 bg-slate-50 text-slate-400',
-                )}
-              >
-                {step > s ? <Check className="h-3.5 w-3.5" /> : <span>{s}</span>}
-                {s === 1 ? 'Source' : s === 2 ? 'Select' : 'Confirm'}
-              </div>
-            ))}
-          </div>
-        </DialogHeader>
+      <DialogContent
+        showCloseButton={false}
+        className="flex max-h-[92vh] flex-col gap-0 overflow-hidden rounded-2xl border-slate-200 p-0 shadow-2xl sm:max-w-[640px]"
+      >
+        <DialogTitle className="sr-only">Import from another course</DialogTitle>
+        <DialogDescription className="sr-only">
+          Copy course content into {targetCourseName}
+        </DialogDescription>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+        {/* Header */}
+        <div className="relative shrink-0 overflow-hidden border-b border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-violet-50/60 px-6 pb-5 pt-6">
+          <div
+            className="pointer-events-none absolute inset-0 opacity-[0.35]"
+            style={{
+              backgroundImage: 'radial-gradient(circle at 20% 20%, rgba(99,102,241,0.12) 0%, transparent 50%)',
+            }}
+          />
+          <div className="relative flex items-start justify-between gap-4">
+            <div className="flex gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-indigo-100 bg-white text-indigo-600 shadow-sm">
+                <Copy className="h-6 w-6" />
+              </div>
+              <div>
+                <h2 className="text-lg font-black tracking-tight text-slate-900 sm:text-xl">
+                  Import from another course
+                </h2>
+                <p className="mt-1 max-w-sm text-[13px] leading-relaxed text-slate-500">
+                  Copy subjects, chapters, lessons & resources into{' '}
+                  <span className="font-bold text-indigo-700">{targetCourseName}</span>
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              className="shrink-0 rounded-full border border-slate-200 bg-white p-2 text-slate-400 shadow-sm transition-all hover:border-slate-300 hover:text-slate-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <StepIndicator step={step} />
+        </div>
+
+        {/* Body */}
+        <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/40 px-6 py-5">
           {step === 1 && (
-            <div className="space-y-3">
+            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <Input
                   value={courseQuery}
                   onChange={(e) => setCourseQuery(e.target.value)}
                   placeholder="Search courses by name or slug…"
-                  className="pl-9 rounded-xl"
+                  className="h-11 rounded-xl border-slate-200 bg-white pl-10 shadow-sm transition-all focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/15"
                 />
               </div>
+
               {coursesLoading ? (
-                <div className="flex items-center justify-center py-16 text-slate-400">
-                  <Loader2 className="h-6 w-6 animate-spin" />
+                <div className="flex flex-col items-center justify-center gap-3 py-20 text-slate-400">
+                  <Loader2 className="h-7 w-7 animate-spin text-indigo-500" />
+                  <p className="text-sm font-medium">Loading courses…</p>
                 </div>
               ) : filteredCourses.length === 0 ? (
-                <p className="py-12 text-center text-sm text-slate-400">No courses found.</p>
+                <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-200 bg-white py-16 text-center">
+                  <BookOpen className="h-8 w-8 text-slate-300" />
+                  <p className="text-sm font-semibold text-slate-500">No courses found</p>
+                  <p className="text-xs text-slate-400">Try a different search term</p>
+                </div>
               ) : (
-                <div className="max-h-[360px] space-y-1 overflow-y-auto rounded-xl border border-slate-200 p-1">
+                <div className="max-h-[340px] space-y-2 overflow-y-auto pr-0.5">
                   {filteredCourses.map((course) => (
-                    <button
+                    <CourseSourceCard
                       key={course.id}
-                      type="button"
-                      onClick={() => handleSelectSource(course)}
-                      className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition-colors hover:bg-indigo-50"
-                    >
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100">
-                        <BookOpen className="h-4 w-4 text-slate-500" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-slate-800">{course.name}</p>
-                        <p className="text-[11px] text-slate-400">
-                          {course.slug}
-                          {(course.curriculumNodeCount ?? 0) > 0
-                            ? ' · Curriculum'
-                            : ' · Legacy content'}
-                        </p>
-                      </div>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-slate-300" />
-                    </button>
+                      course={course}
+                      onSelect={() => handleSelectSource(course)}
+                    />
                   ))}
                 </div>
               )}
+
+              {!coursesLoading && filteredCourses.length > 0 ? (
+                <p className="text-center text-[11px] font-medium text-slate-400">
+                  {filteredCourses.length} course{filteredCourses.length !== 1 ? 's' : ''} available
+                </p>
+              ) : null}
             </div>
           )}
 
           {step === 2 && (
-            <div className="space-y-3">
-              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Source</p>
-                <p className="text-sm font-semibold text-slate-800">{sourceCourseName}</p>
+            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="flex items-center gap-3 rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50/80 to-white p-3.5 shadow-sm">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm">
+                  <BookOpen className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Source course</p>
+                  <p className="truncate text-sm font-bold text-slate-900">{sourceCourseName}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  className="shrink-0 cursor-pointer text-[11px] font-bold text-indigo-600 hover:text-indigo-800"
+                >
+                  Change
+                </button>
               </div>
 
               {contentLoading ? (
-                <div className="flex items-center justify-center py-16 text-slate-400">
-                  <Loader2 className="h-6 w-6 animate-spin" />
+                <div className="flex flex-col items-center justify-center gap-3 py-20 text-slate-400">
+                  <Loader2 className="h-7 w-7 animate-spin text-indigo-500" />
+                  <p className="text-sm font-medium">Loading content tree…</p>
                 </div>
               ) : sourceHasCurriculum && curriculumTree.length === 0 ? (
-                <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                  <AlertCircle className="h-4 w-4 shrink-0" />
+                <div className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900">
+                  <AlertCircle className="h-5 w-5 shrink-0" />
                   This course has no curriculum content to import.
                 </div>
               ) : !sourceHasCurriculum && legacySubjects.length === 0 ? (
-                <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                  <AlertCircle className="h-4 w-4 shrink-0" />
+                <div className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900">
+                  <AlertCircle className="h-5 w-5 shrink-0" />
                   This course has no content rows to import.
                 </div>
               ) : (
                 <>
-                  <div className="flex items-center justify-between gap-2">
-                    <StatsPills stats={selectionStats} />
+                  <StatsGrid stats={selectionStats} />
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Select content</p>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="shrink-0 rounded-lg text-xs"
+                      className="h-8 rounded-lg border-slate-200 bg-white text-xs font-bold shadow-sm"
                       onClick={() => {
                         if (sourceHasCurriculum) {
                           setSelectedNodeIds(selectAllCurriculumNodes(curriculumTree));
@@ -573,7 +757,7 @@ export function ImportFromCourseModal({
                       Select all
                     </Button>
                   </div>
-                  <div className="max-h-[320px] overflow-y-auto rounded-xl border border-slate-200 p-2">
+                  <div className="max-h-[280px] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-inner">
                     {sourceHasCurriculum ? (
                       curriculumTree.map((node) => (
                         <CurriculumTreeRow
@@ -610,8 +794,8 @@ export function ImportFromCourseModal({
                     )}
                   </div>
                   {!sourceHasCurriculum ? (
-                    <p className="text-[11px] text-slate-400">
-                      Legacy content will be converted to curriculum (subjects → chapters → lessons) on import.
+                    <p className="rounded-xl border border-slate-100 bg-white px-3 py-2 text-[11px] leading-relaxed text-slate-500">
+                      Legacy content will be converted to curriculum structure on import.
                     </p>
                   ) : null}
                 </>
@@ -620,94 +804,93 @@ export function ImportFromCourseModal({
           )}
 
           {step === 3 && (
-            <div className="space-y-4">
-              <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-4 space-y-3">
-                <p className="text-sm font-bold text-indigo-900">Import summary</p>
-                <div className="grid gap-2 text-sm text-indigo-800">
-                  <p>
-                    <span className="text-indigo-600">From:</span> {sourceCourseName}
-                  </p>
-                  <p>
-                    <span className="text-indigo-600">To:</span> {targetCourseName}
-                  </p>
+            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              {/* Flow visual */}
+              <div className="rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="min-w-0 flex-1 rounded-xl border border-slate-100 bg-slate-50 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">From</p>
+                    <p className="mt-0.5 truncate text-sm font-bold text-slate-800">{sourceCourseName}</p>
+                  </div>
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white shadow-md shadow-indigo-500/30">
+                    <ArrowRight className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1 rounded-xl border border-indigo-100 bg-indigo-50/60 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Into</p>
+                    <p className="mt-0.5 truncate text-sm font-bold text-indigo-900">{targetCourseName}</p>
+                  </div>
                 </div>
-                <StatsPills stats={selectionStats} />
               </div>
 
-              <div className="space-y-3 rounded-xl border border-slate-200 p-4">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Options</p>
+              <StatsGrid stats={selectionStats} />
+
+              <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-500">
+                  <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
+                  Import options
+                </p>
 
                 <div className="space-y-2">
-                  <Label className="text-xs font-semibold text-slate-600">If name already exists</Label>
-                  <div className="flex gap-2">
+                  <Label className="text-xs font-bold text-slate-600">If name already exists</Label>
+                  <div className="grid grid-cols-2 gap-2">
                     {(['RENAME', 'SKIP'] as ImportConflictStrategy[]).map((v) => (
                       <button
                         key={v}
                         type="button"
                         onClick={() => setConflictStrategy(v)}
                         className={cn(
-                          'flex-1 rounded-lg border px-3 py-2 text-xs font-bold transition-colors',
+                          'cursor-pointer rounded-xl border px-3 py-2.5 text-xs font-black transition-all',
                           conflictStrategy === v
-                            ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
-                            : 'border-slate-200 text-slate-500 hover:bg-slate-50',
+                            ? 'border-indigo-300 bg-indigo-600 text-white shadow-md shadow-indigo-500/25'
+                            : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-white',
                         )}
                       >
-                        {v === 'RENAME' ? 'Rename (Copy)' : 'Skip'}
+                        {v === 'RENAME' ? 'Rename (Copy)' : 'Skip duplicates'}
                       </button>
                     ))}
                   </div>
                 </div>
 
-                <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-100 p-3 hover:bg-slate-50">
-                  <Checkbox checked={copyFiles} onCheckedChange={(v) => setCopyFiles(v === true)} />
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">Copy uploaded files</p>
-                    <p className="text-[11px] text-slate-400">
-                      Duplicate PDFs/videos stored on this server. YouTube and external links are reused as-is.
-                    </p>
-                  </div>
-                </label>
-
-                <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-100 p-3 hover:bg-slate-50">
-                  <Checkbox
-                    checked={includeVisibility}
-                    onCheckedChange={(v) => setIncludeVisibility(v === true)}
-                  />
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">Keep visibility settings</p>
-                    <p className="text-[11px] text-slate-400">Import VISIBLE / HIDDEN / DRAFT states from source.</p>
-                  </div>
-                </label>
-
+                <OptionCard
+                  checked={copyFiles}
+                  onChange={setCopyFiles}
+                  title="Copy uploaded files"
+                  description="Duplicate PDFs and videos stored on this server. YouTube links are reused as-is."
+                />
+                <OptionCard
+                  checked={includeVisibility}
+                  onChange={setIncludeVisibility}
+                  title="Keep visibility settings"
+                  description="Import VISIBLE, HIDDEN, and DRAFT states from the source course."
+                />
                 {sourceHasCurriculum ? (
-                  <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-100 p-3 hover:bg-slate-50">
-                    <Checkbox
-                      checked={includeTeachers}
-                      onCheckedChange={(v) => setIncludeTeachers(v === true)}
-                    />
-                    <div>
-                      <p className="text-sm font-semibold text-slate-800">Include teacher assignments</p>
-                      <p className="text-[11px] text-slate-400">
-                        Only when the teacher is already linked to the target course.
-                      </p>
-                    </div>
-                  </label>
+                  <OptionCard
+                    checked={includeTeachers}
+                    onChange={setIncludeTeachers}
+                    title="Include teacher assignments"
+                    description="Only when the teacher is already linked to the target course."
+                  />
                 ) : null}
               </div>
             </div>
           )}
         </div>
 
-        <DialogFooter className="border-t border-slate-100 px-6 py-4">
+        {/* Footer */}
+        <DialogFooter className="shrink-0 border-t border-slate-100 bg-white px-6 py-4">
           {step === 1 ? (
-            <Button variant="outline" className="rounded-xl" onClick={() => onOpenChange(false)}>
+            <Button
+              variant="outline"
+              className="ml-auto rounded-xl border-slate-200 font-bold"
+              onClick={() => onOpenChange(false)}
+            >
               Cancel
             </Button>
           ) : (
-            <div className="flex w-full items-center justify-between gap-2">
+            <div className="flex w-full items-center justify-between gap-3">
               <Button
                 variant="outline"
-                className="rounded-xl"
+                className="rounded-xl border-slate-200 font-bold"
                 onClick={() => setStep((s) => (s === 2 ? 1 : 2) as Step)}
                 disabled={importing}
               >
@@ -715,15 +898,16 @@ export function ImportFromCourseModal({
               </Button>
               {step === 2 ? (
                 <Button
-                  className="rounded-xl"
+                  className="rounded-xl bg-indigo-600 px-6 font-bold shadow-md shadow-indigo-500/25 hover:bg-indigo-700"
                   disabled={!hasSelection || contentLoading}
                   onClick={() => setStep(3)}
                 >
                   Continue
+                  <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               ) : (
                 <Button
-                  className="rounded-xl"
+                  className="rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-6 font-bold shadow-md shadow-indigo-500/30 hover:from-indigo-700 hover:to-violet-700"
                   disabled={importing || !hasSelection}
                   onClick={() => void handleImport()}
                 >
@@ -733,7 +917,10 @@ export function ImportFromCourseModal({
                       Importing…
                     </>
                   ) : (
-                    'Import content'
+                    <>
+                      <Copy className="mr-2 h-4 w-4" />
+                      Import content
+                    </>
                   )}
                 </Button>
               )}
