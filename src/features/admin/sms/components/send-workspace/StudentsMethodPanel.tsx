@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { buildMonthOptions, currentMonth } from '@/features/admin/attendance/attendance-utils';
+import { buildMonthOptions, currentMonth, formatMonthLabel } from '@/features/admin/attendance/attendance-utils';
 import { getBatches, type Batch } from '@/lib/api/batches';
 import { getCourses } from '@/lib/api/courses';
 import { getPrograms } from '@/lib/api/programs';
@@ -17,8 +17,6 @@ import type { Actor, BranchOption, Option } from './types';
 
 type ProgramOption = Option & { paymentCircle?: 'MONTHLY' | 'ONE_TIME' };
 type CourseOption = Option & { programId: string; startMonth?: string | null; endMonth?: string | null };
-
-const ANY_MONTH = '__any__';
 
 function isProgramMonthly(programs: ProgramOption[], programId: string): boolean {
   return programs.find((p) => p.id === programId)?.paymentCircle === 'MONTHLY';
@@ -36,6 +34,7 @@ export function StudentsMethodPanel({ branches, actor, onResolved }: { branches:
   const [batchIds, setBatchIds] = useState<string[]>([]);
   const [status, setStatus] = useState('ACTIVE');
   const [month, setMonth] = useState('');
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -87,10 +86,13 @@ export function StudentsMethodPanel({ branches, actor, onResolved }: { branches:
   }, [programId, courseIds, programs, courses]);
 
   useEffect(() => {
-    if (isMonthlyContext && !month) {
-      setMonth(currentMonth());
+    if (isMonthlyContext) {
+      setMonth((prev) => prev || currentMonth());
+    } else {
+      setMonth('');
+      setShowMonthPicker(false);
     }
-  }, [isMonthlyContext, month]);
+  }, [isMonthlyContext]);
 
   const monthOptions = useMemo(() => {
     const selectedCourses = courses.filter((c) => courseIds.includes(c.id));
@@ -126,7 +128,18 @@ export function StudentsMethodPanel({ branches, actor, onResolved }: { branches:
     return buildMonthOptions();
   }, [courses, courseIds, programId]);
 
-  const filteredCourses = courses.filter((course) => !programId || course.programId === programId);
+  const filteredCourses = useMemo(() => {
+    let list = courses.filter((course) => !programId || course.programId === programId);
+    if (isMonthlyContext && month) {
+      list = list.filter((course) => {
+        if (!course.startMonth && !course.endMonth) return true;
+        if (course.startMonth && course.startMonth > month) return false;
+        if (course.endMonth && course.endMonth < month) return false;
+        return true;
+      });
+    }
+    return list;
+  }, [courses, programId, isMonthlyContext, month]);
   const batchOptions = batches
     .filter((batch) => !courseIds.length || courseIds.includes(batch.courseId))
     .map((batch) => ({ id: batch.id, name: `${batch.name}${batch.course?.name ? ` (${batch.course.name})` : ''}` }));
@@ -198,34 +211,51 @@ export function StudentsMethodPanel({ branches, actor, onResolved }: { branches:
           </div>
         </div>
 
-        <div className={`flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-end ${isMonthlyContext ? 'border-amber-200 bg-amber-50/60' : 'border-slate-200 bg-slate-50/40'}`}>
-          <div className="min-w-0 flex-1 sm:max-w-xs">
-            <Label>{isMonthlyContext ? 'Active month' : 'Active month (optional)'}</Label>
-            <Select
-              value={month || ANY_MONTH}
-              onValueChange={(value) => setMonth(value === ANY_MONTH ? '' : value)}
-            >
-              <SelectTrigger className="mt-1 bg-white">
-                <SelectValue placeholder="Select month" />
-              </SelectTrigger>
-              <SelectContent>
-                {!isMonthlyContext ? (
-                  <SelectItem value={ANY_MONTH}>Any month</SelectItem>
-                ) : null}
-                {monthOptions.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <div className={`flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between ${isMonthlyContext ? 'border-amber-200 bg-amber-50/60' : 'border-slate-200 bg-slate-50/40'}`}>
+          <div className="min-w-0 flex-1 space-y-2">
             {isMonthlyContext ? (
-              <p className="mt-1.5 text-xs text-amber-800">
-                Monthly program — only students active in this month are included (cancel/re-add aware).
-              </p>
+              <>
+                <p className="text-sm text-amber-900">
+                  Monthly billing — recipients active in{' '}
+                  <span className="font-semibold">{formatMonthLabel(month || currentMonth())}</span>
+                  {!showMonthPicker ? (
+                    <button
+                      type="button"
+                      className="ml-2 text-xs font-medium text-amber-800 underline underline-offset-2 hover:text-amber-950"
+                      onClick={() => setShowMonthPicker(true)}
+                    >
+                      Change month
+                    </button>
+                  ) : null}
+                </p>
+                {showMonthPicker ? (
+                  <div className="max-w-xs">
+                    <Label className="text-xs text-amber-800">Select month</Label>
+                    <Select
+                      value={month || currentMonth()}
+                      onValueChange={(value) => {
+                        setMonth(value);
+                        setCourseIds([]);
+                        setBatchIds([]);
+                      }}
+                    >
+                      <SelectTrigger className="mt-1 bg-white">
+                        <SelectValue placeholder="Select month" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {monthOptions.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : null}
+              </>
             ) : (
-              <p className="mt-1.5 text-xs text-slate-500">
-                Leave empty to include all currently active enrollments.
+              <p className="text-sm text-slate-600">
+                Resolve currently active students by branch, program, course, and batch.
               </p>
             )}
           </div>
