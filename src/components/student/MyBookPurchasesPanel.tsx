@@ -43,9 +43,10 @@ type Props = {
   purchases: MyBookPurchaseRow[];
   loading?: boolean;
   compact?: boolean;
+  onBrowseCatalog?: () => void;
 };
 
-export function MyBookPurchasesPanel({ purchases, loading, compact }: Props) {
+export function MyBookPurchasesPanel({ purchases, loading, compact, onBrowseCatalog }: Props) {
   const { toast } = useToast();
 
   const openPdf = async (invoiceId: string) => {
@@ -80,13 +81,26 @@ export function MyBookPurchasesPanel({ purchases, loading, compact }: Props) {
 
   if (purchases.length === 0) {
     return (
-      <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/50 px-6 py-10 text-center">
-        <BookMarked className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 px-5 py-6 text-center sm:py-7">
+        <BookMarked className="mx-auto mb-2.5 h-9 w-9 text-slate-300" />
         <p className="font-bold text-slate-600">এখনও কোনো বই অর্ডার নেই</p>
-        <p className="mt-1 text-sm text-slate-500">ক্যাটালগ থেকে কিনুন বা কোর্স ভর্তির সময় বই যুক্ত করুন।</p>
-        <Button asChild className="mt-4 rounded-2xl font-bold" variant="outline">
-          <Link href="/books">পাবলিক ক্যাটালগ</Link>
-        </Button>
+        <p className="mt-1 text-sm text-slate-500">
+          ক্যাটালগ থেকে কিনুন বা কোর্স ভর্তির সময় বই যুক্ত করুন।
+        </p>
+        {onBrowseCatalog ? (
+          <Button
+            type="button"
+            className="mt-3 rounded-2xl font-bold"
+            variant="outline"
+            onClick={onBrowseCatalog}
+          >
+            ক্যাটালগ দেখুন
+          </Button>
+        ) : (
+          <Button asChild className="mt-3 rounded-2xl font-bold" variant="outline">
+            <Link href="/books">পাবলিক ক্যাটালগ</Link>
+          </Button>
+        )}
       </div>
     );
   }
@@ -152,7 +166,7 @@ export function MyBookPurchasesPanel({ purchases, loading, compact }: Props) {
                   </Button>
                 ) : null}
                 {inv && due > 0 ? (
-                  <Button asChild size="sm" className="rounded-xl bg-slate-900 font-bold">
+                  <Button asChild size="sm" variant="secondary" className="rounded-xl bg-slate-900 font-bold text-white hover:bg-slate-800">
                     <Link href="/student/payment">
                       <CreditCard className="mr-1 h-3.5 w-3.5" />
                       পেমেন্ট

@@ -29,12 +29,34 @@ export const queryKeys = {
     stats: ['admin', 'students', 'stats'] as const,
   },
   questions: {
-    all: ['admin', 'questions'] as const,
-    folders: ['admin', 'questions', 'folders'] as const,
-    list: (params: Record<string, unknown>) => ['admin', 'questions', 'list', params] as const,
-    passages: (params: Record<string, unknown>) => ['admin', 'questions', 'passages', params] as const,
-    statsCount: (params: Record<string, unknown>) => ['admin', 'questions', 'stats', params] as const,
-    passageCount: ['admin', 'questions', 'passage-count'] as const,
+    all: (teacherUserId?: string) =>
+      teacherUserId
+        ? (['teacher', teacherUserId, 'questions'] as const)
+        : (['admin', 'questions'] as const),
+    folders: (teacherUserId?: string) =>
+      teacherUserId
+        ? (['teacher', teacherUserId, 'questions', 'folders'] as const)
+        : (['admin', 'questions', 'folders'] as const),
+    list: (params: Record<string, unknown>, teacherUserId?: string) =>
+      teacherUserId
+        ? (['teacher', teacherUserId, 'questions', 'list', params] as const)
+        : (['admin', 'questions', 'list', params] as const),
+    passages: (params: Record<string, unknown>, teacherUserId?: string) =>
+      teacherUserId
+        ? (['teacher', teacherUserId, 'questions', 'passages', params] as const)
+        : (['admin', 'questions', 'passages', params] as const),
+    statsCount: (params: Record<string, unknown>, teacherUserId?: string) =>
+      teacherUserId
+        ? (['teacher', teacherUserId, 'questions', 'stats', params] as const)
+        : (['admin', 'questions', 'stats', params] as const),
+    passageCount: (teacherUserId?: string) =>
+      teacherUserId
+        ? (['teacher', teacherUserId, 'questions', 'passage-count'] as const)
+        : (['admin', 'questions', 'passage-count'] as const),
+    folderTree: (teacherUserId?: string) =>
+      teacherUserId
+        ? (['teacher', teacherUserId, 'questions', 'folder-tree'] as const)
+        : (['admin', 'questions', 'folder-tree'] as const),
   },
   users: {
     list: (params: Record<string, unknown>) => ['admin', 'users', 'list', params] as const,

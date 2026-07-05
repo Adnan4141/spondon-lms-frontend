@@ -1,14 +1,15 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { getCourses } from '@/lib/api/courses';
 import { API_ORIGIN } from '@/lib/api';
 import type { Course } from '@/types/course';
-import { BookOpen, ArrowRight, GraduationCap, Users } from 'lucide-react';
+import { BookOpen, ArrowRight, GraduationCap, Users, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { useTeacherSession } from '@/components/teacher/useTeacherSession';
 
 function thumbnailSrc(course: Course): string | null {
   if (!course.thumbnail) return null;
@@ -22,22 +23,10 @@ const statusStyle: Record<string, string> = {
 };
 
 export default function TeacherCoursesPage() {
-  const [userId, setUserId] = useState<string | null>(null);
-  const [role, setRole] = useState<string | null>(null);
+  const { user, authChecked, isTeacher } = useTeacherSession();
+  const userId = user?.id ?? null;
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    try {
-      const raw = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
-      if (!raw) return;
-      const u = JSON.parse(raw);
-      setUserId(u?.id ?? null);
-      setRole(u?.role ?? null);
-    } catch {
-      setUserId(null);
-    }
-  }, []);
 
   const load = useCallback(async () => {
     if (!userId) {
@@ -57,8 +46,16 @@ export default function TeacherCoursesPage() {
   }, [userId]);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
+
+  if (!authChecked) {
+    return (
+      <div className="flex justify-center py-24">
+        <Loader2 className="h-10 w-10 animate-spin text-indigo-600" />
+      </div>
+    );
+  }
 
   if (!userId) {
     return (
@@ -71,7 +68,7 @@ export default function TeacherCoursesPage() {
     );
   }
 
-  if (role && role !== 'TEACHER') {
+  if (!isTeacher) {
     return (
       <div className="text-center py-20 rounded-[2rem] border border-slate-100 bg-white">
         <p className="text-slate-600 font-medium">This area is only for teacher accounts.</p>
@@ -80,15 +77,11 @@ export default function TeacherCoursesPage() {
   }
 
   return (
-    <div className="space-y-10 pb-20">
-      <div>
-        <h1 className="text-4xl font-black tracking-tight text-slate-900">My lessons</h1>
-        <p className="text-slate-500 mt-2 text-lg font-medium max-w-2xl">
-          Courses where you are a <strong className="text-slate-800">teacher</strong> or{' '}
-          <strong className="text-slate-800">collaborator</strong>. Open a course to review segments; you can add or edit
-          segments when your role allows content upload.
-        </p>
-      </div>
+    <div className="space-y-8 pb-12">
+      <p className="text-slate-500 max-w-2xl">
+        Courses where you are a <strong className="text-slate-800">teacher</strong> or{' '}
+        <strong className="text-slate-800">collaborator</strong>.
+      </p>
 
       {loading ? (
         <div className="flex justify-center py-24">

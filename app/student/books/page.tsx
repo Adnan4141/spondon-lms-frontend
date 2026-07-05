@@ -1,33 +1,59 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Image from 'next/image';
-import { Card, CardContent } from '@/components/ui/card';
-import { BookMarked, ShoppingCart, Loader2, Star, Search, Filter } from 'lucide-react';
-import { getPortalBooks, getMyBookPurchases, purchaseBook } from '@/lib/api/student-portal';
-import { MyBookPurchasesPanel, type MyBookPurchaseRow } from '@/components/student/MyBookPurchasesPanel';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { AlertCircle, BookOpen, RefreshCw, ShoppingBag } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { MyBookPurchasesPanel } from '@/components/student/MyBookPurchasesPanel';
+import { StudentBooksStats } from '@/components/student/books/StudentBooksStats';
+import { StudentBooksToolbar } from '@/components/student/books/StudentBooksToolbar';
+import { StudentBookCatalogGrid } from '@/components/student/books/StudentBookCatalogGrid';
+import { StudentBooksCheckoutDialog } from '@/components/student/books/StudentBooksCheckoutDialog';
+import { StudentBooksSkeleton } from '@/components/student/books/StudentBooksSkeleton';
+import {
+  computeBookStats,
+  deriveCategories,
+  filterBooks,
+  sortBooks,
+  type BookSortOption,
+  type BookTypeFilter,
+} from '@/components/student/books/student-books-utils';
+import { useStudentBooks } from '@/lib/query/hooks/useStudentBooks';
+import { purchaseBook } from '@/lib/api/student-portal';
 import { initInvoicePayment } from '@/lib/api/invoices';
 import type { Book } from '@/lib/api/books';
-import { getBranches } from '@/lib/api/branches';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+
+type BooksTab = 'library' | 'catalog';
+
+function resolveInitialTab(purchasesCount: number): BooksTab {
+  if (typeof window === 'undefined') return purchasesCount > 0 ? 'library' : 'catalog';
+  const hash = window.location.hash.replace('#', '');
+  if (hash === 'my-books' || hash === 'library') return 'library';
+  if (hash === 'catalog') return 'catalog';
+  return purchasesCount > 0 ? 'library' : 'catalog';
+}
 
 export default function StudentBooksPage() {
-  const [books, setBooks] = useState<Book[]>([]);
-  const [myPurchases, setMyPurchases] = useState<MyBookPurchaseRow[]>([]);
-  const [purchasesLoading, setPurchasesLoading] = useState(true);
-  const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    books,
+    purchases,
+    branches,
+    studentId,
+    authChecked,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    refetchPurchases,
+  } = useStudentBooks();
+
+  const [activeTab, setActiveTab] = useState<BooksTab>('catalog');
+  const [tabReady, setTabReady] = useState(false);
+  const [search, setSearch] = useState('');
+  const [sort, setSort] = useState<BookSortOption>('recent');
+  const [typeFilter, setTypeFilter] = useState<BookTypeFilter>('all');
+  const [categoryId, setCategoryId] = useState('all');
   const [purchasingId, setPurchasingId] = useState<string | null>(null);
   const [checkoutBook, setCheckoutBook] = useState<Book | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -39,33 +65,34 @@ export default function StudentBooksPage() {
   const [notes, setNotes] = useState('');
 
   useEffect(() => {
-    const fetch = async () => {
-      try {
-        let uid: string | undefined;
-        try {
-          const raw = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
-          uid = raw ? (JSON.parse(raw) as { id?: string }).id : undefined;
-        } catch {
-          uid = undefined;
-        }
-        const [booksRes, branchesRes, mineRes] = await Promise.all([
-          getPortalBooks(),
-          getBranches(),
-          uid ? getMyBookPurchases(uid) : Promise.resolve({ success: true as const, data: [] as MyBookPurchaseRow[] }),
-        ]);
-        if (booksRes.success && booksRes.data) setBooks(booksRes.data);
-        if (branchesRes.success && branchesRes.data) setBranches(branchesRes.data);
-        if (mineRes.success && mineRes.data) setMyPurchases(mineRes.data);
-        else setMyPurchases([]);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-        setPurchasesLoading(false);
-      }
-    };
-    fetch();
+    if (isLoading) return;
+    setActiveTab(resolveInitialTab(purchases.length));
+    setTabReady(true);
+  }, [isLoading, purchases.length]);
+
+  const syncHash = useCallback((tab: BooksTab) => {
+    if (typeof window === 'undefined') return;
+    const hash = tab === 'library' ? 'my-books' : 'catalog';
+    window.history.replaceState(null, '', `${window.location.pathname}#${hash}`);
   }, []);
+
+  const handleTabChange = (value: string) => {
+    const tab = value as BooksTab;
+    setActiveTab(tab);
+    syncHash(tab);
+  };
+
+  const stats = useMemo(
+    () => computeBookStats(purchases, books.length),
+    [purchases, books.length],
+  );
+
+  const categories = useMemo(() => deriveCategories(books), [books]);
+
+  const filteredBooks = useMemo(() => {
+    const matched = filterBooks(books, search, typeFilter, categoryId);
+    return sortBooks(matched, sort);
+  }, [books, search, typeFilter, categoryId, sort]);
 
   const openCheckout = (book: Book) => {
     setFormError(null);
@@ -127,9 +154,9 @@ export default function StudentBooksPage() {
         return;
       }
       setCheckoutBook(null);
-      const uid = user.id as string;
-      const mine = await getMyBookPurchases(uid);
-      if (mine.success && mine.data) setMyPurchases(mine.data);
+      await refetchPurchases();
+      setActiveTab('library');
+      syncHash('library');
       throw new Error('Failed to open payment gateway — order created; please pay from the payment page.');
     } catch (e: unknown) {
       setFormError(e instanceof Error ? e.message : 'Purchase failed');
@@ -138,171 +165,137 @@ export default function StudentBooksPage() {
     }
   };
 
-  if (loading) {
+  if (!authChecked || isLoading || !tabReady) {
+    return <StudentBooksSkeleton />;
+  }
+
+  if (!studentId) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-12 w-12 animate-spin text-indigo-600" />
-          <p className="animate-pulse font-bold text-slate-500">Loading...</p>
-        </div>
+      <div className="rounded-xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+        <p className="mb-4 text-sm text-slate-600">Please log in to view your books.</p>
+        <Button asChild>
+          <Link href="/login">Log in</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="rounded-xl border border-rose-200 bg-rose-50/40 p-10 text-center">
+        <AlertCircle className="mx-auto mb-3 h-9 w-9 text-rose-500" />
+        <p className="font-semibold text-slate-900">Could not load books</p>
+        <p className="mt-1 mb-5 text-sm text-slate-600">
+          {error instanceof Error ? error.message : 'Please try again.'}
+        </p>
+        <Button type="button" variant="outline" size="sm" onClick={() => void refetch()} className="gap-2">
+          <RefreshCw className="h-4 w-4" />
+          Retry
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-10">
-      <section id="my-books" className="scroll-mt-8 space-y-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+    <div className="space-y-5">
+      <StudentBooksStats
+        orderCount={stats.orderCount}
+        ebookCount={stats.ebookCount}
+        pendingPayments={stats.pendingPayments}
+        catalogCount={stats.catalogCount}
+      />
+
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="gap-5">
+        <div className="overflow-x-auto">
+          <TabsList
+            variant="line"
+            className="h-auto w-full min-w-0 justify-start gap-1 border-b border-slate-200/80 pb-0 sm:gap-2"
+          >
+            <TabsTrigger
+              value="library"
+              className="gap-2 px-3 pb-3 text-sm font-semibold data-[state=active]:font-bold data-[state=active]:text-indigo-600 data-[state=active]:after:bg-indigo-600 sm:px-4"
+            >
+              <BookOpen className="h-4 w-4" />
+              My Library
+              {stats.orderCount > 0 ? (
+                <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-black text-indigo-700">
+                  {stats.orderCount}
+                </span>
+              ) : null}
+            </TabsTrigger>
+            <TabsTrigger
+              value="catalog"
+              className="gap-2 px-3 pb-3 text-sm font-semibold data-[state=active]:font-bold data-[state=active]:text-indigo-600 data-[state=active]:after:bg-indigo-600 sm:px-4"
+            >
+              <ShoppingBag className="h-4 w-4" />
+              Catalog
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        <TabsContent value="library" id="my-books" className="scroll-mt-8 space-y-4">
           <div>
-            <h2 className="text-2xl font-black tracking-tight text-slate-900">My Books & Orders</h2>
+            <h2 className="text-lg font-black text-slate-900 sm:text-xl">My Books & Orders</h2>
             <p className="text-sm font-medium text-slate-500">
-              Status of e-book (online) and print orders, invoice PDF.
+              E-book access, print delivery status, and invoice PDFs.
             </p>
           </div>
-        </div>
-        <MyBookPurchasesPanel purchases={myPurchases} loading={purchasesLoading} />
-      </section>
+          <MyBookPurchasesPanel
+            purchases={purchases}
+            onBrowseCatalog={() => handleTabChange('catalog')}
+          />
+        </TabsContent>
 
-      <div className="flex justify-end">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search books"
-              className="w-64 rounded-2xl border border-slate-100 bg-white py-3 pl-11 pr-4 font-medium transition-all focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-            />
+        <TabsContent value="catalog" className="space-y-4">
+          <div>
+            <h2 className="text-lg font-black text-slate-900 sm:text-xl">Browse Catalog</h2>
+            <p className="text-sm font-medium text-slate-500">
+              Search and purchase e-books or print editions.
+            </p>
           </div>
-          <button
-            type="button"
-            className="rounded-2xl border border-slate-100 bg-white p-3.5 text-slate-600 transition-colors hover:bg-slate-50"
-          >
-            <Filter className="h-5 w-5" />
-          </button>
-        </div>
-      </div>
 
-      {books.length === 0 ? (
-        <Card className="rounded-[2.5rem] border-none bg-white p-20 text-center shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-          <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-slate-50">
-            <BookMarked className="h-12 w-12 text-slate-300" />
-          </div>
-          <h3 className="mb-2 text-2xl font-black text-slate-900">No Books Available</h3>
-          <p className="font-medium text-slate-500">Check back later</p>
-        </Card>
-      ) : (
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {books.map((book) => (
-            <Card
-              key={book.id}
-              className="group flex flex-col overflow-hidden rounded-[2rem] border-none bg-white p-2 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-500 hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)]"
-            >
-              <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-slate-50 transition-transform duration-500 group-hover:scale-[1.02]">
-                {book.thumbnailUrl ? (
-                  <Image
-                    src={book.thumbnailUrl}
-                    alt={book.name}
-                    fill
-                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                    className="object-cover"
-                    unoptimized
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center">
-                    <BookMarked className="h-20 w-20 text-slate-200" />
-                  </div>
-                )}
-                <div className="absolute right-4 top-4 flex items-center gap-1 rounded-xl bg-white/90 px-3 py-1.5 text-xs font-black text-amber-500 shadow-sm backdrop-blur-md">
-                  <Star className="h-3.5 w-3.5 fill-amber-500" />
-                  <span>4.8</span>
-                </div>
-              </div>
-              <CardContent className="flex flex-1 flex-col p-5">
-                <div className="flex-1 space-y-2">
-                  <h3 className="line-clamp-2 font-black leading-snug text-slate-900 transition-colors group-hover:text-indigo-600">
-                    {book.name}
-                  </h3>
-                  {book.author && <p className="text-sm font-bold text-slate-400">By {book.author}</p>}
-                </div>
+          <StudentBooksToolbar
+            search={search}
+            onSearchChange={setSearch}
+            sort={sort}
+            onSortChange={setSort}
+            typeFilter={typeFilter}
+            onTypeFilterChange={setTypeFilter}
+            categoryId={categoryId}
+            onCategoryChange={setCategoryId}
+            categories={categories}
+          />
 
-                <div className="mt-6 flex items-center justify-between border-t border-slate-50 pt-4">
-                  <p className="text-2xl font-black text-indigo-600">৳{Number(book.price).toLocaleString()}</p>
-                  <button
-                    type="button"
-                    onClick={() => openCheckout(book)}
-                    disabled={!!purchasingId || book.price === 0}
-                    className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-lg shadow-slate-200 transition-all hover:bg-indigo-600 active:scale-95 disabled:opacity-50"
-                  >
-                    {purchasingId === book.id ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                    ) : (
-                      <ShoppingCart className="h-5 w-5" />
-                    )}
-                  </button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+          <StudentBookCatalogGrid
+            books={filteredBooks}
+            ownedBookIds={stats.ownedBookIds}
+            purchasingId={purchasingId}
+            onBuy={openCheckout}
+            searchQuery={search}
+          />
+        </TabsContent>
+      </Tabs>
 
-      <Dialog open={!!checkoutBook} onOpenChange={(o) => !o && setCheckoutBook(null)}>
-        <DialogContent className="rounded-3xl sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="font-black">Confirm Order</DialogTitle>
-            <DialogDescription>
-              {checkoutBook?.name} — provide delivery and contact details, then proceed to online payment.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-3 py-2">
-            {formError ? <p className="text-sm font-semibold text-rose-600">{formError}</p> : null}
-            <div className="space-y-1.5">
-              <Label htmlFor="sb-name">Full Name</Label>
-              <Input id="sb-name" className="rounded-xl" value={recipientName} onChange={(e) => setRecipientName(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="sb-phone">Phone</Label>
-              <Input id="sb-phone" className="rounded-xl" value={phone} onChange={(e) => setPhone(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="sb-address">Address</Label>
-              <Textarea
-                id="sb-address"
-                className="min-h-[72px] rounded-xl"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="sb-city">City</Label>
-                <Input id="sb-city" className="rounded-xl" value={city} onChange={(e) => setCity(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="sb-post">Postal Code</Label>
-                <Input
-                  id="sb-post"
-                  className="rounded-xl"
-                  value={postalCode}
-                  onChange={(e) => setPostalCode(e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="sb-notes">Note</Label>
-              <Input id="sb-notes" className="rounded-xl" value={notes} onChange={(e) => setNotes(e.target.value)} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" className="rounded-2xl" onClick={() => setCheckoutBook(null)}>
-              Cancel
-            </Button>
-            <Button className="rounded-2xl font-black" onClick={confirmPurchase} disabled={!!purchasingId}>
-              {purchasingId ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Proceed to Payment'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <StudentBooksCheckoutDialog
+        book={checkoutBook}
+        open={!!checkoutBook}
+        onOpenChange={(open) => !open && setCheckoutBook(null)}
+        formError={formError}
+        recipientName={recipientName}
+        onRecipientNameChange={setRecipientName}
+        phone={phone}
+        onPhoneChange={setPhone}
+        address={address}
+        onAddressChange={setAddress}
+        city={city}
+        onCityChange={setCity}
+        postalCode={postalCode}
+        onPostalCodeChange={setPostalCode}
+        notes={notes}
+        onNotesChange={setNotes}
+        purchasing={!!purchasingId}
+        onConfirm={() => void confirmPurchase()}
+      />
     </div>
   );
 }

@@ -1,22 +1,18 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getEnrollments, Enrollment } from '@/lib/api/enrollments';
 import { getCourses } from '@/lib/api/courses';
-import { getBatches } from '@/lib/api/batches';
 import type { Course } from '@/types/course';
-import type { Batch } from '@/lib/api/batches';
-import { 
-  Users, 
-  Search, 
-  RefreshCw, 
-  Mail, 
-  Phone, 
-  BookOpen, 
-  Layers, 
-  Filter,
+import {
+  Users,
+  Search,
+  RefreshCw,
+  Mail,
+  Phone,
+  BookOpen,
+  Layers,
   User,
-  GraduationCap
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,34 +34,40 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { useTeacherSession } from '@/components/teacher/useTeacherSession';
+
+type BatchOption = { id: string; name: string };
+
+function extractBatchesFromEnrollments(enrollments: Enrollment[]): BatchOption[] {
+  const map = new Map<string, BatchOption>();
+  for (const e of enrollments) {
+    for (const ec of e.enrollmentCourses ?? []) {
+      const batch = ec.batch;
+      if (batch?.id && batch.name) {
+        map.set(batch.id, { id: batch.id, name: batch.name });
+      }
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
 
 export default function TeacherStudentsPage() {
-  const [userId, setUserId] = useState<string | null>(null);
+  const { user, authChecked } = useTeacherSession();
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
-  const [batches, setBatches] = useState<Batch[]>([]);
-  
+  const [batchOptions, setBatchOptions] = useState<BatchOption[]>([]);
+  const [allEnrollmentsForFilters, setAllEnrollmentsForFilters] = useState<Enrollment[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [courseFilter, setCourseFilter] = useState<string>('all');
   const [batchFilter, setBatchFilter] = useState<string>('all');
 
-  useEffect(() => {
-    try {
-      const raw = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
-      if (!raw) return;
-      const u = JSON.parse(raw);
-      setUserId(u?.id ?? null);
-    } catch {
-      setUserId(null);
-    }
-  }, []);
-
   const loadEnrollments = useCallback(async () => {
-    if (!userId) return;
+    if (!user?.id) return;
     try {
       setLoading(true);
-      const params: any = { teacherUserId: userId, limit: 100 };
+      const params: Record<string, string | number> = { teacherUserId: user.id, limit: 500 };
       if (courseFilter !== 'all') params.courseId = courseFilter;
       if (batchFilter !== 'all') params.batchId = batchFilter;
 
@@ -81,43 +83,58 @@ export default function TeacherStudentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [userId, courseFilter, batchFilter]);
+  }, [user?.id, courseFilter, batchFilter]);
 
-  const loadFilters = useCallback(async () => {
-    if (!userId) return;
+  const loadFilterOptions = useCallback(async () => {
+    if (!user?.id) return;
     try {
-      const [courseRes, batchRes] = await Promise.all([
-        getCourses({ teacherUserId: userId, limit: 100 }),
-        getBatches({ limit: 500 }) // In real app, filter batches by teacher's courses
+      const [courseRes, enrollRes] = await Promise.all([
+        getCourses({ teacherUserId: user.id, limit: 100 }),
+        getEnrollments({ teacherUserId: user.id, limit: 500 }),
       ]);
       if (courseRes.success && courseRes.data) setCourses(courseRes.data);
-      if (batchRes.success && batchRes.data) setBatches(batchRes.data);
-    } catch (err) { console.error(err); }
-  }, [userId]);
+      if (enrollRes.success && enrollRes.data) {
+        setAllEnrollmentsForFilters(enrollRes.data);
+        setBatchOptions(extractBatchesFromEnrollments(enrollRes.data));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }, [user?.id]);
 
   useEffect(() => {
-    if (userId) {
-      loadEnrollments();
-      loadFilters();
+    if (user?.id) {
+      void loadEnrollments();
+      void loadFilterOptions();
     }
-  }, [userId, loadEnrollments, loadFilters]);
+  }, [user?.id, loadEnrollments, loadFilterOptions]);
 
-  const filteredEnrollments = enrollments.filter(e => 
-    e.student?.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    e.student?.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    e.student?.mobile.includes(searchQuery)
+  const filteredBatches = useMemo(() => {
+    if (courseFilter === 'all') return batchOptions;
+    const ids = new Set<string>();
+    for (const e of allEnrollmentsForFilters) {
+      for (const ec of e.enrollmentCourses ?? []) {
+        if (ec.course?.id === courseFilter && ec.batch?.id) {
+          ids.add(ec.batch.id);
+        }
+      }
+    }
+    return batchOptions.filter((b) => ids.has(b.id));
+  }, [allEnrollmentsForFilters, batchOptions, courseFilter]);
+
+  const filteredEnrollments = enrollments.filter(
+    (e) =>
+      e.student?.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      e.student?.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      e.student?.mobile.includes(searchQuery),
   );
+
+  if (!authChecked) return null;
 
   return (
     <div className="space-y-10 pb-20">
-      <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div className="space-y-1">
-          <h1 className="text-4xl font-black tracking-tight text-slate-900">My Students</h1>
-          <p className="text-lg font-medium text-slate-500">
-            Manage and view all students enrolled in your assigned courses.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 rounded-2xl bg-white border border-slate-200 p-1.5 shadow-sm">
+      <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
              <Users className="h-5 w-5" />
            </div>
@@ -143,7 +160,7 @@ export default function TeacherStudentsPage() {
               </div>
             </div>
             
-            <Select value={courseFilter} onValueChange={setCourseFilter}>
+            <Select value={courseFilter} onValueChange={(v) => { setCourseFilter(v); setBatchFilter('all'); }}>
               <SelectTrigger className="h-12 w-[200px] rounded-2xl border-slate-200 bg-white font-bold text-xs uppercase tracking-widest text-slate-600 shadow-sm">
                 <SelectValue placeholder="All Courses" />
               </SelectTrigger>
@@ -163,7 +180,7 @@ export default function TeacherStudentsPage() {
               </SelectTrigger>
               <SelectContent className="rounded-2xl border-slate-200 bg-white shadow-xl">
                 <SelectItem value="all" className="font-bold text-xs uppercase tracking-widest py-3">All Batches</SelectItem>
-                {batches.map((batch) => (
+                {filteredBatches.map((batch) => (
                   <SelectItem key={batch.id} value={batch.id} className="font-bold text-xs uppercase tracking-widest py-3">
                     {batch.name}
                   </SelectItem>

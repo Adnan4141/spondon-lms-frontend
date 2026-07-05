@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getPassages, getQuestionFolders, getQuestions } from '@/lib/api/question-bank';
 import { queryKeys } from '@/lib/query/admin-query';
@@ -33,6 +33,10 @@ export type QuestionsListFilters = {
   searchQuery: string;
 };
 
+export type QuestionsPageScope = {
+  teacherUserId?: string;
+};
+
 function buildQuestionsListParams(filters: QuestionsListFilters) {
   const difficulty = filters.difficultyFilter === 'all' ? undefined : filters.difficultyFilter;
   const questionType =
@@ -51,34 +55,61 @@ function buildQuestionsListParams(filters: QuestionsListFilters) {
   };
 }
 
-export function useQuestionFolders() {
+function resolveTeacherRootFolderIds(
+  teacherUserId: string | undefined,
+  filters: QuestionsListFilters,
+  folders: QuestionFolder[],
+): string[] | undefined {
+  if (!teacherUserId) return undefined;
+  if (filters.activeFolderId || filters.selectedFolderIds.length > 0) return undefined;
+  return folders.map((folder) => folder.id);
+}
+
+export function useQuestionFolders(scope?: QuestionsPageScope) {
+  const teacherUserId = scope?.teacherUserId;
+
   return useQuery({
-    queryKey: queryKeys.questions.folders,
+    queryKey: queryKeys.questions.folders(teacherUserId),
+    enabled: !teacherUserId || Boolean(teacherUserId),
     queryFn: async () => {
-      const res = await getQuestionFolders();
+      const res = await getQuestionFolders(undefined, undefined, teacherUserId);
       if (!res.success || !res.data) throw new Error('Failed to load folders');
       return res.data;
     },
   });
 }
 
-export function useQuestionsListQuery(filters: QuestionsListFilters, enabled: boolean) {
+export function useQuestionsListQuery(
+  filters: QuestionsListFilters,
+  enabled: boolean,
+  scope?: QuestionsPageScope,
+  teacherRootFolderIds?: string[],
+) {
+  const teacherUserId = scope?.teacherUserId;
   const params = buildQuestionsListParams(filters);
+  const scopedFolderIds =
+    teacherRootFolderIds && teacherRootFolderIds.length > 0 ? teacherRootFolderIds : undefined;
 
   return useQuery({
-    queryKey: queryKeys.questions.list(params),
+    queryKey: queryKeys.questions.list({ ...params, scopedFolderIds }, teacherUserId),
     enabled,
     placeholderData: keepPreviousData,
     queryFn: async () => {
+      const folderId = params.activeFolderId;
+      const folderIds =
+        params.selectedFolderIds.length > 0
+          ? params.selectedFolderIds
+          : scopedFolderIds;
+
       const res = await getQuestions(
-        params.activeFolderId,
+        folderIds ? undefined : folderId,
         params.questionType,
         params.difficulty,
         undefined,
         undefined,
         params.mcqType,
         undefined,
-        params.selectedFolderIds.length > 0 ? params.selectedFolderIds : undefined,
+        folderIds,
         {
           page: params.page,
           limit: params.limit,
@@ -98,16 +129,23 @@ export function usePassagesListQuery(
   activeFolderId: string | undefined,
   selectedFolderIds: string[],
   enabled: boolean,
+  scope?: QuestionsPageScope,
+  teacherRootFolderIds?: string[],
 ) {
-  const params = { activeFolderId, selectedFolderIds };
+  const teacherUserId = scope?.teacherUserId;
+  const params = { activeFolderId, selectedFolderIds, teacherRootFolderIds };
+  const scopedFolderIds =
+    teacherRootFolderIds && teacherRootFolderIds.length > 0 ? teacherRootFolderIds : undefined;
 
   return useQuery({
-    queryKey: queryKeys.questions.passages(params),
+    queryKey: queryKeys.questions.passages(params, teacherUserId),
     enabled,
     queryFn: async () => {
+      const folderIds =
+        selectedFolderIds.length > 0 ? selectedFolderIds : scopedFolderIds;
       const res = await getPassages(
-        activeFolderId,
-        selectedFolderIds.length > 0 ? selectedFolderIds : undefined,
+        folderIds ? undefined : activeFolderId,
+        folderIds,
       );
       if (!res.success || !res.data) throw new Error('Failed to load passages');
       return res.data;
@@ -115,26 +153,53 @@ export function usePassagesListQuery(
   });
 }
 
-export function useQuestionsPageData(filters: QuestionsListFilters) {
+export function useQuestionsPageData(filters: QuestionsListFilters, scope?: QuestionsPageScope) {
   const queryClient = useQueryClient();
+  const teacherUserId = scope?.teacherUserId;
   const isPassageTab = filters.activeTab === 'MCQ_PASSAGE';
 
-  const foldersQuery = useQuestionFolders();
-  const questionsQuery = useQuestionsListQuery(filters, !isPassageTab);
+  const foldersQuery = useQuestionFolders(scope);
+  const folders = foldersQuery.data ?? EMPTY_FOLDERS;
+
+  const teacherRootFolderIds = useMemo(
+    () => resolveTeacherRootFolderIds(teacherUserId, filters, folders),
+    [teacherUserId, filters, folders],
+  );
+
+  const teacherAtRoot =
+    Boolean(teacherUserId) &&
+    !filters.activeFolderId &&
+    filters.selectedFolderIds.length === 0;
+
+  const teacherRootReady = !teacherAtRoot || foldersQuery.isSuccess;
+  const teacherHasFolders = !teacherAtRoot || (teacherRootFolderIds?.length ?? 0) > 0;
+
+  const contentEnabled = teacherRootReady && (!teacherAtRoot || teacherHasFolders);
+
+  const questionsQuery = useQuestionsListQuery(
+    filters,
+    !isPassageTab && contentEnabled,
+    scope,
+    teacherRootFolderIds,
+  );
   const passagesQuery = usePassagesListQuery(
     filters.activeFolderId,
     filters.selectedFolderIds,
-    isPassageTab,
+    isPassageTab && contentEnabled,
+    scope,
+    teacherRootFolderIds,
   );
 
   const invalidateAll = useCallback(
-    () => queryClient.invalidateQueries({ queryKey: queryKeys.questions.all }),
-    [queryClient],
+    () => queryClient.invalidateQueries({ queryKey: queryKeys.questions.all(teacherUserId) }),
+    [queryClient, teacherUserId],
   );
 
   const activeQuery = isPassageTab ? passagesQuery : questionsQuery;
-  const isInitialLoading = activeQuery.isLoading && !activeQuery.data;
-  const isFetching = activeQuery.isFetching;
+  const isInitialLoading =
+    (activeQuery.isLoading && !activeQuery.data) ||
+    (teacherUserId && foldersQuery.isLoading && !foldersQuery.data);
+  const isFetching = activeQuery.isFetching || foldersQuery.isFetching;
   const foldersError = toQueryError(foldersQuery.error);
   const contentError = toQueryError(activeQuery.error);
 
@@ -148,7 +213,7 @@ export function useQuestionsPageData(filters: QuestionsListFilters) {
   };
 
   return {
-    folders: foldersQuery.data ?? EMPTY_FOLDERS,
+    folders,
     questions: questionsQuery.data?.questions ?? EMPTY_QUESTIONS,
     questionsTotalPages: questionsQuery.data?.totalPages ?? 1,
     passages: passagesQuery.data ?? EMPTY_PASSAGES,

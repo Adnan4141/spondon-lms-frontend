@@ -23,7 +23,10 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CourseResourceForm } from '@/features/admin/courses';
+import { TeacherCurriculumTab } from '@/features/teacher/courses/TeacherCurriculumTab';
+import { useTeacherSession } from '@/components/teacher/useTeacherSession';
 import { confirmAction } from '@/features/admin/shared/confirm-action';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -111,9 +114,9 @@ export default function TeacherCourseDetailPage() {
   const params = useParams();
   const courseId = params.courseId as string;
   const { toast } = useToast();
+  const { user, authChecked, isTeacher } = useTeacherSession();
+  const userId = user?.id ?? null;
 
-  const [userId, setUserId] = useState<string | null>(null);
-  const [role, setRole] = useState<string | null>(null);
   const [course, setCourse] = useState<CourseDetails | null>(null);
   const [collaborators, setCollaborators] = useState<CourseCollaborator[]>([]);
   const [contents, setContents] = useState<ContentRow[]>([]);
@@ -122,18 +125,7 @@ export default function TeacherCourseDetailPage() {
   const [contentDialogOpen, setContentDialogOpen] = useState(false);
   const [editingResource, setEditingResource] = useState<ContentRow | null>(null);
   const [addDefaults, setAddDefaults] = useState<{ topicTitle?: string; topicSortOrder?: number } | null>(null);
-
-  useEffect(() => {
-    try {
-      const raw = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
-      if (!raw) return;
-      const u = JSON.parse(raw);
-      setUserId(u?.id ?? null);
-      setRole(u?.role ?? null);
-    } catch {
-      setUserId(null);
-    }
-  }, []);
+  const [activeTab, setActiveTab] = useState<'content' | 'curriculum'>('content');
 
   const fetchData = useCallback(async () => {
     if (!courseId || !userId) {
@@ -234,6 +226,14 @@ export default function TeacherCourseDetailPage() {
     }
   };
 
+  if (!authChecked) {
+    return (
+      <div className="flex justify-center py-24">
+        <div className="h-12 w-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   if (!userId) {
     return (
       <div className="text-center py-20">
@@ -245,7 +245,7 @@ export default function TeacherCourseDetailPage() {
     );
   }
 
-  if (role && role !== 'TEACHER') {
+  if (!isTeacher) {
     return (
       <div className="text-center py-20">
         <p className="text-slate-600">Teachers only.</p>
@@ -340,6 +340,13 @@ export default function TeacherCourseDetailPage() {
         </div>
       </div>
 
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'content' | 'curriculum')}>
+        <TabsList className="mb-6">
+          <TabsTrigger value="content">Content segments</TabsTrigger>
+          <TabsTrigger value="curriculum">Curriculum</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="content">
       <section>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
@@ -448,6 +455,12 @@ export default function TeacherCourseDetailPage() {
           </div>
         )}
       </section>
+        </TabsContent>
+
+        <TabsContent value="curriculum">
+          <TeacherCurriculumTab courseId={course.id} />
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={contentDialogOpen} onOpenChange={(open) => !open && closeContentDialog()}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto rounded-[24px]">

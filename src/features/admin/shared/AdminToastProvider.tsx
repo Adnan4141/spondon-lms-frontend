@@ -8,6 +8,10 @@ type ToastFn = ReturnType<typeof useToast>['toast'];
 
 const AdminToastContext = createContext<ToastFn | undefined>(undefined);
 
+export function useOptionalAdminToast(): ToastFn | undefined {
+  return useContext(AdminToastContext);
+}
+
 /** Single toast queue for all `/admin` pages (wired to `<Toaster />`). */
 export function useAdminToast(): ToastFn {
   const t = useContext(AdminToastContext);

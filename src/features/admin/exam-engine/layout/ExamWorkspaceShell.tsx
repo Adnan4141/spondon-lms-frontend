@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { getExamById } from '@/lib/api/exams';
 import type { Exam } from '@/types/exam';
 import { ExamEngineSubnav } from '../components/ExamEngineSubnav';
+import { examBasePath, examListPath, type ExamPortal } from '../exam-portal-paths';
 import { examWorkspaceHeaderClass, examWorkspaceMainClass } from './examWorkspaceUi';
 
 type ExamWorkspaceContextValue = {
@@ -36,6 +37,8 @@ export function useExamWorkspaceOptional() {
 type ExamWorkspaceShellProps = {
   examId: string;
   children: ReactNode;
+  portal?: ExamPortal;
+  teacherUserId?: string;
   /** Hide subnav (e.g. teacher evaluator-only results). */
   hideSubnav?: boolean;
   /** Custom back link instead of hub / command center. */
@@ -46,6 +49,8 @@ type ExamWorkspaceShellProps = {
 export function ExamWorkspaceShell({
   examId,
   children,
+  portal = 'admin',
+  teacherUserId,
   hideSubnav = false,
   backHref: backHrefOverride,
   backLabel: backLabelOverride,
@@ -56,10 +61,13 @@ export function ExamWorkspaceShell({
 
   const refreshExam = useCallback(async () => {
     if (!examId) return;
-    const response = await getExamById(examId);
+    const response = await getExamById(
+      examId,
+      portal === 'teacher' && teacherUserId ? { teacherUserId } : undefined,
+    );
     if (response.success && response.data) setExam(response.data);
     else setExam(null);
-  }, [examId]);
+  }, [examId, portal, teacherUserId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,17 +80,17 @@ export function ExamWorkspaceShell({
     };
   }, [refreshExam]);
 
-  const base = `/admin/exam/${examId}`;
+  const base = examBasePath(portal, examId);
   const isOverview = pathname === base || pathname === `${base}/`;
   const { backHref, backLabel } = useMemo(() => {
     if (backHrefOverride) {
       return { backHref: backHrefOverride, backLabel: backLabelOverride ?? 'Back' };
     }
     if (isOverview) {
-      return { backHref: '/admin/exam', backLabel: 'Exams' };
+      return { backHref: examListPath(portal), backLabel: portal === 'teacher' ? 'My exams' : 'Exams' };
     }
     return { backHref: base, backLabel: 'Command center' };
-  }, [backHrefOverride, backLabelOverride, base, isOverview]);
+  }, [backHrefOverride, backLabelOverride, base, isOverview, portal]);
 
   const ctx = useMemo(
     () => ({ exam, examId, loadingExam, refreshExam }),
@@ -126,7 +134,7 @@ export function ExamWorkspaceShell({
                 )}
               </div>
             </div>
-            {!hideSubnav && examId ? <ExamEngineSubnav examId={examId} /> : null}
+            {!hideSubnav && examId ? <ExamEngineSubnav examId={examId} portal={portal} /> : null}
           </div>
         </header>
         <main className={examWorkspaceMainClass}>{children}</main>

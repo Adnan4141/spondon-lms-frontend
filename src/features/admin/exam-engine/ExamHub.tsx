@@ -29,13 +29,29 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { ConfirmationModal } from '@/features/admin/shared';
-import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
+import { useOptionalAdminToast } from '@/features/admin/shared/AdminToastProvider';
+import { useToast } from '@/hooks/use-toast';
 import { useModalStore } from '@/store/modalStore';
 import { cn } from '@/lib/utils';
 import { deleteExam, duplicateExam, getExams, updateExam } from '@/lib/api/exams';
 import { examNeedsAction, examReadinessLabel } from '@/lib/exam-readiness';
 import type { Exam, ExamMode, ExamStatus } from '@/types/exam';
 import type { ExamProductType } from './types';
+import {
+  type ExamPortal,
+  examBasePath,
+  examLeaderboardPath,
+  examListPath,
+  examNewPath,
+  examPapersPath,
+  examResultsPath,
+  examSetupPath,
+} from './exam-portal-paths';
+
+export type ExamHubProps = {
+  portal?: ExamPortal;
+  teacherUserId?: string;
+};
 
 type HubTab = 'ALL' | 'DRAFT' | 'PUBLISHED' | 'UPCOMING' | 'OFFLINE' | 'NEEDS_ACTION';
 type TypeFilter = 'ALL' | ExamProductType;
@@ -120,7 +136,7 @@ function DisabledHint({ children }: { children: string }) {
   return <span className="ml-auto text-[10px] font-semibold text-slate-400">{children}</span>;
 }
 
-export function ExamHub() {
+export function ExamHub({ portal = 'admin', teacherUserId }: ExamHubProps = {}) {
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -131,11 +147,16 @@ export function ExamHub() {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('ALL');
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const { openModal } = useModalStore();
-  const toast = useAdminToast();
+  const { toast: hookToast } = useToast();
+  const adminToast = useOptionalAdminToast();
+  const toast = portal === 'teacher' ? hookToast : (adminToast ?? hookToast);
   const router = useRouter();
 
   useEffect(() => {
-    getExams({ limit: 200 })
+    const params: { limit: number; teacherUserId?: string } = { limit: 200 };
+    if (portal === 'teacher' && teacherUserId) params.teacherUserId = teacherUserId;
+
+    getExams(params)
       .then((r) => {
         if (r.success && r.data) setExams(r.data);
         else {
@@ -148,7 +169,7 @@ export function ExamHub() {
         setExams([]);
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [portal, teacherUserId]);
 
   const metrics = useMemo(() => {
     const draft = exams.filter((x) => x.status === 'DRAFT').length;
@@ -192,7 +213,7 @@ export function ExamHub() {
       if (response.success && response.data) {
         toast({ title: 'Exam duplicated', description: `New draft: ${response.data.title}` });
         setExams((prev) => [response.data as Exam, ...prev]);
-        router.push(`/admin/exam/${response.data.id}?step=1`);
+        router.push(`${examSetupPath(portal, response.data.id)}?step=1`);
       } else {
         toast({
           title: 'Duplicate failed',
@@ -224,7 +245,10 @@ export function ExamHub() {
           variant="danger"
           onConfirm={async () => {
             try {
-              const r = await deleteExam(exam.id);
+              const r = await deleteExam(
+                exam.id,
+                portal === 'teacher' && teacherUserId ? { teacherUserId } : undefined,
+              );
               if (r.success) {
                 toast({ title: 'Exam deleted', description: `"${exam.title}" was removed.` });
                 setExams((prev) => prev.filter((x) => x.id !== exam.id));
@@ -252,13 +276,17 @@ export function ExamHub() {
     <div className="mx-auto max-w-full space-y-5 px-4 py-6 sm:px-2">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="font-serif text-2xl font-normal tracking-tight text-[#0D1B35] md:text-3xl">Exam operations</h1>
+          <h1 className="font-serif text-2xl font-normal tracking-tight text-[#0D1B35] md:text-3xl">
+            {portal === 'teacher' ? 'My exams' : 'Exam operations'}
+          </h1>
           <p className="mt-1 max-w-2xl text-sm text-slate-600">
-            Manage drafts, schedules, PDFs, leaderboards, and results from one place.
+            {portal === 'teacher'
+              ? 'Create, schedule, and evaluate exams for your assigned courses.'
+              : 'Manage drafts, schedules, PDFs, leaderboards, and results from one place.'}
           </p>
         </div>
         <Button asChild className="bg-[#0D1B35] text-[#E2C98A] hover:bg-[#1E2F55]">
-          <Link href="/admin/exam/new" className="gap-2">
+          <Link href={examNewPath(portal)} className="gap-2">
             <Plus className="h-4 w-4" /> New exam
           </Link>
         </Button>
@@ -381,7 +409,7 @@ export function ExamHub() {
                     <tr key={exam.id} className="hover:bg-slate-50/70">
                       <td className="px-4 py-3">
                         <Link
-                          href={`/admin/exam/${exam.id}`}
+                          href={examBasePath(portal, exam.id)}
                           className="block max-w-[320px] truncate font-bold text-slate-900 hover:text-[#0D1B35] hover:underline"
                         >
                           {exam.title}
@@ -428,7 +456,7 @@ export function ExamHub() {
                       <td className="px-4 py-3">
                         <div className="flex justify-end gap-2">
                           <Button asChild size="sm" className="h-8 bg-[#0D1B35] px-3 text-xs text-[#E2C98A] hover:bg-[#1E2F55]">
-                            <Link href={`/admin/exam/${exam.id}`}>
+                            <Link href={examBasePath(portal, exam.id)}>
                               <Eye className="mr-1 h-3.5 w-3.5" /> View
                             </Link>
                           </Button>
@@ -441,50 +469,50 @@ export function ExamHub() {
                             <DropdownMenuContent align="end" className="w-64">
                               <DropdownMenuLabel className="text-xs text-slate-500">Exam actions</DropdownMenuLabel>
                               <DropdownMenuItem asChild>
-                                <Link href={`/admin/exam/${exam.id}`}>
-                                  <Eye className="h-4 w-4" /> View
-                                </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem disabled={editDisabled} asChild={!editDisabled}>
-                                {editDisabled ? (
-                                  <>
-                                    <Pencil className="h-4 w-4" /> Edit <DisabledHint>Closed exam</DisabledHint>
-                                  </>
-                                ) : (
-                                  <Link href={`/admin/exam/${exam.id}/setup`}>
-                                    <Pencil className="h-4 w-4" /> Edit
-                                  </Link>
-                                )}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem disabled={pdfDisabled} asChild={!pdfDisabled}>
-                                {pdfDisabled ? (
-                                  <>
-                                    <Download className="h-4 w-4" /> PDF / Paper <DisabledHint>Generate sets first</DisabledHint>
-                                  </>
-                                ) : (
-                                  <Link href={`/admin/exam/${exam.id}/papers`}>
-                                    <Download className="h-4 w-4" /> PDF / Paper
-                                  </Link>
-                                )}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem disabled={resultsDisabled} asChild={!resultsDisabled}>
-                                {resultsDisabled ? (
-                                  <>
-                                    <BarChart3 className="h-4 w-4" /> Results & evaluation <DisabledHint>Draft not ready</DisabledHint>
-                                  </>
-                                ) : (
-                                  <Link href={`/admin/exam/${exam.id}/results`}>
-                                    <BarChart3 className="h-4 w-4" /> Results & evaluation
-                                  </Link>
-                                )}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem disabled={leaderboardDisabled} asChild={!leaderboardDisabled}>
-                                {leaderboardDisabled ? (
-                                  <>
-                                    <Trophy className="h-4 w-4" /> Leaderboard <DisabledHint>{exam.status === 'DRAFT' ? 'Draft not ready' : 'Disabled'}</DisabledHint>
-                                  </>
-                                ) : (
-                                  <Link href={`/admin/exam/${exam.id}/leaderboard`}>
+                            <Link href={examBasePath(portal, exam.id)}>
+                              <Eye className="h-4 w-4" /> View
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem disabled={editDisabled} asChild={!editDisabled}>
+                            {editDisabled ? (
+                              <>
+                                <Pencil className="h-4 w-4" /> Edit <DisabledHint>Closed exam</DisabledHint>
+                              </>
+                            ) : (
+                              <Link href={examSetupPath(portal, exam.id)}>
+                                <Pencil className="h-4 w-4" /> Edit
+                              </Link>
+                            )}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem disabled={pdfDisabled} asChild={!pdfDisabled}>
+                            {pdfDisabled ? (
+                              <>
+                                <Download className="h-4 w-4" /> PDF / Paper <DisabledHint>Generate sets first</DisabledHint>
+                              </>
+                            ) : (
+                              <Link href={examPapersPath(portal, exam.id)}>
+                                <Download className="h-4 w-4" /> PDF / Paper
+                              </Link>
+                            )}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem disabled={resultsDisabled} asChild={!resultsDisabled}>
+                            {resultsDisabled ? (
+                              <>
+                                <BarChart3 className="h-4 w-4" /> Results & evaluation <DisabledHint>Draft not ready</DisabledHint>
+                              </>
+                            ) : (
+                              <Link href={examResultsPath(portal, exam.id)}>
+                                <BarChart3 className="h-4 w-4" /> Results & evaluation
+                              </Link>
+                            )}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem disabled={leaderboardDisabled} asChild={!leaderboardDisabled}>
+                            {leaderboardDisabled ? (
+                              <>
+                                <Trophy className="h-4 w-4" /> Leaderboard <DisabledHint>{exam.status === 'DRAFT' ? 'Draft not ready' : 'Disabled'}</DisabledHint>
+                              </>
+                            ) : (
+                              <Link href={examLeaderboardPath(portal, exam.id)}>
                                     <Trophy className="h-4 w-4" /> Leaderboard
                                   </Link>
                                 )}

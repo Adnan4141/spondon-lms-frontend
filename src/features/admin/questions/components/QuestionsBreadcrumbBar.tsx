@@ -12,6 +12,7 @@ type Props = {
   createButtonLabel: string;
   onBulkImport: () => void;
   bulkImportDisabled: boolean;
+  showBulkImport?: boolean;
   onCreateFolder: () => void;
   onCreateQuestion: () => void;
   onPrefetchCreateQuestion?: () => void;
@@ -24,6 +25,7 @@ export function QuestionsBreadcrumbBar({
   createButtonLabel,
   onBulkImport,
   bulkImportDisabled,
+  showBulkImport = true,
   onCreateFolder,
   onCreateQuestion,
   onPrefetchCreateQuestion,
@@ -63,15 +65,17 @@ export function QuestionsBreadcrumbBar({
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
-        <Button
-          variant="outline"
-          onClick={onBulkImport}
-          disabled={bulkImportDisabled}
-          className="h-9 rounded-xl border-slate-200 bg-white text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <Upload className="mr-1.5 h-4 w-4" />
-          Bulk Import
-        </Button>
+        {showBulkImport ? (
+          <Button
+            variant="outline"
+            onClick={onBulkImport}
+            disabled={bulkImportDisabled}
+            className="h-9 rounded-xl border-slate-200 bg-white text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Upload className="mr-1.5 h-4 w-4" />
+            Bulk Import
+          </Button>
+        ) : null}
         <Button
           variant="outline"
           onClick={onCreateFolder}

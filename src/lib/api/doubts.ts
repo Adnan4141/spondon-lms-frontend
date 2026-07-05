@@ -12,6 +12,7 @@ export interface DoubtThread {
   student?: { id: string; fullName: string; profileImage?: string; mobile?: string };
   course?: { id: string; name: string; slug?: string };
   _count?: { replies?: number };
+  hasTeacherReply?: boolean;
 }
 
 export interface DoubtReply {
@@ -35,6 +36,7 @@ export async function getDoubtThreads(params?: {
   teacherUserId?: string;
   status?: string;
   search?: string;
+  needsResponse?: boolean;
 }): Promise<ApiResponse<DoubtThread[]>> {
   const q = new URLSearchParams();
   if (params?.studentUserId) q.append('studentUserId', params.studentUserId);
@@ -42,8 +44,13 @@ export async function getDoubtThreads(params?: {
   if (params?.teacherUserId) q.append('teacherUserId', params.teacherUserId);
   if (params?.status) q.append('status', params.status);
   if (params?.search) q.append('search', params.search);
+  if (params?.needsResponse) q.append('needsResponse', 'true');
   const query = q.toString();
   return apiRequest<ApiResponse<DoubtThread[]>>(`/doubts/threads${query ? `?${query}` : ''}`);
+}
+
+export async function getDoubtThreadById(id: string): Promise<ApiResponse<DoubtThread>> {
+  return apiRequest<ApiResponse<DoubtThread>>(`/doubts/threads/${id}`);
 }
 
 export async function updateDoubtThread(

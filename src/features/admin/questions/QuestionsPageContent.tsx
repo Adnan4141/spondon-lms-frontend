@@ -36,8 +36,20 @@ import { prefetchQuestionFormForTab } from './prefetchQuestionForms';
 
 const SEARCH_DEBOUNCE_MS = 400;
 
-export function QuestionsPageContent() {
+export type QuestionsPageContentProps = {
+  teacherUserId?: string;
+  showBulkImport?: boolean;
+};
+
+export function QuestionsPageContent({
+  teacherUserId,
+  showBulkImport = !teacherUserId,
+}: QuestionsPageContentProps = {}) {
   const { toasts, removeToast } = useToast();
+  const scope = useMemo(
+    () => (teacherUserId ? { teacherUserId } : undefined),
+    [teacherUserId],
+  );
 
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -91,9 +103,9 @@ export function QuestionsPageContent() {
     refetchPassages,
     retryFolders,
     retryContent,
-  } = useQuestionsPageData(listFilters);
+  } = useQuestionsPageData(listFilters, scope);
 
-  const stats = useQuestionBankStats();
+  const stats = useQuestionBankStats(scope);
 
   useEffect(() => {
     setQuestionsPage(1);
@@ -245,6 +257,7 @@ export function QuestionsPageContent() {
             createButtonLabel={createButtonLabel()}
             onBulkImport={actions.handleBulkImport}
             bulkImportDisabled={!activeFolderId}
+            showBulkImport={showBulkImport}
             onCreateFolder={() => actions.handleCreateFolder()}
             onCreateQuestion={actions.handleCreateQuestion}
             onPrefetchCreateQuestion={prefetchCreateQuestion}
