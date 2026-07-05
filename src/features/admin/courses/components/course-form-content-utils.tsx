@@ -1,5 +1,6 @@
 import { Calendar, Eye, FileCheck, FileText, Video } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { compareChapterGroups } from '@/lib/course-content-order';
 
 export type CourseResourceRow = {
   id: string;
@@ -12,6 +13,7 @@ export type CourseResourceRow = {
   sortOrder?: number | null;
   durationMinutes?: number | null;
   isFree?: boolean;
+  createdAt?: string;
 };
 
 export function getResourceIcon(type: string): ReactNode {
@@ -41,12 +43,13 @@ export function groupContentBySubject(resources: CourseResourceRow[]) {
   }, {});
 
   const sortedChapters = Object.entries(chapters).sort(([, a], [, b]) => {
-    const aOrder = a[0]?.topicSortOrder ?? 999;
-    const bOrder = b[0]?.topicSortOrder ?? 999;
     const subA = (a[0]?.subjectTitle || '').trim() || 'General';
     const subB = (b[0]?.subjectTitle || '').trim() || 'General';
     const subCmp = subA.localeCompare(subB);
-    return subCmp !== 0 ? subCmp : aOrder - bOrder;
+    if (subCmp !== 0) return subCmp;
+    const chapA = (a[0]?.chapterTitle || '').trim() || (a[0]?.topicTitle || '').trim() || 'Ungrouped';
+    const chapB = (b[0]?.chapterTitle || '').trim() || (b[0]?.topicTitle || '').trim() || 'Ungrouped';
+    return compareChapterGroups(a, chapA, b, chapB);
   });
 
   const subjectGroups = new Map<string, [string, CourseResourceRow[]][]>();

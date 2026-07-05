@@ -12,6 +12,12 @@ import {
 import { ApiError } from '@/lib/api';
 import { initSelfCheckoutPayment } from '@/lib/api/payment-gateway';
 import { getMyStudentProfile } from '@/lib/api/student-profiles';
+import {
+  isLoggedInNonStudent,
+  isStudentOnlyRestriction,
+  resolveStudentOnlyMessage,
+  STUDENT_ONLY_COURSE_PURCHASE_MESSAGE,
+} from '@/lib/student-purchase-access';
 import type { CourseDetailBatch, CourseDetailCourseBook, CourseDetails } from '@/types/course';
 
 function hasAuthToken(): boolean {
@@ -211,7 +217,11 @@ export function useCourseEnrollment(course: CourseDetails | null, idOrSlug: stri
       } catch (e: unknown) {
         const err = e as ApiErrorWithResponse;
         const apiRes = err.response;
-        const msg = apiRes?.message || err.message || 'Enrollment failed';
+        const msg = resolveStudentOnlyMessage(
+          err,
+          STUDENT_ONLY_COURSE_PURCHASE_MESSAGE,
+          apiRes?.message || err.message || 'Enrollment failed',
+        );
         if (msg.includes('Already enrolled') || apiRes?.data?.enrollmentId) {
           setAlreadyEnrolled(true);
           toast({
@@ -221,6 +231,12 @@ export function useCourseEnrollment(course: CourseDetails | null, idOrSlug: stri
           });
         } else if (isAuthApiError(err)) {
           redirectToLogin();
+        } else if (isStudentOnlyRestriction(err)) {
+          toast({
+            title: 'Cannot enroll',
+            description: STUDENT_ONLY_COURSE_PURCHASE_MESSAGE,
+            variant: 'destructive',
+          });
         } else {
           toast({
             title: 'পেমেন্ট শুরু করা যায়নি',
@@ -246,6 +262,14 @@ export function useCourseEnrollment(course: CourseDetails | null, idOrSlug: stri
     if (!course) return;
     if (!hasAuthToken()) {
       redirectToLogin();
+      return;
+    }
+    if (isLoggedInNonStudent()) {
+      toast({
+        title: 'Cannot enroll',
+        description: STUDENT_ONLY_COURSE_PURCHASE_MESSAGE,
+        variant: 'destructive',
+      });
       return;
     }
     if (course.type === 'OFFLINE' && selectedBatchId && !selectedBranchId) {
@@ -326,7 +350,9 @@ export function useCourseEnrollment(course: CourseDetails | null, idOrSlug: stri
           return;
         }
         setCheckoutQuote(null);
-        setQuoteError(err instanceof Error ? err.message : 'মূল্য যাচাই করা যায়নি।');
+        setQuoteError(
+          resolveStudentOnlyMessage(err, STUDENT_ONLY_COURSE_PURCHASE_MESSAGE, 'Unable to verify pricing. Please try again.'),
+        );
       })
       .finally(() => {
         if (!cancelled) setQuoteLoading(false);

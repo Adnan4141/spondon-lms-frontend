@@ -21,8 +21,22 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { confirmAction } from '@/features/admin/shared/confirm-action';
 import { promptAction } from '@/features/admin/shared/prompt-action';
-import { createCourseContent, deleteCourseContent, getCourseContents, updateCourseContent } from '@/lib/api/courses';
+import { createCourseContent, deleteCourseContent, getCourseContents, reorderCourseContents, updateCourseContent } from '@/lib/api/courses';
 import type { CourseContent } from '@/types/course-content';
+import {
+  chapterDndId,
+  diffOrderUpdates,
+  lessonDndId,
+  moduleDndId,
+  nextOrdersForNewLesson,
+  normalizeLegacyChapterOrders,
+  parseChapterDndId,
+  parseLessonDndId,
+  parseModuleDndId,
+  reorderChapters,
+  reorderLessons,
+  reorderModules,
+} from '@/lib/course-content-order';
 import { TYPE_CONFIG } from '../courseConstants';
 import { EMPTY_CONTENT_FORM, type ContentForm } from '../courseTypes';
 import { groupContents } from '../courseUtils';
@@ -39,7 +53,6 @@ import {
   DragEndEvent,
 } from '@dnd-kit/core';
 import {
-  arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
@@ -51,17 +64,6 @@ import { CSS } from '@dnd-kit/utilities';
 
 function nextGlobalSortOrder(items: CourseContent[]): number {
   return items.reduce((m, i) => Math.max(m, i.sortOrder ?? 0), -1) + 1;
-}
-
-function nextOrdersInChapter(items: CourseContent[], subject: string, chapter: string): { sortOrder: number; topicSortOrder: number } {
-  const sub = subject.trim();
-  const chap = chapter.trim();
-  const inCh = items.filter(
-    (i) => (i.subjectTitle || '').trim() === sub && (i.chapterTitle || '').trim() === chap,
-  );
-  const maxSort = inCh.reduce((m, i) => Math.max(m, i.sortOrder ?? 0), -1);
-  const maxTopic = inCh.reduce((m, i) => Math.max(m, i.topicSortOrder ?? i.sortOrder ?? 0), -1);
-  return { sortOrder: maxSort + 1, topicSortOrder: maxTopic + 1 };
 }
 
 function contentToForm(item: CourseContent): ContentForm {
@@ -91,20 +93,24 @@ function formatDuration(totalMinutes: number): string {
 
 function SortableLessonCard({
   item,
+  subjectName,
+  chapterName,
   isLast,
   onEdit,
   onDelete,
   isDeleting,
 }: {
   item: CourseContent;
+  subjectName: string;
+  chapterName: string;
   isLast: boolean;
   onEdit: () => void;
   onDelete: () => void;
   isDeleting: boolean;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ 
-    id: item.id,
-    data: { type: 'Lesson' }
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: lessonDndId(item.id),
+    data: { type: 'lesson', contentId: item.id, subject: subjectName, chapter: chapterName },
   });
   
   const style = { transform: CSS.Translate.toString(transform), transition };
@@ -198,14 +204,18 @@ function SortableLessonCard({
 
 function SortableModuleCard({
   id,
+  subjectIndex,
+  subjectName,
   children,
 }: {
   id: string;
+  subjectIndex: number;
+  subjectName: string;
   children: (dragHandleProps: Record<string, unknown>, isDragging: boolean) => React.ReactNode;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ 
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
-    data: { type: 'Module' }
+    data: { type: 'module', subjectIndex, subject: subjectName },
   });
   
   const style = { 
@@ -218,6 +228,107 @@ function SortableModuleCard({
   return (
     <div ref={setNodeRef} style={style} className={cn(isDragging && 'opacity-90 shadow-2xl scale-[1.01] rounded-xl ring-2 ring-indigo-500')}>
       {children({ ...attributes, ...listeners }, isDragging)}
+    </div>
+  );
+}
+
+/* ─── Sortable Chapter Row ─────────────────────────────────────────────────── */
+
+function SortableChapterRow({
+  id,
+  subjectIndex,
+  subjectName,
+  chapterName,
+  chapterIndex,
+  chapOpen,
+  sectionDuration,
+  itemCount,
+  onToggle,
+  onAdd,
+  children,
+}: {
+  id: string;
+  subjectIndex: number;
+  subjectName: string;
+  chapterName: string;
+  chapterIndex: number;
+  chapOpen: boolean;
+  sectionDuration: number;
+  itemCount: number;
+  onToggle: () => void;
+  onAdd: (e: React.MouseEvent) => void;
+  children?: React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+    data: { type: 'chapter', subjectIndex, chapterIndex, subject: subjectName, chapter: chapterName },
+  });
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : 1,
+    position: 'relative' as const,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'border-b border-indigo-50/50 last:border-b-0',
+        isDragging && 'z-50 rounded-lg shadow-lg ring-1 ring-indigo-200 bg-white',
+      )}
+    >
+      <div
+        className={cn(
+          'group/chapter flex items-center justify-between px-5 py-3 pl-[44px] transition-colors relative',
+          chapOpen ? 'bg-indigo-50/30' : 'hover:bg-slate-100/60',
+        )}
+      >
+        <div className="absolute left-[42px] top-0 bottom-0 w-px bg-indigo-100" />
+        <div className="flex items-center gap-2 min-w-0 flex-1 relative z-10">
+          <button
+            type="button"
+            className={cn(
+              'touch-none flex h-6 w-6 shrink-0 items-center justify-center text-slate-300 hover:text-slate-500 cursor-grab',
+              isDragging && 'cursor-grabbing text-slate-600',
+            )}
+            {...attributes}
+            {...listeners}
+            aria-label="Drag to reorder chapter"
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={onToggle}
+            className="flex items-center gap-3 min-w-0 flex-1 text-left"
+          >
+            <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-white border border-slate-200 shadow-sm text-slate-400">
+              {chapOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+            </div>
+            <span className="text-[14px] font-bold text-slate-700 truncate">{chapterName}</span>
+            <span className="rounded-full bg-white border border-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-500 shadow-sm shrink-0">
+              {itemCount} items
+            </span>
+            {sectionDuration > 0 && (
+              <span className="hidden items-center gap-1 text-[11px] font-medium text-slate-400 sm:inline-flex shrink-0">
+                <Clock className="h-3 w-3" />
+                {formatDuration(sectionDuration)}
+              </span>
+            )}
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={onAdd}
+          className="flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-bold text-indigo-600 opacity-0 transition-all hover:bg-indigo-50 group-hover/chapter:opacity-100 shrink-0"
+        >
+          <Plus className="h-3 w-3" /> Add
+        </button>
+      </div>
+      {children}
     </div>
   );
 }
@@ -235,6 +346,7 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [hoveredModule, setHoveredModule] = useState<string | null>(null);
   const [isDeletingModule, setIsDeletingModule] = useState<string | null>(null);
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -243,26 +355,40 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
 
   const loadContents = useCallback(async () => {
     const res = await getCourseContents({ courseId });
-    if (res.success && res.data) setItems(res.data);
+    if (!res.success || !res.data) return;
+
+    let data = res.data as CourseContent[];
+    const grouped = groupContents(data);
+    const { items: normalized, updates } = normalizeLegacyChapterOrders(data, grouped);
+
+    if (updates.length > 0) {
+      const reorderRes = await reorderCourseContents(courseId, updates);
+      if (reorderRes.success && reorderRes.data) {
+        data = reorderRes.data as CourseContent[];
+      } else {
+        data = normalized;
+      }
+    }
+
+    setItems(data);
+    return data;
   }, [courseId]);
 
   useEffect(() => {
     setLoading(true);
-    getCourseContents({ courseId })
-      .then((res) => {
-        if (res.success && res.data) {
-          setItems(res.data);
-          const grouped = groupContents(res.data);
-          if (grouped.length > 0) {
-            setExpandedSubjects(new Set([grouped[0].name]));
-            if (grouped[0].chapters.length > 0) {
-              setExpandedChapters(new Set([`${grouped[0].name}::${grouped[0].chapters[0].name}`]));
-            }
+    loadContents()
+      .then((data) => {
+        if (!data?.length) return;
+        const grouped = groupContents(data);
+        if (grouped.length > 0) {
+          setExpandedSubjects(new Set([grouped[0].name]));
+          if (grouped[0].chapters.length > 0) {
+            setExpandedChapters(new Set([`${grouped[0].name}::${grouped[0].chapters[0].name}`]));
           }
         }
       })
       .finally(() => setLoading(false));
-  }, [courseId]);
+  }, [loadContents]);
 
   const subjects = useMemo(() => groupContents(items), [items]);
   const existingSubjects = useMemo(() => subjects.map((s) => s.name).filter((s) => s !== '(No Subject)'), [subjects]);
@@ -281,7 +407,7 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
     const sub = addCtx.subject?.trim() ?? '';
     const chap = addCtx.chapter?.trim() ?? '';
     if (sub && chap) {
-      const { sortOrder, topicSortOrder } = nextOrdersInChapter(items, sub, chap);
+      const { sortOrder, topicSortOrder } = nextOrdersForNewLesson(items, sub, chap);
       return { ...EMPTY_CONTENT_FORM, subjectTitle: sub, chapterTitle: chap, sortOrder: String(sortOrder), topicSortOrder: String(topicSortOrder) };
     }
     if (sub) {
@@ -425,67 +551,57 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    
-    // Module Dragging
-    if (String(active.id).startsWith('Module:::')) {
-      const activeModule = String(active.id).replace('Module:::', '');
-      const overModule = String(over.id).replace('Module:::', '');
-      
-      const oldIndex = subjects.findIndex(s => s.name === activeModule);
-      const newIndex = subjects.findIndex(s => s.name === overModule);
-      if (oldIndex === -1 || newIndex === -1) return;
-      
-      const reorderedSubjects = arrayMove(subjects, oldIndex, newIndex);
-      
-      // Compute flat items globally sequential
-      const flattenedItems: CourseContent[] = [];
-      reorderedSubjects.forEach(subj => {
-         subj.chapters.forEach(chap => flattenedItems.push(...chap.items));
-      });
-      
-      const newGlobalItems = [...items];
-      flattenedItems.forEach((item, index) => {
-        const sOrder = index + 1;
-        const gIdx = newGlobalItems.findIndex(i => i.id === item.id);
-        if (gIdx !== -1 && newGlobalItems[gIdx].sortOrder !== sOrder) {
-          newGlobalItems[gIdx] = { ...newGlobalItems[gIdx], sortOrder: sOrder, topicSortOrder: sOrder };
-          const fd = new FormData();
-          fd.append('sortOrder', String(sOrder));
-          fd.append('topicSortOrder', String(sOrder));
-          updateCourseContent(item.id, fd).catch(()=>console.error('Failed sync'));
-        }
-      });
-      setItems(newGlobalItems);
-      return;
+    if (!over || active.id === over.id || isSavingOrder) return;
+
+    const activeType = active.data.current?.type as string | undefined;
+    const overType = over.data.current?.type as string | undefined;
+    if (!activeType || activeType !== overType) return;
+
+    let nextItems: CourseContent[] | null = null;
+
+    if (activeType === 'module') {
+      const fromIdx = parseModuleDndId(String(active.id));
+      const toIdx = parseModuleDndId(String(over.id));
+      if (fromIdx === null || toIdx === null) return;
+      nextItems = reorderModules(items, subjects, fromIdx, toIdx);
+    } else if (activeType === 'chapter') {
+      const from = parseChapterDndId(String(active.id));
+      const to = parseChapterDndId(String(over.id));
+      if (!from || !to || from.subjectIndex !== to.subjectIndex) return;
+      const subj = subjects[from.subjectIndex];
+      if (!subj) return;
+      const fromChapter = subj.chapters[from.chapterIndex]?.name;
+      const toChapter = subj.chapters[to.chapterIndex]?.name;
+      if (!fromChapter || !toChapter) return;
+      nextItems = reorderChapters(items, subjects, subj.name, fromChapter, toChapter);
+    } else if (activeType === 'lesson') {
+      const activeId = parseLessonDndId(String(active.id));
+      const overId = parseLessonDndId(String(over.id));
+      const subject = active.data.current?.subject as string | undefined;
+      const chapter = active.data.current?.chapter as string | undefined;
+      if (!activeId || !overId || !subject || !chapter) return;
+      nextItems = reorderLessons(items, subject, chapter, activeId, overId);
     }
 
-    // Lesson Dragging
-    const activeItem = items.find(i => i.id === active.id);
-    if (!activeItem) return;
-    
-    const chapItems = items.filter(i => i.subjectTitle === activeItem.subjectTitle && i.chapterTitle === activeItem.chapterTitle).sort((a,b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-    
-    const oldIndex = chapItems.findIndex(i => i.id === active.id);
-    const newIndex = chapItems.findIndex(i => i.id === over.id);
-    if (oldIndex === -1 || newIndex === -1) return;
+    if (!nextItems) return;
 
-    const newOrderedItems = arrayMove(chapItems, oldIndex, newIndex);
-    const existingOrders = [...chapItems].map(i => i.sortOrder ?? 0).sort((a,b) => a - b);
-    
-    const newGlobalItems = [...items];
-    newOrderedItems.forEach((item, index) => {
-      const targetSortOrder = existingOrders[index];
-      const globalIndex = newGlobalItems.findIndex(i => i.id === item.id);
-      
-      if (globalIndex !== -1 && newGlobalItems[globalIndex].sortOrder !== targetSortOrder) {
-        newGlobalItems[globalIndex] = { ...newGlobalItems[globalIndex], sortOrder: targetSortOrder };
-        const fd = new FormData();
-        fd.append('sortOrder', String(targetSortOrder));
-        updateCourseContent(item.id, fd).catch(()=>console.error('Failed sync'));
-      }
-    });
-    setItems(newGlobalItems);
+    const updates = diffOrderUpdates(items, nextItems);
+    if (updates.length === 0) return;
+
+    const prevItems = items;
+    setItems(nextItems);
+    setIsSavingOrder(true);
+    try {
+      const res = await reorderCourseContents(courseId, updates);
+      if (!res.success) throw new Error((res as { message?: string }).message ?? 'Reorder failed');
+      if (res.data) setItems(res.data);
+    } catch {
+      setItems(prevItems);
+      toast({ variant: 'destructive', description: 'Failed to save order. Changes reverted.' });
+      loadContents();
+    } finally {
+      setIsSavingOrder(false);
+    }
   };
 
   /* ─── loading skeleton ──────────────────────────────────────────────── */
@@ -532,10 +648,18 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
         ))}
       </div>
 
-      <div className="mb-5 flex items-center justify-between">
-        <p className="text-xs font-medium text-slate-400">
-          {subjects.length > 0 ? `${subjects.length} subject${subjects.length !== 1 ? 's' : ''} · ${items.length} lesson${items.length !== 1 ? 's' : ''}` : 'No content'}
-        </p>
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-slate-400">
+            {subjects.length > 0 ? `${subjects.length} subject${subjects.length !== 1 ? 's' : ''} · ${items.length} lesson${items.length !== 1 ? 's' : ''}` : 'No content'}
+          </p>
+          {subjects.length > 0 && (
+            <p className="mt-1 text-[11px] text-slate-400">
+              Drag <GripVertical className="inline h-3 w-3 -mt-0.5" /> to reorder subjects, chapters, and lessons
+              {isSavingOrder && <span className="ml-2 text-indigo-500">Saving…</span>}
+            </p>
+          )}
+        </div>
         <Button onClick={() => { setEditItem(null); setAddCtx({}); }} className="gap-2 rounded-lg bg-slate-900 px-4 text-white shadow-sm transition-all hover:bg-slate-800 hover:shadow-md">
           <Plus className="h-4 w-4" /> Add Lesson
         </Button>
@@ -559,9 +683,9 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
       {/* Global Drag Context for everything */}
       {subjects.length > 0 && (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <div className="space-y-5">
-            <SortableContext items={subjects.map(s => `Module:::${s.name}`)} strategy={verticalListSortingStrategy}>
-              {subjects.map((subj) => {
+          <div className={cn('space-y-5', isSavingOrder && 'pointer-events-none opacity-80')}>
+            <SortableContext items={subjects.map((_, i) => moduleDndId(i))} strategy={verticalListSortingStrategy}>
+              {subjects.map((subj, subjIndex) => {
                 const isOpen = expandedSubjects.has(subj.name);
                 const totalItems = subj.chapters.reduce((s, c) => s + c.items.length, 0);
                 const moduleDuration = subj.chapters.flatMap((c) => c.items).reduce((s, i) => s + (i.durationMinutes ?? 0), 0);
@@ -569,7 +693,12 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
                 const isDeleting = isDeletingModule === subj.name;
 
                 return (
-                  <SortableModuleCard key={subj.name} id={`Module:::${subj.name}`}>
+                  <SortableModuleCard
+                    key={subj.name}
+                    id={moduleDndId(subjIndex)}
+                    subjectIndex={subjIndex}
+                    subjectName={subj.name}
+                  >
                     {(dragHandleProps, isModuleDragging) => (
                       <div
                         className={cn(
@@ -641,74 +770,80 @@ export function CourseContentTab({ courseId }: { courseId: string }) {
                           </div>
                         </div>
 
-                        {/* Sections & Lessons */}
+                        {/* Chapters & Lessons */}
                         {isOpen && (
                           <div className="border-t border-indigo-100 bg-slate-50/30">
-                            {subj.chapters.map((chap, cIdx) => {
-                              const chapKey = `${subj.name}::${chap.name}`;
-                              const chapOpen = expandedChapters.has(chapKey);
-                              const sectionDuration = chap.items.reduce((s, i) => s + (i.durationMinutes ?? 0), 0);
+                            <SortableContext
+                              items={subj.chapters.map((_, cIdx) => chapterDndId(subjIndex, cIdx))}
+                              strategy={verticalListSortingStrategy}
+                            >
+                              {subj.chapters.map((chap, cIdx) => {
+                                const chapKey = `${subj.name}::${chap.name}`;
+                                const chapOpen = expandedChapters.has(chapKey);
+                                const sectionDuration = chap.items.reduce((s, i) => s + (i.durationMinutes ?? 0), 0);
 
-                              return (
-                                <div key={chap.name} className={cn("border-b border-indigo-50/50", cIdx === subj.chapters.length - 1 && "border-b-0")}>
-                                  <div className={cn('flex cursor-pointer items-center justify-between px-5 py-3 pl-[60px] transition-colors relative', chapOpen ? 'bg-indigo-50/30' : 'hover:bg-slate-100/60')} onClick={() => toggleChapter(chapKey)}>
-                                    <div className="absolute left-[42px] top-0 bottom-0 w-px bg-indigo-100" />
-                                    <div className="flex items-center gap-3 min-w-0 relative z-10">
-                                      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-white border border-slate-200 shadow-sm text-slate-400">
-                                        {chapOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                                      </div>
-                                      <span className="text-[14px] font-bold text-slate-700">{chap.name}</span>
-                                      <span className="rounded-full bg-white border border-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-500 shadow-sm">
-                                        {chap.items.length} items
-                                      </span>
-                                      {sectionDuration > 0 && (
-                                        <span className="hidden items-center gap-1 text-[11px] font-medium text-slate-400 sm:inline-flex">
-                                          <Clock className="h-3 w-3" />
-                                          {formatDuration(sectionDuration)}
-                                        </span>
-                                      )}
-                                    </div>
-                                    <button type="button" onClick={(e) => { e.stopPropagation(); setEditItem(null); setAddCtx({ subject: subj.name, chapter: chap.name }); }} className="flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-bold text-indigo-600 opacity-0 transition-all hover:bg-indigo-50 group-hover:opacity-100 [div:hover>&]:opacity-100">
-                                      <Plus className="h-3 w-3" /> Add
-                                    </button>
-                                  </div>
-
-                                  {/* Lesson Items */}
-                                  {chapOpen && chap.items.length > 0 && (
-                                    <div className="pl-[34px]">
-                                      <div className="ml-[6px] border-l border-indigo-100">
-                                        <SortableContext items={chap.items.map(i => i.id)} strategy={verticalListSortingStrategy}>
-                                          {chap.items.map((item, idx) => (
-                                            <div key={item.id} className="relative">
-                                              <div className="absolute left-0 top-1/2 w-4 h-px bg-indigo-100 -translate-y-1/2" />
-                                              <div className="ml-4">
-                                                <SortableLessonCard
-                                                  item={item}
-                                                  isLast={idx === chap.items.length - 1}
-                                                  onEdit={() => { setAddCtx(null); setEditItem(item); }}
-                                                  onDelete={() => handleDelete(item.id)}
-                                                  isDeleting={deletingId === item.id}
-                                                />
+                                return (
+                                  <SortableChapterRow
+                                    key={chapKey}
+                                    id={chapterDndId(subjIndex, cIdx)}
+                                    subjectIndex={subjIndex}
+                                    subjectName={subj.name}
+                                    chapterName={chap.name}
+                                    chapterIndex={cIdx}
+                                    chapOpen={chapOpen}
+                                    sectionDuration={sectionDuration}
+                                    itemCount={chap.items.length}
+                                    onToggle={() => toggleChapter(chapKey)}
+                                    onAdd={(e) => {
+                                      e.stopPropagation();
+                                      setEditItem(null);
+                                      setAddCtx({ subject: subj.name, chapter: chap.name });
+                                    }}
+                                  >
+                                    {chapOpen && chap.items.length > 0 && (
+                                      <div className="pl-[34px]">
+                                        <div className="ml-[6px] border-l border-indigo-100">
+                                          <SortableContext
+                                            items={chap.items.map((i) => lessonDndId(i.id))}
+                                            strategy={verticalListSortingStrategy}
+                                          >
+                                            {chap.items.map((item, idx) => (
+                                              <div key={item.id} className="relative">
+                                                <div className="absolute left-0 top-1/2 w-4 h-px bg-indigo-100 -translate-y-1/2" />
+                                                <div className="ml-4">
+                                                  <SortableLessonCard
+                                                    item={item}
+                                                    subjectName={subj.name}
+                                                    chapterName={chap.name}
+                                                    isLast={idx === chap.items.length - 1}
+                                                    onEdit={() => { setAddCtx(null); setEditItem(item); }}
+                                                    onDelete={() => handleDelete(item.id)}
+                                                    isDeleting={deletingId === item.id}
+                                                  />
+                                                </div>
                                               </div>
-                                            </div>
-                                          ))}
-                                        </SortableContext>
+                                            ))}
+                                          </SortableContext>
+                                        </div>
                                       </div>
-                                    </div>
-                                  )}
+                                    )}
 
-                                  {/* Empty section */}
-                                  {chapOpen && chap.items.length === 0 && (
-                                    <div className="ml-[54px] border-l border-indigo-100 px-6 py-5">
-                                      <p className="text-xs text-slate-400 font-medium">No lessons in this chapter</p>
-                                      <button type="button" onClick={() => { setEditItem(null); setAddCtx({ subject: subj.name, chapter: chap.name }); }} className="mt-3 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-dashed border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 hover:border-slate-400">
-                                        <Plus className="h-3.5 w-3.5" /> Add First Lesson
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
+                                    {chapOpen && chap.items.length === 0 && (
+                                      <div className="ml-[54px] border-l border-indigo-100 px-6 py-5">
+                                        <p className="text-xs text-slate-400 font-medium">No lessons in this chapter</p>
+                                        <button
+                                          type="button"
+                                          onClick={() => { setEditItem(null); setAddCtx({ subject: subj.name, chapter: chap.name }); }}
+                                          className="mt-3 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-dashed border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 hover:border-slate-400"
+                                        >
+                                          <Plus className="h-3.5 w-3.5" /> Add First Lesson
+                                        </button>
+                                      </div>
+                                    )}
+                                  </SortableChapterRow>
+                                );
+                              })}
+                            </SortableContext>
                           </div>
                         )}
                       </div>

@@ -1,3 +1,4 @@
+import { sortSubjectGroups } from '@/lib/course-content-order';
 import { normalizeCoursePublicPageDisplay, normalizeCourseSidebarFeatures, type Course } from '@/types/course';
 import type { CourseContent } from '@/types/course-content';
 import type { CourseForm, SubjectGroup } from './courseTypes';
@@ -12,13 +13,14 @@ export function groupContents(items: CourseContent[]): SubjectGroup[] {
     if (!chapMap.has(chap)) chapMap.set(chap, []);
     chapMap.get(chap)!.push(item);
   }
-  return Array.from(subjectMap.entries()).map(([name, chapMap]) => ({
+  const groups: SubjectGroup[] = Array.from(subjectMap.entries()).map(([name, chapMap]) => ({
     name,
     chapters: Array.from(chapMap.entries()).map(([chapName, chapItems]) => ({
       name: chapName,
-      items: [...chapItems].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
+      items: chapItems,
     })),
   }));
+  return sortSubjectGroups(groups);
 }
 
 export function slugify(name: string): string {

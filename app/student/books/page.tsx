@@ -22,6 +22,7 @@ import {
 import { useStudentBooks } from '@/lib/query/hooks/useStudentBooks';
 import { purchaseBook } from '@/lib/api/student-portal';
 import { initInvoicePayment } from '@/lib/api/invoices';
+import { isLoggedInNonStudent, STUDENT_ONLY_BOOK_PURCHASE_MESSAGE } from '@/lib/student-purchase-access';
 import type { Book } from '@/lib/api/books';
 
 type BooksTab = 'library' | 'catalog';
@@ -119,8 +120,8 @@ export default function StudentBooksPage() {
       return;
     }
     const user = JSON.parse(userStr);
-    if (String(user.role || '').toUpperCase() !== 'STUDENT') {
-      setFormError('Only student accounts can make purchases.');
+    if (isLoggedInNonStudent()) {
+      setFormError(STUDENT_ONLY_BOOK_PURCHASE_MESSAGE);
       return;
     }
     if (!recipientName.trim() || !phone.trim() || !address.trim()) {

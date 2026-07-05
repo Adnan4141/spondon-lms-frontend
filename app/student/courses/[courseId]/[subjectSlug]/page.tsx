@@ -36,6 +36,7 @@ interface ContentItem {
   topicSortOrder?: number;
   durationMinutes?: number;
   sortOrder: number;
+  createdAt?: string;
   /** When set, progress is stored on `LessonResourceProgress` instead of legacy `ContentProgress`. */
   lessonResourceId?: string | null;
   progress?: { completed: boolean; progressPercent?: number } | null;

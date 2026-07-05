@@ -1,5 +1,5 @@
 import { apiRequest, API_ORIGIN } from '../api';
-import { appendActorUserIdToFormData, getActorUserIdQuery } from '../actor-user';
+import { appendActorUserIdToFormData, getActorUserIdFromStorage, getActorUserIdQuery } from '../actor-user';
 import type { Course, CreateCourseDto, UpdateCourseDto, GetCoursesParams, ApiResponse } from '@/types/course';
 export type { Course, CreateCourseDto, UpdateCourseDto, GetCoursesParams, ApiResponse };
 
@@ -153,6 +153,16 @@ export async function updateCourseContent(id: string, formData: FormData): Promi
 export async function deleteCourseContent(id: string): Promise<ApiResponse<void>> {
   return apiRequest<ApiResponse<void>>(`/course-contents/${id}${getActorUserIdQuery()}`, {
     method: 'DELETE',
+  });
+}
+
+export async function reorderCourseContents(
+  courseId: string,
+  updates: { id: string; sortOrder?: number; topicSortOrder?: number }[],
+): Promise<ApiResponse<any[]>> {
+  return apiRequest<ApiResponse<any[]>>('/course-contents/reorder', {
+    method: 'PATCH',
+    body: JSON.stringify({ courseId, updates, actorUserId: getActorUserIdFromStorage() }),
   });
 }
 

@@ -1,3 +1,5 @@
+import { compareChapterGroups } from '@/lib/course-content-order';
+
 /**
  * Client-side mirror of backend course-content-tree (for admin grouping).
  * Keep in sync with backend/src/utils/course-content-tree.ts
@@ -14,6 +16,7 @@ export type FlatCourseContentRow = {
   topicSortOrder?: number | null;
   durationMinutes?: number | null;
   isFree?: boolean;
+  createdAt?: string;
 };
 
 export type OutlineSegment = {
@@ -122,11 +125,9 @@ export function buildCourseContentTree(
   for (const [, sub] of sortedSubjects) {
     const chapters: OutlineChapter[] = [];
     let ci = 0;
-    const sortedChapters = [...sub.chapters.entries()].sort((a, b) => {
-      const so = a[1].sortOrder - b[1].sortOrder;
-      if (so !== 0) return so;
-      return a[1].title.localeCompare(b[1].title);
-    });
+    const sortedChapters = [...sub.chapters.entries()].sort((a, b) =>
+      compareChapterGroups(a[1].segments, a[1].title, b[1].segments, b[1].title),
+    );
 
     for (const [, ch] of sortedChapters) {
       const segs = [...ch.segments].sort((a, b) => a.sortOrder - b.sortOrder);
@@ -192,6 +193,7 @@ export function groupContentsBySubjectChapter<
     topicTitle?: string;
     topicSortOrder?: number;
     sortOrder: number;
+    createdAt?: string;
   },
 >(contents: T[]): SubjectChapterGroup<T>[] {
   const map = new Map<string, SubjectChapterGroup<T>>();
@@ -229,7 +231,6 @@ export function groupContentsBySubjectChapter<
   groups.sort((a, b) => {
     const s = a.subject.localeCompare(b.subject);
     if (s !== 0) return s;
-    // 1. Explicit chapter position wins (curriculum-backed courses).
     if (a.chapterSortOrder != null && b.chapterSortOrder != null) {
       if (a.chapterSortOrder !== b.chapterSortOrder) {
         return a.chapterSortOrder - b.chapterSortOrder;
@@ -239,16 +240,7 @@ export function groupContentsBySubjectChapter<
     } else if (b.chapterSortOrder != null) {
       return 1;
     }
-    // 2. Legacy content: order by chapter title (numeric-aware), matching the
-    //    backend `chapterTitle ASC` ordering. Lesson sortOrder is NOT reliable
-    //    for chapter ordering (it can be a flat global sequence from import).
-    const t = a.chapter.localeCompare(b.chapter, undefined, {
-      numeric: true,
-      sensitivity: 'base',
-    });
-    if (t !== 0) return t;
-    // 3. Final fallback: lesson order.
-    return a.sortOrder - b.sortOrder;
+    return compareChapterGroups(a.items, a.chapter, b.items, b.chapter);
   });
 
   return groups;
