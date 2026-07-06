@@ -100,6 +100,7 @@ export function CourseSidebar({
 
           {alreadyEnrolled ? (
             <Link
+              id="course-sidebar-enroll"
               href="/student/courses"
               className="group flex h-15 w-full items-center justify-center gap-2.5 rounded-2xl bg-emerald-600 font-extrabold text-sm tracking-wide text-white shadow-lg shadow-emerald-100/50 transition-all hover:bg-emerald-700 active:scale-98"
             >
@@ -109,6 +110,7 @@ export function CourseSidebar({
             </Link>
           ) : (
             <button
+              id="course-sidebar-enroll"
               onClick={handleEnrollClick}
               disabled={enrolling}
               className="group flex h-15 w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-[#5C2D91] to-[#7A3EB2] font-extrabold text-sm tracking-wide text-white shadow-lg shadow-[#5C2D91]/20 transition-all hover:shadow-xl hover:shadow-[#5C2D91]/30 active:scale-98 disabled:opacity-70 cursor-pointer"

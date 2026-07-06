@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
-import { getPublicCourseBySlugCached } from '@/lib/api/courses-server';
+import { getPublicCourseBySlugCached, getPublicCourseContentCached } from '@/lib/api/courses-server';
 import type { CourseDetails } from '@/types/course';
 import {
   buildCoursePageDisplay,
@@ -30,6 +30,9 @@ export default async function CourseDetailsPage({ params }: PageProps) {
 
   const display = buildCoursePageDisplay(course);
 
+  const publicContentRes = await getPublicCourseContentCached(idOrSlug);
+  const publicContent = publicContentRes.success ? publicContentRes.data : null;
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 selection:bg-indigo-100 relative overflow-hidden">
       {/* Background decorative glows */}
@@ -42,7 +45,7 @@ export default async function CourseDetailsPage({ params }: PageProps) {
 
       <div className="mx-auto max-w-7xl px-6 py-24 lg:px-12">
         <CourseEnrollmentIsland idOrSlug={idOrSlug} display={display}>
-          <CourseDetailsStatic course={course} display={display} />
+          <CourseDetailsStatic course={course} display={display} publicContent={publicContent} />
         </CourseEnrollmentIsland>
       </div>
 

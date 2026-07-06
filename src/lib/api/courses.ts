@@ -187,3 +187,66 @@ export async function deleteAssociatedCourse(id: string): Promise<ApiResponse<vo
     method: 'DELETE',
   });
 }
+
+export interface CourseOutlineSegment {
+  id: string;
+  title: string;
+  type: string;
+  sortOrder: number;
+  durationMinutes: number | null;
+  isFree: boolean;
+  topicTitle: string | null;
+}
+
+export interface CourseOutlineChapter {
+  id: string;
+  title: string;
+  sortOrder: number;
+  segments: CourseOutlineSegment[];
+}
+
+export interface CourseOutlineSubject {
+  id: string;
+  title: string;
+  sortOrder: number;
+  chapters: CourseOutlineChapter[];
+}
+
+export interface CourseContentOutline {
+  totals: {
+    subjects: number;
+    chapters: number;
+    segments: number;
+    videos: number;
+    notes: number;
+  };
+  subjects: CourseOutlineSubject[];
+}
+
+export interface CourseFreePreviewItem {
+  id: string;
+  title: string;
+  type: string;
+  fileUrl: string | null;
+  textBody: string | null;
+  durationMinutes: number | null;
+  subjectTitle: string | null;
+  chapterTitle: string | null;
+  topicTitle: string | null;
+}
+
+export interface PublicCourseContent {
+  outline: CourseContentOutline | null;
+  freePreview: CourseFreePreviewItem[];
+  meta: {
+    showCurriculum: boolean;
+    freeSegmentCount: number;
+    totalSegmentCount: number;
+  };
+}
+
+export async function getPublicCourseContent(idOrSlug: string): Promise<ApiResponse<PublicCourseContent>> {
+  return apiRequest<ApiResponse<PublicCourseContent>>(
+    `/courses/${encodeURIComponent(idOrSlug)}/public-content`,
+  );
+}
