@@ -55,6 +55,7 @@ import {
 } from 'recharts';
 import { ExportButtons } from '../ExportButtons';
 import { FinanceDatePresetButtons } from '../components/FinanceDatePresetButtons';
+import { FinancePaymentDetailModal } from '../components/FinancePaymentDetailModal';
 import {
   fmtNum,
   fmtCur,
@@ -196,6 +197,8 @@ export function FinanceTab({
   const [admissionFeeSummary, setAdmissionFeeSummary] = useState<AdmissionFeeSummary | null>(null);
   const [typeBreakdown, setTypeBreakdown] = useState<PaymentTypeBreakdown[]>([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, pages: 1 });
+  const [detailPaymentId, setDetailPaymentId] = useState<string | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   async function load(options?: { page?: number; limit?: number; searchValue?: string }) {
     const nextPage = options?.page ?? page;
@@ -252,6 +255,11 @@ export function FinanceTab({
   const pageStart = transactions.length === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1;
   const pageEnd = (pagination.page - 1) * pagination.limit + transactions.length;
   const showPaymentTotalHint = view === 'grouped' || view === 'allocation';
+
+  function openPaymentDetail(paymentId: string) {
+    setDetailPaymentId(paymentId);
+    setDetailOpen(true);
+  }
 
   async function handleExport(format: ExportFormat) {
     if (transactions.length === 0 && data.length === 0) {
@@ -333,25 +341,30 @@ export function FinanceTab({
     });
   }
 
+  const statCells = totals
+    ? [
+        { label: 'Total Collected', value: fmtCur(totals.totalAmount), icon: TrendingUp, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+        { label: 'Payment Lines', value: fmtNum(totals.totalTransactions), icon: BarChart3, color: 'text-purple-600', bg: 'bg-purple-50' },
+        { label: 'Avg / Line', value: totals.totalTransactions > 0 ? fmtCur(totals.totalAmount / totals.totalTransactions) : '—', icon: ArrowUpRight, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+        ...typeBreakdown.map((row) => ({
+          label: row.label,
+          value: fmtCur(row.amount),
+          sub: `${row.lineCount} lines`,
+          icon: BREAKDOWN_ICONS[row.type] || Package,
+          color: row.type === 'ADMISSION_FEE' ? 'text-emerald-600' : row.type === 'BOOK' ? 'text-amber-600' : 'text-indigo-600',
+          bg: row.type === 'ADMISSION_FEE' ? 'bg-emerald-50' : row.type === 'BOOK' ? 'bg-amber-50' : 'bg-indigo-50',
+        })),
+      ]
+    : [];
+
   return (
-    <div className="space-y-6">
-      <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-wrap gap-3 items-end">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Period</p>
-            <Select value={period} onValueChange={(v) => setPeriod(v as typeof period)}>
-              <SelectTrigger className="h-9 w-44 rounded-xl text-sm"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="daily">Daily</SelectItem>
-                <SelectItem value="monthly">Monthly</SelectItem>
-                <SelectItem value="yearly">Yearly</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="w-full sm:w-56">
-            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Search</p>
+    <div className="space-y-3">
+      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
+          <div className="xl:col-span-2">
+            <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">Search</p>
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
               <Input
                 value={searchDraft}
                 onChange={(event) => setSearchDraft(event.target.value)}
@@ -359,24 +372,49 @@ export function FinanceTab({
                   if (event.key === 'Enter') resetAndLoad();
                 }}
                 placeholder="Name, reg #, mobile, invoice, TRX"
-                className="h-9 rounded-xl pl-9 text-sm"
+                className="h-8 rounded-lg pl-8 text-xs"
               />
             </div>
           </div>
-          <div className="w-full sm:w-56">
-            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Collected Branch</p>
+          <div>
+            <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">Period</p>
+            <Select value={period} onValueChange={(v) => setPeriod(v as typeof period)}>
+              <SelectTrigger className="h-8 rounded-lg text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="daily">Daily</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+                <SelectItem value="yearly">Yearly</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">List View</p>
+            <Select value={view} onValueChange={(v) => setView(v as typeof view)}>
+              <SelectTrigger className="h-8 rounded-lg text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="grouped">By Category</SelectItem>
+                <SelectItem value="allocation">By Line Item</SelectItem>
+                <SelectItem value="payment">By Payment</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <div>
+            <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">Collected Branch</p>
             <SearchableSelect
               value={branchId}
               onValueChange={setBranchId}
-              placeholder="All Collection Branches"
+              placeholder="All Branches"
               options={[
                 { value: '', label: 'All Collection Branches' },
                 ...branches.map((b) => ({ value: b.id, label: b.name })),
               ]}
             />
           </div>
-          <div className="w-full sm:w-56">
-            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Program</p>
+          <div>
+            <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">Program</p>
             <SearchableSelect
               value={programId}
               onValueChange={setProgramId}
@@ -387,8 +425,8 @@ export function FinanceTab({
               ]}
             />
           </div>
-          <div className="w-full sm:w-56">
-            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Course</p>
+          <div>
+            <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">Course</p>
             <SearchableSelect
               value={courseId}
               onValueChange={setCourseId}
@@ -399,10 +437,10 @@ export function FinanceTab({
               ]}
             />
           </div>
-          <div className="w-full sm:w-48">
-            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Payment Type</p>
+          <div>
+            <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">Payment Type</p>
             <Select value={itemType || 'ALL'} onValueChange={(v) => setItemType(v === 'ALL' ? '' : v)}>
-              <SelectTrigger className="h-9 rounded-xl text-sm"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 rounded-lg text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">All Payment Types</SelectItem>
                 {ITEM_TYPE_OPTIONS.filter((option) => option.value).map((option) => (
@@ -411,154 +449,120 @@ export function FinanceTab({
               </SelectContent>
             </Select>
           </div>
-          <div className="w-full sm:w-48">
-            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">List View</p>
-            <Select value={view} onValueChange={(v) => setView(v as typeof view)}>
-              <SelectTrigger className="h-9 rounded-xl text-sm"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="grouped">By Category</SelectItem>
-                <SelectItem value="allocation">By Line Item</SelectItem>
-                <SelectItem value="payment">By Payment</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+        </div>
+
+        <div className="mt-2 flex flex-wrap items-end gap-2">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Month</p>
+            <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">Month</p>
             <AdminMonthPicker
-              className="w-full sm:w-44"
+              className="w-36"
               value={month}
               onChange={(value) => {
                 setMonth(value);
                 setFrom('');
                 setTo('');
               }}
-              placeholder="Select month"
+              placeholder="YYYY-MM"
             />
           </div>
           <div>
-            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">From</p>
+            <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">From</p>
             <AdminDatePicker
-              className="w-full sm:w-44"
+              className="w-36"
               value={from}
               onChange={(value) => {
                 setFrom(value);
                 setMonth('');
               }}
-              placeholder="From date"
+              placeholder="From"
             />
           </div>
           <div>
-            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">To</p>
+            <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">To</p>
             <AdminDatePicker
-              className="w-full sm:w-44"
+              className="w-36"
               value={to}
               onChange={(value) => {
                 setTo(value);
                 setMonth('');
               }}
-              placeholder="To date"
+              placeholder="To"
             />
           </div>
-          <Button onClick={resetAndLoad} disabled={loading} className="h-9 bg-indigo-600 text-white hover:bg-indigo-700 hover:text-white gap-2">
-            {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <BarChart3 className="h-4 w-4" />}
+          <FinanceDatePresetButtons from={from} to={to} onSelect={applyDatePreset} compact />
+          <Button onClick={resetAndLoad} disabled={loading} size="sm" className="h-8 bg-indigo-600 px-3 text-white hover:bg-indigo-700 hover:text-white gap-1.5">
+            {loading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <BarChart3 className="h-3.5 w-3.5" />}
             Load
           </Button>
           <ExportButtons onExport={handleExport} disabled={loading || (transactions.length === 0 && data.length === 0)} />
         </div>
-
-        <FinanceDatePresetButtons
-          from={from}
-          to={to}
-          onSelect={applyDatePreset}
-        />
       </div>
 
-      {totals && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {[
-            { label: 'Total Collected', value: fmtCur(totals.totalAmount), icon: TrendingUp, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-            { label: 'Payment Lines', value: fmtNum(totals.totalTransactions), icon: BarChart3, color: 'text-purple-600', bg: 'bg-purple-50' },
-            { label: 'Avg / Line', value: totals.totalTransactions > 0 ? fmtCur(totals.totalAmount / totals.totalTransactions) : '—', icon: ArrowUpRight, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-          ].map((kpi) => (
-            <div key={kpi.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className={cn('h-10 w-10 rounded-xl flex items-center justify-center mb-3', kpi.bg)}>
-                <kpi.icon className={cn('h-5 w-5', kpi.color)} />
+      {statCells.length > 0 && (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+          {statCells.map((cell) => (
+            <div key={cell.label} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+              <div className="flex items-center justify-between gap-2">
+                <div className={cn('flex h-7 w-7 items-center justify-center rounded-lg', cell.bg)}>
+                  <cell.icon className={cn('h-3.5 w-3.5', cell.color)} />
+                </div>
+                {'sub' in cell && cell.sub ? (
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{cell.sub}</span>
+                ) : null}
               </div>
-              <p className="text-2xl font-black text-slate-900">{kpi.value}</p>
-              <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-1">{kpi.label}</p>
+              <p className="mt-1.5 text-lg font-black leading-none text-slate-900">{cell.value}</p>
+              <p className="mt-1 text-[10px] font-black uppercase tracking-wider text-slate-400">{cell.label}</p>
             </div>
           ))}
         </div>
       )}
 
-      {typeBreakdown.length > 0 && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {typeBreakdown.map((row) => {
-            const Icon = BREAKDOWN_ICONS[row.type] || Package;
-            return (
-              <div key={row.type} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="mb-3 flex items-center justify-between">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50">
-                    <Icon className="h-4 w-4 text-slate-600" />
-                  </div>
-                  <Badge className={cn('rounded-full text-[10px] font-black uppercase', ITEM_TYPE_BADGE[row.type] || 'bg-slate-100 text-slate-600')}>
-                    {row.lineCount} lines
-                  </Badge>
-                </div>
-                <p className="text-xl font-black text-slate-900">{fmtCur(row.amount)}</p>
-                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-1">{row.label}</p>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {admissionFeeSummary && admissionFeeSummary.paymentCount > 0 && (
-        <div className="rounded-2xl border border-emerald-200 bg-white shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between border-b border-emerald-100 bg-emerald-50/70 px-4 py-3">
+      {admissionFeeSummary && admissionFeeSummary.paymentCount > 0 && admissionFeeSummary.byProgram.length > 1 && (
+        <details className="group rounded-xl border border-emerald-200 bg-white shadow-sm">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 border-b border-emerald-100 bg-emerald-50/70 px-3 py-2 marker:content-none">
             <div className="flex items-center gap-2">
-              <GraduationCap className="h-4 w-4 text-emerald-600" />
-              <h3 className="text-[11px] font-black uppercase tracking-wider text-emerald-700">
-                Admission Fee Collection
-              </h3>
+              <GraduationCap className="h-3.5 w-3.5 text-emerald-600" />
+              <span className="text-[11px] font-black uppercase tracking-wider text-emerald-700">
+                Admission Fee by Program
+              </span>
             </div>
-            <span className="text-sm font-black text-emerald-700">
+            <span className="text-xs font-black text-emerald-700">
               {fmtCur(admissionFeeSummary.totalAmount)} · {fmtNum(admissionFeeSummary.paymentCount)} lines
             </span>
-          </div>
+          </summary>
           <div className="overflow-x-auto slim-scrollbar">
             <Table>
               <TableHeader className="bg-emerald-50/30">
-                <TableRow>
-                  <TableHead className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Program</TableHead>
-                  <TableHead className="text-right text-[10px] font-black uppercase tracking-widest text-emerald-600">Lines</TableHead>
-                  <TableHead className="text-right text-[10px] font-black uppercase tracking-widest text-emerald-600">Collected</TableHead>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="h-9 py-1.5 text-xs font-black uppercase tracking-widest text-emerald-600">Program</TableHead>
+                  <TableHead className="h-9 py-1.5 text-right text-xs font-black uppercase tracking-widest text-emerald-600">Lines</TableHead>
+                  <TableHead className="h-9 py-1.5 text-right text-xs font-black uppercase tracking-widest text-emerald-600">Collected</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {admissionFeeSummary.byProgram.map((row) => (
                   <TableRow key={row.programId} className="hover:bg-emerald-50/40">
-                    <TableCell className="font-bold text-slate-900">{row.programName}</TableCell>
-                    <TableCell className="text-right text-sm font-bold text-slate-600">{fmtNum(row.paymentCount)}</TableCell>
-                    <TableCell className="text-right font-black text-emerald-600">{fmtCur(row.totalAmount)}</TableCell>
+                    <TableCell className="py-2.5 text-sm font-bold text-slate-900">{row.programName}</TableCell>
+                    <TableCell className="py-2.5 text-right text-sm font-bold text-slate-600">{fmtNum(row.paymentCount)}</TableCell>
+                    <TableCell className="py-2.5 text-right text-sm font-black text-emerald-600">{fmtCur(row.totalAmount)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
-        </div>
+        </details>
       )}
 
-      {data.length > 0 && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 className="text-sm font-black uppercase tracking-wider text-slate-400 mb-4">Revenue by {period}</h3>
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={data} margin={{ top: 4, right: 16, left: -10, bottom: 0 }}>
+      {data.length > 1 && (
+        <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 shadow-sm">
+          <h3 className="mb-2 text-[11px] font-black uppercase tracking-wider text-slate-400">Revenue by {period}</h3>
+          <ResponsiveContainer width="100%" height={150}>
+            <BarChart data={data} margin={{ top: 0, right: 8, left: -14, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis dataKey="bucket" tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
-              <YAxis tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
+              <YAxis tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} tickLine={false} axisLine={false} width={56} />
               <Tooltip formatter={(v: number) => fmtCur(v)} />
-              <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
+              <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
                 {data.map((_, i) => <Cell key={i} fill={barColors[i % barColors.length]} />)}
               </Bar>
             </BarChart>
@@ -566,17 +570,13 @@ export function FinanceTab({
         </div>
       )}
 
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/70 px-4 py-3">
-          <h3 className="text-[11px] font-black uppercase tracking-wider text-slate-500">
-            Payment List (Filtered Result)
-          </h3>
-          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-            {fmtNum(pagination.total)} lines
-          </span>
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/70 px-3 py-2">
+          <h3 className="text-xs font-black uppercase tracking-wider text-slate-500">Payment List</h3>
+          <span className="text-xs font-black uppercase tracking-wider text-slate-400">{fmtNum(pagination.total)} lines</span>
         </div>
         {loading ? (
-          <div className="py-14 text-center">
+          <div className="py-8 text-center">
             <RefreshCw className="mx-auto h-5 w-5 animate-spin text-indigo-400" />
           </div>
         ) : (
@@ -584,56 +584,62 @@ export function FinanceTab({
             <div className="overflow-x-auto slim-scrollbar">
               <Table>
                 <TableHeader className="bg-slate-50/40">
-                  <TableRow>
+                  <TableRow className="hover:bg-transparent">
                     {['Paid At', 'Invoice #', 'Reg #', 'Student', 'Program', 'Type', 'Item', 'Amount', 'Source', 'Branch', 'Method', 'TRX / Ref'].map((h) => (
-                      <TableHead key={h} className="text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">{h}</TableHead>
+                      <TableHead key={h} className="h-9 whitespace-nowrap py-1.5 text-xs font-black uppercase tracking-widest text-slate-400">{h}</TableHead>
                     ))}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {transactions.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={12} className="py-12 text-center text-sm font-bold text-slate-400">
-                        No payment found for current filters.
+                      <TableCell colSpan={12} className="py-8 text-center text-sm font-bold text-slate-400">
+                        {totals ? 'No payment found for current filters.' : 'Set filters and click Load to view revenue data.'}
                       </TableCell>
                     </TableRow>
                   ) : transactions.map((row) => (
-                    <TableRow key={row.id} className="hover:bg-slate-50/60">
-                      <TableCell className="text-xs font-medium text-slate-500 whitespace-nowrap">
+                    <TableRow
+                      key={row.id}
+                      className="cursor-pointer transition-colors hover:bg-indigo-50/50"
+                      onClick={() => openPaymentDetail(row.paymentId)}
+                    >
+                      <TableCell className="whitespace-nowrap py-2.5 text-sm font-medium text-slate-500">
                         {new Date(row.paidAt).toLocaleString('en-GB', { hour12: false })}
                       </TableCell>
-                      <TableCell className="font-mono text-xs text-slate-600">{row.invoiceNumber || '—'}</TableCell>
-                      <TableCell className="text-xs font-bold text-slate-700">{row.student.registrationNumber || '—'}</TableCell>
-                      <TableCell className="font-bold text-slate-900 whitespace-nowrap">{row.student.fullName}</TableCell>
-                      <TableCell className="text-xs text-slate-600 max-w-[160px] truncate" title={formatProgramSummary(row)}>
+                      <TableCell className="py-2.5 font-mono text-sm text-slate-600">{row.invoiceNumber || '—'}</TableCell>
+                      <TableCell className="py-2.5 text-sm font-bold text-slate-700">{row.student.registrationNumber || '—'}</TableCell>
+                      <TableCell className="whitespace-nowrap py-2.5 text-sm font-bold text-slate-900">{row.student.fullName}</TableCell>
+                      <TableCell className="max-w-[140px] truncate py-2.5 text-sm text-slate-600" title={formatProgramSummary(row)}>
                         {formatProgramSummary(row)}
                       </TableCell>
-                      <TableCell>
-                        <Badge className={cn('rounded-full text-[10px] font-black uppercase', ITEM_TYPE_BADGE[row.itemType || ''] || 'bg-slate-100 text-slate-600')}>
+                      <TableCell className="py-2.5">
+                        <Badge className={cn('rounded-full px-2 py-0.5 text-[11px] font-black uppercase', ITEM_TYPE_BADGE[row.itemType || ''] || 'bg-slate-100 text-slate-600')}>
                           {row.itemType ? formatItemTypeLabel(row.itemType) : formatItemTypesSummary(row.itemTypes)}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-xs text-slate-600 max-w-[180px] truncate" title={row.courseName || row.itemTitle || undefined}>
+                      <TableCell className="max-w-[160px] truncate py-2.5 text-sm text-slate-600" title={row.courseName || row.itemTitle || undefined}>
                         {row.courseName || row.itemTitle || '—'}
                       </TableCell>
-                      <TableCell className="font-black text-emerald-600 whitespace-nowrap">
-                        {fmtCur(Number(row.amount || 0))}
+                      <TableCell className="whitespace-nowrap py-2.5 font-black text-emerald-600">
+                        <span className="text-sm">{fmtCur(Number(row.amount || 0))}</span>
                         {showPaymentTotalHint && row.paymentTotal > row.amount && (
-                          <span className="block text-[10px] font-bold text-slate-400">of {fmtCur(row.paymentTotal)}</span>
+                          <span className="block text-[11px] font-bold text-slate-400">of {fmtCur(row.paymentTotal)}</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-xs text-slate-500 whitespace-nowrap">
+                      <TableCell className="whitespace-nowrap py-2.5 text-sm text-slate-500">
                         {row.enrollmentSource ? SOURCE_LABELS[row.enrollmentSource] || row.enrollmentSource : '—'}
                       </TableCell>
-                      <TableCell className="text-xs text-slate-600 whitespace-nowrap">
+                      <TableCell className="max-w-[120px] truncate py-2.5 text-sm text-slate-600" title={row.collectionBranch?.name || row.branch?.name || undefined}>
                         {row.collectionBranch?.name || row.branch?.name || '—'}
                       </TableCell>
-                      <TableCell>
-                        <Badge className="rounded-full bg-indigo-100 text-[10px] font-black uppercase text-indigo-700">
+                      <TableCell className="py-2.5">
+                        <Badge className="rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-black uppercase text-indigo-700">
                           {row.method}
                         </Badge>
                       </TableCell>
-                      <TableCell className="font-mono text-xs text-slate-500">{row.trxId || '—'}</TableCell>
+                      <TableCell className="max-w-[100px] truncate py-2.5 font-mono text-sm text-slate-500" title={row.trxId || undefined}>
+                        {row.trxId || '—'}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -641,16 +647,16 @@ export function FinanceTab({
             </div>
 
             {pagination.total > 0 && (
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3">
-                <p className="text-xs font-bold text-slate-500">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-3 py-2">
+                <p className="text-sm font-bold text-slate-500">
                   Showing {pageStart}-{pageEnd} of {fmtNum(pagination.total)} lines
                 </p>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <Select
                     value={String(limit)}
                     onValueChange={(value) => void load({ page: 1, limit: Number(value) })}
                   >
-                    <SelectTrigger className="h-8 w-24 rounded-lg text-xs"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-8 w-20 rounded-md text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {[25, 50, 100, 200].map((size) => (
                         <SelectItem key={size} value={String(size)}>{size} / page</SelectItem>
@@ -660,23 +666,23 @@ export function FinanceTab({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-8"
+                    className="h-7 w-7 p-0"
                     disabled={loading || pagination.page <= 1}
                     onClick={() => void load({ page: pagination.page - 1 })}
                   >
-                    <ChevronLeft className="h-4 w-4" />
+                    <ChevronLeft className="h-3.5 w-3.5" />
                   </Button>
-                  <span className="text-xs font-bold text-slate-600">
-                    Page {pagination.page} / {pagination.pages}
+                  <span className="text-sm font-bold text-slate-600">
+                    {pagination.page} / {pagination.pages}
                   </span>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-8"
+                    className="h-7 w-7 p-0"
                     disabled={loading || pagination.page >= pagination.pages}
                     onClick={() => void load({ page: pagination.page + 1 })}
                   >
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               </div>
@@ -685,9 +691,14 @@ export function FinanceTab({
         )}
       </div>
 
-      {data.length === 0 && !loading && (
-        <div className="py-20 text-center text-slate-400 text-sm font-bold">Set filters and click Load to view revenue data.</div>
-      )}
+      <FinancePaymentDetailModal
+        paymentId={detailPaymentId}
+        open={detailOpen}
+        onOpenChange={(open) => {
+          setDetailOpen(open);
+          if (!open) setDetailPaymentId(null);
+        }}
+      />
     </div>
   );
 }

@@ -30,10 +30,16 @@ function isExamFullBleedRoute(pathname: string | null): boolean {
   return pathname.startsWith('/admin/exam/') && pathname !== '/admin/exam';
 }
 
+function isReportsRoute(pathname: string | null): boolean {
+  if (!pathname) return false;
+  return pathname === '/admin/reports' || pathname.startsWith('/admin/reports/');
+}
+
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAuditPage = pathname === '/admin/audit';
   const isExamFullBleed = isExamFullBleedRoute(pathname);
+  const isReportsPage = isReportsRoute(pathname);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -74,7 +80,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           <AdminHeader onMenuOpen={() => setMobileOpen(true)} />
 
           <main className="relative">
-            {isAuditPage ? (
+            {isAuditPage || isReportsPage ? (
               <div className="w-full min-w-0 px-3 py-4 sm:px-4 sm:py-5 lg:px-5 lg:py-6">
                 {children}
               </div>

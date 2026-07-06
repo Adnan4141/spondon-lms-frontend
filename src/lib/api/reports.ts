@@ -81,6 +81,68 @@ export interface PaymentTypeBreakdown {
   lineCount: number;
 }
 
+export interface ReportPaymentDetailAllocation {
+  id: string;
+  amount: number;
+  itemType: string;
+  itemTitle: string;
+  programId: string | null;
+  programName: string | null;
+  courseId: string | null;
+  courseName: string | null;
+  lineTotal: number;
+}
+
+export interface ReportPaymentDetailOtherPayment {
+  id: string;
+  amount: number;
+  method: string;
+  trxId: string | null;
+  paidAt: string;
+}
+
+export interface ReportPaymentDetail {
+  payment: {
+    id: string;
+    amount: number;
+    method: string;
+    trxId: string | null;
+    paidAt: string;
+    receivedBy: { id: string; fullName: string } | null;
+    collectionBranch: { id: string; name: string } | null;
+  };
+  invoice: {
+    id: string;
+    invoiceNumber: string | null;
+    status: string;
+    month: string | null;
+    type: string;
+    totalAmount: number;
+    discountAmount: number;
+    payableAmount: number;
+    paidAmount: number;
+    dueAmount: number;
+    issuedAt: string | null;
+    billingBranch: { id: string; name: string };
+  };
+  student: {
+    id: string;
+    fullName: string;
+    mobile: string;
+    email: string | null;
+    registrationNumber: string | null;
+  };
+  enrollmentSource: 'ADMIN' | 'STUDENT_SELF' | null;
+  allocations: ReportPaymentDetailAllocation[];
+  otherPaymentsOnInvoice: ReportPaymentDetailOtherPayment[];
+}
+
+export interface ReportPaymentDetailResponse {
+  success: boolean;
+  data: ReportPaymentDetail;
+  message?: string;
+}
+
 export interface RevenueSummaryResponse {
   success: boolean;
   data: RevenueSummaryData[];
@@ -230,6 +292,10 @@ export async function getRevenueSummary(
 
   const query = queryParams.toString();
   return apiRequest<RevenueSummaryResponse>(`/reports/revenue${query ? `?${query}` : ''}`);
+}
+
+export async function getReportPaymentDetail(paymentId: string): Promise<ReportPaymentDetailResponse> {
+  return apiRequest<ReportPaymentDetailResponse>(`/reports/payments/${encodeURIComponent(paymentId)}`);
 }
 
 export async function getEnrollmentReport(

@@ -41,8 +41,8 @@ const LedgerSummaryTab = dynamic(() => import('./tabs/LedgerSummaryTab').then((m
 
 function TabLoading() {
   return (
-    <div className="flex items-center justify-center py-24">
-      <RefreshCw className="h-8 w-8 animate-spin text-teal-400" />
+    <div className="flex items-center justify-center py-10">
+      <RefreshCw className="h-6 w-6 animate-spin text-teal-400" />
     </div>
   );
 }
@@ -80,20 +80,20 @@ export function ReportsPageContent() {
   }
 
   return (
-    <div className="min-h-screen space-y-6 p-6 bg-slate-50/50">
+    <div className="min-h-screen space-y-3 py-1">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-600 text-white shadow-lg shadow-teal-200">
-          <BarChart3 className="h-6 w-6" />
+      <div className="flex items-center gap-2.5">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-600 text-white shadow-md shadow-teal-200">
+          <BarChart3 className="h-4 w-4" />
         </div>
         <div>
-          <h1 className="text-2xl font-black text-slate-900">Reports & Analytics</h1>
-          <p className="text-sm text-slate-500 font-medium">Finance, enrollment, inventory, and ledger data</p>
+          <h1 className="text-lg font-black text-slate-900">Reports & Analytics</h1>
+          <p className="text-xs text-slate-500 font-medium">Finance, enrollment, inventory, and ledger data</p>
         </div>
       </div>
 
       {/* Tab Bar */}
-      <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+      <div className="flex flex-wrap gap-1.5 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           return (
@@ -101,13 +101,13 @@ export function ReportsPageContent() {
               key={tab.key}
               onClick={() => switchTab(tab.key)}
               className={cn(
-                'flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all',
+                'flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-all',
                 activeTab === tab.key
-                  ? 'bg-teal-600 text-white shadow-md'
+                  ? 'bg-teal-600 text-white shadow-sm'
                   : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800',
               )}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">{tab.label}</span>
             </button>
           );
@@ -116,8 +116,8 @@ export function ReportsPageContent() {
 
       {/* Tab Content */}
       {metaLoading ? (
-        <div className="flex items-center justify-center py-24">
-          <RefreshCw className="h-8 w-8 animate-spin text-teal-400" />
+        <div className="flex items-center justify-center py-10">
+          <RefreshCw className="h-6 w-6 animate-spin text-teal-400" />
         </div>
       ) : (
         <div>
