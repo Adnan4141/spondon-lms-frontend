@@ -592,6 +592,7 @@ export async function getOnlineOrders(params?: {
 export interface OnlineOrderSummary {
   totals: {
     orderCount: number;
+    grossOrderValue: number;
     totalRevenue: number;
     paidAmount: number;
     dueAmount: number;

@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   getOnlineOrders,
+  getOnlineOrderSummary,
   updateDeliveryStatus,
   type OnlineOrder,
+  type OnlineOrderSummary,
   type DeliveryStatus,
 } from '@/lib/api/books';
 import { Button } from '@/components/ui/button';
@@ -45,9 +47,20 @@ function statusMeta(s: string) {
   return DELIVERY_STATUSES.find(d => d.id === s) ?? DELIVERY_STATUSES[0];
 }
 
+function isRefundPending(order: OnlineOrder): boolean {
+  const status = order.delivery?.deliveryStatus;
+  if (status !== 'CANCELLED') return false;
+  return String(order.delivery?.notes || '').includes('[REFUND PENDING]');
+}
+
+function isActiveOrder(order: OnlineOrder): boolean {
+  return (order.delivery?.deliveryStatus ?? 'PENDING') !== 'CANCELLED';
+}
+
 export function OnlineBookOrdersPageContent() {
   const { toast, toasts, removeToast } = useToast();
   const [orders, setOrders] = useState<OnlineOrder[]>([]);
+  const [summary, setSummary] = useState<OnlineOrderSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<StatusTab>('ALL');
   const [search, setSearch] = useState('');
@@ -57,8 +70,12 @@ export function OnlineBookOrdersPageContent() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getOnlineOrders({ limit: 200 });
-      if (res.success && res.data) setOrders(res.data);
+      const [ordersRes, summaryRes] = await Promise.all([
+        getOnlineOrders({ limit: 200 }),
+        getOnlineOrderSummary(),
+      ]);
+      if (ordersRes.success && ordersRes.data) setOrders(ordersRes.data);
+      if (summaryRes.success && summaryRes.data) setSummary(summaryRes.data);
     } catch (e: unknown) {
       toast({ title: 'Load failed', description: e instanceof Error ? e.message : 'Error', variant: 'destructive' });
     } finally {
@@ -95,7 +112,23 @@ export function OnlineBookOrdersPageContent() {
     return list;
   }, [orders, statusFilter, search]);
 
-  const totalRevenue = useMemo(() => orders.reduce((s, o) => s + Number(o.totalAmount), 0), [orders]);
+  const localStats = useMemo(() => {
+    const active = orders.filter(isActiveOrder);
+    return {
+      collected: active.reduce((s, o) => s + Number(o.invoice?.paidAmount ?? 0), 0),
+      outstanding: active.reduce((s, o) => s + Number(o.invoice?.dueAmount ?? 0), 0),
+      grossOrderValue: active.reduce((s, o) => s + Number(o.totalAmount), 0),
+      activeOrderCount: active.length,
+    };
+  }, [orders]);
+
+  const stats = summary?.totals ?? {
+    orderCount: localStats.activeOrderCount,
+    grossOrderValue: localStats.grossOrderValue,
+    paidAmount: localStats.collected,
+    dueAmount: localStats.outstanding,
+    totalRevenue: localStats.collected,
+  };
 
   const handleStatusChange = async (order: OnlineOrder, newStatus: DeliveryStatus) => {
     setBusyId(order.id);
@@ -145,7 +178,7 @@ export function OnlineBookOrdersPageContent() {
 
       {/* Stats cards */}
       {!loading && orders.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
             <div className="flex items-center gap-2">
               <ShoppingBag className="h-4 w-4 text-indigo-600" />
@@ -170,9 +203,16 @@ export function OnlineBookOrdersPageContent() {
           <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
             <div className="flex items-center gap-2">
               <FileText className="h-4 w-4 text-emerald-600" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Revenue</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Collected</span>
             </div>
-            <p className="mt-1 text-2xl font-black text-emerald-900 tabular-nums">৳{totalRevenue.toLocaleString()}</p>
+            <p className="mt-1 text-2xl font-black text-emerald-900 tabular-nums">৳{Number(stats.paidAmount).toLocaleString()}</p>
+          </div>
+          <div className="rounded-xl border border-sky-100 bg-sky-50/50 p-4">
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-sky-600" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-sky-700">Outstanding</span>
+            </div>
+            <p className="mt-1 text-2xl font-black text-sky-900 tabular-nums">৳{Number(stats.dueAmount).toLocaleString()}</p>
           </div>
         </div>
       )}
@@ -236,6 +276,7 @@ export function OnlineBookOrdersPageContent() {
             const StatusIcon = meta.icon;
             const invoiceStatus = order.invoice?.status ?? '—';
             const isPaid = invoiceStatus === 'PAID' || Number(order.invoice?.dueAmount ?? 1) <= 0;
+            const refundPending = isRefundPending(order);
 
             return (
               <li
@@ -258,6 +299,11 @@ export function OnlineBookOrdersPageContent() {
                       >
                         {isPaid ? 'Paid' : invoiceStatus}
                       </Badge>
+                      {refundPending && (
+                        <Badge variant="outline" className="text-[10px] font-black uppercase tracking-wide bg-rose-50 text-rose-700 border-rose-200">
+                          Refund pending
+                        </Badge>
+                      )}
                     </div>
 
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1">

@@ -165,7 +165,7 @@ export function MyBookPurchasesPanel({ purchases, loading, compact, onBrowseCata
                     </Link>
                   </Button>
                 ) : null}
-                {inv && due > 0 ? (
+                {inv && due > 0 && sale.delivery?.deliveryStatus !== 'CANCELLED' ? (
                   <Button asChild size="sm" variant="secondary" className="rounded-xl bg-slate-900 font-bold text-white hover:bg-slate-800">
                     <Link href="/student/payment">
                       <CreditCard className="mr-1 h-3.5 w-3.5" />
