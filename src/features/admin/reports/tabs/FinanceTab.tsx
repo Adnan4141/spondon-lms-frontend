@@ -27,6 +27,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import type { ExportFormat } from '@/lib/export';
 import { AdminDatePicker, AdminMonthPicker } from '@/features/admin/shared/form/AdminField';
@@ -49,7 +54,7 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
+  Tooltip as ChartTooltip,
   ResponsiveContainer,
   Cell,
 } from 'recharts';
@@ -98,6 +103,80 @@ const SOURCE_LABELS: Record<string, string> = {
   ADMIN: 'Admin',
   STUDENT_SELF: 'Self Enroll',
 };
+
+const FINANCE_SELECT_TRIGGER =
+  'h-8 rounded-lg border-slate-200 bg-white px-3 text-xs font-semibold shadow-none hover:bg-slate-50';
+
+const TABLE_HEADERS = [
+  'Paid / Invoice',
+  'Reg #',
+  'Student',
+  'Program',
+  'Type',
+  'Item',
+  'Amount',
+  'Source',
+  'Collected',
+  'Billing',
+  'Method',
+  'TRX / Ref',
+] as const;
+
+function formatPaidAtShort(iso: string) {
+  return new Date(iso).toLocaleString('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+}
+
+function shortInvoiceLabel(invoiceNumber?: string | null) {
+  if (!invoiceNumber) return '—';
+  const parts = invoiceNumber.split('-');
+  if (parts.length <= 2) return invoiceNumber;
+  return `…${parts.slice(-2).join('-')}`;
+}
+
+function getCollectedBranchName(row: RevenuePaymentRow) {
+  return row.collectionBranch?.name || '—';
+}
+
+function getBillingBranchName(row: RevenuePaymentRow) {
+  return row.billingBranch?.name || row.branch?.name || '—';
+}
+
+function PaymentInvoiceCell({ row }: { row: RevenuePaymentRow }) {
+  const invoiceNumber = row.invoiceNumber;
+
+  return (
+    <div className="min-w-[128px]">
+      <p className="whitespace-nowrap text-sm font-medium text-slate-600">
+        {formatPaidAtShort(row.paidAt)}
+      </p>
+      {invoiceNumber ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="mt-0.5 block max-w-[140px] truncate text-left font-mono text-[11px] font-medium text-slate-400 hover:text-indigo-600"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {shortInvoiceLabel(invoiceNumber)}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="font-mono text-sm">
+            {invoiceNumber}
+          </TooltipContent>
+        </Tooltip>
+      ) : (
+        <span className="mt-0.5 block font-mono text-[11px] text-slate-300">—</span>
+      )}
+    </div>
+  );
+}
 
 function formatItemTypeLabel(type: string | null | undefined) {
   if (!type) return 'Mixed';
@@ -250,8 +329,8 @@ export function FinanceTab({
         { header: 'Allocated Amount', value: (row) => Number(row.amount || 0) },
         { header: 'Payment Total', value: (row) => Number(row.paymentTotal || 0) },
         { header: 'Source', value: (row) => (row.enrollmentSource ? SOURCE_LABELS[row.enrollmentSource] || row.enrollmentSource : '') },
-        { header: 'Collected Branch', value: (row) => row.collectionBranch?.name || row.branch?.name || '' },
-        { header: 'Billing Branch', value: (row) => row.billingBranch?.name || '' },
+        { header: 'Collected Branch', value: (row) => getCollectedBranchName(row) },
+        { header: 'Billing Branch', value: (row) => getBillingBranchName(row) },
         { header: 'Method', value: (row) => row.method },
         { header: 'TRX / Ref', value: (row) => row.trxId || '' },
       ],
@@ -327,6 +406,7 @@ export function FinanceTab({
               value={query.branchId}
               onValueChange={(value) => updateQuery({ branchId: value })}
               placeholder="All Branches"
+              triggerClassName={FINANCE_SELECT_TRIGGER}
               options={[
                 { value: '', label: 'All Collection Branches' },
                 ...branches.map((b) => ({ value: b.id, label: b.name })),
@@ -339,6 +419,7 @@ export function FinanceTab({
               value={query.programId}
               onValueChange={(value) => updateQuery({ programId: value })}
               placeholder="All Programs"
+              triggerClassName={FINANCE_SELECT_TRIGGER}
               options={[
                 { value: '', label: 'All Programs' },
                 ...programs.map((p) => ({ value: p.id, label: p.name })),
@@ -351,6 +432,7 @@ export function FinanceTab({
               value={query.courseId}
               onValueChange={(value) => updateQuery({ courseId: value })}
               placeholder="All Courses"
+              triggerClassName={FINANCE_SELECT_TRIGGER}
               options={[
                 { value: '', label: 'All Courses' },
                 ...courses.map((c) => ({ value: c.id, label: c.name })),
@@ -480,7 +562,7 @@ export function FinanceTab({
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis dataKey="bucket" tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
               <YAxis tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} tickLine={false} axisLine={false} width={56} />
-              <Tooltip formatter={(v: number) => fmtCur(v)} />
+              <ChartTooltip formatter={(v: number) => fmtCur(v)} />
               <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
                 {data.map((_, i) => <Cell key={i} fill={barColors[i % barColors.length]} />)}
               </Bar>
@@ -504,7 +586,7 @@ export function FinanceTab({
               <Table>
                 <TableHeader className="bg-slate-50/40">
                   <TableRow className="hover:bg-transparent">
-                    {['Paid At', 'Invoice #', 'Reg #', 'Student', 'Program', 'Type', 'Item', 'Amount', 'Source', 'Branch', 'Method', 'TRX / Ref'].map((h) => (
+                    {TABLE_HEADERS.map((h) => (
                       <TableHead key={h} className="h-9 whitespace-nowrap py-1.5 text-xs font-black uppercase tracking-widest text-slate-400">{h}</TableHead>
                     ))}
                   </TableRow>
@@ -522,10 +604,9 @@ export function FinanceTab({
                       className="cursor-pointer transition-colors hover:bg-indigo-50/50"
                       onClick={() => openPaymentDetail(row.paymentId)}
                     >
-                      <TableCell className="whitespace-nowrap py-2.5 text-sm font-medium text-slate-500">
-                        {new Date(row.paidAt).toLocaleString('en-GB', { hour12: false })}
+                      <TableCell className="py-2.5" onClick={(event) => event.stopPropagation()}>
+                        <PaymentInvoiceCell row={row} />
                       </TableCell>
-                      <TableCell className="py-2.5 font-mono text-sm text-slate-600">{row.invoiceNumber || '—'}</TableCell>
                       <TableCell className="py-2.5 text-sm font-bold text-slate-700">{row.student.registrationNumber || '—'}</TableCell>
                       <TableCell className="whitespace-nowrap py-2.5 text-sm font-bold text-slate-900">{row.student.fullName}</TableCell>
                       <TableCell className="max-w-[140px] truncate py-2.5 text-sm text-slate-600" title={formatProgramSummary(row)}>
@@ -548,8 +629,11 @@ export function FinanceTab({
                       <TableCell className="whitespace-nowrap py-2.5 text-sm text-slate-500">
                         {row.enrollmentSource ? SOURCE_LABELS[row.enrollmentSource] || row.enrollmentSource : '—'}
                       </TableCell>
-                      <TableCell className="max-w-[120px] truncate py-2.5 text-sm text-slate-600" title={row.collectionBranch?.name || row.branch?.name || undefined}>
-                        {row.collectionBranch?.name || row.branch?.name || '—'}
+                      <TableCell className="max-w-[110px] truncate py-2.5 text-sm text-slate-600" title={getCollectedBranchName(row)}>
+                        {getCollectedBranchName(row)}
+                      </TableCell>
+                      <TableCell className="max-w-[110px] truncate py-2.5 text-sm text-slate-600" title={getBillingBranchName(row)}>
+                        {getBillingBranchName(row)}
                       </TableCell>
                       <TableCell className="py-2.5">
                         <Badge className="rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-black uppercase text-indigo-700">
