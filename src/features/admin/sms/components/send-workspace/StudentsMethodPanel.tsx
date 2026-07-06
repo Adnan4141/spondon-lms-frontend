@@ -12,7 +12,7 @@ import { getCourses } from '@/lib/api/courses';
 import { getPrograms } from '@/lib/api/programs';
 import { resolveSmsRecipients, type SmsRecipient } from '@/lib/api/sms';
 import { Panel } from '../../sms-shared';
-import { ToggleList } from './ToggleList';
+import { SearchableMultiSelect } from './SearchableMultiSelect';
 import type { Actor, BranchOption, Option } from './types';
 
 type ProgramOption = Option & { paymentCircle?: 'MONTHLY' | 'ONE_TIME' };
@@ -271,8 +271,24 @@ export function StudentsMethodPanel({ branches, actor, onResolved }: { branches:
         </div>
 
         <div className="grid gap-3 lg:grid-cols-2">
-          <ToggleList title="Courses" options={filteredCourses} selected={courseIds} onToggle={(id) => setCourseIds((prev) => prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id])} />
-          <ToggleList title="Batches" options={batchOptions} selected={batchIds} onToggle={(id) => setBatchIds((prev) => prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id])} />
+          <SearchableMultiSelect
+            label="Courses"
+            options={filteredCourses}
+            selected={courseIds}
+            onChange={setCourseIds}
+            placeholder="Select courses"
+            searchPlaceholder="Search courses…"
+            emptyMessage="No courses found."
+          />
+          <SearchableMultiSelect
+            label="Batches"
+            options={batchOptions}
+            selected={batchIds}
+            onChange={setBatchIds}
+            placeholder="Select batches"
+            searchPlaceholder="Search batches…"
+            emptyMessage="No batches found."
+          />
         </div>
       </div>
     </Panel>

@@ -534,16 +534,6 @@ export interface EnrollmentDiscountLogEntry {
   appliedBy?: { id: string; fullName: string } | null;
 }
 
-export async function updateMonthlyDiscount(
-  enrollmentId: string,
-  monthlyDiscount: number,
-): Promise<ApiResponse<{ invoiceId: string | null }>> {
-  return apiRequest<ApiResponse<{ invoiceId: string | null }>>(`/enrollments/${enrollmentId}/monthly-discount`, {
-    method: 'PATCH',
-    body: JSON.stringify({ monthlyDiscount }),
-  });
-}
-
 export async function getEnrollmentDiscountHistory(
   studentUserId: string,
 ): Promise<ApiResponse<EnrollmentDiscountLogEntry[]>> {

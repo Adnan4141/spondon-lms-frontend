@@ -4,8 +4,15 @@ export interface RevenueSummaryParams {
   period?: 'daily' | 'monthly' | 'yearly';
   branchId?: string;
   courseId?: string;
+  programId?: string;
+  itemType?: 'COURSE' | 'BOOK' | 'ADMISSION_FEE' | 'FEE' | 'OTHER';
+  view?: 'grouped' | 'allocation' | 'payment';
+  month?: string;
+  search?: string;
   from?: string;
   to?: string;
+  page?: number;
+  limit?: number | 'all';
 }
 
 export interface RevenueSummaryData {
@@ -15,18 +22,32 @@ export interface RevenueSummaryData {
 
 export interface RevenuePaymentRow {
   id: string;
+  paymentId: string;
   invoiceId: string;
+  invoiceNumber?: string | null;
   amount: number;
+  paymentTotal: number;
   method: string;
   trxId?: string | null;
   paidAt: string;
+  itemType?: string | null;
+  itemTitle?: string | null;
+  programId?: string | null;
+  programName?: string | null;
+  courseId?: string | null;
+  courseName?: string | null;
+  courseIds: string[];
+  itemTypes: string[];
+  programIds: string[];
+  programNames: string[];
+  enrollmentSource?: 'ADMIN' | 'STUDENT_SELF' | null;
   student: {
     id: string;
     fullName: string;
     mobile: string;
     registrationNumber?: string | null;
   };
-  branch: {
+  branch?: {
     id: string;
     name: string;
   };
@@ -40,6 +61,26 @@ export interface RevenuePaymentRow {
   } | null;
 }
 
+export interface AdmissionFeeProgramSummary {
+  programId: string;
+  programName: string;
+  totalAmount: number;
+  paymentCount: number;
+}
+
+export interface AdmissionFeeSummary {
+  totalAmount: number;
+  paymentCount: number;
+  byProgram: AdmissionFeeProgramSummary[];
+}
+
+export interface PaymentTypeBreakdown {
+  type: string;
+  label: string;
+  amount: number;
+  lineCount: number;
+}
+
 export interface RevenueSummaryResponse {
   success: boolean;
   data: RevenueSummaryData[];
@@ -48,6 +89,14 @@ export interface RevenueSummaryResponse {
     totalTransactions: number;
   };
   transactions?: RevenuePaymentRow[];
+  admissionFeeSummary?: AdmissionFeeSummary;
+  typeBreakdown?: PaymentTypeBreakdown[];
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
 }
 
 export interface EnrollmentReportParams {
@@ -165,8 +214,19 @@ export async function getRevenueSummary(
   if (params?.period) queryParams.append('period', params.period);
   if (params?.branchId) queryParams.append('branchId', params.branchId);
   if (params?.courseId) queryParams.append('courseId', params.courseId);
+  if (params?.programId) queryParams.append('programId', params.programId);
+  if (params?.itemType) queryParams.append('itemType', params.itemType);
+  if (params?.view) queryParams.append('view', params.view);
+  if (params?.month) queryParams.append('month', params.month);
+  if (params?.search?.trim()) queryParams.append('search', params.search.trim());
   if (params?.from) queryParams.append('from', params.from);
   if (params?.to) queryParams.append('to', params.to);
+  if (params?.page && params.page > 1) queryParams.append('page', String(params.page));
+  if (params?.limit === 'all') {
+    queryParams.append('limit', 'all');
+  } else if (params?.limit) {
+    queryParams.append('limit', String(params.limit));
+  }
 
   const query = queryParams.toString();
   return apiRequest<RevenueSummaryResponse>(`/reports/revenue${query ? `?${query}` : ''}`);

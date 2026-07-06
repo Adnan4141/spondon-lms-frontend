@@ -121,7 +121,7 @@ export function ReportsPageContent() {
         </div>
       ) : (
         <div>
-          {activeTab === 'finance' && <FinanceTab branches={visibleBranches} courses={courses} />}
+          {activeTab === 'finance' && <FinanceTab branches={visibleBranches} courses={courses} programs={programs} />}
           {activeTab === 'enrollment' && <EnrollmentTab branches={visibleBranches} courses={courses} programs={programs} />}
           {activeTab === 'course-transactions' && (
             <CourseTransactionsTab courses={courses} branches={visibleBranches} />
