@@ -70,6 +70,11 @@ export function ReportsPageContent() {
 
   const [activeTab, setActiveTab] = useState<TabKey>((searchParams?.get('tab') as TabKey) ?? 'finance');
 
+  useEffect(() => {
+    const tab = (searchParams?.get('tab') as TabKey) ?? 'finance';
+    setActiveTab(tab);
+  }, [searchParams]);
+
   const visibleBranches = user?.role === 'BRANCH_ADMIN' && user.branchId
     ? branches.filter((branch) => branch.id === user.branchId)
     : branches;

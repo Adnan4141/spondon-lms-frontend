@@ -265,3 +265,143 @@ export function buildDueCollectionSearchParams(state: DueCollectionQueryState): 
 export function dueCollectionHref(state: DueCollectionQueryState): string {
   return `/admin/reports?${buildDueCollectionSearchParams(state).toString()}`;
 }
+
+export type FinancePeriod = 'daily' | 'monthly' | 'yearly';
+export type FinanceView = 'grouped' | 'allocation' | 'payment';
+export type FinanceItemType = '' | 'COURSE' | 'BOOK' | 'ADMISSION_FEE' | 'FEE' | 'OTHER';
+
+export const FINANCE_PAGE_SIZES = [25, 50, 100, 200] as const;
+const FINANCE_DEFAULT_LIMIT = 50;
+
+export type FinanceQueryState = {
+  period: FinancePeriod;
+  branchId: string;
+  programId: string;
+  courseId: string;
+  itemType: FinanceItemType;
+  view: FinanceView;
+  month: string;
+  from: string;
+  to: string;
+  search: string;
+  page: number;
+  limit: number;
+  paymentId: string;
+};
+
+function parseFinancePage(raw: string | null): number {
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1;
+}
+
+function parseFinanceLimit(raw: string | null): number {
+  const n = Number(raw);
+  return FINANCE_PAGE_SIZES.includes(n as (typeof FINANCE_PAGE_SIZES)[number]) ? n : FINANCE_DEFAULT_LIMIT;
+}
+
+function parseFinancePeriod(raw: string | null): FinancePeriod {
+  if (raw === 'daily' || raw === 'monthly' || raw === 'yearly') return raw;
+  return 'monthly';
+}
+
+function parseFinanceView(raw: string | null): FinanceView {
+  if (raw === 'grouped' || raw === 'allocation' || raw === 'payment') return raw;
+  return 'grouped';
+}
+
+function parseFinanceItemType(raw: string | null): FinanceItemType {
+  const value = raw?.trim().toUpperCase();
+  if (value === 'COURSE' || value === 'BOOK' || value === 'ADMISSION_FEE' || value === 'FEE' || value === 'OTHER') {
+    return value;
+  }
+  return '';
+}
+
+function resolveFinanceDateRange(month: string, from: string, to: string) {
+  if (month) {
+    return { month, from: '', to: '' };
+  }
+  if (from || to) {
+    return { month: '', from: from || to, to: to || from };
+  }
+  const range = getCurrentMonthRange();
+  return { month: '', from: range.from, to: range.to };
+}
+
+export function defaultFinanceQuery(): FinanceQueryState {
+  const range = getCurrentMonthRange();
+  return {
+    period: 'monthly',
+    branchId: '',
+    programId: '',
+    courseId: '',
+    itemType: '',
+    view: 'grouped',
+    month: '',
+    from: range.from,
+    to: range.to,
+    search: '',
+    page: 1,
+    limit: FINANCE_DEFAULT_LIMIT,
+    paymentId: '',
+  };
+}
+
+export function parseFinanceQuery(searchParams: URLSearchParams): FinanceQueryState {
+  const tab = searchParams.get('tab');
+  if (tab && tab !== 'finance') {
+    return defaultFinanceQuery();
+  }
+
+  const monthRaw = searchParams.get('month')?.trim() ?? '';
+  const fromRaw = searchParams.get('from')?.trim() ?? '';
+  const toRaw = searchParams.get('to')?.trim() ?? '';
+  const dates = resolveFinanceDateRange(monthRaw, fromRaw, toRaw);
+
+  return {
+    period: parseFinancePeriod(searchParams.get('period')),
+    branchId: searchParams.get('branchId')?.trim() ?? '',
+    programId: searchParams.get('programId')?.trim() ?? '',
+    courseId: searchParams.get('courseId')?.trim() ?? '',
+    itemType: parseFinanceItemType(searchParams.get('itemType')),
+    view: parseFinanceView(searchParams.get('view')),
+    month: dates.month,
+    from: dates.from,
+    to: dates.to,
+    search: searchParams.get('search')?.trim() ?? '',
+    page: parseFinancePage(searchParams.get('page')),
+    limit: parseFinanceLimit(searchParams.get('limit')),
+    paymentId: searchParams.get('paymentId')?.trim() ?? '',
+  };
+}
+
+export function buildFinanceSearchParams(state: FinanceQueryState): URLSearchParams {
+  const params = new URLSearchParams();
+  params.set('tab', 'finance');
+
+  if (state.period !== 'monthly') params.set('period', state.period);
+  if (state.branchId) params.set('branchId', state.branchId);
+  if (state.programId) params.set('programId', state.programId);
+  if (state.courseId) params.set('courseId', state.courseId);
+  if (state.itemType) params.set('itemType', state.itemType);
+  if (state.view !== 'grouped') params.set('view', state.view);
+
+  if (state.month) {
+    params.set('month', state.month);
+  } else {
+    const defaultRange = getCurrentMonthRange();
+    if (state.from && state.from !== defaultRange.from) params.set('from', state.from);
+    if (state.to && state.to !== defaultRange.to) params.set('to', state.to);
+  }
+
+  if (state.search.trim()) params.set('search', state.search.trim());
+  if (state.page > 1) params.set('page', String(state.page));
+  if (state.limit !== FINANCE_DEFAULT_LIMIT) params.set('limit', String(state.limit));
+  if (state.paymentId) params.set('paymentId', state.paymentId);
+
+  return params;
+}
+
+export function financeHref(state: FinanceQueryState): string {
+  return `/admin/reports?${buildFinanceSearchParams(state).toString()}`;
+}

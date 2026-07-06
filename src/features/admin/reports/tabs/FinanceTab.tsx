@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   getRevenueSummary,
   type RevenueSummaryData,
@@ -59,15 +59,15 @@ import { FinancePaymentDetailModal } from '../components/FinancePaymentDetailMod
 import {
   fmtNum,
   fmtCur,
-  normalizeSingleDateRange,
   exportFilename,
   exportRows,
-  getCurrentMonthRange,
-  getLastMonthRange,
+  FINANCE_PAGE_SIZES,
   type NamedEntity,
   type BranchOption,
-  type PaymentDatePreset,
+  type FinancePeriod,
+  type FinanceView,
 } from '../shared';
+import { buildFinanceApiParams, useFinanceQuery } from '../useFinanceQuery';
 
 const ITEM_TYPE_OPTIONS = [
   { value: '', label: 'All Payment Types' },
@@ -117,55 +117,6 @@ function formatProgramSummary(row: RevenuePaymentRow) {
   return row.programNames.join(', ');
 }
 
-function monthValueToRange(month: string) {
-  const match = /^(\d{4})-(\d{2})$/.exec(month);
-  if (!match) return null;
-  const year = Number(match[1]);
-  const monthIndex = Number(match[2]);
-  const lastDay = new Date(year, monthIndex, 0).getDate();
-  return {
-    from: `${month}-01`,
-    to: `${month}-${String(lastDay).padStart(2, '0')}`,
-  };
-}
-
-function buildFinanceApiParams(args: {
-  period: 'daily' | 'monthly' | 'yearly';
-  branchId: string;
-  courseId: string;
-  programId: string;
-  itemType: string;
-  view: 'grouped' | 'allocation' | 'payment';
-  month: string;
-  from: string;
-  to: string;
-  search: string;
-  page?: number;
-  limit?: number | 'all';
-}) {
-  const useMonthOnly = Boolean(args.month) && !args.from && !args.to;
-  const monthRange = args.month ? monthValueToRange(args.month) : null;
-  const dateRange = normalizeSingleDateRange(
-    useMonthOnly ? monthRange?.from : args.from,
-    useMonthOnly ? monthRange?.to : args.to,
-  );
-
-  return {
-    period: args.period,
-    branchId: args.branchId || undefined,
-    courseId: args.courseId || undefined,
-    programId: args.programId || undefined,
-    itemType: args.itemType ? (args.itemType as 'COURSE' | 'BOOK' | 'ADMISSION_FEE' | 'FEE' | 'OTHER') : undefined,
-    view: args.view,
-    month: useMonthOnly ? args.month : undefined,
-    search: args.search.trim() || undefined,
-    from: dateRange.from,
-    to: dateRange.to,
-    page: args.page,
-    limit: args.limit,
-  };
-}
-
 export function FinanceTab({
   branches,
   courses,
@@ -176,90 +127,66 @@ export function FinanceTab({
   programs: NamedEntity[];
 }) {
   const { toast } = useToast();
-  const defaultRange = getCurrentMonthRange();
-  const [period, setPeriod] = useState<'daily' | 'monthly' | 'yearly'>('monthly');
-  const [branchId, setBranchId] = useState('');
-  const [courseId, setCourseId] = useState('');
-  const [programId, setProgramId] = useState('');
-  const [itemType, setItemType] = useState('');
-  const [view, setView] = useState<'grouped' | 'allocation' | 'payment'>('grouped');
-  const [month, setMonth] = useState('');
-  const [from, setFrom] = useState(defaultRange.from);
-  const [to, setTo] = useState(defaultRange.to);
-  const [searchDraft, setSearchDraft] = useState('');
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(50);
+  const { query, updateQuery, applyDatePreset, openPaymentDetail, closePaymentDetail } = useFinanceQuery();
+
+  const [searchDraft, setSearchDraft] = useState(query.search);
   const [loading, setLoading] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [data, setData] = useState<RevenueSummaryData[]>([]);
   const [totals, setTotals] = useState<{ totalAmount: number; totalTransactions: number } | null>(null);
   const [transactions, setTransactions] = useState<RevenuePaymentRow[]>([]);
   const [admissionFeeSummary, setAdmissionFeeSummary] = useState<AdmissionFeeSummary | null>(null);
   const [typeBreakdown, setTypeBreakdown] = useState<PaymentTypeBreakdown[]>([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, pages: 1 });
-  const [detailPaymentId, setDetailPaymentId] = useState<string | null>(null);
-  const [detailOpen, setDetailOpen] = useState(false);
 
-  async function load(options?: { page?: number; limit?: number; searchValue?: string }) {
-    const nextPage = options?.page ?? page;
-    const nextLimit = options?.limit ?? limit;
-    const nextSearch = options?.searchValue ?? search;
+  useEffect(() => {
+    setSearchDraft(query.search);
+  }, [query.search]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (searchDraft !== query.search) {
+        updateQuery({ search: searchDraft });
+      }
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [query.search, searchDraft, updateQuery]);
+
+  const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getRevenueSummary(
-        buildFinanceApiParams({
-          period,
-          branchId,
-          courseId,
-          programId,
-          itemType,
-          view,
-          month,
-          from,
-          to,
-          search: nextSearch,
-          page: nextPage,
-          limit: nextLimit,
-        }),
-      );
+      const res = await getRevenueSummary(buildFinanceApiParams(query));
       if (res.success) {
         setData(res.data);
         setTotals(res.totals);
         setTransactions(res.transactions ?? []);
         setAdmissionFeeSummary(res.admissionFeeSummary ?? null);
         setTypeBreakdown(res.typeBreakdown ?? []);
-        setPagination(res.pagination ?? { page: nextPage, limit: nextLimit, total: res.transactions?.length ?? 0, pages: 1 });
-        setPage(nextPage);
-        setLimit(nextLimit);
-        setSearch(nextSearch);
+        setPagination(
+          res.pagination ?? {
+            page: query.page,
+            limit: query.limit,
+            total: res.transactions?.length ?? 0,
+            pages: 1,
+          },
+        );
+        setHasLoaded(true);
       }
     } catch {
       toast({ title: 'Failed to load revenue', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
-  }
+  }, [query, toast]);
 
-  function resetAndLoad() {
-    void load({ page: 1, searchValue: searchDraft.trim() });
-  }
-
-  function applyDatePreset(preset: PaymentDatePreset) {
-    const range = preset === 'current' ? getCurrentMonthRange() : getLastMonthRange();
-    setMonth('');
-    setFrom(range.from);
-    setTo(range.to);
-  }
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const barColors = ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd', '#ddd6fe'];
   const pageStart = transactions.length === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1;
   const pageEnd = (pagination.page - 1) * pagination.limit + transactions.length;
-  const showPaymentTotalHint = view === 'grouped' || view === 'allocation';
-
-  function openPaymentDetail(paymentId: string) {
-    setDetailPaymentId(paymentId);
-    setDetailOpen(true);
-  }
+  const showPaymentTotalHint = query.view === 'grouped' || query.view === 'allocation';
 
   async function handleExport(format: ExportFormat) {
     if (transactions.length === 0 && data.length === 0) {
@@ -271,18 +198,8 @@ export function FinanceTab({
       setLoading(true);
       try {
         const res = await getRevenueSummary({
-          ...buildFinanceApiParams({
-            period,
-            branchId,
-            courseId,
-            programId,
-            itemType,
-            view,
-            month,
-            from,
-            to,
-            search,
-          }),
+          ...buildFinanceApiParams(query),
+          page: undefined,
           limit: 'all',
         });
         if (!res.success || !res.transactions?.length) {
@@ -368,9 +285,6 @@ export function FinanceTab({
               <Input
                 value={searchDraft}
                 onChange={(event) => setSearchDraft(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') resetAndLoad();
-                }}
                 placeholder="Name, reg #, mobile, invoice, TRX"
                 className="h-8 rounded-lg pl-8 text-xs"
               />
@@ -378,7 +292,10 @@ export function FinanceTab({
           </div>
           <div>
             <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">Period</p>
-            <Select value={period} onValueChange={(v) => setPeriod(v as typeof period)}>
+            <Select
+              value={query.period}
+              onValueChange={(value) => updateQuery({ period: value as FinancePeriod })}
+            >
               <SelectTrigger className="h-8 rounded-lg text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="daily">Daily</SelectItem>
@@ -389,7 +306,10 @@ export function FinanceTab({
           </div>
           <div>
             <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">List View</p>
-            <Select value={view} onValueChange={(v) => setView(v as typeof view)}>
+            <Select
+              value={query.view}
+              onValueChange={(value) => updateQuery({ view: value as FinanceView })}
+            >
               <SelectTrigger className="h-8 rounded-lg text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="grouped">By Category</SelectItem>
@@ -404,8 +324,8 @@ export function FinanceTab({
           <div>
             <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">Collected Branch</p>
             <SearchableSelect
-              value={branchId}
-              onValueChange={setBranchId}
+              value={query.branchId}
+              onValueChange={(value) => updateQuery({ branchId: value })}
               placeholder="All Branches"
               options={[
                 { value: '', label: 'All Collection Branches' },
@@ -416,8 +336,8 @@ export function FinanceTab({
           <div>
             <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">Program</p>
             <SearchableSelect
-              value={programId}
-              onValueChange={setProgramId}
+              value={query.programId}
+              onValueChange={(value) => updateQuery({ programId: value })}
               placeholder="All Programs"
               options={[
                 { value: '', label: 'All Programs' },
@@ -428,8 +348,8 @@ export function FinanceTab({
           <div>
             <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">Course</p>
             <SearchableSelect
-              value={courseId}
-              onValueChange={setCourseId}
+              value={query.courseId}
+              onValueChange={(value) => updateQuery({ courseId: value })}
               placeholder="All Courses"
               options={[
                 { value: '', label: 'All Courses' },
@@ -439,7 +359,10 @@ export function FinanceTab({
           </div>
           <div>
             <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">Payment Type</p>
-            <Select value={itemType || 'ALL'} onValueChange={(v) => setItemType(v === 'ALL' ? '' : v)}>
+            <Select
+              value={query.itemType || 'ALL'}
+              onValueChange={(value) => updateQuery({ itemType: value === 'ALL' ? '' : (value as typeof query.itemType) })}
+            >
               <SelectTrigger className="h-8 rounded-lg text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">All Payment Types</SelectItem>
@@ -456,12 +379,8 @@ export function FinanceTab({
             <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">Month</p>
             <AdminMonthPicker
               className="w-36"
-              value={month}
-              onChange={(value) => {
-                setMonth(value);
-                setFrom('');
-                setTo('');
-              }}
+              value={query.month}
+              onChange={(value) => updateQuery({ month: value, from: '', to: '' })}
               placeholder="YYYY-MM"
             />
           </div>
@@ -469,11 +388,8 @@ export function FinanceTab({
             <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">From</p>
             <AdminDatePicker
               className="w-36"
-              value={from}
-              onChange={(value) => {
-                setFrom(value);
-                setMonth('');
-              }}
+              value={query.from}
+              onChange={(value) => updateQuery({ from: value, month: '' })}
               placeholder="From"
             />
           </div>
@@ -481,18 +397,21 @@ export function FinanceTab({
             <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">To</p>
             <AdminDatePicker
               className="w-36"
-              value={to}
-              onChange={(value) => {
-                setTo(value);
-                setMonth('');
-              }}
+              value={query.to}
+              onChange={(value) => updateQuery({ to: value, month: '' })}
               placeholder="To"
             />
           </div>
-          <FinanceDatePresetButtons from={from} to={to} onSelect={applyDatePreset} compact />
-          <Button onClick={resetAndLoad} disabled={loading} size="sm" className="h-8 bg-indigo-600 px-3 text-white hover:bg-indigo-700 hover:text-white gap-1.5">
-            {loading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <BarChart3 className="h-3.5 w-3.5" />}
-            Load
+          <FinanceDatePresetButtons from={query.from} to={query.to} onSelect={applyDatePreset} compact />
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5"
+            disabled={loading}
+            onClick={() => void load()}
+          >
+            <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
+            Refresh
           </Button>
           <ExportButtons onExport={handleExport} disabled={loading || (transactions.length === 0 && data.length === 0)} />
         </div>
@@ -555,7 +474,7 @@ export function FinanceTab({
 
       {data.length > 1 && (
         <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 shadow-sm">
-          <h3 className="mb-2 text-[11px] font-black uppercase tracking-wider text-slate-400">Revenue by {period}</h3>
+          <h3 className="mb-2 text-[11px] font-black uppercase tracking-wider text-slate-400">Revenue by {query.period}</h3>
           <ResponsiveContainer width="100%" height={150}>
             <BarChart data={data} margin={{ top: 0, right: 8, left: -14, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -594,7 +513,7 @@ export function FinanceTab({
                   {transactions.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={12} className="py-8 text-center text-sm font-bold text-slate-400">
-                        {totals ? 'No payment found for current filters.' : 'Set filters and click Load to view revenue data.'}
+                        {hasLoaded ? 'No payment found for current filters.' : 'Loading payments…'}
                       </TableCell>
                     </TableRow>
                   ) : transactions.map((row) => (
@@ -653,12 +572,12 @@ export function FinanceTab({
                 </p>
                 <div className="flex items-center gap-1.5">
                   <Select
-                    value={String(limit)}
-                    onValueChange={(value) => void load({ page: 1, limit: Number(value) })}
+                    value={String(query.limit)}
+                    onValueChange={(value) => updateQuery({ limit: Number(value), page: 1 })}
                   >
                     <SelectTrigger className="h-8 w-20 rounded-md text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {[25, 50, 100, 200].map((size) => (
+                      {FINANCE_PAGE_SIZES.map((size) => (
                         <SelectItem key={size} value={String(size)}>{size} / page</SelectItem>
                       ))}
                     </SelectContent>
@@ -668,7 +587,7 @@ export function FinanceTab({
                     size="sm"
                     className="h-7 w-7 p-0"
                     disabled={loading || pagination.page <= 1}
-                    onClick={() => void load({ page: pagination.page - 1 })}
+                    onClick={() => updateQuery({ page: pagination.page - 1 })}
                   >
                     <ChevronLeft className="h-3.5 w-3.5" />
                   </Button>
@@ -680,7 +599,7 @@ export function FinanceTab({
                     size="sm"
                     className="h-7 w-7 p-0"
                     disabled={loading || pagination.page >= pagination.pages}
-                    onClick={() => void load({ page: pagination.page + 1 })}
+                    onClick={() => updateQuery({ page: pagination.page + 1 })}
                   >
                     <ChevronRight className="h-3.5 w-3.5" />
                   </Button>
@@ -692,11 +611,10 @@ export function FinanceTab({
       </div>
 
       <FinancePaymentDetailModal
-        paymentId={detailPaymentId}
-        open={detailOpen}
+        paymentId={query.paymentId || null}
+        open={Boolean(query.paymentId)}
         onOpenChange={(open) => {
-          setDetailOpen(open);
-          if (!open) setDetailPaymentId(null);
+          if (!open) closePaymentDetail();
         }}
       />
     </div>
