@@ -20,6 +20,7 @@ export type CqPartMeta = {
 
 export type WrittenAttemptQuestion = {
   questionId: string;
+  orderIndex?: number;
   marks: number;
   question?: { prompt?: string; meta?: { parts?: CqPartMeta[] } | null };
   studentAnswer?: {
@@ -36,7 +37,7 @@ export type WrittenAttemptQuestion = {
 export type WrittenAttemptDetail = {
   attempt: { id: string };
   student?: { fullName?: string };
-  exam?: { title?: string };
+  exam?: { title?: string; setName?: string | null; setNumber?: number };
   questions?: WrittenAttemptQuestion[];
 };
 

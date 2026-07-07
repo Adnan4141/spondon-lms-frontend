@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { evalAccent } from './evaluationUi';
 
 export type ScriptPageOption = {
   key: string;
@@ -22,6 +23,8 @@ type WrittenScriptViewerProps = {
   activePreviewUrl: string | null;
   onPreviewUrlChange: (url: string) => void;
   compact?: boolean;
+  /** Stretch to fill parent flex column (evaluation desk layout). */
+  fillHeight?: boolean;
 };
 
 function isPdfUrl(url: string): boolean {
@@ -41,22 +44,27 @@ function ScriptPreview({
   url,
   zoom,
   className,
+  fillHeight = false,
 }: {
   url: string;
   zoom: number;
   className?: string;
+  fillHeight?: boolean;
 }) {
   const scale = zoom / 100;
-  const previewHeight = Math.round(560 * scale);
+  const previewHeight = fillHeight ? '100%' : `${Math.round(560 * scale)}px`;
 
   if (isPdfUrl(url)) {
     return (
-      <div className={cn('overflow-auto bg-slate-100', className)}>
+      <div className={cn('overflow-auto bg-slate-100', fillHeight && 'h-full', className)}>
         <iframe
           title="Handwritten submission preview"
           src={url}
           className="w-full bg-white"
-          style={{ height: `${previewHeight}px`, minHeight: '320px' }}
+          style={{
+            height: previewHeight,
+            minHeight: fillHeight ? '280px' : '320px',
+          }}
         />
       </div>
     );
@@ -80,6 +88,7 @@ export function WrittenScriptViewer({
   activePreviewUrl,
   onPreviewUrlChange,
   compact = false,
+  fillHeight = false,
 }: WrittenScriptViewerProps) {
   const [zoom, setZoom] = useState(100);
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
@@ -130,7 +139,12 @@ export function WrittenScriptViewer({
 
   if (!pageOptions.length || !activePreviewUrl) {
     return (
-      <div className="flex min-h-48 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+      <div
+        className={cn(
+          'flex items-center justify-center rounded-lg border border-dashed border-slate-200 bg-white p-6 text-center text-sm text-slate-500',
+          fillHeight ? 'h-full min-h-48' : 'min-h-48',
+        )}
+      >
         No handwritten pages to preview.
       </div>
     );
@@ -214,19 +228,24 @@ export function WrittenScriptViewer({
 
   return (
     <>
-      <div className="flex h-full flex-col rounded-lg border border-slate-200 bg-white">
-        <div className="border-b border-slate-100 p-3 space-y-3">
-          <p className="text-xs font-black uppercase tracking-wide text-slate-400">Handwritten pages</p>
-          <div className="flex gap-2 overflow-x-auto pb-1">
+      <div
+        className={cn(
+          'flex flex-col overflow-hidden rounded-lg border border-slate-200 bg-white',
+          fillHeight && 'h-full min-h-0',
+        )}
+      >
+        <div className="shrink-0 space-y-2 border-b border-slate-100 bg-slate-50/60 p-2.5">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Handwritten pages</p>
+          <div className="flex gap-1.5 overflow-x-auto pb-0.5">
             {pageOptions.map((page) => (
               <button
                 key={page.key}
                 type="button"
                 className={cn(
-                  'shrink-0 rounded-md px-3 py-1.5 text-xs font-bold transition-colors',
+                  'shrink-0 rounded-md px-2.5 py-1 text-[11px] font-bold transition-colors',
                   activePreviewUrl === page.url
-                    ? 'bg-violet-600 text-white'
-                    : 'bg-violet-50 text-violet-700 hover:bg-violet-100',
+                    ? evalAccent.pillActive
+                    : evalAccent.pill,
                 )}
                 onClick={() => onPreviewUrlChange(page.url)}
               >
@@ -240,9 +259,14 @@ export function WrittenScriptViewer({
         <ScriptPreview
           url={activePreviewUrl}
           zoom={zoom}
+          fillHeight={fillHeight}
           className={cn(
-            'flex-1 rounded-b-lg',
-            compact ? 'max-h-[min(420px,50vh)]' : 'max-h-[min(720px,75vh)]',
+            'min-h-0 flex-1 rounded-b-lg',
+            fillHeight
+              ? 'max-h-none'
+              : compact
+                ? 'max-h-[min(420px,50vh)]'
+                : 'max-h-[min(720px,75vh)]',
           )}
         />
       </div>

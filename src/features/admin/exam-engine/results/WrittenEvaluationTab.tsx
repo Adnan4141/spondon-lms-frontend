@@ -37,8 +37,10 @@ import {
   isMarkingComplete,
   isReadyToFinalize,
   marksDraftKey,
+  questionDisplayNumber,
   readCqParts,
 } from './writtenEvaluationUtils';
+import { evalAccent } from './evaluationUi';
 
 type SaveMarkOptions = { silent?: boolean };
 
@@ -131,7 +133,7 @@ export function WrittenEvaluationTab({
     const options: Array<{ key: string; label: string; url: string; questionId: string }> = [];
     for (const [questionIndex, question] of (activeAttempt.questions || []).entries()) {
       const answer = question.studentAnswer;
-      const questionNo = questionIndex + 1;
+      const questionNo = questionDisplayNumber(question, questionIndex);
       const finalPdfUrl = answer?.writtenSubmission?.finalPdfUrl;
       if (finalPdfUrl) {
         options.push({
@@ -155,6 +157,10 @@ export function WrittenEvaluationTab({
 
   const activePreviewUrl = previewUrl ?? pageOptions[0]?.url ?? null;
   const activeAttemptId = activeAttempt?.attempt.id ?? null;
+  const activeQuestionId = useMemo(() => {
+    const page = pageOptions.find((option) => option.url === activePreviewUrl);
+    return page?.questionId ?? null;
+  }, [activePreviewUrl, pageOptions]);
 
   const hasInvalidMarks = useMemo(() => {
     if (!activeAttempt) return false;
@@ -247,17 +253,26 @@ export function WrittenEvaluationTab({
   });
 
   const markingPanel = activeAttempt ? (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {(activeAttempt.questions || []).map((question, index) => {
         const answer = question.studentAnswer;
         const parts = readCqParts(question.question?.meta);
         const hasScript = Boolean(getFirstPreviewUrlForQuestion(question));
+        const isHighlighted = activeQuestionId === question.questionId;
         return (
-          <div key={question.questionId} className="rounded-lg border border-slate-200 bg-white p-4">
+          <div
+            key={question.questionId}
+            className={cn(
+              'rounded-lg border bg-white p-3 transition-colors',
+              isHighlighted
+                ? 'border-[#C8A96E]/60 bg-[#FBF4E6]/30 shadow-sm ring-1 ring-[#C8A96E]/25'
+                : 'border-slate-200',
+            )}
+          >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-                  Question {index + 1} · {Number(question.marks)} marks
+                  Question {questionDisplayNumber(question, index)} · {Number(question.marks)} marks
                 </p>
                 <div className="prose prose-sm mt-2 max-w-none text-slate-700" dangerouslySetInnerHTML={{ __html: question.question?.prompt ?? '' }} />
               </div>
@@ -266,7 +281,7 @@ export function WrittenEvaluationTab({
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="shrink-0"
+                  className="shrink-0 border-[#C8A96E]/40 text-[#7A6035] hover:bg-[#FBF4E6]"
                   onClick={() => jumpToQuestionScript(index)}
                 >
                   <Eye className="mr-1.5 h-3.5 w-3.5" />
@@ -289,7 +304,10 @@ export function WrittenEvaluationTab({
                           Part {part.label} · {maxMarks} marks
                         </p>
                         {part.prompt ? (
-                          <p className="text-xs text-slate-500">{part.prompt}</p>
+                          <div
+                            className="prose prose-sm mt-0.5 max-w-none text-xs text-slate-500 [&_p]:my-0"
+                            dangerouslySetInnerHTML={{ __html: part.prompt }}
+                          />
                         ) : null}
                         {saved != null ? (
                           <p className="text-[10px] font-bold text-emerald-700">Saved: {saved}</p>
@@ -391,36 +409,30 @@ export function WrittenEvaluationTab({
 
   return (
     <TooltipProvider>
-      <Card className="border-slate-200 shadow-sm">
-        <CardHeader>
+      <Card className="overflow-hidden border-slate-200 shadow-sm">
+        <CardHeader className="border-b border-slate-100 bg-white pb-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0 flex-1 space-y-3">
+            <div className="min-w-0 flex-1 space-y-2">
               <div>
                 <CardTitle className="font-serif text-lg text-[#0D1B35]">Written evaluation</CardTitle>
-                <CardDescription>
-                  Review scripts, enter marks, save (auto-save on blur), then finalize. Shortcuts: ↑↓ students, ←→ pages, Ctrl+S save all.
+                <CardDescription className="text-slate-600">
+                  Review scripts, enter marks, save, then finalize. Shortcuts: ↑↓ students, ←→ pages, Ctrl+S save all.
                 </CardDescription>
               </div>
-              <div className="flex flex-wrap gap-2 text-[11px] font-bold text-slate-500">
-                <span className="rounded-full bg-slate-100 px-2.5 py-1">1. Review script</span>
-                <span className="rounded-full bg-slate-100 px-2.5 py-1">2. Enter marks</span>
-                <span className="rounded-full bg-slate-100 px-2.5 py-1">3. Save</span>
-                <span className="rounded-full bg-slate-100 px-2.5 py-1">4. Finalize</span>
-              </div>
               {attempts.length > 0 ? (
-                <div className="space-y-2">
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium text-slate-600">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium text-slate-600">
                     <span>
-                      <span className="font-black text-slate-900">{statusCounts.finalized}</span>
+                      <span className="font-black text-[#0D1B35]">{statusCounts.finalized}</span>
                       {' / '}
                       {attempts.length} finalized
                     </span>
                     <span>{evaluatedCount} marked</span>
-                    <span>{statusCounts.ready} ready to finalize</span>
+                    <span>{statusCounts.ready} ready</span>
                   </div>
-                  <div className="h-2 max-w-md overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-slate-100 sm:w-48">
                     <div
-                      className="h-full rounded-full bg-emerald-500 transition-all"
+                      className={cn('h-full rounded-full transition-all', evalAccent.progress)}
                       style={{ width: `${progressPercent}%` }}
                     />
                   </div>
@@ -431,6 +443,7 @@ export function WrittenEvaluationTab({
               <Button
                 size="sm"
                 variant="outline"
+                className="border-[#C8A96E]/40 text-[#7A6035] hover:bg-[#FBF4E6]"
                 disabled={bulkFinalizeBusy}
                 onClick={() => setBulkConfirmOpen(true)}
               >
@@ -440,149 +453,180 @@ export function WrittenEvaluationTab({
             ) : null}
           </div>
         </CardHeader>
-        <CardContent className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
-          <div className="space-y-3">
-            <div className="flex flex-wrap gap-1.5">
-              {STATUS_FILTERS.map((filter) => (
-                <button
-                  key={filter.key}
-                  type="button"
-                  onClick={() => setStatusFilter(filter.key)}
-                  className={cn(
-                    'rounded-full px-2.5 py-1 text-[11px] font-bold transition-colors',
-                    statusFilter === filter.key
-                      ? 'bg-violet-600 text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-violet-50 hover:text-violet-700',
-                  )}
-                >
-                  {filter.label}
-                  {filter.key !== 'all' ? ` (${statusCounts[filter.key]})` : ''}
-                </button>
-              ))}
-            </div>
 
-            {attempts.length > 1 ? (
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="search"
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search student..."
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
-                />
-              </div>
-            ) : null}
-
-            <div className="max-h-[min(720px,78vh)] space-y-2 overflow-y-auto pr-1">
-              {filteredAttempts.length ? filteredAttempts.map((attempt) => {
-                const status = getAttemptDisplayStatus(attempt);
-                const statusMeta = ATTEMPT_STATUS_META[status];
-                const isActive = activeAttemptId === attempt.id;
-                return (
-                  <button
-                    key={attempt.id}
-                    type="button"
-                    className={cn(
-                      'w-full rounded-lg border p-3 text-left transition-colors',
-                      isActive
-                        ? 'border-violet-400 bg-violet-50 shadow-sm ring-1 ring-violet-200'
-                        : 'border-slate-200 bg-white hover:border-violet-200 hover:bg-violet-50/30',
-                    )}
-                    onClick={() => openAttemptWithGuard(attempt.id)}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-bold text-slate-900">{attempt.student?.fullName ?? 'Student'}</p>
-                      <Badge variant="outline" className={cn('shrink-0 text-[10px] font-black uppercase', statusMeta.className)}>
-                        {statusMeta.label}
-                      </Badge>
-                    </div>
-                    <p className="mt-1 text-xs text-slate-500">
-                      {attempt.totalAwarded ?? 0} marks entered
-                      {attempt.obtainedMarks != null ? ` · Final: ${attempt.obtainedMarks}` : ''}
-                    </p>
-                  </button>
-                );
-              }) : (
-                <p className="rounded-lg border border-dashed border-slate-200 p-4 text-center text-sm text-slate-500">
-                  {searchQuery.trim() || statusFilter !== 'all'
-                    ? 'No students match your filters.'
-                    : 'No written submissions yet.'}
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div className="min-h-48 rounded-lg border border-slate-200 bg-slate-50/60 p-4">
-            {writtenBusy ? (
-              <div className="flex justify-center py-12 text-slate-500"><Loader2 className="h-6 w-6 animate-spin" /></div>
-            ) : activeAttempt ? (
-              <div className="space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-base font-bold text-slate-900">{activeAttempt.student?.fullName}</p>
-                    <p className="text-xs text-slate-500">{activeAttempt.exam?.title}</p>
-                    {hasUnsavedChanges ? (
-                      <p className="mt-1 text-xs font-bold text-amber-700">Unsaved marks — save before switching or finalizing.</p>
-                    ) : null}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {canEvaluate && onSaveAllMarks ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={saveAllBusy || hasInvalidMarks || !hasUnsavedChanges}
-                        onClick={() => onSaveAllMarks(activeAttempt.attempt.id)}
-                      >
-                        {saveAllBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                        Save all marks
-                      </Button>
-                    ) : null}
-                    {canFinalize ? (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span tabIndex={0}>
-                            <Button
-                              size="sm"
-                              disabled={!canFinalizeAttempt}
-                              onClick={() => onFinalize(activeAttempt.attempt.id)}
-                            >
-                              Finalize evaluation
-                            </Button>
-                          </span>
-                        </TooltipTrigger>
-                        {finalizeDisabledReason ? (
-                          <TooltipContent>{finalizeDisabledReason}</TooltipContent>
-                        ) : null}
-                      </Tooltip>
-                    ) : null}
-                  </div>
+        <CardContent className="p-0">
+          <div className="grid min-h-[min(720px,calc(100vh-16rem))] xl:grid-cols-[minmax(220px,260px)_minmax(0,1fr)_minmax(300px,380px)]">
+            {/* Student queue */}
+            <aside className="flex min-h-0 flex-col border-b border-slate-200 xl:border-b-0 xl:border-r">
+              <div className="shrink-0 space-y-2 border-b border-slate-100 bg-slate-50/80 p-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Students</p>
+                <div className="flex flex-wrap gap-1">
+                  {STATUS_FILTERS.map((filter) => (
+                    <button
+                      key={filter.key}
+                      type="button"
+                      onClick={() => setStatusFilter(filter.key)}
+                      className={cn(
+                        'rounded-full px-2 py-0.5 text-[10px] font-bold transition-colors',
+                        statusFilter === filter.key
+                          ? evalAccent.active
+                          : cn('bg-white text-slate-600 ring-1 ring-slate-200', evalAccent.hover),
+                      )}
+                    >
+                      {filter.label}
+                      {filter.key !== 'all' ? ` (${statusCounts[filter.key]})` : ''}
+                    </button>
+                  ))}
                 </div>
-
-                {hasInvalidMarks ? (
-                  <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-800">
-                    One or more marks exceed the maximum allowed. Fix them before saving.
-                  </p>
+                {attempts.length > 1 ? (
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="search"
+                      value={searchQuery}
+                      onChange={(event) => setSearchQuery(event.target.value)}
+                      placeholder="Search student..."
+                      className={cn(
+                        'h-9 w-full rounded-md border border-slate-200 bg-white pl-8 pr-2 text-sm outline-none',
+                        evalAccent.focus,
+                      )}
+                    />
+                  </div>
                 ) : null}
+              </div>
 
-                <div className="grid gap-4 xl:grid-cols-2">
-                  <div className="min-h-[420px] xl:sticky xl:top-4 xl:self-start">
+              <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
+                {filteredAttempts.length ? filteredAttempts.map((attempt) => {
+                  const status = getAttemptDisplayStatus(attempt);
+                  const statusMeta = ATTEMPT_STATUS_META[status];
+                  const isActive = activeAttemptId === attempt.id;
+                  return (
+                    <button
+                      key={attempt.id}
+                      type="button"
+                      className={cn(
+                        'w-full rounded-lg border p-2.5 text-left transition-colors',
+                        isActive
+                          ? evalAccent.activeSoft
+                          : cn('border-slate-200 bg-white', evalAccent.hover),
+                      )}
+                      onClick={() => openAttemptWithGuard(attempt.id)}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-bold text-slate-900">{attempt.student?.fullName ?? 'Student'}</p>
+                        <Badge variant="outline" className={cn('shrink-0 text-[9px] font-black uppercase', statusMeta.className)}>
+                          {statusMeta.label}
+                        </Badge>
+                      </div>
+                      <p className="mt-0.5 text-[11px] text-slate-500">
+                        {attempt.totalAwarded ?? 0} marks entered
+                        {attempt.obtainedMarks != null ? ` · Final: ${attempt.obtainedMarks}` : ''}
+                      </p>
+                    </button>
+                  );
+                }) : (
+                  <p className="rounded-lg border border-dashed border-slate-200 p-4 text-center text-sm text-slate-500">
+                    {searchQuery.trim() || statusFilter !== 'all'
+                      ? 'No students match your filters.'
+                      : 'No written submissions yet.'}
+                  </p>
+                )}
+              </div>
+            </aside>
+
+            {/* Script viewer */}
+            <section className="flex min-h-0 min-w-0 flex-col border-b border-slate-200 xl:border-b-0 xl:border-r">
+              {writtenBusy ? (
+                <div className="flex flex-1 items-center justify-center text-slate-500">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                </div>
+              ) : activeAttempt ? (
+                <>
+                  <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-white px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-[#0D1B35]">{activeAttempt.student?.fullName}</p>
+                      {activeAttempt.exam?.setName ? (
+                        <p className="text-[11px] font-semibold text-[#7A6035]">
+                          Set {activeAttempt.exam.setName}
+                          {activeAttempt.exam.setNumber ? ` · Paper ${activeAttempt.exam.setNumber}` : ''}
+                        </p>
+                      ) : null}
+                      {hasUnsavedChanges ? (
+                        <p className="text-[11px] font-bold text-amber-700">Unsaved marks</p>
+                      ) : (
+                        <p className="truncate text-[11px] text-slate-500">{activeAttempt.exam?.title}</p>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {canEvaluate && onSaveAllMarks ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 border-[#C8A96E]/40 text-[#7A6035] hover:bg-[#FBF4E6]"
+                          disabled={saveAllBusy || hasInvalidMarks || !hasUnsavedChanges}
+                          onClick={() => onSaveAllMarks(activeAttempt.attempt.id)}
+                        >
+                          {saveAllBusy ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
+                          Save all
+                        </Button>
+                      ) : null}
+                      {canFinalize ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span tabIndex={0}>
+                              <Button
+                                size="sm"
+                                className="h-8 bg-[#0D1B35] text-[#E2C98A] hover:bg-[#1E2F55]"
+                                disabled={!canFinalizeAttempt}
+                                onClick={() => onFinalize(activeAttempt.attempt.id)}
+                              >
+                                Finalize
+                              </Button>
+                            </span>
+                          </TooltipTrigger>
+                          {finalizeDisabledReason ? (
+                            <TooltipContent>{finalizeDisabledReason}</TooltipContent>
+                          ) : null}
+                        </Tooltip>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  {hasInvalidMarks ? (
+                    <p className="shrink-0 border-b border-rose-100 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-800">
+                      One or more marks exceed the maximum allowed.
+                    </p>
+                  ) : null}
+
+                  <div className="min-h-0 flex-1 p-3">
                     <WrittenScriptViewer
                       pageOptions={pageOptions}
                       activePreviewUrl={activePreviewUrl}
                       onPreviewUrlChange={setPreviewUrl}
+                      fillHeight
                     />
                   </div>
-
-                  <div className="max-h-[min(720px,78vh)] space-y-4 overflow-y-auto rounded-lg border border-slate-200 bg-white/80 p-3">
-                    <p className="text-xs font-black uppercase tracking-wide text-slate-400">Marking panel</p>
-                    {markingPanel}
-                  </div>
+                </>
+              ) : (
+                <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-slate-500">
+                  Select a student to review their script.
                 </div>
+              )}
+            </section>
+
+            {/* Marking panel */}
+            <section className="flex min-h-0 min-w-0 flex-col bg-slate-50/50">
+              <div className="shrink-0 border-b border-slate-100 px-3 py-2">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Marking panel</p>
               </div>
-            ) : (
-              <p className="py-12 text-center text-sm text-slate-500">Select a submission to evaluate.</p>
-            )}
+              <div className="min-h-0 flex-1 overflow-y-auto p-3">
+                {activeAttempt ? (
+                  markingPanel
+                ) : (
+                  <p className="py-8 text-center text-sm text-slate-500">Marks appear here after you select a student.</p>
+                )}
+              </div>
+            </section>
           </div>
         </CardContent>
       </Card>

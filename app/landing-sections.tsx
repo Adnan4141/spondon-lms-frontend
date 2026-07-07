@@ -7,6 +7,7 @@ import {
   getLandingTeachersData,
   getLandingTrustData,
 } from '@/lib/api/landing-data';
+import { DigitalLibrarySection } from '@/components/landing/DigitalLibrarySection';
 
 const CoursesSection = dynamic(
   () => import('@/components/landing/CoursesSection').then((m) => ({ default: m.CoursesSection })),
@@ -18,13 +19,6 @@ const TrustSection = dynamic(
 
 const TeachersSection = dynamic(
   () => import('@/components/landing/TeachersSection').then((m) => ({ default: m.TeachersSection })),
-);
-
-const DigitalLibrarySection = dynamic(
-  () =>
-    import('@/components/landing/DigitalLibrarySection').then((m) => ({
-      default: m.DigitalLibrarySection,
-    })),
 );
 
 const PartnerCarouselSection = dynamic(

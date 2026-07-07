@@ -44,6 +44,7 @@ import { Step4SetsPdf } from './wizard/steps/Step4SetsPdf';
 import { Step5ResultVisibility } from './wizard/steps/Step5ResultVisibility';
 import { Step6PreviewPublish } from './wizard/steps/Step6PreviewPublish';
 import { ExamWizardStepNav } from './wizard/components/ExamWizardStepNav';
+import { examSetupPath, type ExamPortal } from './exam-portal-paths';
 import { examWizardFooterClass } from './wizard/examWizardPageUi';
 
 type PickerTarget = { sectionLocalId: string; rule: FolderRuleDraft } | null;
@@ -245,6 +246,8 @@ export function ExamWizard({
 
   const canResetWizard = !examId && wizardHasMeaningfulData(state);
 
+  const portal: ExamPortal = variant === 'teacher' ? 'teacher' : 'admin';
+
   const goSaveDraft = async () => {
     if (saveInFlightRef.current) return;
     saveInFlightRef.current = true;
@@ -253,7 +256,7 @@ export function ExamWizard({
       const id = await persistExam(false);
       if (id && !examId) {
         clearDraft();
-        router.push(`/admin/exam/${id}?step=6`);
+        router.push(`${examSetupPath(portal, id)}?step=6`);
       } else if (id && examId) {
         await refreshServerExam();
         if (step !== 6) {
@@ -276,7 +279,7 @@ export function ExamWizard({
       if (id) {
         if (!examId) {
           clearDraft();
-          router.push(`/admin/exam/${id}?step=6`);
+          router.push(`${examSetupPath(portal, id)}?step=6`);
         } else {
           await refreshServerExam();
           if (step !== 6) {
@@ -590,6 +593,7 @@ export function ExamWizard({
             onSavePreset={(name, isDefault) => void presetsApi.savePreset(name, isDefault)}
             onUpdatePreset={(presetId, isDefault) => void presetsApi.updatePreset(presetId, isDefault)}
             deliveryMode={state.deliveryMode}
+            portal={portal}
           />
         </div>
       ) : null}

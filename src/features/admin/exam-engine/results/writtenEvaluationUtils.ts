@@ -52,6 +52,14 @@ export function marksDraftKey(answerId: string, subPartKey?: string) {
   return subPartKey ? `${answerId}:${subPartKey}` : answerId;
 }
 
+/** Matches student result numbering: position within the student's assigned set. */
+export function questionDisplayNumber(question: { orderIndex?: number }, arrayIndex: number): number {
+  if (typeof question.orderIndex === 'number' && Number.isFinite(question.orderIndex)) {
+    return question.orderIndex + 1;
+  }
+  return arrayIndex + 1;
+}
+
 export function buildMarksBaselineFromAttempt(attempt: WrittenAttemptDetail | null): Record<string, string> {
   const baseline: Record<string, string> = {};
   if (!attempt) return baseline;

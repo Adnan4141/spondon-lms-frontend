@@ -42,7 +42,7 @@ export function ResultsTabs({ activeTab, onTabChange, availability, disabledReas
                 value={tab.key}
                 disabled={!enabled}
                 className={cn(
-                  'gap-2 rounded-md px-3 py-2 text-sm data-[state=active]:bg-slate-950 data-[state=active]:text-white',
+                  'gap-2 rounded-md px-3 py-2 text-sm data-[state=active]:bg-[#0D1B35] data-[state=active]:text-[#E2C98A]',
                   !enabled && 'cursor-not-allowed text-slate-400 opacity-60',
                 )}
                 title={

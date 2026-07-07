@@ -11,6 +11,7 @@ import {
   getExamSections,
   getExamSubjects,
   linkExamCourse,
+  regenerateExamPdf,
   regenerateSolveSheet,
   unlinkExamCourse,
   updateExam,
@@ -130,6 +131,29 @@ export function useExamPersistence({ examId, state, serverExam, teacherUserId }:
           if (!ok) return null;
         }
 
+        if (finalize) {
+          const hasBankAllocation =
+            state.productType === 'MULTI'
+              ? state.subjects.some((s) => s.folderRules.length > 0)
+              : state.sections.some((s) => s.folderRules.length > 0);
+          const setsGenerated =
+            state.resultInputModes.includes('AUTOMATED')
+            || state.resultInputModes.includes('OMR_SCAN')
+            || hasBankAllocation;
+
+          if (setsGenerated && state.productType !== 'MULTI') {
+            const pdfRes = await regenerateExamPdf(id, 2);
+            if (!pdfRes.success || !pdfRes.data?.pdfUrl) {
+              toast({
+                title: 'PDF not generated',
+                description:
+                  pdfRes.message ?? 'Sets were created but the master PDF failed — use Regenerate PDF in Print & downloads.',
+                variant: 'destructive',
+              });
+            }
+          }
+        }
+
         if (finalize && state.showSolve) {
           const hasBankAllocation =
             state.productType === 'MULTI'
@@ -152,7 +176,10 @@ export function useExamPersistence({ examId, state, serverExam, teacherUserId }:
         }
 
         toast({
-          title: finalize ? 'Exam saved & sets generated' : 'Draft saved',
+          title: finalize ? 'Question paper ready' : 'Draft saved',
+          description: finalize
+            ? 'Sets pulled from the bank. Master PDF generated when applicable.'
+            : undefined,
           variant: 'default',
         });
         return id;
