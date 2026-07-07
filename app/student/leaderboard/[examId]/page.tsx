@@ -28,6 +28,19 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+function formatPartMarks(value: number | null | undefined, max: number | null | undefined) {
+  if (value == null) return '—';
+  if (max != null && max > 0) return `${value} / ${max}`;
+  return String(value);
+}
+
+function formatMarksSummary(row: ExamLeaderboardRow, showsPartMarks: boolean) {
+  if (!showsPartMarks) return `${row.obtainedMarks ?? '—'} Marks`;
+  const mcq = row.mcqMarks ?? 0;
+  const written = row.writtenMarks ?? 0;
+  return `MCQ ${mcq} · Written ${written}`;
+}
+
 const pageShell = 'mx-auto w-full max-w-full px-4 sm:px-6 lg:px-8 py-6';
 
 function Avatar({ name, className }: { name: string; className?: string }) {
@@ -69,6 +82,9 @@ export default function StudentExamLeaderboardPage() {
   const [linkedNames, setLinkedNames] = useState<{ id: string; name: string }[]>([]);
   const [scope, setScope] = useState<string>('__all__');
   const [rows, setRows] = useState<ExamLeaderboardRow[]>([]);
+  const [showsPartMarks, setShowsPartMarks] = useState(false);
+  const [mcqMaxMarks, setMcqMaxMarks] = useState<number | null>(null);
+  const [writtenMaxMarks, setWrittenMaxMarks] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
@@ -131,7 +147,12 @@ export default function StudentExamLeaderboardPage() {
             ? await getExamLeaderboard(examId, { global: true })
             : await getExamLeaderboard(examId, { global: false, courseId: scope });
         if (cancelled) return;
-        if (res.success && res.data) setRows(res.data.rows);
+        if (res.success && res.data) {
+          setRows(res.data.rows);
+          setShowsPartMarks(!!res.data.showsPartMarks);
+          setMcqMaxMarks(res.data.mcqMaxMarks ?? null);
+          setWrittenMaxMarks(res.data.writtenMaxMarks ?? null);
+        }
       } catch {
         if (!cancelled) setRows([]);
       }
@@ -255,7 +276,7 @@ export default function StudentExamLeaderboardPage() {
                 </div>
                 <div className="text-center mt-3 max-w-[80px] sm:max-w-none">
                   <p className="text-xs sm:text-sm font-black text-slate-800 line-clamp-1">{rows[1].fullName}</p>
-                  <p className="text-[10px] sm:text-xs font-bold text-slate-505 mt-0.5 bg-slate-100 px-2 py-0.5 rounded-full inline-block">{rows[1].obtainedMarks} Marks</p>
+                  <p className="text-[10px] sm:text-xs font-bold text-slate-505 mt-0.5 bg-slate-100 px-2 py-0.5 rounded-full inline-block">{formatMarksSummary(rows[1], showsPartMarks)}</p>
                 </div>
                 {/* Podium bar */}
                 <div className="w-20 sm:w-32 bg-gradient-to-t from-slate-200 via-slate-100 to-slate-50 border border-slate-300 border-b-0 rounded-t-3xl h-24 mt-4 flex flex-col items-center justify-start pt-3 shadow-xs">
@@ -281,7 +302,7 @@ export default function StudentExamLeaderboardPage() {
                 </div>
                 <div className="text-center mt-3 max-w-[80px] sm:max-w-none">
                   <p className="text-sm sm:text-base font-black text-slate-900 line-clamp-1">{rows[0].fullName}</p>
-                  <p className="text-xs font-black text-amber-700 mt-0.5 bg-amber-50 border border-amber-200/50 px-2.5 py-0.5 rounded-full inline-block shadow-2xs">{rows[0].obtainedMarks} Marks</p>
+                  <p className="text-xs font-black text-amber-700 mt-0.5 bg-amber-50 border border-amber-200/50 px-2.5 py-0.5 rounded-full inline-block shadow-2xs">{formatMarksSummary(rows[0], showsPartMarks)}</p>
                 </div>
                 {/* Podium bar */}
                 <div className="w-24 sm:w-36 bg-gradient-to-t from-amber-100/90 via-amber-50/50 to-amber-50/10 border-2 border-amber-200 border-b-0 rounded-t-3xl h-36 mt-4 flex flex-col items-center justify-start pt-4 shadow-sm relative">
@@ -305,7 +326,7 @@ export default function StudentExamLeaderboardPage() {
                 </div>
                 <div className="text-center mt-3 max-w-[80px] sm:max-w-none">
                   <p className="text-xs sm:text-sm font-black text-slate-800 line-clamp-1">{rows[2].fullName}</p>
-                  <p className="text-[10px] sm:text-xs font-bold text-amber-700 mt-0.5 bg-amber-50/60 px-2 py-0.5 rounded-full inline-block">{rows[2].obtainedMarks} Marks</p>
+                  <p className="text-[10px] sm:text-xs font-bold text-amber-700 mt-0.5 bg-amber-50/60 px-2 py-0.5 rounded-full inline-block">{formatMarksSummary(rows[2], showsPartMarks)}</p>
                 </div>
                 {/* Podium bar */}
                 <div className="w-20 sm:w-32 bg-gradient-to-t from-amber-900/10 via-amber-800/5 to-amber-500/0 border border-amber-700/20 border-b-0 rounded-t-3xl h-18 mt-4 flex flex-col items-center justify-start pt-2 shadow-xs">
@@ -337,8 +358,19 @@ export default function StudentExamLeaderboardPage() {
             <div className="absolute -right-4 -bottom-4 opacity-5 text-emerald-900 pointer-events-none">
               <Target className="h-20 w-20" />
             </div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 bg-emerald-100/50 px-2.5 py-1 rounded-full">Obtained Marks</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 bg-emerald-100/50 px-2.5 py-1 rounded-full">
+              {showsPartMarks ? 'Total Marks' : 'Obtained Marks'}
+            </span>
             <span className="text-4xl font-black mt-3 text-emerald-700">{rankSelf.obtainedMarks ?? '—'}</span>
+            {showsPartMarks ? (
+              <p className="mt-2 text-[10px] font-bold text-emerald-800">
+                MCQ {rankSelf.mcqMarks ?? 0}
+                {mcqMaxMarks ? `/${mcqMaxMarks}` : ''}
+                {' · '}
+                Written {rankSelf.writtenMarks ?? 0}
+                {writtenMaxMarks ? `/${writtenMaxMarks}` : ''}
+              </p>
+            ) : null}
           </div>
 
           {/* Percentile Card */}
@@ -401,7 +433,13 @@ export default function StudentExamLeaderboardPage() {
               <tr>
                 <th className="px-6 py-4 text-center w-24">Rank</th>
                 <th className="px-6 py-4">Participant</th>
-                <th className="px-6 py-4 text-right">Obtained Marks</th>
+                <th className="px-6 py-4 text-right">Total</th>
+                {showsPartMarks ? (
+                  <>
+                    <th className="px-6 py-4 text-right">MCQ</th>
+                    <th className="px-6 py-4 text-right">Written</th>
+                  </>
+                ) : null}
                 {showPct && <th className="px-6 py-4 text-right">Percentile</th>}
               </tr>
             </thead>
@@ -466,6 +504,16 @@ export default function StudentExamLeaderboardPage() {
                     <td className="px-6 py-4 text-right tabular-nums text-xs font-black text-slate-850">
                       {r.obtainedMarks ?? '—'}
                     </td>
+                    {showsPartMarks ? (
+                      <>
+                        <td className="px-6 py-4 text-right tabular-nums text-xs font-bold text-indigo-700">
+                          {formatPartMarks(r.mcqMarks, r.mcqMaxMarks ?? mcqMaxMarks)}
+                        </td>
+                        <td className="px-6 py-4 text-right tabular-nums text-xs font-bold text-amber-800">
+                          {formatPartMarks(r.writtenMarks, r.writtenMaxMarks ?? writtenMaxMarks)}
+                        </td>
+                      </>
+                    ) : null}
                     {showPct && (
                       <td className="px-6 py-4 text-right tabular-nums text-xs font-bold text-slate-500">
                         {r.percentile != null ? `${r.percentile}%` : '—'}

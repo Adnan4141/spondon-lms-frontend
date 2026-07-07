@@ -271,6 +271,12 @@ export interface ExamLeaderboardRow {
   totalMarks: number | null;
   submittedAt?: string | null;
   percentile?: number;
+  /** Hybrid / combined exams: MCQ section score */
+  mcqMarks?: number;
+  /** Hybrid / combined exams: written (CQ/SHORT) section score */
+  writtenMarks?: number;
+  mcqMaxMarks?: number | null;
+  writtenMaxMarks?: number | null;
 }
 
 /** Safe exam summary for students (from GET /exams/:id/student-view). */

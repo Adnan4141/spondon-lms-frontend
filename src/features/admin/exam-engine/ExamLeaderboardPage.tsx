@@ -52,6 +52,7 @@ export function ExamLeaderboardPage({ examId }: { examId: string }) {
 
   const rows = payload?.rows ?? [];
   const showPercentileCol = rows.some((r) => r.percentile != null);
+  const showsPartMarks = !!payload?.showsPartMarks;
 
   if (!exam) {
     return <p className="py-12 text-center text-sm text-slate-600">Exam not found.</p>;
@@ -68,7 +69,11 @@ export function ExamLeaderboardPage({ examId }: { examId: string }) {
         <CardHeader>
           <CardTitle className="font-serif text-lg text-[#0D1B35]">Rankings</CardTitle>
           <CardDescription>
-            {exam?.showPercentile ? 'Includes approximate percentile.' : 'Percentiles hidden for this exam.'}
+            {showsPartMarks
+              ? 'Hybrid exam — MCQ and written marks shown separately.'
+              : exam?.showPercentile
+                ? 'Includes approximate percentile.'
+                : 'Percentiles hidden for this exam.'}
           </CardDescription>
         </CardHeader>
         <CardContent className="w-full max-w-full overflow-x-auto p-0 sm:p-6">
@@ -81,7 +86,13 @@ export function ExamLeaderboardPage({ examId }: { examId: string }) {
                   <TableHead className="w-14">Rank</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Reg. no.</TableHead>
-                  <TableHead className="text-right">Score</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  {showsPartMarks ? (
+                    <>
+                      <TableHead className="text-right">MCQ</TableHead>
+                      <TableHead className="text-right">Written</TableHead>
+                    </>
+                  ) : null}
                   {showPercentileCol ? <TableHead className="text-right">Pct.</TableHead> : null}
                   <TableHead>Submitted</TableHead>
                 </TableRow>
@@ -96,6 +107,18 @@ export function ExamLeaderboardPage({ examId }: { examId: string }) {
                       {r.obtainedMarks ?? '—'}
                       {r.totalMarks != null ? ` / ${r.totalMarks}` : ''}
                     </TableCell>
+                    {showsPartMarks ? (
+                      <>
+                        <TableCell className="text-right text-indigo-700">
+                          {r.mcqMarks ?? '—'}
+                          {r.mcqMaxMarks ? ` / ${r.mcqMaxMarks}` : ''}
+                        </TableCell>
+                        <TableCell className="text-right text-amber-800">
+                          {r.writtenMarks ?? '—'}
+                          {r.writtenMaxMarks ? ` / ${r.writtenMaxMarks}` : ''}
+                        </TableCell>
+                      </>
+                    ) : null}
                     {showPercentileCol ? (
                       <TableCell className="text-right text-slate-600">
                         {r.percentile != null ? `${r.percentile}%` : '—'}

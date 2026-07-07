@@ -601,6 +601,10 @@ export type ExamLeaderboardPayload = {
   global: boolean;
   courseFilter: string | null;
   count: number;
+  /** True when exam has both MCQ and written sections */
+  showsPartMarks?: boolean;
+  mcqMaxMarks?: number | null;
+  writtenMaxMarks?: number | null;
   rows: ExamLeaderboardRow[];
 };
 
