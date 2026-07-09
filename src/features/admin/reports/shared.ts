@@ -173,9 +173,9 @@ export function buildCourseTransactionsSearchParams(state: CourseTransactionsQue
   params.set('tab', 'course-transactions');
   if (state.courseId) params.set('courseId', state.courseId);
   if (state.branchId) params.set('branchId', state.branchId);
-  const defaultRange = getCurrentMonthRange();
-  if (state.from && state.from !== defaultRange.from) params.set('from', state.from);
-  if (state.to && state.to !== defaultRange.to) params.set('to', state.to);
+  // Always persist date filters to URL for shareable/reportable links (even when matching defaults).
+  if (state.from) params.set('from', state.from);
+  if (state.to) params.set('to', state.to);
   if (state.search.trim()) params.set('search', state.search.trim());
   if (state.page > 1) params.set('page', String(state.page));
   if (state.limit !== COURSE_TRANSACTIONS_DEFAULT_LIMIT) params.set('limit', String(state.limit));
@@ -389,9 +389,9 @@ export function buildFinanceSearchParams(state: FinanceQueryState): URLSearchPar
   if (state.month) {
     params.set('month', state.month);
   } else {
-    const defaultRange = getCurrentMonthRange();
-    if (state.from && state.from !== defaultRange.from) params.set('from', state.from);
-    if (state.to && state.to !== defaultRange.to) params.set('to', state.to);
+    // Always persist date filters to URL for shareable/reportable links (even when matching defaults).
+    if (state.from) params.set('from', state.from);
+    if (state.to) params.set('to', state.to);
   }
 
   if (state.search.trim()) params.set('search', state.search.trim());

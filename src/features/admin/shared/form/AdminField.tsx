@@ -46,7 +46,8 @@ function parseDateValue(value: string): Date | undefined {
   if (!value) return undefined;
   const [y, m, d] = value.split('-').map(Number);
   if (!y || !m || !d) return undefined;
-  const date = new Date(y, m - 1, d);
+  // Use noon to prevent day shifting due to timezone/UTC conversions.
+  const date = new Date(y, m - 1, d, 12, 0, 0);
   return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
@@ -54,7 +55,8 @@ function parseMonthValue(value: string): Date | undefined {
   if (!value) return undefined;
   const [y, m] = value.split('-').map(Number);
   if (!y || !m) return undefined;
-  const date = new Date(y, m - 1, 1);
+  // Use noon to prevent day shifting due to timezone/UTC conversions.
+  const date = new Date(y, m - 1, 1, 12, 0, 0);
   return Number.isNaN(date.getTime()) ? undefined : date;
 }
 

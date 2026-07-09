@@ -26,7 +26,8 @@ function buildMonthGrid(month: Date): Array<Date | null> {
     cells.push(null)
   }
   for (let day = 1; day <= daysInMonth; day += 1) {
-    cells.push(new Date(month.getFullYear(), month.getMonth(), day))
+    // Use noon to avoid timezone/UTC drift around midnight (e.g. selecting 1st/31st).
+    cells.push(new Date(month.getFullYear(), month.getMonth(), day, 12, 0, 0))
   }
   while (cells.length % 7 !== 0) {
     cells.push(null)
@@ -100,7 +101,7 @@ function Calendar({ selected, onSelect, className }: CalendarProps) {
 
           return (
             <button
-              key={dateCell.toISOString()}
+              key={`${dateCell.getFullYear()}-${dateCell.getMonth() + 1}-${dateCell.getDate()}`}
               type="button"
               onClick={() => onSelect?.(dateCell)}
               className={cn(
