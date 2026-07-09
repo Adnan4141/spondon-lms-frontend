@@ -4,7 +4,7 @@ import React, { useState, useMemo, Suspense } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { 
   Lock, 
   Eye, 
@@ -24,12 +24,12 @@ import { getDeviceId } from '@/lib/device-id';
 import { isTurnstileConfigured, TurnstileField } from '@/components/auth/TurnstileField';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
+import { persistAuthSession, resolvePostLoginPath } from '@/lib/auth-session';
 
 const TURNSTILE_REQUIRED = isTurnstileConfigured();
 type LoginStep = 'credentials' | 'otp';
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirect') || '';
   const { toast, toasts, removeToast } = useToast();
@@ -71,29 +71,13 @@ function LoginForm() {
       variant: 'success',
     });
 
-    localStorage.setItem('auth_token', data.token);
-    localStorage.setItem('user', JSON.stringify(data.user));
-    document.cookie = `auth_token=${data.token}; path=/; max-age=${24 * 60 * 60}`;
-    document.cookie = `user_role=${data.user?.role || ''}; path=/; max-age=${24 * 60 * 60}`;
+    persistAuthSession(data);
 
-    setTimeout(() => {
-      const user = data.user;
-
-      if (user?.role === 'STUDENT' && !(user as { isMobileVerified?: boolean }).isMobileVerified) {
-        router.push(`/register?mobile=${encodeURIComponent(user.mobile)}&step=otp`);
-        return;
-      }
-
-      let target = '/student';
-      if (user?.role === 'SUPER_ADMIN' || user?.role === 'ACCOUNTS' || user?.role === 'MODERATOR') {
-        target = '/admin';
-      } else if (user?.role === 'BRANCH_ADMIN') {
-        target = '/admin/branch';
-      } else if (user?.role === 'TEACHER') {
-        target = '/teacher';
-      }
-      router.push(redirectTo && redirectTo.startsWith('/') ? redirectTo : target);
-    }, 1500);
+    const target = resolvePostLoginPath(data.user, redirectTo);
+    // Full navigation so middleware receives freshly set cookies on HTTPS production.
+    window.setTimeout(() => {
+      window.location.assign(target);
+    }, 100);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

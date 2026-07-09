@@ -1,6 +1,7 @@
 'use client';
 
 import { useLayoutEffect, useMemo, useState } from 'react';
+import { clearAuthCookies } from '@/lib/auth-session';
 
 /** Shape of `user` JSON from login / localStorage (may gain fields after profile updates). */
 export type StoredAuthUser = {
@@ -89,8 +90,7 @@ function syncAdminSessionUser(): StoredAuthUser | null {
 export function clearAuthStorage(): void {
   localStorage.removeItem('auth_token');
   localStorage.removeItem('user');
-  document.cookie = 'auth_token=; path=/; max-age=0';
-  document.cookie = 'user_role=; path=/; max-age=0';
+  clearAuthCookies();
 }
 
 /**
