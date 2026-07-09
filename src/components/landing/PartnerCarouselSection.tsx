@@ -4,19 +4,10 @@ import React, { useMemo, useState, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { ExternalLink, Globe2, GraduationCap, BookOpen, Library } from 'lucide-react';
 import { API_ORIGIN } from '@/lib/api';
 import { resolveAttachmentUrl } from '@/lib/attachment-url';
 import { getPublicPartnerById, type PublicPartnerDetail } from '@/lib/api/partners';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
+import { PartnerDetailModal } from './PartnerDetailModal';
 
 interface PartnerItem {
   id?: string;
@@ -55,12 +46,11 @@ export const PartnerCarouselSection: React.FC<Props> = ({
   const [detail, setDetail] = useState<PublicPartnerDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [activePartnerId, setActivePartnerId] = useState<string | null>(null);
 
-  const openPartnerModal = useCallback(async (partnerId: string) => {
-    setDetailOpen(true);
-    setDetail(null);
-    setDetailError(null);
+  const loadPartnerDetail = useCallback(async (partnerId: string) => {
     setDetailLoading(true);
+    setDetailError(null);
     try {
       const res = await getPublicPartnerById(partnerId);
       if (res.success && res.data) setDetail(res.data);
@@ -72,11 +62,26 @@ export const PartnerCarouselSection: React.FC<Props> = ({
     }
   }, []);
 
+  const openPartnerModal = useCallback(
+    async (partnerId: string) => {
+      setActivePartnerId(partnerId);
+      setDetailOpen(true);
+      setDetail(null);
+      await loadPartnerDetail(partnerId);
+    },
+    [loadPartnerDetail],
+  );
+
   const closeModal = useCallback(() => {
     setDetailOpen(false);
     setDetail(null);
     setDetailError(null);
+    setActivePartnerId(null);
   }, []);
+
+  const retryPartnerDetail = useCallback(() => {
+    if (activePartnerId) void loadPartnerDetail(activePartnerId);
+  }, [activePartnerId, loadPartnerDetail]);
 
   return (
     <section className="relative py-12 sm:py-16 md:py-20 bg-gradient-to-b from-white to-slate-50 overflow-hidden">
@@ -184,122 +189,14 @@ export const PartnerCarouselSection: React.FC<Props> = ({
         </div>
       ) : null}
 
-      <Dialog open={detailOpen} onOpenChange={(open) => !open && closeModal()}>
-        <DialogContent className="max-h-[min(90vh,640px)] overflow-y-auto rounded-3xl border-slate-200 sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="pr-8 text-left text-xl font-black tracking-tight text-slate-900">
-              {detail?.name ?? 'Partner'}
-            </DialogTitle>
-            <DialogDescription className="sr-only">
-              Partner profile and linked programs, courses, and books.
-            </DialogDescription>
-          </DialogHeader>
-
-          {detailLoading ? (
-            <div className="flex flex-col items-center gap-4 py-10">
-              <div className="h-12 w-12 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600" />
-              <p className="text-sm font-medium text-slate-500">Loading…</p>
-            </div>
-          ) : detailError ? (
-            <p className="py-6 text-center text-sm font-medium text-rose-600">{detailError}</p>
-          ) : detail ? (
-            <div className="space-y-5 pb-1">
-              <div className="relative mx-auto h-24 w-40">
-                <Image
-                  src={resolveAttachmentUrl(detail.logo, API_ORIGIN) || 'https://placehold.co/240x128?text=Logo'}
-                  alt=""
-                  fill
-                  className="object-contain"
-                  sizes="160px"
-                />
-              </div>
-              {detail.type ? (
-                <p className="text-center text-[10px] font-black uppercase tracking-widest text-indigo-600">{detail.type}</p>
-              ) : null}
-              {detail.description ? (
-                <p className="text-sm leading-relaxed text-slate-600">{detail.description}</p>
-              ) : (
-                <p className="text-sm text-slate-400">No description provided.</p>
-              )}
-              {detail.websiteUrl ? (
-                <a
-                  href={detail.websiteUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 rounded-2xl border border-indigo-100 bg-indigo-50/60 px-4 py-3 text-sm font-bold text-indigo-700 transition-colors hover:bg-indigo-100"
-                >
-                  <Globe2 className="h-4 w-4 shrink-0" />
-                  Visit website
-                  <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-70" />
-                </a>
-              ) : null}
-
-              {(detail.partnerPrograms?.length ?? 0) > 0 ? (
-                <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
-                  <p className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
-                    <GraduationCap className="h-3.5 w-3.5 text-indigo-600" />
-                    Programs
-                  </p>
-                  <ul className="space-y-1.5 text-sm font-semibold text-slate-800">
-                    {detail.partnerPrograms!.map((row) => (
-                      <li key={row.program.id} className="flex items-start gap-2">
-                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-400" />
-                        <Link href="/courses" className="text-indigo-700 underline-offset-2 hover:underline">
-                          {row.program.name}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-
-              {(detail.partnerCourses?.length ?? 0) > 0 ? (
-                <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
-                  <p className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
-                    <BookOpen className="h-3.5 w-3.5 text-emerald-600" />
-                    Courses
-                  </p>
-                  <ul className="space-y-1.5 text-sm font-semibold text-slate-800">
-                    {detail.partnerCourses!.map((row) => (
-                      <li key={row.course.id} className="flex items-start gap-2">
-                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
-                        <Link href="/courses" className="text-emerald-800 underline-offset-2 hover:underline">
-                          {row.course.name}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-
-              {(detail.partnerBooks?.length ?? 0) > 0 ? (
-                <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
-                  <p className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
-                    <Library className="h-3.5 w-3.5 text-amber-700" />
-                    Books
-                  </p>
-                  <ul className="space-y-2 text-sm font-semibold text-slate-800">
-                    {detail.partnerBooks!.map((row) => (
-                      <li key={row.book.id} className="flex flex-col gap-0.5 border-b border-slate-100/80 pb-2 last:border-0 last:pb-0">
-                        <Link href="/books" className="text-amber-900 underline-offset-2 hover:underline">
-                          {row.book.name}
-                        </Link>
-                        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">SKU {row.book.sku}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button type="button" variant="outline" className="rounded-2xl font-bold" onClick={closeModal}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <PartnerDetailModal
+        open={detailOpen}
+        detail={detail}
+        loading={detailLoading}
+        error={detailError}
+        onClose={closeModal}
+        onRetry={retryPartnerDetail}
+      />
 
       {/* Bottom Border Accent */}
       <div className="mt-12 mx-auto max-w-xs h-px bg-gradient-to-r from-transparent via-slate-300/80 to-transparent" />
