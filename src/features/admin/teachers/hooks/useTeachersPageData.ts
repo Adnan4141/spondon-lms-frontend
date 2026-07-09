@@ -1,24 +1,29 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import type { Branch } from '@/lib/api/branches';
+import type { User } from '@/lib/api/users';
 import { parseStoredAuthUser } from '@/features/admin/shared/admin-session';
 import { useTeachersList, type TeachersListFilters } from '@/lib/query/hooks/useTeachersList';
 import { useAdminBranches } from '@/lib/query/hooks/useAdminBranches';
 import type { TeachersStatusFilter } from '../teachers-page-utils';
+
+const EMPTY_TEACHERS: User[] = [];
+const EMPTY_BRANCHES: Branch[] = [];
 
 export function useTeachersPageData(listFilters: TeachersListFilters) {
   const queryClient = useQueryClient();
   const teachersQuery = useTeachersList(listFilters);
   const branchesQuery = useAdminBranches();
 
-  const invalidateTeachers = async () => {
+  const invalidateTeachers = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ['admin', 'teachers'] });
-  };
+  }, [queryClient]);
 
   return {
-    teachers: teachersQuery.data ?? [],
-    branches: branchesQuery.data ?? [],
+    teachers: teachersQuery.data ?? EMPTY_TEACHERS,
+    branches: branchesQuery.data ?? EMPTY_BRANCHES,
     loading: teachersQuery.isLoading,
     isFetching: teachersQuery.isFetching,
     refetch: teachersQuery.refetch,
@@ -59,6 +64,9 @@ export function useTeachersPageFilters() {
     actorRole,
     actorBranchId,
     isBranchAdmin: actorRole === 'BRANCH_ADMIN',
-    listFilters: { statusFilter, branchFilter } satisfies TeachersListFilters,
+    listFilters: useMemo(
+      () => ({ statusFilter, branchFilter }) satisfies TeachersListFilters,
+      [statusFilter, branchFilter],
+    ),
   };
 }

@@ -52,8 +52,8 @@ export function TeachersPageContent() {
   });
 
   useEffect(() => {
-    syncOrderedTeachers(teachers);
-  }, [teachers, syncOrderedTeachers]);
+    if (!sortMode) syncOrderedTeachers(teachers);
+  }, [teachers, sortMode, syncOrderedTeachers]);
 
   const filteredTeachers = useMemo(
     () => filterTeachersByQuery(teachers, query),
