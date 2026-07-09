@@ -6,6 +6,7 @@ import { Toaster } from '@/components/ui/toast';
 import { TeachersFiltersBar } from './components/TeachersFiltersBar';
 import { TeachersPageHeader } from './components/TeachersPageHeader';
 import { TeachersSortBanner } from './components/TeachersSortBanner';
+import { TeachersStatsGrid } from './components/TeachersStatsGrid';
 import { TeachersTable } from './components/TeachersTable';
 import { useTeacherPageActions } from './hooks/useTeacherPageActions';
 import { useTeachersPageData, useTeachersPageFilters } from './hooks/useTeachersPageData';
@@ -61,7 +62,7 @@ export function TeachersPageContent() {
   );
 
   return (
-    <div className="space-y-10 pb-12 text-slate-900">
+    <div className="space-y-6 pb-8">
       <Toaster toasts={toasts} removeToast={removeToast} />
 
       <TeachersPageHeader
@@ -72,38 +73,43 @@ export function TeachersPageContent() {
         onSaveOrder={() => void handleSaveOrder()}
       />
 
+      <TeachersStatsGrid teachers={teachers} branches={branches} loading={loading} />
+
       {sortMode ? <TeachersSortBanner /> : null}
 
-      {!sortMode ? (
-        <TeachersFiltersBar
-          query={query}
-          onQueryChange={setQuery}
-          statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
-          branchFilter={branchFilter}
-          onBranchFilterChange={setBranchFilter}
-          branches={branches}
-          isBranchAdmin={isBranchAdmin}
-          loading={loading}
-          onRefresh={() => void refetch()}
-        />
-      ) : null}
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        {!sortMode ? (
+          <TeachersFiltersBar
+            query={query}
+            onQueryChange={setQuery}
+            statusFilter={statusFilter}
+            onStatusFilterChange={setStatusFilter}
+            branchFilter={branchFilter}
+            onBranchFilterChange={setBranchFilter}
+            branches={branches}
+            isBranchAdmin={isBranchAdmin}
+            loading={loading}
+            count={filteredTeachers.length}
+            onRefresh={() => void refetch()}
+          />
+        ) : null}
 
-      <TeachersTable
-        loading={loading}
-        sortMode={sortMode}
-        filteredTeachers={filteredTeachers}
-        orderedTeachers={orderedTeachers}
-        totalTeachers={teachers.length}
-        sensors={sensors}
-        onDragEnd={handleDragEnd}
-        actions={{
-          onView: (id) => void openView(id),
-          onEdit: (id) => void openEdit(id),
-          onSetStatus: setTeacherStatus,
-          onDelete: handleDelete,
-        }}
-      />
+        <TeachersTable
+          loading={loading}
+          sortMode={sortMode}
+          filteredTeachers={filteredTeachers}
+          orderedTeachers={orderedTeachers}
+          totalTeachers={teachers.length}
+          sensors={sensors}
+          onDragEnd={handleDragEnd}
+          actions={{
+            onView: (id) => void openView(id),
+            onEdit: (id) => void openEdit(id),
+            onSetStatus: setTeacherStatus,
+            onDelete: handleDelete,
+          }}
+        />
+      </div>
     </div>
   );
 }

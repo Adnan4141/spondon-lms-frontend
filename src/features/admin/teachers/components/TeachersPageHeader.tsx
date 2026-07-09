@@ -1,4 +1,4 @@
-import { GripVertical, Plus, Users } from 'lucide-react';
+import { GripVertical, Plus, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -18,55 +18,53 @@ export function TeachersPageHeader({
   onSaveOrder,
 }: TeachersPageHeaderProps) {
   return (
-    <div className="relative overflow-hidden rounded-[40px] border border-slate-200 bg-white p-8 lg:p-10 shadow-xl shadow-slate-200/30">
-      <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-indigo-50/50" />
-      <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-sky-50/50" />
-
-      <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
-        <div className="space-y-4">
-          <div className="inline-flex items-center gap-2 rounded-xl bg-indigo-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 shadow-sm border border-indigo-100/50">
-            <Users className="h-3.5 w-3.5" />
-            Teacher Team
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="bg-linear-to-r from-violet-50 via-white to-indigo-50 p-5 sm:p-6">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+          <div className="min-w-0">
+            <div className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-violet-700 shadow-sm">
+              <Sparkles className="h-3.5 w-3.5" />
+              Faculty Management
+            </div>
+            <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Teachers</h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+              Manage faculty profiles, branch assignments, and display order — all from one clean workspace.
+            </p>
           </div>
-          <div>
-            <h1 className="text-3xl font-black tracking-tight sm:text-4xl text-slate-900">Teachers</h1>
-          </div>
-        </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          {!sortMode ? (
+          <div className="flex flex-wrap gap-2">
+            {!sortMode ? (
+              <Button
+                onClick={onAddTeacher}
+                className="rounded-xl bg-slate-950 text-white hover:bg-slate-800"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Teacher
+              </Button>
+            ) : null}
             <Button
-              className="h-14 px-8 rounded-2xl text-white bg-slate-900 font-black tracking-tight hover:bg-indigo-600 transition-all hover:scale-[1.02] shadow-lg shadow-slate-200"
-              onClick={onAddTeacher}
+              variant="outline"
+              onClick={onToggleSortMode}
+              className={cn(
+                'rounded-xl border-slate-200 bg-white',
+                sortMode && 'border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100',
+              )}
             >
-              <Plus className="mr-2 h-5 w-5" />
-              Add Teacher
+              <GripVertical className="mr-2 h-4 w-4" />
+              {sortMode ? 'Cancel' : 'Sort Order'}
             </Button>
-          ) : null}
-          <Button
-            variant="outline"
-            className={cn(
-              'h-14 px-6 rounded-2xl font-black tracking-tight border-2 transition-all',
-              sortMode
-                ? 'border-indigo-600 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
-                : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-300',
-            )}
-            onClick={onToggleSortMode}
-          >
-            <GripVertical className="mr-2 h-5 w-5" />
-            {sortMode ? 'Cancel' : 'Sort Order'}
-          </Button>
-          {sortMode ? (
-            <Button
-              className="h-14 px-8 rounded-2xl text-white bg-indigo-600 font-black tracking-tight hover:bg-indigo-700 transition-all shadow-lg disabled:opacity-50"
-              onClick={onSaveOrder}
-              disabled={savingOrder}
-            >
-              {savingOrder ? 'Saving…' : 'Save Order'}
-            </Button>
-          ) : null}
+            {sortMode ? (
+              <Button
+                onClick={onSaveOrder}
+                disabled={savingOrder}
+                className="rounded-xl bg-violet-600 text-white hover:bg-violet-700"
+              >
+                {savingOrder ? 'Saving…' : 'Save Order'}
+              </Button>
+            ) : null}
+          </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

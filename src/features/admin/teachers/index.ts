@@ -3,6 +3,7 @@ export { TeacherForm } from './components/TeacherForm';
 export { TeachersPageContent } from './TeachersPageContent';
 export { TeachersFiltersBar } from './components/TeachersFiltersBar';
 export { TeachersPageHeader } from './components/TeachersPageHeader';
+export { TeachersStatsGrid } from './components/TeachersStatsGrid';
 export { TeachersTable } from './components/TeachersTable';
 export { useTeachersPageData, useTeachersPageFilters } from './hooks/useTeachersPageData';
 export { useTeacherPageActions } from './hooks/useTeacherPageActions';
