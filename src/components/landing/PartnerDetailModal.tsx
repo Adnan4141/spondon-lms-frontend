@@ -15,6 +15,7 @@ import {
   Library,
   RefreshCw,
   Sparkles,
+  X,
 } from 'lucide-react';
 import type { PublicPartnerDetail } from '@/lib/api/partners';
 import { API_ORIGIN } from '@/lib/api';
@@ -23,6 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogTitle,
@@ -36,6 +38,35 @@ type PartnerDetailModalProps = {
   error: string | null;
   onClose: () => void;
   onRetry?: () => void;
+};
+
+type Tone = 'indigo' | 'emerald' | 'amber';
+
+const TONE_STYLES: Record<
+  Tone,
+  { pill: string; icon: string; row: string; heading: string; linkHover: string }
+> = {
+  indigo: {
+    pill: 'border-indigo-200/80 bg-indigo-50 text-indigo-800',
+    icon: 'bg-indigo-600 text-white shadow-indigo-200',
+    row: 'hover:border-indigo-200 hover:bg-indigo-50/40',
+    heading: 'text-indigo-600',
+    linkHover: 'group-hover:text-indigo-700',
+  },
+  emerald: {
+    pill: 'border-emerald-200/80 bg-emerald-50 text-emerald-800',
+    icon: 'bg-emerald-600 text-white shadow-emerald-200',
+    row: 'hover:border-emerald-200 hover:bg-emerald-50/40',
+    heading: 'text-emerald-600',
+    linkHover: 'group-hover:text-emerald-800',
+  },
+  amber: {
+    pill: 'border-amber-200/80 bg-amber-50 text-amber-900',
+    icon: 'bg-amber-600 text-white shadow-amber-200',
+    row: 'hover:border-amber-200 hover:bg-amber-50/40',
+    heading: 'text-amber-700',
+    linkHover: 'group-hover:text-amber-900',
+  },
 };
 
 function safeHostname(url: string) {
@@ -55,24 +86,25 @@ function StatPill({
   icon: ElementType;
   label: string;
   count: number;
-  tone: 'indigo' | 'emerald' | 'amber';
+  tone: Tone;
 }) {
-  const tones = {
-    indigo: 'border-indigo-100 bg-indigo-50/80 text-indigo-700',
-    emerald: 'border-emerald-100 bg-emerald-50/80 text-emerald-700',
-    amber: 'border-amber-100 bg-amber-50/80 text-amber-800',
-  };
-
   return (
     <div
       className={cn(
-        'flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl border px-3 py-3 text-center',
-        tones[tone],
+        'flex min-w-[5.5rem] flex-1 flex-col items-center gap-1.5 rounded-2xl border px-4 py-3.5 text-center shadow-sm',
+        TONE_STYLES[tone].pill,
       )}
     >
-      <Icon className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
-      <span className="text-lg font-black tabular-nums leading-none">{count}</span>
-      <span className="text-[9px] font-black uppercase tracking-widest opacity-70">{label}</span>
+      <div
+        className={cn(
+          'flex h-8 w-8 items-center justify-center rounded-xl shadow-md',
+          TONE_STYLES[tone].icon,
+        )}
+      >
+        <Icon className="h-4 w-4" aria-hidden />
+      </div>
+      <span className="text-2xl font-black tabular-nums leading-none tracking-tight">{count}</span>
+      <span className="text-[9px] font-black uppercase tracking-[0.18em] opacity-75">{label}</span>
     </div>
   );
 }
@@ -88,59 +120,84 @@ function LinkRow({
   title: string;
   subtitle?: string;
   icon: ElementType;
-  tone: 'indigo' | 'emerald' | 'amber';
+  tone: Tone;
 }) {
-  const iconTone = {
-    indigo: 'bg-indigo-100 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white',
-    emerald: 'bg-emerald-100 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white',
-    amber: 'bg-amber-100 text-amber-700 group-hover:bg-amber-600 group-hover:text-white',
-  };
+  const s = TONE_STYLES[tone];
 
   return (
     <Link
       href={href}
-      className="group flex items-center gap-3 rounded-2xl border border-slate-100 bg-white px-4 py-3.5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-200 hover:shadow-md"
+      className={cn(
+        'group flex items-center gap-3.5 rounded-2xl border border-slate-200/90 bg-white px-4 py-3.5 shadow-sm transition-all duration-200 hover:-translate-y-px hover:shadow-md',
+        s.row,
+      )}
     >
       <div
         className={cn(
-          'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors',
-          iconTone[tone],
+          'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl shadow-md transition-transform group-hover:scale-105',
+          s.icon,
         )}
       >
         <Icon className="h-4 w-4" aria-hidden />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-bold text-slate-900 group-hover:text-indigo-700">{title}</p>
+        <p className={cn('truncate text-sm font-bold text-slate-800 transition-colors', s.linkHover)}>
+          {title}
+        </p>
         {subtitle ? (
-          <p className="mt-0.5 truncate text-[10px] font-bold uppercase tracking-wide text-slate-400">
+          <p className="mt-0.5 truncate text-[10px] font-semibold uppercase tracking-wide text-slate-400">
             {subtitle}
           </p>
         ) : null}
       </div>
-      <ChevronRight className="h-4 w-4 shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-indigo-500" />
+      <ChevronRight className="h-4 w-4 shrink-0 text-slate-300 transition-all group-hover:translate-x-0.5 group-hover:text-slate-500" />
     </Link>
+  );
+}
+
+function SectionHeading({ icon: Icon, label, tone }: { icon: ElementType; label: string; tone: Tone }) {
+  return (
+    <div className="flex items-center gap-2.5 border-b border-slate-100 pb-2.5">
+      <div
+        className={cn(
+          'flex h-7 w-7 items-center justify-center rounded-lg',
+          TONE_STYLES[tone].icon,
+        )}
+      >
+        <Icon className="h-3.5 w-3.5" aria-hidden />
+      </div>
+      <h3 className={cn('text-[11px] font-black uppercase tracking-[0.2em]', TONE_STYLES[tone].heading)}>
+        {label}
+      </h3>
+    </div>
   );
 }
 
 function ModalSkeleton() {
   return (
-    <div className="animate-pulse space-y-5 px-6 pb-6 pt-2">
-      <div className="mx-auto h-20 w-36 rounded-2xl bg-slate-200/70" />
-      <div className="mx-auto h-4 w-28 rounded-full bg-slate-200/70" />
-      <div className="space-y-2">
-        <div className="h-3 w-full rounded bg-slate-100" />
-        <div className="h-3 w-4/5 rounded bg-slate-100" />
-      </div>
-      <div className="grid grid-cols-3 gap-2">
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="h-16 rounded-2xl bg-slate-100" />
-        ))}
+    <div className="animate-pulse space-y-5 px-6 pb-6 pt-4">
+      <div className="h-16 rounded-2xl bg-slate-100" />
+      <div className="flex gap-2">
+        <div className="h-20 flex-1 rounded-2xl bg-slate-100" />
+        <div className="h-20 flex-1 rounded-2xl bg-slate-100" />
       </div>
       <div className="space-y-2">
         <div className="h-14 rounded-2xl bg-slate-100" />
         <div className="h-14 rounded-2xl bg-slate-100" />
       </div>
     </div>
+  );
+}
+
+function FooterLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      href={href}
+      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 shadow-sm transition-all hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-800 hover:shadow-md"
+    >
+      {label}
+      <ArrowUpRight className="h-3.5 w-3.5 opacity-70" aria-hidden />
+    </Link>
   );
 }
 
@@ -156,6 +213,13 @@ export function PartnerDetailModal({
   const courseCount = detail?.partnerCourses?.length ?? 0;
   const bookCount = detail?.partnerBooks?.length ?? 0;
   const hasLinks = programCount + courseCount + bookCount > 0;
+
+  const activeStats = [
+    programCount > 0 ? { icon: GraduationCap, label: 'Programs', count: programCount, tone: 'indigo' as const } : null,
+    courseCount > 0 ? { icon: BookOpen, label: 'Courses', count: courseCount, tone: 'emerald' as const } : null,
+    bookCount > 0 ? { icon: Library, label: 'Books', count: bookCount, tone: 'amber' as const } : null,
+  ].filter(Boolean);
+
   const logoSrc =
     detail?.logo != null
       ? resolveAttachmentUrl(detail.logo, API_ORIGIN) || 'https://placehold.co/240x128?text=Logo'
@@ -164,8 +228,8 @@ export function PartnerDetailModal({
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
       <DialogContent
-        showCloseButton
-        className="max-h-[min(92vh,720px)] gap-0 overflow-hidden rounded-[28px] border-0 p-0 shadow-2xl sm:max-w-xl"
+        showCloseButton={false}
+        className="max-h-[min(92vh,720px)] gap-0 overflow-hidden rounded-[32px] border border-slate-200/80 bg-slate-50 p-0 shadow-2xl shadow-slate-900/15 sm:max-w-lg"
       >
         <DialogTitle className="sr-only">{detail?.name ?? 'Partner details'}</DialogTitle>
         <DialogDescription className="sr-only">
@@ -173,30 +237,39 @@ export function PartnerDetailModal({
         </DialogDescription>
 
         {/* Hero */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-600 to-violet-700 px-6 pb-8 pt-6 text-white">
-          <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
-          <div className="pointer-events-none absolute -bottom-20 -left-10 h-40 w-40 rounded-full bg-violet-400/20 blur-2xl" />
+        <div className="relative overflow-hidden bg-linear-to-br from-slate-900 via-indigo-950 to-indigo-800 px-6 pb-10 pt-5 text-white">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(99,102,241,0.35),transparent_55%)]" />
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,rgba(14,165,233,0.12),transparent_50%)]" />
+
+          <DialogClose
+            className="absolute right-4 top-4 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white backdrop-blur-md transition-colors hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </DialogClose>
 
           <div className="relative flex flex-col items-center text-center">
-            <div className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-indigo-100 backdrop-blur-sm">
-              <Handshake className="h-3 w-3" aria-hidden />
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-[10px] font-black uppercase tracking-[0.22em] text-indigo-100 backdrop-blur-sm">
+              <Handshake className="h-3.5 w-3.5 text-sky-300" aria-hidden />
               Trusted partner
             </div>
 
-            <div className="relative mb-4 flex h-24 w-40 items-center justify-center rounded-[22px] border border-white/20 bg-white p-4 shadow-xl shadow-indigo-900/25">
+            <div className="relative mb-5 h-[5.5rem] w-44 overflow-hidden rounded-[24px] border border-white/25 bg-white p-3 shadow-2xl shadow-black/25 ring-4 ring-white/10">
               {logoSrc ? (
-                <Image src={logoSrc} alt="" fill className="object-contain p-2" sizes="160px" />
+                <Image src={logoSrc} alt="" fill className="object-contain p-1" sizes="176px" />
               ) : (
-                <Building2 className="h-10 w-10 text-indigo-300" aria-hidden />
+                <div className="flex h-full w-full items-center justify-center">
+                  <Building2 className="h-10 w-10 text-indigo-300" aria-hidden />
+                </div>
               )}
             </div>
 
-            <h2 className="text-xl font-black tracking-tight sm:text-2xl">
+            <h2 className="text-2xl font-black tracking-tight text-white drop-shadow-sm">
               {loading && !detail ? 'Loading partner…' : detail?.name ?? 'Partner'}
             </h2>
 
             {detail?.type ? (
-              <Badge className="mt-2 rounded-full border-0 bg-white/15 px-3 py-0.5 text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/20">
+              <Badge className="mt-2.5 rounded-full border border-white/20 bg-white/10 px-3.5 py-0.5 text-[10px] font-black uppercase tracking-widest text-indigo-100 hover:bg-white/15">
                 {detail.type}
               </Badge>
             ) : null}
@@ -206,23 +279,26 @@ export function PartnerDetailModal({
                 href={detail.websiteUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2.5 text-sm font-bold text-indigo-700 shadow-lg shadow-indigo-900/20 transition-transform hover:scale-[1.02] hover:bg-indigo-50"
+                className="mt-5 inline-flex items-center gap-2 rounded-2xl border border-white/20 bg-white/95 px-5 py-2.5 text-sm font-bold text-indigo-900 shadow-lg shadow-black/20 transition-all hover:scale-[1.02] hover:bg-white"
               >
-                <Globe2 className="h-4 w-4 shrink-0" aria-hidden />
+                <Globe2 className="h-4 w-4 shrink-0 text-indigo-600" aria-hidden />
                 {safeHostname(detail.websiteUrl)}
-                <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden />
+                <ExternalLink className="h-3.5 w-3.5 shrink-0 text-indigo-400" aria-hidden />
               </a>
             ) : null}
           </div>
+
+          {/* Soft curve into body */}
+          <div className="pointer-events-none absolute -bottom-px left-0 right-0 h-6 bg-slate-50 rounded-t-[28px]" />
         </div>
 
         {/* Body */}
-        <div className="max-h-[min(52vh,420px)] overflow-y-auto overscroll-contain px-6 py-5">
+        <div className="max-h-[min(50vh,400px)] overflow-y-auto overscroll-contain bg-slate-50 px-5 pb-5 pt-1 sm:px-6">
           {loading ? (
             <ModalSkeleton />
           ) : error ? (
-            <div className="flex flex-col items-center gap-4 py-8 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 text-rose-500">
+            <div className="flex flex-col items-center gap-4 py-10 text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-100 text-rose-600 ring-4 ring-rose-50">
                 <Sparkles className="h-6 w-6" aria-hidden />
               </div>
               <div>
@@ -233,7 +309,7 @@ export function PartnerDetailModal({
                 <Button
                   type="button"
                   variant="outline"
-                  className="rounded-2xl font-bold"
+                  className="rounded-xl border-slate-300 font-bold text-slate-700 hover:bg-slate-100"
                   onClick={onRetry}
                 >
                   <RefreshCw className="mr-2 h-4 w-4" aria-hidden />
@@ -244,32 +320,47 @@ export function PartnerDetailModal({
           ) : detail ? (
             <div className="space-y-5">
               {detail.description ? (
-                <p className="rounded-2xl border border-slate-100 bg-slate-50/80 px-4 py-3.5 text-sm leading-relaxed text-slate-600">
+                <p className="rounded-2xl border border-slate-200/80 bg-white px-4 py-3.5 text-sm leading-relaxed text-slate-600 shadow-sm">
                   {detail.description}
                 </p>
               ) : null}
 
-              {hasLinks ? (
-                <div className="grid grid-cols-3 gap-2">
-                  <StatPill icon={GraduationCap} label="Programs" count={programCount} tone="indigo" />
-                  <StatPill icon={BookOpen} label="Courses" count={courseCount} tone="emerald" />
-                  <StatPill icon={Library} label="Books" count={bookCount} tone="amber" />
+              {activeStats.length > 0 ? (
+                <div
+                  className={cn(
+                    'grid gap-2.5',
+                    activeStats.length === 1 && 'grid-cols-1',
+                    activeStats.length === 2 && 'grid-cols-2',
+                    activeStats.length >= 3 && 'grid-cols-3',
+                  )}
+                >
+                  {activeStats.map((stat) =>
+                    stat ? (
+                      <StatPill
+                        key={stat.label}
+                        icon={stat.icon}
+                        label={stat.label}
+                        count={stat.count}
+                        tone={stat.tone}
+                      />
+                    ) : null,
+                  )}
                 </div>
-              ) : (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 px-4 py-6 text-center">
-                  <p className="text-sm font-semibold text-slate-600">No linked offerings yet</p>
-                  <p className="mt-1 text-xs text-slate-400">
-                    Programs, courses, and books will appear here when connected.
+              ) : !hasLinks ? (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-5 py-8 text-center shadow-sm">
+                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+                    <Handshake className="h-5 w-5" aria-hidden />
+                  </div>
+                  <p className="text-sm font-bold text-slate-700">No linked offerings yet</p>
+                  <p className="mx-auto mt-1.5 max-w-[240px] text-xs leading-relaxed text-slate-500">
+                    Programs, courses, and books from this partner will show up here.
                   </p>
                 </div>
-              )}
+              ) : null}
 
               {programCount > 0 ? (
-                <section className="space-y-2.5">
-                  <h3 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    <GraduationCap className="h-3.5 w-3.5 text-indigo-500" aria-hidden />
-                    Programs
-                  </h3>
+                <section className="space-y-3">
+                  <SectionHeading icon={GraduationCap} label="Programs" tone="indigo" />
                   <ul className="space-y-2">
                     {detail.partnerPrograms!.map((row) => (
                       <li key={row.program.id}>
@@ -286,11 +377,8 @@ export function PartnerDetailModal({
               ) : null}
 
               {courseCount > 0 ? (
-                <section className="space-y-2.5">
-                  <h3 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    <BookOpen className="h-3.5 w-3.5 text-emerald-500" aria-hidden />
-                    Courses
-                  </h3>
+                <section className="space-y-3">
+                  <SectionHeading icon={BookOpen} label="Courses" tone="emerald" />
                   <ul className="space-y-2">
                     {detail.partnerCourses!.map((row) => (
                       <li key={row.course.id}>
@@ -307,11 +395,8 @@ export function PartnerDetailModal({
               ) : null}
 
               {bookCount > 0 ? (
-                <section className="space-y-2.5">
-                  <h3 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    <Library className="h-3.5 w-3.5 text-amber-600" aria-hidden />
-                    Books
-                  </h3>
+                <section className="space-y-3">
+                  <SectionHeading icon={Library} label="Books" tone="amber" />
                   <ul className="space-y-2">
                     {detail.partnerBooks!.map((row) => (
                       <li key={row.book.id}>
@@ -328,19 +413,9 @@ export function PartnerDetailModal({
                 </section>
               ) : null}
 
-              <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-4">
-                <Button asChild variant="secondary" size="sm" className="rounded-xl text-xs font-bold">
-                  <Link href="/courses">
-                    Browse courses
-                    <ArrowUpRight className="ml-1.5 h-3.5 w-3.5" aria-hidden />
-                  </Link>
-                </Button>
-                <Button asChild variant="secondary" size="sm" className="rounded-xl text-xs font-bold">
-                  <Link href="/books">
-                    Browse books
-                    <ArrowUpRight className="ml-1.5 h-3.5 w-3.5" aria-hidden />
-                  </Link>
-                </Button>
+              <div className="flex flex-wrap gap-2 border-t border-slate-200/80 pt-4">
+                <FooterLink href="/courses" label="Browse courses" />
+                <FooterLink href="/books" label="Browse books" />
               </div>
             </div>
           ) : null}
