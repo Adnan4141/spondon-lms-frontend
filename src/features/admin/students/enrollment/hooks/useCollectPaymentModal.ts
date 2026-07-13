@@ -23,6 +23,7 @@ import {
   monthSpanCount,
   parseInstallmentInfo,
   requiresTrxId,
+  resolveInvoiceDue,
   type InvoiceGroup,
 } from '../collect-payment-modal-utils';
 
@@ -64,7 +65,7 @@ async function payOneTimeWithFallback(input: {
   let remaining = input.amount;
   let invoiceId: string | null = null;
   const payableInvoices = input.displayInvoices
-    .map((inv) => ({ invoice: inv, due: Math.max(0, inv.amount - inv.paidAmount) }))
+    .map((inv) => ({ invoice: inv, due: resolveInvoiceDue(inv) }))
     .filter((row) => row.due > 0);
 
   for (const row of payableInvoices) {
@@ -351,12 +352,16 @@ export function useCollectPaymentModal({ student, onSave }: CollectPaymentModalP
 
   const totalPayable = displayInvoices.reduce((s, i) => s + i.amount, 0);
   const totalAlreadyPaid = displayInvoices.reduce((s, i) => s + i.paidAmount, 0);
-  const totalDueForMonth = displayInvoices.reduce(
-    (s, i) => s + Math.max(0, i.amount - i.paidAmount),
+  const totalDueForMonth = displayInvoices.reduce((s, i) => s + resolveInvoiceDue(i), 0);
+  const totalWaived = displayInvoices.reduce((s, i) => s + (i.waivedAmount ?? 0), 0);
+  const totalMonthlyScholarship = displayInvoices.reduce(
+    (s, i) => s + (i.monthlyDiscountAmount ?? 0),
     0,
   );
-  const totalWaived = displayInvoices.reduce((s, i) => s + (i.waivedAmount ?? 0), 0);
-  const totalDiscounted = displayInvoices.reduce((s, i) => s + (i.discountAmount ?? 0), 0);
+  const totalAdditionalDiscount = displayInvoices.reduce(
+    (s, i) => s + (i.discountAmount ?? 0),
+    0,
+  );
   const totalSettlement = displayInvoices.reduce((s, i) => s + (i.settlementAmount ?? 0), 0);
   const admissionFeeTotal = displayInvoices.reduce(
     (s, inv) =>
@@ -462,10 +467,17 @@ export function useCollectPaymentModal({ student, onSave }: CollectPaymentModalP
         tone: 'purple',
       });
     }
+    if (inv.monthlyDiscountAmount && inv.monthlyDiscountAmount > 0) {
+      rows.push({
+        label: 'Monthly scholarship',
+        detail: `${fmt(inv.monthlyDiscountAmount)} scholarship applied`,
+        tone: 'rose',
+      });
+    }
     if (inv.discountAmount && inv.discountAmount > 0) {
       rows.push({
-        label: 'Discount',
-        detail: `${fmt(inv.discountAmount)} discount applied`,
+        label: 'Additional discount',
+        detail: `${fmt(inv.discountAmount)} additional discount applied`,
         tone: 'blue',
       });
     }
@@ -666,7 +678,8 @@ export function useCollectPaymentModal({ student, onSave }: CollectPaymentModalP
     totalAlreadyPaid,
     totalDueForMonth,
     totalWaived,
-    totalDiscounted,
+    totalMonthlyScholarship,
+    totalAdditionalDiscount,
     totalSettlement,
     discountable,
     discount,

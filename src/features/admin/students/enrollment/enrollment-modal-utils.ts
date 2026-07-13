@@ -2,6 +2,29 @@ import type { Course } from '../types';
 
 export type EnrollmentValidationErrors = Partial<Record<string, string>>;
 
+export function maxMonth(a?: string | null, b?: string | null): string {
+  if (!a) return b || '';
+  if (!b) return a;
+  return a >= b ? a : b;
+}
+
+/** Earliest allowed billing start for a course during enrollment creation. */
+export function resolveMinCourseStartMonth(
+  courseStartMonth: string | null | undefined,
+  billingStartMonth: string,
+): string {
+  return maxMonth(courseStartMonth, billingStartMonth);
+}
+
+export function defaultEnrollmentCourseMonths(
+  course: Course,
+  billingStart: string,
+): { startMonth: string; endMonth: string } {
+  const startMonth = resolveMinCourseStartMonth(course.startMonth, billingStart);
+  const endMonth = maxMonth(course.endMonth || course.startMonth || startMonth, startMonth);
+  return { startMonth, endMonth };
+}
+
 export function collectZodErrors(result: unknown): EnrollmentValidationErrors {
   const parsed = result as { success: boolean; error?: import('zod').ZodError };
   if (parsed.success || !parsed.error) return {};

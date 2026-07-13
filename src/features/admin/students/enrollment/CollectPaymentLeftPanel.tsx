@@ -5,7 +5,7 @@ import { AlertTriangle, Download, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fmt, fmtMonth } from '../utils';
 import { StudentAdminBadge as AppBadge } from '../components/StudentAdminBadge';
-import { statusBadgeColor, statusLabel, parseInstallmentInfo } from './collect-payment-modal-utils';
+import { statusBadgeColor, statusLabel, parseInstallmentInfo, resolveInvoiceDue } from './collect-payment-modal-utils';
 import { CollectPaymentInvoiceGroupButton } from './CollectPaymentInvoiceGroupButton';
 import { EnrollmentAccessControls } from './EnrollmentAccessControls';
 import type { CollectPaymentModalController } from './hooks/useCollectPaymentModal';
@@ -225,7 +225,7 @@ export function CollectPaymentLeftPanel({ ctrl }: { ctrl: CollectPaymentModalCon
                   </thead>
                   <tbody>
                   {displayInvoices.map(inv => {
-                    const invoiceDue = Math.max(0, inv.amount - inv.paidAmount);
+                    const invoiceDue = resolveInvoiceDue(inv);
                     return (
                     <Fragment key={inv.id}>
                       <tr className="border-b border-slate-100">
@@ -240,10 +240,12 @@ export function CollectPaymentLeftPanel({ ctrl }: { ctrl: CollectPaymentModalCon
                         </td>
                         <td className="border-b border-slate-100 px-3 py-2.5 align-top">
                           <span className="font-bold text-slate-900">{fmt(inv.amount)}</span>
-                          {(inv.discountAmount || inv.waivedAmount) ? (
+                          {(inv.monthlyDiscountAmount || inv.discountAmount || inv.waivedAmount) ? (
                             <span className="block text-[11px] font-semibold text-slate-400">
-                              {inv.discountAmount ? `Discount -${fmt(inv.discountAmount)}` : ''}
-                              {inv.discountAmount && inv.waivedAmount ? ' · ' : ''}
+                              {inv.monthlyDiscountAmount ? `Scholarship -${fmt(inv.monthlyDiscountAmount)}` : ''}
+                              {inv.monthlyDiscountAmount && inv.discountAmount ? ' · ' : ''}
+                              {inv.discountAmount ? `Add. discount -${fmt(inv.discountAmount)}` : ''}
+                              {(inv.monthlyDiscountAmount || inv.discountAmount) && inv.waivedAmount ? ' · ' : ''}
                               {inv.waivedAmount ? `Waived -${fmt(inv.waivedAmount)}` : ''}
                             </span>
                           ) : null}

@@ -16,11 +16,11 @@ export function CollectPaymentRightPanel({ ctrl }: { ctrl: CollectPaymentModalCo
     monthStatus,
     isSelectedMonthly,
     totalPayable,
-    totalDiscounted,
+    totalMonthlyScholarship,
+    totalAdditionalDiscount,
     totalWaived,
     totalSettlement,
     totalAlreadyPaid,
-    enrollmentMonthlyDiscount,
     addDiscount,
     setAddDiscount,
     discountCapped,
@@ -81,10 +81,16 @@ export function CollectPaymentRightPanel({ ctrl }: { ctrl: CollectPaymentModalCo
                   <span className="text-sm text-slate-500">Total payable</span>
                   <span className="shrink-0 font-bold text-sm">{fmt(totalPayable)}</span>
                 </div>
-                {totalDiscounted > 0 && (
+                {totalMonthlyScholarship > 0 && (
                   <div className="flex justify-between gap-3 mb-2">
-                    <span className="text-sm text-slate-500">Discount(−)</span>
-                    <span className="shrink-0 font-semibold text-sm text-blue-600">−{fmt(totalDiscounted)}</span>
+                    <span className="text-sm text-slate-500">Monthly scholarship(−)</span>
+                    <span className="shrink-0 font-semibold text-sm text-rose-600">−{fmt(totalMonthlyScholarship)}</span>
+                  </div>
+                )}
+                {totalAdditionalDiscount > 0 && (
+                  <div className="flex justify-between gap-3 mb-2">
+                    <span className="text-sm text-slate-500">Additional discount(−)</span>
+                    <span className="shrink-0 font-semibold text-sm text-blue-600">−{fmt(totalAdditionalDiscount)}</span>
                   </div>
                 )}
                 {totalWaived > 0 && (
@@ -107,15 +113,9 @@ export function CollectPaymentRightPanel({ ctrl }: { ctrl: CollectPaymentModalCo
                     <span className="shrink-0 font-semibold text-sm text-emerald-600">−{fmt(totalAlreadyPaid)}</span>
                   </div>
                 )}
-                {isSelectedMonthly && enrollmentMonthlyDiscount > 0 && (
-                  <div className="flex justify-between gap-3 mb-3">
-                    <span className="text-sm text-slate-500">Monthly scholarship(−)</span>
-                    <span className="shrink-0 font-semibold text-sm text-rose-600">−{fmt(enrollmentMonthlyDiscount)}/mo</span>
-                  </div>
-                )}
                 {isSelectedMonthly && (
                   <>
-                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Additional discount(−)</p>
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Collect-time additional discount(−)</p>
                     <Input
                       type="number"
                       min={0}

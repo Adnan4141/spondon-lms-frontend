@@ -123,6 +123,13 @@ export function validateEnrollment(
               message: 'End month is required',
             });
           }
+          if (selectedStartMonth && selectedStartMonth < ctx.billingStart) {
+            issueCtx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: [`startMonth.${course.id}`],
+              message: `Start month cannot be before billing start (${ctx.billingStart})`,
+            });
+          }
           if (course.startMonth && selectedStartMonth && selectedStartMonth < course.startMonth) {
             issueCtx.addIssue({
               code: z.ZodIssueCode.custom,

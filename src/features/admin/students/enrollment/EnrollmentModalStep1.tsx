@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { fmt } from '../utils';
-import { effectiveCourseFee, moneyNumber } from './enrollment-modal-utils';
+import { effectiveCourseFee, moneyNumber, defaultEnrollmentCourseMonths, resolveMinCourseStartMonth } from './enrollment-modal-utils';
 import { StudentAdminBadge as AppBadge } from '../components/StudentAdminBadge';
 import { StudentAdminField as Field } from '../components/StudentAdminField';
 import { StudentAdminSelect as AppSelect } from '../components/StudentAdminSelect';
@@ -92,6 +92,8 @@ export function EnrollmentModalStep1({ ctrl }: { ctrl: EnrollmentModalController
                     {availableCourses.length > 0 && (() => {
                       const renderCourseCard = (c: Course, noBatch = false) => {
                         const sel = selCourses[c.id];
+                        const courseMonths = defaultEnrollmentCourseMonths(c, billingStart);
+                        const minStartMonth = resolveMinCourseStartMonth(c.startMonth, billingStart);
                         const activeBatches = (courseBatches[c.id] ?? []).filter(b => b.status === 'ACTIVE');
                         return (
                           <div
@@ -167,9 +169,9 @@ export function EnrollmentModalStep1({ ctrl }: { ctrl: EnrollmentModalController
                                   <>
                                     <Field label="Start Month" required>
                                       <MonthInput
-                                        value={sel.startMonth || billingStart}
+                                        value={sel.startMonth || courseMonths.startMonth}
                                         onChange={v => setCF(c.id, 'startMonth', v)}
-                                        min={c.startMonth}
+                                        min={minStartMonth}
                                         max={sel.endMonth || c.endMonth}
                                       />
                                       {validation.errors[`startMonth.${c.id}`] && (
@@ -180,9 +182,9 @@ export function EnrollmentModalStep1({ ctrl }: { ctrl: EnrollmentModalController
                                     </Field>
                                     <Field label="End Month" required>
                                       <MonthInput
-                                        value={sel.endMonth || c.endMonth || sel.startMonth || billingStart}
+                                        value={sel.endMonth || courseMonths.endMonth}
                                         onChange={v => setCF(c.id, 'endMonth', v)}
-                                        min={sel.startMonth || c.startMonth || billingStart}
+                                        min={sel.startMonth || minStartMonth}
                                         max={c.endMonth}
                                       />
                                       {validation.errors[`endMonth.${c.id}`] && (

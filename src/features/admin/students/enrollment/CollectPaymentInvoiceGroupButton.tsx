@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { fmt, fmtMonth } from '../utils';
 import { StudentAdminBadge as AppBadge } from '../components/StudentAdminBadge';
 import type { InvoiceGroup } from './collect-payment-modal-utils';
-import { getMonthAggStatus, parseInstallmentInfo, statusBadgeColor, statusLabel } from './collect-payment-modal-utils';
+import { getMonthAggStatus, parseInstallmentInfo, resolveInvoiceDue, statusBadgeColor, statusLabel } from './collect-payment-modal-utils';
 import type { CollectPaymentModalController } from './hooks/useCollectPaymentModal';
 
 function getGroupInstallmentHint(group: InvoiceGroup): string | null {
@@ -32,7 +32,7 @@ export function CollectPaymentInvoiceGroupButton({
 }) {
   const { selectedGroupKey, selectInvoiceGroup } = ctrl;
   const aggStatus = getMonthAggStatus(group.invoices);
-  const due = group.invoices.reduce((sum, inv) => sum + Math.max(0, inv.amount - inv.paidAmount), 0);
+  const due = group.invoices.reduce((sum, inv) => sum + resolveInvoiceDue(inv), 0);
   const installmentHint = getGroupInstallmentHint(group);
   const label =
     group.billingType === 'MONTHLY'

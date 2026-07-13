@@ -101,10 +101,30 @@ export function parseInstallmentInfo(item: {
   return null;
 }
 
+/** Line-item due when enriched; avoids stale header payable double-counting admission payments. */
+export function resolveInvoiceDue(inv: Invoice): number {
+  const items = inv.items ?? [];
+  if (items.length > 0) {
+    return items.reduce(
+      (sum, item) =>
+        sum +
+        Number(
+          item.dueAmount ??
+            Math.max(
+              0,
+              Number(item.payableAmount ?? item.unitPrice * item.qty) - Number(item.paidAmount ?? 0),
+            ),
+        ),
+      0,
+    );
+  }
+  return Math.max(0, inv.amount - inv.paidAmount);
+}
+
 export function getMonthAggStatus(invs: Invoice[]): DisplayStatus {
   if (!invs.length) return 'DUE';
   const statuses = invs.map((i) => (i.displayStatus ?? i.status) as DisplayStatus);
-  const totalDue = invs.reduce((sum, inv) => sum + Math.max(0, inv.amount - inv.paidAmount), 0);
+  const totalDue = invs.reduce((sum, inv) => sum + resolveInvoiceDue(inv), 0);
   if (statuses.every((s) => s === 'WAIVED')) return 'WAIVED';
   if (
     totalDue <= 0 &&

@@ -96,6 +96,7 @@ export interface Invoice {
   displayStatus?: 'PAID' | 'PAID_WITH_WAIVER' | 'WAIVED' | 'PARTIALLY_WAIVED' | 'PARTIAL' | 'SETTLED' | 'DUE' | 'CANCELLED';
   displayLabel?: string;
   waivedAmount?: number;
+  monthlyDiscountAmount?: number;
   discountAmount?: number;
   settlementAmount?: number;
   dueDate: string;

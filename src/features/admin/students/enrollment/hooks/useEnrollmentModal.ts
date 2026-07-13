@@ -8,8 +8,10 @@ import type { Course, Program, SelCourseState } from '../../types';
 import { currentMonth, distributeDiscount } from '../../utils';
 import type { EnrollmentModalProps } from '../enrollment-modal-types';
 import {
+  defaultEnrollmentCourseMonths,
   distributeEqualCents,
   effectiveCourseFee,
+  maxMonth,
   moneyNumber,
   roundMoney,
 } from '../enrollment-modal-utils';
@@ -250,23 +252,48 @@ export function useEnrollmentModal({
     setNextPaymentDueDate(undefined);
   };
 
-  const toggle = (cid: string) =>
+  const toggle = (cid: string) => {
+    const course = availableCourses.find((c) => c.id === cid);
+    const defaults = course ? defaultEnrollmentCourseMonths(course, billingStart) : null;
     setSelCourses((p) => ({
       ...p,
       [cid]: {
         ...p[cid],
         checked: !p[cid]?.checked,
-        startMonth: availableCourses.find((c) => c.id === cid)?.startMonth ?? billingStart,
-        endMonth:
-          p[cid]?.endMonth ||
-          availableCourses.find((c) => c.id === cid)?.endMonth ||
-          availableCourses.find((c) => c.id === cid)?.startMonth ||
-          billingStart,
+        startMonth: defaults?.startMonth ?? billingStart,
+        endMonth: defaults?.endMonth ?? billingStart,
       },
     }));
+  };
 
   const setCF = (cid: string, f: string, v: string) =>
     setSelCourses((p) => ({ ...p, [cid]: { ...p[cid], [f]: v } }));
+
+  const handleBillingStartChange = (next: string) => {
+    setBillingStart(next);
+    setSelCourses((prev) => {
+      let changed = false;
+      const updated = { ...prev };
+      for (const [courseId, meta] of Object.entries(updated)) {
+        if (!meta?.checked) continue;
+        const course = availableCourses.find((c) => c.id === courseId);
+        const minStart = course
+          ? defaultEnrollmentCourseMonths(course, next).startMonth
+          : next;
+        const nextStart = maxMonth(meta.startMonth, minStart);
+        const nextEnd = meta.endMonth && meta.endMonth >= nextStart
+          ? meta.endMonth
+          : course
+            ? defaultEnrollmentCourseMonths(course, next).endMonth
+            : nextStart;
+        if (nextStart !== meta.startMonth || nextEnd !== meta.endMonth) {
+          updated[courseId] = { ...meta, startMonth: nextStart, endMonth: nextEnd };
+          changed = true;
+        }
+      }
+      return changed ? updated : prev;
+    });
+  };
 
   const handleConfirm = async () => {
     if (!validation.success) {
@@ -281,15 +308,13 @@ export function useEnrollmentModal({
         batchId: selCourses[c.id]?.batch || null,
         includeBook: false,
         ...(isMonthlyProgram
-          ? {
-              startMonth: selCourses[c.id]?.startMonth || c.startMonth || billingStart,
-              endMonth:
-                selCourses[c.id]?.endMonth ||
-                c.endMonth ||
-                selCourses[c.id]?.startMonth ||
-                c.startMonth ||
-                billingStart,
-            }
+          ? (() => {
+              const months = defaultEnrollmentCourseMonths(c, billingStart);
+              return {
+                startMonth: selCourses[c.id]?.startMonth || months.startMonth,
+                endMonth: selCourses[c.id]?.endMonth || months.endMonth,
+              };
+            })()
           : {}),
       }));
       const dto: OfflineAdmissionDto = {
@@ -346,7 +371,7 @@ export function useEnrollmentModal({
     nextPaymentDueDate,
     setNextPaymentDueDate,
     billingStart,
-    setBillingStart,
+    setBillingStart: handleBillingStartChange,
     courseBatches,
     loadingBatches,
     saving,

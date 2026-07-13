@@ -11,6 +11,7 @@ type ApiInvoice = {
   displayLabel?: string;
   discountReference?: string | null;
   discountAmount?: number | string;
+  monthlyDiscountAmount?: number | string;
   settlementAmount?: number | string;
   nextPaymentDueDate?: string | null;
   invoiceNumber?: string | null;
@@ -126,7 +127,8 @@ export function mapApiInvoicesToLocal(
       displayPeriod: billingType === 'MONTHLY' ? (inv.month ?? '') : '',
       amount: Number(inv.payableAmount),
       paidAmount: Number(inv.paidAmount),
-      discountAmount: Number(inv.settlementSummary?.discountAmount ?? inv.discountAmount ?? 0),
+      monthlyDiscountAmount: Number(inv.monthlyDiscountAmount ?? 0),
+      discountAmount: Number(inv.discountAmount ?? 0),
       waivedAmount: Number(inv.settlementSummary?.waivedAmount ?? 0),
       settlementAmount: Number(inv.settlementSummary?.settlementAmount ?? inv.settlementAmount ?? 0),
       status: (
