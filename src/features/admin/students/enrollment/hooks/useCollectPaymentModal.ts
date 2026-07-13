@@ -471,7 +471,7 @@ export function useCollectPaymentModal({ student, onSave }: CollectPaymentModalP
       rows.push({
         label: 'Monthly scholarship',
         detail: `${fmt(inv.monthlyDiscountAmount)} scholarship applied`,
-        tone: 'rose',
+        tone: 'amber',
       });
     }
     if (inv.discountAmount && inv.discountAmount > 0) {
