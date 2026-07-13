@@ -81,3 +81,60 @@ export function assessWizardPublishReadiness(
 
   return { ok: blockers.length === 0, blockers, warnings };
 }
+
+/** Publish checklist from a loaded exam record (overview / hub). */
+export function assessExamPublishReadinessFromExam(
+  exam: Pick<
+    Exam,
+    | 'title'
+    | 'courseId'
+    | 'resultInputModes'
+    | 'omrQuestionCount'
+    | 'omrOptionCount'
+    | 'pdfUrl'
+    | 'solveSheetUrl'
+    | 'sets'
+    | '_count'
+    | 'startAt'
+    | 'endAt'
+    | 'settings'
+  >,
+): { ok: boolean; blockers: string[]; warnings: string[] } {
+  const blockers: string[] = [];
+  const warnings: string[] = [];
+
+  if (!exam.title?.trim()) blockers.push('Exam title is required.');
+  if (!exam.courseId) blockers.push('Link a course before publishing.');
+
+  const setCount = exam._count?.sets ?? exam.sets?.length ?? 0;
+  const generatedQuestionCount =
+    exam.sets?.reduce((sum, set) => sum + (set.questions?.length ?? 0), 0) ?? 0;
+  if (!setCount || !generatedQuestionCount) {
+    blockers.push('Generate question sets before publishing (save & pull questions from the bank in the wizard).');
+  } else if (!exam.pdfUrl) {
+    blockers.push('Generate the master question paper PDF before publishing.');
+  }
+
+  if (exam.resultInputModes?.includes('OMR_SCAN')) {
+    if (!exam.omrQuestionCount || !exam.omrOptionCount) {
+      blockers.push('Configure the OMR sheet (question count and option count) before publishing.');
+    }
+  }
+
+  if (exam.startAt && exam.endAt) {
+    const start = new Date(exam.startAt).getTime();
+    const end = new Date(exam.endAt).getTime();
+    if (start >= end) blockers.push('Start time must be before end time.');
+  }
+
+  const wizard = exam.settings?.examWizard as { showSolve?: boolean } | undefined;
+  if (wizard?.showSolve && !exam.solveSheetUrl) {
+    warnings.push('Solve sheet is enabled but not generated — students may not see solutions until you generate it.');
+  }
+
+  if (exam.endAt && new Date(exam.endAt).getTime() < Date.now()) {
+    warnings.push('End time is in the past — students may not be able to attempt.');
+  }
+
+  return { ok: blockers.length === 0, blockers, warnings };
+}

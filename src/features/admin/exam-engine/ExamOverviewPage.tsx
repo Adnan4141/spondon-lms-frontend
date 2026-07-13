@@ -26,6 +26,8 @@ import {
   type ExamSection,
 } from '@/lib/api/exams';
 import { actionLabel, changeSummary } from '@/features/admin/audit/audit-utils';
+import { ApiError } from '@/lib/api';
+import { assessExamPublishReadinessFromExam } from '@/lib/exam-readiness';
 import type { ExamSet } from '@/types/exam';
 import { ConfirmationModal } from '@/features/admin/shared';
 import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
@@ -52,6 +54,7 @@ export function ExamOverviewPage({ examId }: { examId: string }) {
   const [operations, setOperations] = useState<ExamOperationsSummary | null>(null);
   const [auditRows, setAuditRows] = useState<ExamAuditTrailRow[]>([]);
   const [loadingExtra, setLoadingExtra] = useState(true);
+  const [publishing, setPublishing] = useState(false);
 
   const loadExtras = useCallback(async () => {
     if (!examId) return;
@@ -90,6 +93,71 @@ export function ExamOverviewPage({ examId }: { examId: string }) {
     () => sets.reduce((a, st) => a + (st.questions?.length ?? 0), 0),
     [sets],
   );
+
+  const publishReadiness = useMemo(
+    () => (exam ? assessExamPublishReadinessFromExam(exam) : { ok: false, blockers: [], warnings: [] }),
+    [exam],
+  );
+  const canPublish = exam?.status === 'DRAFT' && publishReadiness.ok;
+
+  const handlePublish = useCallback(async () => {
+    if (!exam || !canPublish) return;
+    setPublishing(true);
+    try {
+      const response = await updateExam(examId, { status: 'PUBLISHED' });
+      if (!response.success) {
+        toast({
+          title: 'Publish failed',
+          description: response.message ?? 'Could not publish this exam.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      toast({ title: 'Exam published' });
+      await refreshExam();
+      await loadExtras();
+    } catch (error) {
+      if (error instanceof ApiError) {
+        const body = error.body as { errors?: string[] } | undefined;
+        const blockers = Array.isArray(body?.errors) ? body.errors : null;
+        toast({
+          title: 'Publish failed',
+          description: blockers?.length ? blockers.join(' ') : error.message,
+          variant: 'destructive',
+        });
+        return;
+      }
+      toast({
+        title: 'Publish failed',
+        description: error instanceof Error ? error.message : 'Could not publish this exam.',
+        variant: 'destructive',
+      });
+    } finally {
+      setPublishing(false);
+    }
+  }, [canPublish, exam, examId, loadExtras, refreshExam, toast]);
+
+  const openPublishExam = useCallback(() => {
+    if (!exam || !canPublish) return;
+    const publishBlocker = publishReadiness.blockers[0];
+    if (publishBlocker) {
+      toast({ title: 'Cannot publish yet', description: publishBlocker, variant: 'destructive' });
+      return;
+    }
+    openModal({
+      title: 'Publish exam',
+      description: 'Students in the linked course will be able to see and attempt this exam.',
+      className: 'sm:max-w-lg',
+      content: (
+        <ConfirmationModal
+          title="Publish to students?"
+          description={`“${exam.title}” will go live. You can still close it later from this overview.`}
+          confirmLabel="Yes, publish"
+          onConfirm={handlePublish}
+        />
+      ),
+    });
+  }, [canPublish, exam, handlePublish, openModal, publishReadiness.blockers, toast]);
 
   const openCloseExam = () => {
     if (!exam) return;
@@ -182,15 +250,28 @@ export function ExamOverviewPage({ examId }: { examId: string }) {
   const canUseWrittenEvaluation = Boolean(operations?.written.enabled && operations.written.totalAttempts > 0);
   const canUseOmrReview = Boolean(operations?.omr.enabled);
   const canReviewBatches = Boolean(operations?.offlineResults.batchTotal);
+  const recommendedAction = useMemo(() => {
+    if (canPublish) {
+      return {
+        key: 'PUBLISH',
+        label: 'Publish to students',
+        href: `/admin/exam/${examId}`,
+        severity: 'success' as const,
+      };
+    }
+    return operations?.recommendedAction ?? null;
+  }, [canPublish, examId, operations?.recommendedAction]);
+
   const recommendedDisabled = Boolean(
-    operations
+    recommendedAction
       && (
-        (operations.recommendedAction.key === 'EDIT_WIZARD' && !canEditExam)
-        || (operations.recommendedAction.key === 'GENERATE_PDF' && !canGeneratePdf)
-        || (operations.recommendedAction.key === 'IMPORT_RESULTS' && !canUseOfflineResults)
-        || (operations.recommendedAction.key === 'EVALUATE_SCRIPTS' && !canUseWrittenEvaluation)
-        || (operations.recommendedAction.key === 'REVIEW_APPROVALS' && !canReviewBatches)
-        || (operations.recommendedAction.key === 'SEND_RESULT_SMS' && !canReviewBatches)
+        (recommendedAction.key === 'EDIT_WIZARD' && !canEditExam)
+        || (recommendedAction.key === 'GENERATE_PDF' && !canGeneratePdf)
+        || (recommendedAction.key === 'PUBLISH' && !canPublish)
+        || (recommendedAction.key === 'IMPORT_RESULTS' && !canUseOfflineResults)
+        || (recommendedAction.key === 'EVALUATE_SCRIPTS' && !canUseWrittenEvaluation)
+        || (recommendedAction.key === 'REVIEW_APPROVALS' && !canReviewBatches)
+        || (recommendedAction.key === 'SEND_RESULT_SMS' && !canReviewBatches)
       ),
   );
 
@@ -281,24 +362,43 @@ export function ExamOverviewPage({ examId }: { examId: string }) {
               <CardTitle className="font-serif text-lg text-[#0D1B35]">Readiness</CardTitle>
               <CardDescription>Setup health, result flow, and the next recommended action.</CardDescription>
             </div>
-            {recommendedDisabled ? (
-              <Button disabled className="bg-slate-200 text-slate-500">
-                {operations.recommendedAction.label} <DisabledReason>not ready</DisabledReason>
-              </Button>
-            ) : (
-              <Button
-                asChild
-                className={
-                  operations.recommendedAction.severity === 'success'
-                    ? 'bg-emerald-700 text-white hover:bg-emerald-800'
-                    : 'bg-[#0D1B35] text-[#E2C98A] hover:bg-[#1E2F55]'
-                }
-              >
-                <Link href={operations.recommendedAction.href}>{operations.recommendedAction.label}</Link>
-              </Button>
-            )}
+            {recommendedAction ? (
+              recommendedDisabled ? (
+                <Button disabled className="bg-slate-200 text-slate-500">
+                  {recommendedAction.label} <DisabledReason>not ready</DisabledReason>
+                </Button>
+              ) : recommendedAction.key === 'PUBLISH' ? (
+                <Button
+                  type="button"
+                  className="bg-emerald-700 text-white hover:bg-emerald-800"
+                  disabled={publishing}
+                  onClick={openPublishExam}
+                >
+                  {publishing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  {recommendedAction.label}
+                </Button>
+              ) : (
+                <Button
+                  asChild
+                  className={
+                    recommendedAction.severity === 'success'
+                      ? 'bg-emerald-700 text-white hover:bg-emerald-800'
+                      : 'bg-[#0D1B35] text-[#E2C98A] hover:bg-[#1E2F55]'
+                  }
+                >
+                  <Link href={recommendedAction.href}>{recommendedAction.label}</Link>
+                </Button>
+              )
+            ) : null}
           </CardHeader>
           <CardContent className="space-y-5">
+            {canPublish && publishReadiness.warnings.length > 0 ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                {publishReadiness.warnings.map((item) => (
+                  <p key={item}>{item}</p>
+                ))}
+              </div>
+            ) : null}
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <StatTile label="Mode" value={exam.mode} tone="blue" />
               <StatTile label="Sets / Questions" value={`${operations.setup.setCount} / ${operations.setup.generatedQuestionCount}`} />
