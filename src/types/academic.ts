@@ -9,6 +9,10 @@ export interface OnlineExamAttempt {
   status: string;
   totalMarks?: number | null;
   obtainedMarks?: number | null;
+  answers?: Array<{
+    obtainedMarks?: number | string | null;
+    isCorrect?: boolean | null;
+  }>;
   exam?: {
     id: string;
     title: string;

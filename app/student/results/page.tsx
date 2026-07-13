@@ -30,6 +30,14 @@ function canShowSolveSheet(exam?: OnlineExamAttempt['exam']): boolean {
   return false;
 }
 
+function getProvisionalMcqFromAttempt(attempt: OnlineExamAttempt): number | null {
+  if (attempt.obtainedMarks != null || !attempt.answers?.length) return null;
+  const graded = attempt.answers.filter((answer) => answer.obtainedMarks != null);
+  if (!graded.length) return null;
+  const obtained = graded.reduce((sum, answer) => sum + Number(answer.obtainedMarks ?? 0), 0);
+  return Math.max(0, obtained);
+}
+
 export default function StudentResultsPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<StudentResults | null>(null);
@@ -311,8 +319,10 @@ export default function StudentResultsPage() {
               <div className="grid gap-6">
                 {attempts.map((attempt: OnlineExamAttempt) => {
                   const obtained = attempt.obtainedMarks != null ? Number(attempt.obtainedMarks) : null;
+                  const provisionalMcq = getProvisionalMcqFromAttempt(attempt);
                   const total = attempt.totalMarks != null ? Number(attempt.totalMarks) : null;
                   const percentage = (obtained != null && total != null && total > 0) ? (obtained / total) * 100 : null;
+                  const pendingWrittenEvaluation = obtained == null && provisionalMcq != null;
                   return (
                     <Card key={attempt.id} className="group overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-xs hover:shadow-md transition-all duration-300">
                       <CardContent className="p-6 sm:p-8">
@@ -341,10 +351,23 @@ export default function StudentResultsPage() {
 
                           <div className="flex flex-col sm:flex-row items-center gap-6 shrink-0 w-full lg:w-auto">
                              <div className="text-center px-6 py-3 rounded-2xl bg-slate-50 group-hover:bg-indigo-50/50 transition-colors w-full sm:w-36">
-                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-0.5">Obtained Marks</p>
-                                <p className="text-2xl font-black text-indigo-600">
-                                  {attempt.obtainedMarks ?? '—'} <span className="text-slate-300 text-lg">/</span> {attempt.totalMarks ?? '—'}
+                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-0.5">
+                                  {pendingWrittenEvaluation ? 'Provisional MCQ' : 'Obtained Marks'}
                                 </p>
+                                <p className="text-2xl font-black text-indigo-600">
+                                  {pendingWrittenEvaluation
+                                    ? provisionalMcq
+                                    : attempt.obtainedMarks ?? '—'}
+                                  {!pendingWrittenEvaluation ? (
+                                    <span className="text-slate-300 text-lg"> / </span>
+                                  ) : null}
+                                  {!pendingWrittenEvaluation ? (attempt.totalMarks ?? '—') : null}
+                                </p>
+                                {pendingWrittenEvaluation ? (
+                                  <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-amber-600">
+                                    Written evaluation pending
+                                  </p>
+                                ) : null}
                              </div>
                              
                              {canShowSolveSheet(attempt.exam) && attempt.examId && (
