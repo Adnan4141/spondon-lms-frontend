@@ -717,6 +717,48 @@ export async function applyOneTimeEnrollmentChanges(
   );
 }
 
+export interface ApplyMonthlyChangesResult {
+  added: number;
+  removed: number;
+  discountUpdated: boolean;
+  enrollmentAutoCancelled: boolean;
+  invoiceRefresh: {
+    recalculatedInvoices: number;
+    failedMonths: string[];
+    advanceInvoicesCreated: number;
+    advanceErrors: string[];
+    skippedMonths: string[];
+    maxBillableMonth: string | null;
+  };
+  previewInvoiceId?: string;
+}
+
+export async function applyMonthlyEnrollmentChanges(
+  enrollmentId: string,
+  body: {
+    effectiveMonth: string;
+    removeCourseIds?: string[];
+    addCourses?: Array<{
+      courseId: string;
+      batchId?: string | null;
+      includeBook?: boolean;
+      startMonth: string;
+      endMonth: string;
+    }>;
+    monthlyDiscount?: number;
+    reason?: string;
+    advanceMonths?: number;
+  },
+): Promise<ApiResponse<ApplyMonthlyChangesResult>> {
+  return apiRequest<ApiResponse<ApplyMonthlyChangesResult>>(
+    `/enrollments/${enrollmentId}/monthly/apply-changes`,
+    {
+      method: 'POST',
+      body: JSON.stringify(body),
+    },
+  );
+}
+
 export async function removeCourseFromEnrollment(
   enrollmentId: string,
   courseId: string,

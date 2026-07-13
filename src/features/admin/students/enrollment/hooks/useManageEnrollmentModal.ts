@@ -2,22 +2,17 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { getBatches } from '@/lib/api/batches';
+import { getInvoicePdfUrl } from '@/lib/api/invoices';
 import {
-  generateAdvanceInvoices,
-  getInvoicePdfUrl,
-  getInvoices,
-} from '@/lib/api/invoices';
-import {
-  addCourseToEnrollment,
+  applyMonthlyEnrollmentChanges,
   correctionResetEnrollment,
-  removeCourseFromEnrollment,
-  updateEnrollment,
 } from '@/lib/api/enrollments';
 import { confirmAction } from '@/features/admin/shared/confirm-action';
 import { useToast } from '@/hooks/use-toast';
 import type { Course } from '../../types';
 import { currentMonth, fmt, fmtMonth, normPdfUrl } from '../../utils';
 import {
+  defaultCourseMeta,
   getCourseTimelineError,
   type CourseMeta,
   type ManageEnrollmentModalProps,
@@ -86,12 +81,8 @@ export function useManageEnrollmentModal({
     (c) => c.type === 'OFFLINE' && !selectedMeta[c.id]?.batch,
   );
   const hasInvalidTimeline = selectedAddCourses.some((course) => {
-    const meta = selectedMeta[course.id] || {
-      batch: '',
-      startMonth: course.startMonth || effMonth,
-      endMonth: course.endMonth || course.startMonth || effMonth,
-    };
-    return Boolean(getCourseTimelineError(course, meta));
+    const meta = selectedMeta[course.id] || defaultCourseMeta(course, effMonth);
+    return Boolean(getCourseTimelineError(course, meta, effMonth));
   });
   const projectedCount =
     activeCourses.length - selectedCancelCourses.length + selectedAddCourses.length;
@@ -143,101 +134,45 @@ export function useManageEnrollmentModal({
 
     setSaving(true);
     setSubmitError('');
-
-    const failures: string[] = [];
-    let added = 0;
-    let removed = 0;
-
-    const addSelectedCourses = async () => {
-      if (selectedAddCourses.length === 0) return;
-      setProgressText(`Adding ${selectedAddCourses.length} course(s)...`);
-      for (const c of selectedAddCourses) {
-        const meta = selectedMeta[c.id] || {
-          batch: '',
-          startMonth: c.startMonth || effMonth,
-          endMonth: c.endMonth || c.startMonth || effMonth,
-        };
-        const res = await addCourseToEnrollment(enrollment.id, {
-          courseId: c.id,
-          batchId: meta.batch || null,
-          includeBook: false,
-          startMonth: meta.startMonth || c.startMonth || effMonth,
-          endMonth: meta.endMonth || c.endMonth || meta.startMonth || c.startMonth || effMonth,
-          effectiveMonth: effMonth,
-        });
-        if (res.success) {
-          added += 1;
-        } else {
-          failures.push(`${c.name}: ${(res as { message?: string }).message ?? 'Add failed'}`);
-        }
-      }
-    };
-
-    const cancelSelectedCourses = async () => {
-      if (selectedCancelCourses.length === 0) return;
-      setProgressText(`Cancelling ${selectedCancelCourses.length} course(s)...`);
-      for (const c of selectedCancelCourses) {
-        const res = await removeCourseFromEnrollment(enrollment.id, c.id, {
-          effectiveMonth: effMonth,
-          cancellationPolicy: 'FULL_REMOVE',
-        });
-        if (res.success) {
-          removed += 1;
-        } else {
-          failures.push(`${c.name}: ${(res as { message?: string }).message ?? 'Cancel failed'}`);
-        }
-      }
-    };
+    setProgressText('Applying enrollment changes...');
 
     try {
-      const needsAddFirst =
-        selectedCancelCourses.length >= activeCourses.length && selectedAddCourses.length > 0;
+      const res = await applyMonthlyEnrollmentChanges(enrollment.id, {
+        effectiveMonth: effMonth,
+        removeCourseIds: selectedCancelCourses.map((c) => c.id),
+        addCourses: selectedAddCourses.map((c) => {
+          const meta = selectedMeta[c.id] || defaultCourseMeta(c, effMonth);
+          return {
+            courseId: c.id,
+            batchId: meta.batch || null,
+            includeBook: false,
+            startMonth: meta.startMonth,
+            endMonth: meta.endMonth,
+          };
+        }),
+        monthlyDiscount: discount !== enrollment.monthlyDiscount ? discount : undefined,
+        reason: 'Monthly enrollment changes from Manage Enrollment',
+        advanceMonths: 3,
+      });
 
-      if (needsAddFirst) {
-        await addSelectedCourses();
-        await cancelSelectedCourses();
-      } else {
-        await cancelSelectedCourses();
-        await addSelectedCourses();
+      if (!res.success || !res.data) {
+        throw new Error((res as { message?: string }).message ?? 'Failed to update enrollment');
       }
 
-      const hasMutations = added > 0 || removed > 0;
-      if (hasMutations && discount !== enrollment.monthlyDiscount) {
-        setProgressText('Updating monthly discount...');
-        const upd = await updateEnrollment(enrollment.id, {
-          monthlyDiscount: discount,
-          effectiveMonth: effMonth,
-          reason: 'Monthly discount adjustment from Manage Enrollment',
-        });
-        if (!upd.success) {
-          failures.push((upd as { message?: string }).message ?? 'Discount update failed');
-        }
-      }
+      const { added, removed, invoiceRefresh, previewInvoiceId } = res.data;
+      const failures = [
+        ...invoiceRefresh.failedMonths.map((month) => `Invoice regen failed: ${month}`),
+        ...invoiceRefresh.advanceErrors,
+      ];
 
-      if (hasMutations) {
-        setProgressText('Refreshing invoices...');
-        const advanceRes = await generateAdvanceInvoices({ studentUserId, months: 3 });
-        if (!advanceRes.success) {
-          failures.push((advanceRes as { message?: string }).message ?? 'Advance invoice refresh failed');
-        }
-
-        const invoicesRes = await getInvoices({ studentUserId, limit: 20 });
-        if (!invoicesRes.success) {
-          failures.push((invoicesRes as { message?: string }).message ?? 'Invoice list refresh failed');
-        }
-
-        const invoiceId =
-          invoicesRes.data?.find((inv) => inv.month === effMonth && inv.status !== 'CANCELLED')?.id ??
-          invoicesRes.data?.find((inv) => inv.status !== 'CANCELLED')?.id;
-        if (invoiceId) {
-          const pdfRes = await getInvoicePdfUrl(invoiceId);
-          if (pdfRes?.data?.pdfUrl) setInvoicePdfUrl(normPdfUrl(pdfRes.data.pdfUrl));
-        }
+      if (previewInvoiceId) {
+        const pdfRes = await getInvoicePdfUrl(previewInvoiceId);
+        if (pdfRes?.data?.pdfUrl) setInvoicePdfUrl(normPdfUrl(pdfRes.data.pdfUrl));
       }
 
       setAppliedDiscount(discount);
 
-      if (!hasMutations) {
+      if (added === 0 && removed === 0) {
         setSubmitError('No changes were applied. Please review your selections and try again.');
         return;
       }
@@ -246,8 +181,7 @@ export function useManageEnrollmentModal({
         setSubmitError(`Some updates failed: ${failures.join(' | ')}`);
       }
 
-      const summary = { added, removed, failed: failures.length, effectiveMonth: effMonth };
-      setResult(summary);
+      setResult({ added, removed, failed: failures.length, effectiveMonth: effMonth });
       setStep('success');
     } catch (err: unknown) {
       setSubmitError((err as Error).message ?? 'Failed to update enrollment');
@@ -348,9 +282,8 @@ export function useManageEnrollmentModal({
       setSelectedMeta((prev) => ({
         ...prev,
         [c.id]: {
+          ...defaultCourseMeta(c, effMonth),
           batch: prev[c.id]?.batch || '',
-          startMonth: prev[c.id]?.startMonth || c.startMonth || effMonth,
-          endMonth: prev[c.id]?.endMonth || c.endMonth || c.startMonth || effMonth,
         },
       }));
     }

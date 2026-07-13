@@ -10,7 +10,11 @@ import { StudentAdminBadge as AppBadge } from '../components/StudentAdminBadge';
 import { StudentAdminField as Field } from '../components/StudentAdminField';
 import { StudentAdminSelect as AppSelect } from '../components/StudentAdminSelect';
 import { StudentMonthInput as MonthInput } from '../components/StudentMonthInput';
-import { getCourseTimelineError } from './manage-enrollment-modal-utils';
+import {
+  defaultCourseMeta,
+  getCourseTimelineError,
+  resolveMinCourseStartMonth,
+} from './manage-enrollment-modal-utils';
 import type { ManageEnrollmentModalController } from './hooks/useManageEnrollmentModal';
 
 export function ManageEnrollmentSelectStep({ ctrl }: { ctrl: ManageEnrollmentModalController }) {
@@ -145,12 +149,9 @@ export function ManageEnrollmentSelectStep({ ctrl }: { ctrl: ManageEnrollmentMod
                 {availableCourses.map((c) => {
                   const checked = selectedAddCourseIds.includes(c.id);
                   const activeBatches = (courseBatches[c.id] ?? []).filter((batch) => batch.status === 'ACTIVE');
-                  const meta = selectedMeta[c.id] || {
-                    batch: '',
-                    startMonth: c.startMonth || effMonth,
-                    endMonth: c.endMonth || c.startMonth || effMonth,
-                  };
-                  const timelineError = getCourseTimelineError(c, meta);
+                  const meta = selectedMeta[c.id] || defaultCourseMeta(c, effMonth);
+                  const minStartMonth = resolveMinCourseStartMonth(c.startMonth, effMonth);
+                  const timelineError = getCourseTimelineError(c, meta, effMonth);
                   return (
                     <div
                       key={c.id}
@@ -206,7 +207,7 @@ export function ManageEnrollmentSelectStep({ ctrl }: { ctrl: ManageEnrollmentMod
                             <MonthInput
                               value={meta.startMonth}
                               onChange={(v) => updateCourseMeta(c.id, { ...meta, startMonth: v })}
-                              min={c.startMonth || effMonth}
+                              min={minStartMonth}
                               max={meta.endMonth || c.endMonth}
                             />
                           </Field>
@@ -214,7 +215,7 @@ export function ManageEnrollmentSelectStep({ ctrl }: { ctrl: ManageEnrollmentMod
                             <MonthInput
                               value={meta.endMonth}
                               onChange={(v) => updateCourseMeta(c.id, { ...meta, endMonth: v })}
-                              min={meta.startMonth || c.startMonth || effMonth}
+                              min={meta.startMonth || minStartMonth}
                               max={c.endMonth}
                             />
                           </Field>
