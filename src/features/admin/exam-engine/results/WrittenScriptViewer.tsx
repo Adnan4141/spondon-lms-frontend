@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, Maximize2, Minus, Plus, RotateCcw } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ChevronLeft, ChevronRight, FileStack, ImageIcon, Maximize2, Minus, Plus, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -11,15 +11,23 @@ import {
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { evalAccent } from './evaluationUi';
+import type { ScriptQuestionGroup } from './writtenEvaluationUtils';
+import {
+  findScriptGroupByUrl,
+  getDefaultScriptPreviewUrl,
+  getQuestionScriptPreviewUrl,
+} from './writtenEvaluationUtils';
 
-export type ScriptPageOption = {
+type ScriptViewOption = {
   key: string;
   label: string;
+  shortLabel: string;
   url: string;
+  kind: 'combined' | 'page';
 };
 
 type WrittenScriptViewerProps = {
-  pageOptions: ScriptPageOption[];
+  questionGroups: ScriptQuestionGroup[];
   activePreviewUrl: string | null;
   onPreviewUrlChange: (url: string) => void;
   compact?: boolean;
@@ -38,6 +46,29 @@ function nextZoom(current: number, direction: 'in' | 'out'): number {
     return ZOOM_STEPS.find((step) => step > current) ?? ZOOM_STEPS[ZOOM_STEPS.length - 1];
   }
   return [...ZOOM_STEPS].reverse().find((step) => step < current) ?? ZOOM_STEPS[0];
+}
+
+function buildViewOptions(group: ScriptQuestionGroup): ScriptViewOption[] {
+  const options: ScriptViewOption[] = [];
+  if (group.combinedPdfUrl) {
+    options.push({
+      key: `${group.questionId}-combined`,
+      label: `Q${group.questionNo} · Combined PDF`,
+      shortLabel: 'Combined',
+      url: group.combinedPdfUrl,
+      kind: 'combined',
+    });
+  }
+  for (const page of group.pages) {
+    options.push({
+      key: `${group.questionId}-page-${page.pageNo}`,
+      label: `Q${group.questionNo} · Page ${page.pageNo}`,
+      shortLabel: `Page ${page.pageNo}`,
+      url: page.url,
+      kind: 'page',
+    });
+  }
+  return options;
 }
 
 function ScriptPreview({
@@ -84,7 +115,7 @@ function ScriptPreview({
 }
 
 export function WrittenScriptViewer({
-  pageOptions,
+  questionGroups,
   activePreviewUrl,
   onPreviewUrlChange,
   compact = false,
@@ -93,15 +124,41 @@ export function WrittenScriptViewer({
   const [zoom, setZoom] = useState(100);
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
 
-  const activeIndex = pageOptions.findIndex((page) => page.url === activePreviewUrl);
-  const activeLabel = activeIndex >= 0 ? pageOptions[activeIndex]?.label : 'Page';
+  const activeGroup = useMemo(
+    () => findScriptGroupByUrl(questionGroups, activePreviewUrl),
+    [activePreviewUrl, questionGroups],
+  );
 
-  const goToPage = useCallback((offset: number) => {
-    if (!pageOptions.length || activeIndex < 0) return;
-    const nextIndex = activeIndex + offset;
-    if (nextIndex < 0 || nextIndex >= pageOptions.length) return;
-    onPreviewUrlChange(pageOptions[nextIndex].url);
-  }, [activeIndex, onPreviewUrlChange, pageOptions]);
+  const viewOptions = useMemo(
+    () => (activeGroup ? buildViewOptions(activeGroup) : []),
+    [activeGroup],
+  );
+
+  const activeViewIndex = viewOptions.findIndex((option) => option.url === activePreviewUrl);
+  const activeView = activeViewIndex >= 0 ? viewOptions[activeViewIndex] : viewOptions[0] ?? null;
+  const activeLabel = activeView?.label ?? 'Script preview';
+
+  const selectQuestion = useCallback((group: ScriptQuestionGroup) => {
+    const url = getQuestionScriptPreviewUrl(group);
+    if (url) onPreviewUrlChange(url);
+  }, [onPreviewUrlChange]);
+
+  const goToView = useCallback((offset: number) => {
+    if (!viewOptions.length || activeViewIndex < 0) return;
+    const nextIndex = activeViewIndex + offset;
+    if (nextIndex < 0 || nextIndex >= viewOptions.length) return;
+    onPreviewUrlChange(viewOptions[nextIndex].url);
+  }, [activeViewIndex, onPreviewUrlChange, viewOptions]);
+
+  useEffect(() => {
+    if (!questionGroups.length) return;
+    const resolved = activePreviewUrl ?? getDefaultScriptPreviewUrl(questionGroups);
+    if (!resolved) return;
+    const known = findScriptGroupByUrl(questionGroups, resolved);
+    if (!known) {
+      onPreviewUrlChange(getDefaultScriptPreviewUrl(questionGroups)!);
+    }
+  }, [activePreviewUrl, onPreviewUrlChange, questionGroups]);
 
   useEffect(() => {
     setZoom(100);
@@ -111,14 +168,14 @@ export function WrittenScriptViewer({
     const handler = (event: KeyboardEvent) => {
       const tag = (event.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-      if (!activePreviewUrl || !pageOptions.length) return;
+      if (!activePreviewUrl || !viewOptions.length) return;
 
       if (event.key === 'ArrowLeft') {
         event.preventDefault();
-        goToPage(-1);
+        goToView(-1);
       } else if (event.key === 'ArrowRight') {
         event.preventDefault();
-        goToPage(1);
+        goToView(1);
       } else if (event.key === 'f' || event.key === 'F') {
         event.preventDefault();
         setFullscreenOpen(true);
@@ -135,9 +192,9 @@ export function WrittenScriptViewer({
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [activePreviewUrl, fullscreenOpen, goToPage, pageOptions.length]);
+  }, [activePreviewUrl, fullscreenOpen, goToView, viewOptions.length]);
 
-  if (!pageOptions.length || !activePreviewUrl) {
+  if (!questionGroups.length || !activePreviewUrl) {
     return (
       <div
         className={cn(
@@ -158,23 +215,27 @@ export function WrittenScriptViewer({
           size="icon"
           variant="outline"
           className="h-8 w-8"
-          disabled={activeIndex <= 0}
-          onClick={() => goToPage(-1)}
-          title="Previous page (←)"
+          disabled={activeViewIndex <= 0}
+          onClick={() => goToView(-1)}
+          title="Previous view (←)"
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <span className="min-w-28 text-center text-xs font-bold text-slate-600">
-          {activeIndex + 1} / {pageOptions.length}
+        <span className="min-w-32 text-center text-xs font-bold text-slate-600">
+          {activeView
+            ? activeView.kind === 'combined'
+              ? 'Combined PDF'
+              : `${activeView.shortLabel} of ${activeGroup?.pages.length ?? viewOptions.length}`
+            : '—'}
         </span>
         <Button
           type="button"
           size="icon"
           variant="outline"
           className="h-8 w-8"
-          disabled={activeIndex >= pageOptions.length - 1}
-          onClick={() => goToPage(1)}
-          title="Next page (→)"
+          disabled={activeViewIndex >= viewOptions.length - 1}
+          onClick={() => goToView(1)}
+          title="Next view (→)"
         >
           <ChevronRight className="h-4 w-4" />
         </Button>
@@ -234,25 +295,78 @@ export function WrittenScriptViewer({
           fillHeight && 'h-full min-h-0',
         )}
       >
-        <div className="shrink-0 space-y-2 border-b border-slate-100 bg-slate-50/60 p-2.5">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Handwritten pages</p>
-          <div className="flex gap-1.5 overflow-x-auto pb-0.5">
-            {pageOptions.map((page) => (
-              <button
-                key={page.key}
-                type="button"
-                className={cn(
-                  'shrink-0 rounded-md px-2.5 py-1 text-[11px] font-bold transition-colors',
-                  activePreviewUrl === page.url
-                    ? evalAccent.pillActive
-                    : evalAccent.pill,
-                )}
-                onClick={() => onPreviewUrlChange(page.url)}
-              >
-                {page.label}
-              </button>
-            ))}
+        <div className="shrink-0 space-y-2.5 border-b border-slate-100 bg-slate-50/60 p-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Script viewer</p>
+            {activeGroup ? (
+              <p className="text-[11px] font-semibold text-[#7A6035]">
+                Question {activeGroup.questionNo}
+              </p>
+            ) : null}
           </div>
+
+          {questionGroups.length > 1 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {questionGroups.map((group) => {
+                const isActive = activeGroup?.questionId === group.questionId;
+                const hasCombined = Boolean(group.combinedPdfUrl);
+                return (
+                  <button
+                    key={group.questionId}
+                    type="button"
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors',
+                      isActive ? evalAccent.pillActive : evalAccent.pill,
+                    )}
+                    onClick={() => selectQuestion(group)}
+                  >
+                    Q{group.questionNo}
+                    {hasCombined ? (
+                      <FileStack className="h-3 w-3 opacity-80" />
+                    ) : (
+                      <ImageIcon className="h-3 w-3 opacity-80" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+
+          {viewOptions.length > 0 ? (
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">View mode</p>
+              <div className="flex flex-wrap gap-1.5">
+                {viewOptions.map((option) => {
+                  const isActive = activePreviewUrl === option.url;
+                  return (
+                    <button
+                      key={option.key}
+                      type="button"
+                      className={cn(
+                        'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-bold transition-colors',
+                        isActive
+                          ? option.kind === 'combined'
+                            ? 'bg-[#0D1B35] text-[#E2C98A] shadow-sm'
+                            : evalAccent.pillActive
+                          : option.kind === 'combined'
+                            ? 'border border-[#C8A96E]/40 bg-[#FBF4E6] text-[#7A6035] hover:bg-[#F5EBD6]'
+                            : evalAccent.pill,
+                      )}
+                      onClick={() => onPreviewUrlChange(option.url)}
+                    >
+                      {option.kind === 'combined' ? (
+                        <FileStack className="h-3 w-3 shrink-0" />
+                      ) : (
+                        <ImageIcon className="h-3 w-3 shrink-0" />
+                      )}
+                      {option.shortLabel}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
           {toolbar}
         </div>
 

@@ -112,12 +112,62 @@ export function isMarkingComplete(attempt: WrittenAttemptDetail | null): boolean
   return hasGradableAnswer;
 }
 
+export type ScriptQuestionGroup = {
+  questionId: string;
+  questionNo: number;
+  /** Resolved download URL for the merged script, if uploaded. */
+  combinedPdfUrl: string | null;
+  pages: Array<{ pageNo: number; url: string }>;
+};
+
+export function buildScriptQuestionGroups(
+  attempt: WrittenAttemptDetail | null,
+  resolveUrl: (rawUrl: string) => string,
+): ScriptQuestionGroup[] {
+  if (!attempt) return [];
+  return (attempt.questions || []).map((question, index) => {
+    const answer = question.studentAnswer;
+    const finalPdfUrl = answer?.writtenSubmission?.finalPdfUrl;
+    return {
+      questionId: question.questionId,
+      questionNo: questionDisplayNumber(question, index),
+      combinedPdfUrl: finalPdfUrl ? resolveUrl(finalPdfUrl) : null,
+      pages: (answer?.writtenSubmission?.pages || []).map((page, pageIndex) => ({
+        pageNo: pageIndex + 1,
+        url: resolveUrl(page.url),
+      })),
+    };
+  }).filter((group) => group.combinedPdfUrl || group.pages.length > 0);
+}
+
+export function getDefaultScriptPreviewUrl(groups: ScriptQuestionGroup[]): string | null {
+  const first = groups[0];
+  if (!first) return null;
+  return getQuestionScriptPreviewUrl(first);
+}
+
+export function getQuestionScriptPreviewUrl(group: ScriptQuestionGroup): string | null {
+  return group.combinedPdfUrl ?? group.pages[0]?.url ?? null;
+}
+
+export function findScriptGroupByUrl(
+  groups: ScriptQuestionGroup[],
+  url: string | null,
+): ScriptQuestionGroup | null {
+  if (!url) return null;
+  for (const group of groups) {
+    if (group.combinedPdfUrl === url) return group;
+    if (group.pages.some((page) => page.url === url)) return group;
+  }
+  return null;
+}
+
 export function getFirstPreviewUrlForQuestion(
   question: NonNullable<WrittenAttemptDetail['questions']>[number],
 ): string | null {
   const answer = question.studentAnswer;
   if (!answer) return null;
-  const firstPage = answer.writtenSubmission?.pages?.[0]?.url;
-  if (firstPage) return firstPage;
-  return answer.writtenSubmission?.finalPdfUrl ?? null;
+  const combinedPdf = answer.writtenSubmission?.finalPdfUrl;
+  if (combinedPdf) return combinedPdf;
+  return answer.writtenSubmission?.pages?.[0]?.url ?? null;
 }

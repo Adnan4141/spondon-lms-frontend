@@ -563,6 +563,7 @@ export default function StudentExamTakingPage() {
     } as const;
     const hero = heroConfig[resultHeroVariant];
     const HeroIcon = hero.Icon;
+    const showSolutionPanel = Boolean(result?.showSolutions && (result?.questions?.length ?? 0) > 0);
 
     const refreshResult = async () => {
       if (!result?.attempt?.id) return;
@@ -814,7 +815,12 @@ export default function StudentExamTakingPage() {
         />
         <div className="mx-auto w-full max-w-full px-4 sm:px-6 lg:px-8 space-y-6">
           {/* Header */}
-          <div className="sticky top-0 z-20 mb-6 border border-slate-200/80 bg-white/80 px-6 py-4 backdrop-blur-md shadow-2xs rounded-2xl flex flex-wrap items-center justify-between gap-3">
+          <div
+            className={cn(
+              'sticky top-0 z-20 mb-6 border border-slate-200/80 bg-white/80 px-6 py-4 backdrop-blur-md shadow-2xs rounded-2xl flex flex-wrap items-center justify-between gap-3',
+              !showSolutionPanel && 'mx-auto max-w-lg',
+            )}
+          >
             <div className="min-w-0">
               <p className="truncate text-base font-black text-slate-905">{examDisplayTitle}</p>
               <p className="text-xs font-bold text-slate-500 flex items-center gap-1.5 mt-0.5">
@@ -836,9 +842,15 @@ export default function StudentExamTakingPage() {
           </div>
 
           {result && (
-            <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-8 items-start max-w-full">
-              {/* Left Column: Stats & Status Summary (Sticky) */}
-              <div className="space-y-6 lg:sticky lg:top-[90px]">
+            <div
+              className={cn(
+                showSolutionPanel
+                  ? 'grid grid-cols-1 lg:grid-cols-[minmax(320px,380px)_1fr] gap-8 items-start max-w-full'
+                  : 'mx-auto flex w-full max-w-lg flex-col items-stretch',
+              )}
+            >
+              {/* Left Column: Stats & Status Summary (Sticky when solutions are visible) */}
+              <div className={cn('space-y-6', showSolutionPanel && 'lg:sticky lg:top-[90px]')}>
                 {notice ? (
                   <div className="rounded-2xl border border-amber-200 bg-amber-50/80 px-5 py-4 text-left text-sm font-bold text-amber-900 flex items-start gap-3 shadow-xs">
                     <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
@@ -847,7 +859,7 @@ export default function StudentExamTakingPage() {
                 ) : null}
 
                 {/* Status Header & Summary Card */}
-                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
+                <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm space-y-6">
                   <div className="text-center">
                     <div className={cn('inline-flex items-center justify-center h-16 w-16 rounded-full mb-4 shadow-inner', hero.wrapperClass)}>
                       <HeroIcon className={cn('h-8 w-8', hero.iconClass)} />
@@ -890,19 +902,19 @@ export default function StudentExamTakingPage() {
                     </div>
                   ) : pendingWrittenEvaluation ? (
                     <div className="space-y-6 pt-2">
-                      <p className="text-xs font-medium text-slate-600 text-center">
+                      <p className="mx-auto max-w-sm text-xs font-medium leading-relaxed text-slate-600 text-center">
                         {resultUi.evaluationPendingMessage}
                       </p>
                       
                       {/* Visual Stepper */}
-                      <div className="relative mx-auto w-full px-4 py-2">
-                        <div className="absolute left-8 right-8 top-5 h-0.5 bg-slate-100">
+                      <div className="relative mx-auto w-full max-w-xs px-2 py-2">
+                        <div className="absolute left-6 right-6 top-5 h-0.5 bg-slate-100">
                           <div className="h-full bg-gradient-to-r from-emerald-500 to-amber-500 w-1/2" />
                         </div>
                         
                         <div className="relative flex justify-between">
                           {/* Step 1 */}
-                          <div className="flex flex-col items-center">
+                          <div className="flex w-16 flex-col items-center">
                             <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-emerald-500 bg-emerald-50 text-emerald-600 shadow-xs">
                               <CheckCircle2 className="h-5 w-5" />
                             </div>
@@ -912,7 +924,7 @@ export default function StudentExamTakingPage() {
                           </div>
 
                           {/* Step 2 */}
-                          <div className="flex flex-col items-center">
+                          <div className="flex w-16 flex-col items-center">
                             <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-amber-500 bg-amber-50 text-amber-600 shadow-xs animate-pulse">
                               <Clock className="h-5 w-5" />
                             </div>
@@ -922,7 +934,7 @@ export default function StudentExamTakingPage() {
                           </div>
 
                           {/* Step 3 */}
-                          <div className="flex flex-col items-center">
+                          <div className="flex w-16 flex-col items-center">
                             <div className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-400">
                               <Circle className="h-3 w-3" />
                             </div>
@@ -933,48 +945,57 @@ export default function StudentExamTakingPage() {
                         </div>
                       </div>
 
-                      <div className="grid gap-4 grid-cols-1 pt-4 border-t border-slate-100">
-                        {provisionalMcqScore ? (
-                          <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4">
-                            <p className="text-[9px] font-black uppercase tracking-[0.15em] text-indigo-500 mb-1.5">
-                              {resultUi.provisionalMcqScoreLabel}
+                      <div className="space-y-3 pt-4 border-t border-slate-100">
+                        <div
+                          className={cn(
+                            'grid gap-3',
+                            provisionalMcqScore ? 'grid-cols-2' : 'grid-cols-1',
+                          )}
+                        >
+                          {provisionalMcqScore ? (
+                            <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 text-center">
+                              <p className="text-[9px] font-black uppercase tracking-[0.15em] text-indigo-500 mb-1.5">
+                                {resultUi.provisionalMcqScoreLabel}
+                              </p>
+                              <p className="text-2xl font-black text-indigo-700 tabular-nums">
+                                {provisionalMcqScore.obtained}
+                                <span className="text-sm text-indigo-300"> / {provisionalMcqScore.total}</span>
+                              </p>
+                            </div>
+                          ) : null}
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 text-center">
+                            <p className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400 mb-1.5">
+                              {resultUi.totalExamMarksLabel}
                             </p>
-                            <p className="text-2xl font-black text-indigo-700">
-                              {provisionalMcqScore.obtained}
-                              <span className="text-sm text-indigo-300"> / {provisionalMcqScore.total}</span>
+                            <p className="text-2xl font-black text-slate-905 tabular-nums">
+                              {result.attempt.totalMarks ?? 0}
                             </p>
                           </div>
-                        ) : null}
-                        <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4">
-                          <p className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400 mb-1.5">
-                            {resultUi.totalExamMarksLabel}
-                          </p>
-                          <p className="text-2xl font-black text-slate-905">{result.attempt.totalMarks ?? 0}</p>
                         </div>
                         {provisionalMcqScore ? (
-                          <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 flex items-start gap-2.5">
-                            <Info className="h-4 w-4 text-amber-605 shrink-0 mt-0.5" />
+                          <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 flex items-start gap-2.5 text-left">
+                            <Info className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                             <div>
                               <p className="text-[9px] font-black uppercase tracking-[0.15em] text-amber-600 mb-0.5">
                                 {resultUi.writtenPendingLabel}
                               </p>
-                              <p className="text-xs font-bold text-amber-905 leading-relaxed">{resultUi.evaluationPendingNote}</p>
+                              <p className="text-xs font-bold text-amber-900 leading-relaxed">{resultUi.evaluationPendingNote}</p>
                             </div>
                           </div>
                         ) : null}
                       </div>
 
-                      <div className="flex justify-center pt-2">
+                      <div className="pt-1">
                         <Button
                           variant="outline"
-                          className="w-full h-10 rounded-xl font-bold border-slate-200 hover:bg-slate-50"
+                          className="w-full h-11 rounded-xl font-bold border-slate-200 hover:bg-slate-50"
                           disabled={refreshingResult}
                           onClick={() => void refreshResult()}
                         >
                           {refreshingResult ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin text-indigo-650" />
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin text-indigo-600" />
                           ) : (
-                            <RefreshCw className="mr-2 h-4 w-4 text-indigo-655" />
+                            <RefreshCw className="mr-2 h-4 w-4 text-indigo-600" />
                           )}
                           {resultUi.refreshResult}
                         </Button>
@@ -1095,9 +1116,8 @@ export default function StudentExamTakingPage() {
               </div>
 
               {/* Right Column: Solution & Questions */}
-              <div className="space-y-6">
-                {/* Show questions with solutions */}
-                {result.showSolutions && result.questions.length > 0 && (
+              {showSolutionPanel ? (
+                <div className="space-y-6">
                   <div className="space-y-5">
                     {/* Sticky wrapper for Solve Sheet headers */}
                     <div className="sticky top-[80px] lg:top-[90px] z-10 space-y-3 bg-slate-50/95 backdrop-blur-xs py-3 -my-3">
@@ -1192,8 +1212,8 @@ export default function StudentExamTakingPage() {
                       })}
                     </div>
                   </div>
-                )}
-              </div>
+                </div>
+              ) : null}
             </div>
           )}
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Eye, Loader2, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +32,9 @@ import {
   countAttemptsByStatus,
   getAttemptDisplayStatus,
   getFirstPreviewUrlForQuestion,
+  buildScriptQuestionGroups,
+  getDefaultScriptPreviewUrl,
+  getQuestionScriptPreviewUrl,
   hasUnsavedMarksChanges,
   isMarkInvalid,
   isMarkingComplete,
@@ -107,6 +110,8 @@ export function WrittenEvaluationTab({
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<AttemptDisplayStatus | 'all'>('all');
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+  const markingPanelRef = useRef<HTMLDivElement>(null);
+  const questionCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const statusCounts = useMemo(() => countAttemptsByStatus(attempts), [attempts]);
   const evaluatedCount = statusCounts.ready + statusCounts.finalized;
@@ -128,39 +133,20 @@ export function WrittenEvaluationTab({
     });
   }, [attempts, searchQuery, statusFilter]);
 
-  const pageOptions = useMemo(() => {
-    if (!activeAttempt) return [] as Array<{ key: string; label: string; url: string; questionId: string }>;
-    const options: Array<{ key: string; label: string; url: string; questionId: string }> = [];
-    for (const [questionIndex, question] of (activeAttempt.questions || []).entries()) {
-      const answer = question.studentAnswer;
-      const questionNo = questionDisplayNumber(question, questionIndex);
-      const finalPdfUrl = answer?.writtenSubmission?.finalPdfUrl;
-      if (finalPdfUrl) {
-        options.push({
-          key: `final-${question.questionId}`,
-          label: `Q${questionNo} · Combined PDF`,
-          url: getExamPdfDownloadUrl(finalPdfUrl),
-          questionId: question.questionId,
-        });
-      }
-      for (const [index, page] of (answer?.writtenSubmission?.pages || []).entries()) {
-        options.push({
-          key: `${question.questionId}-${page.url}`,
-          label: `Q${questionNo} · Page ${index + 1}`,
-          url: getExamPdfDownloadUrl(page.url),
-          questionId: question.questionId,
-        });
-      }
-    }
-    return options;
-  }, [activeAttempt]);
+  const scriptQuestionGroups = useMemo(
+    () => buildScriptQuestionGroups(activeAttempt, getExamPdfDownloadUrl),
+    [activeAttempt],
+  );
 
-  const activePreviewUrl = previewUrl ?? pageOptions[0]?.url ?? null;
+  const activePreviewUrl = previewUrl ?? getDefaultScriptPreviewUrl(scriptQuestionGroups);
   const activeAttemptId = activeAttempt?.attempt.id ?? null;
   const activeQuestionId = useMemo(() => {
-    const page = pageOptions.find((option) => option.url === activePreviewUrl);
-    return page?.questionId ?? null;
-  }, [activePreviewUrl, pageOptions]);
+    for (const group of scriptQuestionGroups) {
+      if (group.combinedPdfUrl === activePreviewUrl) return group.questionId;
+      if (group.pages.some((page) => page.url === activePreviewUrl)) return group.questionId;
+    }
+    return null;
+  }, [activePreviewUrl, scriptQuestionGroups]);
 
   const hasInvalidMarks = useMemo(() => {
     if (!activeAttempt) return false;
@@ -208,13 +194,19 @@ export function WrittenEvaluationTab({
   };
 
   const jumpToQuestionScript = (questionIndex: number) => {
-    if (!activeAttempt) return;
-    const question = activeAttempt.questions?.[questionIndex];
-    if (!question) return;
-    const rawUrl = getFirstPreviewUrlForQuestion(question);
-    if (!rawUrl) return;
-    setPreviewUrl(getExamPdfDownloadUrl(rawUrl));
+    const group = scriptQuestionGroups[questionIndex];
+    if (!group) return;
+    const url = getQuestionScriptPreviewUrl(group);
+    if (!url) return;
+    setPreviewUrl(url);
   };
+
+  useEffect(() => {
+    if (!activeQuestionId) return;
+    const card = questionCardRefs.current[activeQuestionId];
+    if (!card || !markingPanelRef.current) return;
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [activeQuestionId, activeAttemptId]);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -262,6 +254,9 @@ export function WrittenEvaluationTab({
         return (
           <div
             key={question.questionId}
+            ref={(node) => {
+              questionCardRefs.current[question.questionId] = node;
+            }}
             className={cn(
               'rounded-lg border bg-white p-3 transition-colors',
               isHighlighted
@@ -271,9 +266,16 @@ export function WrittenEvaluationTab({
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-                  Question {questionDisplayNumber(question, index)} · {Number(question.marks)} marks
-                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+                    Question {questionDisplayNumber(question, index)} · {Number(question.marks)} marks
+                  </p>
+                  {isHighlighted ? (
+                    <span className="rounded-full bg-[#0D1B35] px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-[#E2C98A]">
+                      Viewing
+                    </span>
+                  ) : null}
+                </div>
                 <div className="prose prose-sm mt-2 max-w-none text-slate-700" dangerouslySetInnerHTML={{ __html: question.question?.prompt ?? '' }} />
               </div>
               {hasScript ? (
@@ -285,7 +287,7 @@ export function WrittenEvaluationTab({
                   onClick={() => jumpToQuestionScript(index)}
                 >
                   <Eye className="mr-1.5 h-3.5 w-3.5" />
-                  View script
+                  {isHighlighted ? 'Viewing script' : 'View script'}
                 </Button>
               ) : null}
             </div>
@@ -416,7 +418,7 @@ export function WrittenEvaluationTab({
               <div>
                 <CardTitle className="font-serif text-lg text-[#0D1B35]">Written evaluation</CardTitle>
                 <CardDescription className="text-slate-600">
-                  Review scripts, enter marks, save, then finalize. Shortcuts: ↑↓ students, ←→ pages, Ctrl+S save all.
+                  Review scripts, enter marks, save, then finalize. Shortcuts: ↑↓ students, ←→ views within a question, Ctrl+S save all.
                 </CardDescription>
               </div>
               {attempts.length > 0 ? (
@@ -600,7 +602,7 @@ export function WrittenEvaluationTab({
 
                   <div className="min-h-0 flex-1 p-3">
                     <WrittenScriptViewer
-                      pageOptions={pageOptions}
+                      questionGroups={scriptQuestionGroups}
                       activePreviewUrl={activePreviewUrl}
                       onPreviewUrlChange={setPreviewUrl}
                       fillHeight
@@ -619,7 +621,7 @@ export function WrittenEvaluationTab({
               <div className="shrink-0 border-b border-slate-100 px-3 py-2">
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Marking panel</p>
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto p-3">
+              <div ref={markingPanelRef} className="min-h-0 flex-1 overflow-y-auto p-3">
                 {activeAttempt ? (
                   markingPanel
                 ) : (
