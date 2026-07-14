@@ -9,6 +9,7 @@ import {
   getExamMeritListAll,
   getWrittenAttempt,
   listWrittenAttempts,
+  markWrittenQuestionNotSubmitted,
   saveWrittenEvaluation,
   type ExamAnalytics,
 } from '@/lib/api/exams';
@@ -24,6 +25,7 @@ import { getBranches } from '@/lib/api/branches';
 import { getActorUserIdFromStorage } from '@/lib/actor-user';
 import type { Exam } from '@/types/exam';
 import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
+import { confirmAction } from '@/features/admin/shared/confirm-action';
 import { useExamWorkspaceOptional } from './layout/ExamWorkspaceShell';
 import { ExamWorkspacePageHeader } from './layout/ExamWorkspacePageHeader';
 import { cn } from '@/lib/utils';
@@ -81,6 +83,7 @@ export function ExamResultsPage({ examId, teacherEvaluatorMode = false }: ExamRe
   const [writtenBusy, setWrittenBusy] = useState(false);
   const [saveAllBusy, setSaveAllBusy] = useState(false);
   const [bulkFinalizeBusy, setBulkFinalizeBusy] = useState(false);
+  const [markNotSubmittedBusy, setMarkNotSubmittedBusy] = useState<string | null>(null);
   const [marksDraft, setMarksDraft] = useState<Record<string, string>>({});
   const [savedMarksBaseline, setSavedMarksBaseline] = useState<Record<string, string>>({});
   const [branches, setBranches] = useState<BranchOption[]>([]);
@@ -429,6 +432,48 @@ export function ExamResultsPage({ examId, teacherEvaluatorMode = false }: ExamRe
     }
   };
 
+  const markQuestionNotSubmitted = async (questionId: string, attemptId: string) => {
+    const teacherUserId = getActorUserIdFromStorage();
+    if (!teacherUserId) {
+      toast({ title: 'Sign in required', variant: 'destructive' });
+      return;
+    }
+
+    const questionIndex = activeWrittenAttempt?.questions?.findIndex((item) => item.questionId === questionId) ?? -1;
+    const label = questionIndex >= 0 ? `Question ${questionIndex + 1}` : 'This question';
+
+    const proceed = await confirmAction({
+      title: 'Mark as not submitted?',
+      description: `${label} will be recorded with 0 marks and remarks "Not submitted". You can finalize once all questions are marked.`,
+      confirmLabel: 'Mark 0',
+      variant: 'warning',
+    });
+    if (!proceed) return;
+
+    setMarkNotSubmittedBusy(questionId);
+    try {
+      const response = await markWrittenQuestionNotSubmitted({
+        attemptId,
+        questionId,
+        teacherUserId,
+      });
+      if (!response.success) {
+        toast({ title: response.message || 'Could not mark as not submitted', variant: 'destructive' });
+        return;
+      }
+      toast({ title: 'Marked as not submitted (0)' });
+      await load();
+      await openWrittenAttempt(attemptId);
+    } catch (error) {
+      toast({
+        title: error instanceof Error ? error.message : 'Could not mark as not submitted',
+        variant: 'destructive',
+      });
+    } finally {
+      setMarkNotSubmittedBusy(null);
+    }
+  };
+
   const saveWrittenMark = async (
     answerId: string,
     attemptId: string,
@@ -667,6 +712,8 @@ export function ExamResultsPage({ examId, teacherEvaluatorMode = false }: ExamRe
               onMarksDraftChange={(draftKey, value) => setMarksDraft((previous) => ({ ...previous, [draftKey]: value }))}
               onSaveMark={(answerId, attemptId, subPartKey, options) => void saveWrittenMark(answerId, attemptId, subPartKey, options)}
               onSaveAllMarks={(attemptId) => void saveAllWrittenMarks(attemptId)}
+              onMarkNotSubmitted={(questionId, attemptId) => void markQuestionNotSubmitted(questionId, attemptId)}
+              markNotSubmittedBusy={markNotSubmittedBusy}
               onFinalize={(attemptId) => void finalizeWritten(attemptId)}
               onBulkFinalize={() => void bulkFinalizeWritten()}
             />

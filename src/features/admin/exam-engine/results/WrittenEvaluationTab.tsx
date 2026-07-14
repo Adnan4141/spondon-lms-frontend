@@ -31,7 +31,10 @@ import {
   type AttemptDisplayStatus,
   countAttemptsByStatus,
   getAttemptDisplayStatus,
+  countIncompleteQuestions,
   getFirstPreviewUrlForQuestion,
+  hasWrittenScriptUpload,
+  isQuestionEvaluationComplete,
   buildScriptQuestionGroups,
   getDefaultScriptPreviewUrl,
   getQuestionScriptPreviewUrl,
@@ -61,6 +64,8 @@ type WrittenEvaluationTabProps = {
   onMarksDraftChange: (draftKey: string, value: string) => void;
   onSaveMark: (answerId: string, attemptId: string, subPartKey?: string, options?: SaveMarkOptions) => void;
   onSaveAllMarks?: (attemptId: string) => void;
+  onMarkNotSubmitted?: (questionId: string, attemptId: string) => void;
+  markNotSubmittedBusy?: string | null;
   onFinalize: (attemptId: string) => void;
   onBulkFinalize?: () => void;
 };
@@ -103,6 +108,8 @@ export function WrittenEvaluationTab({
   onMarksDraftChange,
   onSaveMark,
   onSaveAllMarks,
+  onMarkNotSubmitted,
+  markNotSubmittedBusy = null,
   onFinalize,
   onBulkFinalize,
 }: WrittenEvaluationTabProps) {
@@ -147,6 +154,11 @@ export function WrittenEvaluationTab({
     }
     return null;
   }, [activePreviewUrl, scriptQuestionGroups]);
+
+  const activeQuestionRecord = useMemo(
+    () => (activeAttempt?.questions || []).find((question) => question.questionId === activeQuestionId) ?? null,
+    [activeAttempt, activeQuestionId],
+  );
 
   const hasInvalidMarks = useMemo(() => {
     if (!activeAttempt) return false;
@@ -244,6 +256,8 @@ export function WrittenEvaluationTab({
     return () => window.removeEventListener('keydown', handler);
   });
 
+  const incompleteQuestionCount = countIncompleteQuestions(activeAttempt);
+
   const markingPanel = activeAttempt ? (
     <div className="space-y-3">
       {(activeAttempt.questions || []).map((question, index) => {
@@ -251,6 +265,12 @@ export function WrittenEvaluationTab({
         const parts = readCqParts(question.question?.meta);
         const hasScript = Boolean(getFirstPreviewUrlForQuestion(question));
         const isHighlighted = activeQuestionId === question.questionId;
+        const isEvaluated = isQuestionEvaluationComplete(question);
+        const showNotSubmittedAction = canEvaluate
+          && !hasWrittenScriptUpload(question)
+          && !isEvaluated
+          && onMarkNotSubmitted;
+        const isMarkingThisQuestion = markNotSubmittedBusy === question.questionId;
         return (
           <div
             key={question.questionId}
@@ -273,6 +293,11 @@ export function WrittenEvaluationTab({
                   {isHighlighted ? (
                     <span className="rounded-full bg-[#0D1B35] px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-[#E2C98A]">
                       Viewing
+                    </span>
+                  ) : null}
+                  {isEvaluated && !hasScript ? (
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-slate-600">
+                      Not submitted · 0
                     </span>
                   ) : null}
                 </div>
@@ -400,8 +425,25 @@ export function WrittenEvaluationTab({
               </div>
             ) : null}
 
-            {!answer?.writtenSubmission?.pages?.length && !answer?.writtenSubmission?.finalPdfUrl ? (
-              <p className="mt-3 text-xs font-medium text-amber-700">No handwritten pages uploaded.</p>
+            {!hasScript && !isEvaluated ? (
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                <p className="text-xs font-medium text-amber-700">No handwritten pages uploaded.</p>
+                {showNotSubmittedAction ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="border-amber-300 text-amber-900 hover:bg-amber-50"
+                    disabled={isMarkingThisQuestion}
+                    onClick={() => onMarkNotSubmitted!(question.questionId, activeAttempt.attempt.id)}
+                  >
+                    {isMarkingThisQuestion ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : null}
+                    Mark as not submitted (0)
+                  </Button>
+                ) : null}
+              </div>
             ) : null}
           </div>
         );
@@ -457,9 +499,9 @@ export function WrittenEvaluationTab({
         </CardHeader>
 
         <CardContent className="p-0">
-          <div className="grid min-h-[min(720px,calc(100vh-16rem))] xl:grid-cols-[minmax(220px,260px)_minmax(0,1fr)_minmax(300px,380px)]">
+          <div className="grid h-[min(820px,calc(100vh-11rem))] min-h-[min(720px,calc(100vh-16rem))] grid-cols-1 overflow-hidden xl:grid-cols-[minmax(220px,260px)_minmax(0,1fr)_minmax(300px,380px)]">
             {/* Student queue */}
-            <aside className="flex min-h-0 flex-col border-b border-slate-200 xl:border-b-0 xl:border-r">
+            <aside className="flex min-h-0 flex-col overflow-hidden border-b border-slate-200 xl:border-b-0 xl:border-r">
               <div className="shrink-0 space-y-2 border-b border-slate-100 bg-slate-50/80 p-3">
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Students</p>
                 <div className="flex flex-wrap gap-1">
@@ -497,7 +539,7 @@ export function WrittenEvaluationTab({
                 ) : null}
               </div>
 
-              <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
+              <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain p-2">
                 {filteredAttempts.length ? filteredAttempts.map((attempt) => {
                   const status = getAttemptDisplayStatus(attempt);
                   const statusMeta = ATTEMPT_STATUS_META[status];
@@ -537,7 +579,7 @@ export function WrittenEvaluationTab({
             </aside>
 
             {/* Script viewer */}
-            <section className="flex min-h-0 min-w-0 flex-col border-b border-slate-200 xl:border-b-0 xl:border-r">
+            <section className="flex min-h-0 min-w-0 flex-col overflow-hidden border-b border-slate-200 xl:border-b-0 xl:border-r">
               {writtenBusy ? (
                 <div className="flex flex-1 items-center justify-center text-slate-500">
                   <Loader2 className="h-6 w-6 animate-spin" />
@@ -555,6 +597,10 @@ export function WrittenEvaluationTab({
                       ) : null}
                       {hasUnsavedChanges ? (
                         <p className="text-[11px] font-bold text-amber-700">Unsaved marks</p>
+                      ) : incompleteQuestionCount > 0 ? (
+                        <p className="text-[11px] font-bold text-amber-700">
+                          {incompleteQuestionCount} question{incompleteQuestionCount === 1 ? '' : 's'} still need marks
+                        </p>
                       ) : (
                         <p className="truncate text-[11px] text-slate-500">{activeAttempt.exam?.title}</p>
                       )}
@@ -600,7 +646,7 @@ export function WrittenEvaluationTab({
                     </p>
                   ) : null}
 
-                  <div className="min-h-0 flex-1 p-3">
+                  <div className="min-h-0 flex-1 overflow-hidden p-3">
                     <WrittenScriptViewer
                       questionGroups={scriptQuestionGroups}
                       activePreviewUrl={activePreviewUrl}
@@ -617,11 +663,29 @@ export function WrittenEvaluationTab({
             </section>
 
             {/* Marking panel */}
-            <section className="flex min-h-0 min-w-0 flex-col bg-slate-50/50">
-              <div className="shrink-0 border-b border-slate-100 px-3 py-2">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Marking panel</p>
+            <section className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-slate-50/50 xl:max-h-none max-h-[min(52vh,520px)]">
+              <div className="shrink-0 border-b border-slate-100 bg-white/90 px-3 py-2">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  Marking panel
+                  {activeQuestionRecord ? (
+                    <span className="ml-2 normal-case tracking-normal text-[#7A6035]">
+                      · Q{questionDisplayNumber(
+                        activeQuestionRecord,
+                        (activeAttempt?.questions || []).findIndex((q) => q.questionId === activeQuestionId),
+                      )}
+                    </span>
+                  ) : null}
+                </p>
+                {incompleteQuestionCount > 0 ? (
+                  <p className="mt-0.5 text-[11px] font-medium text-amber-700">
+                    {incompleteQuestionCount} question{incompleteQuestionCount === 1 ? '' : 's'} without marks
+                  </p>
+                ) : null}
               </div>
-              <div ref={markingPanelRef} className="min-h-0 flex-1 overflow-y-auto p-3">
+              <div
+                ref={markingPanelRef}
+                className="min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-smooth p-3 [scrollbar-gutter:stable]"
+              >
                 {activeAttempt ? (
                   markingPanel
                 ) : (

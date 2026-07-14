@@ -477,6 +477,17 @@ export async function saveWrittenEvaluation(data: {
   });
 }
 
+export async function markWrittenQuestionNotSubmitted(data: {
+  attemptId: string;
+  questionId: string;
+  teacherUserId: string;
+}): Promise<ApiResponse<{ answerId: string; questionId: string; marksAwarded: number }>> {
+  return apiRequest('/exams/written-evaluations/mark-not-submitted', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
 export async function finalizeWrittenEvaluation(examId: string, attemptId: string): Promise<ApiResponse<any>> {
   return apiRequest<ApiResponse<any>>(`/exams/${examId}/written-attempts/${attemptId}/finalize`, {
     method: 'POST',

@@ -1,4 +1,4 @@
-import type { CqPartMeta, WrittenAttemptDetail, WrittenAttemptRow } from './types';
+import type { CqPartMeta, WrittenAttemptDetail, WrittenAttemptQuestion, WrittenAttemptRow } from './types';
 
 export type AttemptDisplayStatus = 'pending' | 'in_progress' | 'ready' | 'finalized';
 
@@ -92,24 +92,32 @@ export function hasUnsavedMarksChanges(
   return false;
 }
 
-export function isMarkingComplete(attempt: WrittenAttemptDetail | null): boolean {
-  if (!attempt) return false;
-  let hasGradableAnswer = false;
-  for (const question of attempt.questions || []) {
-    const answer = question.studentAnswer;
-    if (!answer?.id) continue;
-    hasGradableAnswer = true;
-    const parts = readCqParts(question.question?.meta);
-    if (parts.length) {
-      for (const part of parts) {
-        const evaluation = (answer.evaluations || []).find((ev) => ev.subPartKey === part.label);
-        if (evaluation?.marksAwarded == null) return false;
-      }
-    } else if (answer.obtainedMarks == null) {
-      return false;
-    }
+export function hasWrittenScriptUpload(question: WrittenAttemptQuestion): boolean {
+  const submission = question.studentAnswer?.writtenSubmission;
+  return Boolean(submission?.pages?.length || submission?.finalPdfUrl);
+}
+
+export function isQuestionEvaluationComplete(question: WrittenAttemptQuestion): boolean {
+  const answer = question.studentAnswer;
+  if (!answer?.id) return false;
+  const parts = readCqParts(question.question?.meta);
+  if (parts.length) {
+    return parts.every((part) => {
+      const evaluation = (answer.evaluations || []).find((ev) => ev.subPartKey === part.label);
+      return evaluation?.marksAwarded != null;
+    });
   }
-  return hasGradableAnswer;
+  return answer.obtainedMarks != null;
+}
+
+export function countIncompleteQuestions(attempt: WrittenAttemptDetail | null): number {
+  if (!attempt?.questions?.length) return 0;
+  return attempt.questions.filter((question) => !isQuestionEvaluationComplete(question)).length;
+}
+
+export function isMarkingComplete(attempt: WrittenAttemptDetail | null): boolean {
+  if (!attempt?.questions?.length) return false;
+  return attempt.questions.every((question) => isQuestionEvaluationComplete(question));
 }
 
 export type ScriptQuestionGroup = {
