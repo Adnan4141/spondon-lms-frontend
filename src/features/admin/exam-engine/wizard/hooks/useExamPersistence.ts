@@ -18,6 +18,7 @@ import {
   updateExamCourseLink,
   validateExamSubjects,
   validateSectionGeneration,
+  type GenerateFromSubjectsDto,
 } from '@/lib/api/exams';
 import type { CreateExamDto, ExamStatus, UpdateExamDto } from '@/types/exam';
 import { useAdminToast } from '@/features/admin/shared/AdminToastProvider';
@@ -316,6 +317,8 @@ async function persistMultiSubjects(
     setCount: Number(state.nSets) || 1,
     language: state.language === 'en' ? 'en' : 'bn',
     replaceExisting: true,
+    setNaming: state.setNaming,
+    shuffle: state.shuffle as GenerateFromSubjectsDto['shuffle'],
   });
   if (!generated.success) {
     toast({ title: 'Generate failed', description: generated.message, variant: 'destructive' });

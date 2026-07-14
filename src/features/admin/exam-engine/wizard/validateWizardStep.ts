@@ -81,6 +81,12 @@ export function validateStep(
           + Number(sub.shortCount || 0);
         if (total < 1) return fail(`Subject "${sub.name}" needs at least 1 question.`, 2);
         if (total > 500) return fail(`Subject "${sub.name}" exceeds the 500 question limit.`, 2);
+        if (sub.compulsory) {
+          const passMarks = Number(sub.passMarks);
+          if (!Number.isFinite(passMarks) || passMarks <= 0) {
+            return fail(`Mandatory subject "${sub.name || 'Untitled'}" needs pass marks greater than 0.`, 2);
+          }
+        }
       }
       return ok();
     }
@@ -115,6 +121,9 @@ export function validateStep(
         const allocated = sub.folderRules.reduce((sum, r) => sum + Number(r.questionCount || 0), 0);
         if (allocated < sub.count) {
           return fail(`"${sub.name}" needs ${sub.count} questions but only ${allocated} allocated.`, 3);
+        }
+        if (allocated > sub.count) {
+          return fail(`"${sub.name}" is over-allocated (${allocated}/${sub.count}).`, 3);
         }
       }
       return ok();
@@ -217,13 +226,30 @@ function rulesToPreflightPayload(state: ExamWizardState): FolderPreflightRule[] 
 
   if (state.productType === 'MULTI') {
     for (const subject of state.subjects) {
-      const type: 'MCQ' | 'CQ' | 'SHORT' =
-        (subject.mcqSingleCount || 0) + (subject.mcqPassageCount || 0) > 0
-          ? 'MCQ'
-          : (subject.cqCount || 0) > 0
-            ? 'CQ'
-            : 'SHORT';
-      subject.folderRules.forEach((r) => push(r, type));
+      const typeNeeds = [
+        { type: 'MCQ' as const, count: Number(subject.mcqSingleCount || 0) + Number(subject.mcqPassageCount || 0) },
+        { type: 'CQ' as const, count: Number(subject.cqCount || 0) },
+        { type: 'SHORT' as const, count: Number(subject.shortCount || 0) },
+      ].filter((row) => row.count > 0);
+
+      for (const need of typeNeeds) {
+        const totalAllocated = subject.folderRules.reduce((sum, rule) => sum + Number(rule.questionCount || 0), 0);
+        let distributed = 0;
+        subject.folderRules.forEach((rule, index) => {
+          const isLast = index === subject.folderRules.length - 1;
+          const portion = isLast
+            ? Math.max(0, need.count - distributed)
+            : totalAllocated > 0
+              ? Math.floor(need.count * (Number(rule.questionCount || 0) / totalAllocated))
+              : index === 0
+                ? need.count
+                : 0;
+          if (portion > 0) {
+            push({ ...rule, questionCount: portion }, need.type);
+            distributed += portion;
+          }
+        });
+      }
     }
   } else {
     for (const section of state.sections) {

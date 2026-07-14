@@ -22,8 +22,12 @@ import { SEC_TYPES } from '../constants';
 import {
   buildRollupCountsMap,
   folderCapacityForType,
+  primarySubjectQuestionType,
+  rollupCapacityForSubjectFolders,
   sectionAllocatedTotal,
   sectionMcqPassageGoal,
+  subjectHasMixedQuestionTypes,
+  subjectTypeNeeds,
   type FolderCounts,
 } from '../wizardHelpers';
 import { SelectedFoldersSummary, type SectionLike } from '../components/SelectedFoldersSummary';
@@ -146,9 +150,18 @@ export function Step3QuestionBank({
     type: 'MCQ' | 'CQ' | 'SHORT';
     folderIds: string[];
   } | null>(null);
+  const [activeSubjectQuestionType, setActiveSubjectQuestionType] = useState<'MCQ' | 'CQ' | 'SHORT'>('MCQ');
 
   const activeSection = state.sections.find((s) => s.localId === activeSectionId) ?? state.sections[0];
   const activeSubject = state.subjects.find((s) => s.localId === activeSectionId) ?? state.subjects[0];
+
+  useEffect(() => {
+    if (state.productType !== 'MULTI' || !activeSubject) return;
+    setActiveSubjectQuestionType(primarySubjectQuestionType(activeSubject));
+  }, [activeSubject?.localId, state.productType]);
+
+  const subjectQuestionType = (subject: WizardSubject): 'MCQ' | 'CQ' | 'SHORT' =>
+    primarySubjectQuestionType(subject);
 
   const groupedTrees = useMemo(() => {
     if (trees && trees.length > 0) return trees;
@@ -163,11 +176,10 @@ export function Step3QuestionBank({
   /** rollup map: folder id → cumulative MCQ/CQ/SHORT/total counts across descendants. */
   const rollupMap = useMemo(() => buildRollupCountsMap(tree), [tree]);
 
-  const subjectQuestionType = (subject: WizardSubject): 'MCQ' | 'CQ' | 'SHORT' => {
-    if ((subject.mcqSingleCount || 0) + (subject.mcqPassageCount || 0) > 0) return 'MCQ';
-    if ((subject.cqCount || 0) > 0) return 'CQ';
-    return 'SHORT';
-  };
+  const activeMultiQuestionType =
+    state.productType === 'MULTI' && activeSubject
+      ? activeSubjectQuestionType
+      : activeSection?.type ?? 'MCQ';
 
   const updateRuleCount = (sectionLocalId: string, folderId: string, n: number) => {
     dispatch({ type: 'UPDATE_RULE_COUNT', sectionLocalId, folderId, count: n });
@@ -215,7 +227,7 @@ export function Step3QuestionBank({
         folderName: folder.name,
         defaultCount: Math.min(
           remaining,
-          Math.max(1, ownCapacityForType(folder, subjectQuestionType(activeSubject)) || folder.questionCount || 1),
+          Math.max(1, ownCapacityForType(folder, activeMultiQuestionType) || folder.questionCount || 1),
         ),
       });
     } else if (activeSection) {
@@ -659,6 +671,28 @@ export function Step3QuestionBank({
                   );
                 })}
               </div>
+              {activeSubject && subjectHasMixedQuestionTypes(activeSubject) ? (
+                <div className="mt-3 flex flex-wrap gap-1.5 items-center">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mr-1">Linking as:</span>
+                  {subjectTypeNeeds(activeSubject).map((need) => (
+                    <Button
+                      key={need.type}
+                      type="button"
+                      size="sm"
+                      variant={activeSubjectQuestionType === need.type ? 'default' : 'outline'}
+                      className={cn(
+                        'h-8 text-xs font-bold rounded-lg',
+                        activeSubjectQuestionType === need.type
+                          ? 'bg-indigo-700 text-white hover:bg-indigo-800'
+                          : 'border-slate-200 text-slate-600',
+                      )}
+                      onClick={() => setActiveSubjectQuestionType(need.type)}
+                    >
+                      {need.type} ({need.count})
+                    </Button>
+                  ))}
+                </div>
+              ) : null}
               {renderTreeControls()}
             </CardHeader>
             <CardContent className="p-3">
@@ -683,6 +717,7 @@ export function Step3QuestionBank({
               const allocated = s.folderRules.reduce((sum, r) => sum + Number(r.questionCount || 0), 0);
               const shortage = Math.max(0, s.count - allocated);
               const questionType = subjectQuestionType(s);
+              const typeNeeds = subjectTypeNeeds(s);
               return (
                 <Card key={s.localId} className="border-slate-100 shadow-md shadow-slate-100/40 rounded-2xl overflow-hidden">
                   <CardHeader className="py-4 px-5 border-b border-slate-100 bg-slate-50/20">
@@ -693,6 +728,11 @@ export function Step3QuestionBank({
                           MCQ {(s.mcqSingleCount || 0) + (s.mcqPassageCount || 0)} · CQ {s.cqCount || 0} · SHORT{' '}
                           {s.shortCount || 0}
                         </p>
+                        {subjectHasMixedQuestionTypes(s) ? (
+                          <p className="mt-1 text-[10px] font-medium text-amber-700">
+                            Mixed types: bank capacity is checked separately for MCQ, CQ, and Short.
+                          </p>
+                        ) : null}
                       </div>
                       <div className="flex flex-wrap gap-1.5">
                         <Badge variant={shortage ? 'destructive' : 'secondary'} className="text-[10px] font-semibold">
@@ -702,6 +742,23 @@ export function Step3QuestionBank({
                           {s.folderRules.length} folders
                         </Badge>
                       </div>
+                      {typeNeeds.length > 0 && s.folderRules.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {typeNeeds.map((need) => {
+                            const bankCap = rollupCapacityForSubjectFolders(s.folderRules, rollupMap, need.type);
+                            const ok = bankCap >= need.count;
+                            return (
+                              <Badge
+                                key={`${s.localId}-${need.type}`}
+                                variant={ok ? 'outline' : 'destructive'}
+                                className="text-[10px] font-semibold"
+                              >
+                                {need.type} bank {bankCap}/{need.count}
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                      ) : null}
                     </div>
 
                     <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-100">

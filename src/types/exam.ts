@@ -422,6 +422,7 @@ export interface StartAttemptResponse {
 export interface ExamSubjectBreakdownRow {
   subjectId: string;
   name: string;
+  isMandatory?: boolean;
   correct: number;
   wrong: number;
   score: number;

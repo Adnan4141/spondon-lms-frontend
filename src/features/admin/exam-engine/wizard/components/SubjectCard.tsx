@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { cn } from '@/lib/utils';
 import type { WizardSubject } from '../../types';
 import type { WizardFormAction } from '../examWizardReducer';
 
@@ -20,6 +21,10 @@ export function SubjectCard({ subject, index, dispatch }: Props) {
     Number(subject.mcqPassageCount || 0) +
     Number(subject.cqCount || 0) +
     Number(subject.shortCount || 0);
+  const hasMixedTypes =
+    [Number(subject.mcqSingleCount || 0) + Number(subject.mcqPassageCount || 0) > 0,
+      Number(subject.cqCount || 0) > 0,
+      Number(subject.shortCount || 0) > 0].filter(Boolean).length > 1;
 
   const patchCount = (patch: Partial<WizardSubject>) => {
     const next = { ...subject, ...patch };
@@ -50,14 +55,19 @@ export function SubjectCard({ subject, index, dispatch }: Props) {
             }
             className="h-10 min-w-[200px] max-w-xs border-slate-200 bg-white text-sm font-bold text-slate-800 rounded-xl focus-visible:ring-indigo-500"
           />
-          <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 h-10 shadow-sm select-none">
-            <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Mandatory</Label>
-            <Switch
-              checked={subject.compulsory}
-              onCheckedChange={(checked) =>
-                dispatch({ type: 'UPDATE_SUBJECT', localId: subject.localId, patch: { compulsory: checked } })
-              }
-            />
+          <div className="flex flex-col gap-0.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-sm select-none">
+            <div className="flex items-center gap-2.5 h-6">
+              <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Mandatory</Label>
+              <Switch
+                checked={subject.compulsory}
+                onCheckedChange={(checked) =>
+                  dispatch({ type: 'UPDATE_SUBJECT', localId: subject.localId, patch: { compulsory: checked } })
+                }
+              />
+            </div>
+            <p className="text-[9px] leading-snug text-slate-400 max-w-[180px]">
+              Only mandatory subjects affect overall pass/fail.
+            </p>
           </div>
         </div>
         <Button
@@ -70,6 +80,12 @@ export function SubjectCard({ subject, index, dispatch }: Props) {
           <Trash2 className="h-4.5 w-4.5" />
         </Button>
       </div>
+
+      {hasMixedTypes ? (
+        <p className="rounded-xl border border-amber-200 bg-amber-50/70 px-3 py-2 text-[11px] font-medium text-amber-900">
+          This subject mixes question types. In Step 3, link folders and verify bank capacity for each type separately.
+        </p>
+      ) : null}
 
       {/* Grid Configuration Fields */}
       <div className="grid gap-3 grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 items-end">
@@ -92,7 +108,7 @@ export function SubjectCard({ subject, index, dispatch }: Props) {
         ))}
 
         <div className="space-y-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Marks</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Marks per Q</span>
           <Input
             type="number"
             step="0.25"
@@ -122,12 +138,23 @@ export function SubjectCard({ subject, index, dispatch }: Props) {
           <Input
             type="number"
             step="0.25"
-            className="h-10 border-slate-200 bg-white text-sm font-semibold text-slate-700 rounded-xl"
+            min={0}
+            className={cn(
+              'h-10 border-slate-200 bg-white text-sm font-semibold text-slate-700 rounded-xl',
+              subject.compulsory && (!subject.passMarks || Number(subject.passMarks) <= 0) && 'border-rose-300 ring-1 ring-rose-200',
+            )}
             value={subject.passMarks}
             onChange={(event) =>
               dispatch({ type: 'UPDATE_SUBJECT', localId: subject.localId, patch: { passMarks: event.target.value } })
             }
           />
+        </div>
+
+        <div className="space-y-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Section Total</span>
+          <div className="flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700 shadow-sm select-none tabular-nums">
+            {(total * Number(subject.marks || 0)).toFixed(2)}
+          </div>
         </div>
 
         <div className="space-y-1.5">

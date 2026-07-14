@@ -1,5 +1,5 @@
 import type { FolderTreeNode } from '@/lib/api/question-bank';
-import type { ExamProductType, ExamWizardState, WizardSection } from '../types';
+import type { ExamProductType, ExamWizardState, FolderRuleDraft, WizardSection, WizardSubject } from '../types';
 import { EXAM_WIZARD_ALL_BATCHES, EXAM_WIZARD_ALL_BRANCHES } from './constants';
 
 export function newLocalId() {
@@ -135,6 +135,37 @@ export function folderCapacityForType(
   if (type === 'MCQ') return counts.mcqSingle + counts.mcqPassage;
   if (type === 'CQ') return counts.cq;
   return counts.short;
+}
+
+export function subjectMcqCount(subject: WizardSubject): number {
+  return Number(subject.mcqSingleCount || 0) + Number(subject.mcqPassageCount || 0);
+}
+
+export function subjectTypeNeeds(
+  subject: WizardSubject,
+): Array<{ type: 'MCQ' | 'CQ' | 'SHORT'; count: number }> {
+  const needs: Array<{ type: 'MCQ' | 'CQ' | 'SHORT'; count: number }> = [];
+  const mcq = subjectMcqCount(subject);
+  if (mcq > 0) needs.push({ type: 'MCQ', count: mcq });
+  if (Number(subject.cqCount || 0) > 0) needs.push({ type: 'CQ', count: Number(subject.cqCount) });
+  if (Number(subject.shortCount || 0) > 0) needs.push({ type: 'SHORT', count: Number(subject.shortCount) });
+  return needs;
+}
+
+export function subjectHasMixedQuestionTypes(subject: WizardSubject): boolean {
+  return subjectTypeNeeds(subject).length > 1;
+}
+
+export function primarySubjectQuestionType(subject: WizardSubject): 'MCQ' | 'CQ' | 'SHORT' {
+  return subjectTypeNeeds(subject)[0]?.type ?? 'MCQ';
+}
+
+export function rollupCapacityForSubjectFolders(
+  folderRules: FolderRuleDraft[],
+  rollupMap: Map<string, FolderCounts>,
+  type: 'MCQ' | 'CQ' | 'SHORT',
+): number {
+  return folderRules.reduce((sum, rule) => sum + folderCapacityForType(rollupMap.get(rule.folderId), type), 0);
 }
 
 export function sectionAllocatedTotal(s: WizardSection): number {

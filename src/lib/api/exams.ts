@@ -61,6 +61,8 @@ export interface GenerateFromSubjectsDto {
   setCount: number;
   language?: 'bn' | 'en';
   replaceExisting?: boolean;
+  setNaming?: 'ALPHA' | 'NUM' | 'KA';
+  shuffle?: 'FULL' | 'ORDER' | 'OPTS' | 'MIXED';
 }
 
 export interface ExamsPagination {
