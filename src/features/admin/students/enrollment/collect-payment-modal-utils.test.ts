@@ -54,4 +54,44 @@ describe('resolveInvoiceDue', () => {
     const due = resolveInvoiceDue(makeInvoice({ amount: 4800, paidAmount: 1500, items: [] }));
     expect(due).toBe(3300);
   });
+
+  it('after cancel keeps course due when only admission was paid (ignores stale header)', () => {
+    const due = resolveInvoiceDue(
+      makeInvoice({
+        amount: 2100, // stale header after PAP-shrunk regenerate
+        paidAmount: 1500,
+        items: [
+          {
+            title: 'Chemistry',
+            refId: 'c1',
+            unitPrice: 1800,
+            qty: 1,
+            payableAmount: 1145.45,
+            paidAmount: 0,
+            dueAmount: 1145.45,
+          },
+          {
+            title: 'Math',
+            refId: 'c2',
+            unitPrice: 1500,
+            qty: 1,
+            payableAmount: 954.55,
+            paidAmount: 0,
+            dueAmount: 954.55,
+          },
+          {
+            title: 'Admission',
+            refId: 'p1',
+            unitPrice: 1500,
+            qty: 1,
+            type: 'ADMISSION_FEE',
+            payableAmount: 1500,
+            paidAmount: 1500,
+            dueAmount: 0,
+          },
+        ],
+      }),
+    );
+    expect(due).toBe(2100);
+  });
 });

@@ -374,7 +374,8 @@ export function useCollectPaymentModal({ student, onSave }: CollectPaymentModalP
   const discountable = Math.max(0, totalPayable - admissionFeeTotal);
   const requestedDiscount = isSelectedMonthly ? Number(addDiscount) || 0 : 0;
   const discount = isSelectedMonthly ? Math.min(requestedDiscount, discountable) : 0;
-  const netDue = Math.max(0, totalPayable - discount - totalAlreadyPaid);
+  // Prefer line-item due (avoids stale header payable − admission paid after cancel/regenerate).
+  const netDue = Math.max(0, totalDueForMonth - discount);
   const discountCapped = requestedDiscount > discountable && discountable >= 0 && requestedDiscount > 0;
   const monthStatus = getMonthAggStatus(displayInvoices);
 
