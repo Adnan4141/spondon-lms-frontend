@@ -243,8 +243,9 @@ function LoginForm() {
 
         <div className="relative z-10 w-full max-w-md space-y-12">
           <Link href="/" className="inline-block transform hover:scale-105 transition-transform">
-            <div className="relative h-14 w-48">
-              <Image src="/images/logo/spondon-logo.png" alt="Spondon" fill sizes="192px" className="object-contain brightness-0 invert" priority />
+            <div className="flex items-center gap-3">
+              <Image src="/images/logo/mathlab.png" alt="Mathlab" width={443} height={512} className="object-contain h-14 w-auto" priority />
+              <span className="text-3xl font-extrabold tracking-tight text-white">Mathlab</span>
             </div>
           </Link>
 
@@ -271,7 +272,7 @@ function LoginForm() {
       {/* Right Form Panel */}
       <div className="w-full lg:w-7/12 flex flex-col items-center justify-center p-6 md:p-12 lg:p-20 relative">
         <div className="absolute top-8 left-8 lg:hidden">
-          <Link href="/"><Image src="/images/logo/spondon-logo.png" alt="Logo" width={120} height={40} className="object-contain" /></Link>
+          <Link href="/" className="flex items-center gap-2"><Image src="/images/logo/mathlab.png" alt="Mathlab" width={443} height={512} className="object-contain h-10 w-auto" /><span className="text-lg font-extrabold tracking-tight text-[#2B2E7A]">Mathlab</span></Link>
         </div>
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md space-y-10">

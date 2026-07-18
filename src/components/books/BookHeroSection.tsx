@@ -79,7 +79,7 @@ export function BookHeroSection({
           </div>
           <h1 className="text-3xl font-black leading-tight tracking-tight text-slate-950 sm:text-4xl lg:text-5xl">{book.name}</h1>
           <div className="rounded-[24px] border border-slate-200 bg-white px-4 py-3 shadow-sm sm:max-w-sm">
-            <p className="text-sm font-black text-slate-900">{book.author || 'স্পন্দন পাবলিকেশনস'}</p>
+            <p className="text-sm font-black text-slate-900">{book.author || 'ম্যাথল্যাব পাবলিকেশনস'}</p>
             <p className="text-xs font-medium text-slate-500">{categoryLabel || 'শিক্ষামূলক প্রকাশনা'}</p>
           </div>
         </div>

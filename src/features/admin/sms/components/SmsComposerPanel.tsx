@@ -81,7 +81,7 @@ export function SmsComposerPanel({
   const segmentError = singleSegmentErrorForTemplate(value.message);
   const hasPlaceholders = /\{[a-zA-Z0-9_]+\}/.test(value.message);
   const rate = value.smsType === 'masking' ? rates.maskingRate : rates.nonMaskingRate;
-  const maskingLabel = gatewayCapability?.maskingSenderLabel || 'Spondon';
+  const maskingLabel = gatewayCapability?.maskingSenderLabel || 'Mathlab';
   const nonMaskingLabel = gatewayCapability?.nonMaskingSenderLabel || 'Non-Masking';
   const maskingDisabled = gatewayCapability ? !gatewayCapability.maskingConfigured : false;
   const nonMaskingDisabled = gatewayCapability ? !gatewayCapability.nonMaskingConfigured : false;

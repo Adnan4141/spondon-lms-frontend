@@ -29,12 +29,12 @@ export function BooksCatalogHero({
     <section className="border-b border-slate-200/80 bg-[radial-gradient(ellipse_120%_80%_at_50%_-20%,#ecfdf5_0%,#f8fafc_45%,#ffffff_100%)]">
       <div className="mx-auto max-w-7xl px-4 pb-12 pt-10 sm:px-6 sm:pb-14 sm:pt-12 lg:px-12">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-[11px] font-black uppercase tracking-[0.22em] text-emerald-700">স্পন্দন বই ক্যাটালগ</p>
+          <p className="text-[11px] font-black uppercase tracking-[0.22em] text-emerald-700">ম্যাথল্যাব বই ক্যাটালগ</p>
           <h1 className="mt-3 text-3xl font-black leading-tight text-slate-950 sm:text-4xl lg:text-[2.65rem]">
             প্রিন্ট ও ডিজিটাল — এক জায়গায়
           </h1>
           <p className="mt-4 text-sm leading-relaxed text-slate-600 sm:text-base">
-            স্পন্দন LMS থেকে বেছে নিন আপনার কোর্স ও পরীক্ষার বই। দ্রুত সার্চ, ফরম্যাট ফিল্টার, এবং ক্যাটাগরি অনুযায়ী সাজানো
+            ম্যাথল্যাব LMS থেকে বেছে নিন আপনার কোর্স ও পরীক্ষার বই। দ্রুত সার্চ, ফরম্যাট ফিল্টার, এবং ক্যাটাগরি অনুযায়ী সাজানো
             তালিকা — সবই এখানে।
           </p>
 

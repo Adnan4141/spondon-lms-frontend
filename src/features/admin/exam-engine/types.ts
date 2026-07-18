@@ -26,7 +26,7 @@ export type UiExamCategory = 'MCQ' | 'CQ' | 'MCQCQ' | 'MULTI' | 'OMR' | 'OMRB' |
 
 export type SectionTypeUi = 'MCQ' | 'CQ' | 'SHORT';
 
-/** Predefined OMR sheet sizes per Spondon public dynamic spec. */
+/** Predefined OMR sheet sizes per Mathlab public dynamic spec. */
 export type OmrSheetSize = '30' | '50' | '100' | '120' | 'COMPETITIVE';
 
 export interface OmrConfig {

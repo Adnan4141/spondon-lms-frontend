@@ -18,16 +18,16 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://spondonedu.com"),
 
   title: {
-    default: "Spondon Academic & Admission Program",
-    template: "%s | Spondon Academic",
+    default: "Mathlab Academic & Admission Program",
+    template: "%s | Mathlab",
   },
 
   description:
-    "Spondon Academic & Admission Program — a concern of Spondon EdTech Limited — provides quality education support for 100,000+ students across Bangladesh at the secondary and higher secondary levels.",
+    "Mathlab Academic & Admission Program provides quality education support for 100,000+ students across Bangladesh at the secondary and higher secondary levels.",
 
   keywords: [
-    "Spondon Academic",
-    "Spondon EdTech",
+    "Mathlab",
+    "Mathlab Academic",
     "SSC preparation Bangladesh",
     "HSC preparation Bangladesh",
     "online education Bangladesh",
@@ -36,9 +36,9 @@ export const metadata: Metadata = {
     "higher secondary education",
   ],
 
-  authors: [{ name: "Spondon EdTech Limited", url: "https://spondonedu.com" }],
-  creator: "Spondon EdTech Limited",
-  publisher: "Spondon EdTech Limited",
+  authors: [{ name: "Mathlab", url: "https://spondonedu.com" }],
+  creator: "Mathlab",
+  publisher: "Mathlab",
 
   alternates: {
     canonical: "https://spondonedu.com",
@@ -48,31 +48,31 @@ export const metadata: Metadata = {
     type: "website",
     locale: "bn_BD",
     url: "https://spondonedu.com",
-    siteName: "Spondon Academic & Admission Program",
-    title: "Spondon Academic & Admission Program",
+    siteName: "Mathlab Academic & Admission Program",
+    title: "Mathlab Academic & Admission Program",
     description:
       "Quality education support for 100,000+ students across Bangladesh. SSC & HSC preparation, admission programs, and live classes by 150+ expert instructors.",
     images: [
       {
-        url: "/images/logo/spondon-logo.png",
-        width: 1200,
-        height: 630,
-        alt: "Spondon Academic & Admission Program",
+        url: "/images/logo/mathlab-icon.png",
+        width: 512,
+        height: 512,
+        alt: "Mathlab Academic & Admission Program",
       },
     ],
   },
 
   twitter: {
     card: "summary_large_image",
-    title: "Spondon Academic & Admission Program",
+    title: "Mathlab Academic & Admission Program",
     description:
       "Quality education support for 100,000+ students across Bangladesh. SSC & HSC preparation by 150+ expert instructors.",
-    images: ["/images/logo/spondon-logo.png"],
+    images: ["/images/logo/mathlab-icon.png"],
   },
 
   icons: {
-    icon: "/images/logo/spondon_favicon.png",
-    apple: "/images/logo/spondon_favicon.png",
+    icon: "/images/logo/mathlab-icon.png",
+    apple: "/images/logo/mathlab-icon.png",
   },
 
   robots: {
@@ -90,10 +90,10 @@ export const metadata: Metadata = {
 const organizationSchema = {
   "@context": "https://schema.org",
   "@type": "EducationalOrganization",
-  name: "Spondon Academic & Admission Program",
-  alternateName: "Spondon EdTech Limited",
+  name: "Mathlab Academic & Admission Program",
+  alternateName: "Mathlab",
   url: "https://spondonedu.com",
-  logo: "https://spondonedu.com/images/logo/spondon-logo.png",
+  logo: "https://spondonedu.com/images/logo/mathlab-icon.png",
   foundingDate: "2019",
   description:
     "Provides quality education support for 100,000+ students across Bangladesh at secondary and higher secondary levels.",

@@ -47,7 +47,7 @@ export default function BranchesPageClient({ initialBranches }: Props) {
             transition={{ delay: 0.2 }}
             className="mx-auto max-w-2xl text-lg font-medium text-slate-400"
           >
-            আপনার নিকটস্থ স্পন্দন ব্রাঞ্চটি খুঁজে নিন এবং মানসম্মত শিক্ষা গ্রহণের যাত্রা শুরু করুন।
+            আপনার নিকটস্থ ম্যাথল্যাব ব্রাঞ্চটি খুঁজে নিন এবং মানসম্মত শিক্ষা গ্রহণের যাত্রা শুরু করুন।
           </motion.p>
         </div>
       </div>

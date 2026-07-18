@@ -190,7 +190,7 @@ export function SmsGatewayTab({
                 readOnly
                 className={`mt-1 ${maskingReady ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}
               />
-              <p className="mt-1 text-xs text-slate-400">Sent as Shiram <code>mask</code>; defaults to Spondon.</p>
+              <p className="mt-1 text-xs text-slate-400">Sent as Shiram <code>mask</code>; defaults to Mathlab.</p>
             </div>
             <div>
               <Label className="text-slate-600">Non-masking label</Label>

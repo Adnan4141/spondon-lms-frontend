@@ -97,15 +97,18 @@ export function Header() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-12 flex items-center justify-between h-14 sm:h-16 md:h-16 transition-all duration-500">
         
         {/* Logo - responsive size */}
-        <Link href="/" className="relative z-50 flex items-center shrink-0">
+        <Link href="/" className="relative z-50 flex items-center gap-2.5 shrink-0">
           <Image
-            src="/images/logo/spondon-logo.png"
-            alt="Spondon Logo"
-            width={200}
-            height={65}
+            src="/images/logo/mathlab.png"
+            alt="Mathlab Logo"
+            width={443}
+            height={512}
             priority
-            className="object-contain transition-all duration-500 w-28 sm:w-36 md:w-44 lg:w-[200px] h-auto"
+            className="object-contain transition-all duration-500 h-9 sm:h-10 md:h-11 w-auto"
           />
+          <span className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-[#2B2E7A]">
+            Mathlab
+          </span>
         </Link>
 
         {/* Desktop Navigation */}

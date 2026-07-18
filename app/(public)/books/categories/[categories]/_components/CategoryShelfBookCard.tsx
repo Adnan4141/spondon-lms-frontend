@@ -15,7 +15,7 @@ function formatPrice(n: number): string {
 }
 
 export function CategoryShelfBookCard({ book, shelfIndex = 0 }: CategoryShelfBookCardProps) {
-  const seriesTitle = book.category?.name?.trim() || 'স্পন্দন প্রকাশনা';
+  const seriesTitle = book.category?.name?.trim() || 'ম্যাথল্যাব প্রকাশনা';
   const mrp = book.mrp != null && book.mrp > book.price ? book.mrp : null;
   const accentClass = shelfGradientClass(shelfIndex);
 

@@ -61,21 +61,21 @@ export async function generateMetadata({ params }: { params: TeacherRouteParams 
   const image = teacherImage(teacher);
 
   return {
-    title: `${teacher.fullName} | Spondon Teacher`,
+    title: `${teacher.fullName} | Mathlab Teacher`,
     description,
     alternates: { canonical },
     openGraph: {
       type: 'profile',
       locale: 'bn_BD',
       siteName: SITE_NAME,
-      title: `${teacher.fullName} | Spondon Teacher`,
+      title: `${teacher.fullName} | Mathlab Teacher`,
       description,
       url: canonical,
       images: image ? [{ url: image, alt: teacher.fullName }] : undefined,
     },
     twitter: {
       card: 'summary_large_image',
-      title: `${teacher.fullName} | Spondon Teacher`,
+      title: `${teacher.fullName} | Mathlab Teacher`,
       description,
       images: image ? [image] : undefined,
     },

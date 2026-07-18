@@ -60,7 +60,7 @@ function buildGatewayCapability(config: Partial<SmsConfig> | undefined, rates: {
       credentialsConfigured: true,
       maskingConfigured: true,
       nonMaskingConfigured: true,
-      maskingSenderLabel: 'Spondon',
+      maskingSenderLabel: 'Mathlab',
       nonMaskingSenderLabel: 'Non-Masking',
       maskingRate: rates.maskingRate,
       nonMaskingRate: rates.nonMaskingRate,
@@ -68,7 +68,7 @@ function buildGatewayCapability(config: Partial<SmsConfig> | undefined, rates: {
   }
 
   const credentialsConfigured = Boolean(config.hasApiEmail && config.hasApiKey);
-  const maskingSenderLabel = config.senderId?.trim() || 'Spondon';
+  const maskingSenderLabel = config.senderId?.trim() || 'Mathlab';
   const nonMaskingSenderLabel = config.nonMaskingNumber?.trim() || 'Non-Masking';
 
   return {

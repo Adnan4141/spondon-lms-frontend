@@ -47,7 +47,7 @@ const PRESETS: Array<{ label: string; questionCount: number; optionCount: 3 | 4 
 
 const DEFAULT_FORM: OmrTestPreviewBody = {
   examTitle: 'HSC Model Test',
-  instituteName: 'Spondon',
+  instituteName: 'Mathlab',
   questionCount: 50,
   optionCount: 4,
   setLabel: 'A',

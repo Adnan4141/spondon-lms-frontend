@@ -1,6 +1,6 @@
 export const SITE_URL = 'https://spondonedu.com';
-export const SITE_NAME = 'Spondon Academic';
-export const ORGANIZATION_NAME = 'Spondon Academic & Admission Program';
+export const SITE_NAME = 'Mathlab';
+export const ORGANIZATION_NAME = 'Mathlab Academic & Admission Program';
 
 export function absoluteSiteUrl(path: string): string {
   if (!path) return SITE_URL;
@@ -40,7 +40,7 @@ export function truncateDescription(value: string, maxLength = 155): string {
 
 export function compactDescription(
   value?: string | null,
-  fallback = 'Quality education support from Spondon Academic.',
+  fallback = 'Quality education support from Mathlab.',
 ): string {
   return truncateDescription(stripHtml(value) || fallback);
 }

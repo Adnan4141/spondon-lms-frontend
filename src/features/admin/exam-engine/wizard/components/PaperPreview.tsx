@@ -28,7 +28,7 @@ export function PaperPreview({ state, step, deliveryMode, className }: Props) {
     >
       <div className="border-b border-[#0D1B35]/15 bg-[#0D1B35] px-4 py-3 text-[#E2C98A]">
         <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-wide">
-          <span>Spondon LMS · exam paper</span>
+          <span>Mathlab LMS · exam paper</span>
           <span className="opacity-90">Step {step} / 6</span>
         </div>
         <h3 className="mt-1 font-serif text-lg font-normal leading-tight text-[#E2C98A] md:text-xl">

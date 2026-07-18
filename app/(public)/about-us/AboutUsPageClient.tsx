@@ -66,7 +66,7 @@ export default function AboutUsPageClient({ settings: s }: Props) {
             <div className="relative mx-auto aspect-video max-w-md overflow-hidden rounded-2xl border-4 border-white/5 shadow-2xl sm:rounded-[2.5rem] md:max-w-none md:rounded-[3rem] md:border-8">
               <Image
                 src={resolveUrl(s['about.hero_video_url'])}
-                alt="Spondon Journey"
+                alt="Mathlab Journey"
                 fill
                 className="object-cover"
                 sizes="(max-width: 768px) 100vw, 50vw"

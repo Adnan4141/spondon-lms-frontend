@@ -191,7 +191,7 @@ export function AttendanceExportCard({
             <span className="text-[11px] text-muted-foreground">Institution name (optional)</span>
             <Input
               className="h-8 text-xs"
-              placeholder="e.g. Spondon Academy"
+              placeholder="e.g. Mathlab Academy"
               value={offlineInstitution}
               onChange={(e) => setOfflineInstitution(e.target.value)}
             />

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { ChevronRight, LogOut, X } from 'lucide-react';
-import { SpondonLogo } from '@/components/common/SpondonLogo';
+import { MathlabLogo } from '@/components/common/MathlabLogo';
 import {
   SidebarCollapseRow,
   SidebarExpandFooterButton,
@@ -190,12 +190,12 @@ export function TeacherSidebar({
             className={cn('group flex items-center gap-3', collapsed && 'justify-center')}
           >
             <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-md shadow-violet-100/50 ring-1 ring-violet-100/55 transition-transform duration-300 group-hover:scale-[1.04]">
-              <SpondonLogo size={42} className="h-full w-full object-contain p-1.5" />
+              <MathlabLogo size={42} className="h-full w-full object-contain p-1.5" />
             </div>
             {!collapsed && (
               <div className="min-w-0 flex-1">
                 <span className="truncate text-[17px] font-black tracking-tight text-slate-900">
-                  Spondon
+                  Mathlab
                 </span>
                 <span className="mt-0.5 inline-flex items-center rounded-full border border-violet-100 bg-violet-50/80 px-2.5 py-0.5 text-[8.5px] font-bold uppercase tracking-widest text-violet-700">
                   Teacher

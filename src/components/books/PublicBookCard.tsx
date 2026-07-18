@@ -84,7 +84,7 @@ export function PublicBookCard({
           </h3>
 
           <p className="mt-1 text-sm font-semibold text-slate-500">
-            {book.author || 'স্পন্দন পাবলিকেশনস'}
+            {book.author || 'ম্যাথল্যাব পাবলিকেশনস'}
           </p>
         </div>
 

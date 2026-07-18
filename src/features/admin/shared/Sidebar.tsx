@@ -230,7 +230,7 @@ export function Sidebar({ mobileOpen, onCloseMobile, collapsed, onToggleCollapse
   const menuSections = useMemo(() => buildMenuSections(role), [role]);
   const homeHref = role === 'BRANCH_ADMIN' ? '/admin/branch' : '/admin';
 
-  const brandLogoSrc = '/images/logo/spondon_favicon.png';
+  const brandLogoSrc = '/images/logo/mathlab-icon.png';
 
   return (
     <>
@@ -263,7 +263,7 @@ export function Sidebar({ mobileOpen, onCloseMobile, collapsed, onToggleCollapse
             <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-indigo-100 bg-white shadow-lg shadow-indigo-100 transition-transform group-hover:scale-105 group-hover:rotate-3">
               <Image
                 src={brandLogoSrc}
-                alt="Spondon logo"
+                alt="Mathlab logo"
                 width={44}
                 height={44}
                 className="h-full w-full object-contain p-1.5"
@@ -272,7 +272,7 @@ export function Sidebar({ mobileOpen, onCloseMobile, collapsed, onToggleCollapse
             </div>
             {!collapsed && (
               <div className="flex min-w-0 flex-col">
-                <span className="truncate text-xl font-black leading-none tracking-tight text-slate-900">Spondon</span>
+                <span className="truncate text-xl font-black leading-none tracking-tight text-slate-900">Mathlab</span>
                 <span className="mt-1 text-[9px] font-bold uppercase tracking-[0.2em] text-indigo-500/80">
                   Admin Panel
                 </span>

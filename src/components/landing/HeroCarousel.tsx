@@ -40,7 +40,7 @@ const STATIC_SLIDES: HeroSlide[] = [
   {
     id: 's3',
     title: 'স্বপ্ন ছোঁয়ার লড়াইয়ে',
-    highlight: 'SpondonPro তোমার সাথে',
+    highlight: 'Mathlab তোমার সাথে',
     subtitle: 'মানসম্মত শিক্ষা পৌঁছে যাবে দেশের প্রতিটি প্রান্তে, স্বল্প খরচে সেরা মেন্টরদের সাথে।',
     imageUrl: '/images/carousel/carousel-3.jpg',
     btnText: 'ভর্তি হও এখনই',

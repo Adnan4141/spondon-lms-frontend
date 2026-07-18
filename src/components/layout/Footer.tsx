@@ -15,14 +15,14 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   'footer.description': 'আমরা বিশ্বাস করি মানসম্মত শিক্ষা সবার অধিকার। প্রযুক্তির মাধ্যমে শিক্ষাকে সহজলভ্য করাই আমাদের মূল লক্ষ্য।',
   'footer.phone': '+৮৮০ ১৭০০-০০০০০০',
   'footer.phone_href': 'tel:+8801700000000',
-  'footer.email': 'support@spondonpro.com',
+  'footer.email': 'support@mathlab.com',
   'footer.facebook': '#',
   'footer.instagram': '#',
   'footer.whatsapp': '#',
   'footer.youtube': '#',
   'footer.newsletter_title': 'নতুন কোর্সের আপডেট পেতে চান?',
   'footer.newsletter_subtitle': 'আমাদের নিউজলেটারে সাবস্ক্রাইব করে যুক্ত থাকুন।',
-  'footer.copyright': '© ২০২৬ স্পন্দন',
+  'footer.copyright': '© ২০২৬ ম্যাথল্যাব',
   'footer.payment_logo_url': '/images/collaborator/bikash-logo.png',
   'footer.course_1_label': 'একাডেমিক প্রোগ্রাম',
   'footer.course_1_href': '/courses',
@@ -116,13 +116,17 @@ export function Footer({ siteSettings = {} }: FooterProps) {
 
             {/* Column 1: Branding */}
             <div className="lg:col-span-4 space-y-8">
-              <div className="relative h-10 w-32">
+              <div className="flex items-center gap-2.5">
                 <Image
-                  src="/images/logo/spondon-logo.png"
-                  alt="Spondon Logo"
-                  fill
-                  className="object-contain brightness-0 invert"
+                  src="/images/logo/mathlab.png"
+                  alt="Mathlab Logo"
+                  width={443}
+                  height={512}
+                  className="object-contain h-11 w-auto"
                 />
+                <span className="text-2xl font-extrabold tracking-tight text-white">
+                  Mathlab
+                </span>
               </div>
               <p className="text-slate-400 font-medium leading-relaxed max-w-sm text-sm sm:text-base">
                 {s['footer.description']}
