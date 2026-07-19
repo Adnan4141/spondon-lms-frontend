@@ -118,7 +118,7 @@ export default function AboutUsPageClient({ settings: s }: Props) {
           >
             <div className="space-y-3 sm:space-y-4">
               <h2 className="text-2xl font-black leading-tight tracking-tighter text-slate-900 sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl">
-                আমাদের{' '}
+                {' '}
                 <span className="text-[#5C2D91]">{s['about.story_title'].replace('আমাদের ', '')}</span>
               </h2>
               <div className="h-1.5 w-16 rounded-full bg-gradient-to-r from-[#5C2D91] to-[#FF2D8C] sm:h-2 sm:w-24" />
