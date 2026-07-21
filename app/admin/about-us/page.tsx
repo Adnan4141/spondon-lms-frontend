@@ -29,6 +29,7 @@ const DEFAULTS: Record<string, string> = {
   'about.story_image_url': '',
   'about.story_philosophy': 'Caring the potentiality',
   'about.values_title': 'আমাদের মূল ভিত্তি',
+  'about.values_subtitle': 'এই আদর্শগুলোই আমাদের প্রতিদিনের পথচলার অনুপ্রেরণা এবং সফলতার চাবিকাঠি',
   'about.values_items': '[]',
   'about.mission_quote': 'ম্যাথল্যাবের নামের সাথেই জড়িয়ে আছে প্রতিটি শিক্ষার্থীর জন্য Caring the potentiality',
   'about.mission_cta_text': 'আমাদের সাথে যুক্ত হোন',
@@ -46,6 +47,7 @@ const LABELS: Record<string, string> = {
   'about.story_image_url': 'Story Section Image URL',
   'about.story_philosophy': 'Philosophy Quote (small badge)',
   'about.values_title': 'Core Values Section Title',
+  'about.values_subtitle': 'Core Values Section Subtitle',
   'about.values_items': 'Core Values (JSON)',
   'about.mission_quote': 'Mission Quote',
   'about.mission_cta_text': 'CTA Button Text',
@@ -402,6 +404,7 @@ export default function AdminAboutUsPage() {
               <>
                 <SectionTitle>Core Values Section</SectionTitle>
                 <FieldRow label="Section Title" fieldKey="about.values_title" value={values} set={set} />
+                <FieldRow label="Section Subtitle" fieldKey="about.values_subtitle" value={values} set={set} multiline />
                 <CoreValuesEditor value={values['about.values_items']} onChange={(v) => set('about.values_items', v)} />
               </>
             )}

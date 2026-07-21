@@ -31,6 +31,9 @@ export default function AboutUsPageClient({ settings: s }: Props) {
       return [];
     }
   }, [s]);
+  const valuesTitleParts = (s['about.values_title'] || '').trim().split(/\s+/);
+  const valuesTitleHighlight = valuesTitleParts.pop() || '';
+  const valuesTitlePrefix = valuesTitleParts.join(' ');
 
   return (
     <main className="min-h-screen bg-white">
@@ -154,11 +157,14 @@ export default function AboutUsPageClient({ settings: s }: Props) {
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-12">
             <div className="mb-12 space-y-3 text-center sm:mb-16 sm:space-y-4 md:mb-20">
               <h2 className="text-2xl font-black tracking-tighter text-slate-900 sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl">
-                আমাদের মূল <span className="text-[#FF2D8C]">ভিত্তি</span>
+                {valuesTitlePrefix ? `${valuesTitlePrefix} ` : null}
+                <span className="text-[#FF2D8C]">{valuesTitleHighlight}</span>
               </h2>
-              <p className="mx-auto max-w-2xl text-sm font-medium text-slate-500 sm:text-base md:text-lg">
-                এই আদর্শগুলোই আমাদের প্রতিদিনের পথচলার অনুপ্রেরণা এবং সফলতার চাবিকাঠি
-              </p>
+              {s['about.values_subtitle'] ? (
+                <p className="mx-auto max-w-2xl text-sm font-medium text-slate-500 sm:text-base md:text-lg">
+                  {s['about.values_subtitle']}
+                </p>
+              ) : null}
             </div>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 md:gap-8 lg:grid-cols-3">
               {coreValues.map((value, idx) => (

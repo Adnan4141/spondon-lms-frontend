@@ -29,6 +29,7 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'spondonedu.com', pathname: '/uploads/**' },
       { protocol: 'https', hostname: 'api.spondonedu.com', pathname: '/uploads/**' },
       { protocol: 'https', hostname: 'placehold.co', pathname: '/**' },
+      { protocol: 'https', hostname: 'images.unsplash.com', pathname: '/**' },
     ],
   },
   experimental: {

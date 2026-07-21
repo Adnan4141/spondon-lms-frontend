@@ -11,6 +11,8 @@ export const ABOUT_DEFAULTS: Record<string, string> = {
   'about.story_image_url': 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=1000',
   'about.story_philosophy': 'Caring the potentiality',
   'about.values_title': 'আমাদের মূল ভিত্তি',
+  'about.values_subtitle':
+    'এই আদর্শগুলোই আমাদের প্রতিদিনের পথচলার অনুপ্রেরণা এবং সফলতার চাবিকাঠি',
   'about.values_items': JSON.stringify([
     {
       title: 'LEARNER FIRST',
