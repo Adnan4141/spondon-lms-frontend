@@ -23,6 +23,13 @@ type Props = {
   settings: Record<string, string>;
 };
 
+// Splits a title so the last word can be rendered with a highlight color.
+function splitTitle(title: string): { prefix: string; highlight: string } {
+  const parts = (title || '').trim().split(/\s+/);
+  const highlight = parts.pop() || '';
+  return { prefix: parts.join(' '), highlight };
+}
+
 export default function AboutUsPageClient({ settings: s }: Props) {
   const coreValues: CoreValue[] = useMemo(() => {
     try {
@@ -31,9 +38,8 @@ export default function AboutUsPageClient({ settings: s }: Props) {
       return [];
     }
   }, [s]);
-  const valuesTitleParts = (s['about.values_title'] || '').trim().split(/\s+/);
-  const valuesTitleHighlight = valuesTitleParts.pop() || '';
-  const valuesTitlePrefix = valuesTitleParts.join(' ');
+  const valuesTitle = splitTitle(s['about.values_title']);
+  const storyTitle = splitTitle(s['about.story_title']);
 
   return (
     <main className="min-h-screen bg-white">
@@ -108,7 +114,7 @@ export default function AboutUsPageClient({ settings: s }: Props) {
                   {s['about.story_philosophy']}
                 </p>
                 <p className="mt-1 text-xs font-bold uppercase tracking-widest text-slate-400 sm:mt-2 sm:text-sm">
-                  Our Core Philosophy
+                  {s['about.story_philosophy_label'] || 'Our Core Philosophy'}
                 </p>
               </div>
             ) : null}
@@ -121,8 +127,8 @@ export default function AboutUsPageClient({ settings: s }: Props) {
           >
             <div className="space-y-3 sm:space-y-4">
               <h2 className="text-2xl font-black leading-tight tracking-tighter text-slate-900 sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl">
-                {' '}
-                <span className="text-[#5C2D91]">{s['about.story_title'].replace('আমাদের ', '')}</span>
+                {storyTitle.prefix ? `${storyTitle.prefix} ` : null}
+                <span className="text-[#5C2D91]">{storyTitle.highlight}</span>
               </h2>
               <div className="h-1.5 w-16 rounded-full bg-gradient-to-r from-[#5C2D91] to-[#FF2D8C] sm:h-2 sm:w-24" />
             </div>
@@ -136,7 +142,7 @@ export default function AboutUsPageClient({ settings: s }: Props) {
                   <Users className="h-5 w-5 sm:h-6 sm:w-6" />
                 </div>
                 <p className="text-sm font-black uppercase tracking-tight text-slate-900 sm:text-base">
-                  এক্সপার্ট মেন্টর
+                  {s['about.story_feature_1'] || 'এক্সপার্ট মেন্টর'}
                 </p>
               </div>
               <div className="group flex items-center gap-4 rounded-xl border border-slate-100 bg-white p-4 shadow-sm transition-all duration-500 hover:shadow-xl sm:gap-5 sm:rounded-[2rem] sm:p-6">
@@ -144,7 +150,7 @@ export default function AboutUsPageClient({ settings: s }: Props) {
                   <Lightbulb className="h-5 w-5 sm:h-6 sm:w-6" />
                 </div>
                 <p className="text-sm font-black uppercase tracking-tight text-slate-900 sm:text-base">
-                  ক্রিয়েটিভ লজিক
+                  {s['about.story_feature_2'] || 'ক্রিয়েটিভ লজিক'}
                 </p>
               </div>
             </div>
@@ -157,8 +163,8 @@ export default function AboutUsPageClient({ settings: s }: Props) {
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-12">
             <div className="mb-12 space-y-3 text-center sm:mb-16 sm:space-y-4 md:mb-20">
               <h2 className="text-2xl font-black tracking-tighter text-slate-900 sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl">
-                {valuesTitlePrefix ? `${valuesTitlePrefix} ` : null}
-                <span className="text-[#FF2D8C]">{valuesTitleHighlight}</span>
+                {valuesTitle.prefix ? `${valuesTitle.prefix} ` : null}
+                <span className="text-[#FF2D8C]">{valuesTitle.highlight}</span>
               </h2>
               {s['about.values_subtitle'] ? (
                 <p className="mx-auto max-w-2xl text-sm font-medium text-slate-500 sm:text-base md:text-lg">

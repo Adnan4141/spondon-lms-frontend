@@ -28,6 +28,9 @@ const DEFAULTS: Record<string, string> = {
   'about.story_body': '<p>ম্যাথল্যাবের প্রতিটি কার্যক্রম শিক্ষার্থীদের চিন্তার জগৎকে আরও সুন্দর করতে ব্যস্ত।</p>',
   'about.story_image_url': '',
   'about.story_philosophy': 'Caring the potentiality',
+  'about.story_philosophy_label': 'Our Core Philosophy',
+  'about.story_feature_1': 'এক্সপার্ট মেন্টর',
+  'about.story_feature_2': 'ক্রিয়েটিভ লজিক',
   'about.values_title': 'আমাদের মূল ভিত্তি',
   'about.values_subtitle': 'এই আদর্শগুলোই আমাদের প্রতিদিনের পথচলার অনুপ্রেরণা এবং সফলতার চাবিকাঠি',
   'about.values_items': '[]',
@@ -46,6 +49,9 @@ const LABELS: Record<string, string> = {
   'about.story_body': 'Story Body (HTML)',
   'about.story_image_url': 'Story Section Image URL',
   'about.story_philosophy': 'Philosophy Quote (small badge)',
+  'about.story_philosophy_label': 'Philosophy Badge Label (below quote)',
+  'about.story_feature_1': 'Story Feature Card 1 Text',
+  'about.story_feature_2': 'Story Feature Card 2 Text',
   'about.values_title': 'Core Values Section Title',
   'about.values_subtitle': 'Core Values Section Subtitle',
   'about.values_items': 'Core Values (JSON)',
@@ -398,6 +404,9 @@ export default function AdminAboutUsPage() {
                 <StoryBodyEditor value={values['about.story_body']} onChange={(html) => set('about.story_body', html)} />
                 <ImageField fieldKey="about.story_image_url" label="Story Section Image" value={values['about.story_image_url']} onChange={set} />
                 <FieldRow label="Philosophy Badge Text" fieldKey="about.story_philosophy" value={values} set={set} />
+                <FieldRow label="Philosophy Badge Label (below quote)" fieldKey="about.story_philosophy_label" value={values} set={set} />
+                <FieldRow label="Feature Card 1 Text" fieldKey="about.story_feature_1" value={values} set={set} />
+                <FieldRow label="Feature Card 2 Text" fieldKey="about.story_feature_2" value={values} set={set} />
               </>
             )}
             {activeTab === 'values' && (

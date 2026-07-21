@@ -12,6 +12,7 @@ interface FooterProps {
 }
 
 const DEFAULT_SETTINGS: Record<string, string> = {
+  'footer.brand_name': 'Mathlab',
   'footer.description': 'আমরা বিশ্বাস করি মানসম্মত শিক্ষা সবার অধিকার। প্রযুক্তির মাধ্যমে শিক্ষাকে সহজলভ্য করাই আমাদের মূল লক্ষ্য।',
   'footer.phone': '+৮৮০ ১৭০০-০০০০০০',
   'footer.phone_href': 'tel:+8801700000000',
@@ -22,6 +23,10 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   'footer.youtube': '#',
   'footer.newsletter_title': 'নতুন কোর্সের আপডেট পেতে চান?',
   'footer.newsletter_subtitle': 'আমাদের নিউজলেটারে সাবস্ক্রাইব করে যুক্ত থাকুন।',
+  'footer.newsletter_placeholder': 'আপনার ইমেইল...',
+  'footer.courses_heading': 'জনপ্রিয় কোর্স',
+  'footer.links_heading': 'লিঙ্কসমূহ',
+  'footer.contact_heading': 'সরাসরি যোগাযোগ',
   'footer.copyright': '© ২০২৬ ম্যাথল্যাব',
   'footer.payment_logo_url': '/images/collaborator/bikash-logo.png',
   'footer.course_1_label': 'একাডেমিক প্রোগ্রাম',
@@ -96,7 +101,7 @@ export function Footer({ siteSettings = {} }: FooterProps) {
           <div className="relative z-10 w-full md:w-auto flex items-center bg-slate-100 p-2 rounded-2xl border border-slate-200 focus-within:border-emerald-500 transition-all">
             <input
               type="email"
-              placeholder="আপনার ইমেইল..."
+              placeholder={s['footer.newsletter_placeholder']}
               className="bg-transparent border-none focus:ring-0 px-4 py-2 w-full md:w-64 text-slate-900 font-bold outline-none"
             />
             <button className="bg-[#10B981] hover:bg-slate-900 text-white p-3 rounded-xl transition-all flex items-center justify-center group/btn">
@@ -125,7 +130,7 @@ export function Footer({ siteSettings = {} }: FooterProps) {
                   className="object-contain h-11 w-auto"
                 />
                 <span className="text-2xl font-extrabold tracking-tight text-white">
-                  Mathlab
+                  {s['footer.brand_name']}
                 </span>
               </div>
               <p className="text-slate-400 font-medium leading-relaxed max-w-sm text-sm sm:text-base">
@@ -151,7 +156,7 @@ export function Footer({ siteSettings = {} }: FooterProps) {
             {/* Column 2 & 3: Links */}
             <div className="lg:col-span-5 grid grid-cols-2 gap-8">
               <div className="space-y-4 sm:space-y-6">
-                <h4 className="text-xs sm:text-sm font-black uppercase tracking-widest text-emerald-500">জনপ্রিয় কোর্স</h4>
+                <h4 className="text-xs sm:text-sm font-black uppercase tracking-widest text-emerald-500">{s['footer.courses_heading']}</h4>
                 <ul className="space-y-3 sm:space-y-4 font-bold text-slate-300 text-sm sm:text-base">
                   {courseLinks.map((item) => (
                     <li key={item.label}>
@@ -164,7 +169,7 @@ export function Footer({ siteSettings = {} }: FooterProps) {
                 </ul>
               </div>
               <div className="space-y-4 sm:space-y-6">
-                <h4 className="text-xs sm:text-sm font-black uppercase tracking-widest text-emerald-500">লিঙ্কসমূহ</h4>
+                <h4 className="text-xs sm:text-sm font-black uppercase tracking-widest text-emerald-500">{s['footer.links_heading']}</h4>
                 <ul className="space-y-3 sm:space-y-4 font-bold text-slate-300 text-sm sm:text-base">
                   {quickLinks.map((item) => (
                     <li key={item.label}>
@@ -180,7 +185,7 @@ export function Footer({ siteSettings = {} }: FooterProps) {
 
             {/* Column 4: Contact */}
             <div className="lg:col-span-3 space-y-4 sm:space-y-6">
-              <h4 className="text-xs sm:text-sm font-black uppercase tracking-widest text-emerald-500">সরাসরি যোগাযোগ</h4>
+              <h4 className="text-xs sm:text-sm font-black uppercase tracking-widest text-emerald-500">{s['footer.contact_heading']}</h4>
               <div className="space-y-5">
                 <a
                   href={s['footer.phone_href']}

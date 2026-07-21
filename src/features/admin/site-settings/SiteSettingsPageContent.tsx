@@ -50,6 +50,7 @@ const DEFAULTS: Record<string, string> = {
   'trust.subtitle': 'সেরা মেন্টর ও সর্বাধুনিক প্রযুক্তির সাথে সারাদেশের ৩০ লক্ষ+ শিক্ষার্থীর মানসম্মত পড়ালেখা ও পরীক্ষা প্রস্তুতির নির্ভরযোগ্য প্রতিষ্ঠান Shikho!',
 
   // Footer
+  'footer.brand_name': 'Mathlab',
   'footer.description': 'আমরা বিশ্বাস করি মানসম্মত শিক্ষা সবার অধিকার। প্রযুক্তির মাধ্যমে শিক্ষাকে সহজলভ্য করাই আমাদের মূল লক্ষ্য।',
   'footer.phone': '+৮৮০ ১৭০০-০০০০০০',
   'footer.phone_href': 'tel:+8801700000000',
@@ -60,6 +61,10 @@ const DEFAULTS: Record<string, string> = {
   'footer.youtube': '#',
   'footer.newsletter_title': 'নতুন কোর্সের আপডেট পেতে চান?',
   'footer.newsletter_subtitle': 'আমাদের নিউজলেটারে সাবস্ক্রাইব করে যুক্ত থাকুন।',
+  'footer.newsletter_placeholder': 'আপনার ইমেইল...',
+  'footer.courses_heading': 'জনপ্রিয় কোর্স',
+  'footer.links_heading': 'লিঙ্কসমূহ',
+  'footer.contact_heading': 'সরাসরি যোগাযোগ',
   'footer.copyright': '© ২০২৬ ম্যাথল্যাব',
   'footer.payment_logo_url': '/images/collaborator/bikash-logo.png',
   // Courses slots
@@ -110,6 +115,7 @@ const LABELS: Record<string, string> = {
   'trust.subtitle': 'Subtitle Paragraph',
 
   // Footer – General
+  'footer.brand_name': 'Brand Name (next to logo)',
   'footer.description': 'Company Description',
   'footer.phone': 'Phone Display Text',
   'footer.phone_href': 'Phone Link (tel:+880...)',
@@ -121,6 +127,10 @@ const LABELS: Record<string, string> = {
   // Footer – Link slots (labels & hrefs)
   'footer.newsletter_title': 'Newsletter Card Title',
   'footer.newsletter_subtitle': 'Newsletter Card Subtitle',
+  'footer.newsletter_placeholder': 'Newsletter Email Placeholder',
+  'footer.courses_heading': 'Courses Column Heading',
+  'footer.links_heading': 'Links Column Heading',
+  'footer.contact_heading': 'Contact Column Heading',
   'footer.copyright': 'Copyright Text',
   'footer.payment_logo_url': 'Payment Logo Image URL',
   // Courses slots
@@ -210,13 +220,13 @@ const FOOTER_SECTIONS: SectionGroup[] = [
     label: 'General Info',
     icon: <Globe className="h-4 w-4" />,
     accent: 'border-slate-400 bg-slate-50 text-slate-600',
-    keys: ['footer.description', 'footer.copyright', 'footer.payment_logo_url'],
+    keys: ['footer.brand_name', 'footer.description', 'footer.copyright', 'footer.payment_logo_url'],
   },
   {
     label: 'Contact Details',
     icon: <Phone className="h-4 w-4" />,
     accent: 'border-teal-400 bg-teal-50 text-teal-600',
-    keys: ['footer.phone', 'footer.phone_href', 'footer.email'],
+    keys: ['footer.contact_heading', 'footer.phone', 'footer.phone_href', 'footer.email'],
   },
   {
     label: 'Social Media Links',
@@ -228,13 +238,14 @@ const FOOTER_SECTIONS: SectionGroup[] = [
     label: 'Newsletter',
     icon: <Mail className="h-4 w-4" />,
     accent: 'border-amber-400 bg-amber-50 text-amber-600',
-    keys: ['footer.newsletter_title', 'footer.newsletter_subtitle'],
+    keys: ['footer.newsletter_title', 'footer.newsletter_subtitle', 'footer.newsletter_placeholder'],
   },
   {
     label: 'Popular Courses (6 slots)',
     icon: <BookOpen className="h-4 w-4" />,
     accent: 'border-emerald-500 bg-emerald-50 text-emerald-700',
     keys: [
+      'footer.courses_heading',
       'footer.course_1_label', 'footer.course_1_href',
       'footer.course_2_label', 'footer.course_2_href',
       'footer.course_3_label', 'footer.course_3_href',
@@ -248,6 +259,7 @@ const FOOTER_SECTIONS: SectionGroup[] = [
     icon: <Link2 className="h-4 w-4" />,
     accent: 'border-violet-500 bg-violet-50 text-violet-700',
     keys: [
+      'footer.links_heading',
       'footer.link_1_label', 'footer.link_1_href',
       'footer.link_2_label', 'footer.link_2_href',
       'footer.link_3_label', 'footer.link_3_href',

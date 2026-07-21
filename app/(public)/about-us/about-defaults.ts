@@ -10,6 +10,9 @@ export const ABOUT_DEFAULTS: Record<string, string> = {
     '<p>চিন্তার বিকাশের মাধ্যমে প্রতিনিয়ত এগিয়ে যাওয়া মানুষের চিন্তার জগতেই তার ভাবনাগুলো ফুটে ওঠে। আর ভাবনা গুলো নতুন নতুন পথে নিজেদের বিভিন্ন রঙ্গে মেলে বেড়ায়।</p><p>ম্যাথল্যাবের প্রতিটি কার্যক্রম মূলত শিক্ষার্থীদের এই চিন্তার জগৎকে আরও সুন্দর, আরও সুদূরপ্রসারী ও বাস্তবে রূপ দেয়াতেই সর্বদা ব্যস্ত। প্রতিটি শিক্ষার্থীর সুপ্ত প্রতিভা বিকাশের মূল লক্ষ্য নিয়ে আমাদের পথচলা।</p>',
   'about.story_image_url': 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=1000',
   'about.story_philosophy': 'Caring the potentiality',
+  'about.story_philosophy_label': 'Our Core Philosophy',
+  'about.story_feature_1': 'এক্সপার্ট মেন্টর',
+  'about.story_feature_2': 'ক্রিয়েটিভ লজিক',
   'about.values_title': 'আমাদের মূল ভিত্তি',
   'about.values_subtitle':
     'এই আদর্শগুলোই আমাদের প্রতিদিনের পথচলার অনুপ্রেরণা এবং সফলতার চাবিকাঠি',
