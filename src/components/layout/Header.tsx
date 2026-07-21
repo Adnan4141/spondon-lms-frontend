@@ -4,14 +4,44 @@ import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { Menu, X, LayoutDashboard, LogOut, BookOpen, Library, MapPin, Info } from 'lucide-react'
+import { Menu, X, LayoutDashboard, LogOut, BookOpen, Library, MapPin, Info, Link as LinkIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const ADMIN_ROLES = ['SUPER_ADMIN', 'BRANCH_ADMIN', 'ACCOUNTS', 'MODERATOR'];
 
-export function Header() {
+const DEFAULT_SETTINGS: Record<string, string> = {
+  'navbar.brand_name': 'Mathlab',
+  'navbar.logo_url': '/images/logo/mathlab.png',
+  'navbar.logo_alt': 'Mathlab Logo',
+  'navbar.home_href': '/',
+  'navbar.link_1_label': 'সকল কোর্স',
+  'navbar.link_1_href': '/courses',
+  'navbar.link_2_label': 'বইসমূহ',
+  'navbar.link_2_href': '/books',
+  'navbar.link_3_label': 'শাখা সমূহ',
+  'navbar.link_3_href': '/branches',
+  'navbar.link_4_label': 'আমাদের সম্পর্কে',
+  'navbar.link_4_href': '/about-us',
+  'navbar.link_5_label': '',
+  'navbar.link_5_href': '#',
+  'navbar.link_6_label': '',
+  'navbar.link_6_href': '#',
+  'navbar.login_label': 'লগ ইন / সাইন আপ',
+  'navbar.login_href': '/login',
+  'navbar.dashboard_label': 'ড্যাশবোর্ড',
+  'navbar.logout_label': 'লগ আউট',
+};
+
+const NAV_ICONS = [BookOpen, Library, MapPin, Info, LinkIcon, LinkIcon];
+
+interface HeaderProps {
+  siteSettings?: Record<string, string>;
+}
+
+export function Header({ siteSettings = {} }: HeaderProps) {
+  const s = { ...DEFAULT_SETTINGS, ...siteSettings };
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
@@ -27,19 +57,21 @@ export function Header() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    let nextUser: { fullName: string; role: string } | null = null;
     try {
       const userStr = localStorage.getItem('user');
       const token = localStorage.getItem('auth_token');
       const role = document.cookie.split('; ').find(r => r.startsWith('user_role='))?.split('=')[1];
       if (token && userStr) {
         const u = JSON.parse(userStr);
-        setUser({ fullName: u.fullName || 'User', role: role || u.role || '' });
-      } else {
-        setUser(null);
+        nextUser = { fullName: u.fullName || 'User', role: role || u.role || '' };
       }
     } catch {
-      setUser(null);
+      nextUser = null;
     }
+    // Authentication state is stored outside React and is only available after hydration.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setUser(nextUser);
   }, [])
 
   const handleLogout = () => {
@@ -54,18 +86,18 @@ export function Header() {
   };
 
   const getDashboardHref = () => {
-    if (!user?.role) return '/login';
+    if (!user?.role) return s['navbar.login_href'];
     if (ADMIN_ROLES.includes(user.role)) return '/admin';
     if (user.role === 'TEACHER') return '/teacher';
     return '/student';
   };
 
-  const navLinks = [
-    { name: 'সকল কোর্স', href: '/courses', icon: BookOpen },
-    { name: 'বইসমূহ', href: '/books', icon: Library },
-    { name: 'শাখা সমূহ', href: '/branches', icon: MapPin },
-    { name: 'আমাদের সম্পর্কে', href: '/about-us', icon: Info }
-  ]
+  const navLinks = Array.from({ length: 6 }, (_, index) => ({
+    slot: index + 1,
+    name: s[`navbar.link_${index + 1}_label`] ?? '',
+    href: s[`navbar.link_${index + 1}_href`] || '#',
+    icon: NAV_ICONS[index],
+  })).filter((link) => link.name.trim() !== '');
 
   return (
     <nav
@@ -97,17 +129,17 @@ export function Header() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-12 flex items-center justify-between h-14 sm:h-16 md:h-16 transition-all duration-500">
         
         {/* Logo - responsive size */}
-        <Link href="/" className="relative z-50 flex items-center gap-2.5 shrink-0">
+        <Link href={s['navbar.home_href']} className="relative z-50 flex items-center gap-2.5 shrink-0">
           <Image
-            src="/images/logo/mathlab.png"
-            alt="Mathlab Logo"
+            src={s['navbar.logo_url']}
+            alt={s['navbar.logo_alt']}
             width={443}
             height={512}
             priority
             className="object-contain transition-all duration-500 h-9 sm:h-10 md:h-11 w-auto"
           />
           <span className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-[#2B2E7A]">
-            Mathlab
+            {s['navbar.brand_name']}
           </span>
         </Link>
 
@@ -115,7 +147,7 @@ export function Header() {
         <div className="hidden lg:flex items-center gap-10">
           {navLinks.map((link) => (
             <Link
-              key={link.name}
+              key={link.slot}
               href={link.href}
               className={cn(
                 "group relative text-[17px] font-bold tracking-tight transition-colors duration-300",
@@ -143,7 +175,7 @@ export function Header() {
                   "bg-[#5C2D91] hover:bg-indigo-600 text-white"
                 )}>
                   <LayoutDashboard className="h-4 w-4 mr-2" />
-                  ড্যাশবোর্ড
+                  {s['navbar.dashboard_label']}
                 </Button>
               </Link>
               <button
@@ -158,12 +190,12 @@ export function Header() {
               </button>
             </div>
           ) : (
-            <Link href="/login">
+            <Link href={s['navbar.login_href']}>
               <Button className={cn(
                 "rounded-2xl px-8 h-11 font-bold transition-all duration-500 active:scale-95 shadow-sm",
                 "bg-[#5C2D91] hover:bg-indigo-600 text-white"
               )}>
-                লগ ইন / সাইন আপ
+                {s['navbar.login_label']}
               </Button>
             </Link>
           )}
@@ -209,7 +241,7 @@ export function Header() {
                         initial={{ x: -12, opacity: 0 }}
                         animate={{ x: 0, opacity: 1 }}
                         transition={{ delay: idx * 0.05 }}
-                        key={link.name}
+                        key={link.slot}
                       >
                         <Link
                           href={link.href}
@@ -241,7 +273,7 @@ export function Header() {
                       <Link href={getDashboardHref()} onClick={() => setIsMenuOpen(false)}>
                         <Button className="w-full h-12 sm:h-14 rounded-xl bg-gradient-to-r from-[#5C2D91] to-[#7B3FA3] hover:from-[#4A2475] hover:to-[#5C2D91] text-white text-sm sm:text-base font-bold shadow-lg shadow-indigo-200/50 touch-manipulation">
                           <LayoutDashboard className="h-4 w-4 mr-2" />
-                          ড্যাশবোর্ড
+                          {s['navbar.dashboard_label']}
                         </Button>
                       </Link>
                       <button
@@ -249,13 +281,13 @@ export function Header() {
                         className="w-full h-11 sm:h-12 rounded-xl border border-slate-200 text-slate-600 text-sm sm:text-base font-bold flex items-center justify-center gap-2 hover:bg-slate-50 hover:border-slate-300 transition-colors touch-manipulation"
                       >
                         <LogOut className="h-4 w-4" />
-                        লগ আউট
+                        {s['navbar.logout_label']}
                       </button>
                     </>
                   ) : (
-                    <Link href="/login" onClick={() => setIsMenuOpen(false)}>
+                    <Link href={s['navbar.login_href']} onClick={() => setIsMenuOpen(false)}>
                       <Button className="w-full h-12 sm:h-14 rounded-xl bg-gradient-to-r from-[#5C2D91] to-[#7B3FA3] hover:from-[#4A2475] hover:to-[#5C2D91] text-white text-sm sm:text-base font-bold shadow-lg shadow-indigo-200/50 touch-manipulation">
-                        লগ ইন / সাইন আপ
+                        {s['navbar.login_label']}
                       </Button>
                     </Link>
                   )}
