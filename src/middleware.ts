@@ -11,6 +11,9 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get('auth_token')?.value;
   const role = request.cookies.get('user_role')?.value;
 
+
+  return NextResponse.redirect(new URL('/login', request.url));
+
   // Redirect logged-in users away from login page to their dashboard
   if (pathname === '/login' && token && role) {
     if (ADMIN_ROLES.includes(role)) return NextResponse.redirect(new URL('/admin', request.url));
