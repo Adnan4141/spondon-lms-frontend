@@ -28,7 +28,11 @@ const DEFAULTS: Record<string, string> = {
   'about.story_body': '<p>স্পন্দনের প্রতিটি কার্যক্রম শিক্ষার্থীদের চিন্তার জগৎকে আরও সুন্দর করতে ব্যস্ত।</p>',
   'about.story_image_url': '',
   'about.story_philosophy': 'Caring the potentiality',
+  'about.story_philosophy_label': 'Our Core Philosophy',
+  'about.story_feature_1': 'এক্সপার্ট মেন্টর',
+  'about.story_feature_2': 'ক্রিয়েটিভ লজিক',
   'about.values_title': 'আমাদের মূল ভিত্তি',
+  'about.values_subtitle': 'এই আদর্শগুলোই আমাদের প্রতিদিনের পথচলার অনুপ্রেরণা এবং সফলতার চাবিকাঠি',
   'about.values_items': '[]',
   'about.mission_quote': 'স্পন্দনের নামের সাথেই জড়িয়ে আছে প্রতিটি শিক্ষার্থীর জন্য Caring the potentiality',
   'about.mission_cta_text': 'আমাদের সাথে যুক্ত হোন',
@@ -45,7 +49,11 @@ const LABELS: Record<string, string> = {
   'about.story_body': 'Story Body (HTML)',
   'about.story_image_url': 'Story Section Image URL',
   'about.story_philosophy': 'Philosophy Quote (small badge)',
+  'about.story_philosophy_label': 'Philosophy Badge Label (below quote)',
+  'about.story_feature_1': 'Feature Card 1 Text',
+  'about.story_feature_2': 'Feature Card 2 Text',
   'about.values_title': 'Core Values Section Title',
+  'about.values_subtitle': 'Core Values Section Subtitle',
   'about.values_items': 'Core Values (JSON)',
   'about.mission_quote': 'Mission Quote',
   'about.mission_cta_text': 'CTA Button Text',
@@ -396,12 +404,16 @@ export default function AdminAboutUsPage() {
                 <StoryBodyEditor value={values['about.story_body']} onChange={(html) => set('about.story_body', html)} />
                 <ImageField fieldKey="about.story_image_url" label="Story Section Image" value={values['about.story_image_url']} onChange={set} />
                 <FieldRow label="Philosophy Badge Text" fieldKey="about.story_philosophy" value={values} set={set} />
+                <FieldRow label="Philosophy Badge Label (below quote)" fieldKey="about.story_philosophy_label" value={values} set={set} />
+                <FieldRow label="Feature Card 1 Text" fieldKey="about.story_feature_1" value={values} set={set} />
+                <FieldRow label="Feature Card 2 Text" fieldKey="about.story_feature_2" value={values} set={set} />
               </>
             )}
             {activeTab === 'values' && (
               <>
                 <SectionTitle>Core Values Section</SectionTitle>
                 <FieldRow label="Section Title" fieldKey="about.values_title" value={values} set={set} />
+                <FieldRow label="Section Subtitle" fieldKey="about.values_subtitle" value={values} set={set} multiline />
                 <CoreValuesEditor value={values['about.values_items']} onChange={(v) => set('about.values_items', v)} />
               </>
             )}
