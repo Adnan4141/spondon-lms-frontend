@@ -1,15 +1,16 @@
 import type { Metadata } from 'next';
+import { absoluteSiteUrl } from '@/lib/seo';
 
 export const metadata: Metadata = {
   title: 'Our Branches',
   description:
     'Find Mathlab branch locations across Bangladesh. Visit us for in-person SSC and HSC coaching.',
-  alternates: { canonical: 'https://spondonedu.com/branches' },
+  alternates: { canonical: absoluteSiteUrl('/branches') },
   openGraph: {
     title: 'Our Branches | Mathlab',
     description:
       'Find Mathlab branch locations across Bangladesh. Visit us for in-person SSC and HSC coaching.',
-    url: 'https://spondonedu.com/branches',
+    url: absoluteSiteUrl('/branches'),
   },
 };
 

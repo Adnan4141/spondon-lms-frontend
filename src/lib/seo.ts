@@ -1,4 +1,4 @@
-export const SITE_URL = 'https://spondonedu.com';
+export const SITE_URL = 'https://mathlabsbd.com';
 export const SITE_NAME = 'Mathlab';
 export const ORGANIZATION_NAME = 'Mathlab Academic & Admission Program';
 

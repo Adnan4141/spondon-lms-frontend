@@ -26,6 +26,8 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: 'https', hostname: apiHost, pathname: '/uploads/**' },
       { protocol: 'http', hostname: 'localhost', port: '5000', pathname: '/uploads/**' },
+      { protocol: 'https', hostname: 'mathlabsbd.com', pathname: '/uploads/**' },
+      { protocol: 'https', hostname: 'api.mathlabsbd.com', pathname: '/uploads/**' },
       { protocol: 'https', hostname: 'spondonedu.com', pathname: '/uploads/**' },
       { protocol: 'https', hostname: 'api.spondonedu.com', pathname: '/uploads/**' },
       { protocol: 'https', hostname: 'placehold.co', pathname: '/**' },

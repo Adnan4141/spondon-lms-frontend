@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Manrope, Space_Mono } from "next/font/google";
 import "./globals.css";
 import { NumberScrollBlocker } from "@/components/number-scroll-blocker";
+import { SITE_URL, absoluteSiteUrl } from "@/lib/seo";
 
 const manrope = Manrope({
   variable: "--font-manrope",
@@ -14,8 +15,10 @@ const spaceMono = Space_Mono({
   subsets: ["latin"],
 });
 
+const LOGO_PATH = "/images/logo/mathlab-icon.png";
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://spondonedu.com"),
+  metadataBase: new URL(SITE_URL),
 
   title: {
     default: "Mathlab Academic & Admission Program",
@@ -36,25 +39,25 @@ export const metadata: Metadata = {
     "higher secondary education",
   ],
 
-  authors: [{ name: "Mathlab", url: "https://spondonedu.com" }],
+  authors: [{ name: "Mathlab", url: SITE_URL }],
   creator: "Mathlab",
   publisher: "Mathlab",
 
   alternates: {
-    canonical: "https://spondonedu.com",
+    canonical: SITE_URL,
   },
 
   openGraph: {
     type: "website",
     locale: "bn_BD",
-    url: "https://spondonedu.com",
+    url: SITE_URL,
     siteName: "Mathlab Academic & Admission Program",
     title: "Mathlab Academic & Admission Program",
     description:
       "Quality education support for 100,000+ students across Bangladesh. SSC & HSC preparation, admission programs, and live classes by 150+ expert instructors.",
     images: [
       {
-        url: "/images/logo/mathlab-icon.png",
+        url: LOGO_PATH,
         width: 512,
         height: 512,
         alt: "Mathlab Academic & Admission Program",
@@ -67,12 +70,12 @@ export const metadata: Metadata = {
     title: "Mathlab Academic & Admission Program",
     description:
       "Quality education support for 100,000+ students across Bangladesh. SSC & HSC preparation by 150+ expert instructors.",
-    images: ["/images/logo/mathlab-icon.png"],
+    images: [LOGO_PATH],
   },
 
   icons: {
-    icon: "/images/logo/mathlab-icon.png",
-    apple: "/images/logo/mathlab-icon.png",
+    icon: LOGO_PATH,
+    apple: LOGO_PATH,
   },
 
   robots: {
@@ -92,8 +95,8 @@ const organizationSchema = {
   "@type": "EducationalOrganization",
   name: "Mathlab Academic & Admission Program",
   alternateName: "Mathlab",
-  url: "https://spondonedu.com",
-  logo: "https://spondonedu.com/images/logo/mathlab-icon.png",
+  url: SITE_URL,
+  logo: absoluteSiteUrl(LOGO_PATH),
   foundingDate: "2019",
   description:
     "Provides quality education support for 100,000+ students across Bangladesh at secondary and higher secondary levels.",

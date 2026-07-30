@@ -13,6 +13,8 @@ const NEXT_IMAGE_HOSTS = new Set([
     }
   })(),
   'localhost',
+  'mathlabsbd.com',
+  'api.mathlabsbd.com',
   'spondonedu.com',
   'api.spondonedu.com',
   'placehold.co',
