@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'spondon_device_id';
+const STORAGE_KEY = 'mathlab_device_id';
 
 function createDeviceId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {

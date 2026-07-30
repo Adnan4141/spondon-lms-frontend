@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils';
 
 const DEFAULTS: Record<string, string> = {
   'about.hero_badge': 'আমাদের লক্ষ্য',
-  'about.hero_title': 'চিন্তার স্পন্দনে,',
+  'about.hero_title': 'চিন্তার বিকাশে,',
   'about.hero_title_highlight': 'স্বপ্নের সন্ধানে',
   'about.hero_description': 'ম্যাথল্যাব, শিক্ষার্থীদের চিন্তার জগৎকে আরও সুন্দর, সুদূরপ্রসারী ও বাস্তবে রূপ দিতে সর্বদা প্রতিজ্ঞাবদ্ধ।',
   'about.hero_video_url': '',
