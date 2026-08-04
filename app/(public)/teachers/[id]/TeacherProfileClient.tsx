@@ -39,11 +39,11 @@ export function TeacherProfileClient({ teacher }: { teacher: PublicTeacher }) {
       {/* Back button */}
       <div className="max-w-4xl mx-auto px-4 pt-6">
         <Link
-          href="/"
+          href="/teachers"
           className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-500 hover:text-indigo-600 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
-         হোম পেজে ফিরে যান
+          শিক্ষকমণ্ডলীতে ফিরে যান
         </Link>
       </div>
 

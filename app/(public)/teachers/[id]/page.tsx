@@ -5,6 +5,7 @@ import { resolveAttachmentUrl } from '@/lib/attachment-url';
 import { getPublicTeacherById, type PublicTeacher } from '@/lib/api/teachers';
 import {
   absoluteSiteUrl,
+  buildPublicPageMetadata,
   compactDescription,
   jsonLdScript,
   ORGANIZATION_NAME,
@@ -56,30 +57,18 @@ export async function generateMetadata({ params }: { params: TeacherRouteParams 
     };
   }
 
-  const canonical = absoluteSiteUrl(`/teachers/${encodeURIComponent(teacher.id)}`);
   const description = teacherDescription(teacher);
   const image = teacherImage(teacher);
 
-  return {
+  return buildPublicPageMetadata({
     title: `${teacher.fullName} | Spondon Teacher`,
     description,
-    alternates: { canonical },
-    openGraph: {
-      type: 'profile',
-      locale: 'bn_BD',
-      siteName: SITE_NAME,
-      title: `${teacher.fullName} | Spondon Teacher`,
-      description,
-      url: canonical,
-      images: image ? [{ url: image, alt: teacher.fullName }] : undefined,
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title: `${teacher.fullName} | Spondon Teacher`,
-      description,
-      images: image ? [image] : undefined,
-    },
-  };
+    path: `/teachers/${encodeURIComponent(teacher.id)}`,
+    imageUrl: image,
+    imageAlt: teacher.fullName,
+    type: 'profile',
+    absoluteTitle: true,
+  });
 }
 
 function buildTeacherSchema(teacher: PublicTeacher) {

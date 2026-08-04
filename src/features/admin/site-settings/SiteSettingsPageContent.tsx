@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import {
-  Save, RotateCcw, Settings2, Layout, Link2, Facebook,
+  Search, Save, RotateCcw, Settings2, Layout, Link2, Facebook,
   Instagram, MessageCircle, Youtube, BookOpen, Users, CreditCard,
   Briefcase, Handshake, ShieldCheck, FileText, Globe, Phone, Mail,
   ChevronDown, ChevronUp, Navigation,
@@ -20,6 +20,11 @@ import { cn } from '@/lib/utils';
 // ─── Default values ────────────────────────────────────────────────────────
 
 const DEFAULTS: Record<string, string> = {
+  'seo.site_title': 'Spondon Academic & Admission Program',
+  'seo.site_description':
+    'Spondon Academic & Admission Program — a concern of Spondon EdTech Limited — provides quality education support for 100,000+ students across Bangladesh at the secondary and higher secondary levels.',
+  'seo.organization_name': 'Spondon Academic & Admission Program',
+
   'courses.badge': 'Premium Learning',
   'courses.title': 'আমাদের সবচেয়ে ',
   'courses.titleHighlight': 'জনপ্রিয় কোর্সসমূহ',
@@ -58,8 +63,8 @@ const DEFAULTS: Record<string, string> = {
   'navbar.link_1_label': 'সকল কোর্স', 'navbar.link_1_href': '/courses',
   'navbar.link_2_label': 'বইসমূহ', 'navbar.link_2_href': '/books',
   'navbar.link_3_label': 'শাখা সমূহ', 'navbar.link_3_href': '/branches',
-  'navbar.link_4_label': 'আমাদের সম্পর্কে', 'navbar.link_4_href': '/about-us',
-  'navbar.link_5_label': '', 'navbar.link_5_href': '#',
+  'navbar.link_4_label': 'শিক্ষকমণ্ডলী', 'navbar.link_4_href': '/teachers',
+  'navbar.link_5_label': 'আমাদের সম্পর্কে', 'navbar.link_5_href': '/about-us',
   'navbar.link_6_label': '', 'navbar.link_6_href': '#',
   'navbar.login_label': 'লগ ইন / সাইন আপ',
   'navbar.login_href': '/login',
@@ -101,6 +106,10 @@ const DEFAULTS: Record<string, string> = {
 };
 
 const LABELS: Record<string, string> = {
+  'seo.site_title': 'SEO Site Title (browser + Open Graph)',
+  'seo.site_description': 'SEO Site Description (meta + Open Graph)',
+  'seo.organization_name': 'Organization Name (JSON-LD / OG siteName)',
+
   'courses.badge': 'Badge',
   'courses.title': 'Title (main part)',
   'courses.titleHighlight': 'Title (gradient/highlight part)',
@@ -185,6 +194,7 @@ const LABELS: Record<string, string> = {
 // ─── Multiline keys ────────────────────────────────────────────────────────
 
 const MULTILINE = new Set([
+  'seo.site_description',
   'courses.subtitle',
   'payment.subtitle',
   'partners.subtitle',
@@ -202,6 +212,15 @@ interface SectionGroup {
   accent: string;
   keys: string[];
 }
+
+const SEO_SECTIONS: SectionGroup[] = [
+  {
+    label: 'Search & Social Meta',
+    icon: <Search className="h-4 w-4" />,
+    accent: 'border-violet-400 bg-violet-50 text-violet-600',
+    keys: ['seo.site_title', 'seo.site_description', 'seo.organization_name'],
+  },
+];
 
 const LANDING_SECTIONS: SectionGroup[] = [
   {
@@ -473,9 +492,10 @@ function SectionCard({
 
 // ─── Page ──────────────────────────────────────────────────────────────────
 
-type TabId = 'landing' | 'navbar' | 'footer';
+type TabId = 'seo' | 'landing' | 'navbar' | 'footer';
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode; sections: SectionGroup[] }[] = [
+  { id: 'seo', label: 'SEO', icon: <Search className="h-4 w-4" />, sections: SEO_SECTIONS },
   { id: 'landing', label: 'Landing Page', icon: <Layout className="h-4 w-4" />, sections: LANDING_SECTIONS },
   { id: 'navbar', label: 'Navbar', icon: <Navigation className="h-4 w-4" />, sections: NAVBAR_SECTIONS },
   { id: 'footer', label: 'Footer', icon: <Globe className="h-4 w-4" />, sections: FOOTER_SECTIONS },
@@ -486,7 +506,7 @@ export function SiteSettingsPageContent() {
   const [values, setValues] = useState<Record<string, string>>({ ...DEFAULTS });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabId>('landing');
+  const [activeTab, setActiveTab] = useState<TabId>('seo');
   useEffect(() => {
     async function load() {
       try {

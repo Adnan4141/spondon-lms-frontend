@@ -4,10 +4,11 @@ import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { Menu, X, LayoutDashboard, LogOut, BookOpen, Library, MapPin, Info, Link as LinkIcon } from 'lucide-react'
+import { Menu, X, LayoutDashboard, LogOut, BookOpen, Library, MapPin, GraduationCap, Info, Link as LinkIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useSiteSettings } from '@/components/layout/FooterSettingsContext'
 
 const ADMIN_ROLES = ['SUPER_ADMIN', 'BRANCH_ADMIN', 'ACCOUNTS', 'MODERATOR'];
 
@@ -22,10 +23,10 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   'navbar.link_2_href': '/books',
   'navbar.link_3_label': 'শাখা সমূহ',
   'navbar.link_3_href': '/branches',
-  'navbar.link_4_label': 'আমাদের সম্পর্কে',
-  'navbar.link_4_href': '/about-us',
-  'navbar.link_5_label': '',
-  'navbar.link_5_href': '#',
+  'navbar.link_4_label': 'শিক্ষকমণ্ডলী',
+  'navbar.link_4_href': '/teachers',
+  'navbar.link_5_label': 'আমাদের সম্পর্কে',
+  'navbar.link_5_href': '/about-us',
   'navbar.link_6_label': '',
   'navbar.link_6_href': '#',
   'navbar.login_label': 'লগ ইন / সাইন আপ',
@@ -34,14 +35,15 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   'navbar.logout_label': 'লগ আউট',
 };
 
-const NAV_ICONS = [BookOpen, Library, MapPin, Info, LinkIcon, LinkIcon];
+const NAV_ICONS = [BookOpen, Library, MapPin, GraduationCap, Info, LinkIcon];
 
 interface HeaderProps {
   siteSettings?: Record<string, string>;
 }
 
 export function Header({ siteSettings = {} }: HeaderProps) {
-  const s = { ...DEFAULT_SETTINGS, ...siteSettings };
+  const contextualSettings = useSiteSettings();
+  const s = { ...DEFAULT_SETTINGS, ...contextualSettings, ...siteSettings };
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
@@ -103,31 +105,28 @@ export function Header({ siteSettings = {} }: HeaderProps) {
   return (
     <nav
       className={cn(
-        'z-50 w-full transition-all duration-500',
-        scrolled 
-          ? 'fixed top-0 left-0 right-0 py-0' // Fixed with compact spacing on scroll
-          : 'py-2 sm:py-1'  // Less padding on mobile
+        // sticky creates a containing block so absolute bg stays inside the nav.
+        'sticky top-0 z-50 w-full transition-all duration-500',
+        scrolled ? 'py-0' : 'py-2 sm:py-1',
       )}
     >
-      {/* Background Layer - Smooth transition between glass and transparent */}
-      <div 
+      <div
         className={cn(
-          "absolute inset-0 transition-all duration-500 ease-in-out -z-10",
-          scrolled 
-            ? "bg-white/80 backdrop-blur-xl opacity-100 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)]" 
-            : "bg-white opacity-100"
-        )} 
+          'absolute inset-0 transition-all duration-500 ease-in-out',
+          scrolled
+            ? 'bg-white/80 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] backdrop-blur-xl'
+            : 'bg-white',
+        )}
       />
 
-      {/* Border Bottom Animation - Smooth 1px line */}
-      <div 
+      <div
         className={cn(
-          "absolute bottom-0 left-0 h-[1px] bg-slate-200 transition-all duration-700 ease-in-out -z-10",
-          scrolled ? "w-full opacity-100" : "w-full opacity-60"
-        )} 
+          'absolute bottom-0 left-0 h-px w-full bg-slate-200 transition-opacity duration-700',
+          scrolled ? 'opacity-100' : 'opacity-60',
+        )}
       />
 
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-12 flex items-center justify-between h-14 sm:h-16 md:h-16 transition-all duration-500">
+      <div className="relative z-10 mx-auto flex h-14 max-w-7xl items-center justify-between px-4 transition-all duration-500 sm:h-16 sm:px-6 md:h-16 lg:px-12">
         
         {/* Logo - responsive size */}
         <Link href={s['navbar.home_href']} className="relative z-50 flex items-center gap-2.5 shrink-0">

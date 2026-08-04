@@ -2,9 +2,10 @@
 
 import React, { createContext, useContext } from 'react';
 
-const FooterSettingsContext = createContext<Record<string, string>>({});
+const SiteSettingsContext = createContext<Record<string, string>>({});
 
-export function FooterSettingsProvider({
+/** Provides admin Site Settings (navbar + footer) to the public shell. */
+export function SiteSettingsProvider({
   siteSettings,
   children,
 }: {
@@ -12,12 +13,20 @@ export function FooterSettingsProvider({
   children: React.ReactNode;
 }) {
   return (
-    <FooterSettingsContext.Provider value={siteSettings}>
+    <SiteSettingsContext.Provider value={siteSettings}>
       {children}
-    </FooterSettingsContext.Provider>
+    </SiteSettingsContext.Provider>
   );
 }
 
+export function useSiteSettings() {
+  return useContext(SiteSettingsContext);
+}
+
+/** @deprecated Use SiteSettingsProvider */
+export const FooterSettingsProvider = SiteSettingsProvider;
+
+/** @deprecated Use useSiteSettings */
 export function useFooterSettings() {
-  return useContext(FooterSettingsContext);
+  return useContext(SiteSettingsContext);
 }

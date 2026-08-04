@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { absoluteSiteUrl, SITE_URL } from "@/lib/seo";
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -6,9 +7,34 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/admin/", "/student/", "/teacher/"],
+        disallow: [
+          "/admin/",
+          "/student/",
+          "/teacher/",
+          "/login",
+          "/register",
+          "/forgot-password",
+          "/test/",
+          "/payment/",
+          "/api/",
+        ],
+      },
+      {
+        userAgent: "Googlebot",
+        allow: "/",
+        disallow: [
+          "/admin/",
+          "/student/",
+          "/teacher/",
+          "/login",
+          "/register",
+          "/forgot-password",
+          "/test/",
+          "/payment/",
+        ],
       },
     ],
-    sitemap: "https://spondonedu.com/sitemap.xml",
+    sitemap: absoluteSiteUrl("/sitemap.xml"),
+    host: SITE_URL,
   };
 }
