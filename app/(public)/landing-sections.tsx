@@ -32,10 +32,6 @@ const PaymentSection = dynamic(
   () => import('@/components/landing/PaymentSection').then((m) => ({ default: m.PaymentSection })),
 );
 
-const Footer = dynamic(
-  () => import('@/components/layout/Footer').then((m) => ({ default: m.Footer })),
-);
-
 export async function LandingCoursesSection() {
   const { courses, siteSettings } = await getLandingCoursesData();
 
@@ -116,10 +112,4 @@ export async function LandingPaymentSection() {
       footerText={siteSettings['payment.footer']}
     />
   );
-}
-
-export async function LandingFooterSection() {
-  const { siteSettings } = await getLandingFooterData();
-
-  return <Footer siteSettings={siteSettings} />;
 }

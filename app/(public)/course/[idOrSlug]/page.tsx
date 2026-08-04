@@ -1,6 +1,4 @@
 import { notFound } from 'next/navigation';
-import { Header } from '@/components/layout/Header';
-import { Footer } from '@/components/layout/Footer';
 import { getPublicCourseBySlugCached, getPublicCourseContentCached } from '@/lib/api/courses-server';
 import type { CourseDetails } from '@/types/course';
 import {
@@ -40,7 +38,6 @@ export default async function CourseDetailsPage({ params }: PageProps) {
       <div className="absolute left-[-10%] top-[40%] h-[500px] w-[500px] rounded-full bg-purple-50/30 blur-[130px] pointer-events-none" />
       <div className="absolute right-[10%] top-[75%] h-[500px] w-[500px] rounded-full bg-emerald-50/20 blur-[120px] pointer-events-none" />
 
-      <Header />
       <CourseHero course={course} heroHeading={display.heroHeading} />
 
       <div className="mx-auto max-w-7xl px-6 py-24 lg:px-12">
@@ -48,8 +45,6 @@ export default async function CourseDetailsPage({ params }: PageProps) {
           <CourseDetailsStatic course={course} display={display} publicContent={publicContent} />
         </CourseEnrollmentIsland>
       </div>
-
-      <Footer />
     </div>
   );
 }

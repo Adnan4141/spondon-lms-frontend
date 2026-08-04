@@ -1,9 +1,7 @@
 import type { Metadata } from 'next';
 import { getPublicCourseBySlugCached } from '@/lib/api/courses-server';
-import { getSiteSettings } from '@/lib/api/site-content';
 import type { CourseDetails } from '@/types/course';
 import { CourseInitialDataProvider } from '@/components/course/CourseInitialDataContext';
-import { FooterSettingsProvider } from '@/components/layout/FooterSettingsContext';
 import { API_ORIGIN } from '@/lib/api';
 import { resolveAttachmentUrl } from '@/lib/attachment-url';
 import { isCoursePubliclyVisible } from './_lib/course-page-display';
@@ -172,39 +170,27 @@ export default async function CourseDetailsLayout({
   const { idOrSlug } = await params;
 
   let initialCourse: CourseDetails | null = null;
-  let siteSettings: Record<string, string> = {};
   try {
-    const [res, settingsRes] = await Promise.all([
-      getPublicCourseBySlugCached(idOrSlug),
-      getSiteSettings(),
-    ]);
+    const res = await getPublicCourseBySlugCached(idOrSlug);
     if (res.success && res.data) {
       const course = res.data as unknown as CourseDetails;
       if (isCoursePubliclyVisible(course)) {
         initialCourse = course;
       }
     }
-    if (settingsRes.success && settingsRes.data) {
-      for (const item of settingsRes.data as { key: string; value: string }[]) {
-        siteSettings[item.key] = item.value;
-      }
-    }
   } catch {
     initialCourse = null;
-    siteSettings = {};
   }
 
   return (
-    <FooterSettingsProvider siteSettings={siteSettings}>
-      <CourseInitialDataProvider initialCourse={initialCourse}>
-        {initialCourse ? (
-          <script
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: jsonLdScript(buildCourseSchema(initialCourse, idOrSlug)) }}
-          />
-        ) : null}
-        {children}
-      </CourseInitialDataProvider>
-    </FooterSettingsProvider>
+    <CourseInitialDataProvider initialCourse={initialCourse}>
+      {initialCourse ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLdScript(buildCourseSchema(initialCourse, idOrSlug)) }}
+        />
+      ) : null}
+      {children}
+    </CourseInitialDataProvider>
   );
 }

@@ -1,12 +1,9 @@
 import Link from 'next/link';
 import { Info } from 'lucide-react';
-import { Header } from '@/components/layout/Header';
-import { Footer } from '@/components/layout/Footer';
 
 export default function CourseNotFound() {
   return (
     <div className="min-h-screen bg-slate-50">
-      <Header />
       <div className="mx-auto max-w-7xl px-6 pb-20 pt-40 text-center">
         <div className="mb-6 inline-flex h-20 w-20 items-center justify-center rounded-full bg-red-50 text-red-500">
           <Info size={40} />
@@ -20,7 +17,6 @@ export default function CourseNotFound() {
           সকল কোর্স দেখুন
         </Link>
       </div>
-      <Footer />
     </div>
   );
 }

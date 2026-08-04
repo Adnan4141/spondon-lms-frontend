@@ -1,11 +1,9 @@
 import { Suspense } from 'react';
-import { Header } from '@/components/layout/Header';
 import { HeroCarousel } from '@/components/landing/HeroCarousel';
 import { ProgramsCTASection } from '@/components/landing/ProgramsCTASection';
 import { getLandingCriticalData } from '@/lib/api/landing-data';
 import {
   LandingCoursesSection,
-  LandingFooterSection,
   LandingLibrarySection,
   LandingPartnersSection,
   LandingPaymentSection,
@@ -24,7 +22,6 @@ export default async function LandingPage() {
 
   return (
     <div className="min-h-screen bg-white text-slate-900 selection:bg-indigo-100 overflow-x-hidden">
-      <Header />
       <HeroCarousel slides={heroSlides} />
       <ProgramsCTASection
         cards={programCards}
@@ -51,9 +48,6 @@ export default async function LandingPage() {
       </Suspense>
       <Suspense fallback={<SectionSkeleton className="h-64" />}>
         <LandingPaymentSection />
-      </Suspense>
-      <Suspense fallback={<SectionSkeleton className="h-48" />}>
-        <LandingFooterSection />
       </Suspense>
     </div>
   );
