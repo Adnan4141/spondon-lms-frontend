@@ -8,7 +8,7 @@ export default async function PublicLayout({ children }: { children: React.React
 
   return (
     <FooterSettingsProvider siteSettings={siteSettings}>
-      <Header />
+      <Header siteSettings={siteSettings} />
       {children}
       <Footer />
     </FooterSettingsProvider>

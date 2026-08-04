@@ -5,7 +5,7 @@ import {
   Save, RotateCcw, Settings2, Layout, Link2, Facebook,
   Instagram, MessageCircle, Youtube, BookOpen, Users, CreditCard,
   Briefcase, Handshake, ShieldCheck, FileText, Globe, Phone, Mail,
-  ChevronDown, ChevronUp,
+  ChevronDown, ChevronUp, Navigation,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,7 +49,24 @@ const DEFAULTS: Record<string, string> = {
   'trust.title': 'কেন Shikho-তে আস্থা রাখবে?',
   'trust.subtitle': 'সেরা মেন্টর ও সর্বাধুনিক প্রযুক্তির সাথে সারাদেশের ৩০ লক্ষ+ শিক্ষার্থীর মানসম্মত পড়ালেখা ও পরীক্ষা প্রস্তুতির নির্ভরযোগ্য প্রতিষ্ঠান Shikho!',
 
+  // Navbar
+  'navbar.brand_name': '',
+  'navbar.logo_url': '/images/logo/spondon-logo.png',
+  'navbar.logo_alt': 'Spondon Logo',
+  'navbar.home_href': '/',
+  'navbar.link_1_label': 'সকল কোর্স', 'navbar.link_1_href': '/courses',
+  'navbar.link_2_label': 'বইসমূহ', 'navbar.link_2_href': '/books',
+  'navbar.link_3_label': 'শাখা সমূহ', 'navbar.link_3_href': '/branches',
+  'navbar.link_4_label': 'আমাদের সম্পর্কে', 'navbar.link_4_href': '/about-us',
+  'navbar.link_5_label': '', 'navbar.link_5_href': '#',
+  'navbar.link_6_label': '', 'navbar.link_6_href': '#',
+  'navbar.login_label': 'লগ ইন / সাইন আপ',
+  'navbar.login_href': '/login',
+  'navbar.dashboard_label': 'ড্যাশবোর্ড',
+  'navbar.logout_label': 'লগ আউট',
+
   // Footer
+  'footer.brand_name': '',
   'footer.description': 'আমরা বিশ্বাস করি মানসম্মত শিক্ষা সবার অধিকার। প্রযুক্তির মাধ্যমে শিক্ষাকে সহজলভ্য করাই আমাদের মূল লক্ষ্য।',
   'footer.phone': '+৮৮০ ১৭০০-০০০০০০',
   'footer.phone_href': 'tel:+8801700000000',
@@ -60,6 +77,10 @@ const DEFAULTS: Record<string, string> = {
   'footer.youtube': '#',
   'footer.newsletter_title': 'নতুন কোর্সের আপডেট পেতে চান?',
   'footer.newsletter_subtitle': 'আমাদের নিউজলেটারে সাবস্ক্রাইব করে যুক্ত থাকুন।',
+  'footer.newsletter_placeholder': 'আপনার ইমেইল...',
+  'footer.courses_heading': 'জনপ্রিয় কোর্স',
+  'footer.links_heading': 'লিঙ্কসমূহ',
+  'footer.contact_heading': 'সরাসরি যোগাযোগ',
   'footer.copyright': '© ২০২৬ স্পন্দন',
   'footer.payment_logo_url': '/images/collaborator/bikash-logo.png',
   // Courses slots
@@ -109,7 +130,24 @@ const LABELS: Record<string, string> = {
   'trust.title': 'Section Title',
   'trust.subtitle': 'Subtitle Paragraph',
 
+  // Navbar
+  'navbar.brand_name': 'Brand Name',
+  'navbar.logo_url': 'Logo Image URL',
+  'navbar.logo_alt': 'Logo Alt Text',
+  'navbar.home_href': 'Logo / Home Link',
+  'navbar.link_1_label': 'Navigation Link 1 Label', 'navbar.link_1_href': 'Navigation Link 1 URL',
+  'navbar.link_2_label': 'Navigation Link 2 Label', 'navbar.link_2_href': 'Navigation Link 2 URL',
+  'navbar.link_3_label': 'Navigation Link 3 Label', 'navbar.link_3_href': 'Navigation Link 3 URL',
+  'navbar.link_4_label': 'Navigation Link 4 Label', 'navbar.link_4_href': 'Navigation Link 4 URL',
+  'navbar.link_5_label': 'Navigation Link 5 Label', 'navbar.link_5_href': 'Navigation Link 5 URL',
+  'navbar.link_6_label': 'Navigation Link 6 Label', 'navbar.link_6_href': 'Navigation Link 6 URL',
+  'navbar.login_label': 'Login Button Label',
+  'navbar.login_href': 'Login Button URL',
+  'navbar.dashboard_label': 'Dashboard Button Label',
+  'navbar.logout_label': 'Logout Button Label',
+
   // Footer – General
+  'footer.brand_name': 'Brand Name (next to logo)',
   'footer.description': 'Company Description',
   'footer.phone': 'Phone Display Text',
   'footer.phone_href': 'Phone Link (tel:+880...)',
@@ -121,6 +159,10 @@ const LABELS: Record<string, string> = {
   // Footer – Link slots (labels & hrefs)
   'footer.newsletter_title': 'Newsletter Card Title',
   'footer.newsletter_subtitle': 'Newsletter Card Subtitle',
+  'footer.newsletter_placeholder': 'Newsletter Email Placeholder',
+  'footer.courses_heading': 'Courses Column Heading',
+  'footer.links_heading': 'Links Column Heading',
+  'footer.contact_heading': 'Contact Column Heading',
   'footer.copyright': 'Copyright Text',
   'footer.payment_logo_url': 'Payment Logo Image URL',
   // Courses slots
@@ -205,18 +247,46 @@ const LANDING_SECTIONS: SectionGroup[] = [
   },
 ];
 
+const NAVBAR_SECTIONS: SectionGroup[] = [
+  {
+    label: 'Brand & Logo',
+    icon: <Globe className="h-4 w-4" />,
+    accent: 'border-indigo-400 bg-indigo-50 text-indigo-600',
+    keys: ['navbar.brand_name', 'navbar.logo_url', 'navbar.logo_alt', 'navbar.home_href'],
+  },
+  {
+    label: 'Navigation Links (6 slots)',
+    icon: <Navigation className="h-4 w-4" />,
+    accent: 'border-violet-400 bg-violet-50 text-violet-600',
+    keys: [
+      'navbar.link_1_label', 'navbar.link_1_href',
+      'navbar.link_2_label', 'navbar.link_2_href',
+      'navbar.link_3_label', 'navbar.link_3_href',
+      'navbar.link_4_label', 'navbar.link_4_href',
+      'navbar.link_5_label', 'navbar.link_5_href',
+      'navbar.link_6_label', 'navbar.link_6_href',
+    ],
+  },
+  {
+    label: 'Account Actions',
+    icon: <Users className="h-4 w-4" />,
+    accent: 'border-emerald-400 bg-emerald-50 text-emerald-600',
+    keys: ['navbar.login_label', 'navbar.login_href', 'navbar.dashboard_label', 'navbar.logout_label'],
+  },
+];
+
 const FOOTER_SECTIONS: SectionGroup[] = [
   {
     label: 'General Info',
     icon: <Globe className="h-4 w-4" />,
     accent: 'border-slate-400 bg-slate-50 text-slate-600',
-    keys: ['footer.description', 'footer.copyright', 'footer.payment_logo_url'],
+    keys: ['footer.brand_name', 'footer.description', 'footer.copyright', 'footer.payment_logo_url'],
   },
   {
     label: 'Contact Details',
     icon: <Phone className="h-4 w-4" />,
     accent: 'border-teal-400 bg-teal-50 text-teal-600',
-    keys: ['footer.phone', 'footer.phone_href', 'footer.email'],
+    keys: ['footer.contact_heading', 'footer.phone', 'footer.phone_href', 'footer.email'],
   },
   {
     label: 'Social Media Links',
@@ -228,13 +298,14 @@ const FOOTER_SECTIONS: SectionGroup[] = [
     label: 'Newsletter',
     icon: <Mail className="h-4 w-4" />,
     accent: 'border-amber-400 bg-amber-50 text-amber-600',
-    keys: ['footer.newsletter_title', 'footer.newsletter_subtitle'],
+    keys: ['footer.newsletter_title', 'footer.newsletter_subtitle', 'footer.newsletter_placeholder'],
   },
   {
     label: 'Popular Courses (6 slots)',
     icon: <BookOpen className="h-4 w-4" />,
     accent: 'border-emerald-500 bg-emerald-50 text-emerald-700',
     keys: [
+      'footer.courses_heading',
       'footer.course_1_label', 'footer.course_1_href',
       'footer.course_2_label', 'footer.course_2_href',
       'footer.course_3_label', 'footer.course_3_href',
@@ -248,6 +319,7 @@ const FOOTER_SECTIONS: SectionGroup[] = [
     icon: <Link2 className="h-4 w-4" />,
     accent: 'border-violet-500 bg-violet-50 text-violet-700',
     keys: [
+      'footer.links_heading',
       'footer.link_1_label', 'footer.link_1_href',
       'footer.link_2_label', 'footer.link_2_href',
       'footer.link_3_label', 'footer.link_3_href',
@@ -374,10 +446,11 @@ function SectionCard({
 
 // ─── Page ──────────────────────────────────────────────────────────────────
 
-type TabId = 'landing' | 'footer';
+type TabId = 'landing' | 'navbar' | 'footer';
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode; sections: SectionGroup[] }[] = [
   { id: 'landing', label: 'Landing Page', icon: <Layout className="h-4 w-4" />, sections: LANDING_SECTIONS },
+  { id: 'navbar', label: 'Navbar', icon: <Navigation className="h-4 w-4" />, sections: NAVBAR_SECTIONS },
   { id: 'footer', label: 'Footer', icon: <Globe className="h-4 w-4" />, sections: FOOTER_SECTIONS },
 ];
 
@@ -425,10 +498,14 @@ export function SiteSettingsPageContent() {
       if (res.success) {
         toast({ title: 'Saved successfully', description: 'All site settings have been updated.' });
       } else {
-        toast({ title: 'Error', description: (res as any).message || 'Failed to save settings', variant: 'destructive' });
+        toast({ title: 'Error', description: res.message || 'Failed to save settings', variant: 'destructive' });
       }
-    } catch (err: any) {
-      toast({ title: 'Error', description: err?.message || 'Unexpected error', variant: 'destructive' });
+    } catch (err: unknown) {
+      toast({
+        title: 'Error',
+        description: err instanceof Error ? err.message : 'Unexpected error',
+        variant: 'destructive',
+      });
     } finally {
       setSaving(false);
     }
