@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  Save, RotateCcw, Image as ImageIcon, Plus, Trash2, Upload, Link2,
+  Save, RotateCcw, Plus, Trash2, Image as ImageIcon,
   Star, BookOpen, Target, Users, Eye, EyeOff, ExternalLink,
 } from 'lucide-react';
 import { LazyRichTextEditor as RichTextEditor } from '@/components/ui/lazy-rich-text-editor';
@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { getSiteSettingsAdmin, upsertSiteSettings, uploadSiteContentImage } from '@/lib/api/site-content';
 import { API_ORIGIN } from '@/lib/api';
+import { CmsImageField } from '@/features/admin/shared/form/CmsImageField';
 import { cn } from '@/lib/utils';
 
 // ─── Defaults ─────────────────────────────────────────────────────────────
@@ -124,68 +125,12 @@ function StoryBodyEditor({ value, onChange }: { value: string; onChange: (html: 
   );
 }
 
-// ─── Image Field (URL or Upload) ───────────────────────────────────────────
-
-function ImageField({
-  fieldKey, label, value, onChange,
-}: { fieldKey: string; label: string; value: string; onChange: (k: string, v: string) => void }) {
-  const [useUpload, setUseUpload] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const { toast } = useToast();
-
-  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const res = await uploadSiteContentImage(file);
-      onChange(fieldKey, res.imageUrl);
-      toast({ title: 'Image uploaded' });
-    } catch {
-      toast({ title: 'Upload failed', variant: 'destructive' });
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  const displayUrl = value?.startsWith('/') ? `${API_ORIGIN}${value}` : value;
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <Label className="text-sm font-semibold text-slate-700">{label}</Label>
-        <button
-          type="button"
-          onClick={() => setUseUpload(!useUpload)}
-          className="text-xs text-indigo-600 hover:underline flex items-center gap-1"
-        >
-          {useUpload ? <><Link2 className="w-3 h-3" /> Use URL</> : <><Upload className="w-3 h-3" /> Upload File</>}
-        </button>
-      </div>
-      {useUpload ? (
-        <div className="flex items-center gap-3">
-          <input type="file" accept="image/*" onChange={handleFile} className="text-sm file:mr-2 file:px-3 file:py-1 file:rounded-md file:border-0 file:bg-indigo-50 file:text-indigo-700 file:text-xs file:font-semibold hover:file:bg-indigo-100" disabled={uploading} />
-          {uploading && <span className="text-xs text-slate-500">Uploading…</span>}
-        </div>
-      ) : (
-        <Input value={value ?? ''} onChange={(e) => onChange(fieldKey, e.target.value)} placeholder="https://..." className="text-sm" />
-      )}
-      {displayUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={displayUrl} alt="Preview" className="h-20 w-auto rounded-xl border border-slate-200 object-cover mt-1" />
-      )}
-    </div>
-  );
-}
-
 // ─── Core Values Editor ────────────────────────────────────────────────────
 
 function CoreValuesEditor({
   value, onChange,
 }: { value: string; onChange: (v: string) => void }) {
   const [items, setItems] = useState<CoreValue[]>([]);
-  const [uploadingIdx, setUploadingIdx] = useState<number | null>(null);
-  const { toast } = useToast();
 
   useEffect(() => {
     try { setItems(JSON.parse(value || '[]')); } catch { setItems([]); }
@@ -210,21 +155,6 @@ function CoreValuesEditor({
     update(next);
   }
 
-  async function handleFileUpload(i: number, e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploadingIdx(i);
-    try {
-      const res = await uploadSiteContentImage(file);
-      setField(i, 'imageUrl', res.imageUrl);
-      toast({ title: 'Image uploaded' });
-    } catch {
-      toast({ title: 'Upload failed', variant: 'destructive' });
-    } finally {
-      setUploadingIdx(null);
-    }
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -246,20 +176,12 @@ function CoreValuesEditor({
               <Label className="text-xs font-semibold text-slate-600 mb-1 block">Title</Label>
               <Input value={item.title} onChange={(e) => setField(i, 'title', e.target.value)} placeholder="e.g. LEARNER FIRST" className="text-sm bg-white" />
             </div>
-            <div>
-              <Label className="text-xs font-semibold text-slate-600 mb-1 block">Image</Label>
-              <div className="space-y-2">
-                <Input value={item.imageUrl} onChange={(e) => setField(i, 'imageUrl', e.target.value)} placeholder="https://..." className="text-sm bg-white" />
-                <div className="flex items-center gap-2">
-                  <input type="file" accept="image/*" onChange={(e) => handleFileUpload(i, e)} disabled={uploadingIdx === i} className="text-xs file:mr-2 file:px-2 file:py-0.5 file:rounded file:border-0 file:bg-indigo-50 file:text-indigo-700 file:text-xs file:font-semibold" />
-                  {uploadingIdx === i && <span className="text-xs text-slate-500">Uploading…</span>}
-                </div>
-                {item.imageUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={item.imageUrl.startsWith('/') ? `${API_ORIGIN}${item.imageUrl}` : item.imageUrl} alt="preview" className="h-16 w-auto rounded-lg border border-slate-200 object-cover" />
-                )}
-              </div>
-            </div>
+            <CmsImageField
+              label="Image"
+              value={item.imageUrl}
+              onChange={(url) => setField(i, 'imageUrl', url)}
+              compact
+            />
             <div>
               <Label className="text-xs font-semibold text-slate-600 mb-1.5 block">Background Color</Label>
               <div className="flex flex-wrap gap-2">
@@ -394,7 +316,11 @@ export default function AdminAboutUsPage() {
                 <FieldRow label="Title (main)" fieldKey="about.hero_title" value={values} set={set} />
                 <FieldRow label="Title (highlight/gradient)" fieldKey="about.hero_title_highlight" value={values} set={set} />
                 <FieldRow label="Description" fieldKey="about.hero_description" value={values} set={set} multiline />
-                <ImageField fieldKey="about.hero_video_url" label="Hero Image / Video Thumbnail" value={values['about.hero_video_url']} onChange={set} />
+                <CmsImageField
+                  label="Hero Image / Video Thumbnail"
+                  value={values['about.hero_video_url']}
+                  onChange={(url) => set('about.hero_video_url', url)}
+                />
               </>
             )}
             {activeTab === 'story' && (
@@ -402,7 +328,11 @@ export default function AdminAboutUsPage() {
                 <SectionTitle>Our Story Section</SectionTitle>
                 <FieldRow label="Section Title" fieldKey="about.story_title" value={values} set={set} />
                 <StoryBodyEditor value={values['about.story_body']} onChange={(html) => set('about.story_body', html)} />
-                <ImageField fieldKey="about.story_image_url" label="Story Section Image" value={values['about.story_image_url']} onChange={set} />
+                <CmsImageField
+                  label="Story Section Image"
+                  value={values['about.story_image_url']}
+                  onChange={(url) => set('about.story_image_url', url)}
+                />
                 <FieldRow label="Philosophy Badge Text" fieldKey="about.story_philosophy" value={values} set={set} />
                 <FieldRow label="Philosophy Badge Label (below quote)" fieldKey="about.story_philosophy_label" value={values} set={set} />
                 <FieldRow label="Feature Card 1 Text" fieldKey="about.story_feature_1" value={values} set={set} />

@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toast';
 import { getSiteSettingsAdmin, upsertSiteSettings } from '@/lib/api/site-content';
+import { CmsImageField, isCmsImageSettingKey } from '@/features/admin/shared/form/CmsImageField';
 import { cn } from '@/lib/utils';
 
 // ─── Default values ────────────────────────────────────────────────────────
@@ -132,7 +133,7 @@ const LABELS: Record<string, string> = {
 
   // Navbar
   'navbar.brand_name': 'Brand Name',
-  'navbar.logo_url': 'Logo Image URL',
+  'navbar.logo_url': 'Logo Image (URL or upload)',
   'navbar.logo_alt': 'Logo Alt Text',
   'navbar.home_href': 'Logo / Home Link',
   'navbar.link_1_label': 'Navigation Link 1 Label', 'navbar.link_1_href': 'Navigation Link 1 URL',
@@ -164,7 +165,7 @@ const LABELS: Record<string, string> = {
   'footer.links_heading': 'Links Column Heading',
   'footer.contact_heading': 'Contact Column Heading',
   'footer.copyright': 'Copyright Text',
-  'footer.payment_logo_url': 'Payment Logo Image URL',
+  'footer.payment_logo_url': 'Payment Logo (URL or upload)',
   // Courses slots
   'footer.course_1_label': 'Course 1 Label', 'footer.course_1_href': 'Course 1 Link',
   'footer.course_2_label': 'Course 2 Label', 'footer.course_2_href': 'Course 2 Link',
@@ -351,41 +352,67 @@ function FieldRow({
   onReset: () => void;
 }) {
   const isMulti = MULTILINE.has(fieldKey);
+  const isImage = isCmsImageSettingKey(fieldKey);
   const icon = SOCIAL_ICONS[fieldKey];
   return (
-    <div className={isMulti ? 'sm:col-span-2' : ''}>
-      <div className="flex items-center justify-between mb-1.5">
-        <Label htmlFor={fieldKey} className="text-xs font-bold text-slate-600 uppercase tracking-wide flex items-center gap-1.5">
-          {icon}
-          {LABELS[fieldKey] ?? fieldKey}
-        </Label>
-        <button
-          type="button"
-          onClick={onReset}
-          className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-violet-600 transition-colors"
-          title="Reset to default"
-        >
-          <RotateCcw className="h-3 w-3" />
-          Reset
-        </button>
-      </div>
-      {isMulti ? (
-        <Textarea
-          id={fieldKey}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          rows={3}
-          className="text-sm resize-y border-slate-200 focus-visible:ring-violet-400"
-          placeholder={DEFAULTS[fieldKey]}
-        />
+    <div className={isMulti || isImage ? 'sm:col-span-2' : ''}>
+      {isImage ? (
+        <div className="space-y-2">
+          <div className="flex items-center justify-end">
+            <button
+              type="button"
+              onClick={onReset}
+              className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-violet-600 transition-colors"
+              title="Reset to default"
+            >
+              <RotateCcw className="h-3 w-3" />
+              Reset
+            </button>
+          </div>
+          <CmsImageField
+            id={fieldKey}
+            label={LABELS[fieldKey] ?? fieldKey}
+            value={value}
+            onChange={onChange}
+            placeholder={DEFAULTS[fieldKey] || 'https://… or /uploads/…'}
+          />
+        </div>
       ) : (
-        <Input
-          id={fieldKey}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="text-sm border-slate-200 focus-visible:ring-violet-400"
-          placeholder={DEFAULTS[fieldKey]}
-        />
+        <>
+          <div className="flex items-center justify-between mb-1.5">
+            <Label htmlFor={fieldKey} className="text-xs font-bold text-slate-600 uppercase tracking-wide flex items-center gap-1.5">
+              {icon}
+              {LABELS[fieldKey] ?? fieldKey}
+            </Label>
+            <button
+              type="button"
+              onClick={onReset}
+              className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-violet-600 transition-colors"
+              title="Reset to default"
+            >
+              <RotateCcw className="h-3 w-3" />
+              Reset
+            </button>
+          </div>
+          {isMulti ? (
+            <Textarea
+              id={fieldKey}
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              rows={3}
+              className="text-sm resize-y border-slate-200 focus-visible:ring-violet-400"
+              placeholder={DEFAULTS[fieldKey]}
+            />
+          ) : (
+            <Input
+              id={fieldKey}
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              className="text-sm border-slate-200 focus-visible:ring-violet-400"
+              placeholder={DEFAULTS[fieldKey]}
+            />
+          )}
+        </>
       )}
     </div>
   );
